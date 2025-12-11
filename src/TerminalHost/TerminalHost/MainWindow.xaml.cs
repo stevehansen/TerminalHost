@@ -41,6 +41,9 @@ public partial class MainWindow : Window
 
         // Subscribe to config reload events to update tray setting
         _viewModel.ConfigReloaded += OnConfigReloaded;
+
+        // Subscribe to file preview events
+        _viewModel.FilePreviewRequested += OnFilePreviewRequested;
     }
 
     private void OnConfigReloaded(object? sender, EventArgs e)
@@ -654,6 +657,118 @@ public partial class MainWindow : Window
         {
             _viewModel.SelectedTab = tab;
             TabSwitcherPopup.IsOpen = false;
+        }
+    }
+
+    #endregion
+
+    #region File Preview
+
+    private readonly FilePreviewService _filePreviewService = new();
+    private string? _currentPreviewFilePath;
+
+    private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
+    {
+        ShowFilePreview(e.FilePath, e.Line);
+    }
+
+    public void ShowFilePreview(string filePath, int? highlightLine = null)
+    {
+        var result = _filePreviewService.LoadFilePreview(filePath, highlightLine);
+        if (result == null)
+        {
+            return;
+        }
+
+        _currentPreviewFilePath = result.FilePath;
+
+        if (result.IsSuccess)
+        {
+            FilePreviewTitle.Text = result.FileName;
+            FilePreviewContent.Document = result.Document!;
+            FilePreviewInfo.Text = $"{result.LineCount:N0} lines • {FormatFileSize(result.FileSize)}";
+
+            if (highlightLine.HasValue && result.Document != null)
+            {
+                ScrollToLine(highlightLine.Value);
+            }
+        }
+        else
+        {
+            FilePreviewTitle.Text = result.FileName;
+            FilePreviewContent.Document = CreateErrorDocument(result.Error!);
+            FilePreviewInfo.Text = "Error loading file";
+        }
+
+        FilePreviewPopup.IsOpen = true;
+    }
+
+    private void ScrollToLine(int lineNumber)
+    {
+        Dispatcher.BeginInvoke(new System.Action(() =>
+        {
+            var scrollViewer = FilePreviewContent.Parent as ScrollViewer;
+            if (scrollViewer != null && lineNumber > 20)
+            {
+                var approximateOffset = (lineNumber - 10) * 18;
+                scrollViewer.ScrollToVerticalOffset(approximateOffset);
+            }
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private static System.Windows.Documents.FlowDocument CreateErrorDocument(string error)
+    {
+        var document = new System.Windows.Documents.FlowDocument
+        {
+            Background = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E)),
+            Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            FontFamily = new System.Windows.Media.FontFamily("Cascadia Code NF, Consolas, Courier New"),
+            FontSize = 13,
+            PagePadding = new Thickness(16)
+        };
+
+        var paragraph = new System.Windows.Documents.Paragraph();
+        paragraph.Inlines.Add(new System.Windows.Documents.Run(error)
+        {
+            Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0xF1, 0x48, 0x48))
+        });
+        document.Blocks.Add(paragraph);
+
+        return document;
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
+
+    private void FilePreviewClose_Click(object sender, RoutedEventArgs e)
+    {
+        FilePreviewPopup.IsOpen = false;
+    }
+
+    private void FilePreviewOpenInEditor_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_currentPreviewFilePath) && System.IO.File.Exists(_currentPreviewFilePath))
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _currentPreviewFilePath,
+                    UseShellExecute = true
+                });
+                FilePreviewPopup.IsOpen = false;
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"[MainWindow] Failed to open file in editor: {ex.Message}");
+            }
         }
     }
 

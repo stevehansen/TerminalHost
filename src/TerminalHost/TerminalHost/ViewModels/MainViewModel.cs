@@ -33,6 +33,7 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<QuickCommand> _quickCommands = new();
 
     public event EventHandler? ConfigReloaded;
+    public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
 
     public string WindowTitle
     {
@@ -470,7 +471,7 @@ public partial class MainViewModel : ObservableObject
                 var link = _linkDetectionService.DetectLink(word, workingDirectory);
                 if (link != null)
                 {
-                    _linkDetectionService.OpenLink(link);
+                    HandleDetectedLink(link);
                     return;
                 }
             }
@@ -479,13 +480,36 @@ public partial class MainViewModel : ObservableObject
             var linkFromLine = _linkDetectionService.DetectLink(cleanLine, workingDirectory);
             if (linkFromLine != null)
             {
-                _linkDetectionService.OpenLink(linkFromLine);
+                HandleDetectedLink(linkFromLine);
                 return;
             }
         }
 
         // No link found - could show a tooltip or status message
         Console.WriteLine("[MainViewModel] No clickable link found in recent output");
+    }
+
+    private void HandleDetectedLink(string link)
+    {
+        // Check if it's a file path that we should show in preview
+        if (LinkDetectionService.IsFilePath(link))
+        {
+            // Parse for line/column numbers
+            var (path, line, column) = FilePreviewService.ParseFilePathWithPosition(link);
+
+            // Fire event for MainWindow to show preview
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = path,
+                Line = line,
+                Column = column
+            });
+        }
+        else
+        {
+            // It's a URL or something else - open normally
+            _linkDetectionService.OpenLink(link);
+        }
     }
 
     [RelayCommand]
@@ -515,4 +539,11 @@ public partial class MainViewModel : ObservableObject
             tab.Pair.Dispose();
         }
     }
+}
+
+public class FilePreviewRequestedEventArgs : EventArgs
+{
+    public required string FilePath { get; init; }
+    public int? Line { get; init; }
+    public int? Column { get; init; }
 }

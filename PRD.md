@@ -47,6 +47,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] System tray support (minimize to tray, restore on click)
 - [x] Profile management UI (Ctrl+P)
 - [x] Clickable links via Ctrl+Click (URLs, file paths, custom patterns)
+- [x] File preview popup with syntax highlighting (Ctrl+Click on file paths)
 - [x] Tab reordering via drag-and-drop
 - [x] Middle-click to close tabs
 - [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
@@ -143,7 +144,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
-| Ctrl+Click       | Open link under cursor (URL, file path, or custom pattern) |
+| Ctrl+Click       | Open link under cursor (URLs open in browser, file paths show preview popup) |
 
 ## Configuration
 
@@ -326,7 +327,9 @@ The terminal supports Ctrl+Click to open links in the terminal output:
 
 **Built-in Link Types:**
 - **HTTP/HTTPS URLs**: Automatically detected and opened in default browser
-- **File paths**: Absolute and relative paths opened with default application
+- **File paths**: Shows syntax-highlighted preview popup
+  - "Open in Editor" button to open with default application
+  - Press Escape to close preview
   - Supports line numbers: `src/file.ts:42` opens at line 42
   - Relative paths resolved against working directory
 

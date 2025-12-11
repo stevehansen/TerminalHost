@@ -693,5 +693,85 @@
                 </Grid>
             </Border>
         </Popup>
+
+        <!-- File Preview Popup (Ctrl+Click on file paths) -->
+        <Popup x:Name="FilePreviewPopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#1E1E1E"
+                    BorderBrush="#0078D4"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    MinWidth="600"
+                    MaxWidth="1000"
+                    MaxHeight="700">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="FilePreviewClose_Click"
+                                    FontSize="16"
+                                    Padding="8,2"/>
+                            <Button DockPanel.Dock="Right"
+                                    Content="Open in Editor"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="FilePreviewOpenInEditor_Click"
+                                    Margin="0,0,8,0"/>
+                            <TextBlock x:Name="FilePreviewTitle"
+                                       Foreground="#CCCCCC"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Content -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  Background="#1E1E1E">
+                        <RichTextBox x:Name="FilePreviewContent"
+                                     Background="#1E1E1E"
+                                     Foreground="#CCCCCC"
+                                     BorderThickness="0"
+                                     IsReadOnly="True"
+                                     FontFamily="Cascadia Code NF, Consolas, Courier New"
+                                     FontSize="13"
+                                     Padding="0"
+                                     VerticalScrollBarVisibility="Disabled"
+                                     HorizontalScrollBarVisibility="Disabled"/>
+                    </ScrollViewer>
+
+                    <!-- Footer -->
+                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                        <DockPanel>
+                            <TextBlock x:Name="FilePreviewInfo"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Text="Press Escape to close"/>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Popup>
     </Grid>
 </Window>

@@ -185,7 +185,28 @@ public class LinkDetectionService
         return url;
     }
 
+    
     /// <summary>
+    /// Determines if a link is a local file path (as opposed to a URL).
+    /// </summary>
+    public static bool IsFilePath(string link)
+    {
+        if (string.IsNullOrEmpty(link))
+            return false;
+
+        // It's a URL if it starts with a protocol
+        if (link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            link.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            link.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Check if it's an existing file
+        return File.Exists(link);
+    }
+
+/// <summary>
     /// Opens a link using the system default handler.
     /// </summary>
     /// <param name="link">The URL or file path to open.</param>
