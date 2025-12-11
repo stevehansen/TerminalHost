@@ -133,6 +133,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+N           | Open new project (folder picker)    |
 | Ctrl+,           | Open settings editor                |
 | Ctrl+P           | Open profile management             |
+| Ctrl+O           | Open file preview dialog            |
 | Ctrl+Shift+T     | Open tab switcher (search tabs)     |
 | Ctrl+PageDown    | Next tab                            |
 | Ctrl+PageUp      | Previous tab                        |

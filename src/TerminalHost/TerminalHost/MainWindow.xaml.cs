@@ -169,6 +169,14 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Escape: Close file preview popup if open
+        if (e.Key == Key.Escape && FilePreviewPopup.IsOpen)
+        {
+            FilePreviewPopup.IsOpen = false;
+            e.Handled = true;
+            return;
+        }
+
         // Only handle shortcuts with modifiers - let plain Tab pass through to terminal
         if (Keyboard.Modifiers == ModifierKeys.None)
         {
@@ -240,6 +248,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             ShowTabSwitcher();
+            e.Handled = true;
+        }
+        // Ctrl+O: Open file preview
+        else if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            OpenFilePreviewDialog();
             e.Handled = true;
         }
         // Check quick command shortcuts
@@ -666,19 +680,45 @@ public partial class MainWindow : Window
 
     private readonly FilePreviewService _filePreviewService = new();
     private string? _currentPreviewFilePath;
+    private bool _isDraggingPreview;
+    private System.Windows.Point _previewDragStart;
 
     private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
         ShowFilePreview(e.FilePath, e.Line);
     }
 
+    private void OpenFilePreviewDialog()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select File to Preview",
+            Filter = "All Files (*.*)|*.*|Code Files (*.cs;*.js;*.ts;*.py;*.json;*.xml)|*.cs;*.js;*.ts;*.py;*.json;*.xml|Text Files (*.txt;*.md;*.log)|*.txt;*.md;*.log",
+            FilterIndex = 1
+        };
+
+        // Set initial directory to current tab's working directory
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            dialog.InitialDirectory = terminalTab.Pair.WorkingDirectory;
+        }
+
+        if (dialog.ShowDialog() == true)
+        {
+            ShowFilePreview(dialog.FileName);
+        }
+    }
+
     public void ShowFilePreview(string filePath, int? highlightLine = null)
     {
+        System.Console.WriteLine($"[FilePreview] ShowFilePreview called for: {filePath}");
         var result = _filePreviewService.LoadFilePreview(filePath, highlightLine);
         if (result == null)
         {
+            System.Console.WriteLine("[FilePreview] LoadFilePreview returned null");
             return;
         }
+        System.Console.WriteLine($"[FilePreview] Result: IsSuccess={result.IsSuccess}, Error={result.Error}");
 
         _currentPreviewFilePath = result.FilePath;
 
@@ -700,7 +740,60 @@ public partial class MainWindow : Window
             FilePreviewInfo.Text = "Error loading file";
         }
 
+        // Center the popup on the window
+        var windowPos = PointToScreen(new System.Windows.Point(0, 0));
+        FilePreviewPopup.HorizontalOffset = windowPos.X + (ActualWidth - 900) / 2;
+        FilePreviewPopup.VerticalOffset = windowPos.Y + (ActualHeight - 600) / 2;
+
         FilePreviewPopup.IsOpen = true;
+    }
+
+    private void FilePreviewHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingPreview = true;
+        _previewDragStart = PointToScreen(e.GetPosition(this));
+        Mouse.Capture((IInputElement)sender);
+        e.Handled = true;
+    }
+
+    private void FilePreviewHeader_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isDraggingPreview) return;
+
+        var currentPos = PointToScreen(e.GetPosition(this));
+        var diff = currentPos - _previewDragStart;
+
+        FilePreviewPopup.HorizontalOffset += diff.X;
+        FilePreviewPopup.VerticalOffset += diff.Y;
+
+        _previewDragStart = currentPos;
+        e.Handled = true;
+    }
+
+    private void FilePreviewHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingPreview)
+        {
+            _isDraggingPreview = false;
+            Mouse.Capture(null);
+            e.Handled = true;
+        }
+    }
+
+    private void FilePreviewResizeGrip_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        var newWidth = FilePreviewBorder.Width + e.HorizontalChange;
+        var newHeight = FilePreviewBorder.Height + e.VerticalChange;
+
+        // Respect min constraints only - no max limit
+        if (newWidth >= FilePreviewBorder.MinWidth)
+        {
+            FilePreviewBorder.Width = newWidth;
+        }
+        if (newHeight >= FilePreviewBorder.MinHeight)
+        {
+            FilePreviewBorder.Height = newHeight;
+        }
     }
 
     private void ScrollToLine(int lineNumber)

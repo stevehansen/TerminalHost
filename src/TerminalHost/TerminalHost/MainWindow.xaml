@@ -696,17 +696,17 @@
 
         <!-- File Preview Popup (Ctrl+Click on file paths) -->
         <Popup x:Name="FilePreviewPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
+               Placement="Absolute"
+               StaysOpen="True"
                AllowsTransparency="True">
-            <Border Background="#1E1E1E"
+            <Border x:Name="FilePreviewBorder" Background="#1E1E1E"
                     BorderBrush="#0078D4"
                     BorderThickness="1"
                     CornerRadius="6"
-                    MinWidth="600"
-                    MaxWidth="1000"
-                    MaxHeight="700">
+                    MinWidth="400"
+                    MinHeight="300"
+                    Width="900"
+                    Height="600">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
                 </Border.Effect>
@@ -717,8 +717,12 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header -->
-                    <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                    <!-- Header (draggable) -->
+                    <Border x:Name="FilePreviewHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                            MouseLeftButtonDown="FilePreviewHeader_MouseLeftButtonDown"
+                            MouseMove="FilePreviewHeader_MouseMove"
+                            MouseLeftButtonUp="FilePreviewHeader_MouseLeftButtonUp"
+                            Cursor="SizeAll">
                         <DockPanel>
                             <Button DockPanel.Dock="Right"
                                     Content="×"
@@ -759,17 +763,35 @@
                     <!-- Footer -->
                     <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
                         <DockPanel>
-                            <TextBlock x:Name="FilePreviewInfo"
-                                       Foreground="#808080"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"/>
                             <TextBlock DockPanel.Dock="Right"
                                        Foreground="#808080"
                                        FontSize="11"
                                        VerticalAlignment="Center"
+                                       Margin="0,0,20,0"
                                        Text="Press Escape to close"/>
+                            <TextBlock x:Name="FilePreviewInfo"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
                         </DockPanel>
                     </Border>
+
+                    <!-- Resize grip (bottom-right corner, spans all rows, on top of everything) -->
+                    <Thumb x:Name="FilePreviewResizeGrip" Grid.Row="2"
+                           Width="16" Height="16"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                           Margin="0,0,2,2"
+                           Cursor="SizeNWSE"
+                           DragDelta="FilePreviewResizeGrip_DragDelta">
+                        <Thumb.Template>
+                            <ControlTemplate>
+                                <Grid Background="Transparent">
+                                    <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
+                                          Stroke="#888888" StrokeThickness="1.5"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
                 </Grid>
             </Border>
         </Popup>

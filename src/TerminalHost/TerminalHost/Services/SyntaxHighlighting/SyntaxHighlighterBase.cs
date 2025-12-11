@@ -35,7 +35,8 @@ public abstract class SyntaxHighlighterBase : ISyntaxHighlighter
             Foreground = DefaultBrush,
             FontFamily = CodeFont,
             FontSize = FontSize,
-            PagePadding = new Thickness(8)
+            PagePadding = new Thickness(8),
+            PageWidth = 10000
         };
 
         var lines = content.Split('\n');
