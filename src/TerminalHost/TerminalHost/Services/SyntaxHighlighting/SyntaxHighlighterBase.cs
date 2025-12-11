@@ -27,7 +27,7 @@ public abstract class SyntaxHighlighterBase : ISyntaxHighlighter
 
     public abstract string[] SupportedExtensions { get; }
 
-    public FlowDocument CreateHighlightedDocument(string content, int? highlightLine = null)
+    public virtual FlowDocument CreateHighlightedDocument(string content, int? highlightLine = null)
     {
         var document = new FlowDocument
         {

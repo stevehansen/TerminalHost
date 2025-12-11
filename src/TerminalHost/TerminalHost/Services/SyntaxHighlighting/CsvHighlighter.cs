@@ -36,7 +36,7 @@ public class CsvHighlighter : SyntaxHighlighterBase
 
     public override string[] SupportedExtensions => [".csv"];
 
-    public new FlowDocument CreateHighlightedDocument(string content, int? highlightLine = null)
+    public override FlowDocument CreateHighlightedDocument(string content, int? highlightLine = null)
     {
         _isFirstLine = true;
         return base.CreateHighlightedDocument(content, highlightLine);
