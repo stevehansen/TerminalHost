@@ -81,10 +81,15 @@ TerminalHost/
     │   ├── SessionManager.cs         # Session lifecycle
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
     │   ├── TerminalControlFactory.cs # Creates EasyTerminalControl instances
-    │   └── GitStatusService.cs       # Git command execution
-    └── ViewModels/
-        ├── MainViewModel.cs              # Main window logic
-        └── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   ├── GitStatusService.cs       # Git command execution
+    │   └── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
+    ├── ViewModels/
+    │   ├── ITabViewModel.cs              # Interface for tab view models
+    │   ├── MainViewModel.cs              # Main window logic
+    │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   └── SettingsTabViewModel.cs       # Settings editor tab
+    └── Views/
+        └── SettingsView.xaml(.cs)        # Settings editor UI
 ```
 
 ## Architecture
@@ -109,6 +114,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 ## Keyboard Shortcuts
 
 - `Ctrl+N`: Open new project (folder picker)
+- `Ctrl+,`: Open settings editor
 - `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab
 - `Ctrl+W`: Close current tab

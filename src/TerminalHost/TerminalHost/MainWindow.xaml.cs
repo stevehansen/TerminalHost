@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using TerminalHost.Domain;
@@ -33,50 +34,21 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
-        {
-            UpdateColumnWidthsFromSelectedTab();
-        }
-    }
-
-    private void UpdateColumnWidthsFromSelectedTab()
-    {
-        var tab = _viewModel.SelectedTab;
-        if (tab == null) return;
-
-        // Subscribe to split view and ratio changes for this tab
-        tab.PropertyChanged -= OnSelectedTabPropertyChanged;
-        tab.PropertyChanged += OnSelectedTabPropertyChanged;
-
-        ApplyTabColumnWidths(tab);
-    }
-
-    private void OnSelectedTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not TerminalPairTabViewModel tab) return;
-
-        if (e.PropertyName == nameof(TerminalPairTabViewModel.SplitRatio))
-        {
-            ApplyTabColumnWidths(tab);
-        }
-    }
-
-    private void ApplyTabColumnWidths(TerminalPairTabViewModel tab)
-    {
-        // Always use split view with the ratio
-        CustomTerminalColumn.Width = tab.CustomColumnWidth;
-        SplitterColumn.Width = new GridLength(4);
-        ShellTerminalColumn.Width = tab.ShellColumnWidth;
+        // Column widths are now bound in XAML, no code-behind sync needed
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
     {
         // Update the view model with the new split ratio
-        if (_viewModel.SelectedTab != null)
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
         {
-            _viewModel.SelectedTab.UpdateSplitRatioFromColumnWidths(
-                CustomTerminalColumn.ActualWidth,
-                ShellTerminalColumn.ActualWidth);
+            // Find the parent Grid to get actual column widths
+            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 3)
+            {
+                var customWidth = grid.ColumnDefinitions[0].ActualWidth;
+                var shellWidth = grid.ColumnDefinitions[2].ActualWidth;
+                terminalTab.UpdateSplitRatioFromColumnWidths(customWidth, shellWidth);
+            }
         }
     }
 
@@ -198,6 +170,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.N && Keyboard.Modifiers == ModifierKeys.Control)
         {
             _viewModel.OpenNewProjectCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+,: Open settings
+        else if (e.Key == Key.OemComma && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.OpenSettingsCommand.Execute(null);
             e.Handled = true;
         }
         // Check quick command shortcuts

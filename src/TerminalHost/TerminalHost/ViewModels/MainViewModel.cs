@@ -21,10 +21,10 @@ public partial class MainViewModel : ObservableObject
     private readonly DispatcherTimer _activityTimer;
 
     [ObservableProperty]
-    private ObservableCollection<TerminalPairTabViewModel> _tabs = new();
+    private ObservableCollection<ITabViewModel> _tabs = new();
 
     [ObservableProperty]
-    private TerminalPairTabViewModel? _selectedTab;
+    private ITabViewModel? _selectedTab;
 
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = new();
@@ -75,12 +75,12 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshSelectedTabGitStatusAsync()
     {
-        if (SelectedTab == null) return;
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
         try
         {
-            var status = await _gitStatusService.GetGitStatusAsync(SelectedTab.Pair.WorkingDirectory);
-            SelectedTab.GitStatus = status;
+            var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+            terminalTab.GitStatus = status;
         }
         catch
         {
@@ -103,8 +103,8 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshActivityState()
     {
-        // Update activity state for all tabs (to detect idle transitions)
-        foreach (var tab in Tabs)
+        // Update activity state for all terminal tabs (to detect idle transitions)
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.UpdateActivityState();
         }
@@ -125,7 +125,7 @@ public partial class MainViewModel : ObservableObject
     private void SaveOpenFolders()
     {
         var config = _configService.Load();
-        config.OpenFolders = Tabs.Select(t => t.Pair.WorkingDirectory).ToList();
+        config.OpenFolders = Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory).ToList();
         _configService.Save(config);
     }
 
@@ -198,7 +198,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             // Check if we already have a tab open for this directory
-            var existingTab = Tabs.FirstOrDefault(t =>
+            var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
                 string.Equals(
                     Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                     workingDirectory,
@@ -276,28 +276,36 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CloseTab(TerminalPairTabViewModel? tab)
+    private void CloseTab(ITabViewModel? tab)
     {
         if (tab == null) return;
 
-        var hasRunning = tab.Pair.CustomTerminal.IsProcessRunning() || tab.Pair.ShellTerminal.IsProcessRunning();
-
-        if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
+        if (tab is TerminalPairTabViewModel terminalTab)
         {
-            var result = MessageBox.Show(
-                $"Terminals in '{tab.Title}' are still running. Close anyway?",
-                "Confirm Close",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+            var hasRunning = terminalTab.Pair.CustomTerminal.IsProcessRunning() || terminalTab.Pair.ShellTerminal.IsProcessRunning();
 
-            if (result != MessageBoxResult.Yes) return;
+            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
+            {
+                var result = MessageBox.Show(
+                    $"Terminals in '{terminalTab.Title}' are still running. Close anyway?",
+                    "Confirm Close",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result != MessageBoxResult.Yes) return;
+            }
+
+            terminalTab.CloseRequested -= OnTabCloseRequested;
+            terminalTab.SettingsChanged -= OnTabSettingsChanged;
+            _sessionManager.CloseSession(terminalTab.Pair.CustomTerminal);
+            _sessionManager.CloseSession(terminalTab.Pair.ShellTerminal);
+            terminalTab.Pair.Dispose();
+        }
+        else if (tab is SettingsTabViewModel settingsTab)
+        {
+            settingsTab.CloseRequested -= OnTabCloseRequested;
         }
 
-        tab.CloseRequested -= OnTabCloseRequested;
-        tab.SettingsChanged -= OnTabSettingsChanged;
-        _sessionManager.CloseSession(tab.Pair.CustomTerminal);
-        _sessionManager.CloseSession(tab.Pair.ShellTerminal);
-        tab.Pair.Dispose();
         Tabs.Remove(tab);
 
         if (SelectedTab == tab && Tabs.Count > 0)
@@ -309,27 +317,30 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SwitchActiveTerminal()
     {
-        SelectedTab?.SwitchTerminalCommand.Execute(null);
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.SwitchTerminalCommand.Execute(null);
+        }
     }
 
     [RelayCommand]
     private void ExecuteQuickCommand(QuickCommand? command)
     {
-        if (command == null || SelectedTab == null) return;
+        if (command == null || SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
         // Switch to the target terminal
         if (command.Target == QuickCommandTarget.Custom)
         {
-            SelectedTab.ShowCustomTerminalCommand.Execute(null);
+            terminalTab.ShowCustomTerminalCommand.Execute(null);
         }
         else
         {
-            SelectedTab.ShowShellTerminalCommand.Execute(null);
+            terminalTab.ShowShellTerminalCommand.Execute(null);
         }
 
         var targetSession = command.Target == QuickCommandTarget.Custom
-            ? SelectedTab.Pair.CustomTerminal
-            : SelectedTab.Pair.ShellTerminal;
+            ? terminalTab.Pair.CustomTerminal
+            : terminalTab.Pair.ShellTerminal;
 
         targetSession.SendText(command.Text, command.AppendNewline, command.NewlineChar, command.UseUserInput);
 
@@ -339,7 +350,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnTabCloseRequested(object? sender, EventArgs e)
     {
-        if (sender is TerminalPairTabViewModel tab)
+        if (sender is ITabViewModel tab)
         {
             CloseTab(tab);
         }
@@ -353,6 +364,24 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        // Check if settings tab already exists
+        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
+        if (existingSettings != null)
+        {
+            SelectedTab = existingSettings;
+            return;
+        }
+
+        // Create new settings tab
+        var settingsTab = new SettingsTabViewModel(_configService);
+        settingsTab.CloseRequested += OnTabCloseRequested;
+        Tabs.Add(settingsTab);
+        SelectedTab = settingsTab;
+    }
+
     public void Shutdown()
     {
         // Stop timers
@@ -363,7 +392,7 @@ public partial class MainViewModel : ObservableObject
         SaveOpenFolders();
 
         _sessionManager.CloseAllSessions();
-        foreach (var tab in Tabs)
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.Pair.Dispose();
         }

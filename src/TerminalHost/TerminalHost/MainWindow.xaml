@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TerminalHost"
         xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+        xmlns:views="clr-namespace:TerminalHost.Views"
         xmlns:domain="clr-namespace:TerminalHost.Domain"
         xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
         mc:Ignorable="d"
@@ -81,6 +82,34 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Settings Toolbar Button Style -->
+        <Style x:Key="SettingsToolbarButton" TargetType="Button">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#4E4E4E"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Converter for active terminal button style -->
         <local:ActiveTerminalStyleConverter x:Key="ActiveTerminalStyleConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -109,6 +138,14 @@
                         Command="{Binding OpenNewProjectCommand}"
                         Margin="8,0,4,0"/>
 
+                <!-- Settings Button -->
+                <Button DockPanel.Dock="Right"
+                        Content="Settings"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding OpenSettingsCommand}"
+                        ToolTip="Settings (Ctrl+,)"
+                        Margin="0,0,4,0"/>
+
                 <!-- Tab List -->
                 <ListBox x:Name="TabList"
                          ItemsSource="{Binding Tabs}"
@@ -122,7 +159,8 @@
                             <StackPanel Orientation="Horizontal"/>
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
-                    <ListBox.ItemTemplate>
+                    <ListBox.Resources>
+                        <!-- Terminal Tab Template -->
                         <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}">
                             <Border x:Name="TabBorder"
                                     Background="#3C3C3C"
@@ -177,7 +215,33 @@
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
-                    </ListBox.ItemTemplate>
+
+                        <!-- Settings Tab Template -->
+                        <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+                            <Border x:Name="TabBorder"
+                                    Background="#3C3C3C"
+                                    CornerRadius="4,4,0,0"
+                                    Padding="8,4"
+                                    Margin="0,0,2,0"
+                                    MinWidth="100">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Content="×"
+                                            Style="{StaticResource TabCloseButton}"
+                                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"/>
+                                    <TextBlock Foreground="#CCCCCC"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding Title}"/>
+                                </DockPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.Resources>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Padding" Value="0"/>
@@ -196,127 +260,140 @@
             </DockPanel>
         </Border>
 
-        <!-- Terminal Content Area -->
+        <!-- Tab Content Area -->
         <Grid Grid.Row="1">
             <!-- Show when there's a selected tab -->
-            <Grid Visibility="{Binding SelectedTab, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <ContentControl Content="{Binding SelectedTab}"
+                            Visibility="{Binding SelectedTab, Converter={StaticResource BoolToVisibilityConverter}}">
+                <ContentControl.Resources>
+                    <!-- Terminal Tab Content -->
+                    <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                <!-- Terminal Switcher Bar -->
-                <Border Grid.Row="0" Background="#252525" Padding="8,4">
-                    <DockPanel>
-                        <!-- Terminal Type Buttons -->
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="{Binding SelectedTab.CustomIcon, StringFormat='{}{0} Claude Code'}"
-                                    Command="{Binding SelectedTab.ShowCustomTerminalCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedTab.ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}">
-                                                <Setter Property="Background" Value="#0078D4"/>
-                                                <Setter Property="Foreground" Value="#FFFFFF"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{Binding SelectedTab.ShellIcon, StringFormat='{}{0} Shell'}"
-                                    Command="{Binding SelectedTab.ShowShellTerminalCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedTab.ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}">
-                                                <Setter Property="Background" Value="#0078D4"/>
-                                                <Setter Property="Foreground" Value="#FFFFFF"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                            <!-- Terminal Switcher Bar -->
+                            <Border Grid.Row="0" Background="#252525" Padding="8,4">
+                                <DockPanel>
+                                    <!-- Terminal Type Buttons -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="{Binding CustomIcon, StringFormat='{}{0} Claude Code'}"
+                                                Command="{Binding ShowCustomTerminalCommand}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}">
+                                                            <Setter Property="Background" Value="#0078D4"/>
+                                                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="{Binding ShellIcon, StringFormat='{}{0} Shell'}"
+                                                Command="{Binding ShowShellTerminalCommand}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}">
+                                                            <Setter Property="Background" Value="#0078D4"/>
+                                                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
 
-                            <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
-                                       Text="{Binding SelectedTab.Pair.WorkingDirectory}"/>
+                                        <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
+                                                   Text="{Binding Pair.WorkingDirectory}"/>
 
-                            <!-- Git Status Display -->
-                            <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
-                                       Text="{Binding SelectedTab.GitStatusDisplay}"/>
+                                        <!-- Git Status Display -->
+                                        <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
+                                                   Text="{Binding GitStatusDisplay}"/>
 
-                            <!-- Quick Commands Separator -->
-                            <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
+                                        <!-- Quick Commands Separator -->
+                                        <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
 
-                            <!-- Quick Commands -->
-                            <ItemsControl ItemsSource="{Binding QuickCommands}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Content="{Binding DisplayText}"
-                                                ToolTip="{Binding Tooltip}"
-                                                Style="{StaticResource TerminalSwitchButton}"
-                                                Command="{Binding DataContext.ExecuteQuickCommandCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"
-                                                Margin="0,0,4,0"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
+                                        <!-- Quick Commands -->
+                                        <ItemsControl ItemsSource="{Binding DataContext.QuickCommands, RelativeSource={RelativeSource AncestorType=Window}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="{Binding DisplayText}"
+                                                            ToolTip="{Binding Tooltip}"
+                                                            Style="{StaticResource TerminalSwitchButton}"
+                                                            Command="{Binding DataContext.ExecuteQuickCommandCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Margin="0,0,4,0"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
 
-                <!-- Terminal Content Area - Single grid with dynamic column widths -->
-                <Grid Grid.Row="1" Background="#1E1E1E" x:Name="TerminalContentGrid">
-                    <Grid.ColumnDefinitions>
-                        <!-- Custom terminal column -->
-                        <ColumnDefinition x:Name="CustomTerminalColumn" Width="6*"/>
-                        <!-- Splitter column -->
-                        <ColumnDefinition x:Name="SplitterColumn" Width="0"/>
-                        <!-- Shell terminal column -->
-                        <ColumnDefinition x:Name="ShellTerminalColumn" Width="4*"/>
-                    </Grid.ColumnDefinitions>
+                            <!-- Terminal Content Area - Single grid with dynamic column widths -->
+                            <Grid Grid.Row="1" Background="#1E1E1E">
+                                <Grid.ColumnDefinitions>
+                                    <!-- Custom terminal column -->
+                                    <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
+                                    <!-- Splitter column -->
+                                    <ColumnDefinition Width="4"/>
+                                    <!-- Shell terminal column -->
+                                    <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
+                                </Grid.ColumnDefinitions>
 
-                    <!-- Custom Terminal (Left) -->
-                    <Grid Grid.Column="0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Border Background="#333333" Padding="4,2">
-                            <TextBlock Foreground="#AAAAAA" FontSize="10">
-                                <Run Text="{Binding SelectedTab.CustomIcon, Mode=OneWay}"/>
-                                <Run Text=" Claude Code"/>
-                            </TextBlock>
-                        </Border>
-                        <ContentPresenter Grid.Row="1" Content="{Binding SelectedTab.CustomTerminalContent}"
-                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                    </Grid>
+                                <!-- Custom Terminal (Left) -->
+                                <Grid Grid.Column="0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Background="#333333" Padding="4,2">
+                                        <TextBlock Foreground="#AAAAAA" FontSize="10">
+                                            <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
+                                            <Run Text=" Claude Code"/>
+                                        </TextBlock>
+                                    </Border>
+                                    <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
+                                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                </Grid>
 
-                    <!-- Splitter -->
-                    <GridSplitter Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
-                                  DragCompleted="GridSplitter_DragCompleted"/>
+                                <!-- Splitter -->
+                                <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+                                              DragCompleted="GridSplitter_DragCompleted"/>
 
-                    <!-- Shell Terminal (Right) -->
-                    <Grid Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Border Background="#333333" Padding="4,2">
-                            <TextBlock Foreground="#AAAAAA" FontSize="10">
-                                <Run Text="{Binding SelectedTab.ShellIcon, Mode=OneWay}"/>
-                                <Run Text=" Shell"/>
-                            </TextBlock>
-                        </Border>
-                        <ContentPresenter Grid.Row="1" Content="{Binding SelectedTab.ShellTerminalContent}"
-                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                    </Grid>
-                </Grid>
-            </Grid>
+                                <!-- Shell Terminal (Right) -->
+                                <Grid Grid.Column="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Background="#333333" Padding="4,2">
+                                        <TextBlock Foreground="#AAAAAA" FontSize="10">
+                                            <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
+                                            <Run Text=" Shell"/>
+                                        </TextBlock>
+                                    </Border>
+                                    <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+
+                    <!-- Settings Tab Content -->
+                    <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+                        <views:SettingsView/>
+                    </DataTemplate>
+                </ContentControl.Resources>
+            </ContentControl>
 
             <!-- Empty State - Show a test terminal directly -->
             <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}">

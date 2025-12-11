@@ -43,6 +43,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Git repository status display (branch, dirty status, ahead/behind)
 - [x] Quick commands with keyboard shortcuts
 - [x] Terminal activity indicators (animated spinner in tabs)
+- [x] Settings editor tab with JSON syntax highlighting (Ctrl+,)
 
 ### Deferred Features
 
@@ -123,6 +124,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Shortcut         | Action                              |
 |------------------|-------------------------------------|
 | Ctrl+N           | Open new project (folder picker)    |
+| Ctrl+,           | Open settings editor                |
 | Ctrl+PageDown    | Next tab                            |
 | Ctrl+PageUp      | Previous tab                        |
 | Ctrl+1-9         | Jump to specific tab                |
@@ -270,6 +272,31 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 - Shell commands work with standard `appendNewline: true`
 - Shortcuts support Ctrl, Alt, Shift modifiers with any letter/number key
 
+### Settings Editor
+
+The Settings tab provides a JSON editor for the application configuration file with syntax highlighting.
+
+**Features:**
+- Opens as a special tab via the Settings button or `Ctrl+,`
+- JSON syntax highlighting (keys, strings, numbers, booleans)
+- Save, Reload, and Format buttons in toolbar
+- JSON validation on save with error messages
+- Dark theme matching the terminal interface
+
+**Syntax Highlighting Colors:**
+| Element      | Color                  |
+|--------------|------------------------|
+| Keys         | Light blue (#9CDCFE)   |
+| Strings      | Orange (#CE9178)       |
+| Numbers      | Light green (#B5CEA8)  |
+| Booleans/null| Blue (#569CD6)         |
+| Brackets     | Gray (#CCCCCC)         |
+
+**Implementation:**
+- Uses RichTextBox with FlowDocument for syntax highlighting
+- Regex-based tokenization for JSON elements
+- ConfigurationService provides raw JSON load/save with validation
+
 ### Project Structure
 
 ```
@@ -288,21 +315,34 @@ TerminalHost/
     │   ├── GitStatus.cs        # Git repository status model
     │   └── QuickCommand.cs     # Quick command definition with shortcut
     ├── Services/
-    │   ├── ConfigurationService.cs   # JSON config load/save
+    │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
     │   ├── ProfileRegistry.cs        # Profile and settings management
     │   ├── SessionManager.cs         # Session lifecycle tracking
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
     │   ├── TerminalControlFactory.cs # Creates configured terminal controls
-    │   └── GitStatusService.cs       # Git command execution and parsing
-    └── ViewModels/
-        ├── MainViewModel.cs              # Main window logic
-        └── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   ├── GitStatusService.cs       # Git command execution and parsing
+    │   └── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
+    ├── ViewModels/
+    │   ├── ITabViewModel.cs              # Interface for tab view models
+    │   ├── MainViewModel.cs              # Main window logic
+    │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   └── SettingsTabViewModel.cs       # Settings editor tab
+    └── Views/
+        └── SettingsView.xaml(.cs)        # Settings editor UI
 ```
 
 ## Future Considerations
 
 Items for future development:
 
+### Syntax Highlighting
+- **File viewer with syntax highlighting**: Support viewing files with highlighting
+  - Markdown files (`.md`)
+  - C# source files (`.cs`)
+  - Git diffs
+  - Could reuse highlighting for settings editor
+
+### Other Features
 - **Custom profile pairs**: Different command pairs for different project types
 - **Drag-and-drop tabs**: Reorder tabs
 - **SSH profiles**: Built-in SSH connection support

@@ -43,6 +43,39 @@ public class ConfigurationService
         File.WriteAllText(ConfigFilePath, json);
     }
 
+    public string LoadRawJson()
+    {
+        if (!File.Exists(ConfigFilePath))
+        {
+            return JsonSerializer.Serialize(CreateDefaultConfiguration(), JsonOptions);
+        }
+
+        return File.ReadAllText(ConfigFilePath);
+    }
+
+    public (bool success, string? error) SaveRawJson(string json)
+    {
+        try
+        {
+            // Validate it's valid JSON and deserializes correctly
+            var config = JsonSerializer.Deserialize<AppConfiguration>(json, JsonOptions);
+            if (config == null)
+            {
+                return (false, "Failed to parse configuration");
+            }
+
+            Directory.CreateDirectory(ConfigDirectory);
+            File.WriteAllText(ConfigFilePath, json);
+            return (true, null);
+        }
+        catch (JsonException ex)
+        {
+            return (false, $"JSON Error: {ex.Message}");
+        }
+    }
+
+    public static string GetConfigFilePath() => ConfigFilePath;
+
     private AppConfiguration CreateDefaultConfiguration()
     {
         var config = new AppConfiguration

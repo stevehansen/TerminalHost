@@ -7,10 +7,13 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels;
 
-public partial class TerminalPairTabViewModel : ObservableObject
+public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 {
     [ObservableProperty]
     private string _title = "Terminal";
+
+    public string TabIcon => "📁";
+    public bool IsCloseable => true;
 
     [ObservableProperty]
     private string _customIcon = "🤖";
