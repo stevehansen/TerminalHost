@@ -2,33 +2,49 @@
 
 ## Overview
 
-**TerminalHost** is a WPF desktop application that embeds multiple interactive terminal sessions using the Windows Terminal rendering backend. It provides a tabbed interface for managing CLI tools, each configured to run specific commands in designated working directories.
+**TerminalHost** (executable: `host.exe`) is a WPF desktop application that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
 
 ## Problem Statement
 
-Developers frequently need to run multiple CLI tools simultaneously—package managers, build watchers, development servers, database shells—each requiring specific working directories and startup commands. Current solutions involve either:
+Developers working with AI coding assistants like Claude Code need to:
+- Run the AI assistant in a project directory
+- Quickly switch to a shell for manual commands (git, npm, etc.)
+- Return to the AI assistant without losing context
 
-- Multiple Windows Terminal windows/tabs requiring manual setup each session
-- Custom scripts that spawn separate console windows
-- IDE-integrated terminals that are tied to specific tooling
-
-We need a lightweight, configurable application that launches predefined terminal sessions with a single action, consolidating them into one manageable interface.
+Current solutions require multiple terminal windows or tabs that must be manually configured and navigated. We need an application that pairs terminals per project directory, making it effortless to switch between AI assistant and shell.
 
 ## Goals
 
-1. **Single-instance application** that manages all terminal sessions in one window
-2. **Tabbed interface** for switching between active terminals
-3. **Predefined configurations** specifying command + working directory combinations
-4. **External invocation** to open new tabs from command line or other applications
-5. **Full terminal emulation** supporting interactive CLIs (npm prompts, vim, SSH, etc.)
+1. **Directory-centric terminal pairs** - Each project directory gets a paired custom + shell terminal
+2. **Single-instance with CLI** - `host .` opens/focuses a terminal pair for current directory
+3. **Easy terminal switching** - Toggle between custom and shell without termination
+4. **Split view option** - View both terminals simultaneously (60/40 layout)
+5. **Full terminal emulation** - ANSI colors, interactive CLIs, nerd font support
 
-## Non-Goals (MVP)
+## Current Implementation Status
 
-- Split panes / docking layouts
-- Session persistence across application restarts
-- Remote terminal connections (SSH handled by CLI tools themselves)
-- Custom theming beyond basic configuration
-- Plugin system
+### Completed Features
+
+- [x] WPF application with tabbed interface
+- [x] Terminal pairs (custom command + shell) per directory
+- [x] Default split view with 60/40 layout
+- [x] Terminal switching via buttons or Ctrl+`
+- [x] Split view toggle via button or Ctrl+\
+- [x] Tab management (Ctrl+Tab, Ctrl+1-9, Ctrl+W)
+- [x] New project via folder picker (Ctrl+N)
+- [x] Single-instance with named pipe IPC
+- [x] CLI support: `host .`, `host P:\Path`, `host --workdir P:\Path`
+- [x] Duplicate detection (focuses existing tab for same directory)
+- [x] Cascadia Code NF font with Campbell color scheme
+- [x] Close confirmation for running terminals
+- [x] JSON configuration in `%APPDATA%\TerminalHost\config.json`
+
+### Deferred Features
+
+- [ ] Per-directory split ratio persistence
+- [ ] Custom profiles beyond the default pair
+- [ ] Session persistence across restarts
+- [ ] Profile management UI
 
 ## Domain Model
 
@@ -39,261 +55,161 @@ We need a lightweight, configurable application that launches predefined termina
 │  ┌─────────────────┐       ┌─────────────────────────────┐ │
 │  │ ProfileRegistry │       │      SessionManager         │ │
 │  │                 │       │                             │ │
-│  │ - profiles[]    │──────▶│ - activeSessions[]          │ │
-│  │                 │       │ - createSession(profile)    │ │
-│  └─────────────────┘       │ - closeSession(id)          │ │
-│          │                 └─────────────────────────────┘ │
+│  │ - settings      │──────▶│ - activeSessions[]          │ │
+│  │ - customCommand │       │ - trackSession(session)     │ │
+│  │ - shellCommand  │       │ - closeSession(session)     │ │
+│  └─────────────────┘       └─────────────────────────────┘ │
 │          │                              │                   │
 │          ▼                              ▼                   │
 │  ┌─────────────────┐       ┌─────────────────────────────┐ │
-│  │    Profile      │       │      TerminalSession        │ │
+│  │  TerminalPair   │       │      TerminalSession        │ │
 │  │                 │       │                             │ │
-│  │ - id            │       │ - id                        │ │
-│  │ - name          │       │ - profile                   │ │
-│  │ - command       │       │ - terminalControl           │ │
-│  │ - workingDir    │       │ - state (Running|Exited)    │ │
-│  │ - icon?         │       │                             │ │
-│  │ - shortcut?     │       │ - sendInput(text)           │ │
-│  └─────────────────┘       │ - terminate()               │ │
-│                            └─────────────────────────────┘ │
+│  │ - workingDir    │◀─────▶│ - profile                   │ │
+│  │ - customTerminal│       │ - terminalControl           │ │
+│  │ - shellTerminal │       │ - state (Running|Exited)    │ │
+│  │ - activeTerminal│       │                             │ │
+│  └─────────────────┘       └─────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Profile
+### TerminalPair
 
-A saved configuration template for launching a terminal session.
+A paired set of terminals for a project directory.
 
-| Property     | Type     | Description                                      |
-|--------------|----------|--------------------------------------------------|
-| Id           | string   | Unique identifier (e.g., "dev-server")           |
-| Name         | string   | Display name for tab/menu (e.g., "Dev Server")   |
-| Command      | string   | Executable + arguments (e.g., "npm run dev")     |
-| WorkingDir   | string   | Absolute path for working directory              |
-| Icon         | string?  | Optional icon path or emoji for tab              |
-| Shortcut     | string?  | Optional keyboard shortcut (e.g., "Ctrl+Shift+1")|
+| Property        | Type            | Description                              |
+|-----------------|-----------------|------------------------------------------|
+| WorkingDirectory| string          | Project directory path                   |
+| CustomTerminal  | TerminalSession | Custom command terminal (e.g., Claude)   |
+| ShellTerminal   | TerminalSession | Shell terminal (e.g., PowerShell)        |
+| ActiveTerminal  | enum            | Which terminal is currently active       |
+| DirectoryName   | string          | Display name (directory name only)       |
 
 ### TerminalSession
 
-A running instance of a terminal bound to a specific profile.
+A running terminal instance.
 
-| Property        | Type              | Description                           |
-|-----------------|-------------------|---------------------------------------|
-| Id              | Guid              | Unique session identifier             |
-| Profile         | Profile           | Configuration used to spawn session   |
-| State           | SessionState      | Running, Exited                       |
-| ExitCode        | int?              | Process exit code when State=Exited   |
-| TerminalControl | EasyTerminalControl | The WPF control instance            |
+| Property        | Type                | Description                         |
+|-----------------|---------------------|-------------------------------------|
+| Profile         | Profile             | Configuration for this terminal     |
+| TerminalControl | EasyTerminalControl | The WPF terminal control instance   |
+| State           | SessionState        | Running or Exited                   |
 
-## User Stories
+## Command Line Usage
 
-### US-1: Launch application with default tabs
+```bash
+# Open/focus app with no arguments
+host
 
-> As a developer, I want TerminalHost to open my commonly-used terminals automatically so I don't configure them every session.
+# Open project from current directory
+host .
 
-**Acceptance Criteria:**
-- Application reads profiles from configuration file on startup
-- Profiles marked as `autoStart: true` spawn immediately
-- Each auto-started profile appears as a tab
+# Open project from specific path
+host P:\MyProject
 
-### US-2: Open new tab from profile
-
-> As a user, I want to open a new terminal tab from a list of saved profiles.
-
-**Acceptance Criteria:**
-- Menu/button shows available profiles
-- Selecting a profile creates a new tab with that configuration
-- Tab title shows profile name
-- Terminal starts in specified working directory with specified command
-
-### US-3: Open tab via command line
-
-> As a user, I want to open a new tab in the running instance from the command line so I can integrate with scripts and other tools.
-
-**Acceptance Criteria:**
-- If TerminalHost is already running, command activates existing instance
-- `TerminalHost.exe --profile "dev-server"` opens tab with named profile
-- `TerminalHost.exe --command "npm start" --workdir "C:\Projects\App"` opens ad-hoc tab
-- Focus switches to the new tab
-
-### US-4: Close tab
-
-> As a user, I want to close terminal tabs I no longer need.
-
-**Acceptance Criteria:**
-- Each tab has a close button
-- Closing tab terminates the underlying process
-- If process is still running, prompt for confirmation
-- Closing last tab does not close the application
-
-### US-5: Switch between tabs
-
-> As a user, I want to quickly switch between terminal sessions.
-
-**Acceptance Criteria:**
-- Click tab to switch
-- Ctrl+Tab cycles through tabs
-- Ctrl+1-9 jumps to specific tab position
-- Active tab is visually distinct
-
-### US-6: Interact with terminal
-
-> As a user, I want full terminal functionality including colors, cursor movement, and interactive prompts.
-
-**Acceptance Criteria:**
-- ANSI colors render correctly
-- Interactive CLI apps work (npm prompts, vim, etc.)
-- Copy/paste works (Ctrl+C/Ctrl+V or right-click)
-- Scrollback buffer available
-
-### US-7: Manage profiles
-
-> As a user, I want to add, edit, and remove terminal profiles.
-
-**Acceptance Criteria:**
-- UI to view existing profiles
-- Add new profile with name, command, working directory
-- Edit existing profile
-- Delete profile (with confirmation)
-- Changes persist to configuration file
-
-## Technical Approach
-
-### Technology Stack
-
-- **Framework**: WPF (.NET 8)
-- **Terminal Control**: EasyWindowsTerminalControl (NuGet)
-- **Configuration**: JSON file in `%APPDATA%\TerminalHost\`
-- **Single Instance**: Named pipe for IPC
-
-### Single Instance Implementation
-
-```
-┌──────────────────┐         ┌──────────────────────────────┐
-│  New Process     │         │   Running Instance           │
-│                  │         │                              │
-│  1. Check mutex  │────────▶│  NamedPipeServer listening   │
-│  2. Mutex exists │         │                              │
-│  3. Connect pipe │────────▶│  Receives: --profile X       │
-│  4. Send args    │         │  Creates new tab             │
-│  5. Exit         │         │  Brings window to front      │
-└──────────────────┘         └──────────────────────────────┘
+# Using named argument
+host --workdir P:\MyProject
+host -w P:\MyProject
 ```
 
-### Configuration File Structure
+If a project tab for the specified directory already exists, it will be focused instead of creating a new tab.
+
+## Keyboard Shortcuts
+
+| Shortcut         | Action                              |
+|------------------|-------------------------------------|
+| Ctrl+N           | Open new project (folder picker)    |
+| Ctrl+Tab         | Next tab                            |
+| Ctrl+Shift+Tab   | Previous tab                        |
+| Ctrl+1-9         | Jump to specific tab                |
+| Ctrl+W           | Close current tab                   |
+| Ctrl+`           | Switch between Custom/Shell terminal|
+| Ctrl+\           | Toggle split view                   |
+
+## Configuration
+
+Config file: `%APPDATA%\TerminalHost\config.json`
 
 ```json
 {
-  "profiles": [
-    {
-      "id": "powershell",
-      "name": "PowerShell",
-      "command": "pwsh.exe",
-      "workingDir": "%USERPROFILE%",
-      "icon": "🔷",
-      "autoStart": true
-    },
-    {
-      "id": "dev-server",
-      "name": "Dev Server",
-      "command": "npm run dev",
-      "workingDir": "C:\\Projects\\MyApp",
-      "icon": "🚀",
-      "shortcut": "Ctrl+Shift+D"
-    }
-  ],
+  "profiles": [],
   "settings": {
     "confirmOnClose": true,
-    "showInSystemTray": false
+    "showInSystemTray": false,
+    "customCommand": "C:\\Users\\Administrator\\.local\\bin\\claude.exe",
+    "customCommandName": "Claude Code",
+    "customCommandIcon": "🤖",
+    "shellCommand": "pwsh.exe",
+    "shellCommandName": "PowerShell",
+    "shellCommandIcon": "💻"
   }
 }
 ```
+
+## Technical Implementation
+
+### Technology Stack
+
+- **Framework**: WPF on .NET 8
+- **Terminal Control**: EasyWindowsTerminalControl (NuGet)
+- **MVVM**: CommunityToolkit.Mvvm
+- **Configuration**: JSON in `%APPDATA%\TerminalHost\`
+- **Single Instance**: Mutex + named pipe IPC
+
+### Terminal Control Configuration
+
+- **Font**: Cascadia Code NF (for nerd font glyph support)
+- **Theme**: Campbell color scheme (Windows Terminal default)
+- **Process startup**: RestartTerm() called after control loads into visual tree
 
 ### Project Structure
 
 ```
 TerminalHost/
 ├── TerminalHost.sln
-├── src/
-│   └── TerminalHost/
-│       ├── App.xaml(.cs)
-│       ├── MainWindow.xaml(.cs)
-│       ├── Domain/
-│       │   ├── Profile.cs
-│       │   └── TerminalSession.cs
-│       ├── Services/
-│       │   ├── ProfileRegistry.cs
-│       │   ├── SessionManager.cs
-│       │   ├── ConfigurationService.cs
-│       │   └── SingleInstanceService.cs
-│       ├── Views/
-│       │   ├── TerminalTabControl.xaml(.cs)
-│       │   └── ProfileEditorDialog.xaml(.cs)
-│       └── ViewModels/
-│           ├── MainViewModel.cs
-│           ├── TerminalTabViewModel.cs
-│           └── ProfileEditorViewModel.cs
-└── README.md
+└── src/TerminalHost/TerminalHost/
+    ├── App.xaml(.cs)           # Application entry, single instance handling
+    ├── MainWindow.xaml(.cs)    # Main window with tab bar and terminal content
+    ├── Converters.cs           # XAML value converters
+    ├── Domain/
+    │   ├── Profile.cs          # Configuration template for terminal sessions
+    │   ├── TerminalSession.cs  # Running terminal instance
+    │   ├── TerminalPair.cs     # Paired custom + shell terminals
+    │   ├── SessionState.cs     # Running/Exited enum
+    │   └── AppConfiguration.cs # Root config with settings
+    ├── Services/
+    │   ├── ConfigurationService.cs   # JSON config load/save
+    │   ├── ProfileRegistry.cs        # Profile and settings management
+    │   ├── SessionManager.cs         # Session lifecycle tracking
+    │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
+    │   └── TerminalControlFactory.cs # Creates configured terminal controls
+    └── ViewModels/
+        ├── MainViewModel.cs              # Main window logic
+        └── TerminalPairTabViewModel.cs   # Tab with paired terminals
 ```
-
-## MVP Scope
-
-### Phase 1: Core Terminal Hosting
-
-- [ ] WPF application shell with tab control
-- [ ] EasyWindowsTerminalControl integration
-- [ ] Open new tab with hardcoded PowerShell
-- [ ] Close tab functionality
-- [ ] Basic tab switching
-
-### Phase 2: Profile System
-
-- [ ] JSON configuration loading
-- [ ] Profile domain model
-- [ ] Open tab from profile
-- [ ] Profile selection menu/dropdown
-
-### Phase 3: Single Instance & CLI
-
-- [ ] Mutex-based single instance detection
-- [ ] Named pipe IPC server
-- [ ] Command-line argument parsing
-- [ ] External tab creation via CLI
-
-### Phase 4: Profile Management
-
-- [ ] Profile editor dialog
-- [ ] Add/edit/delete profiles
-- [ ] Configuration persistence
 
 ## Future Considerations
 
-Items explicitly deferred from MVP:
+Items for future development:
 
-- **Split panes**: Divide tab into multiple terminal regions
-- **Drag-and-drop tabs**: Reorder or tear out tabs
+- **Per-directory settings**: Remember split ratio, active terminal per directory
+- **Custom profile pairs**: Different command pairs for different project types
 - **Session restore**: Reopen previous session's tabs on startup
-- **Theming**: Custom colors, fonts, opacity
-- **SSH integration**: Built-in SSH connection profiles
-- **Broadcast input**: Type in multiple tabs simultaneously
+- **Drag-and-drop tabs**: Reorder tabs
+- **SSH profiles**: Built-in SSH connection support
+- **Multiple custom commands**: More than one custom command per pair
 
 ## Success Criteria
 
-MVP is complete when:
+The application is successful when:
 
-1. User can launch application and see a terminal tab
-2. User can open additional tabs from saved profiles
-3. User can invoke `TerminalHost.exe --profile X` and see new tab appear in running instance
-4. Interactive CLI applications (npm, git, etc.) work correctly
-5. Configuration survives application restart
-
-## Open Questions
-
-1. **Tab overflow**: How to handle many tabs? Scrolling vs dropdown vs limit?
-2. **Process exit behavior**: Auto-close tab when process exits, or show "[Process exited]"?
-3. **Working directory resolution**: Support environment variables? Relative paths?
-4. **Default shell**: If no profiles configured, what default? PowerShell Core > PowerShell > cmd?
+1. User can run `host .` and get a terminal pair for the current directory
+2. User can switch between Claude Code and shell instantly
+3. Split view shows both terminals with proper nerd font rendering
+4. Running `host .` twice focuses the existing tab
+5. All keyboard shortcuts work as documented
+6. Configuration persists across restarts
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: 2025-01-XX*
+*Document Version: 2.0*
+*Last Updated: 2025-12-11*
