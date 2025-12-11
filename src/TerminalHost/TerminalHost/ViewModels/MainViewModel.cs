@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -402,6 +403,18 @@ public partial class MainViewModel : ObservableObject
         settingsTab.CloseRequested += OnTabCloseRequested;
         Tabs.Add(settingsTab);
         SelectedTab = settingsTab;
+    }
+
+    [RelayCommand]
+    private void OpenInExplorer()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
+
+        var folder = terminalTab.Pair.WorkingDirectory;
+        if (Directory.Exists(folder))
+        {
+            Process.Start("explorer.exe", folder);
+        }
     }
 
     public void Shutdown()

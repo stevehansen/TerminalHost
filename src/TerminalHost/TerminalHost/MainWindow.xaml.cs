@@ -178,6 +178,12 @@ public partial class MainWindow : Window
             _viewModel.OpenSettingsCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+E: Open in Explorer
+        else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.OpenInExplorerCommand.Execute(null);
+            e.Handled = true;
+        }
         // Check quick command shortcuts
         else if (TryExecuteQuickCommandShortcut(e.Key, Keyboard.Modifiers))
         {
