@@ -111,8 +111,6 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Converter for active terminal button style -->
-        <local:ActiveTerminalStyleConverter x:Key="ActiveTerminalStyleConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
 
@@ -145,6 +143,14 @@
                         Style="{StaticResource TerminalSwitchButton}"
                         Command="{Binding OpenSettingsCommand}"
                         ToolTip="Settings (Ctrl+,)"
+                        Margin="0,0,4,0"/>
+
+                <!-- Profiles Button -->
+                <Button DockPanel.Dock="Right"
+                        Content="Profiles"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding OpenProfilesCommand}"
+                        ToolTip="Manage Profiles (Ctrl+P)"
                         Margin="0,0,4,0"/>
 
                 <!-- Tab List -->
@@ -219,6 +225,32 @@
 
                         <!-- Settings Tab Template -->
                         <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+                            <Border x:Name="TabBorder"
+                                    Background="#3C3C3C"
+                                    CornerRadius="4,4,0,0"
+                                    Padding="8,4"
+                                    Margin="0,0,2,0"
+                                    MinWidth="100">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Content="×"
+                                            Style="{StaticResource TabCloseButton}"
+                                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"/>
+                                    <TextBlock Foreground="#CCCCCC"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding Title}"/>
+                                </DockPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+
+                        <!-- Profiles Tab Template -->
+                        <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
                             <Border x:Name="TabBorder"
                                     Background="#3C3C3C"
                                     CornerRadius="4,4,0,0"
@@ -392,6 +424,11 @@
                     <!-- Settings Tab Content -->
                     <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
                         <views:SettingsView/>
+                    </DataTemplate>
+
+                    <!-- Profiles Tab Content -->
+                    <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
+                        <views:ProfilesView/>
                     </DataTemplate>
                 </ContentControl.Resources>
             </ContentControl>

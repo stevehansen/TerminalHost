@@ -31,6 +31,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     public event EventHandler? CloseRequested;
     public event EventHandler? JsonTextReloaded;
+    public event EventHandler? ConfigSaved;
 
     public SettingsTabViewModel(ConfigurationService configService)
     {
@@ -72,6 +73,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             IsDirty = false;
             ErrorMessage = "";
             HasError = false;
+            ConfigSaved?.Invoke(this, EventArgs.Empty);
         }
         else
         {

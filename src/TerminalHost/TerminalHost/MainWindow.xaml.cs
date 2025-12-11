@@ -14,22 +14,53 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly ConfigurationService _configService;
+    private readonly SystemTrayService? _systemTrayService;
+    private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _configService = configService;
+        _systemTrayService = systemTrayService;
         DataContext = viewModel;
 
         RestoreWindowState();
 
         Loaded += OnLoaded;
         Closing += OnClosing;
+        StateChanged += OnStateChanged;
         PreviewKeyDown += OnPreviewKeyDown;
 
         // Subscribe to view model property changes to sync column widths
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        // Subscribe to config reload events to update tray setting
+        _viewModel.ConfigReloaded += OnConfigReloaded;
+    }
+
+    private void OnConfigReloaded(object? sender, EventArgs e)
+    {
+        if (_systemTrayService != null)
+        {
+            var config = _configService.Load();
+            _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+        }
+    }
+
+    private void OnStateChanged(object? sender, EventArgs e)
+    {
+        // Minimize to tray when enabled
+        if (WindowState == WindowState.Minimized && _systemTrayService?.IsEnabled == true)
+        {
+            Hide();
+        }
+    }
+
+    public void ForceClose()
+    {
+        _isExiting = true;
+        Close();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -117,6 +148,14 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // If tray is enabled and not explicitly exiting, minimize to tray instead of closing
+        if (_systemTrayService?.IsEnabled == true && !_isExiting)
+        {
+            e.Cancel = true;
+            WindowState = WindowState.Minimized;
+            return;
+        }
+
         SaveWindowState();
         _viewModel.Shutdown();
     }
@@ -176,6 +215,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.OemComma && Keyboard.Modifiers == ModifierKeys.Control)
         {
             _viewModel.OpenSettingsCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+P: Open profiles
+        else if (e.Key == Key.P && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.OpenProfilesCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+E: Open in Explorer
@@ -279,6 +324,12 @@ public partial class MainWindow : Window
 
     public void BringToFront()
     {
+        // Show window if hidden (minimized to tray)
+        if (!IsVisible)
+        {
+            Show();
+        }
+
         if (WindowState == WindowState.Minimized)
         {
             WindowState = WindowState.Normal;

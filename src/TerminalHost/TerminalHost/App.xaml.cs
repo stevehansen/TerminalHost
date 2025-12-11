@@ -8,6 +8,8 @@ namespace TerminalHost;
 public partial class App : Application
 {
     private SingleInstanceService? _singleInstanceService;
+    private SystemTrayService? _systemTrayService;
+    private ConfigurationService? _configService;
     private MainWindow? _mainWindow;
     private MainViewModel? _mainViewModel;
 
@@ -34,21 +36,49 @@ public partial class App : Application
         _singleInstanceService.CommandReceived += OnCommandReceived;
 
         // Create services
-        var configService = new ConfigurationService();
-        var profileRegistry = new ProfileRegistry(configService);
+        _configService = new ConfigurationService();
+        var profileRegistry = new ProfileRegistry(_configService);
         var sessionManager = new SessionManager();
         var terminalFactory = new TerminalControlFactory();
 
+        // Create system tray service
+        _systemTrayService = new SystemTrayService();
+
         // Create the main view model
-        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, configService);
+        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, _configService);
 
         // Create and show the main window
-        _mainWindow = new MainWindow(_mainViewModel, configService);
+        _mainWindow = new MainWindow(_mainViewModel, _configService, _systemTrayService);
         _mainWindow.Show();
+
+        // Initialize system tray
+        InitializeSystemTray();
 
         // Handle command line arguments for this instance
         var startupArgs = CommandLineArgs.Parse(e.Args);
         HandleCommandLineArgs(startupArgs);
+    }
+
+    private void InitializeSystemTray()
+    {
+        if (_systemTrayService == null || _mainWindow == null || _configService == null) return;
+
+        _systemTrayService.Initialize(_mainWindow);
+
+        // Set enabled state from config
+        var config = _configService.Load();
+        _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+
+        // Handle tray events
+        _systemTrayService.ShowRequested += (_, _) =>
+        {
+            Dispatcher.Invoke(() => _mainWindow?.BringToFront());
+        };
+
+        _systemTrayService.ExitRequested += (_, _) =>
+        {
+            Dispatcher.Invoke(() => Shutdown());
+        };
     }
 
     private void OnCommandReceived(object? sender, CommandLineArgs args)
@@ -74,6 +104,7 @@ public partial class App : Application
 
     private void OnExit(object sender, ExitEventArgs e)
     {
+        _systemTrayService?.Dispose();
         _singleInstanceService?.Dispose();
     }
 }

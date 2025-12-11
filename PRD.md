@@ -44,11 +44,12 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Quick commands with keyboard shortcuts
 - [x] Terminal activity indicators (animated spinner in tabs)
 - [x] Settings editor tab with JSON syntax highlighting (Ctrl+,)
+- [x] System tray support (minimize to tray, restore on click)
+- [x] Profile management UI (Ctrl+P)
 
 ### Deferred Features
 
-- [ ] Custom profiles beyond the default pair
-- [ ] Profile management UI
+- [ ] Custom profiles beyond the default pair (launching profiles from UI)
 
 ## Domain Model
 
@@ -125,6 +126,7 @@ If a project tab for the specified directory already exists, it will be focused 
 |------------------|-------------------------------------|
 | Ctrl+N           | Open new project (folder picker)    |
 | Ctrl+,           | Open settings editor                |
+| Ctrl+P           | Open profile management             |
 | Ctrl+PageDown    | Next tab                            |
 | Ctrl+PageUp      | Previous tab                        |
 | Ctrl+1-9         | Jump to specific tab                |
@@ -184,7 +186,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "id": "git-pull",
       "label": "Pull",
       "icon": "↓",
-      "text": "git pull",
+      "text": "git pull --rebase",
       "target": "Shell",
       "appendNewline": true,
       "shortcut": "Ctrl+Shift+D"
@@ -252,7 +254,7 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 | Button | Shortcut       | Action                           |
 |--------|----------------|----------------------------------|
 | 💾     | Ctrl+Shift+C   | Send "commit" to Claude Code     |
-| ↓      | Ctrl+Shift+D   | Run `git pull` in Shell          |
+| ↓      | Ctrl+Shift+D   | Run `git pull --rebase` in Shell |
 | ↑      | Ctrl+Shift+U   | Run `git push` in Shell          |
 
 **QuickCommand Properties:**
@@ -297,6 +299,69 @@ The Settings tab provides a JSON editor for the application configuration file w
 - Regex-based tokenization for JSON elements
 - ConfigurationService provides raw JSON load/save with validation
 
+### Profile Management
+
+The Profiles tab (Ctrl+P) provides a UI for managing custom terminal profiles.
+
+**Features:**
+- Create, edit, and delete custom profiles
+- Each profile has: name, command, icon, keyboard shortcut, and auto-start option
+- Profiles are stored in the `profiles` array in config.json
+
+**Profile Properties:**
+| Property   | Description                                     |
+|------------|-------------------------------------------------|
+| id         | Unique identifier (auto-generated)              |
+| name       | Display name for the profile                    |
+| command    | Command to execute (e.g., `pwsh.exe`, `ssh user@host`) |
+| icon       | Emoji or symbol for display                     |
+| shortcut   | Keyboard shortcut to launch (e.g., `Ctrl+Shift+P`) |
+| autoStart  | Whether to launch on app startup                |
+
+**Configuration:**
+```json
+{
+  "profiles": [
+    {
+      "id": "profile-20251211120000",
+      "name": "SSH Server",
+      "command": "ssh user@server.example.com",
+      "icon": "\uD83D\uDD12",
+      "shortcut": "Ctrl+Shift+S",
+      "autoStart": false
+    }
+  ]
+}
+```
+
+**Note:** Currently profiles can be created and managed, but launching them as separate terminals is planned for a future update.
+
+### System Tray
+
+When `showInSystemTray` is enabled in settings, the application supports system tray functionality:
+
+**Behavior:**
+- **Minimize to tray**: When minimizing the window (or clicking X), the app hides to the system tray instead of closing
+- **Tray icon**: Shows the app icon in the system notification area
+- **Double-click**: Restores the window from tray
+- **Context menu**: Right-click the tray icon for options:
+  - **Show TerminalHost**: Restore the window
+  - **Exit**: Fully close the application
+
+**Configuration:**
+```json
+{
+  "settings": {
+    "showInSystemTray": true
+  }
+}
+```
+
+**Notes:**
+- When disabled (default), the app closes normally when the window is closed
+- Setting takes effect immediately when changed in Settings editor
+- The tray icon uses the same app icon as the window
+
 ### Project Structure
 
 ```
@@ -319,6 +384,7 @@ TerminalHost/
     │   ├── ProfileRegistry.cs        # Profile and settings management
     │   ├── SessionManager.cs         # Session lifecycle tracking
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
+    │   ├── SystemTrayService.cs      # System tray icon and menu
     │   ├── TerminalControlFactory.cs # Creates configured terminal controls
     │   ├── GitStatusService.cs       # Git command execution and parsing
     │   └── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
@@ -326,9 +392,11 @@ TerminalHost/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic
     │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
-    │   └── SettingsTabViewModel.cs       # Settings editor tab
+    │   ├── SettingsTabViewModel.cs       # Settings editor tab
+    │   └── ProfilesTabViewModel.cs       # Profile management tab
     └── Views/
-        └── SettingsView.xaml(.cs)        # Settings editor UI
+        ├── SettingsView.xaml(.cs)        # Settings editor UI
+        └── ProfilesView.xaml(.cs)        # Profile management UI
 ```
 
 ## Future Considerations

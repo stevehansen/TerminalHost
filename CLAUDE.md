@@ -119,6 +119,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 - `Ctrl+N`: Open new project (folder picker)
 - `Ctrl+,`: Open settings editor
+- `Ctrl+P`: Open profile management
 - `Ctrl+E`: Open current folder in Explorer
 - `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab

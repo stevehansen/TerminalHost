@@ -31,6 +31,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = new();
 
+    public event EventHandler? ConfigReloaded;
+
     public string WindowTitle
     {
         get
@@ -327,6 +329,11 @@ public partial class MainViewModel : ObservableObject
         else if (tab is SettingsTabViewModel settingsTab)
         {
             settingsTab.CloseRequested -= OnTabCloseRequested;
+            settingsTab.ConfigSaved -= OnConfigSaved;
+        }
+        else if (tab is ProfilesTabViewModel profilesTab)
+        {
+            profilesTab.CloseRequested -= OnTabCloseRequested;
         }
 
         Tabs.Remove(tab);
@@ -401,8 +408,36 @@ public partial class MainViewModel : ObservableObject
         // Create new settings tab
         var settingsTab = new SettingsTabViewModel(_configService);
         settingsTab.CloseRequested += OnTabCloseRequested;
+        settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
         SelectedTab = settingsTab;
+    }
+
+    [RelayCommand]
+    private void OpenProfiles()
+    {
+        // Check if profiles tab already exists
+        var existingProfiles = Tabs.OfType<ProfilesTabViewModel>().FirstOrDefault();
+        if (existingProfiles != null)
+        {
+            SelectedTab = existingProfiles;
+            return;
+        }
+
+        // Create new profiles tab
+        var profilesTab = new ProfilesTabViewModel(_profileRegistry);
+        profilesTab.CloseRequested += OnTabCloseRequested;
+        Tabs.Add(profilesTab);
+        SelectedTab = profilesTab;
+    }
+
+    private void OnConfigSaved(object? sender, EventArgs e)
+    {
+        // Reload quick commands when config is saved
+        LoadQuickCommands();
+
+        // Notify that config has been reloaded (for system tray, etc.)
+        ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
