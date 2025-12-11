@@ -116,4 +116,15 @@ public partial class MainWindow : Window
         Topmost = false;
         Focus();
     }
+
+    private void TestTerminal_GotFocus(object sender, RoutedEventArgs e)
+    {
+        System.Console.WriteLine("[MainWindow] TestTerminal got focus");
+    }
+
+    private void TestTerminal_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        System.Console.WriteLine("[MainWindow] TestTerminal mouse down - focusing");
+        TestTerminal.Focus();
+    }
 }

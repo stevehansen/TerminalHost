@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:TerminalHost"
         xmlns:vm="clr-namespace:TerminalHost.ViewModels"
         xmlns:domain="clr-namespace:TerminalHost.Domain"
+        xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
         mc:Ignorable="d"
         Title="TerminalHost"
         Height="700"
@@ -213,28 +214,58 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Single Terminal View -->
-                <Grid Grid.Row="1"
-                      Background="#1E1E1E"
-                      Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                    <!-- Debug: Show message if content is null -->
-                    <TextBlock Text="Terminal loading..."
-                               Foreground="#666666"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Visibility="{Binding SelectedTab.CurrentTerminalContent, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                    <ContentPresenter Content="{Binding SelectedTab.CurrentTerminalContent}"
-                                      HorizontalAlignment="Stretch"
-                                      VerticalAlignment="Stretch"/>
-                </Grid>
-
-                <!-- Split Terminal View -->
-                <Grid Grid.Row="1"
-                      Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}">
+                <!-- Terminal Content Area - Single grid with dynamic column widths -->
+                <Grid Grid.Row="1" Background="#1E1E1E" x:Name="TerminalContentGrid">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="4"/>
-                        <ColumnDefinition Width="*"/>
+                        <!-- Custom terminal column: full width when not split and custom active, half when split, 0 when shell active -->
+                        <ColumnDefinition>
+                            <ColumnDefinition.Style>
+                                <Style TargetType="ColumnDefinition">
+                                    <Setter Property="Width" Value="*"/>
+                                    <Style.Triggers>
+                                        <!-- Hide when not split and shell is active -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding SelectedTab.IsSplitView}" Value="False"/>
+                                                <Condition Binding="{Binding SelectedTab.ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Width" Value="0"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ColumnDefinition.Style>
+                        </ColumnDefinition>
+                        <!-- Splitter column: 4px when split, 0 otherwise -->
+                        <ColumnDefinition>
+                            <ColumnDefinition.Style>
+                                <Style TargetType="ColumnDefinition">
+                                    <Setter Property="Width" Value="0"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedTab.IsSplitView}" Value="True">
+                                            <Setter Property="Width" Value="4"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ColumnDefinition.Style>
+                        </ColumnDefinition>
+                        <!-- Shell terminal column: full width when not split and shell active, half when split, 0 when custom active -->
+                        <ColumnDefinition>
+                            <ColumnDefinition.Style>
+                                <Style TargetType="ColumnDefinition">
+                                    <Setter Property="Width" Value="*"/>
+                                    <Style.Triggers>
+                                        <!-- Hide when not split and custom is active -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding SelectedTab.IsSplitView}" Value="False"/>
+                                                <Condition Binding="{Binding SelectedTab.ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Width" Value="0"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ColumnDefinition.Style>
+                        </ColumnDefinition>
                     </Grid.ColumnDefinitions>
 
                     <!-- Custom Terminal (Left) -->
@@ -243,17 +274,21 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Border Background="#333333" Padding="4,2">
+                        <!-- Header only visible in split view -->
+                        <Border Background="#333333" Padding="4,2"
+                                Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Foreground="#AAAAAA" FontSize="10">
                                 <Run Text="{Binding SelectedTab.CustomIcon, Mode=OneWay}"/>
                                 <Run Text=" Claude Code"/>
                             </TextBlock>
                         </Border>
-                        <ContentControl Grid.Row="1" Content="{Binding SelectedTab.CustomTerminalContent}"/>
+                        <ContentPresenter Grid.Row="1" Content="{Binding SelectedTab.CustomTerminalContent}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Grid>
 
-                    <!-- Splitter -->
-                    <GridSplitter Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"/>
+                    <!-- Splitter - only interactable in split view -->
+                    <GridSplitter Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+                                  Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <!-- Shell Terminal (Right) -->
                     <Grid Grid.Column="2">
@@ -261,30 +296,45 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Border Background="#333333" Padding="4,2">
+                        <!-- Header only visible in split view -->
+                        <Border Background="#333333" Padding="4,2"
+                                Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Foreground="#AAAAAA" FontSize="10">
                                 <Run Text="{Binding SelectedTab.ShellIcon, Mode=OneWay}"/>
                                 <Run Text=" Shell"/>
                             </TextBlock>
                         </Border>
-                        <ContentControl Grid.Row="1" Content="{Binding SelectedTab.ShellTerminalContent}"/>
+                        <ContentPresenter Grid.Row="1" Content="{Binding SelectedTab.ShellTerminalContent}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Grid>
                 </Grid>
             </Grid>
 
-            <!-- Empty State -->
-            <StackPanel Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Center">
-                <TextBlock Text="No project open" Foreground="#666666" FontSize="18" HorizontalAlignment="Center"/>
-                <TextBlock Text="Click '+ New Project' to select a working directory" Foreground="#555555" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                <Button Content="+ Open Project"
-                        Style="{StaticResource TerminalSwitchButton}"
-                        Command="{Binding OpenNewProjectCommand}"
-                        HorizontalAlignment="Center"
-                        Margin="0,16,0,0"
-                        Padding="16,8"/>
-            </StackPanel>
+            <!-- Empty State - Show a test terminal directly -->
+            <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8">
+                    <TextBlock Text="Test terminal below - " Foreground="#666666" FontSize="14" VerticalAlignment="Center"/>
+                    <Button Content="+ Open Project"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding OpenNewProjectCommand}"
+                            Padding="16,8"/>
+                </StackPanel>
+
+                <!-- Direct XAML terminal test -->
+                <term:EasyTerminalControl x:Name="TestTerminal"
+                                          Grid.Row="1"
+                                          StartupCommandLine="cmd.exe"
+                                          Focusable="True"
+                                          IsTabStop="True"
+                                          Margin="10"
+                                          GotFocus="TestTerminal_GotFocus"
+                                          MouseDown="TestTerminal_MouseDown"/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

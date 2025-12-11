@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
+    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -15,6 +16,14 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="EasyWindowsTerminalControl" Version="1.0.36" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <!-- Copy conpty.dll from NuGet package to output -->
+  <ItemGroup>
+    <None Include="$(NuGetPackageRoot)ci.microsoft.windows.console.conpty\1.22.250314001\runtimes\win10-x64\native\conpty.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>conpty.dll</Link>
+    </None>
   </ItemGroup>
 
 </Project>

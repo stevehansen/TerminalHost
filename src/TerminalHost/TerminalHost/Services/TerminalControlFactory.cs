@@ -17,6 +17,9 @@ public class TerminalControlFactory
         Debug.WriteLine($"[TerminalControlFactory] Creating terminal for: {profile.Name}");
         Debug.WriteLine($"[TerminalControlFactory] Working dir: {workingDir}");
         Debug.WriteLine($"[TerminalControlFactory] Command: {command}");
+        Console.WriteLine($"[TerminalControlFactory] Creating terminal for: {profile.Name}");
+        Console.WriteLine($"[TerminalControlFactory] Working dir: {workingDir}");
+        Console.WriteLine($"[TerminalControlFactory] Command: {command}");
 
         // Build a startup command that changes to working directory first, then runs the command
         string startupCommand;
@@ -61,6 +64,7 @@ public class TerminalControlFactory
         }
 
         Debug.WriteLine($"[TerminalControlFactory] Startup command: {startupCommand}");
+        Console.WriteLine($"[TerminalControlFactory] Startup command: {startupCommand}");
 
         // Create the terminal control with configured command line
         var terminalControl = new EasyTerminalControl
@@ -72,7 +76,53 @@ public class TerminalControlFactory
             MinWidth = 100
         };
 
+        // Log when the control is loaded and terminal is ready
+        terminalControl.Loaded += (s, e) =>
+        {
+            Debug.WriteLine($"[TerminalControlFactory] Terminal control Loaded event fired for: {profile.Name}");
+            Console.WriteLine($"[TerminalControlFactory] Terminal control Loaded event fired for: {profile.Name}");
+            Debug.WriteLine($"[TerminalControlFactory] ConPTYTerm: {terminalControl.ConPTYTerm != null}");
+            Console.WriteLine($"[TerminalControlFactory] ConPTYTerm: {terminalControl.ConPTYTerm != null}");
+
+            // Use Dispatcher to ensure we're fully in the visual tree before checking/starting process
+            terminalControl.Dispatcher.InvokeAsync(async () =>
+            {
+                // Give the control a moment to fully initialize
+                await Task.Delay(100);
+
+                Console.WriteLine($"[TerminalControlFactory] After delay - ConPTYTerm: {terminalControl.ConPTYTerm != null}");
+
+                if (terminalControl.ConPTYTerm != null)
+                {
+                    Console.WriteLine($"[TerminalControlFactory] Process: {terminalControl.ConPTYTerm.Process != null}");
+
+                    // If process didn't start, try restarting the terminal
+                    if (terminalControl.ConPTYTerm.Process == null || terminalControl.ConPTYTerm.Process.HasExited)
+                    {
+                        Console.WriteLine($"[TerminalControlFactory] Process not running, calling RestartTerm for: {profile.Name}");
+                        try
+                        {
+                            terminalControl.RestartTerm();
+
+                            // Wait a bit and check again
+                            await Task.Delay(500);
+                            Console.WriteLine($"[TerminalControlFactory] After RestartTerm - Process: {terminalControl.ConPTYTerm?.Process != null}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[TerminalControlFactory] RestartTerm failed: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[TerminalControlFactory] ConPTYTerm is still null after delay!");
+                }
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        };
+
         Debug.WriteLine($"[TerminalControlFactory] EasyTerminalControl created successfully");
+        Console.WriteLine($"[TerminalControlFactory] EasyTerminalControl created successfully");
 
         return terminalControl;
     }
