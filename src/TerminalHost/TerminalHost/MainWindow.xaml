@@ -130,11 +130,9 @@
                                             Style="{StaticResource TabCloseButton}"
                                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"/>
-                                    <TextBlock Foreground="#CCCCCC" VerticalAlignment="Center">
-                                        <Run Text="{Binding CurrentIcon, Mode=OneWay}"/>
-                                        <Run Text=" "/>
-                                        <Run Text="{Binding TitleWithGit, Mode=OneWay}"/>
-                                    </TextBlock>
+                                    <TextBlock Foreground="#CCCCCC"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding TitleWithGit, Mode=OneWay}"/>
                                 </DockPanel>
                             </Border>
                             <DataTemplate.Triggers>
