@@ -44,6 +44,9 @@ public partial class MainWindow : Window
 
         // Subscribe to file preview events
         _viewModel.FilePreviewRequested += OnFilePreviewRequested;
+
+        // Subscribe to help events
+        _viewModel.HelpRequested += OnHelpRequested;
     }
 
     private void OnConfigReloaded(object? sender, EventArgs e)
@@ -169,10 +172,27 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Escape: Close file preview popup if open
-        if (e.Key == Key.Escape && FilePreviewPopup.IsOpen)
+        // Escape: Close popups if open
+        if (e.Key == Key.Escape)
         {
-            FilePreviewPopup.IsOpen = false;
+            if (FilePreviewPopup.IsOpen)
+            {
+                FilePreviewPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (HelpPopup.IsOpen)
+            {
+                HelpPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // F1: Toggle help popup
+        if (e.Key == Key.F1)
+        {
+            HelpPopup.IsOpen = !HelpPopup.IsOpen;
             e.Handled = true;
             return;
         }
@@ -863,6 +883,20 @@ public partial class MainWindow : Window
                 System.Console.WriteLine($"[MainWindow] Failed to open file in editor: {ex.Message}");
             }
         }
+    }
+
+    #endregion
+
+    #region Help Popup
+
+    private void OnHelpRequested(object? sender, EventArgs e)
+    {
+        HelpPopup.IsOpen = true;
+    }
+
+    private void HelpClose_Click(object sender, RoutedEventArgs e)
+    {
+        HelpPopup.IsOpen = false;
     }
 
     #endregion

@@ -524,6 +524,14 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public event EventHandler? HelpRequested;
+
+    [RelayCommand]
+    private void OpenHelp()
+    {
+        HelpRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     public void Shutdown()
     {
         // Stop timers
