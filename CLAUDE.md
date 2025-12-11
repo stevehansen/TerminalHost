@@ -94,7 +94,7 @@ Each project directory opens as a `TerminalPair` containing:
 - **Custom Terminal**: Runs configured command (default: Claude Code)
 - **Shell Terminal**: Runs shell (default: PowerShell)
 
-Both terminals are created simultaneously but only one is visible at a time (unless split view is enabled).
+Both terminals are created simultaneously and always visible in a split view layout.
 
 ### Working Directory Handling
 EasyTerminalControl doesn't have a native working directory property. The factory wraps commands:
@@ -113,7 +113,6 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+1-9`: Jump to specific tab
 - `Ctrl+W`: Close current tab
 - `Ctrl+\``: Switch between Custom/Shell terminal
-- `Ctrl+\`: Toggle split view
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
 - `Ctrl+Shift+D`: Quick command - Git Pull (Shell)
 - `Ctrl+Shift+U`: Quick command - Git Push (Shell)
@@ -171,7 +170,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 ### Persistence Features
 - **Window State**: Position, size, and maximized state are saved on close and restored on startup
 - **Open Folders**: Previously open project tabs are automatically restored on startup
-- **Directory Settings**: Split view state, split ratio, and active terminal are saved per directory
+- **Directory Settings**: Split ratio and active terminal are saved per directory
 
 ### Terminal Activity Indicators
 Tabs show an animated spinning indicator when terminals are producing output:

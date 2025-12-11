@@ -18,7 +18,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 1. **Directory-centric terminal pairs** - Each project directory gets a paired custom + shell terminal
 2. **Single-instance with CLI** - `host .` opens/focuses a terminal pair for current directory
 3. **Easy terminal switching** - Toggle between custom and shell without termination
-4. **Split view option** - View both terminals simultaneously (60/40 layout)
+4. **Always-on split view** - Both terminals visible simultaneously (60/40 default layout, adjustable via splitter)
 5. **Full terminal emulation** - ANSI colors, interactive CLIs, nerd font support
 
 ## Current Implementation Status
@@ -27,9 +27,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 
 - [x] WPF application with tabbed interface
 - [x] Terminal pairs (custom command + shell) per directory
-- [x] Default split view with 60/40 layout
+- [x] Always-on split view with 60/40 default layout (adjustable via splitter)
 - [x] Terminal switching via buttons or Ctrl+`
-- [x] Split view toggle via button or Ctrl+\
 - [x] Tab management (Ctrl+Tab, Ctrl+1-9, Ctrl+W)
 - [x] New project via folder picker (Ctrl+N)
 - [x] Single-instance with named pipe IPC
@@ -129,7 +128,6 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+1-9         | Jump to specific tab                |
 | Ctrl+W           | Close current tab                   |
 | Ctrl+`           | Switch between Custom/Shell terminal|
-| Ctrl+\           | Toggle split view                   |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |

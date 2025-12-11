@@ -127,13 +127,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void ToggleSplitView()
-    {
-        IsSplitView = !IsSplitView;
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
     partial void OnSplitRatioChanged(double value)
     {
         OnPropertyChanged(nameof(CustomColumnWidth));

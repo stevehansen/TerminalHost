@@ -313,12 +313,6 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleSplitView()
-    {
-        SelectedTab?.ToggleSplitViewCommand.Execute(null);
-    }
-
-    [RelayCommand]
     private void ExecuteQuickCommand(QuickCommand? command)
     {
         if (command == null || SelectedTab == null) return;

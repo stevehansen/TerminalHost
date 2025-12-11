@@ -55,9 +55,7 @@ public partial class MainWindow : Window
     {
         if (sender is not TerminalPairTabViewModel tab) return;
 
-        if (e.PropertyName == nameof(TerminalPairTabViewModel.IsSplitView) ||
-            e.PropertyName == nameof(TerminalPairTabViewModel.ActiveTerminal) ||
-            e.PropertyName == nameof(TerminalPairTabViewModel.SplitRatio))
+        if (e.PropertyName == nameof(TerminalPairTabViewModel.SplitRatio))
         {
             ApplyTabColumnWidths(tab);
         }
@@ -65,29 +63,10 @@ public partial class MainWindow : Window
 
     private void ApplyTabColumnWidths(TerminalPairTabViewModel tab)
     {
-        if (tab.IsSplitView)
-        {
-            // Split view - use the ratio
-            CustomTerminalColumn.Width = tab.CustomColumnWidth;
-            SplitterColumn.Width = new GridLength(4);
-            ShellTerminalColumn.Width = tab.ShellColumnWidth;
-        }
-        else
-        {
-            // Single view - show only active terminal
-            if (tab.ActiveTerminal == Domain.ActiveTerminal.Custom)
-            {
-                CustomTerminalColumn.Width = new GridLength(1, GridUnitType.Star);
-                SplitterColumn.Width = new GridLength(0);
-                ShellTerminalColumn.Width = new GridLength(0);
-            }
-            else
-            {
-                CustomTerminalColumn.Width = new GridLength(0);
-                SplitterColumn.Width = new GridLength(0);
-                ShellTerminalColumn.Width = new GridLength(1, GridUnitType.Star);
-            }
-        }
+        // Always use split view with the ratio
+        CustomTerminalColumn.Width = tab.CustomColumnWidth;
+        SplitterColumn.Width = new GridLength(4);
+        ShellTerminalColumn.Width = tab.ShellColumnWidth;
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
@@ -213,12 +192,6 @@ public partial class MainWindow : Window
         else if (e.Key == Key.Oem3 && Keyboard.Modifiers == ModifierKeys.Control) // Oem3 is the ` key
         {
             _viewModel.SwitchActiveTerminalCommand.Execute(null);
-            e.Handled = true;
-        }
-        // Ctrl+\: Toggle split view
-        else if (e.Key == Key.Oem5 && Keyboard.Modifiers == ModifierKeys.Control) // Oem5 is the \ key
-        {
-            _viewModel.ToggleSplitViewCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+N: New project

@@ -208,12 +208,6 @@
                 <!-- Terminal Switcher Bar -->
                 <Border Grid.Row="0" Background="#252525" Padding="8,4">
                     <DockPanel>
-                        <!-- Split View Toggle -->
-                        <Button DockPanel.Dock="Right"
-                                Content="⊞ Split"
-                                Style="{StaticResource TerminalSwitchButton}"
-                                Command="{Binding SelectedTab.ToggleSplitViewCommand}"/>
-
                         <!-- Terminal Type Buttons -->
                         <StackPanel Orientation="Horizontal">
                             <Button Content="{Binding SelectedTab.CustomIcon, StringFormat='{}{0} Claude Code'}"
@@ -292,9 +286,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <!-- Header only visible in split view -->
-                        <Border Background="#333333" Padding="4,2"
-                                Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border Background="#333333" Padding="4,2">
                             <TextBlock Foreground="#AAAAAA" FontSize="10">
                                 <Run Text="{Binding SelectedTab.CustomIcon, Mode=OneWay}"/>
                                 <Run Text=" Claude Code"/>
@@ -304,9 +296,8 @@
                                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Grid>
 
-                    <!-- Splitter - only interactable in split view -->
+                    <!-- Splitter -->
                     <GridSplitter Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
-                                  Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}"
                                   DragCompleted="GridSplitter_DragCompleted"/>
 
                     <!-- Shell Terminal (Right) -->
@@ -315,9 +306,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <!-- Header only visible in split view -->
-                        <Border Background="#333333" Padding="4,2"
-                                Visibility="{Binding SelectedTab.IsSplitView, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border Background="#333333" Padding="4,2">
                             <TextBlock Foreground="#AAAAAA" FontSize="10">
                                 <Run Text="{Binding SelectedTab.ShellIcon, Mode=OneWay}"/>
                                 <Run Text=" Shell"/>
