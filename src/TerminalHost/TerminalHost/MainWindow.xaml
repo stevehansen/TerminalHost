@@ -213,6 +213,28 @@
                             <!-- Git Status Display -->
                             <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
                                        Text="{Binding SelectedTab.GitStatusDisplay}"/>
+
+                            <!-- Quick Commands Separator -->
+                            <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
+
+                            <!-- Quick Commands -->
+                            <ItemsControl ItemsSource="{Binding QuickCommands}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding DisplayText}"
+                                                ToolTip="{Binding Tooltip}"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding DataContext.ExecuteQuickCommandCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,4,0"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </DockPanel>
                 </Border>

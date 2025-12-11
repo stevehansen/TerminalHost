@@ -18,6 +18,41 @@ public class AppConfiguration
 
     [JsonPropertyName("directorySettings")]
     public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = new();
+
+    [JsonPropertyName("quickCommands")]
+    public List<QuickCommand> QuickCommands { get; set; } = GetDefaultQuickCommands();
+
+    private static List<QuickCommand> GetDefaultQuickCommands() =>
+    [
+        new QuickCommand
+        {
+            Id = "commit",
+            Label = "Commit",
+            Icon = "💾",
+            Text = "commit",
+            Target = QuickCommandTarget.Custom,
+            AppendNewline = true,
+            UseUserInput = true
+        },
+        new QuickCommand
+        {
+            Id = "git-pull",
+            Label = "Pull",
+            Icon = "↓",
+            Text = "git pull",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true
+        },
+        new QuickCommand
+        {
+            Id = "git-push",
+            Label = "Push",
+            Icon = "↑",
+            Text = "git push",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true
+        }
+    ];
 }
 
 public class DirectorySettings

@@ -25,6 +25,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private TerminalPairTabViewModel? _selectedTab;
 
+    [ObservableProperty]
+    private ObservableCollection<QuickCommand> _quickCommands = new();
+
     public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService)
     {
         _profileRegistry = profileRegistry;
@@ -43,11 +46,20 @@ public partial class MainViewModel : ObservableObject
 
     public void Initialize()
     {
+        // Load quick commands from config
+        LoadQuickCommands();
+
         // Restore previously open folders
         RestoreOpenFolders();
 
         // Start git status refresh timer
         _gitStatusTimer.Start();
+    }
+
+    private void LoadQuickCommands()
+    {
+        var config = _configService.Load();
+        QuickCommands = new ObservableCollection<QuickCommand>(config.QuickCommands);
     }
 
     private async Task RefreshSelectedTabGitStatusAsync()
@@ -284,6 +296,34 @@ public partial class MainViewModel : ObservableObject
     private void ToggleSplitView()
     {
         SelectedTab?.ToggleSplitViewCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private void ExecuteQuickCommand(QuickCommand? command)
+    {
+        if (command == null || SelectedTab == null) return;
+
+        // Switch to the target terminal
+        if (command.Target == QuickCommandTarget.Custom)
+        {
+            SelectedTab.ShowCustomTerminalCommand.Execute(null);
+        }
+        else
+        {
+            SelectedTab.ShowShellTerminalCommand.Execute(null);
+        }
+
+        var targetSession = command.Target == QuickCommandTarget.Custom
+            ? SelectedTab.Pair.CustomTerminal
+            : SelectedTab.Pair.ShellTerminal;
+
+        targetSession.SendText(command.Text, command.AppendNewline, command.NewlineChar, command.UseUserInput);
+
+        // Focus the terminal (unless UseUserInput which handles focus internally)
+        if (!command.UseUserInput)
+        {
+            targetSession.Focus();
+        }
     }
 
     private void OnTabCloseRequested(object? sender, EventArgs e)
