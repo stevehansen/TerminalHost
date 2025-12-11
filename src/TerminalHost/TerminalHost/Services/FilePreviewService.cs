@@ -25,6 +25,8 @@ public class FilePreviewService
             new MarkdownHighlighter(),
             new PythonHighlighter(),
             new JavaScriptHighlighter(),
+            new CsvHighlighter(),
+            new TsvHighlighter(),
             _fallbackHighlighter
         };
 
