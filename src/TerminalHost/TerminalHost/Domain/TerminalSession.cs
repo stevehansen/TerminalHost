@@ -170,8 +170,7 @@ public class TerminalSession : IDisposable
                 var textToSend = appendNewline ? text + "\r" : text;
                 _easyTerminalControl?.Dispatcher.BeginInvoke(() =>
                 {
-                    Console.WriteLine($"[TerminalSession] Sending via UserInput: '{textToSend.Replace("\r", "\\r")}'");
-                    SendViaUserInput(textToSend);
+                    SendViaUserInput(termPty, textToSend);
                 }, System.Windows.Threading.DispatcherPriority.Input);
             }
             else
@@ -190,15 +189,10 @@ public class TerminalSession : IDisposable
     /// <summary>
     /// Sends text to the terminal (without executing - user presses Enter manually).
     /// </summary>
-    private void SendViaUserInput(string input)
+    private void SendViaUserInput(TermPTY conPtyTerm, string input)
     {
-        if (_easyTerminalControl == null) return;
-
         try
         {
-            var conPtyTerm = _easyTerminalControl.ConPTYTerm;
-            if (conPtyTerm == null) return;
-
             // Strip any newline characters - user will press Enter manually
             var textOnly = input.TrimEnd('\r', '\n');
             if (!string.IsNullOrEmpty(textOnly))
