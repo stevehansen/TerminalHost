@@ -55,6 +55,9 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Help window with shortcuts and commands (F1)
 - [x] Built-in quick commands (Open Explorer, Help) in status bar
 - [x] CSV/TSV file preview with column colorization
+- [x] File editor popup with save/reload (Ctrl+Shift+E)
+- [x] Command palette for quick actions (Ctrl+Shift+P)
+- [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
 
 ### Deferred Features
 
@@ -147,6 +150,9 @@ If a project tab for the specified directory already exists, it will be focused 
 | Middle-click     | Close tab under cursor              |
 | Drag tab         | Reorder tabs                        |
 | Ctrl+`           | Switch between Custom/Shell terminal|
+| Ctrl+Shift+E     | Open file editor                    |
+| Ctrl+Shift+P     | Open command palette                |
+| Ctrl+Shift+N     | Open scratch pad (notes)            |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
@@ -226,7 +232,11 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "enabled": true,
       "priority": 10
     }
-  ]
+  ],
+  "scratchPads": {
+    "p:\\project1": "Project-specific notes here..."
+  },
+  "globalScratchPad": "Global notes shared across all projects..."
 }
 ```
 
@@ -475,6 +485,71 @@ When `showInSystemTray` is enabled in settings, the application supports system 
 - Setting takes effect immediately when changed in Settings editor
 - The tray icon uses the same app icon as the window
 
+### File Editor
+
+The File Editor (`Ctrl+Shift+E`) provides a built-in text editor for quick file edits without leaving the application.
+
+**Features:**
+- Line numbers with scroll synchronization
+- Cursor position display (Line/Column)
+- Modified indicator (*) in title bar
+- Save (`Ctrl+S`), Reload, and Close buttons
+- Go to line (`Ctrl+G`)
+- Prompts for unsaved changes on close
+- Draggable and resizable popup
+- Preserves original file encoding on save
+
+**Access Methods:**
+- `Ctrl+Shift+E` to open file picker
+- Click "Edit" button in file preview popup
+- From command palette
+
+**Limitations:**
+- 1MB maximum file size
+- Plain text editing (no syntax highlighting in editor)
+
+### Command Palette
+
+The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all application commands.
+
+**Features:**
+- Searchable list of all available commands
+- Shows keyboard shortcuts for each command
+- Filters by name, description, or category
+- Up/Down arrow navigation, Enter to execute
+- Context-aware (some commands only available when applicable)
+
+**Available Commands:**
+| Command          | Description                      |
+|------------------|----------------------------------|
+| New Project      | Open folder as new project       |
+| Close Tab        | Close current tab                |
+| Switch Tab       | Open tab switcher                |
+| Preview File     | Open file preview dialog         |
+| Edit File        | Open file editor                 |
+| Open in Explorer | Open folder in file explorer     |
+| Switch Terminal  | Toggle custom/shell terminal     |
+| Settings         | Open settings editor             |
+| Profiles         | Manage terminal profiles         |
+| Help             | Show keyboard shortcuts          |
+| Scratch Pad      | Open notes panel                 |
+
+### Scratch Pad
+
+The Scratch Pad (`Ctrl+Shift+N`) provides a notes panel for jotting down TODOs, commands, or other information while working.
+
+**Features:**
+- **Per-project notes**: Each project directory has its own scratch pad
+- **Global notes**: Shared notes accessible from any project
+- **Auto-save**: Content saved automatically after 500ms of inactivity
+- **Persistent storage**: Notes saved to config.json
+- Toggle between "Project" and "Global" scope
+- Draggable and resizable popup
+
+**Storage:**
+- Project notes stored in `scratchPads` object keyed by directory path
+- Global notes stored in `globalScratchPad` string
+
 ### Help Window
 
 Press `F1` to open the Help window, which displays:
@@ -538,7 +613,8 @@ TerminalHost/
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
     │   ├── QuickCommand.cs     # Quick command definition with shortcut
-    │   └── LinkPattern.cs      # Custom link pattern definition
+    │   ├── LinkPattern.cs      # Custom link pattern definition
+    │   └── PaletteCommand.cs   # Command palette item definition
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
     │   ├── ProfileRegistry.cs        # Profile and settings management
@@ -547,6 +623,8 @@ TerminalHost/
     │   ├── SystemTrayService.cs      # System tray icon and menu
     │   ├── TerminalControlFactory.cs # Creates configured terminal controls
     │   ├── GitStatusService.cs       # Git command execution and parsing
+    │   ├── FilePreviewService.cs     # File preview loading with syntax highlighting
+    │   ├── FileEditService.cs        # File editing (load/save)
     │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
     │   └── LinkDetectionService.cs   # Clickable link detection and handling
     ├── ViewModels/
@@ -583,5 +661,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.0*
-*Last Updated: 2025-12-11*
+*Document Version: 2.1*
+*Last Updated: 2025-12-12*
