@@ -47,6 +47,10 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] System tray support (minimize to tray, restore on click)
 - [x] Profile management UI (Ctrl+P)
 - [x] Clickable links via Ctrl+Click (URLs, file paths, custom patterns)
+- [x] Tab reordering via drag-and-drop
+- [x] Middle-click to close tabs
+- [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
+- [x] Tab switcher popup with search (Ctrl+Shift+T)
 
 ### Deferred Features
 
@@ -128,10 +132,13 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+N           | Open new project (folder picker)    |
 | Ctrl+,           | Open settings editor                |
 | Ctrl+P           | Open profile management             |
+| Ctrl+Shift+T     | Open tab switcher (search tabs)     |
 | Ctrl+PageDown    | Next tab                            |
 | Ctrl+PageUp      | Previous tab                        |
 | Ctrl+1-9         | Jump to specific tab                |
 | Ctrl+W           | Close current tab                   |
+| Middle-click     | Close tab under cursor              |
+| Drag tab         | Reorder tabs                        |
 | Ctrl+`           | Switch between Custom/Shell terminal|
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
@@ -257,6 +264,33 @@ This helps users see at a glance which tabs have terminals doing work vs waiting
 - Uses `ConPTYTerm.InterceptOutputToUITerminal` delegate to track output timing
 - Activity state checked every 1 second to detect idle transitions
 - Events fire immediately when transitioning from idle to active
+
+### Tab Management
+
+Enhanced tab interaction features:
+
+**Drag-and-Drop Reordering:**
+- Drag tabs to reorder them in the tab bar
+- Visual feedback shows drop position with blue highlight
+- Tab order is persisted in `openFolders` config on save
+
+**Middle-Click to Close:**
+- Middle-click any tab to close it (same as clicking × button)
+- Triggers close confirmation if terminals are running
+
+**Tab Overflow:**
+When many tabs are open and they overflow the tab bar:
+- **Scroll arrows**: `‹` and `›` buttons appear to scroll through tabs
+- **Dropdown button**: `▼` button shows a searchable list of all tabs
+- Clicking a tab in the dropdown switches to that tab
+
+**Tab Switcher (Ctrl+Shift+T):**
+A centered popup for quickly finding and switching tabs:
+- Opens with `Ctrl+Shift+T`
+- Type to filter tabs by name or working directory
+- Arrow keys to navigate, Enter to select
+- Escape to cancel
+- Shows tab icon, title, and full working directory path
 
 ### Quick Commands
 

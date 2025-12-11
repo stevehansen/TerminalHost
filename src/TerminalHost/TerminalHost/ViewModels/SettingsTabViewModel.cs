@@ -26,6 +26,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _isDirty;
 
     public string TabIcon => "\u2699"; // Gear symbol
+    public string WorkingDirectory => "Settings";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
 

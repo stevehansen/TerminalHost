@@ -41,6 +41,7 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     private string? _errorMessage;
 
     public string TabIcon => "\uD83D\uDC64"; // Profile icon
+    public string WorkingDirectory => "Profiles";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
 

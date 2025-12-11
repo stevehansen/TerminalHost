@@ -153,14 +153,47 @@
                         ToolTip="Manage Profiles (Ctrl+P)"
                         Margin="0,0,4,0"/>
 
+                <!-- Tab Dropdown Button -->
+                <Button x:Name="TabDropdownButton"
+                        DockPanel.Dock="Right"
+                        Content="▼"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Click="TabDropdown_Click"
+                        ToolTip="All tabs (Ctrl+Shift+T)"
+                        Visibility="Collapsed"
+                        Margin="0,0,4,0"/>
+
+                <!-- Scroll Right Button -->
+                <Button x:Name="ScrollRightButton"
+                        DockPanel.Dock="Right"
+                        Content="›"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Click="ScrollRight_Click"
+                        ToolTip="Scroll right"
+                        Visibility="Collapsed"
+                        Padding="6,4"
+                        Margin="0,0,2,0"/>
+
+                <!-- Scroll Left Button -->
+                <Button x:Name="ScrollLeftButton"
+                        DockPanel.Dock="Right"
+                        Content="‹"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Click="ScrollLeft_Click"
+                        ToolTip="Scroll left"
+                        Visibility="Collapsed"
+                        Padding="6,4"
+                        Margin="0,0,2,0"/>
+
                 <!-- Tab List -->
                 <ListBox x:Name="TabList"
                          ItemsSource="{Binding Tabs}"
                          SelectedItem="{Binding SelectedTab}"
                          Background="Transparent"
                          BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                         ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         SizeChanged="TabList_SizeChanged">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal"/>
@@ -174,7 +207,14 @@
                                     CornerRadius="4,4,0,0"
                                     Padding="8,4"
                                     Margin="0,0,2,0"
-                                    MinWidth="120">
+                                    MinWidth="120"
+                                    AllowDrop="True"
+                                    MouseDown="Tab_MouseDown"
+                                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="Tab_PreviewMouseMove"
+                                    DragOver="Tab_DragOver"
+                                    DragLeave="Tab_DragLeave"
+                                    Drop="Tab_Drop">
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Content="×"
@@ -230,7 +270,14 @@
                                     CornerRadius="4,4,0,0"
                                     Padding="8,4"
                                     Margin="0,0,2,0"
-                                    MinWidth="100">
+                                    MinWidth="100"
+                                    AllowDrop="True"
+                                    MouseDown="Tab_MouseDown"
+                                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="Tab_PreviewMouseMove"
+                                    DragOver="Tab_DragOver"
+                                    DragLeave="Tab_DragLeave"
+                                    Drop="Tab_Drop">
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Content="×"
@@ -256,7 +303,14 @@
                                     CornerRadius="4,4,0,0"
                                     Padding="8,4"
                                     Margin="0,0,2,0"
-                                    MinWidth="100">
+                                    MinWidth="100"
+                                    AllowDrop="True"
+                                    MouseDown="Tab_MouseDown"
+                                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="Tab_PreviewMouseMove"
+                                    DragOver="Tab_DragOver"
+                                    DragLeave="Tab_DragLeave"
+                                    Drop="Tab_Drop">
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Content="×"
@@ -459,5 +513,185 @@
                                           MouseDown="TestTerminal_MouseDown"/>
             </Grid>
         </Grid>
+
+        <!-- Tab Dropdown Popup -->
+        <Popup x:Name="TabDropdownPopup"
+               PlacementTarget="{Binding ElementName=TabDropdownButton}"
+               Placement="Bottom"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#2D2D2D"
+                    BorderBrush="#444444"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="4"
+                    MaxHeight="400"
+                    MinWidth="200">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Search Box -->
+                    <TextBox x:Name="DropdownSearchBox"
+                             Grid.Row="0"
+                             Background="#1E1E1E"
+                             Foreground="#CCCCCC"
+                             BorderBrush="#444444"
+                             BorderThickness="1"
+                             Padding="6,4"
+                             Margin="0,0,0,4"
+                             Text=""
+                             TextChanged="DropdownSearch_TextChanged">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Background" Value="#1E1E1E"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+
+                    <!-- Tab List -->
+                    <ListBox x:Name="DropdownTabList"
+                             Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             MaxHeight="350"
+                             SelectionChanged="DropdownTabList_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="4,2">
+                                    <TextBlock Text="{Binding TabIcon}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding Title}" Foreground="#CCCCCC"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#3E3E3E"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#0078D4"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- Tab Switcher Popup (Ctrl+Shift+T) -->
+        <Popup x:Name="TabSwitcherPopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#2D2D2D"
+                    BorderBrush="#0078D4"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8"
+                    MinWidth="400"
+                    MaxWidth="600"
+                    MaxHeight="500">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Search Box -->
+                    <TextBox x:Name="SwitcherSearchBox"
+                             Grid.Row="0"
+                             Background="#1E1E1E"
+                             Foreground="#CCCCCC"
+                             BorderBrush="#444444"
+                             BorderThickness="1"
+                             Padding="8,6"
+                             Margin="0,0,0,8"
+                             FontSize="14"
+                             Text=""
+                             TextChanged="SwitcherSearch_TextChanged"
+                             PreviewKeyDown="SwitcherSearchBox_PreviewKeyDown"/>
+
+                    <!-- Tab List -->
+                    <ListBox x:Name="SwitcherTabList"
+                             Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             MaxHeight="400"
+                             MouseDoubleClick="SwitcherTabList_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                               Text="{Binding TabIcon}"
+                                               FontSize="20"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0"/>
+
+                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                               Text="{Binding Title}"
+                                               Foreground="#FFFFFF"
+                                               FontSize="13"/>
+
+                                    <TextBlock Grid.Column="1" Grid.Row="1"
+                                               Text="{Binding WorkingDirectory}"
+                                               Foreground="#808080"
+                                               FontSize="11"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="{TemplateBinding Background}"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Popup>
     </Grid>
 </Window>

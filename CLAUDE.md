@@ -126,9 +126,12 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+,`: Open settings editor
 - `Ctrl+P`: Open profile management
 - `Ctrl+E`: Open current folder in Explorer
+- `Ctrl+Shift+T`: Open tab switcher (search and switch tabs)
 - `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab
 - `Ctrl+W`: Close current tab
+- `Middle-click tab`: Close tab
+- `Drag tab`: Reorder tabs
 - `Ctrl+\``: Switch between Custom/Shell terminal
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
 - `Ctrl+Shift+D`: Quick command - Git Pull (Shell)

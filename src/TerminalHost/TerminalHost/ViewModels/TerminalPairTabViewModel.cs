@@ -13,6 +13,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private string _title = "Terminal";
 
     public string TabIcon => "📁";
+    public string WorkingDirectory => Pair.WorkingDirectory;
     public bool IsCloseable => true;
 
     [ObservableProperty]
