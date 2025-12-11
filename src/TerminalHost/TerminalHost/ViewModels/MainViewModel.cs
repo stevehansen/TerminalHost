@@ -24,10 +24,30 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<ITabViewModel> _tabs = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private ITabViewModel? _selectedTab;
 
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = new();
+
+    public string WindowTitle
+    {
+        get
+        {
+            if (SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var gitBranch = terminalTab.GitStatus?.IsGitRepository == true
+                    ? $" ({terminalTab.GitStatus.BranchName})"
+                    : "";
+                return $"{terminalTab.Title}{gitBranch} - TerminalHost";
+            }
+            else if (SelectedTab is SettingsTabViewModel)
+            {
+                return "Settings - TerminalHost";
+            }
+            return "TerminalHost";
+        }
+    }
 
     public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService)
     {
@@ -81,6 +101,8 @@ public partial class MainViewModel : ObservableObject
         {
             var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
             terminalTab.GitStatus = status;
+            // Update window title when git status changes
+            OnPropertyChanged(nameof(WindowTitle));
         }
         catch
         {

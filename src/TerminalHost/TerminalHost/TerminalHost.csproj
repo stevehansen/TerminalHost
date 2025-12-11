@@ -10,7 +10,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>TerminalHost</RootNamespace>
     <AssemblyName>host</AssemblyName>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
