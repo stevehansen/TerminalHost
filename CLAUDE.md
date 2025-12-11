@@ -172,3 +172,9 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 - **Window State**: Position, size, and maximized state are saved on close and restored on startup
 - **Open Folders**: Previously open project tabs are automatically restored on startup
 - **Directory Settings**: Split view state, split ratio, and active terminal are saved per directory
+
+### Terminal Activity Indicators
+Tabs show an animated spinning indicator when terminals are producing output:
+- Uses `ConPTYTerm.InterceptOutputToUITerminal` to track output
+- Terminal is "active" if output received within last 2 seconds
+- Spinner appears/animates when active, hidden when idle

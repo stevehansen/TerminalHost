@@ -36,6 +36,17 @@ public partial class TerminalPairTabViewModel : ObservableObject
     [ObservableProperty]
     private GitStatus? _gitStatus;
 
+    [ObservableProperty]
+    private bool _isCustomTerminalActive;
+
+    [ObservableProperty]
+    private bool _isShellTerminalActive;
+
+    /// <summary>
+    /// True if either terminal is currently producing output.
+    /// </summary>
+    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive;
+
     // Computed column widths from split ratio
     public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
     public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
@@ -74,6 +85,16 @@ public partial class TerminalPairTabViewModel : ObservableObject
 
         Pair.CustomTerminal.SetTerminalControl(customControl);
         Pair.ShellTerminal.SetTerminalControl(shellControl);
+
+        // Subscribe to activity changes for immediate UI updates
+        Pair.CustomTerminal.ActivityChanged += (s, e) =>
+        {
+            IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
+        };
+        Pair.ShellTerminal.ActivityChanged += (s, e) =>
+        {
+            IsShellTerminalActive = Pair.ShellTerminal.IsActive;
+        };
 
         // Notify that CurrentTerminalContent has changed
         OnPropertyChanged(nameof(CurrentTerminalContent));
@@ -131,6 +152,30 @@ public partial class TerminalPairTabViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(TitleWithGit));
         OnPropertyChanged(nameof(GitStatusDisplay));
+    }
+
+    partial void OnIsCustomTerminalActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyTerminalActive));
+    }
+
+    partial void OnIsShellTerminalActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyTerminalActive));
+    }
+
+    /// <summary>
+    /// Updates activity state from the terminal sessions.
+    /// </summary>
+    public void UpdateActivityState()
+    {
+        // Check for idle transitions
+        Pair.CustomTerminal.CheckActivityState();
+        Pair.ShellTerminal.CheckActivityState();
+
+        // Update properties
+        IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
+        IsShellTerminalActive = Pair.ShellTerminal.IsActive;
     }
 
     public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)

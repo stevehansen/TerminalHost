@@ -13,7 +13,27 @@ public class TerminalSession : IDisposable
 
     private EasyTerminalControl? _easyTerminalControl;
 
+    // Activity tracking
+    private DateTime? _lastOutputTime;
+    private bool _wasActive;
+
+    /// <summary>
+    /// The last time output was received from the terminal.
+    /// </summary>
+    public DateTime? LastOutputTime => _lastOutputTime;
+
+    /// <summary>
+    /// Returns true if the terminal has produced output within the last 2 seconds.
+    /// </summary>
+    public bool IsActive => _lastOutputTime.HasValue &&
+        (DateTime.Now - _lastOutputTime.Value).TotalSeconds < 2;
+
     public event EventHandler<int>? ProcessExited;
+
+    /// <summary>
+    /// Fired when the terminal transitions from idle to active or vice versa.
+    /// </summary>
+    public event EventHandler? ActivityChanged;
 
     public TerminalSession(Profile profile)
     {
@@ -26,6 +46,54 @@ public class TerminalSession : IDisposable
     {
         _easyTerminalControl = control;
         TerminalControl = control;
+
+        // Hook output interception for activity tracking after control is loaded
+        control.Loaded += (s, e) =>
+        {
+            control.Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    if (control.ConPTYTerm != null)
+                    {
+                        control.ConPTYTerm.InterceptOutputToUITerminal = OnTerminalOutput;
+                    }
+                }
+                catch
+                {
+                    // Ignore errors during hook setup
+                }
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        };
+    }
+
+    /// <summary>
+    /// Called when terminal output is received. Updates activity tracking.
+    /// </summary>
+    private void OnTerminalOutput(ref Span<char> str)
+    {
+        // Don't modify the output, just track timing
+        _lastOutputTime = DateTime.Now;
+
+        // Fire activity changed if we transitioned from idle to active
+        if (!_wasActive)
+        {
+            _wasActive = true;
+            ActivityChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Called periodically to check if activity state has changed (active -> idle).
+    /// </summary>
+    public void CheckActivityState()
+    {
+        var currentlyActive = IsActive;
+        if (_wasActive && !currentlyActive)
+        {
+            _wasActive = false;
+            ActivityChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public void MarkAsExited(int exitCode)

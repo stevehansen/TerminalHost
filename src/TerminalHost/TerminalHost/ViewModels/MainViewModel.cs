@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ConfigurationService _configService;
     private readonly GitStatusService _gitStatusService;
     private readonly DispatcherTimer _gitStatusTimer;
+    private readonly DispatcherTimer _activityTimer;
 
     [ObservableProperty]
     private ObservableCollection<TerminalPairTabViewModel> _tabs = new();
@@ -42,6 +43,13 @@ public partial class MainViewModel : ObservableObject
             Interval = TimeSpan.FromSeconds(5)
         };
         _gitStatusTimer.Tick += async (_, _) => await RefreshSelectedTabGitStatusAsync();
+
+        // Set up timer for activity state refresh (every 1 second to detect idle transitions)
+        _activityTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _activityTimer.Tick += (_, _) => RefreshActivityState();
     }
 
     public void Initialize()
@@ -54,6 +62,9 @@ public partial class MainViewModel : ObservableObject
 
         // Start git status refresh timer
         _gitStatusTimer.Start();
+
+        // Start activity refresh timer
+        _activityTimer.Start();
     }
 
     private void LoadQuickCommands()
@@ -87,6 +98,15 @@ public partial class MainViewModel : ObservableObject
         catch
         {
             // Silently ignore git status errors
+        }
+    }
+
+    private void RefreshActivityState()
+    {
+        // Update activity state for all tabs (to detect idle transitions)
+        foreach (var tab in Tabs)
+        {
+            tab.UpdateActivityState();
         }
     }
 
@@ -341,8 +361,9 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
-        // Stop git status refresh
+        // Stop timers
         _gitStatusTimer.Stop();
+        _activityTimer.Stop();
 
         // Save open folders before closing
         SaveOpenFolders();

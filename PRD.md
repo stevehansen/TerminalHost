@@ -43,6 +43,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Per-directory settings persistence (split ratio, active terminal)
 - [x] Git repository status display (branch, dirty status, ahead/behind)
 - [x] Quick commands with keyboard shortcuts
+- [x] Terminal activity indicators (animated spinner in tabs)
 
 ### Deferred Features
 
@@ -96,6 +97,8 @@ A running terminal instance.
 | Profile         | Profile             | Configuration for this terminal     |
 | TerminalControl | EasyTerminalControl | The WPF terminal control instance   |
 | State           | SessionState        | Running or Exited                   |
+| IsActive        | bool                | True if producing output (last 2s)  |
+| LastOutputTime  | DateTime?           | When output was last received       |
 
 ## Command Line Usage
 
@@ -227,6 +230,19 @@ Status indicators:
 - `↓N` - Commits behind remote
 
 Status refreshes automatically every 5 seconds for the active tab.
+
+### Terminal Activity Indicators
+
+Tabs display an animated spinning indicator (◌) when terminals are actively producing output:
+- **Active state**: Spinner visible and rotating when output received within last 2 seconds
+- **Idle state**: Spinner hidden when no output for 2+ seconds
+
+This helps users see at a glance which tabs have terminals doing work vs waiting for input.
+
+**Implementation:**
+- Uses `ConPTYTerm.InterceptOutputToUITerminal` delegate to track output timing
+- Activity state checked every 1 second to detect idle transitions
+- Events fire immediately when transitioning from idle to active
 
 ### Quick Commands
 

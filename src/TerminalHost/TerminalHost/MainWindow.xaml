@@ -85,6 +85,12 @@
         <local:ActiveTerminalStyleConverter x:Key="ActiveTerminalStyleConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+
+        <!-- Activity spinner animation using rotation -->
+        <Storyboard x:Key="SpinnerAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                             From="0" To="360" Duration="0:0:1"/>
+        </Storyboard>
     </Window.Resources>
 
     <Grid>
@@ -130,6 +136,20 @@
                                             Style="{StaticResource TabCloseButton}"
                                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"/>
+                                    <!-- Activity spinner - rotates when terminal is active -->
+                                    <TextBlock x:Name="ActivitySpinner"
+                                               DockPanel.Dock="Right"
+                                               Text="◌"
+                                               Foreground="#4EC9B0"
+                                               FontSize="10"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               Visibility="Collapsed">
+                                        <TextBlock.RenderTransform>
+                                            <RotateTransform Angle="0"/>
+                                        </TextBlock.RenderTransform>
+                                    </TextBlock>
                                     <TextBlock Foreground="#CCCCCC"
                                                VerticalAlignment="Center"
                                                Text="{Binding TitleWithGit, Mode=OneWay}"/>
@@ -138,6 +158,22 @@
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                                     <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
+                                </DataTrigger>
+                                <!-- Show and animate spinner when any terminal is active -->
+                                <DataTrigger Binding="{Binding IsAnyTerminalActive}" Value="True">
+                                    <Setter TargetName="ActivitySpinner" Property="Visibility" Value="Visible"/>
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="SpinnerStoryboard">
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="ActivitySpinner"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                 From="0" To="360" Duration="0:0:1"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="SpinnerStoryboard"/>
+                                    </DataTrigger.ExitActions>
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
