@@ -79,7 +79,8 @@ TerminalHost/
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
     │   ├── QuickCommand.cs     # Quick command with shortcut
-    │   └── LinkPattern.cs      # Custom link pattern definition
+    │   ├── LinkPattern.cs      # Custom link pattern definition
+    │   └── PaletteCommand.cs   # Command palette item definition
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile management
@@ -88,6 +89,8 @@ TerminalHost/
     │   ├── SystemTrayService.cs      # System tray icon and menu
     │   ├── TerminalControlFactory.cs # Creates EasyTerminalControl instances
     │   ├── GitStatusService.cs       # Git command execution
+    │   ├── FilePreviewService.cs     # File preview loading
+    │   ├── FileEditService.cs        # File editing (load/save)
     │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
     │   └── LinkDetectionService.cs   # Clickable link detection
     ├── ViewModels/
@@ -122,23 +125,35 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ## Keyboard Shortcuts
 
-- `Ctrl+N`: Open new project (folder picker)
-- `Ctrl+,`: Open settings editor
-- `Ctrl+P`: Open profile management
-- `Ctrl+E`: Open current folder in Explorer
-- `Ctrl+O`: Open file preview dialog
-- `F1`: Show help window
-- `Ctrl+Shift+T`: Open tab switcher (search and switch tabs)
+### Tab Navigation
 - `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab
+- `Ctrl+Shift+T`: Open tab switcher (search and switch tabs)
 - `Ctrl+W`: Close current tab
 - `Middle-click tab`: Close tab
 - `Drag tab`: Reorder tabs
+
+### Terminal
 - `Ctrl+\``: Switch between Custom/Shell terminal
+- `Ctrl+Click`: Open link under cursor (URL, file path, or custom pattern)
+
+### File Operations
+- `Ctrl+N`: Open new project (folder picker)
+- `Ctrl+E`: Open current folder in Explorer
+- `Ctrl+O`: Open file preview dialog
+- `Ctrl+Shift+E`: Open file editor
+
+### Application
+- `Ctrl+,`: Open settings editor
+- `Ctrl+P`: Open profile management
+- `Ctrl+Shift+P`: Open command palette
+- `Ctrl+Shift+N`: Open scratch pad (notes)
+- `F1`: Show help window
+
+### Default Quick Commands
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
 - `Ctrl+Shift+D`: Quick command - Git Pull (Shell)
 - `Ctrl+Shift+U`: Quick command - Git Push (Shell)
-- `Ctrl+Click`: Open link under cursor (URL, file path, or custom pattern)
 
 ## Configuration Schema
 

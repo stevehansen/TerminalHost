@@ -748,9 +748,10 @@
                                     FontSize="16"
                                     Padding="8,2"/>
                             <Button DockPanel.Dock="Right"
-                                    Content="Open in Editor"
+                                    Content="✏️ Edit"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Click="FilePreviewOpenInEditor_Click"
+                                    ToolTip="Open in built-in editor"
                                     Margin="0,0,8,0"/>
                             <TextBlock x:Name="FilePreviewTitle"
                                        Foreground="#CCCCCC"
@@ -800,6 +801,154 @@
                            Margin="0,0,2,2"
                            Cursor="SizeNWSE"
                            DragDelta="FilePreviewResizeGrip_DragDelta">
+                        <Thumb.Template>
+                            <ControlTemplate>
+                                <Grid Background="Transparent">
+                                    <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
+                                          Stroke="#888888" StrokeThickness="1.5"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- File Edit Popup (Ctrl+Shift+E) -->
+        <Popup x:Name="FileEditPopup"
+               Placement="Absolute"
+               StaysOpen="True"
+               AllowsTransparency="True">
+            <Border x:Name="FileEditBorder" Background="#1E1E1E"
+                    BorderBrush="#4EC9B0"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    MinWidth="500"
+                    MinHeight="400"
+                    Width="1000"
+                    Height="700">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header (draggable) -->
+                    <Border x:Name="FileEditHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                            MouseLeftButtonDown="FileEditHeader_MouseLeftButtonDown"
+                            MouseMove="FileEditHeader_MouseMove"
+                            MouseLeftButtonUp="FileEditHeader_MouseLeftButtonUp"
+                            Cursor="SizeAll">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="FileEditClose_Click"
+                                    FontSize="16"
+                                    Padding="8,2"/>
+                            <Button x:Name="FileEditSaveButton" DockPanel.Dock="Right"
+                                    Content="💾 Save"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="FileEditSave_Click"
+                                    ToolTip="Save (Ctrl+S)"
+                                    Margin="0,0,8,0"/>
+                            <Button DockPanel.Dock="Right"
+                                    Content="↻ Reload"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="FileEditReload_Click"
+                                    ToolTip="Reload file from disk"
+                                    Margin="0,0,4,0"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="FileEditTitle"
+                                           Foreground="#CCCCCC"
+                                           FontSize="13"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="FileEditModifiedIndicator"
+                                           Text=" *"
+                                           Foreground="#4EC9B0"
+                                           FontSize="13"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Editor Content -->
+                    <Grid Grid.Row="1" Background="#1E1E1E">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Line Numbers -->
+                        <ScrollViewer x:Name="LineNumberScroller" Grid.Column="0"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Background="#252525"
+                                      Padding="8,4,8,4">
+                            <TextBlock x:Name="FileEditLineNumbers"
+                                       Foreground="#858585"
+                                       FontFamily="Cascadia Code NF, Consolas, Courier New"
+                                       FontSize="13"
+                                       TextAlignment="Right"/>
+                        </ScrollViewer>
+
+                        <!-- Text Editor -->
+                        <TextBox x:Name="FileEditTextBox"
+                                 Grid.Column="1"
+                                 Background="#1E1E1E"
+                                 Foreground="#CCCCCC"
+                                 CaretBrush="#CCCCCC"
+                                 BorderThickness="0"
+                                 FontFamily="Cascadia Code NF, Consolas, Courier New"
+                                 FontSize="13"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 Padding="4"
+                                 TextChanged="FileEditTextBox_TextChanged"
+                                 ScrollViewer.ScrollChanged="FileEditTextBox_ScrollChanged"
+                                 PreviewKeyDown="FileEditTextBox_PreviewKeyDown"/>
+                    </Grid>
+
+                    <!-- Footer -->
+                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,20,0"
+                                       Text="Ctrl+S to save, Escape to close"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="FileEditInfo"
+                                           Foreground="#808080"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock x:Name="FileEditCursorInfo"
+                                           Foreground="#808080"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Margin="16,0,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Resize grip -->
+                    <Thumb x:Name="FileEditResizeGrip" Grid.Row="2"
+                           Width="16" Height="16"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                           Margin="0,0,2,2"
+                           Cursor="SizeNWSE"
+                           DragDelta="FileEditResizeGrip_DragDelta">
                         <Thumb.Template>
                             <ControlTemplate>
                                 <Grid Background="Transparent">
@@ -917,6 +1066,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+N" Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Open new project (folder picker)" Foreground="#CCCCCC" Margin="0,2"/>
@@ -924,6 +1074,8 @@
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="Open current folder in Explorer" Foreground="#CCCCCC" Margin="0,2"/>
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+O" Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="Open file preview dialog" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+E" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="Open file editor" Foreground="#CCCCCC" Margin="0,2"/>
                             </Grid>
 
                             <!-- Application -->
@@ -937,13 +1089,19 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="#CCCCCC" Margin="0,2"/>
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+P" Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="Open profile management" Foreground="#CCCCCC" Margin="0,2"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="F1" Foreground="#CE9178" Margin="0,2"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="Show this help window" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+P" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="F1" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="Show this help window" Foreground="#CCCCCC" Margin="0,2"/>
                             </Grid>
 
                             <!-- Quick Commands Section -->
@@ -1034,6 +1192,301 @@
                                        Text="TerminalHost v1.0"/>
                         </DockPanel>
                     </Border>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- Command Palette Popup (Ctrl+Shift+P) -->
+        <Popup x:Name="CommandPalettePopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#252525"
+                    BorderBrush="#0078D4"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="0"
+                    Width="500"
+                    MaxHeight="450">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Search Box -->
+                    <Border Grid.Row="0" Background="#1E1E1E" Padding="12,10" CornerRadius="6,6,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text=">"
+                                       Foreground="#0078D4"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"/>
+                            <TextBox x:Name="PaletteSearchBox"
+                                     Grid.Column="1"
+                                     Background="Transparent"
+                                     Foreground="#CCCCCC"
+                                     CaretBrush="#CCCCCC"
+                                     BorderThickness="0"
+                                     FontSize="14"
+                                     VerticalAlignment="Center"
+                                     TextChanged="PaletteSearch_TextChanged"
+                                     PreviewKeyDown="PaletteSearchBox_PreviewKeyDown"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Command List -->
+                    <ListBox x:Name="PaletteCommandList"
+                             Grid.Row="1"
+                             Background="#252525"
+                             BorderThickness="0"
+                             MaxHeight="380"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="PaletteCommandList_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="8,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="#CCCCCC"
+                                                   FontSize="13"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Description}"
+                                                   Foreground="#808080"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="12,0,0,0"
+                                                   Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1"
+                                            Background="#3C3C3C"
+                                            CornerRadius="3"
+                                            Padding="6,2"
+                                            Visibility="{Binding Shortcut, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding DisplayShortcut}"
+                                                   Foreground="#808080"
+                                                   FontSize="11"
+                                                   FontFamily="Cascadia Code NF, Consolas"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- Scratch Pad Popup (Ctrl+Shift+N) -->
+        <Popup x:Name="ScratchPadPopup"
+               Placement="Absolute"
+               StaysOpen="True"
+               AllowsTransparency="True">
+            <Border x:Name="ScratchPadBorder" Background="#1E1E1E"
+                    BorderBrush="#569CD6"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    MinWidth="400"
+                    MinHeight="300"
+                    Width="600"
+                    Height="450">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header (draggable) -->
+                    <Border x:Name="ScratchPadHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                            MouseLeftButtonDown="ScratchPadHeader_MouseLeftButtonDown"
+                            MouseMove="ScratchPadHeader_MouseMove"
+                            MouseLeftButtonUp="ScratchPadHeader_MouseLeftButtonUp"
+                            Cursor="SizeAll">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="ScratchPadClose_Click"
+                                    FontSize="16"
+                                    Padding="8,2"/>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,8,0">
+                                <RadioButton x:Name="ScratchPadProjectRadio"
+                                             Content="Project"
+                                             Foreground="#CCCCCC"
+                                             GroupName="ScratchPadScope"
+                                             IsChecked="True"
+                                             Checked="ScratchPadScope_Changed"
+                                             Margin="0,0,8,0">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RadioButton">
+                                                        <Border x:Name="border" Background="#3C3C3C" CornerRadius="3" Padding="8,4" Cursor="Hand">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#0078D4"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
+                                                            </Trigger>
+                                                            <MultiTrigger>
+                                                                <MultiTrigger.Conditions>
+                                                                    <Condition Property="IsChecked" Value="True"/>
+                                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                                </MultiTrigger.Conditions>
+                                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
+                                                            </MultiTrigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+                                <RadioButton x:Name="ScratchPadGlobalRadio"
+                                             Content="Global"
+                                             Foreground="#CCCCCC"
+                                             GroupName="ScratchPadScope"
+                                             Checked="ScratchPadScope_Changed">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RadioButton">
+                                                        <Border x:Name="border" Background="#3C3C3C" CornerRadius="3" Padding="8,4" Cursor="Hand">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#0078D4"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
+                                                            </Trigger>
+                                                            <MultiTrigger>
+                                                                <MultiTrigger.Conditions>
+                                                                    <Condition Property="IsChecked" Value="True"/>
+                                                                    <Condition Property="IsMouseOver" Value="True"/>
+                                                                </MultiTrigger.Conditions>
+                                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
+                                                            </MultiTrigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="📝"
+                                           Foreground="#569CD6"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+                                <TextBlock x:Name="ScratchPadTitle"
+                                           Text="Scratch Pad"
+                                           Foreground="#CCCCCC"
+                                           FontSize="13"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Notes Content -->
+                    <TextBox x:Name="ScratchPadTextBox"
+                             Grid.Row="1"
+                             Background="#1E1E1E"
+                             Foreground="#CCCCCC"
+                             CaretBrush="#CCCCCC"
+                             BorderThickness="0"
+                             FontFamily="Cascadia Code NF, Consolas, Courier New"
+                             FontSize="13"
+                             AcceptsReturn="True"
+                             AcceptsTab="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Padding="12,8"
+                             TextChanged="ScratchPadTextBox_TextChanged"/>
+
+                    <!-- Footer -->
+                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,20,0"
+                                       Text="Auto-saved"/>
+                            <TextBlock x:Name="ScratchPadInfo"
+                                       Foreground="#808080"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Resize grip -->
+                    <Thumb x:Name="ScratchPadResizeGrip" Grid.Row="2"
+                           Width="16" Height="16"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                           Margin="0,0,2,2"
+                           Cursor="SizeNWSE"
+                           DragDelta="ScratchPadResizeGrip_DragDelta">
+                        <Thumb.Template>
+                            <ControlTemplate>
+                                <Grid Background="Transparent">
+                                    <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
+                                          Stroke="#888888" StrokeThickness="1.5"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
                 </Grid>
             </Border>
         </Popup>

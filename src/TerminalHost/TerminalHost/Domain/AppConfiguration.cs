@@ -25,6 +25,12 @@ public class AppConfiguration
     [JsonPropertyName("linkPatterns")]
     public List<LinkPattern> LinkPatterns { get; set; } = GetDefaultLinkPatterns();
 
+    [JsonPropertyName("scratchPads")]
+    public Dictionary<string, string> ScratchPads { get; set; } = new();  // Directory path -> content
+
+    [JsonPropertyName("globalScratchPad")]
+    public string GlobalScratchPad { get; set; } = "";
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own

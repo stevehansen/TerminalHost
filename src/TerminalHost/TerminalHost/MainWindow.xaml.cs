@@ -175,6 +175,19 @@ public partial class MainWindow : Window
         // Escape: Close popups if open
         if (e.Key == Key.Escape)
         {
+            if (ScratchPadPopup.IsOpen)
+            {
+                SaveScratchPadContent();
+                ScratchPadPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (FileEditPopup.IsOpen)
+            {
+                CloseFileEdit();
+                e.Handled = true;
+                return;
+            }
             if (FilePreviewPopup.IsOpen)
             {
                 FilePreviewPopup.IsOpen = false;
@@ -274,6 +287,24 @@ public partial class MainWindow : Window
         else if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
         {
             OpenFilePreviewDialog();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+E: Open file edit dialog
+        else if (e.Key == Key.E && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            OpenFileEditDialog();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+P: Open command palette
+        else if (e.Key == Key.P && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            ShowCommandPalette();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+N: Open scratch pad
+        else if (e.Key == Key.N && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            ShowScratchPad();
             e.Handled = true;
         }
         // Check quick command shortcuts
@@ -870,19 +901,29 @@ public partial class MainWindow : Window
     {
         if (!string.IsNullOrEmpty(_currentPreviewFilePath) && System.IO.File.Exists(_currentPreviewFilePath))
         {
-            try
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = _currentPreviewFilePath,
-                    UseShellExecute = true
-                });
-                FilePreviewPopup.IsOpen = false;
-            }
-            catch (Exception ex)
-            {
-                System.Console.WriteLine($"[MainWindow] Failed to open file in editor: {ex.Message}");
-            }
+            FilePreviewPopup.IsOpen = false;
+            ShowFileEdit(_currentPreviewFilePath);
+        }
+    }
+
+    private void OpenFileEditDialog()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select File to Edit",
+            Filter = "All Files (*.*)|*.*|Code Files (*.cs;*.js;*.ts;*.py;*.json;*.xml)|*.cs;*.js;*.ts;*.py;*.json;*.xml|Text Files (*.txt;*.md;*.log)|*.txt;*.md;*.log",
+            FilterIndex = 1
+        };
+
+        // Set initial directory to current tab's working directory
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            dialog.InitialDirectory = terminalTab.Pair.WorkingDirectory;
+        }
+
+        if (dialog.ShowDialog() == true)
+        {
+            ShowFileEdit(dialog.FileName);
         }
     }
 
@@ -898,6 +939,699 @@ public partial class MainWindow : Window
     private void HelpClose_Click(object sender, RoutedEventArgs e)
     {
         HelpPopup.IsOpen = false;
+    }
+
+    #endregion
+
+    #region File Edit
+
+    private readonly FileEditService _fileEditService = new();
+    private string? _currentEditFilePath;
+    private System.Text.Encoding? _currentEditEncoding;
+    private string? _originalContent;
+    private bool _isFileModified;
+    private bool _isDraggingEdit;
+    private System.Windows.Point _editDragStart;
+
+    public void ShowFileEdit(string filePath, int? goToLine = null)
+    {
+        System.Console.WriteLine($"[FileEdit] ShowFileEdit called for: {filePath}");
+        var result = _fileEditService.LoadFile(filePath);
+
+        if (!result.IsSuccess)
+        {
+            System.Windows.MessageBox.Show(
+                result.Error ?? "Unknown error loading file",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        _currentEditFilePath = result.FilePath;
+        _currentEditEncoding = result.Encoding;
+        _originalContent = result.Content;
+        _isFileModified = false;
+
+        FileEditTitle.Text = result.FileName;
+        FileEditModifiedIndicator.Visibility = Visibility.Collapsed;
+        FileEditTextBox.Text = result.Content;
+        FileEditInfo.Text = $"{result.LineCount:N0} lines • {FormatFileSize(result.FileSize)}";
+
+        if (result.IsReadOnly)
+        {
+            FileEditInfo.Text += " • Read-only";
+            FileEditSaveButton.IsEnabled = false;
+        }
+        else
+        {
+            FileEditSaveButton.IsEnabled = true;
+        }
+
+        UpdateLineNumbers();
+        UpdateCursorInfo();
+
+        // Center the popup on the window
+        var windowPos = PointToScreen(new System.Windows.Point(0, 0));
+        FileEditPopup.HorizontalOffset = windowPos.X + (ActualWidth - 1000) / 2;
+        FileEditPopup.VerticalOffset = windowPos.Y + (ActualHeight - 700) / 2;
+
+        FileEditPopup.IsOpen = true;
+        FileEditTextBox.Focus();
+
+        // Go to specific line if requested
+        if (goToLine.HasValue)
+        {
+            GoToLine(goToLine.Value);
+        }
+    }
+
+    private void GoToLine(int lineNumber)
+    {
+        var text = FileEditTextBox.Text;
+        var lines = text.Split('\n');
+        var targetLine = Math.Max(0, Math.Min(lineNumber - 1, lines.Length - 1));
+
+        int charIndex = 0;
+        for (int i = 0; i < targetLine; i++)
+        {
+            charIndex += lines[i].Length + 1; // +1 for newline
+        }
+
+        FileEditTextBox.CaretIndex = charIndex;
+        FileEditTextBox.ScrollToLine(targetLine);
+        FileEditTextBox.Focus();
+    }
+
+    private void UpdateLineNumbers()
+    {
+        var lineCount = FileEditTextBox.Text.Split('\n').Length;
+        var lineNumbers = new System.Text.StringBuilder();
+        for (int i = 1; i <= lineCount; i++)
+        {
+            lineNumbers.AppendLine(i.ToString());
+        }
+        FileEditLineNumbers.Text = lineNumbers.ToString().TrimEnd();
+    }
+
+    private void UpdateCursorInfo()
+    {
+        var text = FileEditTextBox.Text;
+        var caretIndex = FileEditTextBox.CaretIndex;
+
+        // Calculate line and column
+        var textUpToCaret = text.Substring(0, Math.Min(caretIndex, text.Length));
+        var line = textUpToCaret.Count(c => c == '\n') + 1;
+        var lastNewline = textUpToCaret.LastIndexOf('\n');
+        var column = lastNewline < 0 ? caretIndex + 1 : caretIndex - lastNewline;
+
+        FileEditCursorInfo.Text = $"Ln {line}, Col {column}";
+    }
+
+    private void FileEditTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateLineNumbers();
+
+        // Check if content has changed
+        _isFileModified = FileEditTextBox.Text != _originalContent;
+        FileEditModifiedIndicator.Visibility = _isFileModified ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void FileEditTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // Sync line number scroll with text editor scroll
+        LineNumberScroller.ScrollToVerticalOffset(e.VerticalOffset);
+    }
+
+    private void FileEditTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // Ctrl+S to save
+        if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            SaveCurrentFile();
+            e.Handled = true;
+        }
+        // Ctrl+G to go to line
+        else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ShowGoToLineDialog();
+            e.Handled = true;
+        }
+        // Update cursor info on navigation keys
+        else if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right ||
+                 e.Key == Key.Home || e.Key == Key.End || e.Key == Key.PageUp || e.Key == Key.PageDown)
+        {
+            Dispatcher.BeginInvoke(new System.Action(UpdateCursorInfo), System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    private void ShowGoToLineDialog()
+    {
+        var lineCount = FileEditTextBox.Text.Split('\n').Length;
+        var input = Microsoft.VisualBasic.Interaction.InputBox(
+            $"Enter line number (1-{lineCount}):",
+            "Go to Line",
+            "1");
+
+        if (!string.IsNullOrEmpty(input) && int.TryParse(input, out var lineNumber))
+        {
+            GoToLine(lineNumber);
+        }
+    }
+
+    private void SaveCurrentFile()
+    {
+        if (string.IsNullOrEmpty(_currentEditFilePath))
+            return;
+
+        var result = _fileEditService.SaveFile(_currentEditFilePath, FileEditTextBox.Text, _currentEditEncoding);
+
+        if (result.Success)
+        {
+            _originalContent = FileEditTextBox.Text;
+            _isFileModified = false;
+            FileEditModifiedIndicator.Visibility = Visibility.Collapsed;
+
+            // Update file info
+            var fileInfo = new System.IO.FileInfo(_currentEditFilePath);
+            var lineCount = FileEditTextBox.Text.Split('\n').Length;
+            FileEditInfo.Text = $"{lineCount:N0} lines • {FormatFileSize(fileInfo.Length)} • Saved";
+        }
+        else
+        {
+            System.Windows.MessageBox.Show(
+                result.Error ?? "Unknown error saving file",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void FileEditSave_Click(object sender, RoutedEventArgs e)
+    {
+        SaveCurrentFile();
+    }
+
+    private void FileEditReload_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_currentEditFilePath))
+            return;
+
+        if (_isFileModified)
+        {
+            var result = System.Windows.MessageBox.Show(
+                "You have unsaved changes. Reload and lose changes?",
+                "Confirm Reload",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+        }
+
+        var editResult = _fileEditService.ReloadFile(_currentEditFilePath);
+        if (editResult.IsSuccess)
+        {
+            _originalContent = editResult.Content;
+            FileEditTextBox.Text = editResult.Content;
+            _isFileModified = false;
+            FileEditModifiedIndicator.Visibility = Visibility.Collapsed;
+            FileEditInfo.Text = $"{editResult.LineCount:N0} lines • {FormatFileSize(editResult.FileSize)} • Reloaded";
+        }
+        else
+        {
+            System.Windows.MessageBox.Show(
+                editResult.Error ?? "Unknown error reloading file",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void FileEditClose_Click(object sender, RoutedEventArgs e)
+    {
+        CloseFileEdit();
+    }
+
+    private void CloseFileEdit()
+    {
+        if (_isFileModified)
+        {
+            var result = System.Windows.MessageBox.Show(
+                "You have unsaved changes. Close without saving?",
+                "Unsaved Changes",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+        }
+
+        FileEditPopup.IsOpen = false;
+        _currentEditFilePath = null;
+        _currentEditEncoding = null;
+        _originalContent = null;
+        _isFileModified = false;
+    }
+
+    private void FileEditHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingEdit = true;
+        _editDragStart = PointToScreen(e.GetPosition(this));
+        Mouse.Capture((IInputElement)sender);
+        e.Handled = true;
+    }
+
+    private void FileEditHeader_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isDraggingEdit) return;
+
+        var currentPos = PointToScreen(e.GetPosition(this));
+        var diff = currentPos - _editDragStart;
+
+        FileEditPopup.HorizontalOffset += diff.X;
+        FileEditPopup.VerticalOffset += diff.Y;
+
+        _editDragStart = currentPos;
+        e.Handled = true;
+    }
+
+    private void FileEditHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingEdit)
+        {
+            _isDraggingEdit = false;
+            Mouse.Capture(null);
+            e.Handled = true;
+        }
+    }
+
+    private void FileEditResizeGrip_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        var newWidth = FileEditBorder.Width + e.HorizontalChange;
+        var newHeight = FileEditBorder.Height + e.VerticalChange;
+
+        if (newWidth >= FileEditBorder.MinWidth)
+        {
+            FileEditBorder.Width = newWidth;
+        }
+        if (newHeight >= FileEditBorder.MinHeight)
+        {
+            FileEditBorder.Height = newHeight;
+        }
+    }
+
+    #endregion
+
+    #region Command Palette
+
+    private List<PaletteCommand> _paletteCommands = new();
+
+    private void InitializeCommandPalette()
+    {
+        _paletteCommands = new List<PaletteCommand>
+        {
+            // Tab/Project commands
+            new PaletteCommand
+            {
+                Id = "new-project",
+                Name = "New Project",
+                Description = "Open folder as new project",
+                Shortcut = "Ctrl+N",
+                Icon = "📁",
+                Category = "Project",
+                Execute = () => _viewModel.OpenNewProjectCommand.Execute(null)
+            },
+            new PaletteCommand
+            {
+                Id = "close-tab",
+                Name = "Close Tab",
+                Description = "Close current tab",
+                Shortcut = "Ctrl+W",
+                Icon = "✕",
+                Category = "Tab",
+                Execute = () => { if (_viewModel.SelectedTab != null) _viewModel.CloseTabCommand.Execute(_viewModel.SelectedTab); }
+            },
+            new PaletteCommand
+            {
+                Id = "tab-switcher",
+                Name = "Switch Tab",
+                Description = "Search and switch tabs",
+                Shortcut = "Ctrl+Shift+T",
+                Icon = "🔍",
+                Category = "Tab",
+                Execute = ShowTabSwitcher
+            },
+
+            // File commands
+            new PaletteCommand
+            {
+                Id = "file-preview",
+                Name = "Preview File",
+                Description = "Open file preview",
+                Shortcut = "Ctrl+O",
+                Icon = "👁",
+                Category = "File",
+                Execute = OpenFilePreviewDialog
+            },
+            new PaletteCommand
+            {
+                Id = "file-edit",
+                Name = "Edit File",
+                Description = "Open file in editor",
+                Shortcut = "Ctrl+Shift+E",
+                Icon = "✏️",
+                Category = "File",
+                Execute = OpenFileEditDialog
+            },
+            new PaletteCommand
+            {
+                Id = "open-explorer",
+                Name = "Open in Explorer",
+                Description = "Open folder in file explorer",
+                Shortcut = "Ctrl+E",
+                Icon = "📂",
+                Category = "File",
+                Execute = () => _viewModel.OpenInExplorerCommand.Execute(null),
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Terminal commands
+            new PaletteCommand
+            {
+                Id = "switch-terminal",
+                Name = "Switch Terminal",
+                Description = "Toggle between custom and shell",
+                Shortcut = "Ctrl+`",
+                Icon = "⇄",
+                Category = "Terminal",
+                Execute = () => _viewModel.SwitchActiveTerminalCommand.Execute(null),
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Settings
+            new PaletteCommand
+            {
+                Id = "settings",
+                Name = "Settings",
+                Description = "Open settings editor",
+                Shortcut = "Ctrl+,",
+                Icon = "⚙️",
+                Category = "Settings",
+                Execute = () => _viewModel.OpenSettingsCommand.Execute(null)
+            },
+            new PaletteCommand
+            {
+                Id = "profiles",
+                Name = "Profiles",
+                Description = "Manage terminal profiles",
+                Shortcut = "Ctrl+P",
+                Icon = "👤",
+                Category = "Settings",
+                Execute = () => _viewModel.OpenProfilesCommand.Execute(null)
+            },
+
+            // Help
+            new PaletteCommand
+            {
+                Id = "help",
+                Name = "Help",
+                Description = "Show keyboard shortcuts",
+                Shortcut = "F1",
+                Icon = "❓",
+                Category = "Help",
+                Execute = () => HelpPopup.IsOpen = true
+            },
+
+            // Scratch Pad
+            new PaletteCommand
+            {
+                Id = "scratch-pad",
+                Name = "Scratch Pad",
+                Description = "Open notes panel",
+                Shortcut = "Ctrl+Shift+N",
+                Icon = "📝",
+                Category = "Tools",
+                Execute = ShowScratchPad
+            }
+        };
+    }
+
+    private void ShowCommandPalette()
+    {
+        if (_paletteCommands.Count == 0)
+        {
+            InitializeCommandPalette();
+        }
+
+        // Filter commands based on CanExecute
+        var availableCommands = _paletteCommands
+            .Where(c => c.CanExecute == null || c.CanExecute())
+            .ToList();
+
+        PaletteCommandList.ItemsSource = availableCommands;
+        PaletteSearchBox.Text = "";
+
+        if (availableCommands.Any())
+        {
+            PaletteCommandList.SelectedIndex = 0;
+        }
+
+        CommandPalettePopup.IsOpen = true;
+        PaletteSearchBox.Focus();
+    }
+
+    private void PaletteSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var searchText = PaletteSearchBox.Text?.ToLower() ?? "";
+
+        var filtered = _paletteCommands
+            .Where(c => c.CanExecute == null || c.CanExecute())
+            .Where(c =>
+                c.Name.ToLower().Contains(searchText) ||
+                (c.Description?.ToLower().Contains(searchText) ?? false) ||
+                c.Category.ToLower().Contains(searchText))
+            .ToList();
+
+        PaletteCommandList.ItemsSource = filtered;
+
+        if (filtered.Any())
+        {
+            PaletteCommandList.SelectedIndex = 0;
+        }
+    }
+
+    private void PaletteSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Down)
+        {
+            if (PaletteCommandList.SelectedIndex < PaletteCommandList.Items.Count - 1)
+            {
+                PaletteCommandList.SelectedIndex++;
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up)
+        {
+            if (PaletteCommandList.SelectedIndex > 0)
+            {
+                PaletteCommandList.SelectedIndex--;
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            ExecuteSelectedPaletteCommand();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            CommandPalettePopup.IsOpen = false;
+            e.Handled = true;
+        }
+    }
+
+    private void PaletteCommandList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        ExecuteSelectedPaletteCommand();
+    }
+
+    private void ExecuteSelectedPaletteCommand()
+    {
+        if (PaletteCommandList.SelectedItem is PaletteCommand command)
+        {
+            CommandPalettePopup.IsOpen = false;
+            command.Execute();
+        }
+    }
+
+    #endregion
+
+    #region Scratch Pad
+
+    private bool _isDraggingScratchPad;
+    private System.Windows.Point _scratchPadDragStart;
+    private bool _isLoadingScratchPad;
+    private System.Windows.Threading.DispatcherTimer? _scratchPadSaveTimer;
+
+    private void ShowScratchPad()
+    {
+        // Determine if we have a project context
+        var hasProject = _viewModel.SelectedTab is TerminalPairTabViewModel;
+
+        if (!hasProject)
+        {
+            // No project selected, use global scratch pad
+            ScratchPadGlobalRadio.IsChecked = true;
+            ScratchPadProjectRadio.IsEnabled = false;
+        }
+        else
+        {
+            ScratchPadProjectRadio.IsEnabled = true;
+            ScratchPadProjectRadio.IsChecked = true;
+        }
+
+        LoadScratchPadContent();
+
+        // Center the popup on the window
+        var windowPos = PointToScreen(new System.Windows.Point(0, 0));
+        ScratchPadPopup.HorizontalOffset = windowPos.X + (ActualWidth - 600) / 2;
+        ScratchPadPopup.VerticalOffset = windowPos.Y + (ActualHeight - 450) / 2;
+
+        ScratchPadPopup.IsOpen = true;
+        ScratchPadTextBox.Focus();
+    }
+
+    private void LoadScratchPadContent()
+    {
+        _isLoadingScratchPad = true;
+        try
+        {
+            var config = _configService.Load();
+            var isGlobal = ScratchPadGlobalRadio.IsChecked == true;
+
+            if (isGlobal)
+            {
+                ScratchPadTextBox.Text = config.GlobalScratchPad;
+                ScratchPadTitle.Text = "Scratch Pad (Global)";
+                ScratchPadInfo.Text = "Shared across all projects";
+            }
+            else if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var path = NormalizePath(terminalTab.Pair.WorkingDirectory);
+                var content = config.ScratchPads.TryGetValue(path, out var c) ? c : "";
+                ScratchPadTextBox.Text = content;
+                ScratchPadTitle.Text = $"Scratch Pad ({terminalTab.Title})";
+                ScratchPadInfo.Text = terminalTab.Pair.WorkingDirectory;
+            }
+        }
+        finally
+        {
+            _isLoadingScratchPad = false;
+        }
+    }
+
+    private void SaveScratchPadContent()
+    {
+        if (_isLoadingScratchPad) return;
+
+        var config = _configService.Load();
+        var isGlobal = ScratchPadGlobalRadio.IsChecked == true;
+
+        if (isGlobal)
+        {
+            config.GlobalScratchPad = ScratchPadTextBox.Text;
+        }
+        else if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            var path = NormalizePath(terminalTab.Pair.WorkingDirectory);
+            config.ScratchPads[path] = ScratchPadTextBox.Text;
+        }
+
+        _configService.Save(config);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return System.IO.Path.GetFullPath(path).TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar).ToLowerInvariant();
+    }
+
+    private void ScratchPadScope_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!ScratchPadPopup.IsOpen) return;
+        LoadScratchPadContent();
+    }
+
+    private void ScratchPadTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isLoadingScratchPad) return;
+
+        // Debounce saving - wait 500ms after last change
+        _scratchPadSaveTimer?.Stop();
+        _scratchPadSaveTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _scratchPadSaveTimer.Tick += (s, args) =>
+        {
+            _scratchPadSaveTimer?.Stop();
+            SaveScratchPadContent();
+        };
+        _scratchPadSaveTimer.Start();
+    }
+
+    private void ScratchPadClose_Click(object sender, RoutedEventArgs e)
+    {
+        // Save immediately on close
+        SaveScratchPadContent();
+        ScratchPadPopup.IsOpen = false;
+    }
+
+    private void ScratchPadHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingScratchPad = true;
+        _scratchPadDragStart = PointToScreen(e.GetPosition(this));
+        Mouse.Capture((IInputElement)sender);
+        e.Handled = true;
+    }
+
+    private void ScratchPadHeader_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isDraggingScratchPad) return;
+
+        var currentPos = PointToScreen(e.GetPosition(this));
+        var diff = currentPos - _scratchPadDragStart;
+
+        ScratchPadPopup.HorizontalOffset += diff.X;
+        ScratchPadPopup.VerticalOffset += diff.Y;
+
+        _scratchPadDragStart = currentPos;
+        e.Handled = true;
+    }
+
+    private void ScratchPadHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingScratchPad)
+        {
+            _isDraggingScratchPad = false;
+            Mouse.Capture(null);
+            e.Handled = true;
+        }
+    }
+
+    private void ScratchPadResizeGrip_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        var newWidth = ScratchPadBorder.Width + e.HorizontalChange;
+        var newHeight = ScratchPadBorder.Height + e.VerticalChange;
+
+        if (newWidth >= ScratchPadBorder.MinWidth)
+        {
+            ScratchPadBorder.Width = newWidth;
+        }
+        if (newHeight >= ScratchPadBorder.MinHeight)
+        {
+            ScratchPadBorder.Height = newHeight;
+        }
     }
 
     #endregion
