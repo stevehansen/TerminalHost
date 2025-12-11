@@ -222,12 +222,13 @@
                                             Style="{StaticResource TabCloseButton}"
                                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"/>
-                                    <!-- Activity spinner - rotates when terminal is active -->
+                                    <!-- Activity spinner - rotates when terminal is active (hidden for selected tab) -->
                                     <TextBlock x:Name="ActivitySpinner"
                                                DockPanel.Dock="Right"
-                                               Text="◌"
-                                               Foreground="#4EC9B0"
-                                               FontSize="10"
+                                               Text="◐"
+                                               Foreground="#FFD700"
+                                               FontSize="12"
+                                               FontWeight="Bold"
                                                VerticalAlignment="Center"
                                                Margin="0,0,6,0"
                                                RenderTransformOrigin="0.5,0.5"
@@ -245,22 +246,26 @@
                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                                     <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
                                 </DataTrigger>
-                                <!-- Show and animate spinner when any terminal is active -->
-                                <DataTrigger Binding="{Binding IsAnyTerminalActive}" Value="True">
+                                <!-- Show and animate spinner when terminal is active AND tab is NOT selected -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsAnyTerminalActive}" Value="True"/>
+                                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter TargetName="ActivitySpinner" Property="Visibility" Value="Visible"/>
-                                    <DataTrigger.EnterActions>
+                                    <MultiDataTrigger.EnterActions>
                                         <BeginStoryboard x:Name="SpinnerStoryboard">
                                             <Storyboard RepeatBehavior="Forever">
                                                 <DoubleAnimation Storyboard.TargetName="ActivitySpinner"
                                                                  Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                                 From="0" To="360" Duration="0:0:1"/>
+                                                                 From="0" To="360" Duration="0:0:0.8"/>
                                             </Storyboard>
                                         </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
+                                    </MultiDataTrigger.EnterActions>
+                                    <MultiDataTrigger.ExitActions>
                                         <StopStoryboard BeginStoryboardName="SpinnerStoryboard"/>
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
+                                    </MultiDataTrigger.ExitActions>
+                                </MultiDataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
 
