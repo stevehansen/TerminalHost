@@ -589,6 +589,7 @@ File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting f
 | `.md`, `.markdown`     | Markdown with headers, links, code blocks  |
 | `.csv`                 | CSV with column colorization               |
 | `.tsv`                 | TSV with column colorization               |
+| `.diff`, `.patch`      | Git diff/patch with additions, deletions, headers |
 
 **CSV/TSV Colorization:**
 - Each column is assigned a distinct color for easy visual differentiation
@@ -646,7 +647,6 @@ Items for future development:
 - **Custom profile pairs**: Different command pairs for different project types
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
-- **Git diff syntax highlighting**: Colorize git diffs in file preview
 
 ## Success Criteria
 

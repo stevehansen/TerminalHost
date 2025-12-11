@@ -27,6 +27,7 @@ public class FilePreviewService
             new JavaScriptHighlighter(),
             new CsvHighlighter(),
             new TsvHighlighter(),
+            new DiffHighlighter(),
             _fallbackHighlighter
         };
 
