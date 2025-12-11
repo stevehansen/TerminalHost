@@ -757,7 +757,7 @@ public partial class MainWindow : Window
         {
             FilePreviewTitle.Text = result.FileName;
             FilePreviewContent.Document = CreateErrorDocument(result.Error!);
-            FilePreviewInfo.Text = "Error loading file";
+            FilePreviewInfo.Text = $"Error • {FormatFileSize(result.FileSize)}";
         }
 
         // Center the popup on the window
@@ -839,7 +839,8 @@ public partial class MainWindow : Window
                 System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)),
             FontFamily = new System.Windows.Media.FontFamily("Cascadia Code NF, Consolas, Courier New"),
             FontSize = 13,
-            PagePadding = new Thickness(16)
+            PagePadding = new Thickness(16),
+            PageWidth = 10000
         };
 
         var paragraph = new System.Windows.Documents.Paragraph();

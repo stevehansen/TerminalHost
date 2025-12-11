@@ -56,6 +56,7 @@ public class FilePreviewService
             {
                 FilePath = filePath,
                 FileName = fileInfo.Name,
+                FileSize = fileInfo.Length,
                 Error = $"File too large ({fileInfo.Length / 1024:N0} KB). Maximum supported size is {MaxFileSize / 1024:N0} KB."
             };
         }
@@ -91,6 +92,7 @@ public class FilePreviewService
             {
                 FilePath = filePath,
                 FileName = fileInfo.Name,
+                FileSize = fileInfo.Length,
                 Error = $"Error reading file: {ex.Message}"
             };
         }
