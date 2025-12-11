@@ -217,11 +217,11 @@
                 <!-- Terminal Content Area - Single grid with dynamic column widths -->
                 <Grid Grid.Row="1" Background="#1E1E1E" x:Name="TerminalContentGrid">
                     <Grid.ColumnDefinitions>
-                        <!-- Custom terminal column: full width when not split and custom active, half when split, 0 when shell active -->
+                        <!-- Custom terminal column: 60% when split, full when not split and active, 0 when shell active -->
                         <ColumnDefinition>
                             <ColumnDefinition.Style>
                                 <Style TargetType="ColumnDefinition">
-                                    <Setter Property="Width" Value="*"/>
+                                    <Setter Property="Width" Value="6*"/>
                                     <Style.Triggers>
                                         <!-- Hide when not split and shell is active -->
                                         <MultiDataTrigger>
@@ -248,11 +248,11 @@
                                 </Style>
                             </ColumnDefinition.Style>
                         </ColumnDefinition>
-                        <!-- Shell terminal column: full width when not split and shell active, half when split, 0 when custom active -->
+                        <!-- Shell terminal column: 40% when split, full when not split and active, 0 when custom active -->
                         <ColumnDefinition>
                             <ColumnDefinition.Style>
                                 <Style TargetType="ColumnDefinition">
-                                    <Setter Property="Width" Value="*"/>
+                                    <Setter Property="Width" Value="4*"/>
                                     <Style.Triggers>
                                         <!-- Hide when not split and custom is active -->
                                         <MultiDataTrigger>

@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.IO;
-using System.Windows.Controls;
+using System.Windows.Media;
 using EasyWindowsTerminalControl;
+using Microsoft.Terminal.Wpf;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
@@ -14,12 +14,6 @@ public class TerminalControlFactory
         var workingDir = profile.GetExpandedWorkingDir();
         var command = string.IsNullOrWhiteSpace(profile.Command) ? "cmd.exe" : profile.Command;
 
-        Debug.WriteLine($"[TerminalControlFactory] Creating terminal for: {profile.Name}");
-        Debug.WriteLine($"[TerminalControlFactory] Working dir: {workingDir}");
-        Debug.WriteLine($"[TerminalControlFactory] Command: {command}");
-        Console.WriteLine($"[TerminalControlFactory] Creating terminal for: {profile.Name}");
-        Console.WriteLine($"[TerminalControlFactory] Working dir: {workingDir}");
-        Console.WriteLine($"[TerminalControlFactory] Command: {command}");
 
         // Build a startup command that changes to working directory first, then runs the command
         string startupCommand;
@@ -31,7 +25,7 @@ public class TerminalControlFactory
 
         if (!commandExists && !IsBuiltInCommand(commandExe))
         {
-            Debug.WriteLine($"[TerminalControlFactory] Command not found: {commandExe}, falling back to cmd.exe");
+            Console.WriteLine($"[TerminalControlFactory] Warning: Command not found: {commandExe}, falling back to cmd.exe");
             command = "cmd.exe";
         }
 
@@ -63,8 +57,6 @@ public class TerminalControlFactory
             }
         }
 
-        Debug.WriteLine($"[TerminalControlFactory] Startup command: {startupCommand}");
-        Console.WriteLine($"[TerminalControlFactory] Startup command: {startupCommand}");
 
         // Create the terminal control with configured command line
         var terminalControl = new EasyTerminalControl
@@ -72,57 +64,83 @@ public class TerminalControlFactory
             StartupCommandLine = startupCommand,
             HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
             VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
+            // Font must be set before initialization or SetTheme() called after
+            FontFamilyWhenSettingTheme = new System.Windows.Media.FontFamily("Cascadia Code NF"),
+            FontSizeWhenSettingTheme = 12,
             MinHeight = 100,
             MinWidth = 100
         };
 
-        // Log when the control is loaded and terminal is ready
+        // Initialize terminal after it's loaded into the visual tree
         terminalControl.Loaded += (s, e) =>
         {
-            Debug.WriteLine($"[TerminalControlFactory] Terminal control Loaded event fired for: {profile.Name}");
-            Console.WriteLine($"[TerminalControlFactory] Terminal control Loaded event fired for: {profile.Name}");
-            Debug.WriteLine($"[TerminalControlFactory] ConPTYTerm: {terminalControl.ConPTYTerm != null}");
-            Console.WriteLine($"[TerminalControlFactory] ConPTYTerm: {terminalControl.ConPTYTerm != null}");
-
             // Use Dispatcher to ensure we're fully in the visual tree before checking/starting process
             terminalControl.Dispatcher.InvokeAsync(async () =>
             {
                 // Give the control a moment to fully initialize
                 await Task.Delay(100);
 
-                Console.WriteLine($"[TerminalControlFactory] After delay - ConPTYTerm: {terminalControl.ConPTYTerm != null}");
-
                 if (terminalControl.ConPTYTerm != null)
                 {
-                    Console.WriteLine($"[TerminalControlFactory] Process: {terminalControl.ConPTYTerm.Process != null}");
-
                     // If process didn't start, try restarting the terminal
                     if (terminalControl.ConPTYTerm.Process == null || terminalControl.ConPTYTerm.Process.HasExited)
                     {
-                        Console.WriteLine($"[TerminalControlFactory] Process not running, calling RestartTerm for: {profile.Name}");
                         try
                         {
                             terminalControl.RestartTerm();
-
-                            // Wait a bit and check again
                             await Task.Delay(500);
-                            Console.WriteLine($"[TerminalControlFactory] After RestartTerm - Process: {terminalControl.ConPTYTerm?.Process != null}");
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[TerminalControlFactory] RestartTerm failed: {ex.Message}");
+                            Console.WriteLine($"[TerminalControlFactory] Error: RestartTerm failed for {profile.Name}: {ex.Message}");
                         }
+                    }
+
+                    // Apply theme with font settings - this triggers internal SetTheme
+                    try
+                    {
+                        // Standard Campbell color scheme (Windows Terminal default)
+                        var theme = new TerminalTheme
+                        {
+                            DefaultBackground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0x0C, 0x0C, 0x0C)),
+                            DefaultForeground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)),
+                            DefaultSelectionBackground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0x26, 0x4F, 0x78)),
+                            CursorStyle = CursorStyle.BlinkingBar,
+                            // 16-color palette: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray,
+                            //                   DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White
+                            ColorTable = new uint[]
+                            {
+                                0x0C0C0C, // Black
+                                0xDA3700, // DarkBlue (actually shows as blue due to BGR)
+                                0x0EA113, // DarkGreen
+                                0xDD963A, // DarkCyan
+                                0x1F0FC5, // DarkRed
+                                0x981788, // DarkMagenta
+                                0x009CC1, // DarkYellow
+                                0xCCCCCC, // Gray
+                                0x767676, // DarkGray
+                                0xFF783B, // Blue
+                                0x0CC616, // Green
+                                0xD6D661, // Cyan
+                                0x5648E7, // Red
+                                0x9E00B4, // Magenta
+                                0xA5F1F9, // Yellow
+                                0xF2F2F2  // White
+                            }
+                        };
+                        terminalControl.Theme = theme;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[TerminalControlFactory] Error: Theme update failed for {profile.Name}: {ex.Message}");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"[TerminalControlFactory] ConPTYTerm is still null after delay!");
+                    Console.WriteLine($"[TerminalControlFactory] Error: ConPTYTerm is null for {profile.Name}");
                 }
             }, System.Windows.Threading.DispatcherPriority.Background);
         };
-
-        Debug.WriteLine($"[TerminalControlFactory] EasyTerminalControl created successfully");
-        Console.WriteLine($"[TerminalControlFactory] EasyTerminalControl created successfully");
 
         return terminalControl;
     }

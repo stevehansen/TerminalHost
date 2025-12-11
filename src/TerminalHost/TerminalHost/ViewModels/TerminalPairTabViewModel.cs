@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,7 +27,7 @@ public partial class TerminalPairTabViewModel : ObservableObject
     private ContentControl? _shellTerminalContent;
 
     [ObservableProperty]
-    private bool _isSplitView = false;
+    private bool _isSplitView = true;  // Default to split view
 
     public TerminalPair Pair { get; }
 
@@ -51,9 +50,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
 
     public void SetTerminalControls(EasyTerminalControl customControl, EasyTerminalControl shellControl)
     {
-        Debug.WriteLine($"[TerminalPairTabViewModel] SetTerminalControls called for {Title}");
-        Debug.WriteLine($"[TerminalPairTabViewModel] CustomControl: {customControl != null}, ShellControl: {shellControl != null}");
-
         CustomTerminalContent = customControl;
         ShellTerminalContent = shellControl;
 
@@ -62,8 +58,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
 
         // Notify that CurrentTerminalContent has changed
         OnPropertyChanged(nameof(CurrentTerminalContent));
-
-        Debug.WriteLine($"[TerminalPairTabViewModel] CurrentTerminalContent: {CurrentTerminalContent != null}");
     }
 
     [RelayCommand]

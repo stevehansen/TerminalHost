@@ -1,10 +1,8 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using MessageBox = System.Windows.MessageBox;
@@ -38,9 +36,6 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenNewProject()
     {
-        Console.WriteLine("[MainViewModel] OpenNewProject called");
-        Debug.WriteLine("[MainViewModel] OpenNewProject called");
-
         try
         {
             // Use folder browser dialog
@@ -52,106 +47,89 @@ public partial class MainViewModel : ObservableObject
             };
 
             var result = dialog.ShowDialog();
-            Console.WriteLine($"[MainViewModel] Dialog result: {result}");
 
             if (result == System.Windows.Forms.DialogResult.OK)
             {
-                Console.WriteLine($"[MainViewModel] Selected path: {dialog.SelectedPath}");
                 OpenProjectTab(dialog.SelectedPath);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainViewModel] ERROR in OpenNewProject: {ex}");
+            Console.WriteLine($"[MainViewModel] Error opening project: {ex.Message}");
             MessageBox.Show($"Error opening project: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
     public void OpenProjectTab(string workingDirectory)
     {
-        Console.WriteLine($"[MainViewModel] OpenProjectTab called with: {workingDirectory}");
-        Debug.WriteLine($"[MainViewModel] OpenProjectTab called with: {workingDirectory}");
-
         try
         {
             // Normalize the path for comparison
             workingDirectory = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            Console.WriteLine($"[MainViewModel] Normalized path: {workingDirectory}");
 
             if (!Directory.Exists(workingDirectory))
             {
-                Console.WriteLine($"[MainViewModel] Directory not found: {workingDirectory}");
                 MessageBox.Show($"Directory not found: {workingDirectory}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-        // Check if we already have a tab open for this directory
-        var existingTab = Tabs.FirstOrDefault(t =>
-            string.Equals(
-                Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                workingDirectory,
-                StringComparison.OrdinalIgnoreCase));
+            // Check if we already have a tab open for this directory
+            var existingTab = Tabs.FirstOrDefault(t =>
+                string.Equals(
+                    Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    workingDirectory,
+                    StringComparison.OrdinalIgnoreCase));
 
-        if (existingTab != null)
-        {
-            // Focus the existing tab instead of creating a new one
-            SelectedTab = existingTab;
-            return;
-        }
+            if (existingTab != null)
+            {
+                // Focus the existing tab instead of creating a new one
+                SelectedTab = existingTab;
+                return;
+            }
 
-        var settings = _profileRegistry.Settings;
+            var settings = _profileRegistry.Settings;
 
-        // Create profiles for custom command and shell
-        var customProfile = new Profile
-        {
-            Id = "custom",
-            Name = settings.CustomCommandName,
-            Command = settings.CustomCommand,
-            WorkingDir = workingDirectory,
-            Icon = settings.CustomCommandIcon
-        };
+            // Create profiles for custom command and shell
+            var customProfile = new Profile
+            {
+                Id = "custom",
+                Name = settings.CustomCommandName,
+                Command = settings.CustomCommand,
+                WorkingDir = workingDirectory,
+                Icon = settings.CustomCommandIcon
+            };
 
-        var shellProfile = new Profile
-        {
-            Id = "shell",
-            Name = settings.ShellCommandName,
-            Command = settings.ShellCommand,
-            WorkingDir = workingDirectory,
-            Icon = settings.ShellCommandIcon
-        };
+            var shellProfile = new Profile
+            {
+                Id = "shell",
+                Name = settings.ShellCommandName,
+                Command = settings.ShellCommand,
+                WorkingDir = workingDirectory,
+                Icon = settings.ShellCommandIcon
+            };
 
-        Debug.WriteLine($"[MainViewModel] Creating terminal pair for: {workingDirectory}");
+            // Create the terminal pair
+            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile);
 
-        // Create the terminal pair
-        var pair = new TerminalPair(workingDirectory, customProfile, shellProfile);
+            // Create terminal controls for both
+            var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
+            var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
-        Debug.WriteLine($"[MainViewModel] Creating custom terminal control...");
-        // Create terminal controls for both
-        var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
-        Debug.WriteLine($"[MainViewModel] Creating shell terminal control...");
-        var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
+            // Create view model
+            var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon);
+            tabViewModel.SetTerminalControls(customControl, shellControl);
+            tabViewModel.CloseRequested += OnTabCloseRequested;
 
-        Debug.WriteLine($"[MainViewModel] Creating tab view model...");
-        // Create view model
-        var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon);
-        tabViewModel.SetTerminalControls(customControl, shellControl);
-        tabViewModel.CloseRequested += OnTabCloseRequested;
+            // Track sessions
+            _sessionManager.TrackSession(pair.CustomTerminal);
+            _sessionManager.TrackSession(pair.ShellTerminal);
 
-        // Track sessions
-        _sessionManager.TrackSession(pair.CustomTerminal);
-        _sessionManager.TrackSession(pair.ShellTerminal);
-
-        Debug.WriteLine($"[MainViewModel] Adding tab and selecting it...");
-        Console.WriteLine($"[MainViewModel] Adding tab and selecting it...");
-        Tabs.Add(tabViewModel);
-        SelectedTab = tabViewModel;
-        Debug.WriteLine($"[MainViewModel] Tab count: {Tabs.Count}, SelectedTab: {SelectedTab?.Title}");
-        Console.WriteLine($"[MainViewModel] Tab count: {Tabs.Count}, SelectedTab: {SelectedTab?.Title}");
+            Tabs.Add(tabViewModel);
+            SelectedTab = tabViewModel;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainViewModel] ERROR in OpenProjectTab: {ex}");
-            Debug.WriteLine($"[MainViewModel] ERROR in OpenProjectTab: {ex}");
+            Console.WriteLine($"[MainViewModel] Error creating terminal: {ex.Message}");
             MessageBox.Show($"Error creating terminal: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
