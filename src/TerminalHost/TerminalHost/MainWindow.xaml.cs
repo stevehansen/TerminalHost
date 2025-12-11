@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -226,6 +227,76 @@ public partial class MainWindow : Window
             _viewModel.OpenNewProjectCommand.Execute(null);
             e.Handled = true;
         }
+        // Check quick command shortcuts
+        else if (TryExecuteQuickCommandShortcut(e.Key, Keyboard.Modifiers))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool TryExecuteQuickCommandShortcut(Key key, ModifierKeys modifiers)
+    {
+        foreach (var command in _viewModel.QuickCommands)
+        {
+            if (string.IsNullOrEmpty(command.Shortcut)) continue;
+
+            if (TryParseShortcut(command.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                if (key == expectedKey && modifiers == expectedModifiers)
+                {
+                    _viewModel.ExecuteQuickCommandCommand.Execute(command);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool TryParseShortcut(string shortcut, out Key key, out ModifierKeys modifiers)
+    {
+        key = Key.None;
+        modifiers = ModifierKeys.None;
+
+        var parts = shortcut.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0) return false;
+
+        // Parse modifiers and key
+        foreach (var part in parts)
+        {
+            var upperPart = part.ToUpperInvariant();
+            switch (upperPart)
+            {
+                case "CTRL":
+                case "CONTROL":
+                    modifiers |= ModifierKeys.Control;
+                    break;
+                case "ALT":
+                    modifiers |= ModifierKeys.Alt;
+                    break;
+                case "SHIFT":
+                    modifiers |= ModifierKeys.Shift;
+                    break;
+                default:
+                    // Try to parse as a Key
+                    if (Enum.TryParse<Key>(part, ignoreCase: true, out var parsedKey))
+                    {
+                        key = parsedKey;
+                    }
+                    else if (part.Length == 1 && char.IsLetter(part[0]))
+                    {
+                        // Single letter key (A-Z)
+                        key = (Key)Enum.Parse(typeof(Key), part.ToUpperInvariant());
+                    }
+                    else if (part.Length == 1 && char.IsDigit(part[0]))
+                    {
+                        // Number key (0-9) - use D0-D9 for top row
+                        key = (Key)Enum.Parse(typeof(Key), "D" + part);
+                    }
+                    break;
+            }
+        }
+
+        return key != Key.None && modifiers != ModifierKeys.None;
     }
 
     private void CycleTab(bool forward)

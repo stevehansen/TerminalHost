@@ -72,13 +72,16 @@ TerminalHost/
     │   ├── TerminalSession.cs  # Running terminal instance
     │   ├── TerminalPair.cs     # Paired custom + shell terminals for a directory
     │   ├── SessionState.cs     # Running/Exited enum
-    │   └── AppConfiguration.cs # Root config with settings
+    │   ├── AppConfiguration.cs # Root config with settings
+    │   ├── GitStatus.cs        # Git repository status model
+    │   └── QuickCommand.cs     # Quick command with shortcut
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile management
     │   ├── SessionManager.cs         # Session lifecycle
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
-    │   └── TerminalControlFactory.cs # Creates EasyTerminalControl instances
+    │   ├── TerminalControlFactory.cs # Creates EasyTerminalControl instances
+    │   └── GitStatusService.cs       # Git command execution
     └── ViewModels/
         ├── MainViewModel.cs              # Main window logic
         └── TerminalPairTabViewModel.cs   # Tab with paired terminals
@@ -111,6 +114,9 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+W`: Close current tab
 - `Ctrl+\``: Switch between Custom/Shell terminal
 - `Ctrl+\`: Toggle split view
+- `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
+- `Ctrl+Shift+D`: Quick command - Git Pull (Shell)
+- `Ctrl+Shift+U`: Quick command - Git Push (Shell)
 
 ## Configuration Schema
 
@@ -146,7 +152,19 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "splitRatio": 0.6,
       "activeTerminal": "Custom"
     }
-  }
+  },
+  "quickCommands": [
+    {
+      "id": "commit",
+      "label": "Commit",
+      "icon": "💾",
+      "text": "commit",
+      "target": "Custom",
+      "appendNewline": true,
+      "useUserInput": true,
+      "shortcut": "Ctrl+Shift+C"
+    }
+  ]
 }
 ```
 

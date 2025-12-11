@@ -39,16 +39,25 @@ public class QuickCommand
     public bool UseUserInput { get; set; } = false;
 
     /// <summary>
+    /// Keyboard shortcut for this command (e.g., "Ctrl+Shift+C", "Ctrl+Alt+P").
+    /// Supports Ctrl, Alt, Shift modifiers with a single key.
+    /// </summary>
+    [JsonPropertyName("shortcut")]
+    public string? Shortcut { get; set; }
+
+    /// <summary>
     /// Gets the display text for the button (icon if available, otherwise label).
     /// </summary>
     [JsonIgnore]
     public string DisplayText => string.IsNullOrEmpty(Icon) ? Label : Icon;
 
     /// <summary>
-    /// Gets the tooltip text for the button.
+    /// Gets the tooltip text for the button, including shortcut if defined.
     /// </summary>
     [JsonIgnore]
-    public string Tooltip => $"{Label}: {Text}";
+    public string Tooltip => string.IsNullOrEmpty(Shortcut)
+        ? $"{Label}: {Text}"
+        : $"{Label}: {Text} ({Shortcut})";
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

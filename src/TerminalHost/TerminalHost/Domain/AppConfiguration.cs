@@ -32,7 +32,8 @@ public class AppConfiguration
             Text = "commit",
             Target = QuickCommandTarget.Custom,
             AppendNewline = true,
-            UseUserInput = true
+            UseUserInput = true,
+            Shortcut = "Ctrl+Shift+C"
         },
         new QuickCommand
         {
@@ -41,7 +42,8 @@ public class AppConfiguration
             Icon = "↓",
             Text = "git pull",
             Target = QuickCommandTarget.Shell,
-            AppendNewline = true
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+D"  // D for Download
         },
         new QuickCommand
         {
@@ -50,7 +52,8 @@ public class AppConfiguration
             Icon = "↑",
             Text = "git push",
             Target = QuickCommandTarget.Shell,
-            AppendNewline = true
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+U"  // U for Upload
         }
     ];
 }

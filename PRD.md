@@ -42,6 +42,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Session persistence (open folders restored on startup)
 - [x] Per-directory settings persistence (split ratio, active terminal)
 - [x] Git repository status display (branch, dirty status, ahead/behind)
+- [x] Quick commands with keyboard shortcuts
 
 ### Deferred Features
 
@@ -126,6 +127,9 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+W           | Close current tab                   |
 | Ctrl+`           | Switch between Custom/Shell terminal|
 | Ctrl+\           | Toggle split view                   |
+| Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
+| Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
+| Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
 
 ## Configuration
 
@@ -160,13 +164,38 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "isSplitView": true,
       "splitRatio": 0.6,
       "activeTerminal": "Custom"
-    },
-    "p:\\project2": {
-      "isSplitView": false,
-      "splitRatio": 0.5,
-      "activeTerminal": "Shell"
     }
-  }
+  },
+  "quickCommands": [
+    {
+      "id": "commit",
+      "label": "Commit",
+      "icon": "💾",
+      "text": "commit",
+      "target": "Custom",
+      "appendNewline": true,
+      "useUserInput": true,
+      "shortcut": "Ctrl+Shift+C"
+    },
+    {
+      "id": "git-pull",
+      "label": "Pull",
+      "icon": "↓",
+      "text": "git pull",
+      "target": "Shell",
+      "appendNewline": true,
+      "shortcut": "Ctrl+Shift+D"
+    },
+    {
+      "id": "git-push",
+      "label": "Push",
+      "icon": "↑",
+      "text": "git push",
+      "target": "Shell",
+      "appendNewline": true,
+      "shortcut": "Ctrl+Shift+U"
+    }
+  ]
 }
 ```
 
@@ -199,6 +228,34 @@ Status indicators:
 
 Status refreshes automatically every 5 seconds for the active tab.
 
+### Quick Commands
+
+Quick commands provide one-click buttons and keyboard shortcuts for common terminal operations. They appear in the status bar and can send text to either the custom terminal (Claude Code) or shell terminal.
+
+**Default Commands:**
+| Button | Shortcut       | Action                           |
+|--------|----------------|----------------------------------|
+| 💾     | Ctrl+Shift+C   | Send "commit" to Claude Code     |
+| ↓      | Ctrl+Shift+D   | Run `git pull` in Shell          |
+| ↑      | Ctrl+Shift+U   | Run `git push` in Shell          |
+
+**QuickCommand Properties:**
+| Property      | Type   | Description                                      |
+|---------------|--------|--------------------------------------------------|
+| id            | string | Unique identifier                                |
+| label         | string | Display label for tooltip                        |
+| icon          | string | Button display (emoji/symbol)                    |
+| text          | string | Text to send to terminal                         |
+| target        | enum   | "Custom" or "Shell"                              |
+| appendNewline | bool   | Whether to append newline after text             |
+| useUserInput  | bool   | Use internal key events (for raw mode apps)      |
+| shortcut      | string | Keyboard shortcut (e.g., "Ctrl+Shift+C")         |
+
+**Notes:**
+- `useUserInput: true` is required for Claude Code to properly receive Enter key
+- Shell commands work with standard `appendNewline: true`
+- Shortcuts support Ctrl, Alt, Shift modifiers with any letter/number key
+
 ### Project Structure
 
 ```
@@ -214,7 +271,8 @@ TerminalHost/
     │   ├── TerminalPair.cs     # Paired custom + shell terminals
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
-    │   └── GitStatus.cs        # Git repository status model
+    │   ├── GitStatus.cs        # Git repository status model
+    │   └── QuickCommand.cs     # Quick command definition with shortcut
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile and settings management
