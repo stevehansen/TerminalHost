@@ -15,6 +15,21 @@ public class AppConfiguration
 
     [JsonPropertyName("openFolders")]
     public List<string> OpenFolders { get; set; } = new();
+
+    [JsonPropertyName("directorySettings")]
+    public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = new();
+}
+
+public class DirectorySettings
+{
+    [JsonPropertyName("isSplitView")]
+    public bool IsSplitView { get; set; } = true;
+
+    [JsonPropertyName("splitRatio")]
+    public double SplitRatio { get; set; } = 0.6;  // Custom terminal takes 60% by default
+
+    [JsonPropertyName("activeTerminal")]
+    public string ActiveTerminal { get; set; } = "Custom";  // "Custom" or "Shell"
 }
 
 public class WindowStateInfo

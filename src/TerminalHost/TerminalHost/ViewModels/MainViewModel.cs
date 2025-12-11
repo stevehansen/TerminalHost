@@ -55,6 +55,34 @@ public partial class MainViewModel : ObservableObject
         _configService.Save(config);
     }
 
+    private void SaveDirectorySettings(TerminalPairTabViewModel tab)
+    {
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(tab.Pair.WorkingDirectory);
+
+        config.DirectorySettings[normalizedPath] = new DirectorySettings
+        {
+            IsSplitView = tab.IsSplitView,
+            SplitRatio = tab.SplitRatio,
+            ActiveTerminal = tab.ActiveTerminal.ToString()
+        };
+
+        _configService.Save(config);
+    }
+
+    private DirectorySettings? GetDirectorySettings(string workingDirectory)
+    {
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(workingDirectory);
+
+        return config.DirectorySettings.TryGetValue(normalizedPath, out var settings) ? settings : null;
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
+    }
+
     [RelayCommand]
     private void OpenNewProject()
     {
@@ -141,6 +169,20 @@ public partial class MainViewModel : ObservableObject
             var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon);
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
+            tabViewModel.SettingsChanged += OnTabSettingsChanged;
+
+            // Restore per-directory settings if available
+            var dirSettings = GetDirectorySettings(workingDirectory);
+            if (dirSettings != null)
+            {
+                tabViewModel.IsSplitView = dirSettings.IsSplitView;
+                tabViewModel.SplitRatio = dirSettings.SplitRatio;
+                if (Enum.TryParse<ActiveTerminal>(dirSettings.ActiveTerminal, out var activeTerminal))
+                {
+                    tabViewModel.ActiveTerminal = activeTerminal;
+                    pair.ActiveTerminal = activeTerminal;
+                }
+            }
 
             // Track sessions
             _sessionManager.TrackSession(pair.CustomTerminal);
@@ -175,6 +217,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         tab.CloseRequested -= OnTabCloseRequested;
+        tab.SettingsChanged -= OnTabSettingsChanged;
         _sessionManager.CloseSession(tab.Pair.CustomTerminal);
         _sessionManager.CloseSession(tab.Pair.ShellTerminal);
         tab.Pair.Dispose();
@@ -203,6 +246,14 @@ public partial class MainViewModel : ObservableObject
         if (sender is TerminalPairTabViewModel tab)
         {
             CloseTab(tab);
+        }
+    }
+
+    private void OnTabSettingsChanged(object? sender, EventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            SaveDirectorySettings(tab);
         }
     }
 

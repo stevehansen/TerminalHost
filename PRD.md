@@ -40,10 +40,10 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] JSON configuration in `%APPDATA%\TerminalHost\config.json`
 - [x] Window state persistence (position, size, maximized)
 - [x] Session persistence (open folders restored on startup)
+- [x] Per-directory settings persistence (split ratio, active terminal)
 
 ### Deferred Features
 
-- [ ] Per-directory split ratio persistence
 - [ ] Custom profiles beyond the default pair
 - [ ] Profile management UI
 
@@ -153,7 +153,19 @@ Config file: `%APPDATA%\TerminalHost\config.json`
   "openFolders": [
     "P:\\Project1",
     "P:\\Project2"
-  ]
+  ],
+  "directorySettings": {
+    "p:\\project1": {
+      "isSplitView": true,
+      "splitRatio": 0.6,
+      "activeTerminal": "Custom"
+    },
+    "p:\\project2": {
+      "isSplitView": false,
+      "splitRatio": 0.5,
+      "activeTerminal": "Shell"
+    }
+  }
 }
 ```
 
@@ -203,7 +215,6 @@ TerminalHost/
 
 Items for future development:
 
-- **Per-directory settings**: Remember split ratio, active terminal per directory
 - **Custom profile pairs**: Different command pairs for different project types
 - **Drag-and-drop tabs**: Reorder tabs
 - **SSH profiles**: Built-in SSH connection support

@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -29,6 +30,13 @@ public partial class TerminalPairTabViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSplitView = true;  // Default to split view
 
+    [ObservableProperty]
+    private double _splitRatio = 0.6;  // Custom terminal takes 60% by default
+
+    // Computed column widths from split ratio
+    public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
+    public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
+
     public TerminalPair Pair { get; }
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
@@ -38,6 +46,7 @@ public partial class TerminalPairTabViewModel : ObservableObject
         : ShellTerminalContent;
 
     public event EventHandler? CloseRequested;
+    public event EventHandler? SettingsChanged;
 
     public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon)
     {
@@ -65,8 +74,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
     {
         Pair.SwitchTerminal();
         ActiveTerminal = Pair.ActiveTerminal;
-        OnPropertyChanged(nameof(CurrentIcon));
-        OnPropertyChanged(nameof(CurrentTerminalContent));
     }
 
     [RelayCommand]
@@ -76,8 +83,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
         {
             Pair.ActiveTerminal = ActiveTerminal.Custom;
             ActiveTerminal = ActiveTerminal.Custom;
-            OnPropertyChanged(nameof(CurrentIcon));
-            OnPropertyChanged(nameof(CurrentTerminalContent));
         }
     }
 
@@ -88,8 +93,6 @@ public partial class TerminalPairTabViewModel : ObservableObject
         {
             Pair.ActiveTerminal = ActiveTerminal.Shell;
             ActiveTerminal = ActiveTerminal.Shell;
-            OnPropertyChanged(nameof(CurrentIcon));
-            OnPropertyChanged(nameof(CurrentTerminalContent));
         }
     }
 
@@ -97,6 +100,31 @@ public partial class TerminalPairTabViewModel : ObservableObject
     private void ToggleSplitView()
     {
         IsSplitView = !IsSplitView;
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnSplitRatioChanged(double value)
+    {
+        OnPropertyChanged(nameof(CustomColumnWidth));
+        OnPropertyChanged(nameof(ShellColumnWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnActiveTerminalChanged(ActiveTerminal value)
+    {
+        OnPropertyChanged(nameof(CurrentIcon));
+        OnPropertyChanged(nameof(CurrentTerminalContent));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)
+    {
+        var total = customWidth + shellWidth;
+        if (total > 0)
+        {
+            // Setting the property will trigger OnSplitRatioChanged which updates computed properties
+            SplitRatio = customWidth / total;
+        }
     }
 
     [RelayCommand]

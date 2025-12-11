@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -23,6 +25,79 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closing += OnClosing;
         PreviewKeyDown += OnPreviewKeyDown;
+
+        // Subscribe to view model property changes to sync column widths
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
+        {
+            UpdateColumnWidthsFromSelectedTab();
+        }
+    }
+
+    private void UpdateColumnWidthsFromSelectedTab()
+    {
+        var tab = _viewModel.SelectedTab;
+        if (tab == null) return;
+
+        // Subscribe to split view and ratio changes for this tab
+        tab.PropertyChanged -= OnSelectedTabPropertyChanged;
+        tab.PropertyChanged += OnSelectedTabPropertyChanged;
+
+        ApplyTabColumnWidths(tab);
+    }
+
+    private void OnSelectedTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not TerminalPairTabViewModel tab) return;
+
+        if (e.PropertyName == nameof(TerminalPairTabViewModel.IsSplitView) ||
+            e.PropertyName == nameof(TerminalPairTabViewModel.ActiveTerminal) ||
+            e.PropertyName == nameof(TerminalPairTabViewModel.SplitRatio))
+        {
+            ApplyTabColumnWidths(tab);
+        }
+    }
+
+    private void ApplyTabColumnWidths(TerminalPairTabViewModel tab)
+    {
+        if (tab.IsSplitView)
+        {
+            // Split view - use the ratio
+            CustomTerminalColumn.Width = tab.CustomColumnWidth;
+            SplitterColumn.Width = new GridLength(4);
+            ShellTerminalColumn.Width = tab.ShellColumnWidth;
+        }
+        else
+        {
+            // Single view - show only active terminal
+            if (tab.ActiveTerminal == Domain.ActiveTerminal.Custom)
+            {
+                CustomTerminalColumn.Width = new GridLength(1, GridUnitType.Star);
+                SplitterColumn.Width = new GridLength(0);
+                ShellTerminalColumn.Width = new GridLength(0);
+            }
+            else
+            {
+                CustomTerminalColumn.Width = new GridLength(0);
+                SplitterColumn.Width = new GridLength(0);
+                ShellTerminalColumn.Width = new GridLength(1, GridUnitType.Star);
+            }
+        }
+    }
+
+    private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        // Update the view model with the new split ratio
+        if (_viewModel.SelectedTab != null)
+        {
+            _viewModel.SelectedTab.UpdateSplitRatioFromColumnWidths(
+                CustomTerminalColumn.ActualWidth,
+                ShellTerminalColumn.ActualWidth);
+        }
     }
 
     private void RestoreWindowState()

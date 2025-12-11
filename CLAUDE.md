@@ -139,10 +139,18 @@ Config file: `%APPDATA%\TerminalHost\config.json`
   "openFolders": [
     "P:\\Project1",
     "P:\\Project2"
-  ]
+  ],
+  "directorySettings": {
+    "p:\\project1": {
+      "isSplitView": true,
+      "splitRatio": 0.6,
+      "activeTerminal": "Custom"
+    }
+  }
 }
 ```
 
 ### Persistence Features
 - **Window State**: Position, size, and maximized state are saved on close and restored on startup
 - **Open Folders**: Previously open project tabs are automatically restored on startup
+- **Directory Settings**: Split view state, split ratio, and active terminal are saved per directory
