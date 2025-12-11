@@ -35,8 +35,12 @@ dotnet run --project src/TerminalHost/TerminalHost
 # Build for release
 dotnet build -c Release
 
-# Output executable location
-# bin/Debug/net8.0-windows/host.exe
+# Publish as single executable (self-contained, ~70MB)
+dotnet publish src/TerminalHost/TerminalHost -c Release -o publish
+
+# Output locations
+# Debug: src/TerminalHost/TerminalHost/bin/Debug/net8.0-windows/win-x64/host.exe
+# Publish: publish/host.exe (single file, no .NET runtime required)
 ```
 
 ## Command Line Usage

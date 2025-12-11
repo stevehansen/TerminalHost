@@ -87,7 +87,7 @@ public class TerminalControlFactory
                     {
                         try
                         {
-                            terminalControl.RestartTerm();
+                            await terminalControl.RestartTerm();
                             await Task.Delay(500);
                         }
                         catch (Exception ex)
