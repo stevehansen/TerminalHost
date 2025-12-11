@@ -40,7 +40,7 @@ public class AppConfiguration
             Id = "git-pull",
             Label = "Pull",
             Icon = "↓",
-            Text = "git pull",
+            Text = "git pull --rebase",
             Target = QuickCommandTarget.Shell,
             AppendNewline = true,
             Shortcut = "Ctrl+Shift+D"  // D for Download
