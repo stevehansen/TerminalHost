@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
@@ -8,16 +9,78 @@ namespace TerminalHost;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    private readonly ConfigurationService _configService;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _configService = configService;
         DataContext = viewModel;
+
+        RestoreWindowState();
 
         Loaded += OnLoaded;
         Closing += OnClosing;
-        KeyDown += OnKeyDown;
+        PreviewKeyDown += OnPreviewKeyDown;
+    }
+
+    private void RestoreWindowState()
+    {
+        var config = _configService.Load();
+        var state = config.WindowState;
+
+        // Validate position is on screen
+        var left = state.Left;
+        var top = state.Top;
+        var width = Math.Max(400, state.Width);
+        var height = Math.Max(300, state.Height);
+
+        // Ensure window is visible on at least one monitor
+        var virtualLeft = SystemParameters.VirtualScreenLeft;
+        var virtualTop = SystemParameters.VirtualScreenTop;
+        var virtualWidth = SystemParameters.VirtualScreenWidth;
+        var virtualHeight = SystemParameters.VirtualScreenHeight;
+
+        if (left < virtualLeft || left > virtualLeft + virtualWidth - 100)
+            left = 100;
+        if (top < virtualTop || top > virtualTop + virtualHeight - 100)
+            top = 100;
+
+        Left = left;
+        Top = top;
+        Width = width;
+        Height = height;
+
+        if (state.IsMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void SaveWindowState()
+    {
+        var config = _configService.Load();
+
+        // Save window state (use restore bounds if maximized)
+        if (WindowState == WindowState.Maximized)
+        {
+            config.WindowState.Left = RestoreBounds.Left;
+            config.WindowState.Top = RestoreBounds.Top;
+            config.WindowState.Width = RestoreBounds.Width;
+            config.WindowState.Height = RestoreBounds.Height;
+            config.WindowState.IsMaximized = true;
+        }
+        else
+        {
+            config.WindowState.Left = Left;
+            config.WindowState.Top = Top;
+            config.WindowState.Width = Width;
+            config.WindowState.Height = Height;
+            config.WindowState.IsMaximized = false;
+        }
+
+        _configService.Save(config);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -27,11 +90,18 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        SaveWindowState();
         _viewModel.Shutdown();
     }
 
-    private void OnKeyDown(object sender, KeyEventArgs e)
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Only handle shortcuts with modifiers - let plain Tab pass through to terminal
+        if (Keyboard.Modifiers == ModifierKeys.None)
+        {
+            return; // Don't intercept unmodified keys
+        }
+
         // Ctrl+Tab: Next tab
         if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.Control)
         {

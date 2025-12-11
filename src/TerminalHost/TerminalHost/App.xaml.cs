@@ -40,10 +40,10 @@ public partial class App : Application
         var terminalFactory = new TerminalControlFactory();
 
         // Create the main view model
-        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory);
+        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, configService);
 
         // Create and show the main window
-        _mainWindow = new MainWindow(_mainViewModel);
+        _mainWindow = new MainWindow(_mainViewModel, configService);
         _mainWindow.Show();
 
         // Handle command line arguments for this instance

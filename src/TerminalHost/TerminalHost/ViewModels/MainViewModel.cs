@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ProfileRegistry _profileRegistry;
     private readonly SessionManager _sessionManager;
     private readonly TerminalControlFactory _terminalFactory;
+    private readonly ConfigurationService _configService;
 
     [ObservableProperty]
     private ObservableCollection<TerminalPairTabViewModel> _tabs = new();
@@ -21,16 +22,37 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private TerminalPairTabViewModel? _selectedTab;
 
-    public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory)
+    public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
+        _configService = configService;
     }
 
     public void Initialize()
     {
-        // Don't auto-start anything - wait for user to select a folder
+        // Restore previously open folders
+        RestoreOpenFolders();
+    }
+
+    private void RestoreOpenFolders()
+    {
+        var config = _configService.Load();
+        foreach (var folder in config.OpenFolders)
+        {
+            if (Directory.Exists(folder))
+            {
+                OpenProjectTab(folder);
+            }
+        }
+    }
+
+    private void SaveOpenFolders()
+    {
+        var config = _configService.Load();
+        config.OpenFolders = Tabs.Select(t => t.Pair.WorkingDirectory).ToList();
+        _configService.Save(config);
     }
 
     [RelayCommand]
@@ -186,6 +208,9 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
+        // Save open folders before closing
+        SaveOpenFolders();
+
         _sessionManager.CloseAllSessions();
         foreach (var tab in Tabs)
         {

@@ -9,6 +9,30 @@ public class AppConfiguration
 
     [JsonPropertyName("settings")]
     public AppSettings Settings { get; set; } = new();
+
+    [JsonPropertyName("windowState")]
+    public WindowStateInfo WindowState { get; set; } = new();
+
+    [JsonPropertyName("openFolders")]
+    public List<string> OpenFolders { get; set; } = new();
+}
+
+public class WindowStateInfo
+{
+    [JsonPropertyName("left")]
+    public double Left { get; set; } = 100;
+
+    [JsonPropertyName("top")]
+    public double Top { get; set; } = 100;
+
+    [JsonPropertyName("width")]
+    public double Width { get; set; } = 1200;
+
+    [JsonPropertyName("height")]
+    public double Height { get; set; } = 800;
+
+    [JsonPropertyName("isMaximized")]
+    public bool IsMaximized { get; set; } = false;
 }
 
 public class AppSettings

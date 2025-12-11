@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important: Documentation Maintenance
+
+**Always keep PRD.md updated** when making changes to the codebase:
+- When adding new features, document them in PRD.md
+- When changing existing behavior, update the relevant sections
+- When adding new configuration options, update the schema documentation
+- When adding new keyboard shortcuts, update the shortcuts list
+- Keep both CLAUDE.md and PRD.md in sync with the actual implementation
+
 ## Project Overview
 
 **TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
@@ -119,6 +128,21 @@ Config file: `%APPDATA%\TerminalHost\config.json`
     "shellCommand": "pwsh.exe",
     "shellCommandName": "PowerShell",
     "shellCommandIcon": "💻"
-  }
+  },
+  "windowState": {
+    "left": 100,
+    "top": 100,
+    "width": 1200,
+    "height": 800,
+    "isMaximized": false
+  },
+  "openFolders": [
+    "P:\\Project1",
+    "P:\\Project2"
+  ]
 }
 ```
+
+### Persistence Features
+- **Window State**: Position, size, and maximized state are saved on close and restored on startup
+- **Open Folders**: Previously open project tabs are automatically restored on startup
