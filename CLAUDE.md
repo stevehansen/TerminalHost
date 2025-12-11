@@ -78,6 +78,7 @@ TerminalHost/
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
+    │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
     │   ├── QuickCommand.cs     # Quick command with shortcut
     │   ├── LinkPattern.cs      # Custom link pattern definition
     │   └── PaletteCommand.cs   # Command palette item definition
@@ -148,6 +149,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+P`: Open profile management
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
+- `Ctrl+G`: Open git changes panel (modified files + diffs)
 - `F1`: Show help window
 
 ### Default Quick Commands

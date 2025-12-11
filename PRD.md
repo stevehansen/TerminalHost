@@ -58,6 +58,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] File editor popup with save/reload (Ctrl+Shift+E)
 - [x] Command palette for quick actions (Ctrl+Shift+P)
 - [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
+- [x] Git changes panel with file list and diff viewer (Ctrl+G)
 
 ### Deferred Features
 
@@ -153,6 +154,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+E     | Open file editor                    |
 | Ctrl+Shift+P     | Open command palette                |
 | Ctrl+Shift+N     | Open scratch pad (notes)            |
+| Ctrl+G           | Open git changes panel              |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
@@ -533,6 +535,7 @@ The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all 
 | Profiles         | Manage terminal profiles         |
 | Help             | Show keyboard shortcuts          |
 | Scratch Pad      | Open notes panel                 |
+| Git Changes      | View modified files and diffs    |
 
 ### Scratch Pad
 
@@ -549,6 +552,42 @@ The Scratch Pad (`Ctrl+Shift+N`) provides a notes panel for jotting down TODOs, 
 **Storage:**
 - Project notes stored in `scratchPads` object keyed by directory path
 - Global notes stored in `globalScratchPad` string
+
+### Git Changes Panel
+
+The Git Changes Panel (`Ctrl+G`) provides a visual interface to view modified files and their diffs without leaving the application.
+
+**Features:**
+- **File list**: Shows all modified, added, deleted, and untracked files
+- **Status icons**: Color-coded status indicators (M=Modified, A=Added, D=Deleted, ?=Untracked)
+- **Diff viewer**: Syntax-highlighted diff view with additions (green) and deletions (red)
+- **File actions**: Preview, Edit, or open in Explorer for each file
+- **Refresh**: Manual refresh button to update file list
+- Draggable and resizable popup
+- Split-pane layout with adjustable divider
+
+**File Status Types:**
+| Icon | Color  | Status      |
+|------|--------|-------------|
+| M    | Yellow | Modified    |
+| A    | Green  | Added       |
+| D    | Red    | Deleted     |
+| R    | Blue   | Renamed     |
+| C    | Blue   | Copied      |
+| ?    | Gray   | Untracked   |
+| U    | Red    | Conflicted  |
+| T    | Purple | Type changed|
+
+**Actions:**
+- **Preview**: Open file in syntax-highlighted preview popup
+- **Edit**: Open file in built-in editor
+- **Explorer**: Open containing folder in Windows Explorer
+
+**Notes:**
+- Only available when a project tab is selected
+- Shows changes in the project's working directory
+- For untracked files, shows entire file content as additions
+- Deleted files cannot be previewed or edited (only shown in Explorer)
 
 ### Help Window
 
@@ -613,6 +652,7 @@ TerminalHost/
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
+    │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
     │   ├── QuickCommand.cs     # Quick command definition with shortcut
     │   ├── LinkPattern.cs      # Custom link pattern definition
     │   └── PaletteCommand.cs   # Command palette item definition
