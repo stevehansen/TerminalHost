@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Windows.Controls;
 using EasyWindowsTerminalControl;
 
@@ -99,11 +98,13 @@ public class TerminalSession : IDisposable
 
                 // Send text + newline via the internal UserInput method
                 // This properly triggers key handling for apps like Claude Code
+                // Use BeginInvoke to allow focus to settle before sending input
                 var textToSend = appendNewline ? text + "\r" : text;
-                _easyTerminalControl?.Dispatcher.Invoke(() =>
+                _easyTerminalControl?.Dispatcher.BeginInvoke(() =>
                 {
+                    Console.WriteLine($"[TerminalSession] Sending via UserInput: '{textToSend.Replace("\r", "\\r")}'");
                     SendViaUserInput(textToSend);
-                });
+                }, System.Windows.Threading.DispatcherPriority.Input);
             }
             else
             {
@@ -119,8 +120,7 @@ public class TerminalSession : IDisposable
     }
 
     /// <summary>
-    /// Sends input via the internal terminal's UserInput method.
-    /// This properly triggers key handling for applications like Claude Code.
+    /// Sends text to the terminal (without executing - user presses Enter manually).
     /// </summary>
     private void SendViaUserInput(string input)
     {
@@ -128,32 +128,19 @@ public class TerminalSession : IDisposable
 
         try
         {
-            // Find the internal terminal container field
-            var fields = _easyTerminalControl.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
-            object? terminalContainer = null;
+            var conPtyTerm = _easyTerminalControl.ConPTYTerm;
+            if (conPtyTerm == null) return;
 
-            foreach (var field in fields)
+            // Strip any newline characters - user will press Enter manually
+            var textOnly = input.TrimEnd('\r', '\n');
+            if (!string.IsNullOrEmpty(textOnly))
             {
-                var val = field.GetValue(_easyTerminalControl);
-                if (val != null && val.GetType().Name.Contains("Terminal"))
-                {
-                    terminalContainer = val;
-                    break;
-                }
-            }
-
-            if (terminalContainer != null)
-            {
-                // Call the UserInput method which properly handles key events
-                var userInputMethod = terminalContainer.GetType()
-                    .GetMethod("UserInput", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-
-                userInputMethod?.Invoke(terminalContainer, new object[] { input });
+                conPtyTerm.WriteToTerm(textOnly.AsSpan());
             }
         }
         catch
         {
-            // Silently ignore reflection errors
+            // Silently ignore errors
         }
     }
 

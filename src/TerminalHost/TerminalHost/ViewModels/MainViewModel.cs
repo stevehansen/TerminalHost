@@ -319,11 +319,8 @@ public partial class MainViewModel : ObservableObject
 
         targetSession.SendText(command.Text, command.AppendNewline, command.NewlineChar, command.UseUserInput);
 
-        // Focus the terminal (unless UseUserInput which handles focus internally)
-        if (!command.UseUserInput)
-        {
-            targetSession.Focus();
-        }
+        // Focus the terminal
+        targetSession.Focus();
     }
 
     private void OnTabCloseRequested(object? sender, EventArgs e)
