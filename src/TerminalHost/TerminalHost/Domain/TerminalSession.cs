@@ -1,4 +1,6 @@
+using System.Text;
 using System.Windows.Controls;
+using System.Windows.Input;
 using EasyWindowsTerminalControl;
 
 namespace TerminalHost.Domain;
@@ -17,6 +19,10 @@ public class TerminalSession : IDisposable
     private DateTime? _lastOutputTime;
     private bool _wasActive;
 
+    // Output buffer for link detection (circular buffer of recent lines)
+    private readonly StringBuilder _outputBuffer = new();
+    private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
+
     /// <summary>
     /// The last time output was received from the terminal.
     /// </summary>
@@ -34,6 +40,12 @@ public class TerminalSession : IDisposable
     /// Fired when the terminal transitions from idle to active or vice versa.
     /// </summary>
     public event EventHandler? ActivityChanged;
+
+    /// <summary>
+    /// Fired when a Ctrl+Click is detected and a link should be opened.
+    /// The string parameter is the text that was clicked (for link detection).
+    /// </summary>
+    public event EventHandler<string>? LinkClicked;
 
     public TerminalSession(Profile profile)
     {
@@ -65,10 +77,71 @@ public class TerminalSession : IDisposable
                 }
             }, System.Windows.Threading.DispatcherPriority.Background);
         };
+
+        // Hook Ctrl+Click for link detection
+        control.PreviewMouseDown += OnTerminalMouseDown;
     }
 
     /// <summary>
-    /// Called when terminal output is received. Updates activity tracking.
+    /// Handles Ctrl+Click on the terminal for link detection.
+    /// </summary>
+    private void OnTerminalMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Only handle Ctrl+Click
+        if (e.LeftButton != MouseButtonState.Pressed ||
+            !Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+        {
+            return;
+        }
+
+        // Try to get selected text or find a link near the click
+        var clickedText = GetTextForLinkDetection();
+        if (!string.IsNullOrEmpty(clickedText))
+        {
+            LinkClicked?.Invoke(this, clickedText);
+            // Don't mark as handled - let the terminal process the click normally too
+        }
+    }
+
+    /// <summary>
+    /// Gets text for link detection, trying selection first, then recent output.
+    /// </summary>
+    private string? GetTextForLinkDetection()
+    {
+        // First try to get any selected text (user may have selected a URL/path)
+        // This requires the user to double-click first to select, then Ctrl+click
+        // Unfortunately, EasyTerminalControl doesn't expose selection APIs directly
+
+        // For now, we'll look at the last few lines of output to find potential links
+        // The user can also select text before Ctrl+clicking
+        lock (_outputBuffer)
+        {
+            if (_outputBuffer.Length == 0)
+                return null;
+
+            // Get last ~1000 chars which likely contains the visible area
+            var startIndex = Math.Max(0, _outputBuffer.Length - 1000);
+            return _outputBuffer.ToString(startIndex, _outputBuffer.Length - startIndex);
+        }
+    }
+
+    /// <summary>
+    /// Gets recent terminal output for link detection.
+    /// </summary>
+    public string GetRecentOutput(int maxChars = 5000)
+    {
+        lock (_outputBuffer)
+        {
+            if (_outputBuffer.Length == 0)
+                return string.Empty;
+
+            var startIndex = Math.Max(0, _outputBuffer.Length - maxChars);
+            return _outputBuffer.ToString(startIndex, _outputBuffer.Length - startIndex);
+        }
+    }
+
+    /// <summary>
+    /// Called when terminal output is received. Updates activity tracking and output buffer.
     /// </summary>
     private void OnTerminalOutput(ref Span<char> str)
     {
@@ -80,6 +153,21 @@ public class TerminalSession : IDisposable
         {
             _wasActive = true;
             ActivityChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        // Append to output buffer for link detection
+        lock (_outputBuffer)
+        {
+            _outputBuffer.Append(str);
+
+            // Trim if too large (keep last half)
+            if (_outputBuffer.Length > MaxOutputBufferSize)
+            {
+                var keepFrom = _outputBuffer.Length - (MaxOutputBufferSize / 2);
+                var kept = _outputBuffer.ToString(keepFrom, _outputBuffer.Length - keepFrom);
+                _outputBuffer.Clear();
+                _outputBuffer.Append(kept);
+            }
         }
     }
 

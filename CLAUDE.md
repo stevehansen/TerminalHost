@@ -78,22 +78,27 @@ TerminalHost/
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
-    │   └── QuickCommand.cs     # Quick command with shortcut
+    │   ├── QuickCommand.cs     # Quick command with shortcut
+    │   └── LinkPattern.cs      # Custom link pattern definition
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile management
     │   ├── SessionManager.cs         # Session lifecycle
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
+    │   ├── SystemTrayService.cs      # System tray icon and menu
     │   ├── TerminalControlFactory.cs # Creates EasyTerminalControl instances
     │   ├── GitStatusService.cs       # Git command execution
-    │   └── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
+    │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
+    │   └── LinkDetectionService.cs   # Clickable link detection
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic
     │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
-    │   └── SettingsTabViewModel.cs       # Settings editor tab
+    │   ├── SettingsTabViewModel.cs       # Settings editor tab
+    │   └── ProfilesTabViewModel.cs       # Profile management tab
     └── Views/
-        └── SettingsView.xaml(.cs)        # Settings editor UI
+        ├── SettingsView.xaml(.cs)        # Settings editor UI
+        └── ProfilesView.xaml(.cs)        # Profile management UI
 ```
 
 ## Architecture
@@ -128,6 +133,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
 - `Ctrl+Shift+D`: Quick command - Git Pull (Shell)
 - `Ctrl+Shift+U`: Quick command - Git Push (Shell)
+- `Ctrl+Click`: Open link under cursor (URL, file path, or custom pattern)
 
 ## Configuration Schema
 

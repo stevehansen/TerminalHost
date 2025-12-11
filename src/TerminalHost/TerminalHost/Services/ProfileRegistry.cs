@@ -8,6 +8,7 @@ public class ProfileRegistry
     private AppConfiguration _configuration;
 
     public IReadOnlyList<Profile> Profiles => _configuration.Profiles.AsReadOnly();
+    public IReadOnlyList<LinkPattern> LinkPatterns => _configuration.LinkPatterns.AsReadOnly();
     public AppSettings Settings => _configuration.Settings;
 
     public event EventHandler? ProfilesChanged;

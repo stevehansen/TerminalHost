@@ -46,6 +46,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Settings editor tab with JSON syntax highlighting (Ctrl+,)
 - [x] System tray support (minimize to tray, restore on click)
 - [x] Profile management UI (Ctrl+P)
+- [x] Clickable links via Ctrl+Click (URLs, file paths, custom patterns)
 
 ### Deferred Features
 
@@ -135,6 +136,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
+| Ctrl+Click       | Open link under cursor (URL, file path, or custom pattern) |
 
 ## Configuration
 
@@ -199,6 +201,16 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "target": "Shell",
       "appendNewline": true,
       "shortcut": "Ctrl+Shift+U"
+    }
+  ],
+  "linkPatterns": [
+    {
+      "id": "jira-ticket",
+      "name": "JIRA Ticket",
+      "pattern": "([A-Z]+-\\d+)",
+      "urlTemplate": "https://jira.example.com/browse/$1",
+      "enabled": true,
+      "priority": 10
     }
   ]
 }
@@ -273,6 +285,64 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 - `useUserInput: true` is required for Claude Code to properly receive Enter key
 - Shell commands work with standard `appendNewline: true`
 - Shortcuts support Ctrl, Alt, Shift modifiers with any letter/number key
+
+### Clickable Links (Ctrl+Click)
+
+The terminal supports Ctrl+Click to open links in the terminal output:
+
+**Built-in Link Types:**
+- **HTTP/HTTPS URLs**: Automatically detected and opened in default browser
+- **File paths**: Absolute and relative paths opened with default application
+  - Supports line numbers: `src/file.ts:42` opens at line 42
+  - Relative paths resolved against working directory
+
+**Custom Link Patterns:**
+Configure regex patterns to convert text into clickable links (e.g., ticket numbers):
+
+| Property    | Type   | Description                                           |
+|-------------|--------|-------------------------------------------------------|
+| id          | string | Unique identifier                                     |
+| name        | string | Display name (shown in settings)                      |
+| pattern     | string | Regex pattern with capturing groups                   |
+| urlTemplate | string | URL template with $1, $2, etc. for captured groups    |
+| enabled     | bool   | Whether this pattern is active                        |
+| priority    | int    | Higher priority patterns matched first (default: 0)   |
+
+**Example Configuration:**
+```json
+{
+  "linkPatterns": [
+    {
+      "id": "jira-ticket",
+      "name": "JIRA Ticket",
+      "pattern": "([A-Z]+-\\d+)",
+      "urlTemplate": "https://jira.example.com/browse/$1",
+      "enabled": true,
+      "priority": 10
+    },
+    {
+      "id": "github-issue",
+      "name": "GitHub Issue",
+      "pattern": "#(\\d+)",
+      "urlTemplate": "https://github.com/myorg/myrepo/issues/$1",
+      "enabled": true,
+      "priority": 5
+    }
+  ]
+}
+```
+
+**How It Works:**
+1. Ctrl+Click in terminal triggers link detection
+2. Recent terminal output is scanned for patterns
+3. Custom patterns are checked first (by priority)
+4. Then URLs and file paths are detected
+5. First match is opened in default browser/application
+
+**Notes:**
+- Terminal output is buffered (~50KB of recent content) for pattern matching
+- File paths are validated to exist before opening
+- Directories open in Explorer, files with default application
 
 ### Settings Editor
 
@@ -378,7 +448,8 @@ TerminalHost/
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
-    │   └── QuickCommand.cs     # Quick command definition with shortcut
+    │   ├── QuickCommand.cs     # Quick command definition with shortcut
+    │   └── LinkPattern.cs      # Custom link pattern definition
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
     │   ├── ProfileRegistry.cs        # Profile and settings management
@@ -387,7 +458,8 @@ TerminalHost/
     │   ├── SystemTrayService.cs      # System tray icon and menu
     │   ├── TerminalControlFactory.cs # Creates configured terminal controls
     │   ├── GitStatusService.cs       # Git command execution and parsing
-    │   └── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
+    │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
+    │   └── LinkDetectionService.cs   # Clickable link detection and handling
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic

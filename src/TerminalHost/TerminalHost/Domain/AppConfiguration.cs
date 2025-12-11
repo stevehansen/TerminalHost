@@ -22,6 +22,24 @@ public class AppConfiguration
     [JsonPropertyName("quickCommands")]
     public List<QuickCommand> QuickCommands { get; set; } = GetDefaultQuickCommands();
 
+    [JsonPropertyName("linkPatterns")]
+    public List<LinkPattern> LinkPatterns { get; set; } = GetDefaultLinkPatterns();
+
+    private static List<LinkPattern> GetDefaultLinkPatterns() =>
+    [
+        // Example pattern - users can customize or add their own
+        // Uncomment and modify for your ticketing system:
+        // new LinkPattern
+        // {
+        //     Id = "jira-ticket",
+        //     Name = "JIRA Ticket",
+        //     Pattern = @"([A-Z]+-\d+)",
+        //     UrlTemplate = "https://jira.example.com/browse/$1",
+        //     Enabled = true,
+        //     Priority = 10
+        // }
+    ];
+
     private static List<QuickCommand> GetDefaultQuickCommands() =>
     [
         new QuickCommand

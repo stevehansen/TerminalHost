@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     private readonly TerminalControlFactory _terminalFactory;
     private readonly ConfigurationService _configService;
     private readonly GitStatusService _gitStatusService;
+    private readonly LinkDetectionService _linkDetectionService;
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
 
@@ -59,6 +60,7 @@ public partial class MainViewModel : ObservableObject
         _terminalFactory = terminalFactory;
         _configService = configService;
         _gitStatusService = new GitStatusService();
+        _linkDetectionService = new LinkDetectionService(profileRegistry);
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
@@ -287,6 +289,10 @@ public partial class MainViewModel : ObservableObject
             _sessionManager.TrackSession(pair.CustomTerminal);
             _sessionManager.TrackSession(pair.ShellTerminal);
 
+            // Subscribe to link click events
+            pair.CustomTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+            pair.ShellTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+
             Tabs.Add(tabViewModel);
             SelectedTab = tabViewModel;
 
@@ -438,6 +444,48 @@ public partial class MainViewModel : ObservableObject
 
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Handles Ctrl+Click link detection from terminals.
+    /// </summary>
+    private void HandleLinkClick(string recentOutput, string workingDirectory)
+    {
+        if (string.IsNullOrEmpty(recentOutput)) return;
+
+        // Try to find a link in the recent output
+        // We scan the output looking for URL patterns, file paths, or custom patterns
+        var lines = recentOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // Start from the end (most recent) and work backwards
+        foreach (var line in lines.Reverse())
+        {
+            var cleanLine = line.Trim();
+            if (string.IsNullOrEmpty(cleanLine)) continue;
+
+            // Try each "word" in the line
+            var words = cleanLine.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var word in words)
+            {
+                var link = _linkDetectionService.DetectLink(word, workingDirectory);
+                if (link != null)
+                {
+                    _linkDetectionService.OpenLink(link);
+                    return;
+                }
+            }
+
+            // Also try the whole line in case it's a file path with spaces
+            var linkFromLine = _linkDetectionService.DetectLink(cleanLine, workingDirectory);
+            if (linkFromLine != null)
+            {
+                _linkDetectionService.OpenLink(linkFromLine);
+                return;
+            }
+        }
+
+        // No link found - could show a tooltip or status message
+        Console.WriteLine("[MainViewModel] No clickable link found in recent output");
     }
 
     [RelayCommand]
