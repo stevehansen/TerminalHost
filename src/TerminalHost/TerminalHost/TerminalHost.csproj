@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,7 +10,16 @@
     <RootNamespace>TerminalHost</RootNamespace>
     <AssemblyName>host</AssemblyName>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+
+    <!-- Single-file publish settings -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
+
 
   <ItemGroup>
     <Resource Include="Resources\app.ico" />
@@ -19,7 +27,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-    <PackageReference Include="EasyWindowsTerminalControl" Version="1.0.36" />
+    <PackageReference Include="EasyWindowsTerminalControl" Version="1.0.36" ExcludeAssets="symbols" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
@@ -30,5 +38,13 @@
       <Link>conpty.dll</Link>
     </None>
   </ItemGroup>
+
+  <!-- Remove PDB files after publish -->
+  <Target Name="RemovePdbFiles" AfterTargets="Publish">
+    <ItemGroup>
+      <PdbFilesToDelete Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PdbFilesToDelete)" />
+  </Target>
 
 </Project>
