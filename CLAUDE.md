@@ -106,7 +106,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 ## Keyboard Shortcuts
 
 - `Ctrl+N`: Open new project (folder picker)
-- `Ctrl+Tab` / `Ctrl+Shift+Tab`: Cycle through project tabs
+- `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab
 - `Ctrl+W`: Close current tab
 - `Ctrl+\``: Switch between Custom/Shell terminal

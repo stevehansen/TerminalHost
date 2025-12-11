@@ -102,14 +102,14 @@ public partial class MainWindow : Window
             return; // Don't intercept unmodified keys
         }
 
-        // Ctrl+Tab: Next tab
-        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.Control)
+        // Ctrl+PageDown: Next tab
+        if (e.Key == Key.PageDown && Keyboard.Modifiers == ModifierKeys.Control)
         {
             CycleTab(forward: true);
             e.Handled = true;
         }
-        // Ctrl+Shift+Tab: Previous tab
-        else if (e.Key == Key.Tab && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        // Ctrl+PageUp: Previous tab
+        else if (e.Key == Key.PageUp && Keyboard.Modifiers == ModifierKeys.Control)
         {
             CycleTab(forward: false);
             e.Handled = true;

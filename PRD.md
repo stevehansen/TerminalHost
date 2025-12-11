@@ -38,12 +38,13 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Cascadia Code NF font with Campbell color scheme
 - [x] Close confirmation for running terminals
 - [x] JSON configuration in `%APPDATA%\TerminalHost\config.json`
+- [x] Window state persistence (position, size, maximized)
+- [x] Session persistence (open folders restored on startup)
 
 ### Deferred Features
 
 - [ ] Per-directory split ratio persistence
 - [ ] Custom profiles beyond the default pair
-- [ ] Session persistence across restarts
 - [ ] Profile management UI
 
 ## Domain Model
@@ -118,8 +119,8 @@ If a project tab for the specified directory already exists, it will be focused 
 | Shortcut         | Action                              |
 |------------------|-------------------------------------|
 | Ctrl+N           | Open new project (folder picker)    |
-| Ctrl+Tab         | Next tab                            |
-| Ctrl+Shift+Tab   | Previous tab                        |
+| Ctrl+PageDown    | Next tab                            |
+| Ctrl+PageUp      | Previous tab                        |
 | Ctrl+1-9         | Jump to specific tab                |
 | Ctrl+W           | Close current tab                   |
 | Ctrl+`           | Switch between Custom/Shell terminal|
@@ -141,7 +142,18 @@ Config file: `%APPDATA%\TerminalHost\config.json`
     "shellCommand": "pwsh.exe",
     "shellCommandName": "PowerShell",
     "shellCommandIcon": "💻"
-  }
+  },
+  "windowState": {
+    "left": 100,
+    "top": 100,
+    "width": 1200,
+    "height": 800,
+    "isMaximized": false
+  },
+  "openFolders": [
+    "P:\\Project1",
+    "P:\\Project2"
+  ]
 }
 ```
 
@@ -193,7 +205,6 @@ Items for future development:
 
 - **Per-directory settings**: Remember split ratio, active terminal per directory
 - **Custom profile pairs**: Different command pairs for different project types
-- **Session restore**: Reopen previous session's tabs on startup
 - **Drag-and-drop tabs**: Reorder tabs
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
