@@ -41,6 +41,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Window state persistence (position, size, maximized)
 - [x] Session persistence (open folders restored on startup)
 - [x] Per-directory settings persistence (split ratio, active terminal)
+- [x] Git repository status display (branch, dirty status, ahead/behind)
 
 ### Deferred Features
 
@@ -185,6 +186,19 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 - **Theme**: Campbell color scheme (Windows Terminal default)
 - **Process startup**: RestartTerm() called after control loads into visual tree
 
+### Git Status Display
+
+For git repositories, the application displays:
+- **Tab title**: Directory name with branch and status (e.g., `MyProject [main *]`)
+- **Status bar**: Full status with branch icon (e.g., `🌿 main • 2↑ 1↓ • modified`)
+
+Status indicators:
+- `*` or `modified` - Uncommitted changes present
+- `↑N` - Commits ahead of remote
+- `↓N` - Commits behind remote
+
+Status refreshes automatically every 5 seconds for the active tab.
+
 ### Project Structure
 
 ```
@@ -199,13 +213,15 @@ TerminalHost/
     │   ├── TerminalSession.cs  # Running terminal instance
     │   ├── TerminalPair.cs     # Paired custom + shell terminals
     │   ├── SessionState.cs     # Running/Exited enum
-    │   └── AppConfiguration.cs # Root config with settings
+    │   ├── AppConfiguration.cs # Root config with settings
+    │   └── GitStatus.cs        # Git repository status model
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile and settings management
     │   ├── SessionManager.cs         # Session lifecycle tracking
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
-    │   └── TerminalControlFactory.cs # Creates configured terminal controls
+    │   ├── TerminalControlFactory.cs # Creates configured terminal controls
+    │   └── GitStatusService.cs       # Git command execution and parsing
     └── ViewModels/
         ├── MainViewModel.cs              # Main window logic
         └── TerminalPairTabViewModel.cs   # Tab with paired terminals

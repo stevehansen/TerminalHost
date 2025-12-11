@@ -12,6 +12,7 @@
         Height="700"
         Width="1100"
         Background="#1E1E1E"
+        FontFamily="Cascadia Code NF, Segoe UI"
         WindowStyle="SingleBorderWindow">
 
     <Window.Resources>
@@ -132,7 +133,7 @@
                                     <TextBlock Foreground="#CCCCCC" VerticalAlignment="Center">
                                         <Run Text="{Binding CurrentIcon, Mode=OneWay}"/>
                                         <Run Text=" "/>
-                                        <Run Text="{Binding Title, Mode=OneWay}"/>
+                                        <Run Text="{Binding TitleWithGit, Mode=OneWay}"/>
                                     </TextBlock>
                                 </DockPanel>
                             </Border>
@@ -210,6 +211,10 @@
 
                             <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
                                        Text="{Binding SelectedTab.Pair.WorkingDirectory}"/>
+
+                            <!-- Git Status Display -->
+                            <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
+                                       Text="{Binding SelectedTab.GitStatusDisplay}"/>
                         </StackPanel>
                     </DockPanel>
                 </Border>

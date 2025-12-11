@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -15,6 +16,8 @@ public partial class MainViewModel : ObservableObject
     private readonly SessionManager _sessionManager;
     private readonly TerminalControlFactory _terminalFactory;
     private readonly ConfigurationService _configService;
+    private readonly GitStatusService _gitStatusService;
+    private readonly DispatcherTimer _gitStatusTimer;
 
     [ObservableProperty]
     private ObservableCollection<TerminalPairTabViewModel> _tabs = new();
@@ -28,12 +31,51 @@ public partial class MainViewModel : ObservableObject
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
         _configService = configService;
+        _gitStatusService = new GitStatusService();
+
+        // Set up timer for periodic git status refresh (every 5 seconds)
+        _gitStatusTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _gitStatusTimer.Tick += async (_, _) => await RefreshSelectedTabGitStatusAsync();
     }
 
     public void Initialize()
     {
         // Restore previously open folders
         RestoreOpenFolders();
+
+        // Start git status refresh timer
+        _gitStatusTimer.Start();
+    }
+
+    private async Task RefreshSelectedTabGitStatusAsync()
+    {
+        if (SelectedTab == null) return;
+
+        try
+        {
+            var status = await _gitStatusService.GetGitStatusAsync(SelectedTab.Pair.WorkingDirectory);
+            SelectedTab.GitStatus = status;
+        }
+        catch
+        {
+            // Silently ignore git status errors
+        }
+    }
+
+    private async Task RefreshTabGitStatusAsync(TerminalPairTabViewModel tab)
+    {
+        try
+        {
+            var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
+            tab.GitStatus = status;
+        }
+        catch
+        {
+            // Silently ignore git status errors
+        }
     }
 
     private void RestoreOpenFolders()
@@ -190,6 +232,9 @@ public partial class MainViewModel : ObservableObject
 
             Tabs.Add(tabViewModel);
             SelectedTab = tabViewModel;
+
+            // Fetch git status for the new tab
+            _ = RefreshTabGitStatusAsync(tabViewModel);
         }
         catch (Exception ex)
         {
@@ -259,6 +304,9 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
+        // Stop git status refresh
+        _gitStatusTimer.Stop();
+
         // Save open folders before closing
         SaveOpenFolders();
 

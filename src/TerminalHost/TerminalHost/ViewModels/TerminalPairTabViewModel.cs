@@ -33,9 +33,19 @@ public partial class TerminalPairTabViewModel : ObservableObject
     [ObservableProperty]
     private double _splitRatio = 0.6;  // Custom terminal takes 60% by default
 
+    [ObservableProperty]
+    private GitStatus? _gitStatus;
+
     // Computed column widths from split ratio
     public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
     public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
+
+    // Git display properties
+    public string TitleWithGit => GitStatus?.IsGitRepository == true
+        ? $"{Title} {GitStatus.BranchDisplayShort}"
+        : Title;
+
+    public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
     public TerminalPair Pair { get; }
 
@@ -115,6 +125,12 @@ public partial class TerminalPairTabViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentIcon));
         OnPropertyChanged(nameof(CurrentTerminalContent));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnGitStatusChanged(GitStatus? value)
+    {
+        OnPropertyChanged(nameof(TitleWithGit));
+        OnPropertyChanged(nameof(GitStatusDisplay));
     }
 
     public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)
