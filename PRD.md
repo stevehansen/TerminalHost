@@ -52,6 +52,9 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Middle-click to close tabs
 - [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
 - [x] Tab switcher popup with search (Ctrl+Shift+T)
+- [x] Help window with shortcuts and commands (F1)
+- [x] Built-in quick commands (Open Explorer, Help) in status bar
+- [x] CSV/TSV file preview with column colorization
 
 ### Deferred Features
 
@@ -133,7 +136,9 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+N           | Open new project (folder picker)    |
 | Ctrl+,           | Open settings editor                |
 | Ctrl+P           | Open profile management             |
+| Ctrl+E           | Open current folder in Explorer     |
 | Ctrl+O           | Open file preview dialog            |
+| F1               | Show help window                    |
 | Ctrl+Shift+T     | Open tab switcher (search tabs)     |
 | Ctrl+PageDown    | Next tab                            |
 | Ctrl+PageUp      | Previous tab                        |
@@ -470,6 +475,52 @@ When `showInSystemTray` is enabled in settings, the application supports system 
 - Setting takes effect immediately when changed in Settings editor
 - The tray icon uses the same app icon as the window
 
+### Help Window
+
+Press `F1` to open the Help window, which displays:
+
+**Keyboard Shortcuts:**
+- Tab navigation (Ctrl+PageDown/Up, Ctrl+1-9, Ctrl+Shift+T, Ctrl+W)
+- Terminal switching (Ctrl+`)
+- File operations (Ctrl+N, Ctrl+E, Ctrl+O)
+- Application (Ctrl+,, Ctrl+P, F1)
+- Default quick commands (Ctrl+Shift+C/D/U)
+
+**Tips:**
+- Drag tabs to reorder
+- Splitter ratio saved per directory
+- Supported syntax highlighting formats
+- Custom link pattern configuration
+
+**Command Line Usage:**
+- `host` - Open app
+- `host .` - Open current directory
+- `host P:\Path` - Open specific project
+
+**Important Paths:**
+- Config file location
+
+### File Preview Syntax Highlighting
+
+File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting for:
+
+| Extension(s)           | Description                                |
+|------------------------|--------------------------------------------|
+| `.json`                | JSON with keys, strings, numbers, booleans |
+| `.cs`                  | C# with keywords, types, methods, comments |
+| `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs` | JavaScript/TypeScript |
+| `.py`                  | Python with keywords, decorators, strings  |
+| `.xml`, `.xaml`, `.html`, `.htm`, `.svg`, `.xsd`, `.config`, `.csproj` | XML/HTML |
+| `.md`, `.markdown`     | Markdown with headers, links, code blocks  |
+| `.csv`                 | CSV with column colorization               |
+| `.tsv`                 | TSV with column colorization               |
+
+**CSV/TSV Colorization:**
+- Each column is assigned a distinct color for easy visual differentiation
+- Header row (first line) is displayed in white/bold
+- Supports quoted values with escaped quotes
+- 10 distinct column colors that cycle for files with many columns
+
 ### Project Structure
 
 ```
@@ -513,18 +564,11 @@ TerminalHost/
 
 Items for future development:
 
-### Syntax Highlighting
-- **File viewer with syntax highlighting**: Support viewing files with highlighting
-  - Markdown files (`.md`)
-  - C# source files (`.cs`)
-  - Git diffs
-  - Could reuse highlighting for settings editor
-
 ### Other Features
 - **Custom profile pairs**: Different command pairs for different project types
-- **Drag-and-drop tabs**: Reorder tabs
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
+- **Git diff syntax highlighting**: Colorize git diffs in file preview
 
 ## Success Criteria
 
