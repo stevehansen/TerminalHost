@@ -9,6 +9,11 @@
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+        <local:RunStateToColorConverter x:Key="RunStateToColorConverter"/>
+        <local:RunStateToIconConverter x:Key="RunStateToIconConverter"/>
+        <local:RunStateToTooltipConverter x:Key="RunStateToTooltipConverter"/>
+        <local:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
+        <local:BoolToSplitterWidthConverter x:Key="BoolToSplitterWidthConverter"/>
 
         <!-- Tab Close Button Style -->
         <Style x:Key="TabCloseButton" TargetType="Button">

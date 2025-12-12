@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
+**TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), plus an optional run terminal for development servers. Allows easy switching between them without termination.
 
 ## Technology Stack
 
@@ -83,7 +83,7 @@ TerminalHost/
     ├── Domain/
     │   ├── Profile.cs          # Configuration template for terminal sessions
     │   ├── TerminalSession.cs  # Running terminal instance
-    │   ├── TerminalPair.cs     # Paired custom + shell terminals for a directory
+    │   ├── TerminalPair.cs     # Paired custom + shell + run terminals for a directory
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
@@ -91,7 +91,10 @@ TerminalHost/
     │   ├── GitBranch.cs        # Git branch model for branch switcher
     │   ├── QuickCommand.cs     # Quick command with shortcut
     │   ├── LinkPattern.cs      # Custom link pattern definition
-    │   └── PaletteCommand.cs   # Command palette item definition
+    │   ├── PaletteCommand.cs   # Command palette item definition
+    │   ├── RunConfiguration.cs # Run configuration for project runner
+    │   ├── ProjectType.cs      # Project type detection model
+    │   └── RunState.cs         # Run terminal state enum
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── ProfileRegistry.cs        # Profile management
@@ -103,7 +106,9 @@ TerminalHost/
     │   ├── FilePreviewService.cs     # File preview loading
     │   ├── FileEditService.cs        # File editing (load/save)
     │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
-    │   └── LinkDetectionService.cs   # Clickable link detection
+    │   ├── LinkDetectionService.cs   # Clickable link detection
+    │   ├── ProjectDetectionService.cs # Auto-detect project type
+    │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic
@@ -125,8 +130,9 @@ TerminalHost/
 Each project directory opens as a `TerminalPair` containing:
 - **Custom Terminal**: Runs configured command (default: Claude Code)
 - **Shell Terminal**: Runs shell (default: PowerShell)
+- **Run Terminal**: Optional third terminal for running development servers (created on demand)
 
-Both terminals are created simultaneously and always visible in a split view layout.
+Custom and Shell terminals are created simultaneously and always visible in a split view layout. The Run terminal appears on the right when activated.
 
 ### Working Directory Handling
 EasyTerminalControl doesn't have a native working directory property. The factory wraps commands:
@@ -166,6 +172,10 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+G`: Open git changes panel (modified files + diffs)
 - `Ctrl+B`: Open git branch switcher
 - `F1`: Show help window
+
+### Project Runner
+- `F5`: Start/Stop project run
+- `Shift+F5`: Force stop project run
 
 ### Default Quick Commands
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)

@@ -19,14 +19,37 @@ public partial class MainViewModel : ObservableObject
     private readonly ConfigurationService _configService;
     private readonly GitStatusService _gitStatusService;
     private readonly LinkDetectionService _linkDetectionService;
+    private readonly ProjectDetectionService _projectDetectionService;
+    private readonly RunUrlDetectionService _runUrlDetectionService;
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
     private readonly DispatcherTimer _linkDetectionTimer;
+    private readonly DispatcherTimer _runUrlDetectionTimer;
 
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
     /// </summary>
     public LinkDetectionService LinkDetectionService => _linkDetectionService;
+
+    /// <summary>
+    /// The run URL detection service for detecting localhost URLs from run output.
+    /// </summary>
+    public RunUrlDetectionService RunUrlDetectionService => _runUrlDetectionService;
+
+    /// <summary>
+    /// The project detection service for auto-detecting project types.
+    /// </summary>
+    public ProjectDetectionService ProjectDetectionService => _projectDetectionService;
+
+    /// <summary>
+    /// The terminal control factory for creating terminal controls.
+    /// </summary>
+    public TerminalControlFactory TerminalFactory => _terminalFactory;
+
+    /// <summary>
+    /// The session manager for tracking terminal sessions.
+    /// </summary>
+    public SessionManager SessionManager => _sessionManager;
 
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = new();
@@ -40,6 +63,7 @@ public partial class MainViewModel : ObservableObject
 
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
+    public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
 
     public string WindowTitle
     {
@@ -68,6 +92,8 @@ public partial class MainViewModel : ObservableObject
         _configService = configService;
         _gitStatusService = new GitStatusService();
         _linkDetectionService = new LinkDetectionService(profileRegistry);
+        _projectDetectionService = new ProjectDetectionService(profileRegistry);
+        _runUrlDetectionService = new RunUrlDetectionService();
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
@@ -89,6 +115,13 @@ public partial class MainViewModel : ObservableObject
             Interval = TimeSpan.FromSeconds(3)
         };
         _linkDetectionTimer.Tick += (_, _) => RefreshDetectedLinks();
+
+        // Set up timer for run URL detection (every 2 seconds, only when running)
+        _runUrlDetectionTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _runUrlDetectionTimer.Tick += (_, _) => RefreshRunUrlDetection();
     }
 
     public void Initialize()
@@ -107,6 +140,9 @@ public partial class MainViewModel : ObservableObject
 
         // Start link detection timer
         _linkDetectionTimer.Start();
+
+        // Start run URL detection timer
+        _runUrlDetectionTimer.Start();
     }
 
     private void LoadQuickCommands()
@@ -163,6 +199,38 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private void RefreshRunUrlDetection()
+    {
+        // Only scan when there's a running project
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+            return;
+
+        if (terminalTab.RunState != Domain.RunState.Running && terminalTab.RunState != Domain.RunState.Starting)
+            return;
+
+        if (terminalTab.Pair.RunTerminal == null)
+            return;
+
+        // Don't re-detect if we already have a URL
+        if (!string.IsNullOrEmpty(terminalTab.DetectedRunUrl))
+            return;
+
+        // Get recent output from run terminal
+        var output = terminalTab.Pair.RunTerminal.GetRecentOutput(5000);
+        if (string.IsNullOrEmpty(output))
+            return;
+
+        // Get the URL pattern from the active configuration
+        var urlPattern = terminalTab.ActiveRunConfiguration?.UrlPattern;
+
+        // Detect URL
+        var url = _runUrlDetectionService.DetectUrl(output, urlPattern);
+        if (!string.IsNullOrEmpty(url))
+        {
+            terminalTab.DetectedRunUrl = url;
+        }
+    }
+
     private void RestoreOpenFolders()
     {
         var config = _configService.Load();
@@ -187,13 +255,24 @@ public partial class MainViewModel : ObservableObject
         var config = _configService.Load();
         var normalizedPath = NormalizePath(tab.Pair.WorkingDirectory);
 
-        config.DirectorySettings[normalizedPath] = new DirectorySettings
+        // Get existing settings or create new
+        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var settings))
         {
-            IsSplitView = tab.IsSplitView,
-            SplitRatio = tab.SplitRatio,
-            ActiveTerminal = tab.ActiveTerminal.ToString()
-        };
+            settings = new DirectorySettings();
+        }
 
+        // Update basic settings
+        settings.IsSplitView = tab.IsSplitView;
+        settings.SplitRatio = tab.SplitRatio;
+        settings.ActiveTerminal = tab.ActiveTerminal.ToString();
+
+        // Update run settings
+        settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
+        settings.RunSplitRatio = tab.RunSplitRatio;
+        settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
+        settings.RunConfigurations = tab.RunConfigurations.ToList();
+
+        config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
     }
 
@@ -309,7 +388,14 @@ public partial class MainViewModel : ObservableObject
                     tabViewModel.ActiveTerminal = activeTerminal;
                     pair.ActiveTerminal = activeTerminal;
                 }
+
+                // Restore run settings
+                tabViewModel.IsRunTerminalVisible = dirSettings.IsRunTerminalVisible;
+                tabViewModel.RunSplitRatio = dirSettings.RunSplitRatio;
             }
+
+            // Initialize run configurations (from settings or auto-detect)
+            InitializeRunConfigurations(tabViewModel, workingDirectory, dirSettings);
 
             // Track sessions
             _sessionManager.TrackSession(pair.CustomTerminal);
@@ -318,6 +404,10 @@ public partial class MainViewModel : ObservableObject
             // Subscribe to link click events
             pair.CustomTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
             pair.ShellTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+
+            // Subscribe to run terminal events
+            tabViewModel.RunStartRequested += OnRunStartRequested;
+            tabViewModel.RunStopRequested += OnRunStopRequested;
 
             Tabs.Add(tabViewModel);
             SelectedTab = tabViewModel;
@@ -354,8 +444,14 @@ public partial class MainViewModel : ObservableObject
 
             terminalTab.CloseRequested -= OnTabCloseRequested;
             terminalTab.SettingsChanged -= OnTabSettingsChanged;
+            terminalTab.RunStartRequested -= OnRunStartRequested;
+            terminalTab.RunStopRequested -= OnRunStopRequested;
             _sessionManager.CloseSession(terminalTab.Pair.CustomTerminal);
             _sessionManager.CloseSession(terminalTab.Pair.ShellTerminal);
+            if (terminalTab.Pair.RunTerminal != null)
+            {
+                _sessionManager.CloseSession(terminalTab.Pair.RunTerminal);
+            }
             terminalTab.Pair.Dispose();
         }
         else if (tab is SettingsTabViewModel settingsTab)
@@ -424,6 +520,52 @@ public partial class MainViewModel : ObservableObject
         {
             SaveDirectorySettings(tab);
         }
+    }
+
+    private void OnRunStartRequested(object? sender, Domain.RunConfiguration configuration)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            RunTerminalRequested?.Invoke(this, new RunTerminalRequestedEventArgs
+            {
+                Tab = tab,
+                Configuration = configuration,
+                IsStop = false
+            });
+        }
+    }
+
+    private void OnRunStopRequested(object? sender, EventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab && tab.ActiveRunConfiguration != null)
+        {
+            RunTerminalRequested?.Invoke(this, new RunTerminalRequestedEventArgs
+            {
+                Tab = tab,
+                Configuration = tab.ActiveRunConfiguration,
+                IsStop = true
+            });
+        }
+    }
+
+    private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
+    {
+        List<Domain.RunConfiguration> configs;
+
+        if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
+        {
+            // Use saved configurations
+            configs = dirSettings.RunConfigurations;
+        }
+        else
+        {
+            // Auto-detect project type and create configurations
+            configs = _projectDetectionService.GetOrCreateConfigurations(
+                workingDirectory,
+                dirSettings ?? new DirectorySettings());
+        }
+
+        tab.InitializeRunConfigurations(configs, dirSettings?.ActiveRunConfigurationId);
     }
 
     [RelayCommand]
@@ -577,6 +719,7 @@ public partial class MainViewModel : ObservableObject
         _gitStatusTimer.Stop();
         _activityTimer.Stop();
         _linkDetectionTimer.Stop();
+        _runUrlDetectionTimer.Stop();
 
         // Save open folders before closing
         SaveOpenFolders();
@@ -594,4 +737,11 @@ public class FilePreviewRequestedEventArgs : EventArgs
     public required string FilePath { get; init; }
     public int? Line { get; init; }
     public int? Column { get; init; }
+}
+
+public class RunTerminalRequestedEventArgs : EventArgs
+{
+    public required TerminalPairTabViewModel Tab { get; init; }
+    public required Domain.RunConfiguration Configuration { get; init; }
+    public bool IsStop { get; init; }
 }

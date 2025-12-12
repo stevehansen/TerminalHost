@@ -38,7 +38,7 @@ public partial class App : Application
         // Create services
         _configService = new ConfigurationService();
         var profileRegistry = new ProfileRegistry(_configService);
-        var sessionManager = new SessionManager();
+        var sessionManager = new SessionManager(profileRegistry);
         var terminalFactory = new TerminalControlFactory();
 
         // Create system tray service

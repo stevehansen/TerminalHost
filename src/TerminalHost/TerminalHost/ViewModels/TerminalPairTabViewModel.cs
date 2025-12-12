@@ -48,10 +48,37 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _isShellTerminalActive;
 
+    // Run terminal properties
+    [ObservableProperty]
+    private ContentControl? _runTerminalContent;
+
+    [ObservableProperty]
+    private bool _isRunTerminalVisible;
+
+    [ObservableProperty]
+    private double _runSplitRatio = 0.3;
+
+    [ObservableProperty]
+    private RunState _runState = RunState.Stopped;
+
+    [ObservableProperty]
+    private string? _detectedRunUrl;
+
+    [ObservableProperty]
+    private bool _isRunTerminalActive;
+
+    [ObservableProperty]
+    private RunConfiguration? _activeRunConfiguration;
+
+    /// <summary>
+    /// Collection of available run configurations for this project.
+    /// </summary>
+    public ObservableCollection<RunConfiguration> RunConfigurations { get; } = new();
+
     /// <summary>
     /// True if either terminal is currently producing output.
     /// </summary>
-    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive;
+    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive || IsRunTerminalActive;
 
     /// <summary>
     /// Collection of detected links from terminal output.
@@ -66,6 +93,21 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     // Computed column widths from split ratio
     public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
     public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
+
+    // Run terminal column width (only shown when visible)
+    public GridLength RunColumnWidth => IsRunTerminalVisible
+        ? new GridLength(RunSplitRatio, GridUnitType.Star)
+        : new GridLength(0);
+
+    public GridLength RunSplitterWidth => IsRunTerminalVisible
+        ? new GridLength(4)
+        : new GridLength(0);
+
+    // Run state computed properties
+    public bool CanRun => RunState == RunState.Stopped && ActiveRunConfiguration != null;
+    public bool CanStop => RunState == RunState.Running || RunState == RunState.Starting;
+    public bool HasDetectedRunUrl => !string.IsNullOrEmpty(DetectedRunUrl);
+    public bool HasMultipleRunConfigs => RunConfigurations.Count > 1;
 
     // Git display properties
     public string TitleWithGit => GitStatus?.IsGitRepository == true
@@ -173,6 +215,40 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(IsAnyTerminalActive));
     }
 
+    partial void OnIsRunTerminalActiveChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyTerminalActive));
+    }
+
+    partial void OnIsRunTerminalVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RunColumnWidth));
+        OnPropertyChanged(nameof(RunSplitterWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnRunSplitRatioChanged(double value)
+    {
+        OnPropertyChanged(nameof(RunColumnWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnRunStateChanged(RunState value)
+    {
+        OnPropertyChanged(nameof(CanRun));
+        OnPropertyChanged(nameof(CanStop));
+    }
+
+    partial void OnDetectedRunUrlChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasDetectedRunUrl));
+    }
+
+    partial void OnActiveRunConfigurationChanged(RunConfiguration? value)
+    {
+        OnPropertyChanged(nameof(CanRun));
+    }
+
     /// <summary>
     /// Updates activity state from the terminal sessions.
     /// </summary>
@@ -236,5 +312,167 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private void Close()
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Run terminal commands
+
+    [RelayCommand]
+    private void ToggleRunTerminal()
+    {
+        IsRunTerminalVisible = !IsRunTerminalVisible;
+    }
+
+    [RelayCommand]
+    private void ShowRunTerminal()
+    {
+        IsRunTerminalVisible = true;
+    }
+
+    [RelayCommand]
+    private void HideRunTerminal()
+    {
+        IsRunTerminalVisible = false;
+    }
+
+    /// <summary>
+    /// Event raised when the run terminal needs to be created and started.
+    /// The MainWindow handles creating the actual terminal control.
+    /// </summary>
+    public event EventHandler<RunConfiguration>? RunStartRequested;
+
+    /// <summary>
+    /// Event raised when the run terminal needs to be stopped.
+    /// </summary>
+    public event EventHandler? RunStopRequested;
+
+    [RelayCommand]
+    private void StartRun()
+    {
+        if (ActiveRunConfiguration == null || RunState != RunState.Stopped)
+            return;
+
+        RunState = RunState.Starting;
+        IsRunTerminalVisible = true;
+        DetectedRunUrl = null;
+
+        // Request the run to be started (MainWindow will handle terminal creation)
+        RunStartRequested?.Invoke(this, ActiveRunConfiguration);
+    }
+
+    [RelayCommand]
+    private void StopRun()
+    {
+        if (RunState == RunState.Stopped)
+            return;
+
+        RunState = RunState.Stopping;
+        RunStopRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ToggleRun()
+    {
+        if (CanRun)
+            StartRun();
+        else if (CanStop)
+            StopRun();
+    }
+
+    [RelayCommand]
+    private void RestartRun()
+    {
+        if (RunState == RunState.Running || RunState == RunState.Starting)
+        {
+            StopRun();
+            // The actual restart will need to be handled by MainWindow
+            // after the stop completes
+        }
+        else if (CanRun)
+        {
+            StartRun();
+        }
+    }
+
+    /// <summary>
+    /// Called when the run process has started successfully.
+    /// </summary>
+    public void OnRunStarted()
+    {
+        RunState = RunState.Running;
+    }
+
+    /// <summary>
+    /// Called when the run process has stopped.
+    /// </summary>
+    public void OnRunStopped()
+    {
+        RunState = RunState.Stopped;
+        DetectedRunUrl = null;
+    }
+
+    /// <summary>
+    /// Sets the run terminal control after it's created.
+    /// </summary>
+    public void SetRunTerminalControl(EasyTerminalControl runControl)
+    {
+        RunTerminalContent = runControl;
+
+        if (Pair.RunTerminal != null)
+        {
+            Pair.RunTerminal.SetTerminalControl(runControl);
+
+            // Subscribe to activity changes
+            Pair.RunTerminal.ActivityChanged += (s, e) =>
+            {
+                IsRunTerminalActive = Pair.RunTerminal.IsActive;
+            };
+        }
+    }
+
+    /// <summary>
+    /// Initializes run configurations from project detection.
+    /// </summary>
+    public void InitializeRunConfigurations(List<RunConfiguration> configs, string? activeConfigId)
+    {
+        RunConfigurations.Clear();
+        foreach (var config in configs)
+        {
+            RunConfigurations.Add(config);
+        }
+
+        // Set active configuration
+        if (!string.IsNullOrEmpty(activeConfigId))
+        {
+            ActiveRunConfiguration = RunConfigurations.FirstOrDefault(c => c.Id == activeConfigId);
+        }
+
+        ActiveRunConfiguration ??= RunConfigurations.FirstOrDefault(c => c.IsDefault)
+                                  ?? RunConfigurations.FirstOrDefault();
+
+        OnPropertyChanged(nameof(HasMultipleRunConfigs));
+    }
+
+    /// <summary>
+    /// Updates the run split ratio from actual column widths.
+    /// </summary>
+    public void UpdateRunSplitRatioFromColumnWidths(double mainWidth, double runWidth)
+    {
+        var total = mainWidth + runWidth;
+        if (total > 0)
+        {
+            RunSplitRatio = runWidth / total;
+        }
+    }
+
+    /// <summary>
+    /// Updates activity state for the run terminal.
+    /// </summary>
+    public void UpdateRunActivityState()
+    {
+        if (Pair.RunTerminal != null)
+        {
+            Pair.RunTerminal.CheckActivityState();
+            IsRunTerminalActive = Pair.RunTerminal.IsActive;
+        }
     }
 }

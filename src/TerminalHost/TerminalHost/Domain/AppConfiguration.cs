@@ -31,6 +31,9 @@ public class AppConfiguration
     [JsonPropertyName("globalScratchPad")]
     public string GlobalScratchPad { get; set; } = "";
 
+    [JsonPropertyName("projectTypes")]
+    public List<ProjectType> ProjectTypes { get; set; } = ProjectType.GetDefaults();
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
@@ -167,7 +170,23 @@ public class DirectorySettings
     public double SplitRatio { get; set; } = 0.6;  // Custom terminal takes 60% by default
 
     [JsonPropertyName("activeTerminal")]
-    public string ActiveTerminal { get; set; } = "Custom";  // "Custom" or "Shell"
+    public string ActiveTerminal { get; set; } = "Custom";  // "Custom", "Shell", or "Run"
+
+    // Run terminal settings
+    [JsonPropertyName("runConfigurations")]
+    public List<RunConfiguration> RunConfigurations { get; set; } = new();
+
+    [JsonPropertyName("isRunTerminalVisible")]
+    public bool IsRunTerminalVisible { get; set; } = false;
+
+    [JsonPropertyName("runSplitRatio")]
+    public double RunSplitRatio { get; set; } = 0.3;  // Run terminal takes 30% by default
+
+    [JsonPropertyName("activeRunConfigurationId")]
+    public string? ActiveRunConfigurationId { get; set; }
+
+    [JsonPropertyName("detectedProjectType")]
+    public string? DetectedProjectType { get; set; }  // Cached project type ID
 }
 
 public class WindowStateInfo
@@ -197,7 +216,7 @@ public class AppSettings
     public bool ShowInSystemTray { get; set; } = false;
 
     [JsonPropertyName("customCommand")]
-    public string CustomCommand { get; set; } = @"C:\Users\Administrator\.local\bin\claude.exe";
+    public string CustomCommand { get; set; } = @"%USERPROFILE%\.local\bin\claude.exe";
 
     [JsonPropertyName("customCommandName")]
     public string CustomCommandName { get; set; } = "Claude Code";

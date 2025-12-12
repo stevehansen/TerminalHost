@@ -164,6 +164,60 @@ public partial class MainWindow
                 Category = "Git",
                 Execute = ShowGitBranch,
                 CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Run commands
+            new PaletteCommand
+            {
+                Id = "run-start",
+                Name = "Run: Start",
+                Description = "Start the project",
+                Shortcut = "F5",
+                Icon = "▶",
+                Category = "Run",
+                Execute = () => { if (_viewModel.SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel { CanRun: true }
+            },
+            new PaletteCommand
+            {
+                Id = "run-stop",
+                Name = "Run: Stop",
+                Description = "Stop the running project",
+                Shortcut = "Shift+F5",
+                Icon = "⏹",
+                Category = "Run",
+                Execute = () => { if (_viewModel.SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel { CanStop: true }
+            },
+            new PaletteCommand
+            {
+                Id = "run-restart",
+                Name = "Run: Restart",
+                Description = "Restart the running project",
+                Icon = "🔄",
+                Category = "Run",
+                Execute = () => { if (_viewModel.SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
+            },
+            new PaletteCommand
+            {
+                Id = "run-toggle-terminal",
+                Name = "Run: Toggle Terminal",
+                Description = "Show/hide run terminal panel",
+                Icon = "📺",
+                Category = "Run",
+                Execute = () => { if (_viewModel.SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
+            },
+            new PaletteCommand
+            {
+                Id = "run-open-url",
+                Name = "Run: Open URL",
+                Description = "Open detected localhost URL in browser",
+                Icon = "🌐",
+                Category = "Run",
+                Execute = () => { if (_viewModel.SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) _viewModel.RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
             }
         };
     }

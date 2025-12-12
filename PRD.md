@@ -60,6 +60,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
 - [x] Git changes panel with file list and diff viewer (Ctrl+G)
 - [x] Git branch management popup (Ctrl+B) - switch, create, delete branches
+- [x] Project Runner - Run and manage development servers with F5, dedicated run terminal, URL detection
 
 ### Deferred Features
 
@@ -163,6 +164,8 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
 | Ctrl+Shift+B     | Quick command: Dev Build (Shell)    |
+| F5               | Start/Stop project run              |
+| Shift+F5         | Force stop project run              |
 | Links button     | View detected URLs and file paths from terminal output |
 
 ## Configuration
@@ -722,14 +725,17 @@ TerminalHost/
     ├── Domain/
     │   ├── Profile.cs          # Configuration template for terminal sessions
     │   ├── TerminalSession.cs  # Running terminal instance
-    │   ├── TerminalPair.cs     # Paired custom + shell terminals
+    │   ├── TerminalPair.cs     # Paired custom + shell + run terminals
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
     │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
     │   ├── QuickCommand.cs     # Quick command definition with shortcut
     │   ├── LinkPattern.cs      # Custom link pattern definition
-    │   └── PaletteCommand.cs   # Command palette item definition
+    │   ├── PaletteCommand.cs   # Command palette item definition
+    │   ├── RunConfiguration.cs # Run configuration for project runner
+    │   ├── ProjectType.cs      # Project type detection model
+    │   └── RunState.cs         # Run terminal state enum
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
     │   ├── ProfileRegistry.cs        # Profile and settings management
@@ -741,7 +747,9 @@ TerminalHost/
     │   ├── FilePreviewService.cs     # File preview loading with syntax highlighting
     │   ├── FileEditService.cs        # File editing (load/save)
     │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
-    │   └── LinkDetectionService.cs   # Clickable link detection and handling
+    │   ├── LinkDetectionService.cs   # Clickable link detection and handling
+    │   ├── ProjectDetectionService.cs # Auto-detect project type for runner
+    │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic
@@ -757,75 +765,77 @@ TerminalHost/
         └── CommandPalettePopup.xaml(.cs) # Command palette popup (UserControl)
 ```
 
-## Planned Features
-
-The following features are planned for future development:
-
 ### Project Runner
 
-Run and manage development servers/applications directly from the application.
+Run and manage development servers/applications directly from the application with a dedicated run terminal.
 
-**Run Configuration:**
-- Auto-detect project type (e.g., .NET, Node.js, Python)
-- Configure run commands per project directory
-- Support for common frameworks:
-  - .NET: `dotnet run`, `dotnet watch run`
-  - Node.js: `npm start`, `npm run dev`
-  - Python: `python main.py`, `flask run`
+**Features:**
+- **Dedicated Run Terminal**: Third terminal panel (alongside Custom and Shell) for running projects
+- **Auto-detection**: Automatically detects project type from marker files (.csproj, package.json, etc.)
+- **Status bar controls**: Run/Stop button, status indicator, URL detection, and run terminal toggle
+- **Keyboard shortcuts**: F5 to start/stop, Shift+F5 to force stop
+- **URL detection**: Automatically detects localhost URLs from terminal output and displays as clickable link
 
-**Run Terminal Options:**
-1. **Use Shell Terminal**: Run in the existing shell terminal (simplest)
-2. **Dedicated Run Terminal**: Third terminal in the pair specifically for running
-3. **Separate Window**: Launch in a new terminal window
-
-**URL Detection:**
-- Parse terminal output for URLs (e.g., `Now listening on: https://localhost:5001`)
-- Display detected URL in status bar or popup
-- One-click to open in browser
-- Support common patterns:
-  - ASP.NET: `Now listening on: http://localhost:xxxx`
-  - Vite/Node: `Local: http://localhost:xxxx`
-  - Flask: `Running on http://127.0.0.1:xxxx`
+**Supported Project Types:**
+| Type       | Detect Files                        | Default Command      | Watch Command        |
+|------------|-------------------------------------|----------------------|----------------------|
+| .NET       | `*.csproj`, `*.sln`                 | `dotnet run`         | `dotnet watch run`   |
+| Node.js    | `package.json`                      | `npm start`          | `npm run dev`        |
+| Python     | `requirements.txt`, `pyproject.toml`| `python main.py`     | `flask run`          |
+| Rust       | `Cargo.toml`                        | `cargo run`          | `cargo watch -x run` |
+| Go         | `go.mod`                            | `go run .`           | -                    |
 
 **Run Controls:**
-- Start/Stop buttons in toolbar or status bar
-- Restart button (stop + start)
-- Keyboard shortcut: `F5` to start/stop (tentative)
-- Visual indicator when project is running
-- Auto-restart on file changes (watch mode)
+| Control           | Description                                          |
+|-------------------|------------------------------------------------------|
+| Status indicator  | Colored dot: Gray (stopped), Yellow (starting), Green (running), Orange (stopping) |
+| Run/Stop button   | Click to start or stop the project                   |
+| Config dropdown   | Select which run configuration to use (if multiple)  |
+| URL button        | Click to open detected localhost URL in browser      |
+| Terminal toggle   | Show/hide the run terminal panel                     |
 
-**Configuration Schema:**
+**Configuration:**
+Run configurations are stored per-directory in `directorySettings`:
 ```json
 {
   "directorySettings": {
     "p:\\myproject": {
-      "runCommand": "dotnet watch run",
-      "runInTerminal": "Shell",
-      "autoDetectUrl": true,
-      "expectedUrlPattern": "Now listening on: (https?://[^\\s]+)"
+      "runConfigurations": [
+        {
+          "id": "dev",
+          "name": "Development",
+          "command": "dotnet watch run",
+          "isDefault": true,
+          "urlPattern": "Now listening on: (https?://[^\\s]+)"
+        }
+      ],
+      "isRunTerminalVisible": false,
+      "runSplitRatio": 0.3,
+      "activeRunConfigurationId": "dev"
     }
   },
-  "runProfiles": {
-    "dotnet": {
+  "projectTypes": [
+    {
+      "id": "dotnet",
+      "name": ".NET",
       "detectFiles": ["*.csproj", "*.sln"],
       "defaultCommand": "dotnet run",
       "watchCommand": "dotnet watch run",
-      "urlPattern": "Now listening on: (https?://[^\\s]+)"
-    },
-    "node": {
-      "detectFiles": ["package.json"],
-      "defaultCommand": "npm start",
-      "watchCommand": "npm run dev",
-      "urlPattern": "Local:\\s+(https?://[^\\s]+)"
+      "urlPattern": "Now listening on: (https?://[^\\s]+)",
+      "priority": 10
     }
-  }
+  ]
 }
 ```
 
-**Status Bar Integration:**
-- Show run status icon: ▶ (stopped), ⏸ (running), 🔄 (restarting)
-- Display detected URL as clickable link
-- Quick access to run/stop actions
+**Command Palette Commands:**
+| Command            | Description                               |
+|--------------------|-------------------------------------------|
+| Run: Start         | Start the project (F5)                    |
+| Run: Stop          | Stop the running project (Shift+F5)       |
+| Run: Restart       | Restart the running project               |
+| Run: Toggle Terminal | Show/hide run terminal panel            |
+| Run: Open URL      | Open detected localhost URL in browser    |
 
 ## Future Considerations
 

@@ -9,6 +9,7 @@ public class ProfileRegistry
 
     public IReadOnlyList<Profile> Profiles => _configuration.Profiles.AsReadOnly();
     public IReadOnlyList<LinkPattern> LinkPatterns => _configuration.LinkPatterns.AsReadOnly();
+    public IReadOnlyList<ProjectType> ProjectTypes => _configuration.ProjectTypes.AsReadOnly();
     public AppSettings Settings => _configuration.Settings;
 
     public event EventHandler? ProfilesChanged;
@@ -64,6 +65,36 @@ public class ProfileRegistry
     {
         _configuration = _configurationService.Load();
         ProfilesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Gets the list of project types for detection.
+    /// </summary>
+    public IReadOnlyList<ProjectType> GetProjectTypes()
+    {
+        return _configuration.ProjectTypes.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Gets directory-specific settings.
+    /// </summary>
+    public DirectorySettings GetDirectorySettings(string workingDirectory)
+    {
+        var key = workingDirectory.ToLowerInvariant();
+        if (!_configuration.DirectorySettings.TryGetValue(key, out var settings))
+        {
+            settings = new DirectorySettings();
+            _configuration.DirectorySettings[key] = settings;
+        }
+        return settings;
+    }
+
+    /// <summary>
+    /// Saves the current configuration.
+    /// </summary>
+    public void SaveConfiguration()
+    {
+        Save();
     }
 
     private void Save()

@@ -6,8 +6,15 @@ namespace TerminalHost.Services;
 public class SessionManager
 {
     private readonly List<TerminalSession> _sessions = new();
+    private readonly ProfileRegistry _profileRegistry;
 
     public IReadOnlyList<TerminalSession> ActiveSessions => _sessions.AsReadOnly();
+    public ProfileRegistry ProfileRegistry => _profileRegistry;
+
+    public SessionManager(ProfileRegistry profileRegistry)
+    {
+        _profileRegistry = profileRegistry;
+    }
 
     public event EventHandler<TerminalSession>? SessionCreated;
     public event EventHandler<TerminalSession>? SessionClosed;

@@ -340,7 +340,88 @@
                                                 ToolTip="Help &amp; Shortcuts (F1)"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenHelpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Margin="0,0,8,0"/>
+                                                Margin="0,0,4,0"/>
+
+                                        <!-- Run Controls Separator -->
+                                        <Border Width="1" Background="#444444" Margin="4,2,8,2"/>
+
+                                        <!-- Run State Indicator (colored dot) -->
+                                        <Ellipse Width="8" Height="8"
+                                                 Fill="{Binding RunState, Converter={StaticResource RunStateToColorConverter}}"
+                                                 VerticalAlignment="Center"
+                                                 Margin="0,0,4,0"/>
+
+                                        <!-- Run/Stop Button -->
+                                        <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
+                                                ToolTip="{Binding RunState, Converter={StaticResource RunStateToTooltipConverter}}"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding ToggleRunCommand}"
+                                                Margin="0,0,4,0"/>
+
+                                        <!-- Run Configuration Dropdown (only if multiple configs) -->
+                                        <ComboBox ItemsSource="{Binding RunConfigurations}"
+                                                  SelectedItem="{Binding ActiveRunConfiguration}"
+                                                  DisplayMemberPath="Name"
+                                                  MinWidth="80"
+                                                  Visibility="{Binding HasMultipleRunConfigs, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                  Background="#2D2D2D"
+                                                  Foreground="#CCCCCC"
+                                                  BorderBrush="#444444"
+                                                  Margin="0,0,4,0"/>
+
+                                        <!-- Detected Run URL Button -->
+                                        <Button ToolTip="{Binding DetectedRunUrl}"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Click="OpenDetectedRunUrl_Click"
+                                                Visibility="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
+                                                Margin="0,0,4,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="🌐" Margin="0,0,4,0"/>
+                                                <TextBlock Text="{Binding DetectedRunUrl}"
+                                                           FontSize="10"
+                                                           Foreground="#4EC9B0"
+                                                           MaxWidth="150"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Toggle Run Terminal Visibility -->
+                                        <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
+                                                      Content="▶"
+                                                      ToolTip="Show/Hide Run Terminal"
+                                                      Margin="0,0,8,0">
+                                            <ToggleButton.Style>
+                                                <Style TargetType="ToggleButton">
+                                                    <Setter Property="Background" Value="#2D2D2D"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                    <Setter Property="FontSize" Value="11"/>
+                                                    <Setter Property="Padding" Value="8,4"/>
+                                                    <Setter Property="Cursor" Value="Hand"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ToggleButton">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="3"
+                                                                        Padding="{TemplateBinding Padding}">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter Property="Background" Value="#0078D4"/>
+                                                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#3E3E3E"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ToggleButton.Style>
+                                        </ToggleButton>
 
                                         <!-- Separator between built-in and user commands -->
                                         <Border Width="1" Background="#444444" Margin="0,2,8,2"
@@ -368,7 +449,7 @@
                                 </DockPanel>
                             </Border>
 
-                            <!-- Terminal Content Area - Single grid with dynamic column widths -->
+                            <!-- Terminal Content Area - Grid with dynamic column widths (3 columns when run terminal visible) -->
                             <Grid Grid.Row="1" Background="#1E1E1E">
                                 <Grid.ColumnDefinitions>
                                     <!-- Custom terminal column -->
@@ -377,9 +458,13 @@
                                     <ColumnDefinition Width="4"/>
                                     <!-- Shell terminal column -->
                                     <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
+                                    <!-- Run splitter column (hidden when run terminal not visible) -->
+                                    <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
+                                    <!-- Run terminal column (hidden when not visible) -->
+                                    <ColumnDefinition Width="{Binding RunColumnWidth}"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Custom Terminal (Left) -->
+                                <!-- Custom Terminal (Column 0) -->
                                 <Grid Grid.Column="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -395,11 +480,11 @@
                                                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                 </Grid>
 
-                                <!-- Splitter -->
+                                <!-- Splitter (Column 1) -->
                                 <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
                                               DragCompleted="GridSplitter_DragCompleted"/>
 
-                                <!-- Shell Terminal (Right) -->
+                                <!-- Shell Terminal (Column 2) -->
                                 <Grid Grid.Column="2">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -412,6 +497,34 @@
                                         </TextBlock>
                                     </Border>
                                     <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                </Grid>
+
+                                <!-- Run Splitter (Column 3) - only visible when run terminal is visible -->
+                                <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="3" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+                                              Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                                              DragCompleted="RunSplitter_DragCompleted"/>
+
+                                <!-- Run Terminal (Column 4) - only visible when run terminal is visible -->
+                                <Grid Grid.Column="4" Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Background="#333333" Padding="4,2">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="×"
+                                                    Style="{StaticResource TabCloseButton}"
+                                                    Command="{Binding ToggleRunTerminalCommand}"
+                                                    ToolTip="Hide Run Terminal"/>
+                                            <TextBlock Foreground="#AAAAAA" FontSize="10" VerticalAlignment="Center">
+                                                <Run Text="▶ Run"/>
+                                                <Run Text=" - " Foreground="#666666"/>
+                                                <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="#4EC9B0"/>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </Border>
+                                    <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
                                                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                 </Grid>
                             </Grid>

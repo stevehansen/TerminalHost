@@ -4,7 +4,7 @@ namespace TerminalHost.Domain;
 
 /// <summary>
 /// Represents a paired set of terminals for a single working directory.
-/// Contains both a custom command terminal (e.g., Claude Code) and a shell terminal.
+/// Contains a custom command terminal (e.g., Claude Code), a shell terminal, and an optional run terminal.
 /// </summary>
 public class TerminalPair : IDisposable
 {
@@ -16,9 +16,25 @@ public class TerminalPair : IDisposable
     public TerminalSession CustomTerminal { get; }
     public TerminalSession ShellTerminal { get; }
 
+    /// <summary>
+    /// Optional run terminal, created lazily when first needed.
+    /// </summary>
+    public TerminalSession? RunTerminal { get; private set; }
+
+    /// <summary>
+    /// Current state of the run terminal.
+    /// </summary>
+    public RunState RunState { get; set; } = RunState.Stopped;
+
     public ActiveTerminal ActiveTerminal { get; set; } = ActiveTerminal.Custom;
 
-    public TerminalSession CurrentTerminal => ActiveTerminal == ActiveTerminal.Custom ? CustomTerminal : ShellTerminal;
+    public TerminalSession CurrentTerminal => ActiveTerminal switch
+    {
+        ActiveTerminal.Custom => CustomTerminal,
+        ActiveTerminal.Shell => ShellTerminal,
+        ActiveTerminal.Run => RunTerminal ?? ShellTerminal,
+        _ => CustomTerminal
+    };
 
     public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile)
     {
@@ -52,15 +68,47 @@ public class TerminalPair : IDisposable
         ActiveTerminal = ActiveTerminal == ActiveTerminal.Custom ? ActiveTerminal.Shell : ActiveTerminal.Custom;
     }
 
+    /// <summary>
+    /// Creates the run terminal if it doesn't exist.
+    /// </summary>
+    /// <param name="runProfile">The profile to use for the run terminal.</param>
+    /// <returns>The created or existing run terminal session.</returns>
+    public TerminalSession CreateRunTerminal(Profile runProfile)
+    {
+        if (RunTerminal == null)
+        {
+            var profileWithDir = CloneProfileWithWorkingDir(runProfile, WorkingDirectory);
+            RunTerminal = new TerminalSession(profileWithDir);
+        }
+        return RunTerminal;
+    }
+
+    /// <summary>
+    /// Disposes the run terminal and resets state.
+    /// </summary>
+    public void DisposeRunTerminal()
+    {
+        RunTerminal?.Dispose();
+        RunTerminal = null;
+        RunState = RunState.Stopped;
+    }
+
+    /// <summary>
+    /// Returns true if the run terminal has been created.
+    /// </summary>
+    public bool HasRunTerminal => RunTerminal != null;
+
     public void Dispose()
     {
         CustomTerminal.Dispose();
         ShellTerminal.Dispose();
+        RunTerminal?.Dispose();
     }
 }
 
 public enum ActiveTerminal
 {
     Custom,
-    Shell
+    Shell,
+    Run
 }

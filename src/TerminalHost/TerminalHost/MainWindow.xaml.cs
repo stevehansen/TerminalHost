@@ -53,6 +53,9 @@ public partial class MainWindow : Window
         _viewModel.HelpRequested += OnHelpRequested;
         _viewModel.ScratchPadRequested += (_, _) => ShowScratchPad();
         _viewModel.GitChangesRequested += (_, _) => ShowGitFiles();
+
+        // Subscribe to run terminal events
+        _viewModel.RunTerminalRequested += OnRunTerminalRequested;
     }
 
     #region Window State and Lifecycle
@@ -98,6 +101,123 @@ public partial class MainWindow : Window
                 var shellWidth = grid.ColumnDefinitions[2].ActualWidth;
                 terminalTab.UpdateSplitRatioFromColumnWidths(customWidth, shellWidth);
             }
+        }
+    }
+
+    private void RunSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        // Update the view model with the new run split ratio
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
+        {
+            // Find the parent Grid to get actual column widths
+            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 5)
+            {
+                // Main terminals are columns 0-2, run terminal is column 4
+                var mainWidth = grid.ColumnDefinitions[0].ActualWidth + grid.ColumnDefinitions[2].ActualWidth;
+                var runWidth = grid.ColumnDefinitions[4].ActualWidth;
+                terminalTab.UpdateRunSplitRatioFromColumnWidths(mainWidth, runWidth);
+            }
+        }
+    }
+
+    private void OpenDetectedRunUrl_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab && !string.IsNullOrEmpty(terminalTab.DetectedRunUrl))
+        {
+            _viewModel.RunUrlDetectionService.OpenInBrowser(terminalTab.DetectedRunUrl);
+        }
+    }
+
+    private void OnRunTerminalRequested(object? sender, RunTerminalRequestedEventArgs e)
+    {
+        if (e.IsStop)
+        {
+            StopRunTerminal(e.Tab);
+        }
+        else
+        {
+            StartRunTerminal(e.Tab, e.Configuration);
+        }
+    }
+
+    private void StartRunTerminal(TerminalPairTabViewModel tab, Domain.RunConfiguration config)
+    {
+        try
+        {
+            var settings = _viewModel.SessionManager.ProfileRegistry.Settings;
+
+            // Create a profile for the run terminal using shell command
+            var runProfile = new Profile
+            {
+                Id = "run",
+                Name = "Run",
+                Command = settings.ShellCommand,  // Use shell (PowerShell) to run the command
+                WorkingDir = tab.Pair.WorkingDirectory,
+                Icon = "▶"
+            };
+
+            // Create the run terminal if it doesn't exist
+            var runSession = tab.Pair.CreateRunTerminal(runProfile);
+
+            // Create the terminal control
+            var runControl = _viewModel.TerminalFactory.CreateTerminalControl(runSession);
+            tab.SetRunTerminalControl(runControl);
+
+            // Track the session
+            _viewModel.SessionManager.TrackSession(runSession);
+
+            // Subscribe to link click events
+            runSession.LinkClicked += (s, text) => HandleRunLinkClick(text, tab.Pair.WorkingDirectory);
+
+            // Send the run command
+            var command = config.Command;
+            runSession.SendText(command, appendNewline: true);
+
+            // Mark as started
+            tab.OnRunStarted();
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[MainWindow] Error starting run terminal: {ex.Message}");
+            tab.OnRunStopped();
+        }
+    }
+
+    private void StopRunTerminal(TerminalPairTabViewModel tab)
+    {
+        try
+        {
+            if (tab.Pair.RunTerminal == null)
+            {
+                tab.OnRunStopped();
+                return;
+            }
+
+            // Send Ctrl+C to stop the process
+            tab.Pair.RunTerminal.SendText("\x03", appendNewline: false);
+
+            // Mark as stopped after a short delay to allow the process to terminate
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                tab.OnRunStopped();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[MainWindow] Error stopping run terminal: {ex.Message}");
+            tab.OnRunStopped();
+        }
+    }
+
+    private void HandleRunLinkClick(string recentOutput, string workingDirectory)
+    {
+        // For now, just use the same link handling as other terminals
+        if (string.IsNullOrEmpty(recentOutput)) return;
+
+        var link = _viewModel.LinkDetectionService.DetectLink(recentOutput, workingDirectory);
+        if (link != null)
+        {
+            _viewModel.LinkDetectionService.OpenLink(link);
         }
     }
 
@@ -249,6 +369,28 @@ public partial class MainWindow : Window
         if (e.Key == Key.F1)
         {
             HelpPopup.IsOpen = !HelpPopup.IsOpen;
+            e.Handled = true;
+            return;
+        }
+
+        // F5: Start/Stop run
+        if (e.Key == Key.F5 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ToggleRunCommand.Execute(null);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Shift+F5: Force stop run
+        if (e.Key == Key.F5 && Keyboard.Modifiers == ModifierKeys.Shift)
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab && terminalTab.CanStop)
+            {
+                terminalTab.StopRunCommand.Execute(null);
+            }
             e.Handled = true;
             return;
         }
