@@ -1690,8 +1690,8 @@
 
         <!-- Detected Links Popup -->
         <Popup x:Name="DetectedLinksPopup"
-               PlacementTarget="{Binding ElementName=DetectedLinksButton}"
-               Placement="Bottom"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                StaysOpen="False"
                AllowsTransparency="True">
             <Border Background="#252525"
