@@ -673,9 +673,17 @@ File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting f
 TerminalHost/
 ├── TerminalHost.sln
 └── src/TerminalHost/TerminalHost/
-    ├── App.xaml(.cs)           # Application entry, single instance handling
-    ├── MainWindow.xaml(.cs)    # Main window with tab bar and terminal content
-    ├── Converters.cs           # XAML value converters
+    ├── App.xaml(.cs)                 # Application entry, single instance handling, shared styles
+    ├── MainWindow.xaml               # Main window with tab bar and terminal content
+    ├── MainWindow.xaml.cs            # Core window logic, constructor, keyboard shortcuts
+    ├── MainWindow.Tabs.cs            # Tab drag-drop, overflow, switcher (partial class)
+    ├── MainWindow.FilePreview.cs     # File preview popup logic (partial class)
+    ├── MainWindow.FileEdit.cs        # File edit popup logic (partial class)
+    ├── MainWindow.CommandPalette.cs  # Command palette logic (partial class)
+    ├── MainWindow.ScratchPad.cs      # Scratch pad popup logic (partial class)
+    ├── MainWindow.GitFiles.cs        # Git files popup logic (partial class)
+    ├── MainWindow.DetectedLinks.cs   # Detected links popup logic (partial class)
+    ├── Converters.cs                 # XAML value converters
     ├── Domain/
     │   ├── Profile.cs          # Configuration template for terminal sessions
     │   ├── TerminalSession.cs  # Running terminal instance
@@ -707,7 +715,11 @@ TerminalHost/
     │   └── ProfilesTabViewModel.cs       # Profile management tab
     └── Views/
         ├── SettingsView.xaml(.cs)        # Settings editor UI
-        └── ProfilesView.xaml(.cs)        # Profile management UI
+        ├── ProfilesView.xaml(.cs)        # Profile management UI
+        ├── TabDropdownPopup.xaml(.cs)    # Tab dropdown popup (UserControl)
+        ├── TabSwitcherPopup.xaml(.cs)    # Tab switcher popup (UserControl)
+        ├── DetectedLinksPopup.xaml(.cs)  # Detected links popup (UserControl)
+        └── CommandPalettePopup.xaml(.cs) # Command palette popup (UserControl)
 ```
 
 ## Future Considerations
