@@ -423,6 +423,9 @@ Configure regex patterns to convert text into clickable links (e.g., ticket numb
 - Displays truncated preview and full URL/path
 - Refresh button to manually rescan
 - Keyboard navigation (arrows, Enter, Escape)
+- **Preview button**: Opens file in built-in syntax-highlighted preview (files only)
+- **Open button**: Opens link in default application (browser for URLs, default editor for files)
+- Double-click or Enter to open and close popup
 
 **Notes:**
 - File paths are validated to exist before being shown

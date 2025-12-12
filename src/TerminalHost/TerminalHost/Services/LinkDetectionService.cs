@@ -417,6 +417,11 @@ public class DetectedLink
         LinkType.Custom => "🏷️",
         _ => "🔗"
     };
+
+    /// <summary>
+    /// Whether this link points to a file that can be previewed.
+    /// </summary>
+    public bool IsFile => LinkType == LinkType.File;
 }
 
 /// <summary>

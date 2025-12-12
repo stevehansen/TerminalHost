@@ -46,7 +46,11 @@ public partial class MainWindow
 
     private void DetectedLinksList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // Selection change - could be used for single-click open
+        var hasSelection = DetectedLinksList.SelectedItem is DetectedLink;
+        var isFile = DetectedLinksList.SelectedItem is DetectedLink link && link.IsFile;
+
+        DetectedLinksOpenButton.IsEnabled = hasSelection;
+        DetectedLinksPreviewButton.IsEnabled = isFile;
     }
 
     private void DetectedLinksList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -75,5 +79,19 @@ public partial class MainWindow
             _viewModel.LinkDetectionService.OpenLink(link.Url);
             DetectedLinksPopup.IsOpen = false;
         }
+    }
+
+    private void DetectedLinksPreview_Click(object sender, RoutedEventArgs e)
+    {
+        if (DetectedLinksList.SelectedItem is DetectedLink link && link.IsFile)
+        {
+            DetectedLinksPopup.IsOpen = false;
+            ShowFilePreview(link.Url);
+        }
+    }
+
+    private void DetectedLinksOpen_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedDetectedLink();
     }
 }

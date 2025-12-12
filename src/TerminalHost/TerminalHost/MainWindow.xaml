@@ -1808,11 +1808,29 @@
                                Padding="20"
                                Visibility="Collapsed"/>
 
-                    <!-- Footer -->
-                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
-                        <TextBlock Foreground="#808080"
-                                   FontSize="10"
-                                   Text="Double-click or Enter to open"/>
+                    <!-- Footer with action buttons -->
+                    <Border Grid.Row="2" Background="#2D2D2D" Padding="8,6" CornerRadius="0,0,6,6">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button x:Name="DetectedLinksPreviewButton"
+                                        Content="👁 Preview"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Click="DetectedLinksPreview_Click"
+                                        ToolTip="Preview file (files only)"
+                                        IsEnabled="False"
+                                        Margin="0,0,4,0"/>
+                                <Button x:Name="DetectedLinksOpenButton"
+                                        Content="Open"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Click="DetectedLinksOpen_Click"
+                                        ToolTip="Open link/file"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+                            <TextBlock Foreground="#808080"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"
+                                       Text="Enter or double-click to open"/>
+                        </DockPanel>
                     </Border>
                 </Grid>
             </Border>
