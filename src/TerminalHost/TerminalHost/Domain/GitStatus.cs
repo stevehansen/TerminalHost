@@ -8,6 +8,75 @@ public class GitStatus
     public int AheadCount { get; set; }
     public int BehindCount { get; set; }
 
+    // Common branch name abbreviations
+    private static readonly Dictionary<string, string> BranchAbbreviations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "development", "dev" },
+        { "develop", "dev" },
+        { "production", "prod" },
+        { "staging", "stg" },
+        { "release", "rel" },
+        { "hotfix", "hf" },
+        { "bugfix", "bf" },
+        { "feature", "ft" },
+        { "master", "main" },  // Optional: keep both short
+    };
+
+    // Get abbreviated branch name for compact display
+    public string BranchNameShort => GetAbbreviatedBranchName(BranchName);
+
+    private static string GetAbbreviatedBranchName(string branchName, int maxLength = 20)
+    {
+        if (string.IsNullOrEmpty(branchName))
+            return branchName;
+
+        // Check for exact matches first (e.g., "development" -> "dev")
+        if (BranchAbbreviations.TryGetValue(branchName, out var abbrev))
+            return abbrev;
+
+        // Handle prefixed branches like "feature/xyz" or "issues/123-description"
+        var slashIndex = branchName.IndexOf('/');
+        if (slashIndex > 0)
+        {
+            var prefix = branchName[..slashIndex];
+            var rest = branchName[(slashIndex + 1)..];
+
+            // Abbreviate the prefix if possible
+            if (BranchAbbreviations.TryGetValue(prefix, out var prefixAbbrev))
+                prefix = prefixAbbrev;
+
+            // For issue branches like "issues/123-long-description", extract just the number
+            if (prefix.Equals("issues", StringComparison.OrdinalIgnoreCase) ||
+                prefix.Equals("issue", StringComparison.OrdinalIgnoreCase))
+            {
+                var dashIndex = rest.IndexOf('-');
+                if (dashIndex > 0 && int.TryParse(rest[..dashIndex], out _))
+                {
+                    // Keep issue number + first word for context
+                    var afterNumber = rest[(dashIndex + 1)..];
+                    var nextDash = afterNumber.IndexOf('-');
+                    var firstWord = nextDash > 0 ? afterNumber[..nextDash] : afterNumber;
+                    if (firstWord.Length > 8) firstWord = firstWord[..8];
+                    return $"#{rest[..dashIndex]}-{firstWord}";
+                }
+            }
+
+            // Truncate the rest if too long
+            if (rest.Length > maxLength - prefix.Length - 1)
+            {
+                rest = rest[..(maxLength - prefix.Length - 4)] + "...";
+            }
+
+            return $"{prefix}/{rest}";
+        }
+
+        // Simple truncation for other long names
+        if (branchName.Length > maxLength)
+            return branchName[..(maxLength - 3)] + "...";
+
+        return branchName;
+    }
+
     // Display helpers
     public string BranchDisplayShort
     {
@@ -16,7 +85,7 @@ public class GitStatus
             if (!IsGitRepository || string.IsNullOrEmpty(BranchName))
                 return "";
 
-            var display = $"[{BranchName}";
+            var display = $"[{BranchNameShort}";
 
             if (IsDirty)
                 display += " *";
