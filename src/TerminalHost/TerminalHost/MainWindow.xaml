@@ -1779,6 +1779,7 @@
                                         <ColumnDefinition Width="20"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
                                     <!-- Current branch indicator -->
@@ -1797,8 +1798,17 @@
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
 
-                                    <!-- Ahead/Behind status -->
+                                    <!-- Issue number (for branches like issues/#123) -->
                                     <TextBlock Grid.Column="2"
+                                               Text="{Binding IssueNumber}"
+                                               Foreground="#569CD6"
+                                               FontSize="11"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0"
+                                               Visibility="{Binding IssueNumber, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                    <!-- Ahead/Behind status -->
+                                    <TextBlock Grid.Column="3"
                                                Text="{Binding StatusDisplay}"
                                                Foreground="#808080"
                                                FontSize="11"

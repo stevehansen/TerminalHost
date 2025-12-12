@@ -67,7 +67,8 @@ public partial class MainWindow
         {
             filtered = _allBranches.Where(b =>
                 b.Name.ToLower().Contains(searchText) ||
-                b.ShortName.ToLower().Contains(searchText));
+                b.ShortName.ToLower().Contains(searchText) ||
+                (b.IssueNumber?.ToLower().Contains(searchText) ?? false));
         }
 
         // Group branches by type

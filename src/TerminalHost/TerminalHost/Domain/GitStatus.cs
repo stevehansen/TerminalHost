@@ -45,24 +45,27 @@ public class GitStatus
             if (BranchAbbreviations.TryGetValue(prefix, out var prefixAbbrev))
                 prefix = prefixAbbrev;
 
-            // For issue branches like "issues/123" or "issues/123-long-description"
+            // For issue branches like "issues/123", "issues/#123", or "issues/123-description"
             if (prefix.Equals("issues", StringComparison.OrdinalIgnoreCase) ||
                 prefix.Equals("issue", StringComparison.OrdinalIgnoreCase))
             {
-                var dashIndex = rest.IndexOf('-');
-                if (dashIndex > 0 && int.TryParse(rest[..dashIndex], out _))
+                // Strip leading # if present for parsing
+                var issueNumber = rest.StartsWith('#') ? rest[1..] : rest;
+
+                var dashIndex = issueNumber.IndexOf('-');
+                if (dashIndex > 0 && int.TryParse(issueNumber[..dashIndex], out _))
                 {
                     // Keep issue number + first word for context
-                    var afterNumber = rest[(dashIndex + 1)..];
+                    var afterNumber = issueNumber[(dashIndex + 1)..];
                     var nextDash = afterNumber.IndexOf('-');
                     var firstWord = nextDash > 0 ? afterNumber[..nextDash] : afterNumber;
                     if (firstWord.Length > 8) firstWord = firstWord[..8];
-                    return $"#{rest[..dashIndex]}-{firstWord}";
+                    return $"#{issueNumber[..dashIndex]}-{firstWord}";
                 }
-                // Just the issue number (e.g., "issues/123" -> "#123")
-                if (int.TryParse(rest, out _))
+                // Just the issue number (e.g., "issues/123" or "issues/#123" -> "#123")
+                if (int.TryParse(issueNumber, out _))
                 {
-                    return $"#{rest}";
+                    return $"#{issueNumber}";
                 }
             }
 

@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
+
 namespace TerminalHost.Domain;
 
-public class GitBranch
+public partial class GitBranch
 {
     public string Name { get; set; } = "";
     public string ShortName { get; set; } = "";  // Without remote prefix for display
@@ -13,6 +15,19 @@ public class GitBranch
 
     // Display helpers
     public string DisplayName => IsRemote ? Name : ShortName;
+
+    // Extract issue number from branch names like "issues/#123" or "issue/#456"
+    public string? IssueNumber
+    {
+        get
+        {
+            var match = IssuePatternRegex().Match(ShortName);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+    }
+
+    [GeneratedRegex(@"^issues?/(#\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex IssuePatternRegex();
 
     public string StatusDisplay
     {
