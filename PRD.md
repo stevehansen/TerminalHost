@@ -725,6 +725,103 @@ TerminalHost/
         └── CommandPalettePopup.xaml(.cs) # Command palette popup (UserControl)
 ```
 
+## Planned Features
+
+The following features are planned for future development:
+
+### Git Branch Management
+
+A UI for basic git branch operations without switching to the shell terminal.
+
+**Branch Switcher Popup:**
+- Keyboard shortcut: `Ctrl+B` (tentative)
+- Shows list of local branches with current branch highlighted
+- Search/filter branches by name
+- One-click to switch branches (runs `git checkout <branch>`)
+- Option to create new branch from current HEAD
+- Shows branch status (ahead/behind remote)
+
+**Branch Actions:**
+| Action          | Description                                      |
+|-----------------|--------------------------------------------------|
+| Switch branch   | `git checkout <branch>`                          |
+| Create branch   | `git checkout -b <name>`                         |
+| Delete branch   | `git branch -d <name>` (with confirmation)       |
+| Pull branch     | `git pull` for current branch                    |
+| Fetch all       | `git fetch --all` to update remote tracking      |
+
+**UI Design:**
+- Popup similar to Tab Switcher or Git Changes panel
+- Branches grouped by: Current, Recent, Local, Remote
+- Warning indicator for branches with uncommitted changes
+- Integration with existing Git status display
+
+### Project Runner
+
+Run and manage development servers/applications directly from the application.
+
+**Run Configuration:**
+- Auto-detect project type (e.g., .NET, Node.js, Python)
+- Configure run commands per project directory
+- Support for common frameworks:
+  - .NET: `dotnet run`, `dotnet watch run`
+  - Node.js: `npm start`, `npm run dev`
+  - Python: `python main.py`, `flask run`
+
+**Run Terminal Options:**
+1. **Use Shell Terminal**: Run in the existing shell terminal (simplest)
+2. **Dedicated Run Terminal**: Third terminal in the pair specifically for running
+3. **Separate Window**: Launch in a new terminal window
+
+**URL Detection:**
+- Parse terminal output for URLs (e.g., `Now listening on: https://localhost:5001`)
+- Display detected URL in status bar or popup
+- One-click to open in browser
+- Support common patterns:
+  - ASP.NET: `Now listening on: http://localhost:xxxx`
+  - Vite/Node: `Local: http://localhost:xxxx`
+  - Flask: `Running on http://127.0.0.1:xxxx`
+
+**Run Controls:**
+- Start/Stop buttons in toolbar or status bar
+- Restart button (stop + start)
+- Keyboard shortcut: `F5` to start/stop (tentative)
+- Visual indicator when project is running
+- Auto-restart on file changes (watch mode)
+
+**Configuration Schema:**
+```json
+{
+  "directorySettings": {
+    "p:\\myproject": {
+      "runCommand": "dotnet watch run",
+      "runInTerminal": "Shell",
+      "autoDetectUrl": true,
+      "expectedUrlPattern": "Now listening on: (https?://[^\\s]+)"
+    }
+  },
+  "runProfiles": {
+    "dotnet": {
+      "detectFiles": ["*.csproj", "*.sln"],
+      "defaultCommand": "dotnet run",
+      "watchCommand": "dotnet watch run",
+      "urlPattern": "Now listening on: (https?://[^\\s]+)"
+    },
+    "node": {
+      "detectFiles": ["package.json"],
+      "defaultCommand": "npm start",
+      "watchCommand": "npm run dev",
+      "urlPattern": "Local:\\s+(https?://[^\\s]+)"
+    }
+  }
+}
+```
+
+**Status Bar Integration:**
+- Show run status icon: ▶ (stopped), ⏸ (running), 🔄 (restarting)
+- Display detected URL as clickable link
+- Quick access to run/stop actions
+
 ## Future Considerations
 
 Items for future development:
