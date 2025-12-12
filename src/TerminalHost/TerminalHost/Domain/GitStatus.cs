@@ -45,7 +45,7 @@ public class GitStatus
             if (BranchAbbreviations.TryGetValue(prefix, out var prefixAbbrev))
                 prefix = prefixAbbrev;
 
-            // For issue branches like "issues/123-long-description", extract just the number
+            // For issue branches like "issues/123" or "issues/123-long-description"
             if (prefix.Equals("issues", StringComparison.OrdinalIgnoreCase) ||
                 prefix.Equals("issue", StringComparison.OrdinalIgnoreCase))
             {
@@ -58,6 +58,11 @@ public class GitStatus
                     var firstWord = nextDash > 0 ? afterNumber[..nextDash] : afterNumber;
                     if (firstWord.Length > 8) firstWord = firstWord[..8];
                     return $"#{rest[..dashIndex]}-{firstWord}";
+                }
+                // Just the issue number (e.g., "issues/123" -> "#123")
+                if (int.TryParse(rest, out _))
+                {
+                    return $"#{rest}";
                 }
             }
 
