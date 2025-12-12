@@ -65,7 +65,8 @@ public class TerminalControlFactory
             HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
             VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
             // Font must be set before initialization or SetTheme() called after
-            FontFamilyWhenSettingTheme = new System.Windows.Media.FontFamily("Cascadia Code NF"),
+            // Fallback chain: Cascadia Code NF -> other Nerd Fonts -> Consolas
+            FontFamilyWhenSettingTheme = new System.Windows.Media.FontFamily("Cascadia Code NF, CaskaydiaCove Nerd Font, FiraCode Nerd Font, JetBrainsMono Nerd Font, Hack Nerd Font, Consolas"),
             FontSizeWhenSettingTheme = 12,
             MinHeight = 100,
             MinWidth = 100
