@@ -46,8 +46,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Settings editor tab with JSON syntax highlighting (Ctrl+,)
 - [x] System tray support (minimize to tray, restore on click)
 - [x] Profile management UI (Ctrl+P)
-- [x] Clickable links via Ctrl+Click (URLs, file paths, custom patterns)
-- [x] File preview popup with syntax highlighting (Ctrl+Click on file paths)
+- [x] Detected links button (scans terminal output for URLs, file paths, custom patterns)
+- [x] File preview popup with syntax highlighting
 - [x] Tab reordering via drag-and-drop
 - [x] Middle-click to close tabs
 - [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
@@ -161,7 +161,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
 | Ctrl+Shift+B     | Quick command: Dev Build (Shell)    |
-| Ctrl+Click       | Open link under cursor (URLs open in browser, file paths show preview popup) |
+| Links button     | View detected URLs and file paths from terminal output |
 
 ## Configuration
 
@@ -358,9 +358,14 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 - Shell commands work with standard `appendNewline: true`
 - Shortcuts support Ctrl, Alt, Shift modifiers with any letter/number key
 
-### Clickable Links (Ctrl+Click)
+### Detected Links Button
 
-The terminal supports Ctrl+Click to open links in the terminal output:
+The toolbar displays a links button that scans terminal output for clickable content. This provides an alternative to Ctrl+Click which doesn't work reliably with the terminal control.
+
+**Button Display:**
+- Shows a link icon (🔗) with a count badge (e.g., "🔗 5")
+- Only visible when links are detected in terminal output
+- Count updates automatically every 3 seconds
 
 **Built-in Link Types:**
 - **HTTP/HTTPS URLs**: Automatically detected and opened in default browser
@@ -407,16 +412,22 @@ Configure regex patterns to convert text into clickable links (e.g., ticket numb
 ```
 
 **How It Works:**
-1. Ctrl+Click in terminal triggers link detection
-2. Recent terminal output is scanned for patterns
-3. Custom patterns are checked first (by priority)
-4. Then URLs and file paths are detected
-5. First match is opened in default browser/application
+1. Terminal output is continuously buffered (~50KB of recent content)
+2. Every 3 seconds, the buffer is scanned for links
+3. Up to 15 unique links are displayed (URLs, file paths, custom patterns)
+4. Click a link in the popup to open it
+5. Double-click or press Enter to open and close popup
+
+**Popup Features:**
+- Shows icon indicating link type (🔗 URL, 📄 file, 📁 directory, 🏷️ custom)
+- Displays truncated preview and full URL/path
+- Refresh button to manually rescan
+- Keyboard navigation (arrows, Enter, Escape)
 
 **Notes:**
-- Terminal output is buffered (~50KB of recent content) for pattern matching
-- File paths are validated to exist before opening
-- Directories open in Explorer, files with default application
+- File paths are validated to exist before being shown
+- Custom patterns are matched with higher priority first
+- The popup closes automatically after opening a link
 
 ### Settings Editor
 
@@ -615,7 +626,7 @@ Press `F1` to open the Help window, which displays:
 
 **Keyboard Shortcuts:**
 - Tab navigation (Ctrl+PageDown/Up, Ctrl+1-9, Ctrl+Shift+T, Ctrl+W)
-- Terminal switching (Ctrl+`)
+- Terminal switching (Ctrl+`), detected links button
 - File operations (Ctrl+N, Ctrl+E, Ctrl+O)
 - Application (Ctrl+,, Ctrl+P, F1)
 - Default quick commands (Ctrl+Shift+C/D/U)
