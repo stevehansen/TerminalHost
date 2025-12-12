@@ -199,6 +199,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     /// <summary>
     /// Updates the detected links collection from terminal output.
+    /// Only updates if the actual links have changed to preserve UI selection state.
     /// </summary>
     /// <param name="linkDetectionService">The link detection service to use.</param>
     public void UpdateDetectedLinks(LinkDetectionService linkDetectionService)
@@ -209,11 +210,21 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         var combinedOutput = customOutput + "\n" + shellOutput;
 
         // Detect links
-        var links = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 15);
+        var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 15);
 
-        // Update collection (clear and re-add to trigger UI updates)
+        // Check if links have changed by comparing URLs
+        var currentUrls = DetectedLinks.Select(l => l.Url).ToList();
+        var newUrls = newLinks.Select(l => l.Url).ToList();
+
+        if (currentUrls.SequenceEqual(newUrls))
+        {
+            // No change, preserve selection state
+            return;
+        }
+
+        // Links changed, update collection
         DetectedLinks.Clear();
-        foreach (var link in links)
+        foreach (var link in newLinks)
         {
             DetectedLinks.Add(link);
         }
