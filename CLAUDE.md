@@ -136,7 +136,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ### Terminal
 - `Ctrl+\``: Switch between Custom/Shell terminal
-- `Ctrl+Click`: Open link under cursor (URL, file path, or custom pattern)
+- `Links button`: Shows detected URLs and file paths from terminal output (toolbar)
 
 ### File Operations
 - `Ctrl+N`: Open new project (folder picker)

@@ -278,4 +278,154 @@ public class LinkDetectionService
 
         return text[start..end];
     }
+
+    /// <summary>
+    /// Scans text for all detectable links (URLs, file paths, custom patterns).
+    /// Returns a list of detected links with their display text and URL.
+    /// </summary>
+    /// <param name="text">The text to scan for links.</param>
+    /// <param name="workingDirectory">Current working directory for resolving relative paths.</param>
+    /// <param name="maxLinks">Maximum number of links to return.</param>
+    /// <returns>List of detected links (DisplayText, Url, LinkType).</returns>
+    public List<DetectedLink> DetectAllLinks(string text, string? workingDirectory = null, int maxLinks = 20)
+    {
+        var links = new List<DetectedLink>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(text))
+            return links;
+
+        // 1. Find all URLs
+        foreach (Match match in UrlPattern.Matches(text))
+        {
+            if (links.Count >= maxLinks) break;
+
+            var url = CleanUrl(match.Value);
+            if (!seen.Contains(url))
+            {
+                seen.Add(url);
+                links.Add(new DetectedLink
+                {
+                    DisplayText = TruncateForDisplay(url, 60),
+                    Url = url,
+                    LinkType = LinkType.Url
+                });
+            }
+        }
+
+        // 2. Find file paths
+        foreach (Match match in FilePathPattern.Matches(text))
+        {
+            if (links.Count >= maxLinks) break;
+
+            var potentialPath = match.Value;
+            var resolved = TryResolveFilePath(potentialPath, workingDirectory);
+            if (resolved != null && !seen.Contains(resolved))
+            {
+                seen.Add(resolved);
+                var displayPath = Path.GetFileName(resolved);
+                if (string.IsNullOrEmpty(displayPath))
+                    displayPath = resolved;
+
+                links.Add(new DetectedLink
+                {
+                    DisplayText = TruncateForDisplay(displayPath, 40),
+                    Url = resolved,
+                    LinkType = File.Exists(resolved) ? LinkType.File : LinkType.Directory
+                });
+            }
+        }
+
+        // 3. Find custom pattern matches
+        var customPatterns = _profileRegistry.LinkPatterns
+            .Where(p => p.Enabled)
+            .OrderByDescending(p => p.Priority);
+
+        foreach (var pattern in customPatterns)
+        {
+            if (links.Count >= maxLinks) break;
+
+            try
+            {
+                var regex = new Regex(pattern.Pattern, RegexOptions.IgnoreCase);
+                foreach (Match match in regex.Matches(text))
+                {
+                    if (links.Count >= maxLinks) break;
+
+                    var url = BuildUrlFromTemplate(pattern.UrlTemplate, match);
+                    if (!seen.Contains(url))
+                    {
+                        seen.Add(url);
+                        links.Add(new DetectedLink
+                        {
+                            DisplayText = $"{pattern.Name}: {match.Value}",
+                            Url = url,
+                            LinkType = LinkType.Custom
+                        });
+                    }
+                }
+            }
+            catch (RegexParseException)
+            {
+                // Invalid regex pattern, skip it
+            }
+        }
+
+        return links;
+    }
+
+    /// <summary>
+    /// Truncates a string for display, adding ellipsis if needed.
+    /// </summary>
+    private static string TruncateForDisplay(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text;
+
+        return text[..(maxLength - 3)] + "...";
+    }
+}
+
+/// <summary>
+/// Represents a detected link from terminal output.
+/// </summary>
+public class DetectedLink
+{
+    /// <summary>
+    /// Short display text for the link (truncated if needed).
+    /// </summary>
+    public string DisplayText { get; set; } = "";
+
+    /// <summary>
+    /// The full URL or file path to open.
+    /// </summary>
+    public string Url { get; set; } = "";
+
+    /// <summary>
+    /// The type of link detected.
+    /// </summary>
+    public LinkType LinkType { get; set; }
+
+    /// <summary>
+    /// Icon to display based on link type.
+    /// </summary>
+    public string Icon => LinkType switch
+    {
+        LinkType.Url => "🔗",
+        LinkType.File => "📄",
+        LinkType.Directory => "📁",
+        LinkType.Custom => "🏷️",
+        _ => "🔗"
+    };
+}
+
+/// <summary>
+/// Type of detected link.
+/// </summary>
+public enum LinkType
+{
+    Url,
+    File,
+    Directory,
+    Custom
 }

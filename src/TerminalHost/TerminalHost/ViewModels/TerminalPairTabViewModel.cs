@@ -1,9 +1,11 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EasyWindowsTerminalControl;
 using TerminalHost.Domain;
+using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
@@ -50,6 +52,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// True if either terminal is currently producing output.
     /// </summary>
     public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive;
+
+    /// <summary>
+    /// Collection of detected links from terminal output.
+    /// </summary>
+    public ObservableCollection<DetectedLink> DetectedLinks { get; } = new();
+
+    /// <summary>
+    /// True if there are any detected links to display.
+    /// </summary>
+    public bool HasDetectedLinks => DetectedLinks.Count > 0;
 
     // Computed column widths from split ratio
     public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
@@ -183,6 +195,30 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             // Setting the property will trigger OnSplitRatioChanged which updates computed properties
             SplitRatio = customWidth / total;
         }
+    }
+
+    /// <summary>
+    /// Updates the detected links collection from terminal output.
+    /// </summary>
+    /// <param name="linkDetectionService">The link detection service to use.</param>
+    public void UpdateDetectedLinks(LinkDetectionService linkDetectionService)
+    {
+        // Get recent output from both terminals
+        var customOutput = Pair.CustomTerminal.GetRecentOutput(10000);
+        var shellOutput = Pair.ShellTerminal.GetRecentOutput(10000);
+        var combinedOutput = customOutput + "\n" + shellOutput;
+
+        // Detect links
+        var links = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 15);
+
+        // Update collection (clear and re-add to trigger UI updates)
+        DetectedLinks.Clear();
+        foreach (var link in links)
+        {
+            DetectedLinks.Add(link);
+        }
+
+        OnPropertyChanged(nameof(HasDetectedLinks));
     }
 
     [RelayCommand]

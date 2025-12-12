@@ -410,6 +410,20 @@
                                         <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
 
                                         <!-- Built-in Quick Commands -->
+                                        <Button x:Name="DetectedLinksButton"
+                                                ToolTip="Detected Links - Click to view"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Click="DetectedLinksButton_Click"
+                                                Visibility="{Binding HasDetectedLinks, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Margin="0,0,4,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="🔗" Margin="0,0,4,0"/>
+                                                <TextBlock Text="{Binding DetectedLinks.Count}"
+                                                           FontSize="10"
+                                                           Foreground="#4EC9B0"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                         <Button Content="📁"
                                                 ToolTip="Open in Explorer (Ctrl+E)"
                                                 Style="{StaticResource TerminalSwitchButton}"
@@ -1066,8 +1080,8 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+`" Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="#CCCCCC" Margin="0,2"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Click" Foreground="#CE9178" Margin="0,2"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Open link (URL opens in browser, file shows preview)" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Links button" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="#CCCCCC" Margin="0,2"/>
                             </Grid>
 
                             <!-- File Operations -->
@@ -1773,6 +1787,136 @@
                             </ControlTemplate>
                         </Thumb.Template>
                     </Thumb>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- Detected Links Popup -->
+        <Popup x:Name="DetectedLinksPopup"
+               PlacementTarget="{Binding ElementName=DetectedLinksButton}"
+               Placement="Bottom"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#252525"
+                    BorderBrush="#0078D4"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="0"
+                    MinWidth="300"
+                    MaxWidth="500"
+                    MaxHeight="400">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.4"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="↻"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="DetectedLinksRefresh_Click"
+                                    ToolTip="Refresh links"
+                                    FontSize="14"
+                                    Padding="6,2"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔗" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Detected Links"
+                                           Foreground="#CCCCCC"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Links List -->
+                    <ListBox x:Name="DetectedLinksList"
+                             Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             MaxHeight="320"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="DetectedLinksList_MouseDoubleClick"
+                             SelectionChanged="DetectedLinksList_SelectionChanged"
+                             PreviewKeyDown="DetectedLinksList_PreviewKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="8,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Icon}"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayText}"
+                                                   Foreground="#CCCCCC"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Url}"
+                                                   Foreground="#666666"
+                                                   FontSize="10"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Url}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <!-- Empty state -->
+                    <TextBlock x:Name="DetectedLinksEmptyState"
+                               Grid.Row="1"
+                               Text="No links detected"
+                               Foreground="#666666"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Padding="20"
+                               Visibility="Collapsed"/>
+
+                    <!-- Footer -->
+                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                        <TextBlock Foreground="#808080"
+                                   FontSize="10"
+                                   Text="Click to open, double-click or Enter to open"/>
+                    </Border>
                 </Grid>
             </Border>
         </Popup>

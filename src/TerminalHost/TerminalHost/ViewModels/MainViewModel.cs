@@ -21,6 +21,12 @@ public partial class MainViewModel : ObservableObject
     private readonly LinkDetectionService _linkDetectionService;
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
+    private readonly DispatcherTimer _linkDetectionTimer;
+
+    /// <summary>
+    /// The link detection service for scanning terminal output for clickable links.
+    /// </summary>
+    public LinkDetectionService LinkDetectionService => _linkDetectionService;
 
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = new();
@@ -76,6 +82,13 @@ public partial class MainViewModel : ObservableObject
             Interval = TimeSpan.FromSeconds(1)
         };
         _activityTimer.Tick += (_, _) => RefreshActivityState();
+
+        // Set up timer for link detection refresh (every 3 seconds)
+        _linkDetectionTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _linkDetectionTimer.Tick += (_, _) => RefreshDetectedLinks();
     }
 
     public void Initialize()
@@ -91,6 +104,9 @@ public partial class MainViewModel : ObservableObject
 
         // Start activity refresh timer
         _activityTimer.Start();
+
+        // Start link detection timer
+        _linkDetectionTimer.Start();
     }
 
     private void LoadQuickCommands()
@@ -135,6 +151,15 @@ public partial class MainViewModel : ObservableObject
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.UpdateActivityState();
+        }
+    }
+
+    private void RefreshDetectedLinks()
+    {
+        // Only refresh the selected tab to keep it lightweight
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.UpdateDetectedLinks(_linkDetectionService);
         }
     }
 
@@ -551,6 +576,7 @@ public partial class MainViewModel : ObservableObject
         // Stop timers
         _gitStatusTimer.Stop();
         _activityTimer.Stop();
+        _linkDetectionTimer.Stop();
 
         // Save open folders before closing
         SaveOpenFolders();
