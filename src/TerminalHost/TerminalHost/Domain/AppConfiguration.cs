@@ -68,6 +68,7 @@ public class AppConfiguration
             Text = "rate my code - give me a thorough code review with ratings and suggestions",
             Target = QuickCommandTarget.Custom,
             AppendNewline = true,
+            UseUserInput = true,
             Shortcut = "Ctrl+Shift+R"
         },
         new QuickCommand
@@ -78,6 +79,7 @@ public class AppConfiguration
             Text = "review the current PR - check the git diff and provide feedback",
             Target = QuickCommandTarget.Custom,
             AppendNewline = true,
+            UseUserInput = true,
             Shortcut = "Ctrl+Shift+V"
         },
         // Git commands
@@ -102,6 +104,16 @@ public class AppConfiguration
             Shortcut = "Ctrl+Shift+U"  // U for Upload
         },
         // Dev tool commands
+        new QuickCommand
+        {
+            Id = "dev-launch",
+            Label = "Launch IDE",
+            Icon = "▶",
+            Text = "dev",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+L"
+        },
         new QuickCommand
         {
             Id = "dev-build",
