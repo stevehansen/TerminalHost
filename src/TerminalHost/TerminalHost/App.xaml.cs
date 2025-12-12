@@ -1,6 +1,7 @@
 using System.Windows;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using TerminalHost.Views;
 using Application = System.Windows.Application;
 
 namespace TerminalHost;
@@ -15,16 +16,31 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        // Take control of application shutdown so the app doesn't exit when the modal setup window closes.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        var startupArgs = CommandLineArgs.Parse(e.Args);
+
+        if (startupArgs.IsSetupMode)
+        {
+            var setupViewModel = new SetupViewModel();
+            var setupWindow = new SetupWindow(setupViewModel);
+            if (setupWindow.ShowDialog() != true)
+            {
+                Shutdown(); // User cancelled setup, so exit.
+                return;
+            }
+        }
+
         _singleInstanceService = new SingleInstanceService();
 
         // Check if another instance is already running
         if (!_singleInstanceService.TryAcquireLock())
         {
             // Another instance is running, send command line args and exit
-            var args = CommandLineArgs.Parse(e.Args);
-            if (args.HasValidRequest())
+            if (startupArgs.HasValidRequest())
             {
-                SingleInstanceService.SendToRunningInstance(args);
+                SingleInstanceService.SendToRunningInstance(startupArgs);
             }
 
             Shutdown();
@@ -49,13 +65,16 @@ public partial class App : Application
 
         // Create and show the main window
         _mainWindow = new MainWindow(_mainViewModel, _configService, _systemTrayService);
+        
+        // Ensure that closing the main window shuts down the application
+        _mainWindow.Closed += (s, a) => Shutdown();
+
         _mainWindow.Show();
 
         // Initialize system tray
         InitializeSystemTray();
 
         // Handle command line arguments for this instance
-        var startupArgs = CommandLineArgs.Parse(e.Args);
         HandleCommandLineArgs(startupArgs);
     }
 

@@ -61,6 +61,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Git changes panel with file list and diff viewer (Ctrl+G)
 - [x] Git branch management popup (Ctrl+B) - switch, create, delete branches
 - [x] Project Runner - Run and manage development servers with F5, dedicated run terminal, URL detection
+- [x] Setup Mode - A startup window to detect and guide installation of recommended dependencies.
 
 ### Deferred Features
 
@@ -131,6 +132,9 @@ host P:\MyProject
 # Using named argument
 host --workdir P:\MyProject
 host -w P:\MyProject
+
+# Launch the setup and dependency checker window
+host /setup
 ```
 
 If a project tab for the specified directory already exists, it will be focused instead of creating a new tab.
@@ -765,6 +769,26 @@ TerminalHost/
         └── CommandPalettePopup.xaml(.cs) # Command palette popup (UserControl)
 ```
 
+### Setup Mode
+
+To help users configure their environment correctly, the application includes a setup mode, launched via the `/setup` command-line argument.
+
+**Usage:**
+```bash
+host /setup
+```
+
+**Features:**
+- **Setup Window**: A dedicated window that appears on launch.
+- **Dependency Detection**: Automatically checks for the presence and version of required and recommended tools:
+  - Git (for version control integration)
+  - A Nerd Font (for proper icon/glyph rendering in the terminal)
+  - Claude Code CLI
+  - HC.Dev Tool
+- **Installation Help**: Provides one-click buttons to either run the installation command (for CLIs) or open the download homepage (for fonts and Git).
+- **Debug Information**: For troubleshooting, users can view the detailed output and exit code of each detection command.
+- **Continue to App**: Allows the user to proceed to launch the main application directly from the setup window, even if some dependencies are missing.
+
 ### Project Runner
 
 Run and manage development servers/applications directly from the application with a dedicated run terminal.
@@ -845,8 +869,6 @@ Items for future development:
 - **Custom profile pairs**: Different command pairs for different project types
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
-- **Setup Mode**: A startup window to detect and guide installation of recommended dependencies (Git, Nerd Fonts, Claude Code CLI, etc.).
-- **Simplified README**: A minimal `README.md` that directs users to the setup mode and in-app help (F1).
 - **Usage Statistics**: Track usage metrics per folder (e.g., character counts), potentially in a separate `stats.json` file to avoid configuration conflicts.
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory.
 - **MainWindow Refactoring**: Refactor `MainWindow.xaml` and its code-behind to improve modularity and maintainability.

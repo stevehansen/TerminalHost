@@ -1,0 +1,34 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace TerminalHost.Domain;
+
+public partial class Dependency : ObservableObject
+{
+    public required string Name { get; init; }
+    public required string Description { get; init; }
+    public string? InstallCommand { get; init; }
+    public required string DetectionCommand { get; init; }
+    public string? HomepageUrl { get; init; }
+
+    // Properties for the UI to bind to
+    [ObservableProperty]
+    private bool _isInstalled;
+    
+    [ObservableProperty]
+    private bool _isDetecting;
+
+    [ObservableProperty]
+    private bool _isInstalling;
+
+    [ObservableProperty]
+    private string? _detectedVersion;
+
+    [ObservableProperty]
+    private bool _showDetails;
+
+    [ObservableProperty]
+    private int _exitCode;
+
+    [ObservableProperty]
+    private string? _fullOutput;
+}

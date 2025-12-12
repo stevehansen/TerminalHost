@@ -58,6 +58,9 @@ host P:\MyProject
 # Using named argument
 host --workdir P:\MyProject
 host -w P:\MyProject
+
+# Launch the setup and dependency checker window
+host /setup
 ```
 
 If a project tab for the specified directory already exists, it will be focused instead of creating a new tab.

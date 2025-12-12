@@ -99,6 +99,7 @@ public class CommandLineArgs
     public string? ProfileId { get; set; }
     public string? Command { get; set; }
     public string? WorkingDir { get; set; }
+    public bool IsSetupMode { get; set; }
 
     public static CommandLineArgs Parse(string[] args)
     {
@@ -111,6 +112,12 @@ public class CommandLineArgs
             // Handle named arguments
             switch (arg.ToLowerInvariant())
             {
+                case "/setup":
+                case "-setup":
+                case "--setup":
+                    result.IsSetupMode = true;
+                    continue;
+
                 case "--profile":
                 case "-p":
                     if (i + 1 < args.Length)
@@ -159,6 +166,6 @@ public class CommandLineArgs
 
     public bool HasValidRequest()
     {
-        return !string.IsNullOrEmpty(WorkingDir);
+        return !string.IsNullOrEmpty(WorkingDir) || IsSetupMode;
     }
 }
