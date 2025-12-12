@@ -1812,7 +1812,7 @@
                     <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
                         <TextBlock Foreground="#808080"
                                    FontSize="10"
-                                   Text="Click to open, double-click or Enter to open"/>
+                                   Text="Double-click or Enter to open"/>
                     </Border>
                 </Grid>
             </Border>
