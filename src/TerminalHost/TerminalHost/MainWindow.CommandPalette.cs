@@ -153,6 +153,17 @@ public partial class MainWindow
                 Category = "Git",
                 Execute = ShowGitFiles,
                 CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
+            },
+            new PaletteCommand
+            {
+                Id = "git-branches",
+                Name = "Git Branches",
+                Description = "Switch, create, or delete branches",
+                Shortcut = "Ctrl+B",
+                Icon = "🌿",
+                Category = "Git",
+                Execute = ShowGitBranch,
+                CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
             }
         };
     }

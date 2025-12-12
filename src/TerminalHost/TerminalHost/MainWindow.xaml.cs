@@ -206,6 +206,12 @@ public partial class MainWindow : Window
         // Escape: Close popups if open
         if (e.Key == Key.Escape)
         {
+            if (GitBranchPopup.IsOpen)
+            {
+                GitBranchPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
             if (GitFilesPopup.IsOpen)
             {
                 GitFilesPopup.IsOpen = false;
@@ -348,6 +354,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
         {
             ShowGitFiles();
+            e.Handled = true;
+        }
+        // Ctrl+B: Open git branch switcher
+        else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ShowGitBranch();
             e.Handled = true;
         }
         // Check quick command shortcuts

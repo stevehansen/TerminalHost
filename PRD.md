@@ -59,6 +59,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Command palette for quick actions (Ctrl+Shift+P)
 - [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
 - [x] Git changes panel with file list and diff viewer (Ctrl+G)
+- [x] Git branch management popup (Ctrl+B) - switch, create, delete branches
 
 ### Deferred Features
 
@@ -155,6 +156,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+P     | Open command palette                |
 | Ctrl+Shift+N     | Open scratch pad (notes)            |
 | Ctrl+G           | Open git changes panel              |
+| Ctrl+B           | Open git branch switcher            |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+R     | Quick command: Rate Code (Claude Code) |
 | Ctrl+Shift+V     | Quick command: Review PR (Claude Code) |
@@ -623,6 +625,36 @@ The Git Changes Panel (`Ctrl+G`) provides a visual interface to view modified fi
 - For untracked files, shows entire file content as additions
 - Deleted files cannot be previewed or edited (only shown in Explorer)
 
+### Git Branch Management
+
+The Git Branch popup (`Ctrl+B`) provides quick branch operations without using the terminal.
+
+**Features:**
+- **Branch list**: Shows all local and remote branches grouped by type
+- **Current branch**: Highlighted with a filled indicator (●)
+- **Search/filter**: Type to filter branches by name
+- **One-click checkout**: Double-click or press Enter to switch branches
+- **Ahead/behind status**: Shows sync status with remote
+- **Keyboard navigation**: Arrow keys + Enter for quick switching
+
+**Branch Actions:**
+| Button       | Action                                          |
+|--------------|-------------------------------------------------|
+| ✓ Switch     | Checkout selected branch                        |
+| + New Branch | Create new branch from current HEAD             |
+| 🗑 Delete    | Delete selected branch (with confirmation)      |
+| ↓ Fetch      | Fetch all remotes (`git fetch --all --prune`)   |
+| ⟳ Pull       | Pull current branch                             |
+
+**Delete Behavior:**
+- **Local branches**: Asks for confirmation, offers force delete if not fully merged
+- **Remote branches**: Extra confirmation warning ("cannot be undone")
+- Cannot delete the current branch (switch first)
+
+**Checkout Behavior:**
+- Local branches: Direct checkout
+- Remote branches: Creates local tracking branch if needed
+
 ### Help Window
 
 Press `F1` to open the Help window, which displays:
@@ -728,33 +760,6 @@ TerminalHost/
 ## Planned Features
 
 The following features are planned for future development:
-
-### Git Branch Management
-
-A UI for basic git branch operations without switching to the shell terminal.
-
-**Branch Switcher Popup:**
-- Keyboard shortcut: `Ctrl+B` (tentative)
-- Shows list of local branches with current branch highlighted
-- Search/filter branches by name
-- One-click to switch branches (runs `git checkout <branch>`)
-- Option to create new branch from current HEAD
-- Shows branch status (ahead/behind remote)
-
-**Branch Actions:**
-| Action          | Description                                      |
-|-----------------|--------------------------------------------------|
-| Switch branch   | `git checkout <branch>`                          |
-| Create branch   | `git checkout -b <name>`                         |
-| Delete branch   | `git branch -d <name>` (with confirmation)       |
-| Pull branch     | `git pull` for current branch                    |
-| Fetch all       | `git fetch --all` to update remote tracking      |
-
-**UI Design:**
-- Popup similar to Tab Switcher or Git Changes panel
-- Branches grouped by: Current, Recent, Local, Remote
-- Warning indicator for branches with uncommitted changes
-- Integration with existing Git status display
 
 ### Project Runner
 

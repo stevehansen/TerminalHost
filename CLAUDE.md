@@ -77,6 +77,7 @@ TerminalHost/
     ├── MainWindow.CommandPalette.cs  # Command palette logic (partial class)
     ├── MainWindow.ScratchPad.cs      # Scratch pad popup logic (partial class)
     ├── MainWindow.GitFiles.cs        # Git files popup logic (partial class)
+    ├── MainWindow.GitBranch.cs       # Git branch popup logic (partial class)
     ├── MainWindow.DetectedLinks.cs   # Detected links popup logic (partial class)
     ├── Converters.cs                 # XAML value converters
     ├── Domain/
@@ -87,6 +88,7 @@ TerminalHost/
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
     │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
+    │   ├── GitBranch.cs        # Git branch model for branch switcher
     │   ├── QuickCommand.cs     # Quick command with shortcut
     │   ├── LinkPattern.cs      # Custom link pattern definition
     │   └── PaletteCommand.cs   # Command palette item definition
@@ -162,6 +164,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
 - `Ctrl+G`: Open git changes panel (modified files + diffs)
+- `Ctrl+B`: Open git branch switcher
 - `F1`: Show help window
 
 ### Default Quick Commands

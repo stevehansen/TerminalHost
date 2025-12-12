@@ -1018,6 +1018,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="#CCCCCC" Margin="0,2"/>
@@ -1029,8 +1030,10 @@
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="#CCCCCC" Margin="0,2"/>
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+G" Foreground="#CE9178" Margin="0,2"/>
                                 <TextBlock Grid.Row="4" Grid.Column="1" Text="Open git changes panel" Foreground="#CCCCCC" Margin="0,2"/>
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="F1" Foreground="#CE9178" Margin="0,2"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="Show this help window" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+B" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="Open git branch switcher" Foreground="#CCCCCC" Margin="0,2"/>
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="F1" Foreground="#CE9178" Margin="0,2"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="Show this help window" Foreground="#CCCCCC" Margin="0,2"/>
                             </Grid>
 
                             <!-- Quick Commands Section -->
@@ -1684,6 +1687,203 @@
                             </ControlTemplate>
                         </Thumb.Template>
                     </Thumb>
+                </Grid>
+            </Border>
+        </Popup>
+
+        <!-- Git Branch Popup (Ctrl+B) -->
+        <Popup x:Name="GitBranchPopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True">
+            <Border Background="#252525"
+                    BorderBrush="#4EC9B0"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="0"
+                    MinWidth="400"
+                    MaxWidth="550"
+                    MaxHeight="500">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="GitBranchClose_Click"
+                                    FontSize="16"
+                                    Padding="8,2"/>
+                            <Button DockPanel.Dock="Right"
+                                    Content="⟳ Pull"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="GitBranchPull_Click"
+                                    ToolTip="Pull current branch"
+                                    Margin="0,0,8,0"/>
+                            <Button DockPanel.Dock="Right"
+                                    Content="↓ Fetch"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="GitBranchFetch_Click"
+                                    ToolTip="Fetch all remotes"
+                                    Margin="0,0,4,0"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🌿" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock x:Name="GitBranchTitle"
+                                           Text="Git Branches"
+                                           Foreground="#CCCCCC"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Search Box -->
+                    <Border Grid.Row="1" Background="#1E1E1E" Padding="12,8">
+                        <TextBox x:Name="GitBranchSearchBox"
+                                 Background="#2D2D2D"
+                                 Foreground="#CCCCCC"
+                                 CaretBrush="#CCCCCC"
+                                 BorderBrush="#444444"
+                                 BorderThickness="1"
+                                 Padding="8,6"
+                                 FontSize="13"
+                                 TextChanged="GitBranchSearch_TextChanged"
+                                 PreviewKeyDown="GitBranchSearchBox_PreviewKeyDown"/>
+                    </Border>
+
+                    <!-- Branch List -->
+                    <ListBox x:Name="GitBranchList"
+                             Grid.Row="2"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             MaxHeight="350"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="GitBranchList_MouseDoubleClick"
+                             SelectionChanged="GitBranchList_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="8,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Current branch indicator -->
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Icon}"
+                                               Foreground="{Binding StatusColor}"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"/>
+
+                                    <!-- Branch name -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DisplayName}"
+                                               Foreground="{Binding StatusColor}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Ahead/Behind status -->
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding StatusDisplay}"
+                                               Foreground="#808080"
+                                               FontSize="11"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0"
+                                               Visibility="{Binding StatusDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="#569CD6"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Margin="8,8,8,4"/>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="{TemplateBinding Background}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <!-- Empty state -->
+                    <TextBlock x:Name="GitBranchEmptyState"
+                               Grid.Row="2"
+                               Text="No branches found"
+                               Foreground="#666666"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Padding="20"
+                               Visibility="Collapsed"/>
+
+                    <!-- Footer with action buttons -->
+                    <Border Grid.Row="3" Background="#2D2D2D" Padding="8,6" CornerRadius="0,0,6,6">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button x:Name="GitBranchDeleteButton"
+                                        Content="🗑 Delete"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Click="GitBranchDelete_Click"
+                                        ToolTip="Delete selected branch"
+                                        IsEnabled="False"
+                                        Margin="0,0,4,0"/>
+                                <Button x:Name="GitBranchCheckoutButton"
+                                        Content="✓ Switch"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Click="GitBranchCheckout_Click"
+                                        ToolTip="Switch to selected branch"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+                            <Button Content="+ New Branch"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Click="GitBranchCreate_Click"
+                                    ToolTip="Create new branch from current HEAD"/>
+                        </DockPanel>
+                    </Border>
                 </Grid>
             </Border>
         </Popup>
