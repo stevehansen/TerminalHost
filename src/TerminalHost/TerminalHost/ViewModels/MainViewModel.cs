@@ -525,11 +525,25 @@ public partial class MainViewModel : ObservableObject
     }
 
     public event EventHandler? HelpRequested;
+    public event EventHandler? ScratchPadRequested;
+    public event EventHandler? GitChangesRequested;
 
     [RelayCommand]
     private void OpenHelp()
     {
         HelpRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenScratchPad()
+    {
+        ScratchPadRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenGitChanges()
+    {
+        GitChangesRequested?.Invoke(this, EventArgs.Empty);
     }
 
     public void Shutdown()

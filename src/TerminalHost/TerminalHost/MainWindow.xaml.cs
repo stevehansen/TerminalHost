@@ -47,6 +47,8 @@ public partial class MainWindow : Window
 
         // Subscribe to help events
         _viewModel.HelpRequested += OnHelpRequested;
+        _viewModel.ScratchPadRequested += (_, _) => ShowScratchPad();
+        _viewModel.GitChangesRequested += (_, _) => ShowGitFiles();
     }
 
     private void OnConfigReloaded(object? sender, EventArgs e)

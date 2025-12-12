@@ -415,6 +415,16 @@
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Margin="0,0,4,0"/>
+                                        <Button Content="📝"
+                                                ToolTip="Scratch Pad (Ctrl+Shift+N)"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Margin="0,0,4,0"/>
+                                        <Button Content="📋"
+                                                ToolTip="Git Changes (Ctrl+G)"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Margin="0,0,4,0"/>
                                         <Button Content="❓"
                                                 ToolTip="Help &amp; Shortcuts (F1)"
                                                 Style="{StaticResource TerminalSwitchButton}"

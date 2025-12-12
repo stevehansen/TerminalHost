@@ -53,7 +53,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
 - [x] Tab switcher popup with search (Ctrl+Shift+T)
 - [x] Help window with shortcuts and commands (F1)
-- [x] Built-in quick commands (Open Explorer, Help) in status bar
+- [x] Built-in quick commands (Explorer, Scratch Pad, Git Changes, Help) in status bar
 - [x] CSV/TSV file preview with column colorization
 - [x] File editor popup with save/reload (Ctrl+Shift+E)
 - [x] Command palette for quick actions (Ctrl+Shift+P)
@@ -156,8 +156,11 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+N     | Open scratch pad (notes)            |
 | Ctrl+G           | Open git changes panel              |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
+| Ctrl+Shift+R     | Quick command: Rate Code (Claude Code) |
+| Ctrl+Shift+V     | Quick command: Review PR (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
+| Ctrl+Shift+B     | Quick command: Dev Build (Shell)    |
 | Ctrl+Click       | Open link under cursor (URLs open in browser, file paths show preview popup) |
 
 ## Configuration
@@ -316,11 +319,27 @@ A centered popup for quickly finding and switching tabs:
 Quick commands provide one-click buttons and keyboard shortcuts for common terminal operations. They appear in the status bar and can send text to either the custom terminal (Claude Code) or shell terminal.
 
 **Default Commands:**
+
+*Claude Code Commands:*
+| Button | Shortcut       | Action                                              |
+|--------|----------------|-----------------------------------------------------|
+| 💾     | Ctrl+Shift+C   | Send "commit" to Claude Code                        |
+| ⭐     | Ctrl+Shift+R   | Send "rate my code" to Claude Code                  |
+| 🔍     | Ctrl+Shift+V   | Send "review the current PR" to Claude Code         |
+
+*Git Commands:*
 | Button | Shortcut       | Action                           |
 |--------|----------------|----------------------------------|
-| 💾     | Ctrl+Shift+C   | Send "commit" to Claude Code     |
 | ↓      | Ctrl+Shift+D   | Run `git pull --rebase` in Shell |
 | ↑      | Ctrl+Shift+U   | Run `git push` in Shell          |
+
+*Dev Tool Commands:*
+| Button | Shortcut       | Action                           |
+|--------|----------------|----------------------------------|
+| b      | Ctrl+Shift+B   | Run `dev b` (build) in Shell     |
+| vc     | (none)         | Run `dev vc` (version+commit) in Shell |
+| c      | (none)         | Run `dev c` (clean) in Shell     |
+| f      | (none)         | Run `dev f` (frontend) in Shell  |
 
 **QuickCommand Properties:**
 | Property      | Type   | Description                                      |
@@ -407,6 +426,7 @@ The Settings tab provides a JSON editor for the application configuration file w
 - Opens as a special tab via the Settings button or `Ctrl+,`
 - JSON syntax highlighting (keys, strings, numbers, booleans)
 - Save, Reload, and Format buttons in toolbar
+- Reset Quick Commands button to restore defaults (preserves other settings)
 - JSON validation on save with error messages
 - Dark theme matching the terminal interface
 

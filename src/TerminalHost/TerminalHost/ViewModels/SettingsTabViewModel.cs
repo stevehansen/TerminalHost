@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Domain;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -115,5 +116,45 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private void Close()
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ResetQuickCommands()
+    {
+        try
+        {
+            // Parse current config
+            var parsed = JsonSerializer.Deserialize<AppConfiguration>(JsonText, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (parsed == null)
+            {
+                ErrorMessage = "Cannot parse current configuration";
+                HasError = true;
+                return;
+            }
+
+            // Create a fresh config to get default quick commands
+            var defaultConfig = new AppConfiguration();
+
+            // Replace just the quick commands
+            parsed.QuickCommands = defaultConfig.QuickCommands;
+
+            // Re-serialize
+            var updatedJson = JsonSerializer.Serialize(parsed, new JsonSerializerOptions { WriteIndented = true });
+
+            JsonText = updatedJson;
+            IsDirty = updatedJson != _originalJson;
+            ErrorMessage = "";
+            HasError = false;
+            JsonTextReloaded?.Invoke(this, EventArgs.Empty);
+        }
+        catch (JsonException ex)
+        {
+            ErrorMessage = $"Cannot reset quick commands: {ex.Message}";
+            HasError = true;
+        }
     }
 }

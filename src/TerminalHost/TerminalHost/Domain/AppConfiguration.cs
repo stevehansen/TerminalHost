@@ -48,6 +48,7 @@ public class AppConfiguration
 
     private static List<QuickCommand> GetDefaultQuickCommands() =>
     [
+        // Claude Code commands
         new QuickCommand
         {
             Id = "commit",
@@ -59,6 +60,27 @@ public class AppConfiguration
             UseUserInput = true,
             Shortcut = "Ctrl+Shift+C"
         },
+        new QuickCommand
+        {
+            Id = "rate-code",
+            Label = "Rate Code",
+            Icon = "⭐",
+            Text = "rate my code - give me a thorough code review with ratings and suggestions",
+            Target = QuickCommandTarget.Custom,
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+R"
+        },
+        new QuickCommand
+        {
+            Id = "review-pr",
+            Label = "Review PR",
+            Icon = "🔍",
+            Text = "review the current PR - check the git diff and provide feedback",
+            Target = QuickCommandTarget.Custom,
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+V"
+        },
+        // Git commands
         new QuickCommand
         {
             Id = "git-pull",
@@ -78,6 +100,48 @@ public class AppConfiguration
             Target = QuickCommandTarget.Shell,
             AppendNewline = true,
             Shortcut = "Ctrl+Shift+U"  // U for Upload
+        },
+        // Dev tool commands
+        new QuickCommand
+        {
+            Id = "dev-build",
+            Label = "Build",
+            Icon = "b",
+            Text = "dev b",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+B"
+        },
+        new QuickCommand
+        {
+            Id = "dev-version-commit",
+            Label = "Version+Commit",
+            Icon = "vc",
+            Text = "dev vc",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true,
+            UseUserInput = true,  // To select major/minor/patch/revision
+            Shortcut = ""
+        },
+        new QuickCommand
+        {
+            Id = "dev-clean",
+            Label = "Clean",
+            Icon = "c",
+            Text = "dev c",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true,
+            Shortcut = ""
+        },
+        new QuickCommand
+        {
+            Id = "dev-frontend",
+            Label = "Frontend",
+            Icon = "f",
+            Text = "dev f",
+            Target = QuickCommandTarget.Shell,
+            AppendNewline = true,
+            Shortcut = ""
         }
     ];
 }
