@@ -71,14 +71,19 @@ public class TerminalPair : IDisposable
     /// <summary>
     /// Creates the run terminal if it doesn't exist.
     /// </summary>
-    /// <param name="runProfile">The profile to use for the run terminal.</param>
+    /// <param name="runProfile">The profile to use for the run terminal. If WorkingDir is empty,
+    /// it will be used as-is (for commands that embed the working directory).</param>
     /// <returns>The created or existing run terminal session.</returns>
     public TerminalSession CreateRunTerminal(Profile runProfile)
     {
         if (RunTerminal == null)
         {
-            var profileWithDir = CloneProfileWithWorkingDir(runProfile, WorkingDirectory);
-            RunTerminal = new TerminalSession(profileWithDir);
+            // If the profile has an empty WorkingDir, use it as-is (command embeds working dir)
+            // Otherwise, override with this pair's working directory
+            var profile = string.IsNullOrEmpty(runProfile.WorkingDir)
+                ? runProfile
+                : CloneProfileWithWorkingDir(runProfile, WorkingDirectory);
+            RunTerminal = new TerminalSession(profile);
         }
         return RunTerminal;
     }

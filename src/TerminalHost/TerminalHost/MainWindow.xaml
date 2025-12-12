@@ -361,13 +361,17 @@
                                         <!-- Run Configuration Dropdown (only if multiple configs) -->
                                         <ComboBox ItemsSource="{Binding RunConfigurations}"
                                                   SelectedItem="{Binding ActiveRunConfiguration}"
-                                                  DisplayMemberPath="Name"
                                                   MinWidth="80"
                                                   Visibility="{Binding HasMultipleRunConfigs, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                  Background="#2D2D2D"
-                                                  Foreground="#CCCCCC"
-                                                  BorderBrush="#444444"
-                                                  Margin="0,0,4,0"/>
+                                                  Style="{StaticResource DarkComboBox}"
+                                                  ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                                                  Margin="0,0,4,0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name}" Foreground="#CCCCCC"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
 
                                         <!-- Detected Run URL Button -->
                                         <Button ToolTip="{Binding DetectedRunUrl}"

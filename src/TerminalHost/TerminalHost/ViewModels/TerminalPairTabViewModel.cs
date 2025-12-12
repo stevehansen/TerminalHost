@@ -95,13 +95,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
 
     // Run terminal column width (only shown when visible)
+    // Use Pixel unit with 0 when hidden so it doesn't participate in star distribution
     public GridLength RunColumnWidth => IsRunTerminalVisible
         ? new GridLength(RunSplitRatio, GridUnitType.Star)
-        : new GridLength(0);
+        : new GridLength(0, GridUnitType.Pixel);
 
     public GridLength RunSplitterWidth => IsRunTerminalVisible
-        ? new GridLength(4)
-        : new GridLength(0);
+        ? new GridLength(4, GridUnitType.Pixel)
+        : new GridLength(0, GridUnitType.Pixel);
 
     // Run state computed properties
     public bool CanRun => RunState == RunState.Stopped && ActiveRunConfiguration != null;

@@ -845,6 +845,14 @@ Items for future development:
 - **Custom profile pairs**: Different command pairs for different project types
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
+- **Setup Mode**: A startup window to detect and guide installation of recommended dependencies (Git, Nerd Fonts, Claude Code CLI, etc.).
+- **Simplified README**: A minimal `README.md` that directs users to the setup mode and in-app help (F1).
+- **Usage Statistics**: Track usage metrics per folder (e.g., character counts), potentially in a separate `stats.json` file to avoid configuration conflicts.
+- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory.
+- **MainWindow Refactoring**: Refactor `MainWindow.xaml` and its code-behind to improve modularity and maintainability.
+- **Advanced Panel Management**:
+  - Introduce more flexible layouts, like a three-panel view.
+  - Allow splitting panels to show a file explorer tree, a live markdown preview, or a persistent file diff viewer alongside the terminals.
 
 ## Success Criteria
 

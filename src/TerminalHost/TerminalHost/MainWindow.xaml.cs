@@ -144,15 +144,19 @@ public partial class MainWindow : Window
     {
         try
         {
-            var settings = _viewModel.SessionManager.ProfileRegistry.Settings;
+            // Use cmd.exe directly with the run command inline for faster startup
+            // This avoids PowerShell profile loading delays
+            var runCommand = config.Command;
+            var workingDir = tab.Pair.WorkingDirectory;
 
-            // Create a profile for the run terminal using shell command
+            // Create a profile that runs the command directly via cmd.exe
+            // The command is embedded in the startup so it runs immediately
             var runProfile = new Profile
             {
                 Id = "run",
                 Name = "Run",
-                Command = settings.ShellCommand,  // Use shell (PowerShell) to run the command
-                WorkingDir = tab.Pair.WorkingDirectory,
+                Command = $"cmd.exe /K cd /d \"{workingDir}\" && {runCommand}",
+                WorkingDir = "",  // Already handled in command
                 Icon = "▶"
             };
 
@@ -169,11 +173,7 @@ public partial class MainWindow : Window
             // Subscribe to link click events
             runSession.LinkClicked += (s, text) => HandleRunLinkClick(text, tab.Pair.WorkingDirectory);
 
-            // Send the run command
-            var command = config.Command;
-            runSession.SendText(command, appendNewline: true);
-
-            // Mark as started
+            // Mark as started (command runs automatically via startup)
             tab.OnRunStarted();
         }
         catch (Exception ex)
