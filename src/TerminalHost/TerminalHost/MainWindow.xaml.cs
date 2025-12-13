@@ -6,6 +6,7 @@ using System.Windows.Input;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using Application = System.Windows.Application;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using Point = System.Windows.Point;
 
@@ -296,6 +297,8 @@ public partial class MainWindow : Window
 
         SaveWindowState();
         _viewModel.Shutdown();
+
+        Application.Current.Shutdown();
     }
 
     public void BringToFront()

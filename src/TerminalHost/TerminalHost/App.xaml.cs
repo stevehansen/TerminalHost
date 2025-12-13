@@ -110,7 +110,7 @@ public partial class App : Application
 
         _systemTrayService.ExitRequested += (_, _) =>
         {
-            Dispatcher.Invoke(() => Shutdown());
+            _mainWindow?.ForceClose();
         };
     }
 

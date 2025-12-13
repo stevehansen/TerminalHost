@@ -88,7 +88,19 @@ public class SingleInstanceService : IDisposable
     public void Dispose()
     {
         _pipeServerCts?.Cancel();
-        _pipeServerTask?.Wait(TimeSpan.FromSeconds(2));
+
+        // Unblock the waiting pipe server by making a dummy connection to itself.
+        try
+        {
+            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
+            client.Connect(timeout: 100); // Use a short timeout
+        }
+        catch
+        {
+            // Ignore any exceptions. This is just to unblock the listener.
+        }
+
+        _pipeServerTask?.Wait(TimeSpan.FromSeconds(2)); // This should now complete without timing out.
         _pipeServerCts?.Dispose();
         _mutex?.Dispose();
     }

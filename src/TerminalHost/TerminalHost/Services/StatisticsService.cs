@@ -16,15 +16,17 @@ namespace TerminalHost.Services
         private readonly object _lock = new object();
         private bool _disposed = false;
 
+        private static readonly JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true, };
+
         public StatisticsService()
         {
             _statsPath = GetStatsPath();
             _stats = LoadStats();
             // Save every 30 seconds if there are changes
-            _saveTimer = new System.Threading.Timer(async _ => await SaveStatsIfNeeded(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            _saveTimer = new System.Threading.Timer(_ => SaveStatsIfNeeded(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         }
 
-        private string GetStatsPath()
+        private static string GetStatsPath()
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var statsDir = Path.Combine(appData, "TerminalHost");
@@ -57,13 +59,13 @@ namespace TerminalHost.Services
 
             lock (_lock)
             {
-                if (!_stats.DirectoryStats.ContainsKey(directory))
+                if (!_stats.DirectoryStats.TryGetValue(directory, out DirectoryUsageStats? dirStats))
                 {
-                    _stats.DirectoryStats[directory] = new DirectoryUsageStats();
+                    dirStats = new DirectoryUsageStats();
+                    _stats.DirectoryStats[directory] = dirStats;
                 }
 
-                var dirStats = _stats.DirectoryStats[directory];
-                var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+                var today = DateTime.Now.ToString("yyyy-MM-dd");
 
                 Dictionary<string, long> dailyCounts;
 
@@ -105,15 +107,15 @@ namespace TerminalHost.Services
             }
         }
 
-        private async Task SaveStatsIfNeeded()
+        private void SaveStatsIfNeeded()
         {
-            if (_isDirty)
+            if (_isDirty && !_disposed)
             {
-                await SaveStats();
+                SaveStats();
             }
         }
 
-        public async Task SaveStats()
+        public void SaveStats()
         {
             lock (_lock)
             {
@@ -123,9 +125,8 @@ namespace TerminalHost.Services
 
             try
             {
-                var options = new JsonSerializerOptions { WriteIndented = true, };
                 var json = JsonSerializer.Serialize(_stats, options);
-                await File.WriteAllTextAsync(_statsPath, json);
+                File.WriteAllText(_statsPath, json);
             }
             catch (Exception)
             {
@@ -140,7 +141,7 @@ namespace TerminalHost.Services
 
             _saveTimer?.Dispose();
             // Block and wait for the final save to complete.
-            SaveStats().GetAwaiter().GetResult();
+            SaveStats();
         }
     }
 }
