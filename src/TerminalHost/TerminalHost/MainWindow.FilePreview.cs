@@ -3,8 +3,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
-using Point = System.Windows.Point;
 
 namespace TerminalHost;
 
@@ -46,14 +44,14 @@ public partial class MainWindow
 
     public void ShowFilePreview(string filePath, int? highlightLine = null)
     {
-        System.Console.WriteLine($"[FilePreview] ShowFilePreview called for: {filePath}");
+        Console.WriteLine($"[FilePreview] ShowFilePreview called for: {filePath}");
         var result = _filePreviewService.LoadFilePreview(filePath, highlightLine);
         if (result == null)
         {
-            System.Console.WriteLine("[FilePreview] LoadFilePreview returned null");
+            Console.WriteLine("[FilePreview] LoadFilePreview returned null");
             return;
         }
-        System.Console.WriteLine($"[FilePreview] Result: IsSuccess={result.IsSuccess}, Error={result.Error}");
+        Console.WriteLine($"[FilePreview] Result: IsSuccess={result.IsSuccess}, Error={result.Error}");
 
         _currentPreviewFilePath = result.FilePath;
 

@@ -1,13 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
 using TerminalHost.Services;
-using MessageBox = System.Windows.MessageBox;
 
 namespace TerminalHost.ViewModels;
 
@@ -207,7 +205,7 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab is not TerminalPairTabViewModel terminalTab)
             return;
 
-        if (terminalTab.RunState != Domain.RunState.Running && terminalTab.RunState != Domain.RunState.Starting)
+        if (terminalTab.RunState != RunState.Running && terminalTab.RunState != RunState.Starting)
             return;
 
         if (terminalTab.Pair.RunTerminal == null)
@@ -306,7 +304,7 @@ public partial class MainViewModel : ObservableObject
 
             var result = dialog.ShowDialog();
 
-            if (result == System.Windows.Forms.DialogResult.OK)
+            if (result == DialogResult.OK)
             {
                 OpenProjectTab(dialog.SelectedPath);
             }

@@ -2,7 +2,6 @@ using System.Windows;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
-using Application = System.Windows.Application;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 

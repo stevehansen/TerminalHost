@@ -32,6 +32,43 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+	<!--
+	using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+    using MessageBox = System.Windows.MessageBox;
+    using MessageBoxButton = System.Windows.MessageBoxButton;
+    using MessageBoxImage = System.Windows.MessageBoxImage;
+    using MessageBoxResult = System.Windows.MessageBoxResult;
+    using TextBox = System.Windows.Controls.TextBox;
+    using Button = System.Windows.Controls.Button;
+    using Orientation = System.Windows.Controls.Orientation;
+    using HorizontalAlignment = System.Windows.HorizontalAlignment;
+    using Application = System.Windows.Application;
+    using Point = System.Windows.Point;
+    using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+    using DataObject = System.Windows.DataObject;
+    using DragDropEffects = System.Windows.DragDropEffects;
+    using DragEventArgs = System.Windows.DragEventArgs;
+    using UserControl = System.Windows.Controls.UserControl;
+    -->
+    <Using Include="System.Windows.Input.KeyEventArgs" Alias="KeyEventArgs" />
+    <Using Include="System.Windows.MessageBox" Alias="MessageBox" />
+    <Using Include="System.Windows.MessageBoxButton" Alias="MessageBoxButton" />
+    <Using Include="System.Windows.MessageBoxImage" Alias="MessageBoxImage" />
+    <Using Include="System.Windows.MessageBoxResult" Alias="MessageBoxResult" />
+    <Using Include="System.Windows.Controls.TextBox" Alias="TextBox" />
+    <Using Include="System.Windows.Controls.Button" Alias="Button" />
+    <Using Include="System.Windows.Controls.Orientation" Alias="Orientation" />
+    <Using Include="System.Windows.HorizontalAlignment" Alias="HorizontalAlignment" />
+    <Using Include="System.Windows.Application" Alias="Application" />
+    <Using Include="System.Windows.Point" Alias="Point" />
+    <Using Include="System.Windows.Input.MouseEventArgs" Alias="MouseEventArgs" />
+    <Using Include="System.Windows.DataObject" Alias="DataObject" />
+    <Using Include="System.Windows.DragDropEffects" Alias="DragDropEffects" />
+    <Using Include="System.Windows.DragEventArgs" Alias="DragEventArgs" />
+	<Using Include="System.Windows.Controls.UserControl" Alias="UserControl" />
+  </ItemGroup>
+
   <!-- Copy conpty.dll from NuGet package to output -->
   <ItemGroup>
     <None Include="$(NuGetPackageRoot)ci.microsoft.windows.console.conpty\1.22.250314001\runtimes\win10-x64\native\conpty.dll">

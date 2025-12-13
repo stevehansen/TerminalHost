@@ -4,15 +4,6 @@ using System.Windows.Data;
 using System.Windows.Input;
 using TerminalHost.Domain;
 using TerminalHost.ViewModels;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MessageBoxResult = System.Windows.MessageBoxResult;
-using TextBox = System.Windows.Controls.TextBox;
-using Button = System.Windows.Controls.Button;
-using Orientation = System.Windows.Controls.Orientation;
-using HorizontalAlignment = System.Windows.HorizontalAlignment;
 
 namespace TerminalHost;
 

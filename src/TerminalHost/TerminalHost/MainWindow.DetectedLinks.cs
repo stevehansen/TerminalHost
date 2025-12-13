@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace TerminalHost;
 

@@ -4,13 +4,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MessageBoxResult = System.Windows.MessageBoxResult;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
-using Point = System.Windows.Point;
 
 namespace TerminalHost;
 
@@ -50,7 +43,7 @@ public partial class MainWindow
 
     public void ShowFileEdit(string filePath, int? goToLine = null)
     {
-        System.Console.WriteLine($"[FileEdit] ShowFileEdit called for: {filePath}");
+        Console.WriteLine($"[FileEdit] ShowFileEdit called for: {filePath}");
         var result = _fileEditService.LoadFile(filePath);
 
         if (!result.IsSuccess)

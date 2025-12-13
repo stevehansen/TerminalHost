@@ -2,11 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TerminalHost.ViewModels;
-using DataObject = System.Windows.DataObject;
-using DragDropEffects = System.Windows.DragDropEffects;
-using DragEventArgs = System.Windows.DragEventArgs;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace TerminalHost;
 

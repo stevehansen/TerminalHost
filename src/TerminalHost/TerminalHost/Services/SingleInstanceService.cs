@@ -164,13 +164,13 @@ public class CommandLineArgs
         // Handle "." and relative paths
         if (path == ".")
         {
-            return System.IO.Directory.GetCurrentDirectory();
+            return Directory.GetCurrentDirectory();
         }
 
         // Check if it's a relative path and make it absolute
-        if (!System.IO.Path.IsPathRooted(path))
+        if (!Path.IsPathRooted(path))
         {
-            return System.IO.Path.GetFullPath(path);
+            return Path.GetFullPath(path);
         }
 
         return path;

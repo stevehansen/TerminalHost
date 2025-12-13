@@ -2,7 +2,6 @@ using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
 using TerminalHost.ViewModels;
-using UserControl = System.Windows.Controls.UserControl;
 
 namespace TerminalHost.Views;
 

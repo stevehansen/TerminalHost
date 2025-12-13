@@ -4,11 +4,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
-using Point = System.Windows.Point;
 
 namespace TerminalHost;
 

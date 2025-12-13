@@ -62,7 +62,7 @@ public class TerminalControlFactory
         var terminalControl = new EasyTerminalControl
         {
             StartupCommandLine = startupCommand,
-            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
             // Font must be set before initialization or SetTheme() called after
             // Fallback chain: Cascadia Code NF -> other Nerd Fonts

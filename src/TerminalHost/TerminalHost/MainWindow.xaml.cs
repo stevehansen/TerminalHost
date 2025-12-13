@@ -6,9 +6,6 @@ using System.Windows.Input;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using Application = System.Windows.Application;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using Point = System.Windows.Point;
 
 namespace TerminalHost;
 
@@ -179,7 +176,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Console.WriteLine($"[MainWindow] Error starting run terminal: {ex.Message}");
+            Console.WriteLine($"[MainWindow] Error starting run terminal: {ex.Message}");
             tab.OnRunStopped();
         }
     }
@@ -205,7 +202,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Console.WriteLine($"[MainWindow] Error stopping run terminal: {ex.Message}");
+            Console.WriteLine($"[MainWindow] Error stopping run terminal: {ex.Message}");
             tab.OnRunStopped();
         }
     }
@@ -599,12 +596,12 @@ public partial class MainWindow : Window
 
     private void TestTerminal_GotFocus(object sender, RoutedEventArgs e)
     {
-        System.Console.WriteLine("[MainWindow] TestTerminal got focus");
+        Console.WriteLine("[MainWindow] TestTerminal got focus");
     }
 
     private void TestTerminal_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        System.Console.WriteLine("[MainWindow] TestTerminal mouse down - focusing");
+        Console.WriteLine("[MainWindow] TestTerminal mouse down - focusing");
         TestTerminal.Focus();
     }
 

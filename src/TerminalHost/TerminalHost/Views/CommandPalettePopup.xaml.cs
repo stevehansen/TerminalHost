@@ -1,13 +1,10 @@
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TerminalHost.Domain;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using UserControl = System.Windows.Controls.UserControl;
 
 namespace TerminalHost.Views;
 
-public partial class CommandPalettePopup : UserControl
+public partial class CommandPalettePopup
 {
     public event EventHandler<PaletteCommand?>? CommandSelected;
     public event EventHandler? CloseRequested;

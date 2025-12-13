@@ -4,7 +4,7 @@ using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;
 
-public partial class SettingsView : System.Windows.Controls.UserControl
+public partial class SettingsView : UserControl
 {
     private bool _isUpdatingDocument;
     private SettingsTabViewModel? _currentViewModel;
