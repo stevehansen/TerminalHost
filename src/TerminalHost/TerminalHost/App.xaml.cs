@@ -106,6 +106,7 @@ public partial class App : Application
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<FileEditViewModel>();
+        services.AddSingleton<FilePreviewViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

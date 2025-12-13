@@ -22,13 +22,14 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly FileEditViewModel _fileEditViewModel;
+    private readonly FilePreviewViewModel _filePreviewViewModel;
     private bool _isExiting;
 
     // Drag-and-drop tab reordering
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -39,12 +40,14 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _fileEditViewModel = fileEditViewModel;
+        _filePreviewViewModel = filePreviewViewModel;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         GitFilesViewControl.DataContext = gitFilesViewModel;
         FileEditViewControl.DataContext = fileEditViewModel;
+        FilePreviewViewControl.DataContext = filePreviewViewModel;
 
         RestoreWindowState();
 
@@ -373,9 +376,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (FilePreviewPopup.IsOpen)
+            if (_filePreviewViewModel.IsOpen)
             {
-                FilePreviewPopup.IsOpen = false;
+                _filePreviewViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -493,7 +496,11 @@ public partial class MainWindow : Window
         // Ctrl+O: Open file preview
         else if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            OpenFilePreviewDialog();
+            CenterFilePreviewPopup();
+            var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
+                ? terminalTab.Pair.WorkingDirectory
+                : string.Empty;
+            _filePreviewViewModel.OpenDialogCommand.Execute(initialDir);
             e.Handled = true;
         }
         // Ctrl+Shift+E: Open file edit dialog
@@ -664,9 +671,17 @@ public partial class MainWindow : Window
         _fileEditViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileEditViewModel.Height) / 2;
     }
 
+    private void CenterFilePreviewPopup()
+    {
+        var windowPos = PointToScreen(new Point(0, 0));
+        _filePreviewViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _filePreviewViewModel.Width) / 2;
+        _filePreviewViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _filePreviewViewModel.Height) / 2;
+    }
+
     private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
-        ShowFilePreview(e.FilePath, e.Line);
+        CenterFilePreviewPopup();
+        _filePreviewViewModel.Open(e.FilePath, e.Line);
     }
 
     private void OnFileEditRequested(object? sender, FileEditRequestedEventArgs e)

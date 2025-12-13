@@ -57,7 +57,14 @@ public partial class MainWindow
                 Shortcut = "Ctrl+O",
                 Icon = "👁",
                 Category = "File",
-                Execute = OpenFilePreviewDialog
+                Execute = () =>
+                {
+                    CenterFilePreviewPopup();
+                    var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
+                        ? terminalTab.Pair.WorkingDirectory
+                        : string.Empty;
+                    _filePreviewViewModel.OpenDialogCommand.Execute(initialDir);
+                }
             },
             new PaletteCommand
             {

@@ -75,6 +75,8 @@
 
 - **(Done)** Extracted File Edit popup into `Views/Popups/FileEditView.xaml` and `ViewModels/FileEditViewModel.cs`.
 
+- **(Done)** Extracted File Preview popup into `Views/Popups/FilePreviewView.xaml` and `ViewModels/FilePreviewViewModel.cs`.
+
 ### Step 5 – Clean up `MainWindow.xaml`
 
 - After the extractions, ensure `MainWindow.xaml` only contains:
