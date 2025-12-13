@@ -12,40 +12,7 @@ public partial class MainWindow
 {
     #region Tab Overflow and Switcher
 
-    private void TabDropdown_Click(object sender, RoutedEventArgs e)
-    {
-        // Populate and show dropdown
-        DropdownTabList.ItemsSource = _viewModel.Tabs;
-        DropdownTabList.SelectedItem = _viewModel.SelectedTab;
-        DropdownSearchBox.Text = "";
-        TabDropdownPopup.IsOpen = true;
-        DropdownSearchBox.Focus();
-    }
 
-    private void DropdownSearch_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        var searchText = DropdownSearchBox.Text?.ToLower() ?? "";
-        if (string.IsNullOrEmpty(searchText))
-        {
-            DropdownTabList.ItemsSource = _viewModel.Tabs;
-        }
-        else
-        {
-            var filtered = _viewModel.Tabs.Where(t =>
-                t.Title.ToLower().Contains(searchText) ||
-                t.WorkingDirectory.ToLower().Contains(searchText));
-            DropdownTabList.ItemsSource = filtered;
-        }
-    }
-
-    private void DropdownTabList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (DropdownTabList.SelectedItem is ITabViewModel tab)
-        {
-            _viewModel.SelectedTab = tab;
-            TabDropdownPopup.IsOpen = false;
-        }
-    }
 
     #endregion
 

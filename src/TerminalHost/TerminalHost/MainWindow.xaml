@@ -30,6 +30,19 @@
         <!-- Tab Bar -->
         <views:TabStrip Grid.Row="0" DataContext="{Binding}" />
 
+            <!-- Tab Dropdown Button -->
+            <Button x:Name="TabDropdownButton"
+                    DockPanel.Dock="Right"
+                    Content="▼"
+                    AutomationProperties.Name="Show all tabs"
+                    Style="{StaticResource TerminalSwitchButton}"
+
+                    ToolTip="All tabs (Ctrl+Shift+T)"
+                    Visibility="Collapsed"
+                    Margin="0,0,4,0"/>
+
+            <!-- Scroll Right Button -->
+
         <!-- Tab Content Area -->
         <Grid Grid.Row="1">
             <!-- Show when there's a selected tab -->
@@ -70,75 +83,9 @@
                PlacementTarget="{Binding ElementName=TabDropdownButton}"
                Placement="Bottom"
                StaysOpen="False"
-               AllowsTransparency="True">
-            <Border Background="#2D2D2D"
-                    BorderBrush="#444444"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="4"
-                    MaxHeight="400"
-                    MinWidth="200">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Search Box -->
-                    <TextBox x:Name="DropdownSearchBox"
-                             Grid.Row="0"
-                             Background="#1E1E1E"
-                             Foreground="#CCCCCC"
-                             BorderBrush="#444444"
-                             BorderThickness="1"
-                             Padding="6,4"
-                             Margin="0,0,0,4"
-                             Text=""
-                             TextChanged="DropdownSearch_TextChanged">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Style.Triggers>
-                                    <Trigger Property="Text" Value="">
-                                        <Setter Property="Background" Value="#1E1E1E"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
-
-                    <!-- Tab List -->
-                    <ListBox x:Name="DropdownTabList"
-                             Grid.Row="1"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             MaxHeight="350"
-                             SelectionChanged="DropdownTabList_SelectionChanged">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="4,2">
-                                    <TextBlock Text="{Binding TabIcon}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding Title}" Foreground="#CCCCCC"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="4,2"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#3E3E3E"/>
-                                    </Trigger>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#0078D4"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
-                </Grid>
-            </Border>
+               AllowsTransparency="True"
+               IsOpen="{Binding IsTabDropdownOpen, Mode=TwoWay}">
+            <popups:TabDropdownView x:Name="TabDropdownViewControl" DataContext="{Binding}" />
         </Popup>
 
         <!-- Tab Switcher Popup (Ctrl+Shift+T) -->

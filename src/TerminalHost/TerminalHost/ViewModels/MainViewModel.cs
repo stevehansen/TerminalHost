@@ -61,6 +61,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = new();
 
+    [ObservableProperty]
+    private string _dropdownSearchText = "";
+
+    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = new();
+    public ReadOnlyObservableCollection<ITabViewModel> FilteredDropdownTabs { get; }
+
+    [ObservableProperty]
+    private bool _isTabDropdownOpen;
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -107,6 +116,9 @@ public partial class MainViewModel : ObservableObject
         _runUrlDetectionService = runUrlDetectionService;
         _detectedLinksViewModel = detectedLinksViewModel;
 
+        FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
+        UpdateFilteredDropdownTabs(); // Initial population
+
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
         {
@@ -134,6 +146,47 @@ public partial class MainViewModel : ObservableObject
             Interval = TimeSpan.FromSeconds(2)
         };
         _runUrlDetectionTimer.Tick += (_, _) => RefreshRunUrlDetection();
+    }
+
+    partial void OnDropdownSearchTextChanged(string value)
+    {
+        UpdateFilteredDropdownTabs();
+    }
+
+    partial void OnTabsChanged(ObservableCollection<ITabViewModel> value)
+    {
+        UpdateFilteredDropdownTabs();
+    }
+
+    partial void OnSelectedTabChanged(ITabViewModel? value)
+    {
+        // If the selected tab changes, and the dropdown is open, close it.
+        if (IsTabDropdownOpen && value != null)
+        {
+            IsTabDropdownOpen = false;
+        }
+    }
+
+    private void UpdateFilteredDropdownTabs()
+    {
+        _filteredDropdownTabs.Clear();
+        if (string.IsNullOrEmpty(DropdownSearchText))
+        {
+            foreach (var tab in Tabs)
+            {
+                _filteredDropdownTabs.Add(tab);
+            }
+        }
+        else
+        {
+            var searchText = DropdownSearchText.ToLower();
+            foreach (var tab in Tabs.Where(t =>
+                t.Title.ToLower().Contains(searchText) ||
+                t.WorkingDirectory.ToLower().Contains(searchText)))
+            {
+                _filteredDropdownTabs.Add(tab);
+            }
+        }
     }
 
     public void Initialize()
