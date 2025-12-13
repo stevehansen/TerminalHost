@@ -353,7 +353,7 @@
                                         <Button x:Name="DetectedLinksButton"
                                                 ToolTip="Detected Links - Click to view"
                                                 Style="{StaticResource TerminalSwitchButton}"
-                                                Click="DetectedLinksButton_Click"
+                                                Command="{Binding DataContext.OpenDetectedLinksCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Visibility="{Binding HasDetectedLinks, Converter={StaticResource BoolToVisibilityConverter}}"
                                                 Margin="0,0,4,0">
                                             <StackPanel Orientation="Horizontal">
@@ -1689,152 +1689,9 @@
 
         <!-- Git Files Popup (Ctrl+G) -->
 
-        <!-- Detected Links Popup -->
-        <Popup x:Name="DetectedLinksPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True">
-            <Border Background="#252525"
-                    BorderBrush="#0078D4"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="0"
-                    MinWidth="300"
-                    MaxWidth="500"
-                    MaxHeight="400">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.4"/>
-                </Border.Effect>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+        <!-- Detected Links View -->
+        <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
 
-                    <!-- Header -->
-                    <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right"
-                                    Content="↻"
-                                    Style="{StaticResource TabCloseButton}"
-                                    Click="DetectedLinksRefresh_Click"
-                                    ToolTip="Refresh links"
-                                    FontSize="14"
-                                    Padding="6,2"/>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🔗" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Text="Detected Links"
-                                           Foreground="#CCCCCC"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- Links List -->
-                    <ListBox x:Name="DetectedLinksList"
-                             Grid.Row="1"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             MaxHeight="320"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             MouseDoubleClick="DetectedLinksList_MouseDoubleClick"
-                             SelectionChanged="DetectedLinksList_SelectionChanged"
-                             PreviewKeyDown="DetectedLinksList_PreviewKeyDown">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="8,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding Icon}"
-                                               FontSize="14"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,8,0"/>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayText}"
-                                                   Foreground="#CCCCCC"
-                                                   FontSize="12"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Url}"
-                                                   Foreground="#666666"
-                                                   FontSize="10"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding Url}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="4,2"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="ItemBorder"
-                                                    Background="{TemplateBinding Background}"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
-
-                    <!-- Empty state -->
-                    <TextBlock x:Name="DetectedLinksEmptyState"
-                               Grid.Row="1"
-                               Text="No links detected"
-                               Foreground="#666666"
-                               FontSize="12"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Padding="20"
-                               Visibility="Collapsed"/>
-
-                    <!-- Footer with action buttons -->
-                    <Border Grid.Row="2" Background="#2D2D2D" Padding="8,6" CornerRadius="0,0,6,6">
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button x:Name="DetectedLinksPreviewButton"
-                                        Content="👁 Preview"
-                                        Style="{StaticResource TerminalSwitchButton}"
-                                        Click="DetectedLinksPreview_Click"
-                                        ToolTip="Preview file (files only)"
-                                        IsEnabled="False"
-                                        Margin="0,0,4,0"/>
-                                <Button x:Name="DetectedLinksOpenButton"
-                                        Content="Open"
-                                        Style="{StaticResource TerminalSwitchButton}"
-                                        Click="DetectedLinksOpen_Click"
-                                        ToolTip="Open link/file"
-                                        IsEnabled="False"/>
-                            </StackPanel>
-                            <TextBlock Foreground="#808080"
-                                       FontSize="10"
-                                       VerticalAlignment="Center"
-                                       Text="Enter or double-click to open"/>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-            </Border>
-        </Popup>
+        <!-- Command Palette Popup (Ctrl+Shift+P) -->
     </Grid>
 </Window>

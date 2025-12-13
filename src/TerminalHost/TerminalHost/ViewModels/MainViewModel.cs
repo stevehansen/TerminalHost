@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly LinkDetectionService _linkDetectionService;
     private readonly ProjectDetectionService _projectDetectionService;
     private readonly RunUrlDetectionService _runUrlDetectionService;
+    private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
     private readonly DispatcherTimer _linkDetectionTimer;
@@ -92,7 +93,8 @@ public partial class MainViewModel : ObservableObject
         GitStatusService gitStatusService,
         LinkDetectionService linkDetectionService,
         ProjectDetectionService projectDetectionService,
-        RunUrlDetectionService runUrlDetectionService)
+        RunUrlDetectionService runUrlDetectionService,
+        DetectedLinksViewModel detectedLinksViewModel)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -103,6 +105,7 @@ public partial class MainViewModel : ObservableObject
         _linkDetectionService = linkDetectionService;
         _projectDetectionService = projectDetectionService;
         _runUrlDetectionService = runUrlDetectionService;
+        _detectedLinksViewModel = detectedLinksViewModel;
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
@@ -752,6 +755,17 @@ public partial class MainViewModel : ObservableObject
     {
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
     }
+
+    [RelayCommand(CanExecute = nameof(CanOpenDetectedLinks))]
+    private async Task OpenDetectedLinks()
+    {
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            await _detectedLinksViewModel.OpenAsync(terminalTab);
+        }
+    }
+
+    private bool CanOpenDetectedLinks() => SelectedTab is TerminalPairTabViewModel;
 
     public void Shutdown()
     {

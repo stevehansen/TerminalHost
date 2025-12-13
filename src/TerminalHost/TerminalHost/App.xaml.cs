@@ -103,6 +103,7 @@ public partial class App : Application
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<GitBranchViewModel>();
+        services.AddSingleton<DetectedLinksViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

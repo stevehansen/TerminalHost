@@ -69,6 +69,8 @@
 - **(Done)** Extracted Scratch Pad popup into `Views/ScratchPadView.xaml` and `ViewModels/ScratchPadViewModel.cs`.
 - **(Done)** Extracted Git Branch popup into `Views/Popups/GitBranchView.xaml` and `ViewModels/GitBranchViewModel.cs`.
 
+- **(Done)** Extracted Detected Links popup into `Views/Popups/DetectedLinksView.xaml` and `ViewModels/DetectedLinksViewModel.cs`.
+
 ### Step 5 – Clean up `MainWindow.xaml`
 
 - After the extractions, ensure `MainWindow.xaml` only contains:

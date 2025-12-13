@@ -19,13 +19,14 @@ public partial class MainWindow : Window
     private readonly SystemTrayService? _systemTrayService;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
+    private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private bool _isExiting;
 
     // Drag-and-drop tab reordering
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -33,9 +34,11 @@ public partial class MainWindow : Window
         _systemTrayService = systemTrayService;
         _scratchPadViewModel = scratchPadViewModel;
         _gitBranchViewModel = gitBranchViewModel;
+        _detectedLinksViewModel = detectedLinksViewModel;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
+        DetectedLinksViewControl.DataContext = detectedLinksViewModel;
 
         RestoreWindowState();
 
@@ -52,6 +55,7 @@ public partial class MainWindow : Window
 
         // Subscribe to file preview events
         _viewModel.FilePreviewRequested += OnFilePreviewRequested;
+        _detectedLinksViewModel.FilePreviewRequested += OnFilePreviewRequested;
 
         // Subscribe to help events
         _viewModel.HelpRequested += OnHelpRequested;
@@ -340,6 +344,12 @@ public partial class MainWindow : Window
             if (_scratchPadViewModel.IsOpen)
             {
                 _scratchPadViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_detectedLinksViewModel.IsOpen)
+            {
+                _detectedLinksViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
