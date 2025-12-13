@@ -14,6 +14,7 @@
         <local:RunStateToTooltipConverter x:Key="RunStateToTooltipConverter"/>
         <local:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
         <local:BoolToSplitterWidthConverter x:Key="BoolToSplitterWidthConverter"/>
+        <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
 
         <!-- Tab Close Button Style -->
         <Style x:Key="TabCloseButton" TargetType="Button">

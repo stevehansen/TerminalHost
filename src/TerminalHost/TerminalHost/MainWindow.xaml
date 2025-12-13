@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TerminalHost"
-        xmlns:vm="clr-namespace:TerminalHost.ViewModels"
-        xmlns:views="clr-namespace:TerminalHost.Views"
         xmlns:domain="clr-namespace:TerminalHost.Domain"
+        xmlns:views="clr-namespace:TerminalHost.Views"
+        xmlns:vm="clr-namespace:TerminalHost.ViewModels"
         xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}"
         Icon="Resources/app.ico"
@@ -1411,180 +1412,8 @@
             </Border>
         </Popup>
 
-        <!-- Scratch Pad Popup (Ctrl+Shift+N) -->
-        <Popup x:Name="ScratchPadPopup"
-               Placement="Absolute"
-               StaysOpen="True"
-               AllowsTransparency="True">
-            <Border x:Name="ScratchPadBorder" Background="#1E1E1E"
-                    BorderBrush="#569CD6"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    MinWidth="400"
-                    MinHeight="300"
-                    Width="600"
-                    Height="450">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
-                </Border.Effect>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Header (draggable) -->
-                    <Border x:Name="ScratchPadHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
-                            MouseLeftButtonDown="ScratchPadHeader_MouseLeftButtonDown"
-                            MouseMove="ScratchPadHeader_MouseMove"
-                            MouseLeftButtonUp="ScratchPadHeader_MouseLeftButtonUp"
-                            Cursor="SizeAll">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right"
-                                    Content="×"
-                                    Style="{StaticResource TabCloseButton}"
-                                    Click="ScratchPadClose_Click"
-                                    FontSize="16"
-                                    Padding="8,2"/>
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,8,0">
-                                <RadioButton x:Name="ScratchPadProjectRadio"
-                                             Content="Project"
-                                             Foreground="#CCCCCC"
-                                             GroupName="ScratchPadScope"
-                                             IsChecked="True"
-                                             Checked="ScratchPadScope_Changed"
-                                             Margin="0,0,8,0">
-                                    <RadioButton.Style>
-                                        <Style TargetType="RadioButton">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="RadioButton">
-                                                        <Border x:Name="border" Background="#3C3C3C" CornerRadius="3" Padding="8,4" Cursor="Hand">
-                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsChecked" Value="True">
-                                                                <Setter TargetName="border" Property="Background" Value="#0078D4"/>
-                                                            </Trigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
-                                                            </Trigger>
-                                                            <MultiTrigger>
-                                                                <MultiTrigger.Conditions>
-                                                                    <Condition Property="IsChecked" Value="True"/>
-                                                                    <Condition Property="IsMouseOver" Value="True"/>
-                                                                </MultiTrigger.Conditions>
-                                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                                            </MultiTrigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </RadioButton.Style>
-                                </RadioButton>
-                                <RadioButton x:Name="ScratchPadGlobalRadio"
-                                             Content="Global"
-                                             Foreground="#CCCCCC"
-                                             GroupName="ScratchPadScope"
-                                             Checked="ScratchPadScope_Changed">
-                                    <RadioButton.Style>
-                                        <Style TargetType="RadioButton">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="RadioButton">
-                                                        <Border x:Name="border" Background="#3C3C3C" CornerRadius="3" Padding="8,4" Cursor="Hand">
-                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsChecked" Value="True">
-                                                                <Setter TargetName="border" Property="Background" Value="#0078D4"/>
-                                                            </Trigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
-                                                            </Trigger>
-                                                            <MultiTrigger>
-                                                                <MultiTrigger.Conditions>
-                                                                    <Condition Property="IsChecked" Value="True"/>
-                                                                    <Condition Property="IsMouseOver" Value="True"/>
-                                                                </MultiTrigger.Conditions>
-                                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                                            </MultiTrigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </RadioButton.Style>
-                                </RadioButton>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="📝"
-                                           Foreground="#569CD6"
-                                           FontSize="14"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,8,0"/>
-                                <TextBlock x:Name="ScratchPadTitle"
-                                           Text="Scratch Pad"
-                                           Foreground="#CCCCCC"
-                                           FontSize="13"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- Notes Content -->
-                    <TextBox x:Name="ScratchPadTextBox"
-                             Grid.Row="1"
-                             Background="#1E1E1E"
-                             Foreground="#CCCCCC"
-                             CaretBrush="#CCCCCC"
-                             BorderThickness="0"
-                             FontFamily="Cascadia Code NF, Consolas, Courier New"
-                             FontSize="13"
-                             AcceptsReturn="True"
-                             AcceptsTab="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             Padding="12,8"
-                             TextChanged="ScratchPadTextBox_TextChanged"/>
-
-                    <!-- Footer -->
-                    <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Right"
-                                       Foreground="#808080"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,20,0"
-                                       Text="Auto-saved"/>
-                            <TextBlock x:Name="ScratchPadInfo"
-                                       Foreground="#808080"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"/>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- Resize grip -->
-                    <Thumb x:Name="ScratchPadResizeGrip" Grid.Row="2"
-                           Width="16" Height="16"
-                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                           Margin="0,0,2,2"
-                           Cursor="SizeNWSE"
-                           DragDelta="ScratchPadResizeGrip_DragDelta">
-                        <Thumb.Template>
-                            <ControlTemplate>
-                                <Grid Background="Transparent">
-                                    <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
-                                          Stroke="#888888" StrokeThickness="1.5"/>
-                                </Grid>
-                            </ControlTemplate>
-                        </Thumb.Template>
-                    </Thumb>
-                </Grid>
-            </Border>
-        </Popup>
+        <!-- Scratch Pad View (Ctrl+Shift+N) -->
+        <views:ScratchPadView x:Name="ScratchPadViewControl" />
 
         <!-- Git Files Popup (Ctrl+G) -->
         <Popup x:Name="GitFilesPopup"

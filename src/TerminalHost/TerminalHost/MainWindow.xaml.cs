@@ -23,13 +23,14 @@ public partial class MainWindow : Window
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _configService = configService;
         _systemTrayService = systemTrayService;
         DataContext = viewModel;
+        ScratchPadViewControl.DataContext = scratchPadViewModel;
 
         RestoreWindowState();
 
@@ -49,7 +50,6 @@ public partial class MainWindow : Window
 
         // Subscribe to help events
         _viewModel.HelpRequested += OnHelpRequested;
-        _viewModel.ScratchPadRequested += (_, _) => ShowScratchPad();
         _viewModel.GitChangesRequested += (_, _) => ShowGitFiles();
 
         // Subscribe to run terminal events
@@ -338,13 +338,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (ScratchPadPopup.IsOpen)
-            {
-                SaveScratchPadContent();
-                ScratchPadPopup.IsOpen = false;
-                e.Handled = true;
-                return;
-            }
             if (FileEditPopup.IsOpen)
             {
                 CloseFileEdit();
@@ -489,7 +482,7 @@ public partial class MainWindow : Window
         // Ctrl+Shift+N: Open scratch pad
         else if (e.Key == Key.N && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            ShowScratchPad();
+            _viewModel.OpenScratchPadCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+G: Open git files panel

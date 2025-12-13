@@ -137,7 +137,7 @@ public partial class MainWindow
                 Shortcut = "Ctrl+Shift+N",
                 Icon = "📝",
                 Category = "Tools",
-                Execute = ShowScratchPad
+                Execute = () => _viewModel.OpenScratchPadCommand.Execute(null)
             },
 
             // Statistics
