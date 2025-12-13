@@ -35,37 +35,54 @@ public abstract class SyntaxHighlighterBase : ISyntaxHighlighter
             Foreground = DefaultBrush,
             FontFamily = CodeFont,
             FontSize = FontSize,
-            PagePadding = new Thickness(8),
+            PagePadding = new Thickness(0), // Remove default padding for better table fit
             PageWidth = 10000
         };
+
+        var table = new Table { CellSpacing = 0 };
+        // Line number column
+        table.Columns.Add(new TableColumn { Width = new GridLength(50) });
+        // Code column
+        table.Columns.Add(new TableColumn { Width = GridLength.Auto }); // Or star? Auto works well for code
+
+        var rowGroup = new TableRowGroup();
+        table.RowGroups.Add(rowGroup);
+        document.Blocks.Add(table);
 
         var lines = content.Split('\n');
         for (int i = 0; i < lines.Length; i++)
         {
             var lineNumber = i + 1;
             var line = lines[i].TrimEnd('\r');
-            var paragraph = new Paragraph
-            {
-                Margin = new Thickness(0, 0, 0, 0),
-                LineHeight = 18
-            };
-
+            
+            var row = new TableRow();
+            
             // Highlight the specified line
             if (highlightLine.HasValue && lineNumber == highlightLine.Value)
             {
-                paragraph.Background = LineHighlightBrush;
+                row.Background = LineHighlightBrush;
             }
 
-            // Add line number
-            paragraph.Inlines.Add(new Run($"{lineNumber,4}  ")
+            // Line number cell
+            var numParagraph = new Paragraph(new Run($"{lineNumber}  "))
             {
-                Foreground = LineNumberBrush
-            });
+                TextAlignment = TextAlignment.Right,
+                Foreground = LineNumberBrush,
+                Margin = new Thickness(0, 0, 8, 0),
+                LineHeight = 18
+            };
+            row.Cells.Add(new TableCell(numParagraph));
 
-            // Add highlighted content
-            HighlightLine(paragraph, line);
+            // Content cell
+            var contentParagraph = new Paragraph
+            {
+                Margin = new Thickness(0),
+                LineHeight = 18
+            };
+            HighlightLine(contentParagraph, line);
+            row.Cells.Add(new TableCell(contentParagraph));
 
-            document.Blocks.Add(paragraph);
+            rowGroup.Rows.Add(row);
         }
 
         return document;
