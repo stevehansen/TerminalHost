@@ -51,6 +51,14 @@
                         ToolTip="Manage Profiles (Ctrl+P)"
                         Margin="0,0,4,0"/>
 
+                <!-- Statistics Button -->
+                <Button DockPanel.Dock="Right"
+                        Content="Statistics"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding OpenStatisticsCommand}"
+                        ToolTip="View Usage Statistics"
+                        Margin="0,0,4,0"/>
+
                 <!-- Tab Dropdown Button -->
                 <Button x:Name="TabDropdownButton"
                         DockPanel.Dock="Right"
@@ -201,6 +209,39 @@
 
                         <!-- Profiles Tab Template -->
                         <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
+                            <Border x:Name="TabBorder"
+                                    Background="#3C3C3C"
+                                    CornerRadius="4,4,0,0"
+                                    Padding="8,4"
+                                    Margin="0,0,2,0"
+                                    MinWidth="100"
+                                    AllowDrop="True"
+                                    MouseDown="Tab_MouseDown"
+                                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="Tab_PreviewMouseMove"
+                                    DragOver="Tab_DragOver"
+                                    DragLeave="Tab_DragLeave"
+                                    Drop="Tab_Drop">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Content="×"
+                                            Style="{StaticResource TabCloseButton}"
+                                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"/>
+                                    <TextBlock Foreground="#CCCCCC"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding Title}"/>
+                                </DockPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+
+                        <!-- Statistics Tab Template -->
+                        <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}">
                             <Border x:Name="TabBorder"
                                     Background="#3C3C3C"
                                     CornerRadius="4,4,0,0"
@@ -543,6 +584,11 @@
                     <!-- Profiles Tab Content -->
                     <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
                         <views:ProfilesView/>
+                    </DataTemplate>
+
+                    <!-- Statistics Tab Content -->
+                    <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}">
+                        <views:StatisticsView/>
                     </DataTemplate>
                 </ContentControl.Resources>
             </ContentControl>

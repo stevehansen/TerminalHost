@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject
     private readonly SessionManager _sessionManager;
     private readonly TerminalControlFactory _terminalFactory;
     private readonly ConfigurationService _configService;
+    private readonly StatisticsService _statisticsService;
     private readonly GitStatusService _gitStatusService;
     private readonly LinkDetectionService _linkDetectionService;
     private readonly ProjectDetectionService _projectDetectionService;
@@ -84,12 +85,13 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService)
+    public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService, StatisticsService statisticsService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
         _configService = configService;
+        _statisticsService = statisticsService;
         _gitStatusService = new GitStatusService();
         _linkDetectionService = new LinkDetectionService(profileRegistry);
         _projectDetectionService = new ProjectDetectionService(profileRegistry);
@@ -365,14 +367,14 @@ public partial class MainViewModel : ObservableObject
             };
 
             // Create the terminal pair
-            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile);
+            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService);
 
             // Create terminal controls for both
             var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
             // Create view model
-            var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon);
+            var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon, _statisticsService);
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
@@ -462,6 +464,10 @@ public partial class MainViewModel : ObservableObject
         else if (tab is ProfilesTabViewModel profilesTab)
         {
             profilesTab.CloseRequested -= OnTabCloseRequested;
+        }
+        else if (tab is StatisticsTabViewModel statsTab)
+        {
+            statsTab.CloseRequested -= OnTabCloseRequested;
         }
 
         Tabs.Remove(tab);
@@ -603,6 +609,33 @@ public partial class MainViewModel : ObservableObject
         profilesTab.CloseRequested += OnTabCloseRequested;
         Tabs.Add(profilesTab);
         SelectedTab = profilesTab;
+    }
+
+    [RelayCommand]
+    private void OpenStatistics()
+    {
+        try
+        {
+            // Check if statistics tab already exists
+            var existingStats = Tabs.OfType<StatisticsTabViewModel>().FirstOrDefault();
+            if (existingStats != null)
+            {
+                SelectedTab = existingStats;
+                // Also refresh the stats when focusing the existing tab
+                existingStats.LoadStatsCommand.Execute(null);
+                return;
+            }
+
+            // Create new statistics tab
+            var statsTab = new StatisticsTabViewModel(_statisticsService);
+            statsTab.CloseRequested += OnTabCloseRequested;
+            Tabs.Add(statsTab);
+            SelectedTab = statsTab;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"An error occurred while opening the statistics view:\n\n{ex}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void OnConfigSaved(object? sender, EventArgs e)

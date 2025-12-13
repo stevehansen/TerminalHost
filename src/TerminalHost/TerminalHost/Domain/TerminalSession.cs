@@ -23,6 +23,10 @@ public class TerminalSession : IDisposable
     private readonly StringBuilder _outputBuffer = new();
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
 
+    private readonly Services.StatisticsService _statisticsService;
+    private readonly string _workingDirectory;
+    private readonly string _terminalType;
+
     /// <summary>
     /// The last time output was received from the terminal.
     /// </summary>
@@ -47,11 +51,15 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
-    public TerminalSession(Profile profile)
+    public TerminalSession(Profile profile, Services.StatisticsService statisticsService, string terminalType)
     {
         Id = Guid.NewGuid();
         Profile = profile;
         State = SessionState.Running;
+
+        _statisticsService = statisticsService;
+        _workingDirectory = profile.WorkingDir;
+        _terminalType = terminalType;
     }
 
     public void SetTerminalControl(EasyTerminalControl control)
@@ -145,6 +153,9 @@ public class TerminalSession : IDisposable
     /// </summary>
     private void OnTerminalOutput(ref Span<char> str)
     {
+        // Increment character count for statistics
+        _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, str.Length);
+
         // Don't modify the output, just track timing
         _lastOutputTime = DateTime.Now;
 

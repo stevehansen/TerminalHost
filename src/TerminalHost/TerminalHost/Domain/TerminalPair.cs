@@ -1,4 +1,5 @@
 using System.IO;
+using TerminalHost.Services;
 
 namespace TerminalHost.Domain;
 
@@ -20,6 +21,7 @@ public class TerminalPair : IDisposable
     /// Optional run terminal, created lazily when first needed.
     /// </summary>
     public TerminalSession? RunTerminal { get; private set; }
+    private readonly StatisticsService _statisticsService;
 
     /// <summary>
     /// Current state of the run terminal.
@@ -36,17 +38,18 @@ public class TerminalPair : IDisposable
         _ => CustomTerminal
     };
 
-    public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile)
+    public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile, Services.StatisticsService statisticsService)
     {
         Id = Guid.NewGuid();
         WorkingDirectory = workingDirectory;
+        _statisticsService = statisticsService;
 
         // Override the working directory for both profiles
         var customWithDir = CloneProfileWithWorkingDir(customProfile, workingDirectory);
         var shellWithDir = CloneProfileWithWorkingDir(shellProfile, workingDirectory);
 
-        CustomTerminal = new TerminalSession(customWithDir);
-        ShellTerminal = new TerminalSession(shellWithDir);
+        CustomTerminal = new TerminalSession(customWithDir, _statisticsService, "Custom");
+        ShellTerminal = new TerminalSession(shellWithDir, _statisticsService, "Shell");
     }
 
     private static Profile CloneProfileWithWorkingDir(Profile profile, string workingDir)
@@ -83,7 +86,7 @@ public class TerminalPair : IDisposable
             var profile = string.IsNullOrEmpty(runProfile.WorkingDir)
                 ? runProfile
                 : CloneProfileWithWorkingDir(runProfile, WorkingDirectory);
-            RunTerminal = new TerminalSession(profile);
+            RunTerminal = new TerminalSession(profile, _statisticsService, "Run");
         }
         return RunTerminal;
     }

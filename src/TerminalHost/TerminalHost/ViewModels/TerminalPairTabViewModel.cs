@@ -118,6 +118,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
     public TerminalPair Pair { get; }
+    private readonly StatisticsService _statisticsService;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -128,12 +129,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? CloseRequested;
     public event EventHandler? SettingsChanged;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, StatisticsService statisticsService)
     {
         Pair = pair;
         Title = pair.DirectoryName;
         CustomIcon = customIcon;
         ShellIcon = shellIcon;
+        _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
     }
 

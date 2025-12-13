@@ -142,6 +142,17 @@ public partial class MainWindow
                 Execute = ShowScratchPad
             },
 
+            // Statistics
+            new PaletteCommand
+            {
+                Id = "statistics",
+                Name = "Statistics",
+                Description = "View usage statistics",
+                Icon = "📊",
+                Category = "Tools",
+                Execute = () => _viewModel.OpenStatisticsCommand.Execute(null)
+            },
+
             // Git
             new PaletteCommand
             {

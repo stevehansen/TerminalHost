@@ -7,13 +7,15 @@ public class SessionManager
 {
     private readonly List<TerminalSession> _sessions = new();
     private readonly ProfileRegistry _profileRegistry;
+    private readonly StatisticsService _statisticsService;
 
     public IReadOnlyList<TerminalSession> ActiveSessions => _sessions.AsReadOnly();
     public ProfileRegistry ProfileRegistry => _profileRegistry;
 
-    public SessionManager(ProfileRegistry profileRegistry)
+    public SessionManager(ProfileRegistry profileRegistry, StatisticsService statisticsService)
     {
         _profileRegistry = profileRegistry;
+        _statisticsService = statisticsService;
     }
 
     public event EventHandler<TerminalSession>? SessionCreated;
@@ -21,7 +23,7 @@ public class SessionManager
 
     public TerminalSession CreateSession(Profile profile)
     {
-        var session = new TerminalSession(profile);
+        var session = new TerminalSession(profile, _statisticsService, "AdHoc");
         _sessions.Add(session);
         SessionCreated?.Invoke(this, session);
         return session;

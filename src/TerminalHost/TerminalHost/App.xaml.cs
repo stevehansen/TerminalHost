@@ -11,6 +11,7 @@ public partial class App : Application
     private SingleInstanceService? _singleInstanceService;
     private SystemTrayService? _systemTrayService;
     private ConfigurationService? _configService;
+    private StatisticsService? _statisticsService;
     private MainWindow? _mainWindow;
     private MainViewModel? _mainViewModel;
 
@@ -53,15 +54,16 @@ public partial class App : Application
 
         // Create services
         _configService = new ConfigurationService();
+        _statisticsService = new StatisticsService();
         var profileRegistry = new ProfileRegistry(_configService);
-        var sessionManager = new SessionManager(profileRegistry);
+        var sessionManager = new SessionManager(profileRegistry, _statisticsService);
         var terminalFactory = new TerminalControlFactory();
 
         // Create system tray service
         _systemTrayService = new SystemTrayService();
 
         // Create the main view model
-        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, _configService);
+        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, _configService, _statisticsService);
 
         // Create and show the main window
         _mainWindow = new MainWindow(_mainViewModel, _configService, _systemTrayService);
@@ -125,5 +127,6 @@ public partial class App : Application
     {
         _systemTrayService?.Dispose();
         _singleInstanceService?.Dispose();
+        _statisticsService?.Dispose();
     }
 }
