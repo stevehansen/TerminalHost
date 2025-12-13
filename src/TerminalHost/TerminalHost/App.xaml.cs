@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
@@ -10,11 +11,10 @@ namespace TerminalHost;
 public partial class App : Application
 {
     private SingleInstanceService? _singleInstanceService;
-    private SystemTrayService? _systemTrayService;
-    private ConfigurationService? _configService;
-    private StatisticsService? _statisticsService;
-    private MainWindow? _mainWindow;
-    private MainViewModel? _mainViewModel;
+    private IServiceProvider? _services;
+
+    public new static App Current => (App)Application.Current;
+    public IServiceProvider Services => _services!;
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
@@ -63,53 +63,72 @@ public partial class App : Application
         _singleInstanceService.StartPipeServer();
         _singleInstanceService.CommandReceived += OnCommandReceived;
 
-        // Create services
-        _configService = new ConfigurationService();
-        _statisticsService = new StatisticsService();
-        var profileRegistry = new ProfileRegistry(_configService);
-        var sessionManager = new SessionManager(profileRegistry, _statisticsService);
-        var terminalFactory = new TerminalControlFactory();
-
-        // Create system tray service
-        _systemTrayService = new SystemTrayService();
-
-        // Create the main view model
-        _mainViewModel = new MainViewModel(profileRegistry, sessionManager, terminalFactory, _configService, _statisticsService);
-
-        // Create and show the main window
-        _mainWindow = new MainWindow(_mainViewModel, _configService, _systemTrayService);
-        
-        // Ensure that closing the main window shuts down the application
-        _mainWindow.Closed += (s, a) => Shutdown();
-
-        _mainWindow.Show();
+        // Configure Services
+        var serviceCollection = new ServiceCollection();
+        ConfigureServices(serviceCollection);
+        _services = serviceCollection.BuildServiceProvider();
 
         // Initialize system tray
         InitializeSystemTray();
+
+        // Show Main Window
+        var mainWindow = _services.GetRequiredService<MainWindow>();
+        
+        // Ensure that closing the main window shuts down the application
+        mainWindow.Closed += (s, a) => Shutdown();
+        mainWindow.Show();
 
         // Handle command line arguments for this instance
         HandleCommandLineArgs(startupArgs);
     }
 
+    private void ConfigureServices(IServiceCollection services)
+    {
+        // Services
+        services.AddSingleton(_singleInstanceService!); // Register the already active instance
+        services.AddSingleton<ConfigurationService>();
+        services.AddSingleton<StatisticsService>();
+        services.AddSingleton<SystemTrayService>();
+        services.AddSingleton<ProfileRegistry>();
+        services.AddSingleton<SessionManager>();
+        services.AddSingleton<TerminalControlFactory>();
+        services.AddSingleton<GitStatusService>();
+        services.AddSingleton<LinkDetectionService>();
+        services.AddSingleton<RunUrlDetectionService>();
+        services.AddSingleton<ProjectDetectionService>();
+        services.AddSingleton<FileEditService>();
+        services.AddSingleton<FilePreviewService>();
+
+        // ViewModels
+        services.AddSingleton<MainViewModel>();
+        services.AddTransient<SetupViewModel>();
+
+        // Windows
+        services.AddSingleton<MainWindow>();
+        services.AddTransient<SetupWindow>();
+    }
+
     private void InitializeSystemTray()
     {
-        if (_systemTrayService == null || _mainWindow == null || _configService == null) return;
+        var systemTrayService = Services.GetRequiredService<SystemTrayService>();
+        var mainWindow = Services.GetRequiredService<MainWindow>();
+        var configService = Services.GetRequiredService<ConfigurationService>();
 
-        _systemTrayService.Initialize(_mainWindow);
+        systemTrayService.Initialize(mainWindow);
 
         // Set enabled state from config
-        var config = _configService.Load();
-        _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+        var config = configService.Load();
+        systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
 
         // Handle tray events
-        _systemTrayService.ShowRequested += (_, _) =>
+        systemTrayService.ShowRequested += (_, _) =>
         {
-            Dispatcher.Invoke(() => _mainWindow?.BringToFront());
+            Dispatcher.Invoke(() => mainWindow?.BringToFront());
         };
 
-        _systemTrayService.ExitRequested += (_, _) =>
+        systemTrayService.ExitRequested += (_, _) =>
         {
-            _mainWindow?.ForceClose();
+            mainWindow?.ForceClose();
         };
     }
 
@@ -119,25 +138,30 @@ public partial class App : Application
         Dispatcher.Invoke(() =>
         {
             HandleCommandLineArgs(args);
-            _mainWindow?.BringToFront();
+            var mainWindow = Services.GetService<MainWindow>();
+            mainWindow?.BringToFront();
         });
     }
 
     private void HandleCommandLineArgs(CommandLineArgs args)
     {
-        if (_mainViewModel == null) return;
+        var mainViewModel = Services.GetService<MainViewModel>();
+        if (mainViewModel == null) return;
 
         // If a working directory is specified, open a project tab
         if (!string.IsNullOrEmpty(args.WorkingDir))
         {
-            _mainViewModel.OpenProjectTab(args.WorkingDir);
+            mainViewModel.OpenProjectTab(args.WorkingDir);
         }
     }
 
     private void OnExit(object sender, ExitEventArgs e)
     {
-        _systemTrayService?.Dispose();
-        _singleInstanceService?.Dispose();
-        _statisticsService?.Dispose();
+        if (_services != null)
+        {
+            _services.GetService<SystemTrayService>()?.Dispose();
+            _services.GetService<SingleInstanceService>()?.Dispose();
+            _services.GetService<StatisticsService>()?.Dispose();
+        }
     }
 }

@@ -83,17 +83,26 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public MainViewModel(ProfileRegistry profileRegistry, SessionManager sessionManager, TerminalControlFactory terminalFactory, ConfigurationService configService, StatisticsService statisticsService)
+    public MainViewModel(
+        ProfileRegistry profileRegistry, 
+        SessionManager sessionManager, 
+        TerminalControlFactory terminalFactory, 
+        ConfigurationService configService, 
+        StatisticsService statisticsService,
+        GitStatusService gitStatusService,
+        LinkDetectionService linkDetectionService,
+        ProjectDetectionService projectDetectionService,
+        RunUrlDetectionService runUrlDetectionService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
         _configService = configService;
         _statisticsService = statisticsService;
-        _gitStatusService = new GitStatusService();
-        _linkDetectionService = new LinkDetectionService(profileRegistry);
-        _projectDetectionService = new ProjectDetectionService(profileRegistry);
-        _runUrlDetectionService = new RunUrlDetectionService();
+        _gitStatusService = gitStatusService;
+        _linkDetectionService = linkDetectionService;
+        _projectDetectionService = projectDetectionService;
+        _runUrlDetectionService = runUrlDetectionService;
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
