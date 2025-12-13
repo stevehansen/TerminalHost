@@ -104,6 +104,7 @@ public partial class App : Application
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<DetectedLinksViewModel>();
+        services.AddSingleton<GitFilesViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

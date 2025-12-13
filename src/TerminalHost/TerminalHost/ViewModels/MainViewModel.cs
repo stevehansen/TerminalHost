@@ -786,13 +786,6 @@ public partial class MainViewModel : ObservableObject
     }
 }
 
-public class FilePreviewRequestedEventArgs : EventArgs
-{
-    public required string FilePath { get; init; }
-    public int? Line { get; init; }
-    public int? Column { get; init; }
-}
-
 public class RunTerminalRequestedEventArgs : EventArgs
 {
     public required TerminalPairTabViewModel Tab { get; init; }

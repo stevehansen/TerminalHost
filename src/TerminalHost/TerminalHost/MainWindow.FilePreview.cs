@@ -16,11 +16,6 @@ public partial class MainWindow
     private bool _isDraggingPreview;
     private Point _previewDragStart;
 
-    private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
-    {
-        ShowFilePreview(e.FilePath, e.Line);
-    }
-
     private void OpenFilePreviewDialog()
     {
         var dialog = new Microsoft.Win32.OpenFileDialog

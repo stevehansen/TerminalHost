@@ -71,6 +71,8 @@
 
 - **(Done)** Extracted Detected Links popup into `Views/Popups/DetectedLinksView.xaml` and `ViewModels/DetectedLinksViewModel.cs`.
 
+- **(Done)** Extracted Git Files popup into `Views/Popups/GitFilesView.xaml` and `ViewModels/GitFilesViewModel.cs`.
+
 ### Step 5 – Clean up `MainWindow.xaml`
 
 - After the extractions, ensure `MainWindow.xaml` only contains:

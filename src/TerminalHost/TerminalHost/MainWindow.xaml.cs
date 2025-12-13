@@ -20,13 +20,14 @@ public partial class MainWindow : Window
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
+    private readonly GitFilesViewModel _gitFilesViewModel;
     private bool _isExiting;
 
     // Drag-and-drop tab reordering
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -35,10 +36,12 @@ public partial class MainWindow : Window
         _scratchPadViewModel = scratchPadViewModel;
         _gitBranchViewModel = gitBranchViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
+        _gitFilesViewModel = gitFilesViewModel;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
+        GitFilesViewControl.DataContext = gitFilesViewModel;
 
         RestoreWindowState();
 
@@ -56,10 +59,12 @@ public partial class MainWindow : Window
         // Subscribe to file preview events
         _viewModel.FilePreviewRequested += OnFilePreviewRequested;
         _detectedLinksViewModel.FilePreviewRequested += OnFilePreviewRequested;
+        _gitFilesViewModel.FilePreviewRequested += OnFilePreviewRequested;
+        _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
 
         // Subscribe to help events
         _viewModel.HelpRequested += OnHelpRequested;
-        _viewModel.GitChangesRequested += (_, _) => ShowGitFiles();
+        _viewModel.GitChangesRequested += OnGitChangesRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -353,9 +358,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (GitFilesPopup.IsOpen)
+            if (_gitFilesViewModel.IsOpen)
             {
-                GitFilesPopup.IsOpen = false;
+                _gitFilesViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -509,8 +514,22 @@ public partial class MainWindow : Window
         // Ctrl+G: Open git files panel
         else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            ShowGitFiles();
             e.Handled = true;
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var windowPos = PointToScreen(new Point(0, 0));
+                _gitFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _gitFilesViewModel.Width) / 2;
+                _gitFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _gitFilesViewModel.Height) / 2;
+                await _gitFilesViewModel.OpenAsync(terminalTab);
+            }
+            else
+            {
+                MessageBox.Show(
+                    "Please select a project tab first.",
+                    "Git Changes",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
         // Ctrl+B: Open git branch switcher
         else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
@@ -592,6 +611,29 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Git Files Popup
+
+    private async void OnGitChangesRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            var windowPos = PointToScreen(new Point(0, 0));
+            _gitFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _gitFilesViewModel.Width) / 2;
+            _gitFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _gitFilesViewModel.Height) / 2;
+            await _gitFilesViewModel.OpenAsync(terminalTab);
+        }
+        else
+        {
+            MessageBox.Show(
+                "Please select a project tab first.",
+                "Git Changes",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    #endregion
+
     #region Help Popup
 
     private void OnHelpRequested(object? sender, EventArgs e)
@@ -602,6 +644,20 @@ public partial class MainWindow : Window
     private void HelpClose_Click(object sender, RoutedEventArgs e)
     {
         HelpPopup.IsOpen = false;
+    }
+
+    #endregion
+
+    #region File Operation Handlers
+
+    private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
+    {
+        ShowFilePreview(e.FilePath, e.Line);
+    }
+
+    private void OnFileEditRequested(object? sender, FileEditRequestedEventArgs e)
+    {
+        ShowFileEdit(e.FilePath);
     }
 
     #endregion

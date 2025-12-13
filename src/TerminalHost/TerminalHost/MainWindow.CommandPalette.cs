@@ -160,7 +160,7 @@ public partial class MainWindow
                 Shortcut = "Ctrl+G",
                 Icon = "📋",
                 Category = "Git",
-                Execute = ShowGitFiles,
+                Execute = () => _viewModel.OpenGitChangesCommand.Execute(null),
                 CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
             },
             new PaletteCommand
