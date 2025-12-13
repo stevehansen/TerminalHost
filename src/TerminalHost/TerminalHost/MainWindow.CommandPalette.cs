@@ -171,7 +171,7 @@ public partial class MainWindow
                 Shortcut = "Ctrl+B",
                 Icon = "🌿",
                 Category = "Git",
-                Execute = ShowGitBranch,
+                Execute = async () => await _gitBranchViewModel.OpenAsync(),
                 CanExecute = () => _viewModel.SelectedTab is TerminalPairTabViewModel
             },
 

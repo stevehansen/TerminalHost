@@ -67,6 +67,7 @@
 - Reuse (or replace) the existing `Views/DetectedLinksPopup` by hosting it inside the popup element rather than duplicating markup in `MainWindow.xaml`.
 - For each popup host (`Popup` element) keep only the `Placement`, `IsOpen`, and child control reference inside `MainWindow.xaml`.
 - **(Done)** Extracted Scratch Pad popup into `Views/ScratchPadView.xaml` and `ViewModels/ScratchPadViewModel.cs`.
+- **(Done)** Extracted Git Branch popup into `Views/Popups/GitBranchView.xaml` and `ViewModels/GitBranchViewModel.cs`.
 
 ### Step 5 – Clean up `MainWindow.xaml`
 

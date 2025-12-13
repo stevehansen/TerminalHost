@@ -17,20 +17,25 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly ConfigurationService _configService;
     private readonly SystemTrayService? _systemTrayService;
+    private readonly ScratchPadViewModel _scratchPadViewModel;
+    private readonly GitBranchViewModel _gitBranchViewModel;
     private bool _isExiting;
 
     // Drag-and-drop tab reordering
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _configService = configService;
         _systemTrayService = systemTrayService;
+        _scratchPadViewModel = scratchPadViewModel;
+        _gitBranchViewModel = gitBranchViewModel;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
+        GitBranchViewControl.DataContext = gitBranchViewModel;
 
         RestoreWindowState();
 
@@ -321,14 +326,20 @@ public partial class MainWindow : Window
 
     #region Keyboard Shortcuts
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         // Escape: Close popups if open
         if (e.Key == Key.Escape)
         {
-            if (GitBranchPopup.IsOpen)
+            if (_gitBranchViewModel.IsOpen)
             {
-                GitBranchPopup.IsOpen = false;
+                _gitBranchViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_scratchPadViewModel.IsOpen)
+            {
+                _scratchPadViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -494,7 +505,7 @@ public partial class MainWindow : Window
         // Ctrl+B: Open git branch switcher
         else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            ShowGitBranch();
+            await _gitBranchViewModel.OpenAsync();
             e.Handled = true;
         }
         // Check quick command shortcuts
