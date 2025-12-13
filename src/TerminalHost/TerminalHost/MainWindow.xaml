@@ -65,6 +65,7 @@
                 <Button x:Name="TabDropdownButton"
                         DockPanel.Dock="Right"
                         Content="▼"
+                        AutomationProperties.Name="Show all tabs"
                         Style="{StaticResource TerminalSwitchButton}"
                         Click="TabDropdown_Click"
                         ToolTip="All tabs (Ctrl+Shift+T)"
@@ -75,6 +76,7 @@
                 <Button x:Name="ScrollRightButton"
                         DockPanel.Dock="Right"
                         Content="›"
+                        AutomationProperties.Name="Scroll tabs right"
                         Style="{StaticResource TerminalSwitchButton}"
                         Click="ScrollRight_Click"
                         ToolTip="Scroll right"
@@ -86,6 +88,7 @@
                 <Button x:Name="ScrollLeftButton"
                         DockPanel.Dock="Right"
                         Content="‹"
+                        AutomationProperties.Name="Scroll tabs left"
                         Style="{StaticResource TerminalSwitchButton}"
                         Click="ScrollLeft_Click"
                         ToolTip="Scroll left"
@@ -126,6 +129,7 @@
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Content="×"
+                                            AutomationProperties.Name="Close tab"
                                             Style="{StaticResource TabCloseButton}"
                                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"/>
@@ -352,6 +356,7 @@
                                         <!-- Built-in Quick Commands -->
                                         <Button x:Name="DetectedLinksButton"
                                                 ToolTip="Detected Links - Click to view"
+                                                AutomationProperties.Name="Detected Links"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenDetectedLinksCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Visibility="{Binding HasDetectedLinks, Converter={StaticResource BoolToVisibilityConverter}}"
@@ -366,21 +371,25 @@
                                         </Button>
                                         <Button Content="📁"
                                                 ToolTip="Open in Explorer (Ctrl+E)"
+                                                AutomationProperties.Name="Open in Explorer"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Margin="0,0,4,0"/>
                                         <Button Content="📝"
                                                 ToolTip="Scratch Pad (Ctrl+Shift+N)"
+                                                AutomationProperties.Name="Scratch Pad"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Margin="0,0,4,0"/>
                                         <Button Content="📋"
                                                 ToolTip="Git Changes (Ctrl+G)"
+                                                AutomationProperties.Name="Git Changes"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Margin="0,0,4,0"/>
                                         <Button Content="❓"
                                                 ToolTip="Help &amp; Shortcuts (F1)"
+                                                AutomationProperties.Name="Help"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenHelpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Margin="0,0,4,0"/>
@@ -397,6 +406,7 @@
                                         <!-- Run/Stop Button -->
                                         <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
                                                 ToolTip="{Binding RunState, Converter={StaticResource RunStateToTooltipConverter}}"
+                                                AutomationProperties.Name="Toggle Project Run"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding ToggleRunCommand}"
                                                 Margin="0,0,4,0"/>
@@ -418,6 +428,7 @@
 
                                         <!-- Detected Run URL Button -->
                                         <Button ToolTip="{Binding DetectedRunUrl}"
+                                                AutomationProperties.Name="Open Detected URL"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Click="OpenDetectedRunUrl_Click"
                                                 Visibility="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
@@ -437,6 +448,7 @@
                                         <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
                                                       Content="▶"
                                                       ToolTip="Show/Hide Run Terminal"
+                                                      AutomationProperties.Name="Toggle Run Terminal Visibility"
                                                       Margin="0,0,8,0">
                                             <ToggleButton.Style>
                                                 <Style TargetType="ToggleButton">
@@ -563,6 +575,7 @@
                                             <Button DockPanel.Dock="Right" Content="×"
                                                     Style="{StaticResource TabCloseButton}"
                                                     Command="{Binding ToggleRunTerminalCommand}"
+                                                    AutomationProperties.Name="Hide Run Terminal"
                                                     ToolTip="Hide Run Terminal"/>
                                             <TextBlock Foreground="#AAAAAA" FontSize="10" VerticalAlignment="Center">
                                                 <Run Text="▶ Run"/>
@@ -834,6 +847,7 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right"
                                     Content="×"
+                                    AutomationProperties.Name="Close Preview"
                                     Style="{StaticResource TabCloseButton}"
                                     Click="FilePreviewClose_Click"
                                     FontSize="16"
@@ -937,18 +951,21 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right"
                                     Content="×"
+                                    AutomationProperties.Name="Close Editor"
                                     Style="{StaticResource TabCloseButton}"
                                     Click="FileEditClose_Click"
                                     FontSize="16"
                                     Padding="8,2"/>
                             <Button x:Name="FileEditSaveButton" DockPanel.Dock="Right"
                                     Content="💾 Save"
+                                    AutomationProperties.Name="Save File"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Click="FileEditSave_Click"
                                     ToolTip="Save (Ctrl+S)"
                                     Margin="0,0,8,0"/>
                             <Button DockPanel.Dock="Right"
                                     Content="↻ Reload"
+                                    AutomationProperties.Name="Reload File"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Click="FileEditReload_Click"
                                     ToolTip="Reload file from disk"
@@ -1082,6 +1099,7 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right"
                                     Content="×"
+                                    AutomationProperties.Name="Close Help"
                                     Style="{StaticResource TabCloseButton}"
                                     Click="HelpClose_Click"
                                     FontSize="18"
@@ -1448,12 +1466,14 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right"
                                     Content="×"
+                                    AutomationProperties.Name="Close Git Changes"
                                     Style="{StaticResource TabCloseButton}"
                                     Click="GitFilesClose_Click"
                                     FontSize="16"
                                     Padding="8,2"/>
                             <Button DockPanel.Dock="Right"
                                     Content="↻ Refresh"
+                                    AutomationProperties.Name="Refresh Git Changes"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Click="GitFilesRefresh_Click"
                                     ToolTip="Refresh file list"
