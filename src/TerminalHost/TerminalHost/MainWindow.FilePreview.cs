@@ -179,7 +179,8 @@ public partial class MainWindow
         if (!string.IsNullOrEmpty(_currentPreviewFilePath) && System.IO.File.Exists(_currentPreviewFilePath))
         {
             FilePreviewPopup.IsOpen = false;
-            ShowFileEdit(_currentPreviewFilePath);
+            CenterFileEditPopup();
+            _fileEditViewModel.Open(_currentPreviewFilePath);
         }
     }
 }

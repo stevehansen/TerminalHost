@@ -67,7 +67,14 @@ public partial class MainWindow
                 Shortcut = "Ctrl+Shift+E",
                 Icon = "✏️",
                 Category = "File",
-                Execute = OpenFileEditDialog
+                Execute = () =>
+                {
+                    CenterFileEditPopup();
+                    var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
+                        ? terminalTab.Pair.WorkingDirectory
+                        : string.Empty;
+                    _fileEditViewModel.OpenDialogCommand.Execute(initialDir);
+                }
             },
             new PaletteCommand
             {

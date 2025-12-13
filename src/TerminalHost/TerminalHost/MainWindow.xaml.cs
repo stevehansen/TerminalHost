@@ -21,13 +21,14 @@ public partial class MainWindow : Window
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
+    private readonly FileEditViewModel _fileEditViewModel;
     private bool _isExiting;
 
     // Drag-and-drop tab reordering
     private Point _dragStartPoint;
     private ITabViewModel? _draggedTab;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -37,11 +38,13 @@ public partial class MainWindow : Window
         _gitBranchViewModel = gitBranchViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
+        _fileEditViewModel = fileEditViewModel;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         GitFilesViewControl.DataContext = gitFilesViewModel;
+        FileEditViewControl.DataContext = fileEditViewModel;
 
         RestoreWindowState();
 
@@ -364,9 +367,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (FileEditPopup.IsOpen)
+            if (_fileEditViewModel.IsOpen)
             {
-                CloseFileEdit();
+                _fileEditViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -496,7 +499,11 @@ public partial class MainWindow : Window
         // Ctrl+Shift+E: Open file edit dialog
         else if (e.Key == Key.E && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            OpenFileEditDialog();
+            CenterFileEditPopup();
+            var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
+                ? terminalTab.Pair.WorkingDirectory
+                : string.Empty;
+            _fileEditViewModel.OpenDialogCommand.Execute(initialDir);
             e.Handled = true;
         }
         // Ctrl+Shift+P: Open command palette
@@ -650,6 +657,13 @@ public partial class MainWindow : Window
 
     #region File Operation Handlers
 
+    private void CenterFileEditPopup()
+    {
+        var windowPos = PointToScreen(new Point(0, 0));
+        _fileEditViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileEditViewModel.Width) / 2;
+        _fileEditViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileEditViewModel.Height) / 2;
+    }
+
     private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
         ShowFilePreview(e.FilePath, e.Line);
@@ -657,7 +671,8 @@ public partial class MainWindow : Window
 
     private void OnFileEditRequested(object? sender, FileEditRequestedEventArgs e)
     {
-        ShowFileEdit(e.FilePath);
+        CenterFileEditPopup();
+        _fileEditViewModel.Open(e.FilePath);
     }
 
     #endregion

@@ -73,6 +73,8 @@
 
 - **(Done)** Extracted Git Files popup into `Views/Popups/GitFilesView.xaml` and `ViewModels/GitFilesViewModel.cs`.
 
+- **(Done)** Extracted File Edit popup into `Views/Popups/FileEditView.xaml` and `ViewModels/FileEditViewModel.cs`.
+
 ### Step 5 – Clean up `MainWindow.xaml`
 
 - After the extractions, ensure `MainWindow.xaml` only contains:
