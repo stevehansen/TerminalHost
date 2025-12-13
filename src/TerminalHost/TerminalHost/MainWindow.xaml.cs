@@ -25,9 +25,7 @@ public partial class MainWindow : Window
     private readonly FilePreviewViewModel _filePreviewViewModel;
     private bool _isExiting;
 
-    // Drag-and-drop tab reordering
-    private Point _dragStartPoint;
-    private ITabViewModel? _draggedTab;
+
 
     public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
     {

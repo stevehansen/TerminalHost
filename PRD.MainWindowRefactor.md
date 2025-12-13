@@ -43,16 +43,16 @@
 - Merge the new dictionaries inside `App.xaml` so every view can access them (`Application.Resources.MergedDictionaries`). (Done)
 - Update `MainWindow.xaml` to reference the shared resources via `StaticResource`. (Done)
 
-### Step 2 – Introduce a `TabStrip` UserControl
+### Step 2 – Introduce a `TabStrip` UserControl (Done)
 
-- Create `Views/TabStrip.xaml(.cs)` that encapsulates the docked buttons, scroll buttons, dropdown trigger, and the `ListBox`.
+- Create `Views/TabStrip.xaml(.cs)` that encapsulates the docked buttons, scroll buttons, and the `ListBox` for tab headers. (Done)
 - Expose dependency properties for:
-  - `ItemsSource` (`IEnumerable<ITabViewModel>`)
-  - `SelectedItem` (two-way binding to `SelectedTab`)
-  - Commands for `OpenNewProject`, `OpenSettings`, `OpenProfiles`, `OpenStatistics`.
+  - `ItemsSource` (`IEnumerable<ITabViewModel>`) (via DataContext binding)
+  - `SelectedItem` (two-way binding to `SelectedTab`) (via DataContext binding)
+  - Commands for `OpenNewProject`, `OpenSettings`, `OpenProfiles`, `OpenStatistics`. (via DataContext binding)
   - Routed events for scroll/overflow actions (or dependency properties for button visibility).
-- Replace the top border in `MainWindow.xaml` with `<views:TabStrip ... />`, binding to the existing view model properties.
-- Move tab drag/drop handlers into the control’s code-behind (or forward events to the window via routed events).
+- Replace the top border in `MainWindow.xaml` with `<views:TabStrip ... />`, binding to the existing view model properties. (Done)
+- Move tab drag/drop handlers and tab overflow logic into the control’s code-behind. (Done)
 
 ### Step 3 – Break out tab content controls (Done)
 
@@ -111,7 +111,7 @@
 ## Milestones
 
 1. **Milestone A (Shared resources)** – Tab templates + content templates extracted, `MainWindow.xaml` updated to consume them. (Done)
-2. **Milestone B (Tab strip control)** – New control in place, all tab interactions functional.
+2. **Milestone B (Tab strip control)** – New control in place, all tab interactions functional. (Done)
 3. **Milestone C (Terminal pair control)** – Terminal layout extracted, run terminal logic verified. (Done)
 4. **Milestone D (Popups modularized)** – Git/links popups hosted via dedicated views.
 5. **Milestone E (Regression pass)** – Checklist executed, bugs fixed, PR ready.
