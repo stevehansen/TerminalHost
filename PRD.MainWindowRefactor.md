@@ -35,13 +35,13 @@
 
 ## Proposed Solution & Implementation Steps
 
-### Step 1 – Create resource dictionaries for shared templates
+### Step 1 – Create resource dictionaries for shared templates (Done)
 
-- Add `Resources/TabHeaderTemplates.xaml` containing the four `DataTemplate`s currently embedded in `ListBox.Resources`.
-- Add `Resources/TabContentTemplates.xaml` to house the `DataTemplate`s in `ContentControl.Resources`.
+- Add `Resources/TabHeaderTemplates.xaml` containing the four `DataTemplate`s currently embedded in `ListBox.Resources`. (Done)
+- Add `Resources/TabContentTemplates.xaml` to house the `DataTemplate`s in `ContentControl.Resources`. (Done)
 - Move any inline styles (e.g., `TabCloseButton`, `TerminalSwitchButton` overrides) that are not already in `App.xaml` into these dictionaries or existing shared dictionaries.
-- Merge the new dictionaries inside `App.xaml` so every view can access them (`Application.Resources.MergedDictionaries`).
-- Update `MainWindow.xaml` to reference the shared resources via `StaticResource`.
+- Merge the new dictionaries inside `App.xaml` so every view can access them (`Application.Resources.MergedDictionaries`). (Done)
+- Update `MainWindow.xaml` to reference the shared resources via `StaticResource`. (Done)
 
 ### Step 2 – Introduce a `TabStrip` UserControl
 
@@ -54,11 +54,11 @@
 - Replace the top border in `MainWindow.xaml` with `<views:TabStrip ... />`, binding to the existing view model properties.
 - Move tab drag/drop handlers into the control’s code-behind (or forward events to the window via routed events).
 
-### Step 3 – Break out tab content controls
+### Step 3 – Break out tab content controls (Done)
 
-- Create `Views/Tabs/TerminalPairView.xaml` that contains the entire grid currently under the `TerminalPairTabViewModel` `DataTemplate`.
-- Move the run-terminal splitters, quick command buttons, and terminal presenters into this control; make all bindings relative to its `DataContext` (which will be the tab view model).
-- Update `Resources/TabContentTemplates.xaml` so the terminal template becomes `<views:TerminalPairView/>`.
+- Create `Views/Tabs/TerminalPairView.xaml` that contains the entire grid currently under the `TerminalPairTabViewModel` `DataTemplate`. (Done)
+- Move the run-terminal splitters, quick command buttons, and terminal presenters into this control; make all bindings relative to its `DataContext` (which will be the tab view model). (Done)
+- Update `Resources/TabContentTemplates.xaml` so the terminal template becomes `<views:TerminalPairView/>`. (Done)
 - Keep existing `SettingsView`, `ProfilesView`, and `StatisticsView` as-is but reference them from the dictionary rather than embedding them inside `MainWindow.xaml`.
 
 ### Step 4 – Convert popups into dedicated views
@@ -110,9 +110,9 @@
 
 ## Milestones
 
-1. **Milestone A (Shared resources)** – Tab templates + content templates extracted, `MainWindow.xaml` updated to consume them.
+1. **Milestone A (Shared resources)** – Tab templates + content templates extracted, `MainWindow.xaml` updated to consume them. (Done)
 2. **Milestone B (Tab strip control)** – New control in place, all tab interactions functional.
-3. **Milestone C (Terminal pair control)** – Terminal layout extracted, run terminal logic verified.
+3. **Milestone C (Terminal pair control)** – Terminal layout extracted, run terminal logic verified. (Done)
 4. **Milestone D (Popups modularized)** – Git/links popups hosted via dedicated views.
 5. **Milestone E (Regression pass)** – Checklist executed, bugs fixed, PR ready.
 

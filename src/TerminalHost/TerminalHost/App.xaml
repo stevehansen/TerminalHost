@@ -5,7 +5,13 @@
              Startup="OnStartup"
              Exit="OnExit">
     <Application.Resources>
-        <!-- Converters -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/TabHeaderTemplates.xaml"/>
+                <ResourceDictionary Source="Resources/TabContentTemplates.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
@@ -459,5 +465,6 @@
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
                              From="0" To="360" Duration="0:0:1"/>
         </Storyboard>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

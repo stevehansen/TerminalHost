@@ -1,0 +1,296 @@
+<UserControl x:Class="TerminalHost.Views.Tabs.TerminalPairView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Terminal Switcher Bar -->
+        <Border Grid.Row="0" Background="#252525" Padding="8,4">
+            <DockPanel>
+                <!-- Terminal Type Buttons -->
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding CustomIcon, StringFormat='{}{0} Claude Code'}"
+                            Command="{Binding ShowCustomTerminalCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}">
+                                        <Setter Property="Background" Value="#0078D4"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="{Binding ShellIcon, StringFormat='{}{0} Shell'}"
+                            Command="{Binding ShowShellTerminalCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}">
+                                        <Setter Property="Background" Value="#0078D4"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding Pair.WorkingDirectory}"/>
+
+                    <!-- Git Status Display -->
+                    <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding GitStatusDisplay}"/>
+
+                    <!-- Quick Commands Separator -->
+                    <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
+
+                    <!-- Built-in Quick Commands -->
+                    <Button x:Name="DetectedLinksButton"
+                            ToolTip="Detected Links - Click to view"
+                            AutomationProperties.Name="Detected Links"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenDetectedLinksCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding HasDetectedLinks, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔗" Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding DetectedLinks.Count}"
+                                       FontSize="10"
+                                       Foreground="#4EC9B0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Content="📁"
+                            ToolTip="Open in Explorer (Ctrl+E)"
+                            AutomationProperties.Name="Open in Explorer"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="📝"
+                            ToolTip="Scratch Pad (Ctrl+Shift+N)"
+                            AutomationProperties.Name="Scratch Pad"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="📋"
+                            ToolTip="Git Changes (Ctrl+G)"
+                            AutomationProperties.Name="Git Changes"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="❓"
+                            ToolTip="Help &amp; Shortcuts (F1)"
+                            AutomationProperties.Name="Help"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenHelpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Margin="0,0,4,0"/>
+
+                    <!-- Run Controls Separator -->
+                    <Border Width="1" Background="#444444" Margin="4,2,8,2"/>
+
+                    <!-- Run State Indicator (colored dot) -->
+                    <Ellipse Width="8" Height="8"
+                             Fill="{Binding RunState, Converter={StaticResource RunStateToColorConverter}}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,4,0"/>
+
+                    <!-- Run/Stop Button -->
+                    <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
+                            ToolTip="{Binding RunState, Converter={StaticResource RunStateToTooltipConverter}}"
+                            AutomationProperties.Name="Toggle Project Run"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding ToggleRunCommand}"
+                            Margin="0,0,4,0"/>
+
+                    <!-- Run Configuration Dropdown (only if multiple configs) -->
+                    <ComboBox ItemsSource="{Binding RunConfigurations}"
+                              SelectedItem="{Binding ActiveRunConfiguration}"
+                              MinWidth="80"
+                              Visibility="{Binding HasMultipleRunConfigs, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Style="{StaticResource DarkComboBox}"
+                              ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                              Margin="0,0,4,0">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Foreground="#CCCCCC"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!-- Detected Run URL Button -->
+                    <Button ToolTip="{Binding DetectedRunUrl}"
+                            AutomationProperties.Name="Open Detected URL"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Click="OpenDetectedRunUrl_Click"
+                            Visibility="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
+                            Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🌐" Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding DetectedRunUrl}"
+                                       FontSize="10"
+                                       Foreground="#4EC9B0"
+                                       MaxWidth="150"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Toggle Run Terminal Visibility -->
+                    <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
+                                  Content="▶"
+                                  ToolTip="Show/Hide Run Terminal"
+                                  AutomationProperties.Name="Toggle Run Terminal Visibility"
+                                  Margin="0,0,8,0">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="#2D2D2D"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="3"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="#0078D4"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#3E3E3E"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+
+                    <!-- Separator between built-in and user commands -->
+                    <Border Width="1" Background="#444444" Margin="0,2,8,2"
+                            Visibility="{Binding DataContext.QuickCommands.Count, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource CountToVisibilityConverter}}"/>
+
+                    <!-- User Quick Commands -->
+                    <ItemsControl ItemsSource="{Binding DataContext.QuickCommands, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding DisplayText}"
+                                        ToolTip="{Binding Tooltip}"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding DataContext.ExecuteQuickCommandCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"
+                                        Margin="0,0,4,0"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Terminal Content Area - Grid with dynamic column widths (3 columns when run terminal visible) -->
+        <Grid Grid.Row="1" Background="#1E1E1E">
+            <Grid.ColumnDefinitions>
+                <!-- Custom terminal column -->
+                <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
+                <!-- Splitter column -->
+                <ColumnDefinition Width="4"/>
+                <!-- Shell terminal column -->
+                <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
+                <!-- Run splitter column (hidden when run terminal not visible) -->
+                <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
+                <!-- Run terminal column (hidden when not visible) -->
+                <ColumnDefinition Width="{Binding RunColumnWidth}"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Custom Terminal (Column 0) -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Background="#333333" Padding="4,2">
+                    <TextBlock Foreground="#AAAAAA" FontSize="10">
+                        <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
+                        <Run Text=" Claude Code"/>
+                    </TextBlock>
+                </Border>
+                <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            </Grid>
+
+            <!-- Splitter (Column 1) -->
+            <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+                          DragCompleted="GridSplitter_DragCompleted"/>
+
+            <!-- Shell Terminal (Column 2) -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Background="#333333" Padding="4,2">
+                    <TextBlock Foreground="#AAAAAA" FontSize="10">
+                        <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
+                        <Run Text=" Shell"/>
+                    </TextBlock>
+                </Border>
+                <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            </Grid>
+
+            <!-- Run Splitter (Column 3) - only visible when run terminal is visible -->
+            <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="3" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+                          Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                          DragCompleted="RunSplitter_DragCompleted"/>
+
+            <!-- Run Terminal (Column 4) - only visible when run terminal is visible -->
+            <Grid Grid.Column="4" Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Background="#333333" Padding="4,2">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="×"
+                                Style="{StaticResource TabCloseButton}"
+                                Command="{Binding ToggleRunTerminalCommand}"
+                                AutomationProperties.Name="Hide Run Terminal"
+                                ToolTip="Hide Run Terminal"/>
+                        <TextBlock Foreground="#AAAAAA" FontSize="10" VerticalAlignment="Center">
+                            <Run Text="▶ Run"/>
+                            <Run Text=" - " Foreground="#666666"/>
+                            <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="#4EC9B0"/>
+                        </TextBlock>
+                    </DockPanel>
+                </Border>
+                <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
