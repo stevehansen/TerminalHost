@@ -10,8 +10,9 @@
     <RootNamespace>TerminalHost</RootNamespace>
     <AssemblyName>host</AssemblyName>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+	<NoWarn>$(NoWarn);NU1701</NoWarn>
 
-    <!-- Single-file publish settings -->
+	<!-- Single-file publish settings -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -19,7 +20,6 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
-
 
   <ItemGroup>
     <Resource Include="Resources\app.ico" />
