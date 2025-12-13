@@ -70,6 +70,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTabDropdownOpen;
 
+    [ObservableProperty]
+    private string _switcherSearchText = "";
+
+    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = new();
+    public ReadOnlyObservableCollection<ITabViewModel> FilteredSwitcherTabs { get; }
+
+    [ObservableProperty]
+    private bool _isTabSwitcherOpen;
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -119,6 +128,9 @@ public partial class MainViewModel : ObservableObject
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
 
+        FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
+        UpdateFilteredSwitcherTabs(); // Initial population
+
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
         {
@@ -153,9 +165,15 @@ public partial class MainViewModel : ObservableObject
         UpdateFilteredDropdownTabs();
     }
 
+    partial void OnSwitcherSearchTextChanged(string value)
+    {
+        UpdateFilteredSwitcherTabs();
+    }
+
     partial void OnTabsChanged(ObservableCollection<ITabViewModel> value)
     {
         UpdateFilteredDropdownTabs();
+        UpdateFilteredSwitcherTabs();
     }
 
     partial void OnSelectedTabChanged(ITabViewModel? value)
@@ -164,6 +182,10 @@ public partial class MainViewModel : ObservableObject
         if (IsTabDropdownOpen && value != null)
         {
             IsTabDropdownOpen = false;
+        }
+        if (IsTabSwitcherOpen && value != null)
+        {
+            IsTabSwitcherOpen = false;
         }
     }
 
@@ -185,6 +207,28 @@ public partial class MainViewModel : ObservableObject
                 t.WorkingDirectory.ToLower().Contains(searchText)))
             {
                 _filteredDropdownTabs.Add(tab);
+            }
+        }
+    }
+
+    private void UpdateFilteredSwitcherTabs()
+    {
+        _filteredSwitcherTabs.Clear();
+        if (string.IsNullOrEmpty(SwitcherSearchText))
+        {
+            foreach (var tab in Tabs)
+            {
+                _filteredSwitcherTabs.Add(tab);
+            }
+        }
+        else
+        {
+            var searchText = SwitcherSearchText.ToLower();
+            foreach (var tab in Tabs.Where(t =>
+                t.Title.ToLower().Contains(searchText) ||
+                t.WorkingDirectory.ToLower().Contains(searchText)))
+            {
+                _filteredSwitcherTabs.Add(tab);
             }
         }
     }
@@ -785,6 +829,28 @@ public partial class MainViewModel : ObservableObject
         {
             Process.Start("explorer.exe", folder);
         }
+    }
+
+    [RelayCommand]
+    private void CycleTab(bool forward)
+    {
+        if (Tabs.Count <= 1) return;
+
+        var currentIndex = SelectedTab != null
+            ? Tabs.IndexOf(SelectedTab)
+            : 0;
+
+        int newIndex;
+        if (forward)
+        {
+            newIndex = (currentIndex + 1) % Tabs.Count;
+        }
+        else
+        {
+            newIndex = (currentIndex - 1 + Tabs.Count) % Tabs.Count;
+        }
+
+        SelectedTab = Tabs[newIndex];
     }
 
     public event EventHandler? HelpRequested;

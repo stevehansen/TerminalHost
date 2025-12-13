@@ -427,13 +427,13 @@ public partial class MainWindow : Window
         // Ctrl+PageDown: Next tab
         if (e.Key == Key.PageDown && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            CycleTab(forward: true);
+            _viewModel.CycleTabCommand.Execute(true);
             e.Handled = true;
         }
         // Ctrl+PageUp: Previous tab
         else if (e.Key == Key.PageUp && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            CycleTab(forward: false);
+            _viewModel.CycleTabCommand.Execute(false);
             e.Handled = true;
         }
         // Ctrl+1-9: Jump to specific tab
@@ -488,7 +488,8 @@ public partial class MainWindow : Window
         // Ctrl+Shift+T: Open tab switcher
         else if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            ShowTabSwitcher();
+            _viewModel.SwitcherSearchText = "";
+            _viewModel.IsTabSwitcherOpen = true;
             e.Handled = true;
         }
         // Ctrl+O: Open file preview

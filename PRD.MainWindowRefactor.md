@@ -77,6 +77,7 @@
 
 - **(Done)** Extracted File Preview popup into `Views/Popups/FilePreviewView.xaml` and `ViewModels/FilePreviewViewModel.cs`.
 - **(Done)** Extracted Tab Dropdown popup into `Views/Popups/TabDropdownView.xaml` and `ViewModels/MainViewModel.cs` (for logic).
+- **(Done)** Extracted Tab Switcher popup into `Views/Popups/TabSwitcherView.xaml` and `ViewModels/MainViewModel.cs` (for logic).
 
 ### Step 5 – Clean up `MainWindow.xaml`
 

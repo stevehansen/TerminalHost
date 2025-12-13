@@ -45,7 +45,7 @@ public partial class MainWindow
                 Shortcut = "Ctrl+Shift+T",
                 Icon = "🔍",
                 Category = "Tab",
-                Execute = ShowTabSwitcher
+                Execute = () => { _viewModel.IsTabSwitcherOpen = true; _viewModel.SwitcherSearchText = ""; }
             },
 
             // File commands
