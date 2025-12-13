@@ -1,5 +1,6 @@
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels
 {
@@ -29,13 +30,18 @@ namespace TerminalHost.ViewModels
         [ObservableProperty]
         private double _runBarWidth;
 
-        public ProjectStatViewModel(string directoryPath, long totalChars, long customChars, long shellChars, long runChars)
+        public DirectoryUsageStats DailyStats { get; }
+
+        public ProjectStatViewModel(string directoryPath, DirectoryUsageStats dailyStats)
         {
             ProjectName = Path.GetFileName(directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            TotalChars = totalChars;
-            CustomChars = customChars;
-            ShellChars = shellChars;
-            RunChars = runChars;
+            
+            CustomChars = dailyStats.CustomTerminalCharCountsByDay.Values.Sum();
+            ShellChars = dailyStats.ShellTerminalCharCountsByDay.Values.Sum();
+            RunChars = dailyStats.RunTerminalCharCountsByDay.Values.Sum();
+            TotalChars = CustomChars + ShellChars + RunChars;
+            
+            DailyStats = dailyStats;
         }
 
         public string TotalCharsFormatted => $"{TotalChars:N0}";
@@ -46,7 +52,7 @@ namespace TerminalHost.ViewModels
         public double CustomPercentage => TotalChars > 0 ? (double)CustomChars / TotalChars : 0;
         public double ShellPercentage => TotalChars > 0 ? (double)ShellChars / TotalChars : 0;
         public double RunPercentage => TotalChars > 0 ? (double)RunChars / TotalChars : 0;
-
+        
         public void CalculateBarWidths(long maxCharsInSet, double availableWidth)
         {
             if (maxCharsInSet <= 0 || TotalChars <= 0)

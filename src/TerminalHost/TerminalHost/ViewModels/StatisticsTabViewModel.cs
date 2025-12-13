@@ -4,6 +4,13 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Services;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
+using SkiaSharp;
+using System.Collections.Generic;
+using System.Globalization;
+using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels
 {
@@ -19,6 +26,22 @@ namespace TerminalHost.ViewModels
 
         [ObservableProperty]
         private ObservableCollection<ProjectStatViewModel> _projectStats = new();
+        
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsChartVisible))]
+        private ProjectStatViewModel? _selectedProject;
+
+        [ObservableProperty]
+        private ISeries[] _series = Array.Empty<ISeries>();
+
+        [ObservableProperty]
+        private Axis[] _xAxes = Array.Empty<Axis>();
+
+        [ObservableProperty]
+        private Axis[] _yAxes = Array.Empty<Axis>();
+
+        public bool IsChartVisible => SelectedProject != null;
+
 
         public event EventHandler? CloseRequested;
 
@@ -26,28 +49,105 @@ namespace TerminalHost.ViewModels
         {
             _statisticsService = statisticsService;
             LoadStats();
+            
+            Series = new ISeries[]
+            {
+                new ColumnSeries<long> { Name = "Custom" },
+                new ColumnSeries<long> { Name = "Shell" },
+                new ColumnSeries<long> { Name = "Run" }
+            };
+            XAxes = new[]
+            {
+                new Axis { Labels = new List<string>() }
+            };
+            YAxes = new[]
+            {
+                new Axis
+                {
+                    MinLimit = 0,
+                    TextSize = 12,
+                    LabelsPaint = new SolidColorPaint(SKColors.White)
+                }
+            };
         }
+
+        partial void OnSelectedProjectChanged(ProjectStatViewModel? value)
+        {
+            if (value == null)
+            {
+                return;
+            }
+
+            UpdateChart(value.DailyStats);
+        }
+
+        private void UpdateChart(DirectoryUsageStats dailyStats)
+        {
+            var today = DateTime.UtcNow.Date;
+            var dates = Enumerable.Range(0, 30).Select(i => today.AddDays(-i)).Reverse().ToList();
+
+            var customData = new List<long>();
+            var shellData = new List<long>();
+            var runData = new List<long>();
+            var labels = new List<string>();
+
+            foreach (var date in dates)
+            {
+                var dateKey = date.ToString("yyyy-MM-dd");
+                dailyStats.CustomTerminalCharCountsByDay.TryGetValue(dateKey, out var customCount);
+                dailyStats.ShellTerminalCharCountsByDay.TryGetValue(dateKey, out var shellCount);
+                dailyStats.RunTerminalCharCountsByDay.TryGetValue(dateKey, out var runCount);
+
+                customData.Add(customCount);
+                shellData.Add(shellCount);
+                runData.Add(runCount);
+                labels.Add(date.ToString("MMM dd"));
+            }
+
+            Series = new ISeries[]
+            {
+                new ColumnSeries<long>
+                {
+                    Name = "Custom",
+                    Values = customData,
+                    Fill = new SolidColorPaint(SKColor.Parse("#9CDCFE")),
+                    Stroke = null
+                },
+                new ColumnSeries<long>
+                {
+                    Name = "Shell",
+                    Values = shellData,
+                    Fill = new SolidColorPaint(SKColor.Parse("#CE9178")),
+                    Stroke = null
+                },
+                new ColumnSeries<long>
+                {
+                    Name = "Run",
+                    Values = runData,
+                    Fill = new SolidColorPaint(SKColor.Parse("#B5CEA8")),
+                    Stroke = null
+                }
+            };
+            
+            XAxes = new[]
+            {
+                new Axis
+                {
+                    Labels = labels,
+                    LabelsRotation = 45,
+                    TextSize = 12,
+                    LabelsPaint = new SolidColorPaint(SKColors.White)
+                }
+            };
+        }
+
 
         [RelayCommand]
         private void LoadStats()
         {
             var stats = _statisticsService.GetStats();
             var statsList = stats.DirectoryStats
-                .Select(kvp =>
-                {
-                    var customTotal = kvp.Value.CustomTerminalCharCountsByDay.Values.Sum();
-                    var shellTotal = kvp.Value.ShellTerminalCharCountsByDay.Values.Sum();
-                    var runTotal = kvp.Value.RunTerminalCharCountsByDay.Values.Sum();
-                    var total = customTotal + shellTotal + runTotal;
-
-                    return new ProjectStatViewModel(
-                        kvp.Key,
-                        total,
-                        customTotal,
-                        shellTotal,
-                        runTotal
-                    );
-                })
+                .Select(kvp => new ProjectStatViewModel(kvp.Key, kvp.Value))
                 .Where(s => s.TotalChars > 0)
                 .OrderByDescending(s => s.TotalChars)
                 .ToList();

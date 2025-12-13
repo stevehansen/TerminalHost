@@ -861,6 +861,19 @@ Run configurations are stored per-directory in `directorySettings`:
 | Run: Toggle Terminal | Show/hide run terminal panel            |
 | Run: Open URL      | Open detected localhost URL in browser    |
 
+### Usage Statistics Tab
+
+A dedicated tab provides insights into terminal usage across different projects.
+
+**Features:**
+- **Data Source**: Automatically tracks character counts for Custom, Shell, and Run terminals. Data is saved daily to `stats.json` in the user's application data folder.
+- **Project List**: Displays a list of all projects with recorded activity, sorted by total characters typed.
+  - Each project shows a total character count.
+  - A horizontal stacked bar provides a visual breakdown of characters typed in the Custom, Shell, and Run terminals.
+- **Daily Activity Chart**: When a project is selected from the list, a detailed chart shows the character count for each of the last 30 days, providing a view of recent activity trends.
+
+This provides both a high-level overview of which projects are most active and a detailed, day-by-day breakdown for any specific project.
+
 ## Future Considerations
 
 Items for future development:
@@ -869,7 +882,6 @@ Items for future development:
 - **Custom profile pairs**: Different command pairs for different project types
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
-- **Usage Statistics**: Track usage metrics per folder (e.g., character counts), potentially in a separate `stats.json` file to avoid configuration conflicts.
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory.
 - **MainWindow Refactoring**: Refactor `MainWindow.xaml` and its code-behind to improve modularity and maintainability.
 - **Advanced Panel Management**:

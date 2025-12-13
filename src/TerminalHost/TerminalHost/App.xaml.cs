@@ -3,6 +3,8 @@ using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
 using Application = System.Windows.Application;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
 
 namespace TerminalHost;
 
@@ -17,6 +19,16 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        // Initialize LiveCharts
+        LiveCharts.Configure(config =>
+            config
+                // registers SkiaSharp as the library backend
+                .AddSkiaSharp()
+                // adds the default supported types
+                .AddDefaultMappers()
+                // select a theme, default is Light
+                .AddDarkTheme());
+
         // Take control of application shutdown so the app doesn't exit when the modal setup window closes.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 

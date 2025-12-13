@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:TerminalHost.Views"
              xmlns:viewmodels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance Type=viewmodels:StatisticsTabViewModel}"
              d:DesignHeight="450" d:DesignWidth="800"
@@ -30,76 +31,151 @@
             <TextBlock Text="Run" Margin="4,0,16,0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding ProjectStats}" Margin="10">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="#444" BorderThickness="0,0,0,1" Padding="10" Margin="0,2">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="420" MinWidth="300"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <ListView ItemsSource="{Binding ProjectStats}" Margin="10,0,10,10" Background="Transparent" BorderThickness="0"
+                          SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="Bd"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                Background="{TemplateBinding Background}"
+                                                Padding="{TemplateBinding Padding}"
+                                                SnapsToDevicePixels="true">
+                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="true">
+                                                <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="true">
+                                                <Setter TargetName="Bd" Property="Background" Value="#2A2A2E"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#444" BorderThickness="0,0,0,1" Padding="10" Margin="0,2">
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding ProjectName}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" HorizontalAlignment="Right">
-                                        <Run Text="Total Chars:"/>
-                                        <Run Text="{Binding TotalCharsFormatted, Mode=OneWay}" FontWeight="Bold"/>
-                                    </TextBlock>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ProjectName}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Foreground="White"/>
+                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" Foreground="White">
+                                            <Run Text="Total Chars:"/>
+                                            <Run Text="{Binding TotalCharsFormatted, Mode=OneWay}" FontWeight="Bold"/>
+                                        </TextBlock>
+                                    </Grid>
+
+                                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                                        <Border Background="#333" Height="20" CornerRadius="3" ToolTip="Total characters output for this project.">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Background="#9CDCFE" ToolTip="{Binding CustomCharsFormatted, StringFormat='Custom: {0} chars'}"
+                                                        Height="20" Width="{Binding CustomBarWidth}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CustomBarWidth}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <Border Background="#CE9178" ToolTip="{Binding ShellCharsFormatted, StringFormat='Shell: {0} chars'}"
+                                                        Height="20" Width="{Binding ShellBarWidth}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ShellBarWidth}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <Border Background="#B5CEA8" ToolTip="{Binding RunCharsFormatted, StringFormat='Run: {0} chars'}"
+                                                        Height="20" Width="{Binding RunBarWidth}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding RunBarWidth}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Grid>
-                                
-                                <Grid Grid.Row="1" Margin="0,8,0,0">
-                                    <Border Background="#333" Height="20" CornerRadius="3" ToolTip="Total characters output for this project.">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Border Background="#9CDCFE" ToolTip="{Binding CustomCharsFormatted, StringFormat='Custom: {0} chars'}"
-                                                    Height="20" Width="{Binding CustomBarWidth}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding CustomBarWidth}" Value="0">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-                                            <Border Background="#CE9178" ToolTip="{Binding ShellCharsFormatted, StringFormat='Shell: {0} chars'}"
-                                                    Height="20" Width="{Binding ShellBarWidth}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding ShellBarWidth}" Value="0">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-                                            <Border Background="#B5CEA8" ToolTip="{Binding RunCharsFormatted, StringFormat='Run: {0} chars'}"
-                                                    Height="20" Width="{Binding RunBarWidth}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding RunBarWidth}" Value="0">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </ScrollViewer>
+            
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333"/>
+
+            <Grid Grid.Column="2" Margin="10,0,10,10">
+                <TextBlock Text="Select a project to view details"
+                           FontSize="16"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="Gray">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsChartVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <lvc:CartesianChart
+                    Series="{Binding Series}"
+                    XAxes="{Binding XAxes}"
+                    YAxes="{Binding YAxes}"
+                    ZoomMode="None">
+                    <lvc:CartesianChart.Style>
+                        <Style TargetType="lvc:CartesianChart">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsChartVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </lvc:CartesianChart.Style>
+                </lvc:CartesianChart>
+            </Grid>
+        </Grid>
     </Grid>
 </UserControl>
