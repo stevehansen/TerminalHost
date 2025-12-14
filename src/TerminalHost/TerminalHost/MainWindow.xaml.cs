@@ -54,6 +54,7 @@ public partial class MainWindow : Window
         Closing += OnClosing;
         StateChanged += OnStateChanged;
         PreviewKeyDown += OnPreviewKeyDown;
+        SourceInitialized += OnSourceInitialized;
 
         // Subscribe to view model property changes to sync column widths
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -77,6 +78,11 @@ public partial class MainWindow : Window
     }
 
     #region Window State and Lifecycle
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        DarkModeHelper.EnableDarkMode(this);
+    }
 
     private void OnConfigReloaded(object? sender, EventArgs e)
     {

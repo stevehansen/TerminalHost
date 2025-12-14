@@ -121,7 +121,21 @@
                 </Track>
             </Grid>
         </ControlTemplate>
-        
+
+        <!-- Global ScrollBar Style (applies to all scrollbars including terminal control) -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Template" Value="{StaticResource ThinDarkVerticalScrollBar}"/>
+                    <Setter Property="Width" Value="8"/>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Template" Value="{StaticResource ThinDarkHorizontalScrollBar}"/>
+                    <Setter Property="Height" Value="8"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Default ScrollViewer Style (applies custom scrollbar templates) -->
         <Style TargetType="{x:Type ScrollViewer}">
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />

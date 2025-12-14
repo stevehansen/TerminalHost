@@ -1,4 +1,5 @@
 using System.Windows;
+using TerminalHost.Services;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views
@@ -16,6 +17,8 @@ namespace TerminalHost.Views
             InitializeComponent();
             DataContext = viewModel;
             IsStartupMode = isStartupMode;
+
+            SourceInitialized += (s, e) => DarkModeHelper.EnableDarkMode(this);
 
             Loaded += async (s, e) =>
             {
