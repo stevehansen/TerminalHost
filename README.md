@@ -1,4 +1,4 @@
-# ConHoster (TerminalHost)
+# TerminalHost
 
 **TerminalHost** (executable: `host.exe`) is a WPF desktop application that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
 

@@ -6,7 +6,7 @@
         xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:SetupViewModel, IsDesignTimeCreatable=True}"
-        Title="ConHoster :: Setup" Height="600" Width="800"
+        Title="TerminalHost :: Setup" Height="600" Width="800"
         Background="#2D2D30" Foreground="White"
         WindowStartupLocation="CenterScreen">
 
@@ -58,7 +58,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,15">
-            <TextBlock Text="ConHoster Setup" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,5"/>
+            <TextBlock Text="TerminalHost Setup" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,5"/>
             <TextBlock Text="Checking for recommended tools and dependencies." Foreground="Gray"/>
         </StackPanel>
 
