@@ -115,6 +115,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? $"{Title} {GitStatus.BranchDisplayShort}"
         : Title;
 
+    public string DisplayTitle => TitleWithGit;
+
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
     public TerminalPair Pair { get; }
@@ -205,6 +207,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     partial void OnGitStatusChanged(GitStatus? value)
     {
         OnPropertyChanged(nameof(TitleWithGit));
+        OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(GitStatusDisplay));
     }
 

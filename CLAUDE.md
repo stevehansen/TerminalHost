@@ -113,6 +113,7 @@ TerminalHost/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
     │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   ├── ProfileTerminalTabViewModel.cs # Tab with single profile terminal
     │   ├── SettingsTabViewModel.cs       # Settings editor tab
     │   ├── ProfilesTabViewModel.cs       # Profile management tab
     │   ├── StatisticsTabViewModel.cs     # Usage statistics tab
@@ -133,7 +134,8 @@ TerminalHost/
         ├── Dialogs/
         │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
-        │   └── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
+        │   ├── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
+        │   └── ProfileTerminalView.xaml(.cs) # Single profile terminal layout
         └── Popups/
             ├── TabDropdownView.xaml(.cs)     # Tab overflow dropdown
             ├── TabSwitcherView.xaml(.cs)     # Tab search/switcher (Ctrl+Shift+T)

@@ -23,6 +23,7 @@ namespace TerminalHost.ViewModels
         public bool IsCloseable => true;
         public string WorkingDirectory => string.Empty;
         public bool IsAnyTerminalActive => false;
+        public string DisplayTitle => Title;
 
         [ObservableProperty]
         private ObservableCollection<ProjectStatViewModel> _projectStats = new();

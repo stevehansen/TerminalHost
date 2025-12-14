@@ -278,11 +278,23 @@
                                Margin="0,0,0,24"
                                Visibility="{Binding SelectedProfile.AutoStart, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                    <Button Content="Edit Profile"
-                            Command="{Binding StartEditCommand}"
-                            Style="{StaticResource PrimaryButton}"
-                            Width="120"
-                            HorizontalAlignment="Left"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="▶ Launch"
+                                ToolTip="Launch profile (use profile's working directory)"
+                                Command="{Binding LaunchCommand}"
+                                Style="{StaticResource PrimaryButton}"
+                                Width="100"/>
+                        <Button Content="📁 In Folder..."
+                                ToolTip="Launch with folder picker"
+                                Command="{Binding LaunchWithFolderCommand}"
+                                Style="{StaticResource ProfileButton}"
+                                Width="120"/>
+                        <Button Content="Edit"
+                                Command="{Binding StartEditCommand}"
+                                Style="{StaticResource ProfileButton}"
+                                Width="80"
+                                Margin="16,0,0,0"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- No Selection -->

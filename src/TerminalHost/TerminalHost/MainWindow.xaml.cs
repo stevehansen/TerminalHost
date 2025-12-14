@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly ConfigurationService _configService;
+    private readonly ProfileRegistry _profileRegistry;
     private readonly SystemTrayService? _systemTrayService;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
@@ -26,11 +27,12 @@ public partial class MainWindow : Window
     private readonly FilePreviewViewModel _filePreviewViewModel;
     private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _configService = configService;
+        _profileRegistry = profileRegistry;
         _systemTrayService = systemTrayService;
         _scratchPadViewModel = scratchPadViewModel;
         _gitBranchViewModel = gitBranchViewModel;
@@ -551,6 +553,11 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
         }
+        // Check profile launch shortcuts
+        else if (TryExecuteProfileShortcut(e.Key, Keyboard.Modifiers))
+        {
+            e.Handled = true;
+        }
     }
 
     private bool TryExecuteQuickCommandShortcut(Key key, ModifierKeys modifiers)
@@ -616,6 +623,24 @@ public partial class MainWindow : Window
         }
 
         return key != Key.None && modifiers != ModifierKeys.None;
+    }
+
+    private bool TryExecuteProfileShortcut(Key key, ModifierKeys modifiers)
+    {
+        foreach (var profile in _profileRegistry.Profiles)
+        {
+            if (string.IsNullOrEmpty(profile.Shortcut)) continue;
+
+            if (TryParseShortcut(profile.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                if (key == expectedKey && modifiers == expectedModifiers)
+                {
+                    _viewModel.OpenProfileTab(profile);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     #endregion

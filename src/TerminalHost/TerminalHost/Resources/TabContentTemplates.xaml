@@ -9,6 +9,11 @@
         <tabs:TerminalPairView />
     </DataTemplate>
 
+    <!-- Profile Terminal Tab Content -->
+    <DataTemplate DataType="{x:Type vm:ProfileTerminalTabViewModel}">
+        <tabs:ProfileTerminalView />
+    </DataTemplate>
+
     <!-- Settings Tab Content -->
     <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
         <views:SettingsView/>

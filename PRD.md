@@ -63,10 +63,11 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Project Runner - Run and manage development servers with F5, dedicated run terminal, URL detection
 - [x] Setup Mode - A startup window to detect and guide installation of recommended dependencies.
 - [x] Modular UI Architecture - MainWindow refactored into reusable components (TabStrip, TerminalPairView, popup views) with dedicated ViewModels for improved maintainability
+- [x] Profile Launching - Launch custom profiles as standalone single-terminal tabs from Profiles UI, Command Palette, or keyboard shortcuts
 
 ### Deferred Features
 
-- [ ] Custom profiles beyond the default pair (launching profiles from UI)
+(None currently)
 
 ## Domain Model
 
@@ -503,7 +504,35 @@ The Profiles tab (Ctrl+P) provides a UI for managing custom terminal profiles.
 }
 ```
 
-**Note:** Currently profiles can be created and managed, but launching them as separate terminals is planned for a future update.
+### Profile Launching
+
+Custom profiles can be launched as standalone single-terminal tabs (unlike project tabs which have paired terminals).
+
+**Launch Methods:**
+| Method | Description |
+|--------|-------------|
+| Profiles Tab | Click "Launch" button for selected profile |
+| Profiles Tab | Click "In Folder..." to pick working directory |
+| Command Palette | Search "Launch: {ProfileName}" |
+| Keyboard Shortcut | Use profile's configured shortcut |
+
+**Working Directory Behavior:**
+- Uses profile's configured `WorkingDir` by default
+- If `WorkingDir` is empty, uses user's home directory
+- "In Folder..." opens folder picker to choose directory
+
+**Profile Tab Features:**
+- Single terminal (not paired like project tabs)
+- Title shows profile name and directory
+- Icon from profile configuration
+- Activity indicator when terminal producing output
+- Open in Explorer button in toolbar
+
+**Command Palette Integration:**
+Profile launch commands appear dynamically based on configured profiles:
+- "Launch: {ProfileName}" for each profile
+- Shows profile's keyboard shortcut if configured
+- Shows profile's command in description
 
 ### System Tray
 
@@ -796,6 +825,7 @@ TerminalHost/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
     │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
+    │   ├── ProfileTerminalTabViewModel.cs # Tab with single profile terminal
     │   ├── SettingsTabViewModel.cs       # Settings editor tab
     │   ├── ProfilesTabViewModel.cs       # Profile management tab
     │   ├── StatisticsTabViewModel.cs     # Usage statistics tab
@@ -816,7 +846,8 @@ TerminalHost/
         ├── Dialogs/
         │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
-        │   └── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
+        │   ├── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
+        │   └── ProfileTerminalView.xaml(.cs) # Single profile terminal layout
         └── Popups/
             ├── TabDropdownView.xaml(.cs)     # Tab overflow dropdown
             ├── TabSwitcherView.xaml(.cs)     # Tab search/switcher (Ctrl+Shift+T)

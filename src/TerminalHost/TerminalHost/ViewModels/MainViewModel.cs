@@ -335,6 +335,12 @@ public partial class MainViewModel : ObservableObject
         {
             tab.UpdateActivityState();
         }
+
+        // Also update profile terminal tabs
+        foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
+        {
+            tab.UpdateActivityState();
+        }
     }
 
     private void RefreshDetectedLinks()
@@ -567,6 +573,107 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Opens a new tab with a single terminal running the specified profile.
+    /// </summary>
+    /// <param name="profile">The profile to launch.</param>
+    /// <param name="workingDirectory">Optional working directory. If null, uses the profile's WorkingDir.</param>
+    public void OpenProfileTab(Profile profile, string? workingDirectory = null)
+    {
+        try
+        {
+            // Determine working directory
+            var effectiveWorkingDir = workingDirectory;
+            if (string.IsNullOrWhiteSpace(effectiveWorkingDir))
+            {
+                effectiveWorkingDir = profile.GetExpandedWorkingDir();
+            }
+
+            // If still empty, use user profile directory
+            if (string.IsNullOrWhiteSpace(effectiveWorkingDir))
+            {
+                effectiveWorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            // Normalize path
+            effectiveWorkingDir = Path.GetFullPath(effectiveWorkingDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (!Directory.Exists(effectiveWorkingDir))
+            {
+                DialogService.ShowError($"Directory not found: {effectiveWorkingDir}");
+                return;
+            }
+
+            // Clone the profile with the working directory set
+            var profileWithDir = new Profile
+            {
+                Id = profile.Id,
+                Name = profile.Name,
+                Command = profile.Command,
+                WorkingDir = effectiveWorkingDir,
+                Icon = profile.Icon,
+                Shortcut = profile.Shortcut,
+                AutoStart = profile.AutoStart
+            };
+
+            // Create view model
+            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService);
+
+            // Create terminal control
+            var terminalControl = _terminalFactory.CreateTerminalControl(tabViewModel.Session);
+            tabViewModel.SetTerminalControl(terminalControl);
+
+            // Subscribe to events
+            tabViewModel.CloseRequested += OnTabCloseRequested;
+
+            // Track session
+            _sessionManager.TrackSession(tabViewModel.Session);
+
+            // Add tab and select it
+            Tabs.Add(tabViewModel);
+            SelectedTab = tabViewModel;
+        }
+        catch (Exception ex)
+        {
+            DialogService.ShowError($"Error launching profile: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Opens a profile tab with a folder picker to select the working directory.
+    /// </summary>
+    /// <param name="profile">The profile to launch.</param>
+    public void OpenProfileTabWithPicker(Profile profile)
+    {
+        try
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = $"Select Working Directory for {profile.Name}",
+                ShowNewFolderButton = true,
+                UseDescriptionForTitle = true
+            };
+
+            // Set initial directory to profile's configured directory if it exists
+            var initialDir = profile.GetExpandedWorkingDir();
+            if (!string.IsNullOrWhiteSpace(initialDir) && Directory.Exists(initialDir))
+            {
+                dialog.InitialDirectory = initialDir;
+            }
+
+            var result = dialog.ShowDialog();
+
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                OpenProfileTab(profile, dialog.SelectedPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            DialogService.ShowError($"Error opening folder picker: {ex.Message}");
+        }
+    }
+
     [RelayCommand]
     private void CloseTab(ITabViewModel? tab)
     {
@@ -604,10 +711,27 @@ public partial class MainViewModel : ObservableObject
         else if (tab is ProfilesTabViewModel profilesTab)
         {
             profilesTab.CloseRequested -= OnTabCloseRequested;
+            profilesTab.ProfileLaunchRequested -= OnProfileLaunchRequested;
         }
         else if (tab is StatisticsTabViewModel statsTab)
         {
             statsTab.CloseRequested -= OnTabCloseRequested;
+        }
+        else if (tab is ProfileTerminalTabViewModel profileTab)
+        {
+            var hasRunning = profileTab.Session.IsProcessRunning();
+
+            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
+            {
+                if (!DialogService.ShowConfirmation(
+                    $"Terminal '{profileTab.Title}' is still running. Close anyway?",
+                    "Confirm Close"))
+                    return;
+            }
+
+            profileTab.CloseRequested -= OnTabCloseRequested;
+            _sessionManager.CloseSession(profileTab.Session);
+            profileTab.Session.Dispose();
         }
 
         Tabs.Remove(tab);
@@ -747,8 +871,21 @@ public partial class MainViewModel : ObservableObject
         // Create new profiles tab
         var profilesTab = new ProfilesTabViewModel(_profileRegistry);
         profilesTab.CloseRequested += OnTabCloseRequested;
+        profilesTab.ProfileLaunchRequested += OnProfileLaunchRequested;
         Tabs.Add(profilesTab);
         SelectedTab = profilesTab;
+    }
+
+    private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
+    {
+        if (e.PickFolder)
+        {
+            OpenProfileTabWithPicker(e.Profile);
+        }
+        else
+        {
+            OpenProfileTab(e.Profile);
+        }
     }
 
     [RelayCommand]
@@ -1186,6 +1323,7 @@ public partial class MainViewModel : ObservableObject
         _filteredPaletteCommands.Clear();
         var searchText = PaletteSearchText?.ToLower() ?? "";
 
+        // Get static commands
         var filtered = _allPaletteCommands
             .Where(c => c.CanExecute == null || c.CanExecute()) // Evaluate CanExecute on the spot
             .Where(c =>
@@ -1198,6 +1336,31 @@ public partial class MainViewModel : ObservableObject
         foreach (var command in filtered)
         {
             _filteredPaletteCommands.Add(command);
+        }
+
+        // Add dynamic profile launch commands
+        foreach (var profile in _profileRegistry.Profiles)
+        {
+            var profileName = $"Launch: {profile.Name}";
+            var matchesSearch = string.IsNullOrEmpty(searchText) ||
+                               profileName.ToLower().Contains(searchText) ||
+                               "profile".Contains(searchText) ||
+                               "launch".Contains(searchText);
+
+            if (matchesSearch)
+            {
+                var capturedProfile = profile; // Capture for closure
+                _filteredPaletteCommands.Add(new PaletteCommand
+                {
+                    Id = $"launch-profile-{profile.Id}",
+                    Name = profileName,
+                    Description = profile.Command,
+                    Shortcut = profile.Shortcut ?? "",
+                    Icon = profile.Icon ?? "▶",
+                    Category = "Profile",
+                    Execute = () => OpenProfileTab(capturedProfile)
+                });
+            }
         }
 
         if (FilteredPaletteCommands.Any())
@@ -1245,3 +1408,4 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required Domain.RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
 }
+

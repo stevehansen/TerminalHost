@@ -13,16 +13,14 @@
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
 
-        <!-- Tab Header Templates (local scope to override App-level content templates) -->
-
-        <!-- Terminal Tab Header Template -->
-        <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}">
+        <!-- Shared Tab Header Template - used by all tab types via ITabViewModel interface -->
+        <DataTemplate x:Key="TabHeaderTemplate">
             <Border x:Name="TabBorder"
                     Background="#3C3C3C"
                     CornerRadius="4,4,0,0"
                     Padding="8,4"
                     Margin="0,0,2,0"
-                    MinWidth="120"
+                    MinWidth="100"
                     AllowDrop="True"
                     PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
                     PreviewMouseMove="Tab_PreviewMouseMove"
@@ -54,7 +52,7 @@
                     </TextBlock>
                     <TextBlock Foreground="#CCCCCC"
                                VerticalAlignment="Center"
-                               Text="{Binding TitleWithGit, Mode=OneWay}"/>
+                               Text="{Binding DisplayTitle, Mode=OneWay}"/>
                 </DockPanel>
             </Border>
             <DataTemplate.Triggers>
@@ -81,105 +79,6 @@
                         <StopStoryboard BeginStoryboardName="SpinnerStoryboard"/>
                     </MultiDataTrigger.ExitActions>
                 </MultiDataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <!-- Settings Tab Header Template -->
-        <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
-            <Border x:Name="TabBorder"
-                    Background="#3C3C3C"
-                    CornerRadius="4,4,0,0"
-                    Padding="8,4"
-                    Margin="0,0,2,0"
-                    MinWidth="100"
-                    AllowDrop="True"
-                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
-                    PreviewMouseMove="Tab_PreviewMouseMove"
-                    MouseDown="Tab_MouseDown"
-                    DragOver="Tab_DragOver"
-                    DragLeave="Tab_DragLeave"
-                    Drop="Tab_Drop">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right"
-                            Content="×"
-                            Style="{StaticResource TabCloseButton}"
-                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding}"/>
-                    <TextBlock Foreground="#CCCCCC"
-                               VerticalAlignment="Center"
-                               Text="{Binding Title}"/>
-                </DockPanel>
-            </Border>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <!-- Profiles Tab Header Template -->
-        <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
-            <Border x:Name="TabBorder"
-                    Background="#3C3C3C"
-                    CornerRadius="4,4,0,0"
-                    Padding="8,4"
-                    Margin="0,0,2,0"
-                    MinWidth="100"
-                    AllowDrop="True"
-                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
-                    PreviewMouseMove="Tab_PreviewMouseMove"
-                    MouseDown="Tab_MouseDown"
-                    DragOver="Tab_DragOver"
-                    DragLeave="Tab_DragLeave"
-                    Drop="Tab_Drop">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right"
-                            Content="×"
-                            Style="{StaticResource TabCloseButton}"
-                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding}"/>
-                    <TextBlock Foreground="#CCCCCC"
-                               VerticalAlignment="Center"
-                               Text="{Binding Title}"/>
-                </DockPanel>
-            </Border>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <!-- Statistics Tab Header Template -->
-        <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}">
-            <Border x:Name="TabBorder"
-                    Background="#3C3C3C"
-                    CornerRadius="4,4,0,0"
-                    Padding="8,4"
-                    Margin="0,0,2,0"
-                    MinWidth="100"
-                    AllowDrop="True"
-                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
-                    PreviewMouseMove="Tab_PreviewMouseMove"
-                    MouseDown="Tab_MouseDown"
-                    DragOver="Tab_DragOver"
-                    DragLeave="Tab_DragLeave"
-                    Drop="Tab_Drop">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right"
-                            Content="×"
-                            Style="{StaticResource TabCloseButton}"
-                            Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding}"/>
-                    <TextBlock Foreground="#CCCCCC"
-                               VerticalAlignment="Center"
-                               Text="{Binding Title}"/>
-                </DockPanel>
-            </Border>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
-                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
@@ -258,6 +157,7 @@
             <ListBox x:Name="TabList"
                      ItemsSource="{Binding Tabs}"
                      SelectedItem="{Binding SelectedTab}"
+                     ItemTemplate="{StaticResource TabHeaderTemplate}"
                      Background="Transparent"
                      BorderThickness="0"
                      SizeChanged="TabList_SizeChanged">

@@ -44,8 +44,14 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     public string WorkingDirectory => "Profiles";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
+    public string DisplayTitle => Title;
 
     public event EventHandler? CloseRequested;
+
+    /// <summary>
+    /// Event raised when a profile launch is requested.
+    /// </summary>
+    public event EventHandler<ProfileLaunchEventArgs>? ProfileLaunchRequested;
 
     public ProfilesTabViewModel(ProfileRegistry profileRegistry)
     {
@@ -161,10 +167,47 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     }
 
     [RelayCommand]
+    private void Launch()
+    {
+        if (SelectedProfile == null) return;
+
+        var profile = CreateProfileFromItem(SelectedProfile);
+        ProfileLaunchRequested?.Invoke(this, new ProfileLaunchEventArgs { Profile = profile, PickFolder = false });
+    }
+
+    [RelayCommand]
+    private void LaunchWithFolder()
+    {
+        if (SelectedProfile == null) return;
+
+        var profile = CreateProfileFromItem(SelectedProfile);
+        ProfileLaunchRequested?.Invoke(this, new ProfileLaunchEventArgs { Profile = profile, PickFolder = true });
+    }
+
+    private static Profile CreateProfileFromItem(ProfileItemViewModel item)
+    {
+        return new Profile
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Command = item.Command,
+            Icon = item.Icon,
+            Shortcut = item.Shortcut,
+            AutoStart = item.AutoStart
+        };
+    }
+
+    [RelayCommand]
     private void Close()
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
+}
+
+public class ProfileLaunchEventArgs : EventArgs
+{
+    public required Profile Profile { get; init; }
+    public bool PickFolder { get; init; }
 }
 
 public partial class ProfileItemViewModel : ObservableObject
