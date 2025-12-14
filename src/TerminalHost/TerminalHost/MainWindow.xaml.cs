@@ -6,6 +6,7 @@ using System.Windows.Input;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using DialogService = TerminalHost.Services.DialogService;
 
 namespace TerminalHost;
 
@@ -193,7 +194,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainWindow] Error starting run terminal: {ex.Message}");
+            DialogService.ShowError($"Failed to start run terminal:\n{ex.Message}", "Run Error");
             tab.OnRunStopped();
         }
     }
@@ -219,7 +220,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainWindow] Error stopping run terminal: {ex.Message}");
+            DialogService.ShowError($"Failed to stop run terminal:\n{ex.Message}", "Run Error");
             tab.OnRunStopped();
         }
     }
@@ -536,11 +537,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                MessageBox.Show(
-                    "Please select a project tab first.",
-                    "Git Changes",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                DialogService.ShowInfo("Please select a project tab first.", "Git Changes");
             }
         }
         // Ctrl+B: Open git branch switcher
@@ -636,11 +633,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            MessageBox.Show(
-                "Please select a project tab first.",
-                "Git Changes",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            DialogService.ShowInfo("Please select a project tab first.", "Git Changes");
         }
     }
 
@@ -694,12 +687,10 @@ public partial class MainWindow : Window
 
     private void TestTerminal_GotFocus(object sender, RoutedEventArgs e)
     {
-        Console.WriteLine("[MainWindow] TestTerminal got focus");
     }
 
     private void TestTerminal_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        Console.WriteLine("[MainWindow] TestTerminal mouse down - focusing");
         TestTerminal.Focus();
     }
 

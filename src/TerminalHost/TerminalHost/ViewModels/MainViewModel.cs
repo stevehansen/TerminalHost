@@ -451,15 +451,14 @@ public partial class MainViewModel : ObservableObject
 
             var result = dialog.ShowDialog();
 
-            if (result == DialogResult.OK)
+            if (result == System.Windows.Forms.DialogResult.OK)
             {
                 OpenProjectTab(dialog.SelectedPath);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainViewModel] Error opening project: {ex.Message}");
-            MessageBox.Show($"Error opening project: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            DialogService.ShowError($"Error opening project: {ex.Message}");
         }
     }
 
@@ -472,7 +471,7 @@ public partial class MainViewModel : ObservableObject
 
             if (!Directory.Exists(workingDirectory))
             {
-                MessageBox.Show($"Directory not found: {workingDirectory}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                DialogService.ShowError($"Directory not found: {workingDirectory}");
                 return;
             }
 
@@ -564,8 +563,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainViewModel] Error creating terminal: {ex.Message}");
-            MessageBox.Show($"Error creating terminal: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            DialogService.ShowError($"Error creating terminal: {ex.Message}");
         }
     }
 
@@ -580,13 +578,10 @@ public partial class MainViewModel : ObservableObject
 
             if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
             {
-                var result = MessageBox.Show(
+                if (!DialogService.ShowConfirmation(
                     $"Terminals in '{terminalTab.Title}' are still running. Close anyway?",
-                    "Confirm Close",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-
-                if (result != MessageBoxResult.Yes) return;
+                    "Confirm Close"))
+                    return;
             }
 
             terminalTab.CloseRequested -= OnTabCloseRequested;
@@ -779,7 +774,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"An error occurred while opening the statistics view:\n\n{ex}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            DialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}");
         }
     }
 
@@ -830,8 +825,6 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // No link found - could show a tooltip or status message
-        Console.WriteLine("[MainViewModel] No clickable link found in recent output");
     }
 
     private void HandleDetectedLink(string link)

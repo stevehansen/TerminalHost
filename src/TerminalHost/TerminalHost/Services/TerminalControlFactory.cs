@@ -25,7 +25,13 @@ public class TerminalControlFactory
 
         if (!commandExists && !IsBuiltInCommand(commandExe))
         {
-            Console.WriteLine($"[TerminalControlFactory] Warning: Command not found: {commandExe}, falling back to cmd.exe");
+            // Show warning on UI thread since this runs during terminal creation
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                DialogService.ShowWarning(
+                    $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
+                    "Terminal Warning");
+            });
             command = "cmd.exe";
         }
 
@@ -91,9 +97,9 @@ public class TerminalControlFactory
                             await terminalControl.RestartTerm();
                             await Task.Delay(500);
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            Console.WriteLine($"[TerminalControlFactory] Error: RestartTerm failed for {profile.Name}: {ex.Message}");
+                            // RestartTerm failed
                         }
                     }
 
@@ -131,14 +137,10 @@ public class TerminalControlFactory
                         };
                         terminalControl.Theme = theme;
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Console.WriteLine($"[TerminalControlFactory] Error: Theme update failed for {profile.Name}: {ex.Message}");
+                        // Theme update failed
                     }
-                }
-                else
-                {
-                    Console.WriteLine($"[TerminalControlFactory] Error: ConPTYTerm is null for {profile.Name}");
                 }
             }, System.Windows.Threading.DispatcherPriority.Background);
         };

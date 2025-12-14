@@ -689,6 +689,43 @@ Press `F1` to open the Help window, which displays:
 **Important Paths:**
 - Config file location
 
+### Themed Dialogs
+
+The application uses custom themed dialogs (`DialogService`) instead of standard Windows MessageBox for a consistent dark-theme experience.
+
+**Dialog Types:**
+| Type        | Icon   | Color  | Usage                           |
+|-------------|--------|--------|----------------------------------|
+| Error       | ⛔     | Red    | Error messages                   |
+| Warning     | ⚠      | Yellow | Warnings and cautions            |
+| Information | ℹ      | Blue   | Informational messages           |
+| Question    | ❓     | Blue   | Confirmation prompts             |
+
+**Button Configurations:**
+- **OK**: Single acknowledgment button
+- **OKCancel**: OK (primary) + Cancel (secondary)
+- **YesNo**: Yes (primary) + No (secondary)
+
+**Features:**
+- Matches app dark theme (#252525 background, #0078D4 accent)
+- Draggable via header bar
+- Keyboard support (Enter to confirm, Escape to cancel)
+- Centers on parent window
+
+**Usage in Code:**
+```csharp
+// Simple error/warning/info (OK button only)
+DialogService.ShowError("Error message", "Title");
+DialogService.ShowWarning("Warning message", "Title");
+DialogService.ShowInfo("Info message", "Title");
+
+// Confirmation (Yes/No, returns bool)
+if (DialogService.ShowConfirmation("Are you sure?", "Confirm"))
+{
+    // User clicked Yes
+}
+```
+
 ### File Preview Syntax Highlighting
 
 File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting for:
@@ -742,6 +779,7 @@ TerminalHost/
     │   └── RunState.cs         # Run terminal state enum
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
+    │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
     │   ├── ProfileRegistry.cs        # Profile and settings management
     │   ├── SessionManager.cs         # Session lifecycle tracking
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
@@ -775,6 +813,8 @@ TerminalHost/
         ├── StatisticsView.xaml(.cs)      # Usage statistics UI
         ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
         ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── Dialogs/
+        │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
         │   └── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
         └── Popups/

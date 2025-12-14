@@ -57,7 +57,6 @@ public partial class FilePreviewViewModel : ObservableObject
 
     public void Open(string filePath, int? highlightLine = null)
     {
-        Console.WriteLine($"[FilePreviewViewModel] Open called for: {filePath}, line: {highlightLine}");
         var result = _filePreviewService.LoadFilePreview(filePath, highlightLine);
         
         _currentFilePath = result?.FilePath;

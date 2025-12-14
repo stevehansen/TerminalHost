@@ -67,7 +67,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [RelayCommand]
     private void Save()
     {
-        var (success, error) = _configService.SaveRawJson(JsonText);
+        var (success, error, warning) = _configService.SaveRawJson(JsonText);
 
         if (success)
         {
@@ -76,6 +76,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ErrorMessage = "";
             HasError = false;
             ConfigSaved?.Invoke(this, EventArgs.Empty);
+
+            // Show warning dialog if there are warnings (save succeeded but with issues)
+            if (!string.IsNullOrEmpty(warning))
+            {
+                DialogService.ShowWarning($"Settings saved with warnings:\n\n{warning}", "Configuration Warning");
+            }
         }
         else
         {

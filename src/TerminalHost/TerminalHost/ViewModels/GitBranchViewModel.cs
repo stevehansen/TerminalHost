@@ -166,11 +166,7 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                MessageBox.Show(
-                    $"Failed to switch branch:\n{result.Error}",
-                    "Git Checkout",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                DialogService.ShowWarning($"Failed to switch branch:\n{result.Error}", "Git Checkout");
             }
         }
         finally
@@ -187,8 +183,6 @@ public partial class GitBranchViewModel : ObservableObject
         if (string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
             return;
 
-        // For now, use MessageBox.Show to simulate an input dialog.
-        // In a real WPF app, this would be a custom dialog service.
         var branchName = ShowInputDialog("Create New Branch", "Enter branch name:", "");
         if (string.IsNullOrWhiteSpace(branchName))
             return;
@@ -205,11 +199,7 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                MessageBox.Show(
-                    $"Failed to create branch:\n{result.Error}",
-                    "Git Branch",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                DialogService.ShowWarning($"Failed to create branch:\n{result.Error}", "Git Branch");
             }
         }
         finally
@@ -226,11 +216,9 @@ public partial class GitBranchViewModel : ObservableObject
 
         if (SelectedBranch.IsCurrent)
         {
-            MessageBox.Show(
+            DialogService.ShowWarning(
                 "Cannot delete the current branch. Please switch to another branch first.",
-                "Git Branch",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                "Git Branch");
             return;
         }
 
@@ -239,13 +227,9 @@ public partial class GitBranchViewModel : ObservableObject
         {
             if (SelectedBranch.IsRemote)
             {
-                var remoteResult = MessageBox.Show(
+                if (!DialogService.ShowConfirmation(
                     $"Are you sure you want to delete the remote branch '{SelectedBranch.Name}'?\n\nThis action CANNOT be undone and will affect other developers.",
-                    "Delete Remote Branch",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-
-                if (remoteResult != MessageBoxResult.Yes)
+                    "Delete Remote Branch"))
                     return;
 
                 var remoteName = SelectedBranch.RemoteName ?? "origin";
@@ -260,35 +244,23 @@ public partial class GitBranchViewModel : ObservableObject
                 }
                 else
                 {
-                    MessageBox.Show(
-                        $"Failed to delete remote branch:\n{result.Error}",
-                        "Git Branch",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
+                    DialogService.ShowWarning($"Failed to delete remote branch:\n{result.Error}", "Git Branch");
                 }
             }
             else
             {
-                var localResult = MessageBox.Show(
+                if (!DialogService.ShowConfirmation(
                     $"Delete local branch '{SelectedBranch.Name}'?",
-                    "Delete Branch",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (localResult != MessageBoxResult.Yes)
+                    "Delete Branch"))
                     return;
 
                 var result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, SelectedBranch.Name);
 
                 if (!result.Success && result.Error?.Contains("not fully merged") == true)
                 {
-                    var forceResult = MessageBox.Show(
+                    if (DialogService.ShowConfirmation(
                         $"Branch '{SelectedBranch.Name}' is not fully merged.\n\nDo you want to force delete it? This may result in lost commits.",
-                        "Force Delete?",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Warning);
-
-                    if (forceResult == MessageBoxResult.Yes)
+                        "Force Delete?"))
                     {
                         result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, SelectedBranch.Name, force: true);
                     }
@@ -300,11 +272,7 @@ public partial class GitBranchViewModel : ObservableObject
                 }
                 else if (result.Error?.Contains("not fully merged") != true)
                 {
-                    MessageBox.Show(
-                        $"Failed to delete branch:\n{result.Error}",
-                        "Git Branch",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
+                    DialogService.ShowWarning($"Failed to delete branch:\n{result.Error}", "Git Branch");
                 }
             }
         }
@@ -334,11 +302,7 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                MessageBox.Show(
-                    $"Failed to fetch:\n{result.Error}",
-                    "Git Fetch",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                DialogService.ShowWarning($"Failed to fetch:\n{result.Error}", "Git Fetch");
             }
         }
         finally
@@ -366,11 +330,7 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                MessageBox.Show(
-                    $"Failed to pull:\n{result.Error}",
-                    "Git Pull",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                DialogService.ShowWarning($"Failed to pull:\n{result.Error}", "Git Pull");
             }
         }
         finally

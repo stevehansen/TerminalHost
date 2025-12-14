@@ -96,6 +96,7 @@ TerminalHost/
     │   └── RunState.cs         # Run terminal state enum
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
+    │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
     │   ├── ProfileRegistry.cs        # Profile management
     │   ├── SessionManager.cs         # Session lifecycle
     │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
@@ -129,6 +130,8 @@ TerminalHost/
         ├── StatisticsView.xaml(.cs)      # Usage statistics UI
         ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
         ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── Dialogs/
+        │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
         │   └── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
         └── Popups/

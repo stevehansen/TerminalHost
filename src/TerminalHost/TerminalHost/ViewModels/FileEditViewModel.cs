@@ -79,11 +79,7 @@ public partial class FileEditViewModel : ObservableObject
 
         if (!result.IsSuccess)
         {
-            MessageBox.Show(
-                result.Error ?? "Unknown error loading file",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            DialogService.ShowError(result.Error ?? "Unknown error loading file");
             return;
         }
 
@@ -145,11 +141,7 @@ public partial class FileEditViewModel : ObservableObject
         }
         else
         {
-            MessageBox.Show(
-                result.Error ?? "Unknown error saving file",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            DialogService.ShowError(result.Error ?? "Unknown error saving file");
         }
     }
 
@@ -160,13 +152,10 @@ public partial class FileEditViewModel : ObservableObject
 
         if (IsFileModified)
         {
-            var result = MessageBox.Show(
+            if (!DialogService.ShowConfirmation(
                 "You have unsaved changes. Reload and lose changes?",
-                "Confirm Reload",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result != MessageBoxResult.Yes) return;
+                "Confirm Reload"))
+                return;
         }
 
         var editResult = _fileEditService.ReloadFile(_currentEditFilePath);
@@ -181,11 +170,7 @@ public partial class FileEditViewModel : ObservableObject
         }
         else
         {
-            MessageBox.Show(
-                editResult.Error ?? "Unknown error reloading file",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            DialogService.ShowError(editResult.Error ?? "Unknown error reloading file");
         }
     }
 
@@ -194,13 +179,10 @@ public partial class FileEditViewModel : ObservableObject
     {
         if (IsFileModified)
         {
-            var result = MessageBox.Show(
+            if (!DialogService.ShowConfirmation(
                 "You have unsaved changes. Close without saving?",
-                "Unsaved Changes",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result != MessageBoxResult.Yes) return;
+                "Unsaved Changes"))
+                return;
         }
 
         IsOpen = false;

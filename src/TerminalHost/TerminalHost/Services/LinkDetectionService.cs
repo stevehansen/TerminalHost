@@ -90,7 +90,6 @@ public class LinkDetectionService
             catch (RegexParseException)
             {
                 // Invalid regex pattern, skip it
-                Console.WriteLine($"[LinkDetectionService] Invalid regex pattern: {pattern.Pattern}");
             }
         }
 
@@ -250,7 +249,7 @@ public class LinkDetectionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[LinkDetectionService] Failed to open link: {link}, Error: {ex.Message}");
+            DialogService.ShowError($"Failed to open link:\n{ex.Message}", "Link Error");
         }
     }
 

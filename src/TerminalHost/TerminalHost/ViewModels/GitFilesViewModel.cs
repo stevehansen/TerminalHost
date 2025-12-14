@@ -69,11 +69,9 @@ public partial class GitFilesViewModel : ObservableObject
         _currentTerminalTab = terminalTab;
         if (terminalTab.GitStatus?.IsGitRepository != true)
         {
-            MessageBox.Show(
+            DialogService.ShowInfo(
                 "The selected tab is not a Git repository or Git status is unavailable.",
-                "Git Changes",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Git Changes");
             _currentTerminalTab = null; // Clear context if not a git repo
             return;
         }
