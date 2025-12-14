@@ -67,7 +67,6 @@ public partial class MainWindow : Window
         _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
 
         // Subscribe to help events
-        _viewModel.HelpRequested += OnHelpRequested;
         _viewModel.GitChangesRequested += OnGitChangesRequested;
 
         // Subscribe to run terminal events
@@ -380,9 +379,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (HelpPopup.IsOpen)
+            if (_viewModel.IsHelpOpen)
             {
-                HelpPopup.IsOpen = false;
+                _viewModel.IsHelpOpen = false;
                 e.Handled = true;
                 return;
             }
@@ -391,7 +390,7 @@ public partial class MainWindow : Window
         // F1: Toggle help popup
         if (e.Key == Key.F1)
         {
-            HelpPopup.IsOpen = !HelpPopup.IsOpen;
+            _viewModel.IsHelpOpen = !_viewModel.IsHelpOpen;
             e.Handled = true;
             return;
         }
@@ -643,20 +642,6 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-    }
-
-    #endregion
-
-    #region Help Popup
-
-    private void OnHelpRequested(object? sender, EventArgs e)
-    {
-        HelpPopup.IsOpen = true;
-    }
-
-    private void HelpClose_Click(object sender, RoutedEventArgs e)
-    {
-        HelpPopup.IsOpen = false;
     }
 
     #endregion

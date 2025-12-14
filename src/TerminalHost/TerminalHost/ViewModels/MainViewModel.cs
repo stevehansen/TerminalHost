@@ -79,6 +79,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTabSwitcherOpen;
 
+    [ObservableProperty]
+    private bool _isHelpOpen;
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -853,15 +856,8 @@ public partial class MainViewModel : ObservableObject
         SelectedTab = Tabs[newIndex];
     }
 
-    public event EventHandler? HelpRequested;
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
-
-    [RelayCommand]
-    private void OpenHelp()
-    {
-        HelpRequested?.Invoke(this, EventArgs.Empty);
-    }
 
     [RelayCommand]
     private void OpenScratchPad()
@@ -885,6 +881,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanOpenDetectedLinks() => SelectedTab is TerminalPairTabViewModel;
+
+    [RelayCommand]
+    private void CloseHelp()
+    {
+        IsHelpOpen = false;
+    }
 
     public void Shutdown()
     {
