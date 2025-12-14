@@ -893,6 +893,13 @@ public partial class MainViewModel : ObservableObject
 
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
+    public event EventHandler? SetupRequested;
+
+    [RelayCommand]
+    private void OpenSetup()
+    {
+        SetupRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     [RelayCommand]
     private void OpenScratchPad()
@@ -1055,6 +1062,15 @@ public partial class MainViewModel : ObservableObject
                 Icon = "👤",
                 Category = "Settings",
                 Execute = () => OpenProfilesCommand.Execute(null)
+            },
+            new PaletteCommand
+            {
+                Id = "setup",
+                Name = "Setup",
+                Description = "Check dependencies and setup",
+                Icon = "🔧",
+                Category = "Settings",
+                Execute = () => OpenSetupCommand.Execute(null)
             },
 
             // Help

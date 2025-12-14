@@ -424,7 +424,7 @@ Configure regex patterns to convert text into clickable links (e.g., ticket numb
 **How It Works:**
 1. Terminal output is continuously buffered (~50KB of recent content)
 2. Every 3 seconds, the buffer is scanned for links
-3. Up to 15 unique links are displayed (URLs, file paths, custom patterns)
+3. Up to 20 unique links are displayed using FIFO ordering (most recent links shown)
 4. Click a link in the popup to open it
 5. Double-click or press Enter to open and close popup
 
@@ -577,6 +577,7 @@ The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all 
 | Switch Terminal  | Toggle custom/shell terminal     |
 | Settings         | Open settings editor             |
 | Profiles         | Manage terminal profiles         |
+| Setup            | Check dependencies and setup     |
 | Help             | Show keyboard shortcuts          |
 | Scratch Pad      | Open notes panel                 |
 | Git Changes      | View modified files and diffs    |
@@ -790,15 +791,14 @@ TerminalHost/
 
 ### Setup Mode
 
-To help users configure their environment correctly, the application includes a setup mode, launched via the `/setup` command-line argument.
+To help users configure their environment correctly, the application includes a setup mode for checking dependencies and configuration.
 
-**Usage:**
-```bash
-host /setup
-```
+**Access Methods:**
+- Command line: `host /setup` (shows setup before main window)
+- Command palette: Search for "Setup" (opens setup from within the app)
 
 **Features:**
-- **Setup Window**: A dedicated window that appears on launch.
+- **Setup Window**: A dedicated window for checking environment setup.
 - **Dependency Detection**: Automatically checks for the presence and version of required and recommended tools:
   - Git (for version control integration)
   - A Nerd Font (for proper icon/glyph rendering in the terminal)
@@ -806,7 +806,10 @@ host /setup
   - HC.Dev Tool
 - **Installation Help**: Provides one-click buttons to either run the installation command (for CLIs) or open the download homepage (for fonts and Git).
 - **Debug Information**: For troubleshooting, users can view the detailed output and exit code of each detection command.
-- **Continue to App**: Allows the user to proceed to launch the main application directly from the setup window, even if some dependencies are missing.
+
+**Button Behavior:**
+- **From CLI (`/setup`)**: "Continue to App" proceeds to main app, "Close" exits
+- **From Command Palette**: Both buttons just close the window (app continues running)
 
 ### Project Runner
 
@@ -897,14 +900,29 @@ This provides both a high-level overview of which projects are most active and a
 
 Items for future development:
 
+### Tab Management
+- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
+
+### Advanced Panel Management
+- **Fixed Claude panel**: Left panel (Claude terminal) should always be visible at full height
+- **Right panel variants**: Right side can switch between different views:
+  - Shell terminal (current behavior)
+  - Project Runner terminal
+  - Dedicated markdown viewer (auto-updated on file change) for PRD/progress tracking
+- **Split right panel**: Alternative layout with right side split in half:
+  - Top: Shell/console terminal
+  - Bottom: Runner/PRD/other content panel
+- **File explorer panel**: Simple tree-based folder/file browser
+- **Persistent file viewer panel**: Auto-reloading file panel with multiple modes:
+  - Preview mode (syntax highlighted, read-only)
+  - Edit mode (editable)
+  - Diff mode (show changes)
+  - Auto-reload from disk when file changes externally
+
 ### Other Features
 - **Custom profile pairs**: Different command pairs for different project types
 - **SSH profiles**: Built-in SSH connection support
 - **Multiple custom commands**: More than one custom command per pair
-- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory.
-- **Advanced Panel Management**:
-  - Introduce more flexible layouts, like a three-panel view.
-  - Allow splitting panels to show a file explorer tree, a live markdown preview, or a persistent file diff viewer alongside the terminals.
 
 ## Success Criteria
 

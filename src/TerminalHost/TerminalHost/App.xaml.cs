@@ -39,9 +39,11 @@ public partial class App : Application
             var setupWindow = new SetupWindow(setupViewModel);
             if (setupWindow.ShowDialog() != true)
             {
-                Shutdown(); // User cancelled setup, so exit.
+                // User clicked Close (not Continue), exit the app
+                Shutdown();
                 return;
             }
+            // User clicked Continue, proceed to main app
         }
 
         _singleInstanceService = new SingleInstanceService();

@@ -282,6 +282,7 @@ public class LinkDetectionService
     /// <summary>
     /// Scans text for all detectable links (URLs, file paths, custom patterns).
     /// Returns a list of detected links with their display text and URL.
+    /// Uses FIFO ordering - returns the most recent (last appearing) links when over maxLinks.
     /// </summary>
     /// <param name="text">The text to scan for links.</param>
     /// <param name="workingDirectory">Current working directory for resolving relative paths.</param>
@@ -289,35 +290,31 @@ public class LinkDetectionService
     /// <returns>List of detected links (DisplayText, Url, LinkType).</returns>
     public List<DetectedLink> DetectAllLinks(string text, string? workingDirectory = null, int maxLinks = 20)
     {
-        var links = new List<DetectedLink>();
+        var allLinks = new List<(int Position, DetectedLink Link)>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(text))
-            return links;
+            return new List<DetectedLink>();
 
-        // 1. Find all URLs
+        // 1. Find all URLs with their positions
         foreach (Match match in UrlPattern.Matches(text))
         {
-            if (links.Count >= maxLinks) break;
-
             var url = CleanUrl(match.Value);
             if (!seen.Contains(url))
             {
                 seen.Add(url);
-                links.Add(new DetectedLink
+                allLinks.Add((match.Index, new DetectedLink
                 {
                     DisplayText = TruncateForDisplay(url, 60),
                     Url = url,
                     LinkType = LinkType.Url
-                });
+                }));
             }
         }
 
-        // 2. Find file paths
+        // 2. Find file paths with their positions
         foreach (Match match in FilePathPattern.Matches(text))
         {
-            if (links.Count >= maxLinks) break;
-
             var potentialPath = match.Value;
             var resolved = TryResolveFilePath(potentialPath, workingDirectory);
             if (resolved != null && !seen.Contains(resolved))
@@ -327,41 +324,37 @@ public class LinkDetectionService
                 if (string.IsNullOrEmpty(displayPath))
                     displayPath = resolved;
 
-                links.Add(new DetectedLink
+                allLinks.Add((match.Index, new DetectedLink
                 {
                     DisplayText = TruncateForDisplay(displayPath, 40),
                     Url = resolved,
                     LinkType = File.Exists(resolved) ? LinkType.File : LinkType.Directory
-                });
+                }));
             }
         }
 
-        // 3. Find custom pattern matches
+        // 3. Find custom pattern matches with their positions
         var customPatterns = _profileRegistry.LinkPatterns
             .Where(p => p.Enabled)
             .OrderByDescending(p => p.Priority);
 
         foreach (var pattern in customPatterns)
         {
-            if (links.Count >= maxLinks) break;
-
             try
             {
                 var regex = new Regex(pattern.Pattern, RegexOptions.IgnoreCase);
                 foreach (Match match in regex.Matches(text))
                 {
-                    if (links.Count >= maxLinks) break;
-
                     var url = BuildUrlFromTemplate(pattern.UrlTemplate, match);
                     if (!seen.Contains(url))
                     {
                         seen.Add(url);
-                        links.Add(new DetectedLink
+                        allLinks.Add((match.Index, new DetectedLink
                         {
                             DisplayText = $"{pattern.Name}: {match.Value}",
                             Url = url,
                             LinkType = LinkType.Custom
-                        });
+                        }));
                     }
                 }
             }
@@ -371,7 +364,12 @@ public class LinkDetectionService
             }
         }
 
-        return links;
+        // Sort by position and take the last maxLinks (FIFO - most recent links)
+        return allLinks
+            .OrderBy(x => x.Position)
+            .TakeLast(maxLinks)
+            .Select(x => x.Link)
+            .ToList();
     }
 
     /// <summary>

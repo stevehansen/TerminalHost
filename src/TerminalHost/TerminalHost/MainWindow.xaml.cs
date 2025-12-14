@@ -67,6 +67,7 @@ public partial class MainWindow : Window
 
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;
+        _viewModel.SetupRequested += OnSetupRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -641,6 +642,20 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
+    }
+
+    #endregion
+
+    #region Setup Window
+
+    private void OnSetupRequested(object? sender, EventArgs e)
+    {
+        var setupViewModel = new SetupViewModel();
+        var setupWindow = new Views.SetupWindow(setupViewModel, isStartupMode: false)
+        {
+            Owner = this
+        };
+        setupWindow.ShowDialog();
     }
 
     #endregion

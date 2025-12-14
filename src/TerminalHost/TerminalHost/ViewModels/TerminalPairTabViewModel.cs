@@ -289,7 +289,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         var combinedOutput = customOutput + "\n" + shellOutput;
 
         // Detect links
-        var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 15);
+        var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 20);
 
         // Check if links have changed by comparing URLs
         var currentUrls = DetectedLinks.Select(l => l.Url).ToList();
