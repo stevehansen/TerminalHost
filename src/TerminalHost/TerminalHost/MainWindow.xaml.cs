@@ -25,8 +25,6 @@ public partial class MainWindow : Window
     private readonly FilePreviewViewModel _filePreviewViewModel;
     private bool _isExiting;
 
-
-
     public MainWindow(MainViewModel viewModel, ConfigurationService configService, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
     {
         InitializeComponent();

@@ -82,6 +82,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHelpOpen;
 
+    // Command Palette Properties
+    [ObservableProperty]
+    private bool _isCommandPaletteOpen;
+
+    [ObservableProperty]
+    private string _paletteSearchText = "";
+
+    private ObservableCollection<PaletteCommand> _allPaletteCommands = new(); // Stores all commands
+    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = new();
+    public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
+
+    [ObservableProperty]
+    private PaletteCommand? _selectedPaletteCommand;
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -133,6 +147,9 @@ public partial class MainViewModel : ObservableObject
 
         FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
         UpdateFilteredSwitcherTabs(); // Initial population
+
+        FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
+        InitializeCommandPalette(); // Initialize commands once
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = new DispatcherTimer
@@ -886,6 +903,282 @@ public partial class MainViewModel : ObservableObject
     private void CloseHelp()
     {
         IsHelpOpen = false;
+    }
+
+    partial void OnPaletteSearchTextChanged(string value)
+    {
+        FilterPaletteCommands();
+    }
+
+    partial void OnIsCommandPaletteOpenChanged(bool value)
+    {
+        if (value)
+        {
+            PaletteSearchText = "";
+            FilterPaletteCommands();
+            if (FilteredPaletteCommands.Any())
+            {
+                SelectedPaletteCommand = FilteredPaletteCommands.First();
+            }
+        }
+    }
+
+    private void InitializeCommandPalette()
+    {
+        _allPaletteCommands = new ObservableCollection<PaletteCommand>
+        {
+            // Tab/Project commands
+            new PaletteCommand
+            {
+                Id = "new-project",
+                Name = "New Project",
+                Description = "Open folder as new project",
+                Shortcut = "Ctrl+N",
+                Icon = "📁",
+                Category = "Project",
+                Execute = () => OpenNewProjectCommand.Execute(null)
+            },
+            new PaletteCommand
+            {
+                Id = "close-tab",
+                Name = "Close Tab",
+                Description = "Close current tab",
+                Shortcut = "Ctrl+W",
+                Icon = "✕",
+                Category = "Tab",
+                Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
+            },
+            new PaletteCommand
+            {
+                Id = "tab-switcher",
+                Name = "Switch Tab",
+                Description = "Search and switch tabs",
+                Shortcut = "Ctrl+Shift+T",
+                Icon = "🔍",
+                Category = "Tab",
+                Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
+            },
+
+            // File commands
+            new PaletteCommand
+            {
+                Id = "file-preview",
+                Name = "Preview File",
+                Description = "Open file preview",
+                Shortcut = "Ctrl+O",
+                Icon = "👁",
+                Category = "File",
+                Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
+            },
+            new PaletteCommand
+            {
+                Id = "file-edit",
+                Name = "Edit File",
+                Description = "Open file in editor",
+                Shortcut = "Ctrl+Shift+E",
+                Icon = "✏️",
+                Category = "File",
+                Execute = () => { /* Needs to be improved */ }
+            },
+            new PaletteCommand
+            {
+                Id = "open-explorer",
+                Name = "Open in Explorer",
+                Description = "Open folder in file explorer",
+                Shortcut = "Ctrl+E",
+                Icon = "📂",
+                Category = "File",
+                Execute = () => OpenInExplorerCommand.Execute(null),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Terminal commands
+            new PaletteCommand
+            {
+                Id = "switch-terminal",
+                Name = "Switch Terminal",
+                Description = "Toggle between custom and shell",
+                Shortcut = "Ctrl+`",
+                Icon = "⇄",
+                Category = "Terminal",
+                Execute = () => SwitchActiveTerminalCommand.Execute(null),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Settings
+            new PaletteCommand
+            {
+                Id = "settings",
+                Name = "Settings",
+                Description = "Open settings editor",
+                Shortcut = "Ctrl+,",
+                Icon = "⚙️",
+                Category = "Settings",
+                Execute = () => OpenSettingsCommand.Execute(null)
+            },
+            new PaletteCommand
+            {
+                Id = "profiles",
+                Name = "Profiles",
+                Description = "Manage terminal profiles",
+                Shortcut = "Ctrl+P",
+                Icon = "👤",
+                Category = "Settings",
+                Execute = () => OpenProfilesCommand.Execute(null)
+            },
+
+            // Help
+            new PaletteCommand
+            {
+                Id = "help",
+                Name = "Help",
+                Description = "Show keyboard shortcuts",
+                Shortcut = "F1",
+                Icon = "❓",
+                Category = "Help",
+                Execute = () => IsHelpOpen = true
+            },
+
+            // Scratch Pad
+            new PaletteCommand
+            {
+                Id = "scratch-pad",
+                Name = "Scratch Pad",
+                Description = "Open notes panel",
+                Shortcut = "Ctrl+Shift+N",
+                Icon = "📝",
+                Category = "Tools",
+                Execute = () => OpenScratchPadCommand.Execute(null)
+            },
+
+            // Statistics
+            new PaletteCommand
+            {
+                Id = "statistics",
+                Name = "Statistics",
+                Description = "View usage statistics",
+                Icon = "📊",
+                Category = "Tools",
+                Execute = () => OpenStatisticsCommand.Execute(null)
+            },
+
+            // Git
+            new PaletteCommand
+            {
+                Id = "git-changes",
+                Name = "Git Changes",
+                Description = "View modified files and diffs",
+                Shortcut = "Ctrl+G",
+                Icon = "📋",
+                Category = "Git",
+                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty), // Needs to be improved
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new PaletteCommand
+            {
+                Id = "git-branches",
+                Name = "Git Branches",
+                Description = "Switch, create, or delete branches",
+                Shortcut = "Ctrl+B",
+                Icon = "🌿",
+                Category = "Git",
+                Execute = () => { /* Needs to be improved */ },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Run commands
+            new PaletteCommand
+            {
+                Id = "run-start",
+                Name = "Run: Start",
+                Description = "Start the project",
+                Shortcut = "F5",
+                Icon = "▶",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
+            },
+            new PaletteCommand
+            {
+                Id = "run-stop",
+                Name = "Run: Stop",
+                Description = "Stop the running project",
+                Shortcut = "Shift+F5",
+                Icon = "⏹",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
+            },
+            new PaletteCommand
+            {
+                Id = "run-restart",
+                Name = "Run: Restart",
+                Description = "Restart the running project",
+                Icon = "🔄",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
+            },
+            new PaletteCommand
+            {
+                Id = "run-toggle-terminal",
+                Name = "Run: Toggle Terminal",
+                Description = "Show/hide run terminal panel",
+                Icon = "📺",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new PaletteCommand
+            {
+                Id = "run-open-url",
+                Name = "Run: Open URL",
+                Description = "Open detected localhost URL in browser",
+                Icon = "🌐",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
+            }
+        };
+    }
+
+    private void FilterPaletteCommands()
+    {
+        _filteredPaletteCommands.Clear();
+        var searchText = PaletteSearchText?.ToLower() ?? "";
+
+        var filtered = _allPaletteCommands
+            .Where(c => c.CanExecute == null || c.CanExecute()) // Evaluate CanExecute on the spot
+            .Where(c =>
+                string.IsNullOrEmpty(searchText) ||
+                c.Name.ToLower().Contains(searchText) ||
+                (c.Description?.ToLower().Contains(searchText) ?? false) ||
+                c.Category.ToLower().Contains(searchText))
+            .ToList();
+
+        foreach (var command in filtered)
+        {
+            _filteredPaletteCommands.Add(command);
+        }
+
+        if (FilteredPaletteCommands.Any())
+        {
+            SelectedPaletteCommand = FilteredPaletteCommands.First();
+        }
+        else
+        {
+            SelectedPaletteCommand = null;
+        }
+    }
+
+    [RelayCommand]
+    private void ExecuteSelectedPaletteCommand()
+    {
+        if (SelectedPaletteCommand != null)
+        {
+            IsCommandPaletteOpen = false;
+            SelectedPaletteCommand.Execute();
+        }
     }
 
     public void Shutdown()
