@@ -8,8 +8,8 @@
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
              d:DesignHeight="500" d:DesignWidth="700">
-    <Border Background="#252525"
-        BorderBrush="#0078D4"
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+        BorderBrush="{StaticResource AccentPrimaryBrush}"
         BorderThickness="1"
         CornerRadius="8"
         Margin="10"
@@ -27,7 +27,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Grid.Row="0" Background="#2D2D2D" Padding="16,12" CornerRadius="8,8,0,0">
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="8,8,0,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                         Content="×"
@@ -37,7 +37,7 @@
                         FontSize="18"
                         Padding="8,2"/>
                     <TextBlock Text="TerminalHost Help"
-                           Foreground="#FFFFFF"
+                           Foreground="{StaticResource TextBrightBrush}"
                            FontSize="16"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
@@ -48,10 +48,10 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,16">
                 <StackPanel>
                     <!-- Keyboard Shortcuts Section -->
-                    <TextBlock Text="Keyboard Shortcuts" Foreground="#4EC9B0" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <TextBlock Text="Keyboard Shortcuts" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
                     <!-- Tab Navigation -->
-                    <TextBlock Text="Tab Navigation" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Tab Navigation" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -65,22 +65,22 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+PageDown" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Next tab" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+PageUp" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous tab" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+1-9" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Jump to tab 1-9" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+T" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+W" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close current tab" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Middle-click tab" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Close tab" Foreground="#CCCCCC" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+PageDown" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Next tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+PageUp" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+1-9" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+T" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+W" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close current tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Middle-click tab" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Close tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Terminal -->
-                    <TextBlock Text="Terminal" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Terminal" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -90,14 +90,14 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+`" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Links button" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="#CCCCCC" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+`" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Links button" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- File Operations -->
-                    <TextBlock Text="File Operations" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="File Operations" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -109,18 +109,18 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+N" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open new project (folder picker)" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+E" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open current folder in Explorer" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+O" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open file preview dialog" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+E" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open file editor" Foreground="#CCCCCC" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open new project (folder picker)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+E" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open current folder in Explorer" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+O" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open file preview dialog" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+E" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open file editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Application -->
-                    <TextBlock Text="Application" Foreground="#9CDCFE" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Application" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -135,24 +135,24 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+P" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open profile management" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+P" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+G" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open git changes panel" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+B" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Open git branch switcher" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="F1" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Show this help window" Foreground="#CCCCCC" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open profile management" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+G" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open git changes panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+B" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Open git branch switcher" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="F1" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Show this help window" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Quick Commands Section -->
-                    <TextBlock Text="Default Quick Commands" Foreground="#4EC9B0" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Default Quick Commands" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -163,54 +163,54 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+Shift+C" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Send 'commit' to Claude Code" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+D" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Run 'git pull --rebase' in Shell" Foreground="#CCCCCC" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+U" Foreground="#CE9178" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Run 'git push' in Shell" Foreground="#CCCCCC" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+Shift+C" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Send 'commit' to Claude Code" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+D" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Run 'git pull --rebase' in Shell" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+U" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Run 'git push' in Shell" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Tips Section -->
-                    <TextBlock Text="Tips" Foreground="#4EC9B0" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="#569CD6"/><Run Text="Drag tabs to reorder them"/>
+                    <TextBlock Text="Tips" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
+                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Drag tabs to reorder them"/>
                     </TextBlock>
-                    <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="#569CD6"/><Run Text="Use the splitter between terminals to adjust the split ratio (saved per directory)"/>
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
+                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Use the splitter between terminals to adjust the split ratio (saved per directory)"/>
                     </TextBlock>
-                    <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="#569CD6"/><Run Text="File preview supports syntax highlighting for: JSON, C#, JavaScript/TypeScript, Python, XML, Markdown, CSV/TSV"/>
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
+                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="File preview supports syntax highlighting for: JSON, C#, JavaScript/TypeScript, Python, XML, Markdown, CSV/TSV"/>
                     </TextBlock>
-                    <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="#569CD6"/><Run Text="Configure custom link patterns in Settings to make ticket IDs clickable"/>
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
+                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Configure custom link patterns in Settings to make ticket IDs clickable"/>
                     </TextBlock>
 
                     <!-- Command Line Section -->
-                    <TextBlock Text="Command Line Usage" Foreground="#4EC9B0" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <Border Background="#1E1E1E" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
+                    <TextBlock Text="Command Line Usage" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <Border Background="{StaticResource BackgroundDarkestBrush}" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
                         <StackPanel>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="#CCCCCC" Margin="0,2">
-                            <Run Text="host" Foreground="#4EC9B0"/>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="                  # Open/focus app"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="#CCCCCC" Margin="0,2">
-                            <Run Text="host ." Foreground="#4EC9B0"/>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host ." Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="                # Open project from current directory"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="#CCCCCC" Margin="0,2">
-                            <Run Text="host P:\MyProject" Foreground="#4EC9B0"/>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host P:\MyProject" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="   # Open specific project"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="#CCCCCC" Margin="0,2">
-                            <Run Text="host -w P:\Path" Foreground="#4EC9B0"/>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host -w P:\Path" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="     # Using named argument"/>
                             </TextBlock>
                         </StackPanel>
                     </Border>
 
                     <!-- Paths Section -->
-                    <TextBlock Text="Important Paths" Foreground="#4EC9B0" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Important Paths" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
@@ -219,21 +219,21 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Config file:" Foreground="#9CDCFE" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="%APPDATA%\TerminalHost\config.json" Foreground="#CE9178" FontFamily="Cascadia Code NF, Consolas" FontSize="12" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Config file:" Foreground="{StaticResource SyntaxLightBlueBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="%APPDATA%\TerminalHost\config.json" Foreground="{StaticResource SyntaxOrangeBrush}" FontFamily="Cascadia Code NF, Consolas" FontSize="12" Margin="0,2"/>
                     </Grid>
                 </StackPanel>
             </ScrollViewer>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#2D2D2D" Padding="16,10" CornerRadius="0,0,8,8">
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="16,10" CornerRadius="0,0,8,8">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right"
-                           Foreground="#808080"
+                           Foreground="{StaticResource TextDimmedBrush}"
                            FontSize="11"
                            VerticalAlignment="Center"
                            Text="Press Escape or F1 to close"/>
-                    <TextBlock Foreground="#808080"
+                    <TextBlock Foreground="{StaticResource TextDimmedBrush}"
                            FontSize="11"
                            VerticalAlignment="Center"
                            Text="TerminalHost v1.0"/>

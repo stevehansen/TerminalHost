@@ -7,16 +7,16 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:SetupViewModel, IsDesignTimeCreatable=True}"
         Title="TerminalHost :: Setup" Height="600" Width="800"
-        Background="#2D2D30" Foreground="White"
+        Background="{StaticResource BackgroundMediumBrush}" Foreground="{StaticResource TextBrightBrush}"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <Style TargetType="Button">
-            <Setter Property="Background" Value="#3E3E42"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -26,7 +26,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#4F4F53"/>
+                                <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.5"/>
@@ -59,7 +59,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,15">
             <TextBlock Text="TerminalHost Setup" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,5"/>
-            <TextBlock Text="Checking for recommended tools and dependencies." Foreground="Gray"/>
+            <TextBlock Text="Checking for recommended tools and dependencies." Foreground="{StaticResource TextDimmedBrush}"/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -67,7 +67,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <StackPanel>
-                            <Border BorderBrush="#444" BorderThickness="0,0,0,1" Padding="10" Margin="0,5">
+                            <Border BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10" Margin="0,5">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -80,8 +80,8 @@
                                                 CommandParameter="{Binding}">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="16"/>
-                                                <TextBlock Text="{Binding Description}" Foreground="LightGray" Margin="0,2,0,0"/>
-                                                <TextBlock Text="{Binding DetectedVersion}" Foreground="DimGray" FontSize="11" Margin="0,5,0,0"/>
+                                                <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextLightBrush}" Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding DetectedVersion}" Foreground="{StaticResource TextDimmedBrush}" FontSize="11" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
@@ -91,19 +91,19 @@
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Text" Value="..."/>
-                                                    <Setter Property="Foreground" Value="Gray"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsDetecting}" Value="True">
                                                             <Setter Property="Text" Value="◌"/>
-                                                            <Setter Property="Foreground" Value="SkyBlue"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource SyntaxLightBlueBrush}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsDetecting}" Value="False">
                                                             <Setter Property="Text" Value="●"/>
-                                                            <Setter Property="Foreground" Value="LightGreen"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsInstalled}" Value="False">
                                                             <Setter Property="Text" Value="●"/>
-                                                            <Setter Property="Foreground" Value="OrangeRed"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource StatusErrorBrush}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -131,24 +131,24 @@
                                 </Grid>
                             </Border>
 
-                            <Border x:Name="DetailsPanel" Background="#252526" Margin="20,0,20,10" Padding="10" CornerRadius="3">
+                            <Border x:Name="DetailsPanel" Background="{StaticResource BackgroundDarkBrush}" Margin="20,0,20,10" Padding="10" CornerRadius="3">
                                 <StackPanel>
-                                    <TextBlock Text="Debug Info" FontWeight="Bold" Foreground="Gray"/>
+                                    <TextBlock Text="Debug Info" FontWeight="Bold" Foreground="{StaticResource TextDimmedBrush}"/>
                                     <Grid Margin="0,5,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Exit Code: " Foreground="Gray"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding ExitCode}" Foreground="Gray"/>
+                                        <TextBlock Grid.Column="0" Text="Exit Code: " Foreground="{StaticResource TextDimmedBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ExitCode}" Foreground="{StaticResource TextDimmedBrush}"/>
                                     </Grid>
-                                    <TextBlock Text="Output:" Margin="0,5,0,2" Foreground="Gray"/>
+                                    <TextBlock Text="Output:" Margin="0,5,0,2" Foreground="{StaticResource TextDimmedBrush}"/>
                                     <TextBox Text="{Binding FullOutput}"
                                              IsReadOnly="True"
                                              MaxHeight="150"
                                              VerticalScrollBarVisibility="Auto"
-                                             Background="#1E1E1E"
-                                             Foreground="LightGray"
+                                             Background="{StaticResource BackgroundDarkestBrush}"
+                                             Foreground="{StaticResource TextLightBrush}"
                                              BorderThickness="0"/>
                                 </StackPanel>
                                 <Border.Style>
@@ -170,7 +170,7 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="Refresh All" Command="{Binding CheckAllDependenciesCommand}"/>
-            <Button x:Name="ContinueButton" Content="Continue to App" Click="ContinueButton_Click" Margin="10,0,0,0" FontWeight="Bold" Background="#4F8A10" IsDefault="True"/>
+            <Button x:Name="ContinueButton" Content="Continue to App" Click="ContinueButton_Click" Margin="10,0,0,0" FontWeight="Bold" Background="{StaticResource StatusSuccessBrush}" IsDefault="True"/>
             <Button Content="Close" Click="CloseButton_Click" Margin="10,0,0,0" IsCancel="True"/>
         </StackPanel>
     </Grid>

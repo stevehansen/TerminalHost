@@ -15,8 +15,8 @@
            IsOpen="{Binding IsOpen, Mode=TwoWay}"
            Width="{Binding Width, Mode=TwoWay}"
            Height="{Binding Height, Mode=TwoWay}">
-        <Border Background="#252525"
-                BorderBrush="#0078D4"
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource AccentPrimaryBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 Padding="0"
@@ -34,7 +34,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
                     <DockPanel>
                         <Button DockPanel.Dock="Right"
                                 Content="↻"
@@ -46,7 +46,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔗" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Detected Links"
-                                       Foreground="#CCCCCC"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"/>
@@ -79,11 +79,11 @@
                                            Margin="0,0,8,0"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding DisplayText}"
-                                               Foreground="#CCCCCC"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
                                                FontSize="12"
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Url}"
-                                               Foreground="#666666"
+                                               Foreground="{StaticResource TextMutedBrush}"
                                                FontSize="10"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTip="{Binding Url}"/>
@@ -100,7 +100,7 @@
                 <TextBlock x:Name="EmptyState"
                            Grid.Row="1"
                            Text="No links detected"
-                           Foreground="#666666"
+                           Foreground="{StaticResource TextMutedBrush}"
                            FontSize="12"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -108,7 +108,7 @@
                            Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                             <Button Content="👁️ Preview"
@@ -121,7 +121,7 @@
                                     Command="{Binding OpenSelectedLinkCommand}"
                                     ToolTip="Open link"/>
                         </StackPanel>
-                        <TextBlock Foreground="#808080"
+                        <TextBlock Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="10"
                                    Text="Double-click or Enter to open, Esc to close"
                                    VerticalAlignment="Center"/>

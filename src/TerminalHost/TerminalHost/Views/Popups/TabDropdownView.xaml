@@ -9,8 +9,8 @@
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
              d:DesignHeight="300" d:DesignWidth="200">
     
-    <Border Background="#2D2D2D"
-            BorderBrush="#444444"
+    <Border Background="{StaticResource BackgroundMediumBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
             BorderThickness="1"
             CornerRadius="4"
             Padding="4"
@@ -25,9 +25,9 @@
             <!-- Search Box -->
             <TextBox x:Name="DropdownSearchBox"
                      Grid.Row="0"
-                     Background="#1E1E1E"
-                     Foreground="#CCCCCC"
-                     BorderBrush="#444444"
+                     Background="{StaticResource BackgroundDarkestBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource BorderSubtleBrush}"
                      BorderThickness="1"
                      Padding="6,4"
                      Margin="0,0,0,4"
@@ -37,7 +37,7 @@
                     <Style TargetType="TextBox">
                         <Style.Triggers>
                             <Trigger Property="Text" Value="">
-                                <Setter Property="Background" Value="#1E1E1E"/>
+                                <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -57,7 +57,7 @@
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal" Margin="4,2">
                             <TextBlock Text="{Binding TabIcon}" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding Title}" Foreground="#CCCCCC"/>
+                            <TextBlock Text="{Binding Title}" Foreground="{StaticResource TextPrimaryBrush}"/>
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -68,10 +68,10 @@
                         <Setter Property="Cursor" Value="Hand"/>
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#3E3E3E"/>
+                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#0078D4"/>
+                                <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>

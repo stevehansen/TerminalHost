@@ -14,8 +14,8 @@
            StaysOpen="True"
            AllowsTransparency="True"
            IsOpen="{Binding IsOpen, Mode=TwoWay}">
-        <Border Background="#252525"
-                BorderBrush="#4EC9B0"
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxCyanBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 Padding="0"
@@ -36,7 +36,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0">
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
                     <DockPanel>
                         <Button DockPanel.Dock="Right"
                                 Content="×"
@@ -59,7 +59,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌿" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="{Binding Title}"
-                                       Foreground="#CCCCCC"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="13"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"/>
@@ -68,13 +68,13 @@
                 </Border>
 
                 <!-- Search Box -->
-                <Border Grid.Row="1" Background="#1E1E1E" Padding="12,8">
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
                     <TextBox x:Name="GitBranchSearchBox"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             Background="#2D2D2D"
-                             Foreground="#CCCCCC"
-                             CaretBrush="#CCCCCC"
-                             BorderBrush="#444444"
+                             Background="{StaticResource BackgroundMediumBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderSubtleBrush}"
                              BorderThickness="1"
                              Padding="8,6"
                              FontSize="13"
@@ -120,7 +120,7 @@
                                 <!-- Issue number (for branches like issues/#123) -->
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding IssueNumber}"
-                                           Foreground="#569CD6"
+                                           Foreground="{StaticResource SyntaxBlueBrush}"
                                            FontSize="11"
                                            VerticalAlignment="Center"
                                            Margin="8,0,0,0"
@@ -129,7 +129,7 @@
                                 <!-- Ahead/Behind status -->
                                 <TextBlock Grid.Column="3"
                                            Text="{Binding StatusDisplay}"
-                                           Foreground="#808080"
+                                           Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="11"
                                            VerticalAlignment="Center"
                                            Margin="8,0,0,0"
@@ -142,7 +142,7 @@
                             <GroupStyle.HeaderTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Name}"
-                                               Foreground="#569CD6"
+                                               Foreground="{StaticResource SyntaxBlueBrush}"
                                                FontSize="11"
                                                FontWeight="SemiBold"
                                                Margin="8,8,8,4"/>
@@ -165,10 +165,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -182,7 +182,7 @@
                 <TextBlock x:Name="GitBranchEmptyState"
                            Grid.Row="2"
                            Text="{Binding StatusMessage}"
-                           Foreground="#666666"
+                           Foreground="{StaticResource TextMutedBrush}"
                            FontSize="12"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -190,7 +190,7 @@
                            Visibility="{Binding Branches.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverse}"/>
 
                 <!-- Footer with action buttons -->
-                <Border Grid.Row="3" Background="#2D2D2D" Padding="8,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="🗑 Delete"

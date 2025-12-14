@@ -16,7 +16,7 @@
         <!-- Shared Tab Header Template - used by all tab types via ITabViewModel interface -->
         <DataTemplate x:Key="TabHeaderTemplate">
             <Border x:Name="TabBorder"
-                    Background="#3C3C3C"
+                    Background="{StaticResource BackgroundLightBrush}"
                     CornerRadius="4,4,0,0"
                     Padding="8,4"
                     Margin="0,0,2,0"
@@ -39,7 +39,7 @@
                     <TextBlock x:Name="ActivitySpinner"
                                DockPanel.Dock="Right"
                                Text="◐"
-                               Foreground="#FFD700"
+                               Foreground="{StaticResource SyntaxYellowBrush}"
                                FontSize="12"
                                FontWeight="Bold"
                                VerticalAlignment="Center"
@@ -50,14 +50,14 @@
                             <RotateTransform Angle="0"/>
                         </TextBlock.RenderTransform>
                     </TextBlock>
-                    <TextBlock Foreground="#CCCCCC"
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"
                                Text="{Binding DisplayTitle, Mode=OneWay}"/>
                 </DockPanel>
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="TabBorder" Property="Background" Value="#1E1E1E"/>
+                    <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
                 </DataTrigger>
                 <!-- Show and animate spinner when terminal is active AND tab is NOT selected -->
                 <MultiDataTrigger>
@@ -82,7 +82,7 @@
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
-    <Border Background="#2D2D2D" Padding="4">
+    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4">
         <DockPanel>
             <!-- New Project Button -->
             <Button DockPanel.Dock="Right"

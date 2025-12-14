@@ -14,8 +14,8 @@
            StaysOpen="True"
            AllowsTransparency="True"
            IsOpen="{Binding IsOpen, Mode=TwoWay}">
-        <Border x:Name="ScratchPadBorder" Background="#1E1E1E"
-                BorderBrush="#569CD6"
+        <Border x:Name="ScratchPadBorder" Background="{StaticResource BackgroundDarkestBrush}"
+                BorderBrush="{StaticResource SyntaxBlueBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 MinWidth="400"
@@ -33,7 +33,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header (draggable) -->
-                <Border x:Name="ScratchPadHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                <Border x:Name="ScratchPadHeader" Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0"
                         MouseLeftButtonDown="ScratchPadHeader_MouseLeftButtonDown"
                         MouseMove="ScratchPadHeader_MouseMove"
                         MouseLeftButtonUp="ScratchPadHeader_MouseLeftButtonUp"
@@ -48,7 +48,7 @@
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,8,0">
                             <!-- Project Scope Radio -->
                             <RadioButton Content="Project"
-                                         Foreground="#CCCCCC"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
                                          GroupName="ScratchPadScope"
                                          IsChecked="{Binding IsGlobalScope, Converter={StaticResource InverseBoolConverter}, Mode=OneWay}"
                                          IsEnabled="{Binding IsProjectScopeEnabled}"
@@ -63,14 +63,14 @@
                             
                             <!-- Global Scope Radio -->
                             <RadioButton Content="Global"
-                                         Foreground="#CCCCCC"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
                                          GroupName="ScratchPadScope"
                                          IsChecked="{Binding IsGlobalScope, Mode=TwoWay}"
                                          Style="{StaticResource ScopeRadioButton}"/>
                         </StackPanel>
 
                         <TextBlock Text="{Binding WindowTitle}"
-                                   Foreground="#FFFFFF"
+                                   Foreground="{StaticResource TextBrightBrush}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center"/>
                     </DockPanel>
@@ -81,7 +81,7 @@
                          x:Name="ScratchPadTextBox"
                          Text="{Binding ContentText, UpdateSourceTrigger=PropertyChanged}"
                          Background="Transparent"
-                         Foreground="#D4D4D4"
+                         Foreground="{StaticResource TextLightBrush}"
                          BorderThickness="0"
                          Padding="12"
                          FontFamily="Consolas, Cascadia Code, Courier New"
@@ -92,10 +92,10 @@
                          VerticalScrollBarVisibility="Auto"/>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <Grid>
                         <TextBlock Text="{Binding InfoText}"
-                                   Foreground="#888888"
+                                   Foreground="{StaticResource ResizeGripBrush}"
                                    FontSize="11"
                                    VerticalAlignment="Center"/>
                         <Thumb HorizontalAlignment="Right"

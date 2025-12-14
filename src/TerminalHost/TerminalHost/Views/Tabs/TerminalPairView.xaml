@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <!-- Terminal Switcher Bar -->
-        <Border Grid.Row="0" Background="#252525" Padding="8,4">
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
             <DockPanel>
                 <!-- Terminal Type Buttons -->
                 <StackPanel Orientation="Horizontal">
@@ -26,8 +26,8 @@
                             <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}">
-                                        <Setter Property="Background" Value="#0078D4"/>
-                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -39,23 +39,23 @@
                             <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}">
-                                        <Setter Property="Background" Value="#0078D4"/>
-                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
 
-                    <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.WorkingDirectory}"/>
 
                     <!-- Git Status Display -->
-                    <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <TextBlock Foreground="{StaticResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding GitStatusDisplay}"/>
 
                     <!-- Quick Commands Separator -->
-                    <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
 
                     <!-- Built-in Quick Commands -->
                     <Button x:Name="DetectedLinksButton"
@@ -69,7 +69,7 @@
                             <TextBlock Text="🔗" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedLinks.Count}"
                                        FontSize="10"
-                                       Foreground="#4EC9B0"
+                                       Foreground="{StaticResource SyntaxCyanBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -99,7 +99,7 @@
                             Margin="0,0,4,0"/>
 
                     <!-- Run Controls Separator -->
-                    <Border Width="1" Background="#444444" Margin="4,2,8,2"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2,8,2"/>
 
                     <!-- Run State Indicator (colored dot) -->
                     <Ellipse Width="8" Height="8"
@@ -125,7 +125,7 @@
                               Margin="0,0,4,0">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Name}" Foreground="#CCCCCC"/>
+                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"/>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
@@ -141,7 +141,7 @@
                             <TextBlock Text="🌐" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedRunUrl}"
                                        FontSize="10"
-                                       Foreground="#4EC9B0"
+                                       Foreground="{StaticResource SyntaxCyanBrush}"
                                        MaxWidth="150"
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center"/>
@@ -156,9 +156,9 @@
                                   Margin="0,0,8,0">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="#2D2D2D"/>
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                                 <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
@@ -175,11 +175,11 @@
                                 </Setter>
                                 <Style.Triggers>
                                     <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="#0078D4"/>
-                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#3E3E3E"/>
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -187,7 +187,7 @@
                     </ToggleButton>
 
                     <!-- Separator between built-in and user commands -->
-                    <Border Width="1" Background="#444444" Margin="0,2,8,2"
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,2,8,2"
                             Visibility="{Binding DataContext.QuickCommands.Count, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource CountToVisibilityConverter}}"/>
 
                     <!-- User Quick Commands -->
@@ -213,7 +213,7 @@
         </Border>
 
         <!-- Terminal Content Area - Grid with dynamic column widths (3 columns when run terminal visible) -->
-        <Grid Grid.Row="1" Background="#1E1E1E">
+        <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid.ColumnDefinitions>
                 <!-- Custom terminal column -->
                 <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
@@ -233,8 +233,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Background="#333333" Padding="4,2">
-                    <TextBlock Foreground="#AAAAAA" FontSize="10">
+                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
                         <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
                         <Run Text=" Claude Code"/>
                     </TextBlock>
@@ -244,7 +244,7 @@
             </Grid>
 
             <!-- Splitter (Column 1) -->
-            <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+            <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
                           DragCompleted="GridSplitter_DragCompleted"/>
 
             <!-- Shell Terminal (Column 2) -->
@@ -253,8 +253,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Background="#333333" Padding="4,2">
-                    <TextBlock Foreground="#AAAAAA" FontSize="10">
+                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
                         <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
                         <Run Text=" Shell"/>
                     </TextBlock>
@@ -264,7 +264,7 @@
             </Grid>
 
             <!-- Run Splitter (Column 3) - only visible when run terminal is visible -->
-            <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="3" Width="4" Background="#333333" HorizontalAlignment="Stretch"
+            <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="3" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
                           Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}"
                           DragCompleted="RunSplitter_DragCompleted"/>
 
@@ -274,17 +274,17 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Background="#333333" Padding="4,2">
+                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="×"
                                 Style="{StaticResource TabCloseButton}"
                                 Command="{Binding ToggleRunTerminalCommand}"
                                 AutomationProperties.Name="Hide Run Terminal"
                                 ToolTip="Hide Run Terminal"/>
-                        <TextBlock Foreground="#AAAAAA" FontSize="10" VerticalAlignment="Center">
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center">
                             <Run Text="▶ Run"/>
-                            <Run Text=" - " Foreground="#666666"/>
-                            <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="#4EC9B0"/>
+                            <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
+                            <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{StaticResource SyntaxCyanBrush}"/>
                         </TextBlock>
                     </DockPanel>
                 </Border>

@@ -14,25 +14,25 @@
         </Grid.RowDefinitions>
 
         <!-- Status Bar -->
-        <Border Grid.Row="0" Background="#252525" Padding="8,4">
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
             <DockPanel>
                 <!-- Profile Info -->
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="#CCCCCC" VerticalAlignment="Center">
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">
                         <Run Text="{Binding TabIcon, Mode=OneWay}" FontSize="14"/>
                         <Run Text=" "/>
                         <Run Text="{Binding Profile.Name, Mode=OneWay}" FontWeight="SemiBold"/>
                     </TextBlock>
 
-                    <TextBlock Foreground="#666666" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding WorkingDirectory}"/>
 
-                    <TextBlock Foreground="#4EC9B0" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <TextBlock Foreground="{StaticResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Profile.Command}"
                                ToolTip="Command"/>
 
                     <!-- Separator -->
-                    <Border Width="1" Background="#444444" Margin="16,2,8,2"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
 
                     <!-- Quick Actions -->
                     <Button Content="📁"
@@ -52,15 +52,15 @@
         </Border>
 
         <!-- Terminal Content Area -->
-        <Grid Grid.Row="1" Background="#1E1E1E">
+        <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- Terminal Header -->
-            <Border Background="#333333" Padding="4,2">
-                <TextBlock Foreground="#AAAAAA" FontSize="10">
+            <Border Background="{StaticResource BackgroundLightBrush}" Padding="4,2">
+                <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
                     <Run Text="{Binding TabIcon, Mode=OneWay}"/>
                     <Run Text=" "/>
                     <Run Text="{Binding Profile.Name, Mode=OneWay}"/>

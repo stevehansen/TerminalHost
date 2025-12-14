@@ -14,8 +14,8 @@
            IsOpen="{Binding IsOpen, Mode=TwoWay}"
            HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
            VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}">
-        <Border x:Name="FilePreviewBorder" Background="#1E1E1E"
-                BorderBrush="#0078D4"
+        <Border x:Name="FilePreviewBorder" Background="{StaticResource BackgroundDarkestBrush}"
+                BorderBrush="{StaticResource AccentPrimaryBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 MinWidth="500"
@@ -33,7 +33,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header (draggable) -->
-                <Border x:Name="FilePreviewHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                <Border x:Name="FilePreviewHeader" Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0"
                         MouseLeftButtonDown="FilePreviewHeader_MouseLeftButtonDown"
                         MouseMove="FilePreviewHeader_MouseMove"
                         MouseLeftButtonUp="FilePreviewHeader_MouseLeftButtonUp"
@@ -53,13 +53,13 @@
                                 Margin="0,0,8,0"/>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="👁"
-                                       Foreground="#0078D4"
+                                       Foreground="{StaticResource AccentPrimaryBrush}"
                                        FontSize="14"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0"/>
                             <TextBlock x:Name="FilePreviewTitle"
                                        Text="{Binding Title}"
-                                       Foreground="#CCCCCC"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="13"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
@@ -73,21 +73,21 @@
                                           Document="{Binding Content}"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Auto"
-                                          Background="#1E1E1E"
+                                          Background="{StaticResource BackgroundDarkestBrush}"
                                           BorderThickness="0" />
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
-                                   Foreground="#808080"
+                                   Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="11"
                                    VerticalAlignment="Center"
                                    Margin="0,0,20,0"
                                    Text="Press Escape to close"/>
                         <TextBlock x:Name="FilePreviewInfo"
                                    Text="{Binding Info}"
-                                   Foreground="#808080"
+                                   Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="11"
                                    VerticalAlignment="Center"/>
                     </DockPanel>
@@ -104,7 +104,7 @@
                         <ControlTemplate>
                             <Grid Background="Transparent">
                                 <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
-                                      Stroke="#888888" StrokeThickness="1.5"/>
+                                      Stroke="{StaticResource ResizeGripBrush}" StrokeThickness="1.5"/>
                             </Grid>
                         </ControlTemplate>
                     </Thumb.Template>

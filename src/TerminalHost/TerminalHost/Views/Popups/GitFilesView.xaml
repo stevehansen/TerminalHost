@@ -15,8 +15,8 @@
            IsOpen="{Binding IsOpen, Mode=TwoWay}"
            HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
            VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}">
-        <Border x:Name="GitFilesBorder" Background="#1E1E1E"
-                    BorderBrush="#4EC9B0"
+        <Border x:Name="GitFilesBorder" Background="{StaticResource BackgroundDarkestBrush}"
+                    BorderBrush="{StaticResource SyntaxCyanBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     MinWidth="500"
@@ -34,7 +34,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header (draggable) -->
-                <Border x:Name="GitFilesHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                <Border x:Name="GitFilesHeader" Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0"
                             MouseLeftButtonDown="GitFilesHeader_MouseLeftButtonDown"
                             MouseMove="GitFilesHeader_MouseMove"
                             MouseLeftButtonUp="GitFilesHeader_MouseLeftButtonUp"
@@ -54,13 +54,13 @@
                                     Margin="0,0,8,0"/>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="📋"
-                                           Foreground="#4EC9B0"
+                                           Foreground="{StaticResource SyntaxCyanBrush}"
                                            FontSize="14"
                                            VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>
                             <TextBlock x:Name="GitFilesTitle"
                                            Text="{Binding Title}"
-                                           Foreground="#CCCCCC"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="13"
                                            VerticalAlignment="Center"/>
                         </StackPanel>
@@ -76,7 +76,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- File List -->
-                    <Border Grid.Column="0" Background="#252525">
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -84,10 +84,10 @@
                             </Grid.RowDefinitions>
 
                             <!-- File list header -->
-                            <Border Grid.Row="0" Background="#2D2D2D" Padding="8,6">
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                 <TextBlock x:Name="GitFilesCount"
                                                Text="{Binding GitFiles.Count, StringFormat='{}{0} files changed'}"
-                                               Foreground="#808080"
+                                               Foreground="{StaticResource TextDimmedBrush}"
                                                FontSize="11"/>
                             </Border>
 
@@ -124,14 +124,14 @@
                                             <!-- File name -->
                                             <TextBlock Grid.Column="1" Grid.Row="0"
                                                            Text="{Binding FileName}"
-                                                           Foreground="#CCCCCC"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
                                                            FontSize="12"
                                                            TextTrimming="CharacterEllipsis"/>
 
                                             <!-- Directory path -->
                                             <TextBlock Grid.Column="1" Grid.Row="1"
                                                            Text="{Binding Directory}"
-                                                           Foreground="#666666"
+                                                           Foreground="{StaticResource TextMutedBrush}"
                                                            FontSize="10"
                                                            TextTrimming="CharacterEllipsis"
                                                            Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -156,7 +156,7 @@
                                                             <Setter TargetName="ItemBorder" Property="Background" Value="#333333"/>
                                                         </Trigger>
                                                         <Trigger Property="IsSelected" Value="True">
-                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -170,7 +170,7 @@
                             <TextBlock x:Name="GitFilesEmptyState"
                                            Grid.Row="1"
                                            Text="No changes"
-                                           Foreground="#666666"
+                                           Foreground="{StaticResource TextMutedBrush}"
                                            FontSize="13"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
@@ -179,10 +179,10 @@
                     </Border>
 
                     <!-- Splitter -->
-                    <GridSplitter Grid.Column="1" Width="4" Background="#333333" HorizontalAlignment="Stretch"/>
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
 
                     <!-- Diff/Preview Area -->
-                    <Border Grid.Column="2" Background="#1E1E1E">
+                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -190,7 +190,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Diff header with actions -->
-                            <Border Grid.Row="0" Background="#2D2D2D" Padding="8,6">
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                         <Button x:Name="GitFilePreviewButton"
@@ -213,7 +213,7 @@
                                     </StackPanel>
                                     <TextBlock x:Name="GitDiffTitle"
                                                    Text="{Binding SelectedGitFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
-                                                   Foreground="#808080"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
                                                    FontSize="11"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
@@ -225,23 +225,23 @@
                                                                                   Document="{Binding DiffDocument}"
                                                                                   VerticalScrollBarVisibility="Auto"
                                                                                   HorizontalScrollBarVisibility="Auto"
-                                                                                  Background="#1E1E1E"
+                                                                                  Background="{StaticResource BackgroundDarkestBrush}"
                                                                                   BorderThickness="0" />                        </Grid>
                     </Border>
                 </Grid>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
-                                       Foreground="#808080"
+                                       Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        VerticalAlignment="Center"
                                        Margin="0,0,20,0"
                                        Text="Press Escape to close"/>
                         <TextBlock x:Name="GitFilesInfo"
                                        Text="{Binding Info}"
-                                       Foreground="#808080"
+                                       Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        VerticalAlignment="Center"/>
                     </DockPanel>
@@ -258,7 +258,7 @@
                         <ControlTemplate>
                             <Grid Background="Transparent">
                                 <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
-                                      Stroke="#888888" StrokeThickness="1.5"/>
+                                      Stroke="{StaticResource ResizeGripBrush}" StrokeThickness="1.5"/>
                             </Grid>
                         </ControlTemplate>
                     </Thumb.Template>

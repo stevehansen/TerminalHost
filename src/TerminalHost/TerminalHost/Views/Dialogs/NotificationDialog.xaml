@@ -9,8 +9,8 @@
         SizeToContent="WidthAndHeight"
         MinWidth="350"
         MaxWidth="500">
-    <Border Background="#252525"
-            BorderBrush="#0078D4"
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"
             CornerRadius="6">
         <Border.Effect>
@@ -24,10 +24,10 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Grid.Row="0" Background="#2D2D2D" Padding="16,12" CornerRadius="6,6,0,0"
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <TextBlock x:Name="TitleText"
-                           Foreground="#FFFFFF"
+                           Foreground="{StaticResource TextBrightBrush}"
                            FontSize="14"
                            FontWeight="SemiBold"
                            FontFamily="Segoe UI"/>
@@ -50,7 +50,7 @@
                 <!-- Message -->
                 <TextBlock x:Name="MessageText"
                            Grid.Column="1"
-                           Foreground="#CCCCCC"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            FontSize="13"
                            FontFamily="Segoe UI"
                            TextWrapping="Wrap"
@@ -59,7 +59,7 @@
             </Grid>
 
             <!-- Footer with Buttons -->
-            <Border Grid.Row="2" Background="#2D2D2D" Padding="16,12" CornerRadius="0,0,6,6">
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="0,0,6,6">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- Yes Button -->
                     <Button x:Name="YesButton"
@@ -69,8 +69,8 @@
                             Margin="0,0,8,0"
                             Padding="16,6"
                             MinWidth="80"
-                            Background="#0078D4"
-                            Foreground="#FFFFFF"
+                            Background="{StaticResource AccentPrimaryBrush}"
+                            Foreground="{StaticResource TextBrightBrush}"
                             BorderThickness="0"
                             Cursor="Hand">
                         <Button.Style>
@@ -86,10 +86,10 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#1084D8"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#006CBD"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -107,8 +107,8 @@
                             Margin="0,0,8,0"
                             Padding="16,6"
                             MinWidth="80"
-                            Background="#3C3C3C"
-                            Foreground="#CCCCCC"
+                            Background="{StaticResource BackgroundLightBrush}"
+                            Foreground="{StaticResource TextPrimaryBrush}"
                             BorderThickness="0"
                             Cursor="Hand">
                         <Button.Style>
@@ -124,10 +124,10 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#5A5A5A"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -145,8 +145,8 @@
                             Margin="0,0,8,0"
                             Padding="16,6"
                             MinWidth="80"
-                            Background="#0078D4"
-                            Foreground="#FFFFFF"
+                            Background="{StaticResource AccentPrimaryBrush}"
+                            Foreground="{StaticResource TextBrightBrush}"
                             BorderThickness="0"
                             Cursor="Hand">
                         <Button.Style>
@@ -162,10 +162,10 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#1084D8"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#006CBD"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -182,8 +182,8 @@
                             Visibility="Collapsed"
                             Padding="16,6"
                             MinWidth="80"
-                            Background="#3C3C3C"
-                            Foreground="#CCCCCC"
+                            Background="{StaticResource BackgroundLightBrush}"
+                            Foreground="{StaticResource TextPrimaryBrush}"
                             BorderThickness="0"
                             Cursor="Hand">
                         <Button.Style>
@@ -199,10 +199,10 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#4E4E4E"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#5A5A5A"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>

@@ -8,8 +8,8 @@
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
              d:DesignHeight="500" d:DesignWidth="400">
-    <Border Background="#2D2D2D"
-            BorderBrush="#0078D4"
+    <Border Background="{StaticResource BackgroundMediumBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"
             CornerRadius="6"
             Padding="8"
@@ -25,9 +25,9 @@
             <!-- Search Box -->
             <TextBox x:Name="SwitcherSearchBox"
                      Grid.Row="0"
-                     Background="#1E1E1E"
-                     Foreground="#CCCCCC"
-                     BorderBrush="#444444"
+                     Background="{StaticResource BackgroundDarkestBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource BorderSubtleBrush}"
                      BorderThickness="1"
                      Padding="8,6"
                      Margin="0,0,0,8"
@@ -64,12 +64,12 @@
 
                             <TextBlock Grid.Column="1" Grid.Row="0"
                                        Text="{Binding Title}"
-                                       Foreground="#FFFFFF"
+                                       Foreground="{StaticResource TextBrightBrush}"
                                        FontSize="13"/>
 
                             <TextBlock Grid.Column="1" Grid.Row="1"
                                        Text="{Binding WorkingDirectory}"
-                                       Foreground="#808080"
+                                       Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        TextTrimming="CharacterEllipsis"/>
                         </Grid>
@@ -91,10 +91,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

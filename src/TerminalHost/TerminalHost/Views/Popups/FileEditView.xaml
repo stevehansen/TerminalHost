@@ -14,8 +14,8 @@
            IsOpen="{Binding IsOpen, Mode=TwoWay}"
            HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
            VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}">
-        <Border x:Name="FileEditBorder" Background="#1E1E1E"
-                BorderBrush="#0078D4"
+        <Border x:Name="FileEditBorder" Background="{StaticResource BackgroundDarkestBrush}"
+                BorderBrush="{StaticResource AccentPrimaryBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 MinWidth="500"
@@ -33,7 +33,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header (draggable) -->
-                <Border x:Name="FileEditHeader" Grid.Row="0" Background="#2D2D2D" Padding="12,8" CornerRadius="6,6,0,0"
+                <Border x:Name="FileEditHeader" Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0"
                         MouseLeftButtonDown="FileEditHeader_MouseLeftButtonDown"
                         MouseMove="FileEditHeader_MouseMove"
                         MouseLeftButtonUp="FileEditHeader_MouseLeftButtonUp"
@@ -61,18 +61,18 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="📝"
-                                       Foreground="#0078D4"
+                                       Foreground="{StaticResource AccentPrimaryBrush}"
                                        FontSize="14"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0"/>
                             <TextBlock x:Name="FileEditTitle"
                                        Text="{Binding Title}"
-                                       Foreground="#CCCCCC"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="13"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="FileEditModifiedIndicator"
                                        Text="*"
-                                       Foreground="#E0E0E0"
+                                       Foreground="{StaticResource TextLightBrush}"
                                        FontSize="13"
                                        VerticalAlignment="Center"
                                        Margin="4,0,0,0"
@@ -93,13 +93,13 @@
                                   Grid.Column="0"
                                   VerticalScrollBarVisibility="Hidden"
                                   HorizontalScrollBarVisibility="Disabled"
-                                  Background="#252525"
+                                  Background="{StaticResource BackgroundDarkBrush}"
                                   Padding="4,4,8,4">
                         <TextBlock x:Name="FileEditLineNumbers"
                                    Text="{Binding LineNumbers}"
                                    FontFamily="Cascadia Code NF, Consolas, Courier New"
                                    FontSize="13"
-                                   Foreground="#606060"
+                                   Foreground="{StaticResource TextMutedBrush}"
                                    TextAlignment="Right"/>
                     </ScrollViewer>
 
@@ -107,9 +107,9 @@
                     <TextBox x:Name="FileEditTextBox"
                              Grid.Column="1"
                              Text="{Binding Content, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             Background="#1E1E1E"
-                             Foreground="#D4D4D4"
-                             CaretBrush="#D4D4D4"
+                             Background="{StaticResource BackgroundDarkestBrush}"
+                             Foreground="{StaticResource TextLightBrush}"
+                             CaretBrush="{StaticResource TextLightBrush}"
                              BorderThickness="0"
                              FontFamily="Cascadia Code NF, Consolas, Courier New"
                              FontSize="13"
@@ -125,10 +125,10 @@
                 </Grid>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="#2D2D2D" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
-                                   Foreground="#808080"
+                                   Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="11"
                                    VerticalAlignment="Center"
                                    Margin="0,0,20,0"
@@ -136,12 +136,12 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="FileEditInfo"
                                        Text="{Binding Info}"
-                                       Foreground="#808080"
+                                       Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="FileEditCursorInfo"
                                        Text="{Binding CursorInfo}"
-                                       Foreground="#808080"
+                                       Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="11"
                                        VerticalAlignment="Center"
                                        Margin="16,0,0,0"/>
@@ -160,7 +160,7 @@
                         <ControlTemplate>
                             <Grid Background="Transparent">
                                 <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
-                                      Stroke="#888888" StrokeThickness="1.5"/>
+                                      Stroke="{StaticResource ResizeGripBrush}" StrokeThickness="1.5"/>
                             </Grid>
                         </ControlTemplate>
                     </Thumb.Template>

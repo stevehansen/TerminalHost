@@ -8,8 +8,8 @@
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
              d:DesignHeight="450" d:DesignWidth="500">
-    <Border Background="#252525"
-            BorderBrush="#0078D4"
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"
             CornerRadius="6"
             Padding="0"
@@ -25,7 +25,7 @@
             </Grid.RowDefinitions>
 
             <!-- Search Box -->
-            <Border Grid.Row="0" Background="#1E1E1E" Padding="12,10" CornerRadius="6,6,0,0">
+            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,10" CornerRadius="6,6,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -33,7 +33,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0"
                                Text=">"
-                               Foreground="#0078D4"
+                               Foreground="{StaticResource AccentPrimaryBrush}"
                                FontSize="16"
                                FontWeight="Bold"
                                VerticalAlignment="Center"
@@ -41,8 +41,8 @@
                     <TextBox x:Name="PaletteSearchBox"
                              Grid.Column="1"
                              Background="Transparent"
-                             Foreground="#CCCCCC"
-                             CaretBrush="#CCCCCC"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
                              BorderThickness="0"
                              FontSize="14"
                              VerticalAlignment="Center"
@@ -56,7 +56,7 @@
                      Grid.Row="1"
                      ItemsSource="{Binding FilteredPaletteCommands}"
                      SelectedItem="{Binding SelectedPaletteCommand, Mode=TwoWay}"
-                     Background="#252525"
+                     Background="{StaticResource BackgroundDarkBrush}"
                      BorderThickness="0"
                      MaxHeight="380"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -70,23 +70,23 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <TextBlock Text="{Binding DisplayName}"
-                                           Foreground="#CCCCCC"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="13"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding Description}"
-                                           Foreground="#808080"
+                                           Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="12"
                                            VerticalAlignment="Center"
                                            Margin="12,0,0,0"
                                            Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             </StackPanel>
                             <Border Grid.Column="1"
-                                    Background="#3C3C3C"
+                                    Background="{StaticResource BackgroundLightBrush}"
                                     CornerRadius="3"
                                     Padding="6,2"
                                     Visibility="{Binding Shortcut, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <TextBlock Text="{Binding DisplayShortcut}"
-                                           Foreground="#808080"
+                                           Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="11"
                                            FontFamily="Cascadia Code NF, Consolas"/>
                             </Border>
@@ -108,10 +108,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#3E3E3E"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

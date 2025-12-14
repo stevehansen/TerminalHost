@@ -6,13 +6,13 @@
              xmlns:local="clr-namespace:TerminalHost"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="800"
-             Background="#1E1E1E">
+             Background="{StaticResource BackgroundDarkestBrush}">
     <UserControl.Resources>
         <!-- Button Style -->
         <Style x:Key="ProfileButton" TargetType="Button">
-            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
@@ -30,39 +30,39 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#4E4E4E"/>
-                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                    <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#2D2D2D"/>
-                    <Setter Property="Foreground" Value="#666666"/>
+                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ProfileButton}">
-            <Setter Property="Background" Value="#5A2D2D"/>
+            <Setter Property="Background" Value="{StaticResource DangerBackgroundBrush}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#8B3A3A"/>
+                    <Setter Property="Background" Value="{StaticResource DangerHoverBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ProfileButton}">
-            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1177BB"/>
+                    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- TextBox Style -->
         <Style x:Key="FormTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#3C3C3C"/>
-            <Setter Property="Foreground" Value="#CCCCCC"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="FontSize" Value="13"/>
@@ -71,7 +71,7 @@
 
         <!-- CheckBox Style -->
         <Style x:Key="FormCheckBox" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             <Setter Property="FontSize" Value="13"/>
         </Style>
 
@@ -86,21 +86,21 @@
         </Grid.ColumnDefinitions>
 
         <!-- Left Panel: Profile List -->
-        <Grid Grid.Column="0" Background="#252525">
+        <Grid Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- List Header -->
-            <Border Grid.Row="0" Background="#2D2D2D" Padding="12,8">
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8">
                 <DockPanel>
                     <Button Content="+ Add"
                             DockPanel.Dock="Right"
                             Command="{Binding AddNewCommand}"
                             Style="{StaticResource ProfileButton}"/>
                     <TextBlock Text="Custom Profiles"
-                               Foreground="#CCCCCC"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="14"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
@@ -119,10 +119,10 @@
                         <Border Padding="12,8" Margin="4,2">
                             <StackPanel>
                                 <TextBlock Text="{Binding DisplayName}"
-                                           Foreground="#CCCCCC"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="13"/>
                                 <TextBlock Text="{Binding DisplayInfo}"
-                                           Foreground="#808080"
+                                           Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="11"
                                            Margin="0,2,0,0"/>
                             </StackPanel>
@@ -142,17 +142,17 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#0E639C"/>
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#3C3C3C"/>
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
                                         </Trigger>
                                         <MultiTrigger>
                                             <MultiTrigger.Conditions>
                                                 <Condition Property="IsSelected" Value="True"/>
                                                 <Condition Property="IsMouseOver" Value="True"/>
                                             </MultiTrigger.Conditions>
-                                            <Setter TargetName="Border" Property="Background" Value="#1177BB"/>
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
                                         </MultiTrigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -165,7 +165,7 @@
             <!-- Empty State -->
             <TextBlock Grid.Row="1"
                        Text="No custom profiles yet.&#x0a;Click + Add to create one."
-                       Foreground="#666666"
+                       Foreground="{StaticResource TextMutedBrush}"
                        FontSize="13"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
@@ -180,13 +180,13 @@
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="24">
                     <TextBlock Text="{Binding SelectedProfile, TargetNullValue='New Profile', StringFormat='Edit: {0}'}"
-                               Foreground="#CCCCCC"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="18"
                                FontWeight="SemiBold"
                                Margin="0,0,0,24"/>
 
                     <!-- Name -->
-                    <TextBlock Text="Name" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBlock Text="Name" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,4"/>
                     <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FormTextBox}"
                              Margin="0,0,0,16"/>
@@ -221,7 +221,7 @@
 
                     <!-- Error Message -->
                     <TextBlock Text="{Binding ErrorMessage}"
-                               Foreground="#F48771"
+                               Foreground="{StaticResource StatusErrorBrush}"
                                FontSize="12"
                                Margin="0,0,0,16"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -252,28 +252,28 @@
                 <StackPanel Margin="24"
                             Visibility="{Binding SelectedProfile, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="{Binding SelectedProfile.DisplayName}"
-                               Foreground="#CCCCCC"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="24"
                                FontWeight="SemiBold"
                                Margin="0,0,0,16"/>
 
-                    <TextBlock Text="Command" Foreground="#808080" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBlock Text="Command" Foreground="{StaticResource TextDimmedBrush}" FontSize="12" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding SelectedProfile.Command}"
-                               Foreground="#CCCCCC"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="14"
                                FontFamily="Cascadia Code NF, Consolas"
                                Margin="0,0,0,16"/>
 
-                    <TextBlock Text="Shortcut" Foreground="#808080" FontSize="12" Margin="0,0,0,4"
+                    <TextBlock Text="Shortcut" Foreground="{StaticResource TextDimmedBrush}" FontSize="12" Margin="0,0,0,4"
                                Visibility="{Binding SelectedProfile.Shortcut, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <TextBlock Text="{Binding SelectedProfile.Shortcut}"
-                               Foreground="#CCCCCC"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="14"
                                Margin="0,0,0,16"
                                Visibility="{Binding SelectedProfile.Shortcut, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <TextBlock Text="Auto-start enabled"
-                               Foreground="#4EC9B0"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
                                FontSize="12"
                                Margin="0,0,0,24"
                                Visibility="{Binding SelectedProfile.AutoStart, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -299,7 +299,7 @@
 
                 <!-- No Selection -->
                 <TextBlock Text="Select a profile to view details&#x0a;or click + Add to create a new one."
-                           Foreground="#666666"
+                           Foreground="{StaticResource TextMutedBrush}"
                            FontSize="14"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
