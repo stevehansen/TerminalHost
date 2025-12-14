@@ -7,7 +7,6 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Resources/TabHeaderTemplates.xaml"/>
                 <ResourceDictionary Source="Resources/TabContentTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
