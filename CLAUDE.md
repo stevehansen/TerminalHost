@@ -67,26 +67,22 @@ If a project tab for the specified directory already exists, it will be focused 
 
 ## Project Structure
 
+The codebase follows a modular architecture with reusable components extracted into dedicated views and view models.
+
 ```
 TerminalHost/
 ├── TerminalHost.sln
 └── src/TerminalHost/TerminalHost/
     ├── App.xaml(.cs)                 # Application entry, single instance handling, shared styles
-    ├── MainWindow.xaml               # Main window with tab bar and terminal content
-    ├── MainWindow.xaml.cs            # Core window logic, constructor, keyboard shortcuts
-    ├── MainWindow.Tabs.cs            # Tab drag-drop, overflow, switcher (partial class)
-    ├── MainWindow.FilePreview.cs     # File preview popup logic (partial class)
-    ├── MainWindow.FileEdit.cs        # File edit popup logic (partial class)
-    ├── MainWindow.CommandPalette.cs  # Command palette logic (partial class)
-    ├── MainWindow.ScratchPad.cs      # Scratch pad popup logic (partial class)
-    ├── MainWindow.GitFiles.cs        # Git files popup logic (partial class)
-    ├── MainWindow.GitBranch.cs       # Git branch popup logic (partial class)
-    ├── MainWindow.DetectedLinks.cs   # Detected links popup logic (partial class)
+    ├── MainWindow.xaml               # Main window layout (tab strip + content + popup hosts)
+    ├── MainWindow.xaml.cs            # Core window logic, keyboard shortcuts, popup coordination
     ├── Converters.cs                 # XAML value converters
+    ├── Resources/
+    │   └── TabContentTemplates.xaml  # DataTemplates for tab content (terminal, settings, etc.)
     ├── Domain/
     │   ├── Profile.cs          # Configuration template for terminal sessions
     │   ├── TerminalSession.cs  # Running terminal instance
-    │   ├── TerminalPair.cs     # Paired custom + shell + run terminals for a directory
+    │   ├── TerminalPair.cs     # Paired custom + shell + run terminals
     │   ├── SessionState.cs     # Running/Exited enum
     │   ├── AppConfiguration.cs # Root config with settings
     │   ├── GitStatus.cs        # Git repository status model
@@ -114,17 +110,37 @@ TerminalHost/
     │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
-    │   ├── MainViewModel.cs              # Main window logic
+    │   ├── MainViewModel.cs              # Main window logic, popup state
     │   ├── TerminalPairTabViewModel.cs   # Tab with paired terminals
     │   ├── SettingsTabViewModel.cs       # Settings editor tab
-    │   └── ProfilesTabViewModel.cs       # Profile management tab
+    │   ├── ProfilesTabViewModel.cs       # Profile management tab
+    │   ├── StatisticsTabViewModel.cs     # Usage statistics tab
+    │   ├── SetupViewModel.cs             # Setup/dependency checker
+    │   ├── ScratchPadViewModel.cs        # Scratch pad notes
+    │   ├── GitBranchViewModel.cs         # Git branch operations
+    │   ├── GitFilesViewModel.cs          # Git changed files + diff
+    │   ├── DetectedLinksViewModel.cs     # Terminal link detection
+    │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
+    │   └── FileEditViewModel.cs          # File editor
     └── Views/
+        ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
         ├── ProfilesView.xaml(.cs)        # Profile management UI
-        ├── TabDropdownPopup.xaml(.cs)    # Tab dropdown popup (UserControl)
-        ├── TabSwitcherPopup.xaml(.cs)    # Tab switcher popup (UserControl)
-        ├── DetectedLinksPopup.xaml(.cs)  # Detected links popup (UserControl)
-        └── CommandPalettePopup.xaml(.cs) # Command palette popup (UserControl)
+        ├── StatisticsView.xaml(.cs)      # Usage statistics UI
+        ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
+        ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── Tabs/
+        │   └── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
+        └── Popups/
+            ├── TabDropdownView.xaml(.cs)     # Tab overflow dropdown
+            ├── TabSwitcherView.xaml(.cs)     # Tab search/switcher (Ctrl+Shift+T)
+            ├── CommandPaletteView.xaml(.cs)  # Command palette (Ctrl+Shift+P)
+            ├── HelpView.xaml(.cs)            # Help/shortcuts popup (F1)
+            ├── GitBranchView.xaml(.cs)       # Git branch switcher (Ctrl+B)
+            ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
+            ├── DetectedLinksView.xaml(.cs)   # Detected links popup
+            ├── FilePreviewView.xaml(.cs)     # File preview popup (Ctrl+O)
+            └── FileEditView.xaml(.cs)        # File editor popup (Ctrl+Shift+E)
 ```
 
 ## Architecture

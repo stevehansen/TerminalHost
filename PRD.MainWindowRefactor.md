@@ -117,8 +117,8 @@
 1. **Milestone A (Shared resources)** – Tab templates + content templates extracted, `MainWindow.xaml` updated to consume them. (Done)
 2. **Milestone B (Tab strip control)** – New control in place, all tab interactions functional. (Done)
 3. **Milestone C (Terminal pair control)** – Terminal layout extracted, run terminal logic verified. (Done)
-4. **Milestone D (Popups modularized)** – Git/links popups hosted via dedicated views.
-5. **Milestone E (Regression pass)** – Checklist executed, bugs fixed, PR ready.
+4. **Milestone D (Popups modularized)** – Git/links popups hosted via dedicated views. (Done)
+5. **Milestone E (Regression pass)** – Checklist executed, bugs fixed, PR ready. (Done)
 
 ## Rollout Plan
 
