@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using TerminalHost.ViewModels; // For ITabViewModel
+using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;
 
@@ -17,6 +17,34 @@ public partial class TabStrip : UserControl
     public TabStrip()
     {
         InitializeComponent();
+        Loaded += TabStrip_Loaded;
+        DataContextChanged += TabStrip_DataContextChanged;
+    }
+
+    private void TabStrip_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Update overflow buttons visibility on initial load
+        UpdateOverflowButtonsVisibility();
+    }
+
+    private void TabStrip_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        // Subscribe to Tabs collection changes to update overflow buttons
+        if (e.OldValue is MainViewModel oldVm)
+        {
+            oldVm.Tabs.CollectionChanged -= Tabs_CollectionChanged;
+        }
+        if (e.NewValue is MainViewModel newVm)
+        {
+            newVm.Tabs.CollectionChanged += Tabs_CollectionChanged;
+        }
+    }
+
+    private void Tabs_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // Update overflow buttons when tabs are added/removed
+        Dispatcher.BeginInvoke(new Action(() => UpdateOverflowButtonsVisibility()),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     #region Tab Drag-Drop and Middle-Click
@@ -28,7 +56,6 @@ public partial class TabStrip : UserControl
         {
             if (sender is FrameworkElement element && element.DataContext is ITabViewModel tab)
             {
-                // This command is on MainViewModel, so we need to access it from Window.DataContext
                 if (Window.GetWindow(this)?.DataContext is MainViewModel mainViewModel)
                 {
                     mainViewModel.CloseTabCommand.Execute(tab);
@@ -57,14 +84,11 @@ public partial class TabStrip : UserControl
         var currentPosition = e.GetPosition(null);
         var diff = _dragStartPoint - currentPosition;
 
-        // Check if moved enough to start drag
         if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
             Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
         {
-            // Create drag data
             var dragData = new DataObject("TabViewModel", _draggedTab);
             DragDrop.DoDragDrop((DependencyObject)sender, dragData, DragDropEffects.Move);
-
             _draggedTab = null;
         }
     }
@@ -81,7 +105,6 @@ public partial class TabStrip : UserControl
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
 
-        // Visual feedback - highlight drop target
         if (sender is Border border)
         {
             border.BorderBrush = new System.Windows.Media.SolidColorBrush(
@@ -92,7 +115,6 @@ public partial class TabStrip : UserControl
 
     private void Tab_DragLeave(object sender, DragEventArgs e)
     {
-        // Remove visual feedback
         if (sender is Border border)
         {
             border.BorderBrush = null;
@@ -102,7 +124,6 @@ public partial class TabStrip : UserControl
 
     private void Tab_Drop(object sender, DragEventArgs e)
     {
-        // Remove visual feedback
         if (sender is Border border)
         {
             border.BorderBrush = null;
@@ -120,15 +141,13 @@ public partial class TabStrip : UserControl
             return;
         }
 
-        // Get target tab
         if (sender is FrameworkElement element && element.DataContext is ITabViewModel targetTab)
         {
             if (droppedTab == targetTab)
             {
-                return; // Dropped on itself
+                return;
             }
 
-            // Access MainViewModel to move tabs in ObservableCollection
             if (Window.GetWindow(this)?.DataContext is MainViewModel mainViewModel)
             {
                 var oldIndex = mainViewModel.Tabs.IndexOf(droppedTab);
@@ -150,10 +169,10 @@ public partial class TabStrip : UserControl
 
     private ScrollViewer? GetTabListScrollViewer()
     {
+        TabList.ApplyTemplate();
         if (TabList.Template?.FindName("ScrollViewer", TabList) is ScrollViewer sv)
             return sv;
 
-        // Try to find it manually
         for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(TabList); i++)
         {
             var child = System.Windows.Media.VisualTreeHelper.GetChild(TabList, i);
@@ -175,18 +194,20 @@ public partial class TabStrip : UserControl
         var scrollViewer = GetTabListScrollViewer();
         if (scrollViewer == null)
         {
-            // No scroll viewer found, show overflow buttons based on tab count
-            // This is a fallback, ideally a ScrollViewer is always found within a ListBox template
             var mainViewModel = Window.GetWindow(this)?.DataContext as MainViewModel;
-            var hasOverflow = mainViewModel?.Tabs.Count > 5; // Arbitrary threshold for rough visibility
-            ScrollLeftButton.Visibility = hasOverflow ? Visibility.Visible : Visibility.Collapsed;
-            ScrollRightButton.Visibility = hasOverflow ? Visibility.Visible : Visibility.Collapsed;
+            var hasOverflow = mainViewModel?.Tabs.Count > 5;
+            var visibility = hasOverflow ? Visibility.Visible : Visibility.Collapsed;
+            ScrollLeftButton.Visibility = visibility;
+            ScrollRightButton.Visibility = visibility;
+            TabDropdownButton.Visibility = visibility;
             return;
         }
 
         var hasHorizontalOverflow = scrollViewer.ExtentWidth > scrollViewer.ViewportWidth;
-        ScrollLeftButton.Visibility = hasHorizontalOverflow ? Visibility.Visible : Visibility.Collapsed;
-        ScrollRightButton.Visibility = hasHorizontalOverflow ? Visibility.Visible : Visibility.Collapsed;
+        var overflowVisibility = hasHorizontalOverflow ? Visibility.Visible : Visibility.Collapsed;
+        ScrollLeftButton.Visibility = overflowVisibility;
+        ScrollRightButton.Visibility = overflowVisibility;
+        TabDropdownButton.Visibility = overflowVisibility;
     }
 
     private void ScrollLeft_Click(object sender, RoutedEventArgs e)

@@ -30,19 +30,6 @@
         <!-- Tab Bar -->
         <views:TabStrip Grid.Row="0" DataContext="{Binding}" />
 
-            <!-- Tab Dropdown Button -->
-            <Button x:Name="TabDropdownButton"
-                    DockPanel.Dock="Right"
-                    Content="▼"
-                    AutomationProperties.Name="Show all tabs"
-                    Style="{StaticResource TerminalSwitchButton}"
-
-                    ToolTip="All tabs (Ctrl+Shift+T)"
-                    Visibility="Collapsed"
-                    Margin="0,0,4,0"/>
-
-            <!-- Scroll Right Button -->
-
         <!-- Tab Content Area -->
         <Grid Grid.Row="1">
             <!-- Show when there's a selected tab -->
@@ -80,8 +67,8 @@
 
         <!-- Tab Dropdown Popup -->
         <Popup x:Name="TabDropdownPopup"
-               PlacementTarget="{Binding ElementName=TabDropdownButton}"
-               Placement="Bottom"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                StaysOpen="False"
                AllowsTransparency="True"
                IsOpen="{Binding IsTabDropdownOpen, Mode=TwoWay}">

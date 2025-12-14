@@ -63,6 +63,7 @@ public partial class MainWindow : Window
         _detectedLinksViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
+        _filePreviewViewModel.OpenFileEditRequested += OnFileEditRequested;
 
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;

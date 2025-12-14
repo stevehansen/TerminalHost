@@ -7,7 +7,7 @@
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="800">
+             d:DesignHeight="600" d:DesignWidth="1024">
     
     <Grid>
         <Grid.RowDefinitions>

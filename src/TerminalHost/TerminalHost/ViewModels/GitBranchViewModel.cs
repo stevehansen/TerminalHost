@@ -58,12 +58,7 @@ public partial class GitBranchViewModel : ObservableObject
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
 
-        _mainViewModel.GitChangesRequested += async (_, _) => await OpenAsync(); // GitChangesRequested event is actually for GitFiles. GitBranchRequested?
-        // I need to confirm the event. It is `_viewModel.GitChangesRequested += (_, _) => ShowGitFiles();`
-        // And `_viewModel.GitBranchRequested += (_, _) => ShowGitBranch();` was NOT present in MainViewModel originally.
-        // It's called from `MainWindow.xaml.cs` in the `OnPreviewKeyDown` logic (`Ctrl+B`).
-        // So, MainViewModel needs a `GitBranchRequested` event, or `MainWindow` directly calls `Open()` on `GitBranchViewModel`.
-        // The latter is cleaner. `MainWindow` will call `GitBranchViewModel.Open()` directly.
+        // GitBranch is opened via MainWindow.xaml.cs directly (Ctrl+B shortcut)
     }
 
     [RelayCommand]

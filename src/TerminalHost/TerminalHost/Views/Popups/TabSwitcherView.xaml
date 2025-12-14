@@ -39,7 +39,7 @@
             <ListBox x:Name="SwitcherTabList"
                      Grid.Row="1"
                      ItemsSource="{Binding FilteredSwitcherTabs}"
-                     SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
+                     SelectedItem="{Binding SelectedTab, Mode=OneWay}"
                      Background="Transparent"
                      BorderThickness="0"
                      MaxHeight="400"

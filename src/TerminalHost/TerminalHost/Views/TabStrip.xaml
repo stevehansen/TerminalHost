@@ -23,7 +23,13 @@
                     Padding="8,4"
                     Margin="0,0,2,0"
                     MinWidth="120"
-                    AllowDrop="True">
+                    AllowDrop="True"
+                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                    PreviewMouseMove="Tab_PreviewMouseMove"
+                    MouseDown="Tab_MouseDown"
+                    DragOver="Tab_DragOver"
+                    DragLeave="Tab_DragLeave"
+                    Drop="Tab_Drop">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                             Content="×"
@@ -86,7 +92,13 @@
                     Padding="8,4"
                     Margin="0,0,2,0"
                     MinWidth="100"
-                    AllowDrop="True">
+                    AllowDrop="True"
+                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                    PreviewMouseMove="Tab_PreviewMouseMove"
+                    MouseDown="Tab_MouseDown"
+                    DragOver="Tab_DragOver"
+                    DragLeave="Tab_DragLeave"
+                    Drop="Tab_Drop">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                             Content="×"
@@ -113,7 +125,13 @@
                     Padding="8,4"
                     Margin="0,0,2,0"
                     MinWidth="100"
-                    AllowDrop="True">
+                    AllowDrop="True"
+                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                    PreviewMouseMove="Tab_PreviewMouseMove"
+                    MouseDown="Tab_MouseDown"
+                    DragOver="Tab_DragOver"
+                    DragLeave="Tab_DragLeave"
+                    Drop="Tab_Drop">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                             Content="×"
@@ -140,7 +158,13 @@
                     Padding="8,4"
                     Margin="0,0,2,0"
                     MinWidth="100"
-                    AllowDrop="True">
+                    AllowDrop="True"
+                    PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
+                    PreviewMouseMove="Tab_PreviewMouseMove"
+                    MouseDown="Tab_MouseDown"
+                    DragOver="Tab_DragOver"
+                    DragLeave="Tab_DragLeave"
+                    Drop="Tab_Drop">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                             Content="×"
@@ -218,15 +242,36 @@
                     Padding="6,4"
                     Margin="0,0,2,0"/>
 
+            <!-- Tab Dropdown Button (shows all tabs when there's overflow) -->
+            <Button x:Name="TabDropdownButton"
+                    DockPanel.Dock="Right"
+                    Content="▼"
+                    AutomationProperties.Name="Show all tabs"
+                    Style="{StaticResource TerminalSwitchButton}"
+                    Command="{Binding DataContext.OpenTabDropdownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    ToolTip="All tabs (Ctrl+Shift+T)"
+                    Visibility="Collapsed"
+                    Padding="6,4"
+                    Margin="0,0,2,0"/>
+
             <!-- Tab List -->
             <ListBox x:Name="TabList"
                      ItemsSource="{Binding Tabs}"
                      SelectedItem="{Binding SelectedTab}"
                      Background="Transparent"
                      BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Hidden"
-                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
                      SizeChanged="TabList_SizeChanged">
+                <ListBox.Template>
+                    <ControlTemplate TargetType="ListBox">
+                        <ScrollViewer x:Name="ScrollViewer"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      CanContentScroll="True">
+                            <ItemsPresenter/>
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ListBox.Template>
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal"/>

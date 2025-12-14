@@ -12,12 +12,27 @@ public partial class TabSwitcherView : UserControl
     {
         InitializeComponent();
         Loaded += TabSwitcherView_Loaded;
+        IsVisibleChanged += TabSwitcherView_IsVisibleChanged;
     }
 
     private void TabSwitcherView_Loaded(object sender, RoutedEventArgs e)
     {
-        // Set focus to the search box when the switcher becomes visible
-        SwitcherSearchBox.Focus();
+        FocusSearchBox();
+    }
+
+    private void TabSwitcherView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+            FocusSearchBox();
+    }
+
+    private void FocusSearchBox()
+    {
+        Dispatcher.BeginInvoke(new System.Action(() =>
+        {
+            SwitcherSearchBox.Focus();
+            Keyboard.Focus(SwitcherSearchBox);
+        }), System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void SwitcherSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)

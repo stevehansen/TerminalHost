@@ -209,6 +209,24 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    partial void OnIsTabDropdownOpenChanged(bool value)
+    {
+        if (value)
+        {
+            DropdownSearchText = "";
+            UpdateFilteredDropdownTabs();
+        }
+    }
+
+    partial void OnIsTabSwitcherOpenChanged(bool value)
+    {
+        if (value)
+        {
+            SwitcherSearchText = "";
+            UpdateFilteredSwitcherTabs();
+        }
+    }
+
     private void UpdateFilteredDropdownTabs()
     {
         _filteredDropdownTabs.Clear();
@@ -886,6 +904,18 @@ public partial class MainViewModel : ObservableObject
     private void OpenGitChanges()
     {
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenHelp()
+    {
+        IsHelpOpen = true;
+    }
+
+    [RelayCommand]
+    private void OpenTabDropdown()
+    {
+        IsTabDropdownOpen = true;
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenDetectedLinks))]

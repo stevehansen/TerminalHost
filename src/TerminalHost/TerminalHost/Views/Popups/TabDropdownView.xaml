@@ -31,7 +31,8 @@
                      BorderThickness="1"
                      Padding="6,4"
                      Margin="0,0,0,4"
-                     Text="{Binding DropdownSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                     Text="{Binding DropdownSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     PreviewKeyDown="DropdownSearchBox_PreviewKeyDown">
                 <TextBox.Style>
                     <Style TargetType="TextBox">
                         <Style.Triggers>
@@ -47,10 +48,11 @@
             <ListBox x:Name="DropdownTabList"
                      Grid.Row="1"
                      ItemsSource="{Binding FilteredDropdownTabs}"
-                     SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
+                     SelectedItem="{Binding SelectedTab, Mode=OneWay}"
                      Background="Transparent"
                      BorderThickness="0"
-                     MaxHeight="350">
+                     MaxHeight="350"
+                     MouseUp="DropdownTabList_MouseUp">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal" Margin="4,2">
