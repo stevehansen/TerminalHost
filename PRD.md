@@ -64,6 +64,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Setup Mode - A startup window to detect and guide installation of recommended dependencies.
 - [x] Modular UI Architecture - MainWindow refactored into reusable components (TabStrip, TerminalPairView, popup views) with dedicated ViewModels for improved maintainability
 - [x] Profile Launching - Launch custom profiles as standalone single-terminal tabs from Profiles UI, Command Palette, or keyboard shortcuts
+- [x] **Robust JSON File Persistence with Backup:** Implemented a generic service (`JsonFileService`) for `.json` files (e.g., `config.json`, `stats.json`) that automatically creates a `.bak` file before overwriting and attempts to recover from the backup if the primary file is corrupted.
+- [x] **Thread-Safe Configuration/Statistics Writes:** Ensured concurrent write access to `config.json` and `stats.json` is protected by `lock` primitives in `ConfigurationService` and `StatisticsService`, preventing data corruption from simultaneous save operations.
 
 ### Deferred Features
 
@@ -177,6 +179,7 @@ If a project tab for the specified directory already exists, it will be focused 
 ## Configuration
 
 Config file: `%APPDATA%\TerminalHost\config.json`
+(A backup file `config.json.bak` is automatically created and used for recovery in case of primary file corruption.)
 
 ```json
 {
@@ -263,7 +266,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 - **Framework**: WPF on .NET 8
 - **Terminal Control**: EasyWindowsTerminalControl (NuGet)
 - **MVVM**: CommunityToolkit.Mvvm
-- **Configuration**: JSON in `%APPDATA%\TerminalHost\`
+- **Configuration**: JSON in `%APPDATA%\TerminalHost\` (managed by `JsonFileService` for resilience and thread-safety)
 - **Single Instance**: Mutex + named pipe IPC
 
 ### Terminal Control Configuration
@@ -785,42 +788,44 @@ The codebase follows a modular architecture with reusable components extracted i
 TerminalHost/
 ├── TerminalHost.sln
 └── src/TerminalHost/TerminalHost/
-    ├── App.xaml(.cs)                 # Application entry, single instance handling, shared styles
-    ├── MainWindow.xaml               # Main window layout (tab strip + content + popup hosts)
-    ├── MainWindow.xaml.cs            # Core window logic, keyboard shortcuts, popup coordination
-    ├── Converters.cs                 # XAML value converters
-    ├── Resources/
-    │   └── TabContentTemplates.xaml  # DataTemplates for tab content (terminal, settings, etc.)
-    ├── Domain/
-    │   ├── Profile.cs          # Configuration template for terminal sessions
-    │   ├── TerminalSession.cs  # Running terminal instance
-    │   ├── TerminalPair.cs     # Paired custom + shell + run terminals
-    │   ├── SessionState.cs     # Running/Exited enum
-    │   ├── AppConfiguration.cs # Root config with settings
-    │   ├── GitStatus.cs        # Git repository status model
-    │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
-    │   ├── GitBranch.cs        # Git branch model for branch switcher
-    │   ├── QuickCommand.cs     # Quick command definition with shortcut
-    │   ├── LinkPattern.cs      # Custom link pattern definition
-    │   ├── PaletteCommand.cs   # Command palette item definition
-    │   ├── RunConfiguration.cs # Run configuration for project runner
-    │   ├── ProjectType.cs      # Project type detection model
-    │   └── RunState.cs         # Run terminal state enum
-    ├── Services/
-    │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
-    │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
-    │   ├── ProfileRegistry.cs        # Profile and settings management
-    │   ├── SessionManager.cs         # Session lifecycle tracking
-    │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
-    │   ├── SystemTrayService.cs      # System tray icon and menu
-    │   ├── TerminalControlFactory.cs # Creates configured terminal controls
-    │   ├── GitStatusService.cs       # Git command execution and parsing
-    │   ├── FilePreviewService.cs     # File preview loading with syntax highlighting
-    │   ├── FileEditService.cs        # File editing (load/save)
-    │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
-    │   ├── LinkDetectionService.cs   # Clickable link detection and handling
-    │   ├── ProjectDetectionService.cs # Auto-detect project type for runner
-    │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
+        ├── App.xaml(.cs)                 # Application entry, single instance handling, shared styles, global exception handling
+        ├── MainWindow.xaml               # Main window layout (tab strip + content + popup hosts)
+        ├── MainWindow.xaml.cs            # Core window logic, keyboard shortcuts, popup coordination
+        ├── Converters.cs                 # XAML value converters
+        ├── Resources/
+        │   └── TabContentTemplates.xaml  # DataTemplates for tab content (terminal, settings, etc.)
+        ├── Domain/
+        │   ├── Profile.cs          # Configuration template for terminal sessions
+        │   ├── TerminalSession.cs  # Running terminal instance
+        │   ├── TerminalPair.cs     # Paired custom + shell + run terminals
+        │   ├── SessionState.cs         # Running/Exited enum
+        │   ├── AppConfiguration.cs # Root config with settings
+        │   ├── GitStatus.cs        # Git repository status model
+        │   ├── GitFileStatus.cs    # Git file-level status (modified, added, etc.)
+        │   ├── GitBranch.cs        # Git branch model for branch switcher
+        │   ├── QuickCommand.cs     # Quick command definition with shortcut
+        │   ├── LinkPattern.cs      # Custom link pattern definition
+        │   ├── PaletteCommand.cs   # Command palette item definition
+        │   ├── RunConfiguration.cs # Run configuration for project runner
+        │   ├── ProjectType.cs      # Project type detection model
+        │   └── RunState.cs         # Run terminal state enum
+        ├── Services/
+        │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
+        │   ├── JsonFileService.cs        # Generic service for robust JSON file persistence with backup
+        │   ├── IDialogService.cs         # Interface for themed dialogs
+        │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
+        │   ├── ProfileRegistry.cs        # Profile and settings management
+        │   ├── SessionManager.cs         # Session lifecycle tracking
+        │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
+        │   ├── SystemTrayService.cs      # System tray icon and menu
+        │   ├── TerminalControlFactory.cs # Creates configured terminal controls
+        │   ├── GitStatusService.cs       # Git command execution and parsing
+        │   ├── FilePreviewService.cs     # File preview loading with syntax highlighting
+        │   ├── FileEditService.cs        # File editing (load/save)
+        │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
+        │   ├── LinkDetectionService.cs   # Clickable link detection and handling
+        │   ├── ProjectDetectionService.cs # Auto-detect project type for runner
+        │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
@@ -1008,5 +1013,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.2*
-*Last Updated: 2025-12-14*
+*Document Version: 2.3*
+*Last Updated: 2025-12-15*
