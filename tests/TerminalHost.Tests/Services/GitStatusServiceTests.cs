@@ -256,6 +256,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("Switched to branch");
     }
 
@@ -273,6 +274,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("Switched to a new branch");
     }
 
@@ -290,6 +292,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("Deleted branch");
     }
 
@@ -307,6 +310,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("Deleted branch");
     }
 
@@ -325,6 +329,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("[deleted]");
     }
 
@@ -341,6 +346,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("Fetching origin");
     }
 
@@ -357,6 +363,7 @@ public class GitStatusServiceTests
 
         // Assert
         result.Success.ShouldBeTrue();
+        result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("up to date");
     }
 }

@@ -8,10 +8,13 @@ namespace TerminalHost.Services;
 internal sealed class ConfigurationService : IConfigurationService
 {
     private readonly IFileSystem _fileSystem;
+    private readonly JsonFileService<AppConfiguration> _jsonFileService;
+    private static readonly object _saveLock = new object();
 
     public ConfigurationService(IFileSystem fileSystem)
     {
         _fileSystem = fileSystem;
+        _jsonFileService = new JsonFileService<AppConfiguration>(fileSystem, ConfigFilePath, JsonOptions);
     }
 
     private static readonly string ConfigDirectory = Path.Combine(
@@ -27,38 +30,39 @@ internal sealed class ConfigurationService : IConfigurationService
 
     public AppConfiguration Load()
     {
-        if (!_fileSystem.FileExists(ConfigFilePath))
+        var config = _jsonFileService.Load();
+        if (!config.Profiles.Any()) // If config has no profiles, add the default PowerShell profile
         {
-            return CreateDefaultConfiguration();
+            config.Profiles.Add(CreateDefaultPowerShellProfile());
+            Save(config); // Save after adding the default profile
         }
-
-        try
-        {
-            var json = _fileSystem.ReadAllText(ConfigFilePath);
-            return JsonSerializer.Deserialize<AppConfiguration>(json, JsonOptions)
-                   ?? CreateDefaultConfiguration();
-        }
-        catch (JsonException)
-        {
-            return CreateDefaultConfiguration();
-        }
+        return config;
     }
 
     public void Save(AppConfiguration configuration)
     {
-        _fileSystem.CreateDirectory(ConfigDirectory);
-        var json = JsonSerializer.Serialize(configuration, JsonOptions);
-        _fileSystem.WriteAllText(ConfigFilePath, json);
+        lock (_saveLock)
+        {
+            _jsonFileService.Save(configuration);
+        }
     }
 
     public string LoadRawJson()
     {
-        if (!_fileSystem.FileExists(ConfigFilePath))
+        // This method still needs to directly read the file to provide raw JSON string,
+        // but it can leverage the JsonFileService's logic for finding the primary file
+        // or falling back to backup before reading.
+        // For simplicity, we'll try to read the primary path, and if it fails, fallback to default JSON.
+        if (_fileSystem.FileExists(ConfigFilePath))
         {
-            return JsonSerializer.Serialize(CreateDefaultConfiguration(), JsonOptions);
+            return _fileSystem.ReadAllText(ConfigFilePath);
+        }
+        else if (_fileSystem.FileExists(ConfigFilePath + ".bak"))
+        {
+            return _fileSystem.ReadAllText(ConfigFilePath + ".bak");
         }
 
-        return _fileSystem.ReadAllText(ConfigFilePath);
+        return JsonSerializer.Serialize(CreateDefaultConfiguration(), JsonOptions);
     }
 
     public (bool success, string? error, string? warning) SaveRawJson(string json)
@@ -80,8 +84,8 @@ internal sealed class ConfigurationService : IConfigurationService
             }
 
             _fileSystem.CreateDirectory(ConfigDirectory);
-            _fileSystem.WriteAllText(ConfigFilePath, json);
-
+            _fileSystem.WriteAllText(ConfigFilePath, json); // Direct write for raw JSON
+            
             // Return success with optional warnings
             var warningMessage = warnings.Count > 0 ? string.Join("\n", warnings) : null;
             return (true, null, warningMessage);
@@ -154,7 +158,7 @@ internal sealed class ConfigurationService : IConfigurationService
 
     public static string GetConfigFilePath() => ConfigFilePath;
 
-    private AppConfiguration CreateDefaultConfiguration()
+    private static AppConfiguration CreateDefaultConfiguration()
     {
         var config = new AppConfiguration
         {
@@ -176,16 +180,20 @@ internal sealed class ConfigurationService : IConfigurationService
             }
         };
 
-        // Try to save the default configuration
-        try
-        {
-            Save(config);
-        }
-        catch
-        {
-            // Ignore if we can't save
-        }
-
         return config;
+    }
+
+    // Helper method to create a default PowerShell profile
+    private static Profile CreateDefaultPowerShellProfile()
+    {
+        return new()
+        {
+            Id = "powershell",
+            Name = "PowerShell",
+            Command = "pwsh.exe",
+            WorkingDir = "%USERPROFILE%",
+            Icon = "🔷",
+            AutoStart = true
+        };
     }
 }

@@ -105,6 +105,7 @@ public class ConfigurationServiceTests
 
         // Assert
         result.success.ShouldBeFalse();
+        result.error.ShouldNotBeNull();
         result.error.ShouldContain("JSON Error");
         _fileSystemMock.Verify(x => x.WriteAllText(_configPath, It.IsAny<string>()), Times.Never);
     }

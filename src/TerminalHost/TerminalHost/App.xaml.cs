@@ -28,6 +28,10 @@ public partial class App : Application
                 // select a theme, default is Light
                 .AddDarkTheme());
 
+        // Add global exception handlers
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+
         // Take control of application shutdown so the app doesn't exit when the modal setup window closes.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -91,6 +95,7 @@ public partial class App : Application
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IStatisticsService, StatisticsService>();
         services.AddSingleton<ISystemTrayService, SystemTrayService>();
+        services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IProfileRegistry, ProfileRegistry>();
         services.AddSingleton<ISessionManager, SessionManager>();
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
@@ -174,5 +179,31 @@ public partial class App : Application
             _services.GetService<ISingleInstanceService>()?.Dispose();
             _services.GetService<IStatisticsService>()?.Dispose();
         }
+    }
+
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        var ex = (Exception)e.ExceptionObject;
+        ShowUnhandledException(ex, "Unhandled AppDomain Exception");
+    }
+
+    private void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        ShowUnhandledException(e.Exception, "Unhandled UI Thread Exception");
+        e.Handled = true; // Prevent the application from terminating immediately
+    }
+
+    private void ShowUnhandledException(Exception ex, string type)
+    {
+        var errorMessage = $"{type}:\n\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
+        System.Diagnostics.Debug.WriteLine(errorMessage); // Log to debug output
+
+        MessageBox.Show(
+            errorMessage,
+            "Application Error",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+        
+        Shutdown(); 
     }
 }

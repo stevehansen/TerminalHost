@@ -12,12 +12,16 @@ namespace TerminalHost.Services
         private readonly System.Threading.Timer _saveTimer;
         private readonly object _lock = new();
         private bool _disposed = false;
+        private readonly IFileSystem _fileSystem;
+        private readonly JsonFileService<UsageStats> _jsonFileService;
 
-        private static readonly JsonSerializerOptions options = new() { WriteIndented = true, };
+        private static readonly JsonSerializerOptions options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
-        public StatisticsService()
+        public StatisticsService(IFileSystem fileSystem)
         {
+            _fileSystem = fileSystem;
             _statsPath = GetStatsPath();
+            _jsonFileService = new JsonFileService<UsageStats>(_fileSystem, _statsPath, options);
             _stats = LoadStats();
             // Save every 30 seconds if there are changes
             _saveTimer = new System.Threading.Timer(_ => SaveStatsIfNeeded(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
@@ -27,27 +31,16 @@ namespace TerminalHost.Services
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var statsDir = Path.Combine(appData, "TerminalHost");
-            Directory.CreateDirectory(statsDir);
+            // Note: Directory.CreateDirectory is not using _fileSystem here because it's a static utility
+            // that ensures the directory exists for _statsPath. The JsonFileService internally calls
+            // _fileSystem.CreateDirectory for its own path.
+            Directory.CreateDirectory(statsDir); 
             return Path.Combine(statsDir, "stats.json");
         }
 
         private UsageStats LoadStats()
         {
-            if (!File.Exists(_statsPath))
-            {
-                return new UsageStats();
-            }
-
-            try
-            {
-                var json = File.ReadAllText(_statsPath);
-                return JsonSerializer.Deserialize<UsageStats>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new UsageStats();
-            }
-            catch (Exception)
-            {
-                // If file is corrupt, start fresh
-                return new UsageStats();
-            }
+            return _jsonFileService.Load();
         }
 
         public void IncrementCharCount(string directory, string terminalType, int charCount)
@@ -118,16 +111,16 @@ namespace TerminalHost.Services
             {
                 if (!_isDirty) return;
                 _isDirty = false;
-            }
 
-            try
-            {
-                var json = JsonSerializer.Serialize(_stats, options);
-                File.WriteAllText(_statsPath, json);
-            }
-            catch (Exception)
-            {
-                // Don't crash the app if stats saving fails
+                try
+                {
+                    _jsonFileService.Save(_stats);
+                }
+                catch (Exception ex)
+                {
+                    // Don't crash the app if stats saving fails, log it instead
+                    System.Diagnostics.Debug.WriteLine($"[StatisticsService] Failed to save stats: {ex.Message}");
+                }
             }
         }
 

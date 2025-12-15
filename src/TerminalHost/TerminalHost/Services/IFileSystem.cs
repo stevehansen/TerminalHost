@@ -15,6 +15,7 @@ public interface IFileSystem
     Stream OpenRead(string path);
     long GetFileSize(string path);
     bool IsReadOnly(string path);
+    void CopyFile(string sourceFileName, string destFileName, bool overwrite);
 }
 
 internal sealed class FileSystem : IFileSystem
@@ -30,4 +31,5 @@ internal sealed class FileSystem : IFileSystem
     public Stream OpenRead(string path) => System.IO.File.OpenRead(path);
     public long GetFileSize(string path) => new System.IO.FileInfo(path).Length;
     public bool IsReadOnly(string path) => new System.IO.FileInfo(path).IsReadOnly;
+    public void CopyFile(string sourceFileName, string destFileName, bool overwrite) => System.IO.File.Copy(sourceFileName, destFileName, overwrite);
 }
