@@ -75,15 +75,29 @@ internal sealed class GitStatusService : IGitStatusService
 
             var indexStatus = line[0];  // Staged status
             var workTreeStatus = line[1]; // Unstaged status
-            var path = line.Substring(3);
+            var rawPath = line.Substring(3);
 
             // Handle renames/copies (format: "R  old -> new" or "C  old -> new")
+            // These may be entirely quoted: "old -> new" or partially: "old" -> "new"
             string? originalPath = null;
-            if (path.Contains(" -> "))
+            string path = rawPath;
+
+            if (rawPath.Contains(" -> "))
             {
-                var parts = path.Split(" -> ");
-                originalPath = parts[0];
-                path = parts[1];
+                // Try to split on " -> " while handling quoted paths
+                var separatorIndex = rawPath.IndexOf(" -> ");
+                if (separatorIndex > 0)
+                {
+                    var oldPart = rawPath.Substring(0, separatorIndex);
+                    var newPart = rawPath.Substring(separatorIndex + 4); // 4 = " -> ".Length
+
+                    originalPath = UnquoteGitPath(oldPart.Trim());
+                    path = UnquoteGitPath(newPart.Trim());
+                }
+            }
+            else
+            {
+                path = UnquoteGitPath(rawPath);
             }
 
             // Determine status type (prefer unstaged status if present, otherwise staged)
@@ -117,6 +131,49 @@ internal sealed class GitStatusService : IGitStatusService
         'T' => GitFileStatusType.TypeChanged,
         _ => GitFileStatusType.Modified
     };
+
+    /// <summary>
+    /// Unquotes and unescapes a path from git's porcelain output.
+    /// Git wraps paths with special characters (spaces, quotes, etc.) in double quotes
+    /// and escapes backslashes and quotes with backslashes.
+    ///
+    /// Examples:
+    ///   "My File.txt" -> My File.txt
+    ///   "File with \"quotes\".txt" -> File with "quotes".txt
+    ///   Regular.txt -> Regular.txt (no quotes, returned as-is)
+    /// </summary>
+    private static string UnquoteGitPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return path;
+
+        // Check if path is quoted
+        if (!path.StartsWith("\"") || !path.EndsWith("\""))
+            return path;
+
+        // Remove outer quotes
+        var unquoted = path.Substring(1, path.Length - 2);
+
+        // Unescape escaped characters (git uses backslash for escaping)
+        // Replace \" with " and \\ with \
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < unquoted.Length; i++)
+        {
+            if (unquoted[i] == '\\' && i + 1 < unquoted.Length)
+            {
+                var nextChar = unquoted[i + 1];
+                if (nextChar == '"' || nextChar == '\\')
+                {
+                    sb.Append(nextChar);
+                    i++; // Skip the escaped character
+                    continue;
+                }
+            }
+            sb.Append(unquoted[i]);
+        }
+
+        return sb.ToString();
+    }
 
     public async Task<string?> GetFileDiffAsync(string workingDirectory, string filePath, bool staged = false)
     {

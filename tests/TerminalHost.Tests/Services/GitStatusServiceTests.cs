@@ -366,4 +366,119 @@ public class GitStatusServiceTests
         result.Output.ShouldNotBeNull();
         result.Output.ShouldContain("up to date");
     }
+
+    [Fact]
+    public async Task GetModifiedFilesAsync_ShouldHandleFilePathsWithSpaces()
+    {
+        // Arrange
+        var workingDirectory = "P:\\TestRepo";
+        // Git porcelain format with quoted paths containing spaces
+        var statusOutput = " M \"My File.cs\"\nA  \"File with Spaces.txt\"\nD  \"Deleted File.md\"\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+                             .ReturnsAsync(statusOutput);
+
+        // Act
+        var result = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(3);
+
+        // Verify paths are unquoted and correct
+        result.ShouldContain(f => f.FilePath == "My File.cs" && f.Status == GitFileStatusType.Modified);
+        result.ShouldContain(f => f.FilePath == "File with Spaces.txt" && f.Status == GitFileStatusType.Added);
+        result.ShouldContain(f => f.FilePath == "Deleted File.md" && f.Status == GitFileStatusType.Deleted);
+
+        // Verify FileName property is correctly extracted
+        var fileWithSpaces = result.First(f => f.FilePath == "My File.cs");
+        fileWithSpaces.FileName.ShouldBe("My File.cs");
+    }
+
+    [Fact]
+    public async Task GetModifiedFilesAsync_ShouldHandleFilePathsWithSpacesInDirectories()
+    {
+        // Arrange
+        var workingDirectory = "P:\\TestRepo";
+        // Git porcelain format with quoted paths containing spaces in directory names
+        var statusOutput = " M \"My Project/Test File.cs\"\nA  \"Src/Components/My Component.tsx\"\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+                             .ReturnsAsync(statusOutput);
+
+        // Act
+        var result = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(2);
+
+        result.ShouldContain(f => f.FilePath == "My Project/Test File.cs");
+        result.ShouldContain(f => f.FilePath == "Src/Components/My Component.tsx");
+    }
+
+    [Fact]
+    public async Task GetModifiedFilesAsync_ShouldHandleRenamedFilesWithSpaces()
+    {
+        // Arrange
+        var workingDirectory = "P:\\TestRepo";
+        // Git porcelain format with renamed files that have spaces
+        var statusOutput = "R  \"Old Test File.cs\" -> \"New Test File.cs\"\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+                             .ReturnsAsync(statusOutput);
+
+        // Act
+        var result = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+
+        var renamed = result.First();
+        renamed.FilePath.ShouldBe("New Test File.cs");
+        renamed.OriginalPath.ShouldBe("Old Test File.cs");
+        renamed.Status.ShouldBe(GitFileStatusType.Renamed);
+    }
+
+    [Fact]
+    public async Task GetModifiedFilesAsync_ShouldHandleUnquotedPaths()
+    {
+        // Arrange
+        var workingDirectory = "P:\\TestRepo";
+        // Regular files without spaces (should not be quoted by git)
+        var statusOutput = " M RegularFile.cs\nA  AnotherFile.txt\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+                             .ReturnsAsync(statusOutput);
+
+        // Act
+        var result = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(2);
+
+        result.ShouldContain(f => f.FilePath == "RegularFile.cs");
+        result.ShouldContain(f => f.FilePath == "AnotherFile.txt");
+    }
+
+    [Fact]
+    public async Task GetModifiedFilesAsync_ShouldHandleMixedQuotedAndUnquotedPaths()
+    {
+        // Arrange
+        var workingDirectory = "P:\\TestRepo";
+        // Mix of quoted (with spaces) and unquoted (without spaces) paths
+        var statusOutput = " M RegularFile.cs\nA  \"File with Spaces.txt\"\nD  DeletedFile.md\nR  \"Old File.cs\" -> \"New File.cs\"\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+                             .ReturnsAsync(statusOutput);
+
+        // Act
+        var result = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(4);
+
+        result.ShouldContain(f => f.FilePath == "RegularFile.cs");
+        result.ShouldContain(f => f.FilePath == "File with Spaces.txt");
+        result.ShouldContain(f => f.FilePath == "DeletedFile.md");
+        result.ShouldContain(f => f.FilePath == "New File.cs" && f.OriginalPath == "Old File.cs");
+    }
 }
