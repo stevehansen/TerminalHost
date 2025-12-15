@@ -40,6 +40,9 @@
                                Margin="0,0,8,0"/>
                     <TextBox x:Name="PaletteSearchBox"
                              Grid.Column="1"
+                             AutomationProperties.Name="Command Search"
+                             AutomationProperties.HelpText="Type to filter commands"
+                             ToolTip="Search commands"
                              Background="Transparent"
                              Foreground="{StaticResource TextPrimaryBrush}"
                              CaretBrush="{StaticResource TextPrimaryBrush}"
