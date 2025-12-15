@@ -132,8 +132,8 @@ To ensure modularity and testability, the application relies on strict interface
     - [x] Extract `IGitStatusService` interface.
     - [x] Update `MainViewModel` to accept dependencies.
 - [ ] **Unit Tests Implementation**
-    - [ ] Test `GitStatusService.ParseStatus` (Pure logic, high value).
-    - [ ] Test `ProjectDetectionService` (File pattern matching).
+    - [x] Test `GitStatusService.ParseStatus` (Pure logic, high value).
+    - [x] Test `ProjectDetectionService` (File pattern matching).
     - [ ] Test `MainViewModel.AddNewTab`.
 - [ ] **UI Tests Implementation**
     - [ ] Add `AutomationId`s to `MainWindow.xaml` and `TabStrip.xaml`.
