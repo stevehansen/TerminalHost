@@ -37,7 +37,7 @@ The testing strategy covers two main areas:
     *   Create `src/TerminalHost/TerminalHost.Tests/TerminalHost.Tests.csproj`. (Done)
     *   Add references to `TerminalHost`, `xunit`, `Moq`, `FluentAssertions`. (Done)
 2.  **Target Areas:**
-    *   **Services:** `ConfigurationService` (JSON parsing), `GitStatusService` (Regex parsing of git output), `ProjectDetectionService`.
+    *   **Services:** `ConfigurationService` (JSON parsing), `GitStatusService` (Regex parsing of git output), `ProjectDetectionService`, `JsonFileService` (robust JSON persistence).
     *   **ViewModels:** `MainViewModel` (Tab management logic), `TerminalPairTabViewModel` (Command logic), `GitBranchViewModel`.
     *   *Note:* ViewModels should be tested by mocking their dependencies (e.g., `IConfigurationService`, `IDialogService`).
 
@@ -76,7 +76,7 @@ To support testing, the application code must adhere to certain patterns:
 To ensure modularity and testability, the application relies on strict interfaces. Any new implementation must adhere to these contracts.
 
 ### 1. IConfigurationService
-**Responsibility:** Manages application settings, persistence, and raw JSON handling.
+**Responsibility:** Manages application settings, persistence, and raw JSON handling, leveraging `JsonFileService` for robust I/O.
 **Key Methods:**
 - `AppConfiguration Load()`: Loads settings from disk or returns defaults.
 - `void Save(AppConfiguration configuration)`: Persists settings.
@@ -86,9 +86,21 @@ To ensure modularity and testability, the application relies on strict interface
 **Measurable Outcomes:**
 - **Performance:** `Load()` must complete < 50ms on standard SSD.
 - **Consistency:** Round-trip serialization (Save -> Load) must preserve all properties.
-- **Robustness:** Must return valid default configuration if file is missing or corrupt.
+- **Robustness:** Must return valid default configuration if file is missing or corrupt, and gracefully recover from `.bak` file if primary is corrupted.
+- **Thread-Safety:** Concurrent calls to `Save()` must not lead to file corruption or data loss.
 
-### 2. IGitStatusService
+### 2. JsonFileService<T>
+**Responsibility:** Provides a generic, robust, and thread-safe mechanism for loading and saving JSON data, including automatic backup and recovery.
+**Key Methods:**
+- `T Load()`: Loads data from the primary file, attempting recovery from a backup if corrupted or missing.
+- `void Save(T data)`: Saves data to the primary file, first creating a backup of the existing primary.
+
+**Measurable Outcomes:**
+- **Robustness:** Successfully loads from `.bak` file if `.json` is corrupt or missing. Creates new default if both are missing.
+- **Integrity:** Backup (`.bak`) file is a true copy of the `.json` file *before* a new save operation.
+- **Thread-Safety:** Internal file operations (read, write, copy) are protected against race conditions if multiple callers use the same instance. (Note: External synchronization should be handled by consuming services like `IConfigurationService`).
+
+### 3. IGitStatusService
 **Responsibility:** Abstraction over git CLI operations for retrieving repository status.
 **Key Methods:**
 - `Task<GitStatus> GetGitStatusAsync(string workingDirectory)`
@@ -101,7 +113,19 @@ To ensure modularity and testability, the application relies on strict interface
 - **Concurrency:** Must safely handle multiple concurrent requests for different directories.
 - **Error Handling:** Must throw typed exceptions or return error results for non-git directories.
 
-### 3. ISessionManager
+### 4. IDialogService
+**Responsibility:** Provides themed UI dialogs for user interaction (error, warning, info, confirmation).
+**Key Methods:**
+- `void ShowError(string message, string title)`
+- `void ShowWarning(string message, string title)`
+- `void ShowInfo(string message, string title)`
+- `bool ShowConfirmation(string message, string title)`
+
+**Measurable Outcomes:**
+- **Consistency:** Dialogs must adhere to the application's dark theme.
+- **Usability:** Keyboard navigation (Enter, Escape) and proper window ownership must function correctly.
+
+### 5. ISessionManager
 **Responsibility:** Lifecycle management for terminal sessions (creation, tracking, cleanup).
 **Key Methods:**
 - `TerminalSession CreateSession(Profile profile)`
@@ -113,14 +137,15 @@ To ensure modularity and testability, the application relies on strict interface
 - **Leak Prevention:** `CloseSession` must dispose all associated resources (Process, Pipes).
 - **Event Timing:** `SessionCreated` and `SessionClosed` events must fire exactly once per lifecycle.
 
-### 4. ITerminalControlFactory
-**Responsibility:** Factory pattern for creating UI terminal controls.
+### 6. ITerminalControlFactory
+**Responsibility:** Factory pattern for creating UI terminal controls, integrating `IDialogService` for command existence warnings.
 **Key Methods:**
 - `EasyTerminalControl CreateTerminalControl(TerminalSession session)`
 
 **Measurable Outcomes:**
 - **Isolation:** Created controls must be fully initialized and not depend on global state.
 - **Configuration:** Returned control must have Font, Theme, and KeyBindings applied per settings.
+- **Error Reporting:** Must use `IDialogService` to warn users about missing terminal commands.
 
 ## Implementation Plan (Todo)
 
@@ -135,6 +160,7 @@ To ensure modularity and testability, the application relies on strict interface
     - [x] Test `GitStatusService.ParseStatus` (Pure logic, high value).
     - [x] Test `ProjectDetectionService` (File pattern matching).
     - [x] Test `MainViewModel.AddNewTab`.
+    - [x] Test `JsonFileService` (robust file persistence with backup/recovery).
 - [ ] **UI Tests Implementation**
     - [ ] Add `AutomationId`s to `MainWindow.xaml` and `TabStrip.xaml`.
     - [ ] Write `SmokeTest_AppLaunches`.
@@ -145,3 +171,4 @@ To ensure modularity and testability, the application relies on strict interface
 -   **Coverage:** > 80% Code Coverage on *Domain* and *Services* namespaces.
 -   **Reliability:** UI Smoke tests pass 100% of the time on local dev machines.
 -   **Speed:** Unit test suite runs in < 5 seconds.
+
