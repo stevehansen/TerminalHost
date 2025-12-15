@@ -1,55 +1,46 @@
+using Xunit;
 using Moq;
 using Shouldly;
-using System.IO;
-using TerminalHost.Domain;
 using TerminalHost.Services;
-using Xunit;
+using TerminalHost.Domain;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace TerminalHost.Tests.Services;
 
 public class ProjectDetectionServiceTests
 {
-    private readonly Mock<IFileSystem> _fileSystemMock;
-    private readonly Mock<IConfigurationService> _configServiceMock;
-    private readonly ProfileRegistry _profileRegistry;
-    private readonly ProjectDetectionService _service;
-    private const string TestPath = "P:\\TestProject";
+    private readonly Mock<IProfileRegistry> _mockProfileRegistry;
+    private readonly Mock<IFileSystem> _mockFileSystem;
+    private readonly ProjectDetectionService _projectDetectionService;
 
     public ProjectDetectionServiceTests()
     {
-        _fileSystemMock = new Mock<IFileSystem>();
-        _configServiceMock = new Mock<IConfigurationService>();
+        _mockProfileRegistry = new Mock<IProfileRegistry>();
+        _mockFileSystem = new Mock<IFileSystem>();
 
-        // Setup mock config with default project types
-        var config = new AppConfiguration(); // Default includes ProjectType.GetDefaults()
-        _configServiceMock.Setup(x => x.Load()).Returns(config);
+        // Setup default project types
+        _mockProfileRegistry.Setup(pr => pr.GetProjectTypes())
+            .Returns(ProjectType.GetDefaults());
 
-        _profileRegistry = new ProfileRegistry(_configServiceMock.Object);
-        _service = new ProjectDetectionService(_profileRegistry, _fileSystemMock.Object);
+        _mockFileSystem.Setup(fs => fs.DirectoryExists(It.IsAny<string>())).Returns(true);
+
+        _projectDetectionService = new ProjectDetectionService(_mockProfileRegistry.Object, _mockFileSystem.Object);
     }
 
     [Fact]
     public void DetectProjectType_ShouldReturnDotNet_WhenCsprojExists()
     {
         // Arrange
-        _fileSystemMock.Setup(x => x.DirectoryExists(TestPath)).Returns(true);
-        // .NET pattern: *.csproj
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "*.csproj", SearchOption.TopDirectoryOnly))
-            .Returns(new[] { Path.Combine(TestPath, "App.csproj") });
-        
-        // Ensure other checks return empty
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "*.sln", SearchOption.TopDirectoryOnly))
-            .Returns(Array.Empty<string>());
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "package.json", SearchOption.TopDirectoryOnly))
-            .Returns(Array.Empty<string>());
-        // And so on for others... but Moq returns empty array/null by default? No, usually null for reference types if not strict. 
-        // Array return type needs explicit setup or it returns empty array/null.
-        // I'll be safe and rely on the fact that the first match returns. 
-        // .NET has priority 10. Node is 5.
-        // So finding csproj should return immediately.
+        var workingDirectory = "P:\\MyDotNetApp";
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\MyDotNetApp\\App.csproj" });
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
 
         // Act
-        var result = _service.DetectProjectType(TestPath);
+        var result = _projectDetectionService.DetectProjectType(workingDirectory);
 
         // Assert
         result.ShouldNotBeNull();
@@ -57,22 +48,20 @@ public class ProjectDetectionServiceTests
     }
 
     [Fact]
-    public void DetectProjectType_ShouldReturnNode_WhenPackageJsonExists()
+    public void DetectProjectType_ShouldReturnNodeJs_WhenPackageJsonExists()
     {
         // Arrange
-        _fileSystemMock.Setup(x => x.DirectoryExists(TestPath)).Returns(true);
-        // Mock no .net files
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "*.csproj", SearchOption.TopDirectoryOnly))
-            .Returns(Array.Empty<string>());
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "*.sln", SearchOption.TopDirectoryOnly))
-            .Returns(Array.Empty<string>());
-            
-        // Mock package.json
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, "package.json", SearchOption.TopDirectoryOnly))
-            .Returns(new[] { Path.Combine(TestPath, "package.json") });
+        var workingDirectory = "P:\\MyNodeApp";
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "package.json", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\MyNodeApp\\package.json" });
+        // Ensure dotnet check fails
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
 
         // Act
-        var result = _service.DetectProjectType(TestPath);
+        var result = _projectDetectionService.DetectProjectType(workingDirectory);
 
         // Assert
         result.ShouldNotBeNull();
@@ -83,17 +72,139 @@ public class ProjectDetectionServiceTests
     public void DetectProjectType_ShouldReturnNull_WhenNoMarkerFilesExist()
     {
         // Arrange
-        _fileSystemMock.Setup(x => x.DirectoryExists(TestPath)).Returns(true);
-        // Mock empty for everything (using wildcard matcher for simplicity in test logic, but specific in code)
-        // Since I can't easily wildcard the pattern in Moq effectively without It.IsAny, 
-        // I'll just use It.IsAny<string> for pattern
-        _fileSystemMock.Setup(x => x.GetFiles(TestPath, It.IsAny<string>(), SearchOption.TopDirectoryOnly))
-            .Returns(Array.Empty<string>());
+        var workingDirectory = "P:\\EmptyFolder";
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, It.IsAny<string>(), SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
 
         // Act
-        var result = _service.DetectProjectType(TestPath);
+        var result = _projectDetectionService.DetectProjectType(workingDirectory);
 
         // Assert
         result.ShouldBeNull();
+    }
+
+    [Fact]
+    public void DetectProjectType_ShouldPrioritizeDotNetOverNode_WhenBothExist()
+    {
+        // Arrange
+        var workingDirectory = "P:\\MixedApp";
+        // Simulate both existing
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\MixedApp\\App.csproj" });
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "package.json", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\MixedApp\\package.json" });
+
+        // Act
+        var result = _projectDetectionService.DetectProjectType(workingDirectory);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe("dotnet"); // Priority 10 vs 5
+    }
+
+    [Fact]
+    public void FindDotNetProject_ShouldReturnNull_WhenSingleRunnableProjectInRoot()
+    {
+        // Arrange
+        var workingDirectory = "P:\\SimpleApp";
+        var csprojPath = "P:\\SimpleApp\\SimpleApp.csproj";
+        
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { csprojPath });
+        
+        // Mock runnable project content (Exe)
+        var csprojContent = "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>";
+        _mockFileSystem.Setup(fs => fs.ReadAllText(csprojPath)).Returns(csprojContent);
+
+        // Act
+        var result = _projectDetectionService.FindDotNetProject(workingDirectory);
+
+        // Assert
+        result.ShouldBeNull(); // Should be null because dotnet run works automatically
+    }
+
+    [Fact]
+    public void SuggestConfigurations_ShouldIncludeNpmScripts()
+    {
+        // Arrange
+        var workingDirectory = "P:\\NodeApp";
+        var packageJsonPath = "P:\\NodeApp\\package.json";
+        var projectType = ProjectType.GetDefaults().First(p => p.Id == "nodejs-npm");
+
+        _mockFileSystem.Setup(fs => fs.FileExists(packageJsonPath)).Returns(true);
+        // Correctly escaped JSON string using standard string literal
+        _mockFileSystem.Setup(fs => fs.ReadAllText(packageJsonPath))
+            .Returns("{ \"scripts\": { \"dev\": \"vite\", \"build\": \"tsc\" } }");
+
+        // Act
+        var configs = _projectDetectionService.SuggestConfigurations(workingDirectory, projectType);
+
+        // Assert
+        // npm-dev is skipped because it duplicates the default 'dev' config (npm run dev)
+        configs.ShouldContain(c => c.Id == "npm-build" && c.Command == "npm run build");
+        configs.ShouldContain(c => c.Id == "dev" && c.IsDefault); // Default dev config
+    }
+
+    [Fact]
+    public void GetOrCreateConfigurations_ShouldReturnCachedConfigurations_WhenAvailable()
+    {
+        // Arrange
+        var workingDirectory = "P:\\ExistingApp";
+        var settings = new DirectorySettings();
+        var existingConfig = new RunConfiguration { Id = "custom", Command = "custom-command" };
+        settings.RunConfigurations.Add(existingConfig);
+
+        // Act
+        var result = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
+
+        // Assert
+        result.ShouldHaveSingleItem();
+        result.First().ShouldBe(existingConfig);
+        // Should not have triggered detection
+        _mockFileSystem.Verify(fs => fs.GetFiles(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<SearchOption>()), Times.Never);
+    }
+
+    [Fact]
+    public void GetOrCreateConfigurations_ShouldDetectAndCache_WhenNoConfigsExist()
+    {
+        // Arrange
+        var workingDirectory = "P:\\NewApp";
+        var settings = new DirectorySettings();
+        
+        // Mock .csproj existence
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\NewApp\\App.csproj" });
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
+
+        // Act
+        var result = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
+
+        // Assert
+        result.ShouldNotBeEmpty();
+        settings.DetectedProjectType.ShouldBe("dotnet");
+        settings.RunConfigurations.Count.ShouldBe(result.Count);
+        settings.ActiveRunConfigurationId.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void GetOrCreateConfigurations_ShouldReturnShellConfig_WhenNoProjectDetected()
+    {
+        // Arrange
+        var workingDirectory = "P:\\RandomFolder";
+        var settings = new DirectorySettings();
+        
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, It.IsAny<string>(), SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
+
+        // Act
+        var result = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
+
+        // Assert
+        result.ShouldHaveSingleItem();
+        result.First().Id.ShouldBe("shell");
+        settings.DetectedProjectType.ShouldBeNull(); // Should not set detected type
     }
 }
