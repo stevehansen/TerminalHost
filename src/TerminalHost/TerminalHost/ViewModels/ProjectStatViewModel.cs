@@ -53,9 +53,9 @@ namespace TerminalHost.ViewModels
         public double ShellPercentage => TotalChars > 0 ? (double)ShellChars / TotalChars : 0;
         public double RunPercentage => TotalChars > 0 ? (double)RunChars / TotalChars : 0;
         
-        public void CalculateBarWidths(long maxCharsInSet, double availableWidth)
+        public void CalculateBarWidths(double availableWidth)
         {
-            if (maxCharsInSet <= 0 || TotalChars <= 0)
+            if (TotalChars <= 0)
             {
                 CustomBarWidth = 0;
                 ShellBarWidth = 0;
@@ -63,10 +63,10 @@ namespace TerminalHost.ViewModels
                 return;
             }
 
-            double totalBarWidth = (double)TotalChars / maxCharsInSet * availableWidth;
-            CustomBarWidth = totalBarWidth * CustomPercentage;
-            ShellBarWidth = totalBarWidth * ShellPercentage;
-            RunBarWidth = totalBarWidth * RunPercentage;
+            // Each project fills the full width, showing internal proportions
+            CustomBarWidth = availableWidth * CustomPercentage;
+            ShellBarWidth = availableWidth * ShellPercentage;
+            RunBarWidth = availableWidth * RunPercentage;
         }
     }
 }

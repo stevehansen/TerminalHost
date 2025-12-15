@@ -91,9 +91,15 @@
                                     </Grid>
 
                                     <Grid Grid.Row="1" Margin="0,8,0,0">
-                                        <Border Background="{StaticResource BackgroundLightBrush}" Height="20" CornerRadius="3" ToolTip="Total characters output for this project.">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Border Background="{StaticResource SyntaxLightBlueBrush}" ToolTip="{Binding CustomCharsFormatted, StringFormat='Custom: {0} chars'}"
+                                        <Border Background="{StaticResource BackgroundLightBrush}" Height="20" CornerRadius="3" ToolTip="Total characters output for this project." ClipToBounds="True">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="{StaticResource SyntaxLightBlueBrush}" ToolTip="{Binding CustomCharsFormatted, StringFormat='Custom: {0} chars'}"
                                                         Height="20" Width="{Binding CustomBarWidth}">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -105,7 +111,7 @@
                                                         </Style>
                                                     </Border.Style>
                                                 </Border>
-                                                <Border Background="{StaticResource SyntaxOrangeBrush}" ToolTip="{Binding ShellCharsFormatted, StringFormat='Shell: {0} chars'}"
+                                                <Border Grid.Column="1" Background="{StaticResource SyntaxOrangeBrush}" ToolTip="{Binding ShellCharsFormatted, StringFormat='Shell: {0} chars'}"
                                                         Height="20" Width="{Binding ShellBarWidth}">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -117,7 +123,7 @@
                                                         </Style>
                                                     </Border.Style>
                                                 </Border>
-                                                <Border Background="{StaticResource SyntaxGreenBrush}" ToolTip="{Binding RunCharsFormatted, StringFormat='Run: {0} chars'}"
+                                                <Border Grid.Column="2" Background="{StaticResource SyntaxGreenBrush}" ToolTip="{Binding RunCharsFormatted, StringFormat='Run: {0} chars'}"
                                                         Height="20" Width="{Binding RunBarWidth}">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -129,7 +135,8 @@
                                                         </Style>
                                                     </Border.Style>
                                                 </Border>
-                                            </StackPanel>
+                                                <Border Grid.Column="3"/>
+                                            </Grid>
                                         </Border>
                                     </Grid>
                                 </Grid>

@@ -149,13 +149,11 @@ namespace TerminalHost.ViewModels
                 .OrderByDescending(s => s.TotalChars)
                 .ToList();
 
-            var maxChars = statsList.Any() ? statsList.Max(s => s.TotalChars) : 0;
-
-            // Assuming max bar width is around 400 for now. This could be passed from the view.
-            const double availableWidth = 400;
+            // Fixed width for bars: 420px column - 20px margins - 20px padding = 380px
+            const double availableWidth = 375;
             foreach (var stat in statsList)
             {
-                stat.CalculateBarWidths(maxChars, availableWidth);
+                stat.CalculateBarWidths(availableWidth);
             }
 
             ProjectStats = new ObservableCollection<ProjectStatViewModel>(statsList);
