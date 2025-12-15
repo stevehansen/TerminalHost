@@ -182,6 +182,7 @@
                     <ToggleButton IsChecked="{Binding ShowHiddenFiles}"
                                   Content="👁"
                                   ToolTip="Show hidden files"
+                                  AutomationProperties.Name="Show hidden files"
                                   Margin="0,0,4,0">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
@@ -217,18 +218,21 @@
                             Command="{Binding NewFileCommand}"
                             Style="{StaticResource TerminalSwitchButton}"
                             ToolTip="New File"
+                            AutomationProperties.Name="New File"
                             Padding="6,2"
                             Margin="0,0,4,0"/>
                     <Button Content="📁+"
                             Command="{Binding NewFolderCommand}"
                             Style="{StaticResource TerminalSwitchButton}"
                             ToolTip="New Folder"
+                            AutomationProperties.Name="New Folder"
                             Padding="6,2"
                             Margin="0,0,4,0"/>
                     <Button Content="⟳"
                             Command="{Binding RefreshCommand}"
                             Style="{StaticResource TerminalSwitchButton}"
                             ToolTip="Refresh"
+                            AutomationProperties.Name="Refresh"
                             Padding="6,2"/>
                 </StackPanel>
 
