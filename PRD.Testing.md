@@ -34,8 +34,8 @@ The testing strategy covers two main areas:
 **Objective:** Establish the test project structure and cover critical non-UI logic.
 
 1.  **Project Setup:**
-    *   Create `src/TerminalHost/TerminalHost.Tests/TerminalHost.Tests.csproj`.
-    *   Add references to `TerminalHost`, `xunit`, `Moq`, `FluentAssertions`.
+    *   Create `src/TerminalHost/TerminalHost.Tests/TerminalHost.Tests.csproj`. (Done)
+    *   Add references to `TerminalHost`, `xunit`, `Moq`, `FluentAssertions`. (Done)
 2.  **Target Areas:**
     *   **Services:** `ConfigurationService` (JSON parsing), `GitStatusService` (Regex parsing of git output), `ProjectDetectionService`.
     *   **ViewModels:** `MainViewModel` (Tab management logic), `TerminalPairTabViewModel` (Command logic), `GitBranchViewModel`.
@@ -67,19 +67,70 @@ To support testing, the application code must adhere to certain patterns:
 1.  **Dependency Injection (DI):**
     *   Services should be behind interfaces (e.g., `IGitStatusService` vs `GitStatusService`).
     *   ViewModels should accept these interfaces via constructors, allowing tests to inject Mocks.
-    *   *Current State:* The app uses some static services or direct instantiation. These need to be refactored to interfaces + DI (or at least a testable Service Locator).
+    *   *Status:* Completed. Services are behind interfaces and injected via constructor in `MainViewModel`.
 2.  **Automation IDs:**
     *   Key UI elements (Tabs, Buttons, Inputs) in XAML must have `AutomationProperties.AutomationId` set. This is crucial for stable UI tests (e.g., `AutomationId="NewProjectButton"`).
 
+## Core Interfaces & Contracts
+
+To ensure modularity and testability, the application relies on strict interfaces. Any new implementation must adhere to these contracts.
+
+### 1. IConfigurationService
+**Responsibility:** Manages application settings, persistence, and raw JSON handling.
+**Key Methods:**
+- `AppConfiguration Load()`: Loads settings from disk or returns defaults.
+- `void Save(AppConfiguration configuration)`: Persists settings.
+- `string LoadRawJson()`: Reads raw config file (for editor).
+- `(bool success, string? error, string? warning) SaveRawJson(string json)`: Validates and saves raw JSON.
+
+**Measurable Outcomes:**
+- **Performance:** `Load()` must complete < 50ms on standard SSD.
+- **Consistency:** Round-trip serialization (Save -> Load) must preserve all properties.
+- **Robustness:** Must return valid default configuration if file is missing or corrupt.
+
+### 2. IGitStatusService
+**Responsibility:** Abstraction over git CLI operations for retrieving repository status.
+**Key Methods:**
+- `Task<GitStatus> GetGitStatusAsync(string workingDirectory)`
+- `Task<List<GitFileStatus>> GetModifiedFilesAsync(string workingDirectory)`
+- `Task<GitOperationResult> CheckoutBranchAsync(string workingDirectory, string branchName)`
+- `Task<GitOperationResult> CreateBranchAsync(string workingDirectory, string branchName)`
+
+**Measurable Outcomes:**
+- **Performance:** `GetGitStatusAsync` < 200ms for average repositories (< 10k files).
+- **Concurrency:** Must safely handle multiple concurrent requests for different directories.
+- **Error Handling:** Must throw typed exceptions or return error results for non-git directories.
+
+### 3. ISessionManager
+**Responsibility:** Lifecycle management for terminal sessions (creation, tracking, cleanup).
+**Key Methods:**
+- `TerminalSession CreateSession(Profile profile)`
+- `void TrackSession(TerminalSession session)`
+- `void CloseSession(Guid sessionId)`
+- `void CloseAllSessions()`
+
+**Measurable Outcomes:**
+- **Leak Prevention:** `CloseSession` must dispose all associated resources (Process, Pipes).
+- **Event Timing:** `SessionCreated` and `SessionClosed` events must fire exactly once per lifecycle.
+
+### 4. ITerminalControlFactory
+**Responsibility:** Factory pattern for creating UI terminal controls.
+**Key Methods:**
+- `EasyTerminalControl CreateTerminalControl(TerminalSession session)`
+
+**Measurable Outcomes:**
+- **Isolation:** Created controls must be fully initialized and not depend on global state.
+- **Configuration:** Returned control must have Font, Theme, and KeyBindings applied per settings.
+
 ## Implementation Plan (Todo)
 
-- [ ] **Infrastructure**
-    - [ ] Create `TerminalHost.Tests` project.
+- [x] **Infrastructure**
+    - [x] Create `TerminalHost.Tests` project.
     - [ ] Create `TerminalHost.UITests` project.
-- [ ] **Refactoring for Testability**
-    - [ ] Extract `IConfigurationService` interface.
-    - [ ] Extract `IGitStatusService` interface.
-    - [ ] Update `MainViewModel` to accept dependencies.
+- [x] **Refactoring for Testability**
+    - [x] Extract `IConfigurationService` interface.
+    - [x] Extract `IGitStatusService` interface.
+    - [x] Update `MainViewModel` to accept dependencies.
 - [ ] **Unit Tests Implementation**
     - [ ] Test `GitStatusService.ParseStatus` (Pure logic, high value).
     - [ ] Test `ProjectDetectionService` (File pattern matching).
