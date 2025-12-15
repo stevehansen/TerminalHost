@@ -44,7 +44,7 @@
                                 FontSize="14"
                                 Padding="6,2"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔗" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="🔗" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Detected Links"
                                        Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="13"
@@ -74,6 +74,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Icon}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="14"
                                            VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>

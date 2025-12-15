@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace TerminalHost.Services;
 
-public class SingleInstanceService : IDisposable
+internal sealed class SingleInstanceService : ISingleInstanceService
 {
     private const string MutexName = "TerminalHost_SingleInstance_Mutex";
     private const string PipeName = "TerminalHost_IPC_Pipe";

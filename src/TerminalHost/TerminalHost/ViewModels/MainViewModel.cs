@@ -11,15 +11,15 @@ namespace TerminalHost.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    private readonly ProfileRegistry _profileRegistry;
-    private readonly SessionManager _sessionManager;
-    private readonly TerminalControlFactory _terminalFactory;
-    private readonly ConfigurationService _configService;
-    private readonly StatisticsService _statisticsService;
-    private readonly GitStatusService _gitStatusService;
-    private readonly LinkDetectionService _linkDetectionService;
-    private readonly ProjectDetectionService _projectDetectionService;
-    private readonly RunUrlDetectionService _runUrlDetectionService;
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly ISessionManager _sessionManager;
+    private readonly ITerminalControlFactory _terminalFactory;
+    private readonly IConfigurationService _configService;
+    private readonly IStatisticsService _statisticsService;
+    private readonly IGitStatusService _gitStatusService;
+    private readonly ILinkDetectionService _linkDetectionService;
+    private readonly IProjectDetectionService _projectDetectionService;
+    private readonly IRunUrlDetectionService _runUrlDetectionService;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -29,27 +29,27 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
     /// </summary>
-    public LinkDetectionService LinkDetectionService => _linkDetectionService;
+    public ILinkDetectionService LinkDetectionService => _linkDetectionService;
 
     /// <summary>
     /// The run URL detection service for detecting localhost URLs from run output.
     /// </summary>
-    public RunUrlDetectionService RunUrlDetectionService => _runUrlDetectionService;
+    public IRunUrlDetectionService RunUrlDetectionService => _runUrlDetectionService;
 
     /// <summary>
     /// The project detection service for auto-detecting project types.
     /// </summary>
-    public ProjectDetectionService ProjectDetectionService => _projectDetectionService;
+    public IProjectDetectionService ProjectDetectionService => _projectDetectionService;
 
     /// <summary>
     /// The terminal control factory for creating terminal controls.
     /// </summary>
-    public TerminalControlFactory TerminalFactory => _terminalFactory;
+    public ITerminalControlFactory TerminalFactory => _terminalFactory;
 
     /// <summary>
     /// The session manager for tracking terminal sessions.
     /// </summary>
-    public SessionManager SessionManager => _sessionManager;
+    public ISessionManager SessionManager => _sessionManager;
 
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = new();
@@ -120,15 +120,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     public MainViewModel(
-        ProfileRegistry profileRegistry, 
-        SessionManager sessionManager, 
-        TerminalControlFactory terminalFactory, 
-        ConfigurationService configService, 
-        StatisticsService statisticsService,
-        GitStatusService gitStatusService,
-        LinkDetectionService linkDetectionService,
-        ProjectDetectionService projectDetectionService,
-        RunUrlDetectionService runUrlDetectionService,
+        IProfileRegistry profileRegistry, 
+        ISessionManager sessionManager, 
+        ITerminalControlFactory terminalFactory, 
+        IConfigurationService configService, 
+        IStatisticsService statisticsService,
+        IGitStatusService gitStatusService,
+        ILinkDetectionService linkDetectionService,
+        IProjectDetectionService projectDetectionService,
+        IRunUrlDetectionService runUrlDetectionService,
         DetectedLinksViewModel detectedLinksViewModel)
     {
         _profileRegistry = profileRegistry;

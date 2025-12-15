@@ -8,7 +8,7 @@ namespace TerminalHost.ViewModels;
 
 public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
 {
-    private readonly ProfileRegistry _profileRegistry;
+    private readonly IProfileRegistry _profileRegistry;
 
     [ObservableProperty]
     private string _title = "Profiles";
@@ -53,7 +53,7 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public event EventHandler<ProfileLaunchEventArgs>? ProfileLaunchRequested;
 
-    public ProfilesTabViewModel(ProfileRegistry profileRegistry)
+    public ProfilesTabViewModel(IProfileRegistry profileRegistry)
     {
         _profileRegistry = profileRegistry;
         LoadProfiles();

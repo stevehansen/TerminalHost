@@ -3,16 +3,16 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
-public class SessionManager
+internal sealed class SessionManager : ISessionManager
 {
     private readonly List<TerminalSession> _sessions = new();
-    private readonly ProfileRegistry _profileRegistry;
-    private readonly StatisticsService _statisticsService;
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly IStatisticsService _statisticsService;
 
     public IReadOnlyList<TerminalSession> ActiveSessions => _sessions.AsReadOnly();
-    public ProfileRegistry ProfileRegistry => _profileRegistry;
+    public IProfileRegistry ProfileRegistry => _profileRegistry;
 
-    public SessionManager(ProfileRegistry profileRegistry, StatisticsService statisticsService)
+    public SessionManager(IProfileRegistry profileRegistry, IStatisticsService statisticsService)
     {
         _profileRegistry = profileRegistry;
         _statisticsService = statisticsService;

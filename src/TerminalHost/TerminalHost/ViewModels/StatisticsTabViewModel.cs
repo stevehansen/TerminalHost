@@ -16,7 +16,7 @@ namespace TerminalHost.ViewModels
 {
     public partial class StatisticsTabViewModel : ObservableObject, ITabViewModel
     {
-        private readonly StatisticsService _statisticsService;
+        private readonly IStatisticsService _statisticsService;
 
         public string Title => "Statistics";
         public string TabIcon => "📊";
@@ -46,7 +46,7 @@ namespace TerminalHost.ViewModels
 
         public event EventHandler? CloseRequested;
 
-        public StatisticsTabViewModel(StatisticsService statisticsService)
+        public StatisticsTabViewModel(IStatisticsService statisticsService)
         {
             _statisticsService = statisticsService;
             LoadStats();

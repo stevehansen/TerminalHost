@@ -5,8 +5,15 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
-public class ConfigurationService
+internal sealed class ConfigurationService : IConfigurationService
 {
+    private readonly IFileSystem _fileSystem;
+
+    public ConfigurationService(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+
     private static readonly string ConfigDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TerminalHost");
@@ -20,14 +27,14 @@ public class ConfigurationService
 
     public AppConfiguration Load()
     {
-        if (!File.Exists(ConfigFilePath))
+        if (!_fileSystem.FileExists(ConfigFilePath))
         {
             return CreateDefaultConfiguration();
         }
 
         try
         {
-            var json = File.ReadAllText(ConfigFilePath);
+            var json = _fileSystem.ReadAllText(ConfigFilePath);
             return JsonSerializer.Deserialize<AppConfiguration>(json, JsonOptions)
                    ?? CreateDefaultConfiguration();
         }
@@ -39,19 +46,19 @@ public class ConfigurationService
 
     public void Save(AppConfiguration configuration)
     {
-        Directory.CreateDirectory(ConfigDirectory);
+        _fileSystem.CreateDirectory(ConfigDirectory);
         var json = JsonSerializer.Serialize(configuration, JsonOptions);
-        File.WriteAllText(ConfigFilePath, json);
+        _fileSystem.WriteAllText(ConfigFilePath, json);
     }
 
     public string LoadRawJson()
     {
-        if (!File.Exists(ConfigFilePath))
+        if (!_fileSystem.FileExists(ConfigFilePath))
         {
             return JsonSerializer.Serialize(CreateDefaultConfiguration(), JsonOptions);
         }
 
-        return File.ReadAllText(ConfigFilePath);
+        return _fileSystem.ReadAllText(ConfigFilePath);
     }
 
     public (bool success, string? error, string? warning) SaveRawJson(string json)
@@ -72,8 +79,8 @@ public class ConfigurationService
                 return (false, string.Join("\n", errors), null);
             }
 
-            Directory.CreateDirectory(ConfigDirectory);
-            File.WriteAllText(ConfigFilePath, json);
+            _fileSystem.CreateDirectory(ConfigDirectory);
+            _fileSystem.WriteAllText(ConfigFilePath, json);
 
             // Return success with optional warnings
             var warningMessage = warnings.Count > 0 ? string.Join("\n", warnings) : null;
@@ -88,7 +95,7 @@ public class ConfigurationService
     /// <summary>
     /// Validates configuration values and returns errors (block save) and warnings (allow save).
     /// </summary>
-    private static (List<string> errors, List<string> warnings) ValidateConfiguration(AppConfiguration config)
+    private (List<string> errors, List<string> warnings) ValidateConfiguration(AppConfiguration config)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -118,8 +125,8 @@ public class ConfigurationService
         if (config.Settings != null && !string.IsNullOrWhiteSpace(config.Settings.CustomCommand))
         {
             var commandExe = config.Settings.CustomCommand.Split(' ')[0];
-            var commandExists = File.Exists(commandExe) ||
-                               File.Exists(Environment.ExpandEnvironmentVariables(commandExe)) ||
+            var commandExists = _fileSystem.FileExists(commandExe) ||
+                               _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe)) ||
                                IsBuiltInCommand(commandExe);
 
             if (!commandExists)

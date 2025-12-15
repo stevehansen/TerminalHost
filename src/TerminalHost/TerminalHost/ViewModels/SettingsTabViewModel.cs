@@ -8,7 +8,7 @@ namespace TerminalHost.ViewModels;
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 {
-    private readonly ConfigurationService _configService;
+    private readonly IConfigurationService _configService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -36,7 +36,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? JsonTextReloaded;
     public event EventHandler? ConfigSaved;
 
-    public SettingsTabViewModel(ConfigurationService configService)
+    public SettingsTabViewModel(IConfigurationService configService)
     {
         _configService = configService;
         LoadSettings();

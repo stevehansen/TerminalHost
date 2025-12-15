@@ -21,7 +21,7 @@ public class TerminalPair : IDisposable
     /// Optional run terminal, created lazily when first needed.
     /// </summary>
     public TerminalSession? RunTerminal { get; private set; }
-    private readonly StatisticsService _statisticsService;
+    private readonly IStatisticsService _statisticsService;
 
     /// <summary>
     /// Current state of the run terminal.
@@ -38,7 +38,7 @@ public class TerminalPair : IDisposable
         _ => CustomTerminal
     };
 
-    public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile, Services.StatisticsService statisticsService)
+    public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile, IStatisticsService statisticsService)
     {
         Id = Guid.NewGuid();
         WorkingDirectory = workingDirectory;

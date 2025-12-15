@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace TerminalHost.Services;
 
-public class SystemTrayService : IDisposable
+internal sealed class SystemTrayService : ISystemTrayService
 {
     private NotifyIcon? _notifyIcon;
     private Window? _mainWindow;

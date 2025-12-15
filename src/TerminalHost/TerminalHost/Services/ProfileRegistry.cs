@@ -2,9 +2,9 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
-public class ProfileRegistry
+internal sealed class ProfileRegistry : IProfileRegistry
 {
-    private readonly ConfigurationService _configurationService;
+    private readonly IConfigurationService _configurationService;
     private AppConfiguration _configuration;
 
     public IReadOnlyList<Profile> Profiles => _configuration.Profiles.AsReadOnly();
@@ -14,7 +14,7 @@ public class ProfileRegistry
 
     public event EventHandler? ProfilesChanged;
 
-    public ProfileRegistry(ConfigurationService configurationService)
+    public ProfileRegistry(IConfigurationService configurationService)
     {
         _configurationService = configurationService;
         _configuration = _configurationService.Load();

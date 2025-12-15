@@ -13,8 +13,8 @@ namespace TerminalHost.ViewModels;
 
 public partial class GitFilesViewModel : ObservableObject
 {
-    private readonly GitStatusService _gitStatusService;
-    private readonly FilePreviewService _filePreviewService;
+    private readonly IGitStatusService _gitStatusService;
+    private readonly IFilePreviewService _filePreviewService;
     private TerminalPairTabViewModel? _currentTerminalTab; // Context from MainViewModel
     private readonly DiffHighlighter _diffHighlighter = new();
 
@@ -55,7 +55,7 @@ public partial class GitFilesViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitFilesViewModel(GitStatusService gitStatusService, FilePreviewService filePreviewService)
+    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;

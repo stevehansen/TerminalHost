@@ -6,8 +6,15 @@ namespace TerminalHost.Services;
 /// <summary>
 /// Service for detecting localhost URLs from terminal output.
 /// </summary>
-public class RunUrlDetectionService
+internal sealed class RunUrlDetectionService : IRunUrlDetectionService
 {
+    private readonly IProcessService _processService;
+
+    public RunUrlDetectionService(IProcessService processService)
+    {
+        _processService = processService;
+    }
+
     /// <summary>
     /// Built-in patterns for detecting localhost URLs from common frameworks.
     /// </summary>
@@ -147,7 +154,7 @@ public class RunUrlDetectionService
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            _processService.Start(new ProcessStartInfo
             {
                 FileName = url,
                 UseShellExecute = true

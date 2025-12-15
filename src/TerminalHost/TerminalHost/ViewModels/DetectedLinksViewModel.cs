@@ -10,9 +10,9 @@ namespace TerminalHost.ViewModels;
 
 public partial class DetectedLinksViewModel : ObservableObject
 {
-    private readonly LinkDetectionService _linkDetectionService;
-    private readonly FilePreviewService _filePreviewService; // To open file previews
-
+    private readonly ILinkDetectionService _linkDetectionService;
+    private readonly IFilePreviewService _filePreviewService;
+    
     [ObservableProperty]
     private ObservableCollection<DetectedLink> _links = new();
 
@@ -21,16 +21,14 @@ public partial class DetectedLinksViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isOpen;
-
+    
     [ObservableProperty]
-    private bool _isLoading;
-
-    [ObservableProperty]
-    private bool _isEmptyStateVisible;
-
+    private bool _isDragging; // For popup dragging
+    
     // View properties for positioning/sizing the popup
+    // We bind to these in XAML
     [ObservableProperty]
-    private double _width = 500;
+    private double _width = 600;
     
     [ObservableProperty]
     private double _height = 400;
@@ -41,7 +39,13 @@ public partial class DetectedLinksViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public DetectedLinksViewModel(LinkDetectionService linkDetectionService, FilePreviewService filePreviewService)
+    [ObservableProperty]
+    private bool _isEmptyStateVisible;
+
+    [ObservableProperty]
+    private bool _isLoading;
+
+    public DetectedLinksViewModel(ILinkDetectionService linkDetectionService, IFilePreviewService filePreviewService)
     {
         _linkDetectionService = linkDetectionService;
         _filePreviewService = filePreviewService;

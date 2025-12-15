@@ -9,13 +9,15 @@ namespace TerminalHost.Services;
 /// <summary>
 /// Service for auto-detecting project types and generating run configurations.
 /// </summary>
-public class ProjectDetectionService
+internal sealed class ProjectDetectionService : IProjectDetectionService
 {
-    private readonly ProfileRegistry _profileRegistry;
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly IFileSystem _fileSystem;
 
-    public ProjectDetectionService(ProfileRegistry profileRegistry)
+    public ProjectDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem)
     {
         _profileRegistry = profileRegistry;
+        _fileSystem = fileSystem;
     }
 
     /// <summary>
@@ -25,7 +27,7 @@ public class ProjectDetectionService
     /// <returns>The detected project type, or null if not detected.</returns>
     public ProjectType? DetectProjectType(string workingDirectory)
     {
-        if (string.IsNullOrEmpty(workingDirectory) || !Directory.Exists(workingDirectory))
+        if (string.IsNullOrEmpty(workingDirectory) || !_fileSystem.DirectoryExists(workingDirectory))
             return null;
 
         var projectTypes = _profileRegistry.GetProjectTypes()
@@ -38,7 +40,7 @@ public class ProjectDetectionService
             {
                 try
                 {
-                    var files = Directory.GetFiles(workingDirectory, pattern, SearchOption.TopDirectoryOnly);
+                    var files = _fileSystem.GetFiles(workingDirectory, pattern, SearchOption.TopDirectoryOnly);
                     if (files.Length > 0)
                     {
                         return projectType;
@@ -64,7 +66,7 @@ public class ProjectDetectionService
         try
         {
             // First, check for .sln file and parse it
-            var slnFiles = Directory.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly);
+            var slnFiles = _fileSystem.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly);
             if (slnFiles.Length > 0)
             {
                 var projectFromSln = FindRunnableProjectFromSolution(slnFiles[0], workingDirectory);
@@ -73,7 +75,7 @@ public class ProjectDetectionService
             }
 
             // Check for .csproj in root directory
-            var rootCsprojs = Directory.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly);
+            var rootCsprojs = _fileSystem.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly);
             if (rootCsprojs.Length == 1)
             {
                 // Single project in root - check if it's runnable
@@ -116,21 +118,23 @@ public class ProjectDetectionService
     {
         try
         {
-            var slnContent = File.ReadAllText(slnPath);
+            var slnContent = _fileSystem.ReadAllText(slnPath);
             var slnDir = Path.GetDirectoryName(slnPath) ?? workingDirectory;
 
             // Parse project references: Project("{...}") = "Name", "path\to\project.csproj", "{...}"
             var projectRegex = new Regex(@"Project\(""\{[^}]+\}""\)\s*=\s*""[^""]+"",\s*""([^""]+\.csproj)""", RegexOptions.IgnoreCase);
             var matches = projectRegex.Matches(slnContent);
 
-            var runnableProjects = new List<(string path, int score)>();
+            var runnableProjects = new List<(string path, int score)>
+            {
+            };
 
             foreach (Match match in matches)
             {
                 var relativePath = match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar);
                 var fullPath = Path.GetFullPath(Path.Combine(slnDir, relativePath));
 
-                if (File.Exists(fullPath) && IsRunnableProject(fullPath))
+                if (_fileSystem.FileExists(fullPath) && IsRunnableProject(fullPath))
                 {
                     var score = ScoreProject(fullPath, workingDirectory);
                     runnableProjects.Add((fullPath, score));
@@ -171,9 +175,9 @@ public class ProjectDetectionService
 
         try
         {
-            results.AddRange(Directory.GetFiles(directory, "*.csproj", SearchOption.TopDirectoryOnly));
+            results.AddRange(_fileSystem.GetFiles(directory, "*.csproj", SearchOption.TopDirectoryOnly));
 
-            foreach (var subDir in Directory.GetDirectories(directory))
+            foreach (var subDir in _fileSystem.GetDirectories(directory))
             {
                 // Skip common non-project directories
                 var dirName = Path.GetFileName(subDir);
@@ -197,7 +201,9 @@ public class ProjectDetectionService
     {
         try
         {
-            var doc = XDocument.Load(csprojPath);
+            // Use _fileSystem to read XML content
+            var content = _fileSystem.ReadAllText(csprojPath);
+            var doc = XDocument.Parse(content);
             var ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
 
             // Check OutputType - we want Exe or WinExe
@@ -258,7 +264,9 @@ public class ProjectDetectionService
 
         try
         {
-            var doc = XDocument.Load(csprojPath);
+            // Parse XML from file system
+            var content = _fileSystem.ReadAllText(csprojPath);
+            var doc = XDocument.Parse(content);
             var sdk = doc.Root?.Attribute("Sdk")?.Value ?? "";
 
             // Prefer web projects
@@ -346,7 +354,7 @@ public class ProjectDetectionService
             var projectPath = FindDotNetProject(workingDirectory);
             if (!string.IsNullOrEmpty(projectPath))
             {
-                projectFlag = $" --project \"{projectPath}\"";
+                projectFlag = $" --project \"{projectPath}\"" ;
             }
         }
 
@@ -396,12 +404,12 @@ public class ProjectDetectionService
         var configs = new List<RunConfiguration>();
         var packageJsonPath = Path.Combine(workingDirectory, "package.json");
 
-        if (!File.Exists(packageJsonPath))
+        if (!_fileSystem.FileExists(packageJsonPath))
             return configs;
 
         try
         {
-            var json = File.ReadAllText(packageJsonPath);
+            var json = _fileSystem.ReadAllText(packageJsonPath);
             using var doc = JsonDocument.Parse(json);
 
             if (doc.RootElement.TryGetProperty("scripts", out var scripts))

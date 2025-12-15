@@ -9,9 +9,11 @@ namespace TerminalHost.Services;
 /// Service for detecting and handling clickable links in terminal output.
 /// Supports URLs, file paths, and custom regex patterns.
 /// </summary>
-public class LinkDetectionService
+internal sealed class LinkDetectionService : ILinkDetectionService
 {
-    private readonly ProfileRegistry _profileRegistry;
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly IFileSystem _fileSystem;
+    private readonly IProcessService _processService;
 
     // Built-in patterns for common link types
     private static readonly Regex UrlPattern = new(
@@ -22,9 +24,11 @@ public class LinkDetectionService
         @"(?:[A-Za-z]:\\|\\\\|/)?(?:[\w.-]+[/\\])*[\w.-]+\.\w+(?::\d+)?(?::\d+)?",
         RegexOptions.Compiled);
 
-    public LinkDetectionService(ProfileRegistry profileRegistry)
+    public LinkDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem, IProcessService processService)
     {
         _profileRegistry = profileRegistry;
+        _fileSystem = fileSystem;
+        _processService = processService;
     }
 
     /// <summary>
@@ -118,7 +122,7 @@ public class LinkDetectionService
     /// <summary>
     /// Attempts to resolve a file path, supporting both absolute and relative paths.
     /// </summary>
-    private static string? TryResolveFilePath(string text, string? workingDirectory)
+    private string? TryResolveFilePath(string text, string? workingDirectory)
     {
         // Check if it looks like a file path
         if (!FilePathPattern.IsMatch(text))
@@ -138,14 +142,14 @@ public class LinkDetectionService
         // Check if it's an absolute path
         if (Path.IsPathRooted(path))
         {
-            if (File.Exists(path) || Directory.Exists(path))
+            if (_fileSystem.FileExists(path) || _fileSystem.DirectoryExists(path))
                 resolvedPath = path;
         }
         // Try relative to working directory
         else if (!string.IsNullOrEmpty(workingDirectory))
         {
             var fullPath = Path.GetFullPath(Path.Combine(workingDirectory, path));
-            if (File.Exists(fullPath) || Directory.Exists(fullPath))
+            if (_fileSystem.FileExists(fullPath) || _fileSystem.DirectoryExists(fullPath))
                 resolvedPath = fullPath;
         }
 
@@ -153,7 +157,7 @@ public class LinkDetectionService
             return null;
 
         // Return as file:// URL for directories, or open with default app
-        if (Directory.Exists(resolvedPath))
+        if (_fileSystem.DirectoryExists(resolvedPath))
         {
             return $"file:///{resolvedPath.Replace('\\', '/')}";
         }
@@ -188,7 +192,7 @@ public class LinkDetectionService
     /// <summary>
     /// Determines if a link is a local file path (as opposed to a URL).
     /// </summary>
-    public static bool IsFilePath(string link)
+    public bool IsFilePath(string link)
     {
         if (string.IsNullOrEmpty(link))
             return false;
@@ -202,7 +206,7 @@ public class LinkDetectionService
         }
 
         // Check if it's an existing file
-        return File.Exists(link);
+        return _fileSystem.FileExists(link);
     }
 
 /// <summary>
@@ -219,18 +223,18 @@ public class LinkDetectionService
                 !link.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
             {
                 // It's a file path - check if it exists
-                if (File.Exists(link))
+                if (_fileSystem.FileExists(link))
                 {
-                    Process.Start(new ProcessStartInfo
+                    _processService.Start(new ProcessStartInfo
                     {
                         FileName = link,
                         UseShellExecute = true
                     });
                     return;
                 }
-                else if (Directory.Exists(link))
+                else if (_fileSystem.DirectoryExists(link))
                 {
-                    Process.Start(new ProcessStartInfo
+                    _processService.Start(new ProcessStartInfo
                     {
                         FileName = "explorer.exe",
                         Arguments = $"\"{link}\"",
@@ -241,7 +245,7 @@ public class LinkDetectionService
             }
 
             // It's a URL - open in default browser
-            Process.Start(new ProcessStartInfo
+            _processService.Start(new ProcessStartInfo
             {
                 FileName = link,
                 UseShellExecute = true
@@ -327,7 +331,7 @@ public class LinkDetectionService
                 {
                     DisplayText = TruncateForDisplay(displayPath, 40),
                     Url = resolved,
-                    LinkType = File.Exists(resolved) ? LinkType.File : LinkType.Directory
+                    LinkType = _fileSystem.FileExists(resolved) ? LinkType.File : LinkType.Directory
                 }));
             }
         }

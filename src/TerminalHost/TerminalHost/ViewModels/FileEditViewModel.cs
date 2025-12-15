@@ -13,7 +13,8 @@ namespace TerminalHost.ViewModels;
 
 public partial class FileEditViewModel : ObservableObject
 {
-    private readonly FileEditService _fileEditService;
+    private readonly IFileEditService _fileEditService;
+    private readonly IFileSystem _fileSystem;
     private string? _currentEditFilePath;
     private System.Text.Encoding? _currentEditEncoding;
     private string? _originalContent;
@@ -68,9 +69,10 @@ public partial class FileEditViewModel : ObservableObject
     public event EventHandler<int>? ScrollToLineRequested;
     public event EventHandler<int>? SetCaretIndexRequested;
 
-    public FileEditViewModel(FileEditService fileEditService)
+    public FileEditViewModel(IFileEditService fileEditService, IFileSystem fileSystem)
     {
         _fileEditService = fileEditService;
+        _fileSystem = fileSystem;
     }
 
     public void Open(string filePath, int? goToLine = null)
@@ -135,9 +137,9 @@ public partial class FileEditViewModel : ObservableObject
             IsFileModified = false;
 
             // Update file info
-            var fileInfo = new System.IO.FileInfo(_currentEditFilePath);
+            var fileSize = _fileSystem.GetFileSize(_currentEditFilePath);
             var lineCount = Content.Split('\n').Length;
-            Info = $"{lineCount:N0} lines • {FormatFileSize(fileInfo.Length)} • Saved";
+            Info = $"{lineCount:N0} lines • {FormatFileSize(fileSize)} • Saved";
         }
         else
         {

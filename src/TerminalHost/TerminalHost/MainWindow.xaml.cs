@@ -16,9 +16,9 @@ namespace TerminalHost;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
-    private readonly ConfigurationService _configService;
-    private readonly ProfileRegistry _profileRegistry;
-    private readonly SystemTrayService? _systemTrayService;
+    private readonly IConfigurationService _configService;
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly ISystemTrayService? _systemTrayService;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     private readonly FilePreviewViewModel _filePreviewViewModel;
     private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, ConfigurationService configService, ProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, SystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, ISystemTrayService? systemTrayService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;

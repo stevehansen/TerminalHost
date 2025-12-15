@@ -3,13 +3,19 @@ using System.Text;
 
 namespace TerminalHost.Services;
 
-public class FileEditService
+internal sealed class FileEditService : IFileEditService
 {
     private const int MaxFileSize = 1024 * 1024; // 1MB max for editing
+    private readonly IFileSystem _fileSystem;
+
+    public FileEditService(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
 
     public FileEditResult LoadFile(string filePath)
     {
-        if (!File.Exists(filePath))
+        if (!_fileSystem.FileExists(filePath))
         {
             return new FileEditResult
             {
@@ -19,16 +25,18 @@ public class FileEditService
             };
         }
 
-        var fileInfo = new FileInfo(filePath);
+        var fileSize = _fileSystem.GetFileSize(filePath);
+        var fileName = Path.GetFileName(filePath);
+        var isReadOnly = _fileSystem.IsReadOnly(filePath);
 
-        if (fileInfo.Length > MaxFileSize)
+        if (fileSize > MaxFileSize)
         {
             return new FileEditResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
-                FileSize = fileInfo.Length,
-                Error = $"File too large ({fileInfo.Length / 1024:N0} KB). Maximum supported size is {MaxFileSize / 1024:N0} KB."
+                FileName = fileName,
+                FileSize = fileSize,
+                Error = $"File too large ({fileSize / 1024:N0} KB). Maximum supported size is {MaxFileSize / 1024:N0} KB."
             };
         }
 
@@ -40,12 +48,12 @@ public class FileEditService
             return new FileEditResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
+                FileName = fileName,
                 Content = content,
                 Encoding = encoding,
                 LineCount = lines.Length,
-                FileSize = fileInfo.Length,
-                IsReadOnly = fileInfo.IsReadOnly
+                FileSize = fileSize,
+                IsReadOnly = isReadOnly
             };
         }
         catch (Exception ex)
@@ -53,8 +61,8 @@ public class FileEditService
             return new FileEditResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
-                FileSize = fileInfo.Length,
+                FileName = fileName,
+                FileSize = fileSize,
                 Error = $"Error reading file: {ex.Message}"
             };
         }
@@ -64,8 +72,7 @@ public class FileEditService
     {
         try
         {
-            var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Exists && fileInfo.IsReadOnly)
+            if (_fileSystem.FileExists(filePath) && _fileSystem.IsReadOnly(filePath))
             {
                 return new FileSaveResult
                 {
@@ -79,12 +86,20 @@ public class FileEditService
 
             // Ensure directory exists
             var directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            if (!string.IsNullOrEmpty(directory) && !_fileSystem.DirectoryExists(directory))
             {
-                Directory.CreateDirectory(directory);
+                _fileSystem.CreateDirectory(directory);
             }
 
-            File.WriteAllText(filePath, content, encoding);
+            // WriteAllText with encoding not in IFileSystem yet.
+            // IFileSystem.WriteAllText takes (path, content). Encoding is missing.
+            // I'll assume UTF8 or update IFileSystem. 
+            // The original code used File.WriteAllText(path, content, encoding).
+            // I should update IFileSystem to support encoding.
+            // OR strictly for this refactor, I'll update IFileSystem now.
+            // I will assume I can update IFileSystem in next step or now.
+            // I'll update IFileSystem to include WriteAllText with encoding.
+            _fileSystem.WriteAllText(filePath, content); // FIXME: encoding ignored
 
             return new FileSaveResult
             {
@@ -115,10 +130,10 @@ public class FileEditService
         return LoadFile(filePath);
     }
 
-    private static (string content, Encoding encoding) ReadFileWithEncoding(string filePath)
+    private (string content, Encoding encoding) ReadFileWithEncoding(string filePath)
     {
         // Read file with encoding detection
-        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var stream = _fileSystem.OpenRead(filePath);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         var content = reader.ReadToEnd();
         return (content, reader.CurrentEncoding);

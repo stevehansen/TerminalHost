@@ -34,14 +34,14 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     public Profile Profile { get; }
     public TerminalSession Session { get; }
 
-    private readonly StatisticsService _statisticsService;
+    private readonly IStatisticsService _statisticsService;
 
     public event EventHandler? CloseRequested;
 
     public ProfileTerminalTabViewModel(
         Profile profile,
         string workingDirectory,
-        StatisticsService statisticsService)
+        IStatisticsService statisticsService)
     {
         Profile = profile;
         WorkingDirectory = workingDirectory;

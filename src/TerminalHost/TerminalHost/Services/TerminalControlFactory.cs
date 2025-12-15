@@ -6,8 +6,15 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
-public class TerminalControlFactory
+internal sealed class TerminalControlFactory : ITerminalControlFactory
 {
+    private readonly IFileSystem _fileSystem;
+
+    public TerminalControlFactory(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
     {
         var profile = session.Profile;
@@ -20,8 +27,8 @@ public class TerminalControlFactory
 
         // Check if the command executable exists (for custom commands like claude.exe)
         var commandExe = command.Split(' ')[0];
-        var commandExists = File.Exists(commandExe) ||
-                           File.Exists(Environment.ExpandEnvironmentVariables(commandExe));
+        var commandExists = _fileSystem.FileExists(commandExe) ||
+                           _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe));
 
         if (!commandExists && !IsBuiltInCommand(commandExe))
         {

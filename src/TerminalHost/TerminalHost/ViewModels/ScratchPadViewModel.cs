@@ -8,7 +8,7 @@ namespace TerminalHost.ViewModels;
 
 public partial class ScratchPadViewModel : ObservableObject
 {
-    private readonly ConfigurationService _configService;
+    private readonly IConfigurationService _configService;
     private readonly MainViewModel _mainViewModel; // Needed to get the current project
     private DispatcherTimer? _saveTimer;
     
@@ -48,7 +48,7 @@ public partial class ScratchPadViewModel : ObservableObject
         ? "Shared across all projects" 
         : (_mainViewModel.SelectedTab is TerminalPairTabViewModel t ? t.Pair.WorkingDirectory : "No active project");
 
-    public ScratchPadViewModel(ConfigurationService configService, MainViewModel mainViewModel)
+    public ScratchPadViewModel(IConfigurationService configService, MainViewModel mainViewModel)
     {
         _configService = configService;
         _mainViewModel = mainViewModel;

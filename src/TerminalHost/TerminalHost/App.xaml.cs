@@ -10,7 +10,7 @@ namespace TerminalHost;
 
 public partial class App : Application
 {
-    private SingleInstanceService? _singleInstanceService;
+    private ISingleInstanceService? _singleInstanceService;
     private IServiceProvider? _services;
 
     public new static App Current => (App)Application.Current;
@@ -88,18 +88,21 @@ public partial class App : Application
     {
         // Services
         services.AddSingleton(_singleInstanceService!); // Register the already active instance
-        services.AddSingleton<ConfigurationService>();
-        services.AddSingleton<StatisticsService>();
-        services.AddSingleton<SystemTrayService>();
-        services.AddSingleton<ProfileRegistry>();
-        services.AddSingleton<SessionManager>();
-        services.AddSingleton<TerminalControlFactory>();
-        services.AddSingleton<GitStatusService>();
-        services.AddSingleton<LinkDetectionService>();
-        services.AddSingleton<RunUrlDetectionService>();
-        services.AddSingleton<ProjectDetectionService>();
-        services.AddSingleton<FileEditService>();
-        services.AddSingleton<FilePreviewService>();
+        services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<IStatisticsService, StatisticsService>();
+        services.AddSingleton<ISystemTrayService, SystemTrayService>();
+        services.AddSingleton<IProfileRegistry, ProfileRegistry>();
+        services.AddSingleton<ISessionManager, SessionManager>();
+        services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
+        services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
+        services.AddSingleton<IFileSystem, FileSystem>();
+        services.AddSingleton<IProcessService, ProcessService>();
+        services.AddSingleton<IGitStatusService, GitStatusService>();
+        services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
+        services.AddSingleton<IRunUrlDetectionService, RunUrlDetectionService>();
+        services.AddSingleton<IProjectDetectionService, ProjectDetectionService>();
+        services.AddSingleton<IFileEditService, FileEditService>();
+        services.AddSingleton<IFilePreviewService, FilePreviewService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
@@ -118,9 +121,9 @@ public partial class App : Application
 
     private void InitializeSystemTray()
     {
-        var systemTrayService = Services.GetRequiredService<SystemTrayService>();
+        var systemTrayService = Services.GetRequiredService<ISystemTrayService>();
         var mainWindow = Services.GetRequiredService<MainWindow>();
-        var configService = Services.GetRequiredService<ConfigurationService>();
+        var configService = Services.GetRequiredService<IConfigurationService>();
 
         systemTrayService.Initialize(mainWindow);
 
@@ -167,9 +170,9 @@ public partial class App : Application
     {
         if (_services != null)
         {
-            _services.GetService<SystemTrayService>()?.Dispose();
-            _services.GetService<SingleInstanceService>()?.Dispose();
-            _services.GetService<StatisticsService>()?.Dispose();
+            _services.GetService<ISystemTrayService>()?.Dispose();
+            _services.GetService<ISingleInstanceService>()?.Dispose();
+            _services.GetService<IStatisticsService>()?.Dispose();
         }
     }
 }

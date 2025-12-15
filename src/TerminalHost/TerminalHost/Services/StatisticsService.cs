@@ -7,7 +7,7 @@ using TerminalHost.Domain;
 
 namespace TerminalHost.Services
 {
-    public class StatisticsService : IDisposable
+    internal sealed class StatisticsService : IStatisticsService
     {
         private UsageStats _stats;
         private readonly string _statsPath;

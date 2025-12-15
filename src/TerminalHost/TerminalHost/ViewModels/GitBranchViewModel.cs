@@ -14,7 +14,7 @@ namespace TerminalHost.ViewModels;
 
 public partial class GitBranchViewModel : ObservableObject
 {
-    private readonly GitStatusService _gitStatusService;
+    private readonly IGitStatusService _gitStatusService;
     private readonly MainViewModel _mainViewModel; // To get selected tab and refresh its git status
 
     private List<GitBranch> _allBranches = new();
@@ -53,7 +53,7 @@ public partial class GitBranchViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitBranchViewModel(GitStatusService gitStatusService, MainViewModel mainViewModel)
+    public GitBranchViewModel(IGitStatusService gitStatusService, MainViewModel mainViewModel)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;

@@ -14,7 +14,8 @@ namespace TerminalHost.ViewModels;
 
 public partial class FilePreviewViewModel : ObservableObject
 {
-    private readonly FilePreviewService _filePreviewService;
+    private readonly IFilePreviewService _filePreviewService;
+    private readonly IFileSystem _fileSystem;
     private string? _currentFilePath;
 
     [ObservableProperty]
@@ -48,9 +49,10 @@ public partial class FilePreviewViewModel : ObservableObject
     public event EventHandler<FileEditRequestedEventArgs>? OpenFileEditRequested;
     public event EventHandler<int>? ScrollToLineRequested;
 
-    public FilePreviewViewModel(FilePreviewService filePreviewService)
+    public FilePreviewViewModel(IFilePreviewService filePreviewService, IFileSystem fileSystem)
     {
         _filePreviewService = filePreviewService;
+        _fileSystem = fileSystem;
         // Initialize with an empty document
         _content = CreateInfoDocument("Select a file to preview.");
     }
@@ -83,7 +85,7 @@ public partial class FilePreviewViewModel : ObservableObject
             Info = $"Error • {FormatFileSize(result.FileSize)}";
         }
 
-        CanOpenInEditor = !string.IsNullOrEmpty(_currentFilePath) && File.Exists(_currentFilePath);
+        CanOpenInEditor = !string.IsNullOrEmpty(_currentFilePath) && _fileSystem.FileExists(_currentFilePath);
         IsOpen = true;
 
         if (highlightLine.HasValue && result?.Document != null)
@@ -122,7 +124,7 @@ public partial class FilePreviewViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanOpenInEditor))]
     private void OpenInEditor()
     {
-        if (!string.IsNullOrEmpty(_currentFilePath) && File.Exists(_currentFilePath))
+        if (!string.IsNullOrEmpty(_currentFilePath) && _fileSystem.FileExists(_currentFilePath))
         {
             IsOpen = false; // Close preview before opening editor
             OpenFileEditRequested?.Invoke(this, new FileEditRequestedEventArgs { FilePath = _currentFilePath });

@@ -120,7 +120,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
     public TerminalPair Pair { get; }
-    private readonly StatisticsService _statisticsService;
+    private readonly IStatisticsService _statisticsService;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -131,7 +131,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? CloseRequested;
     public event EventHandler? SettingsChanged;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, StatisticsService statisticsService)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -284,7 +284,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// Only updates if the actual links have changed to preserve UI selection state.
     /// </summary>
     /// <param name="linkDetectionService">The link detection service to use.</param>
-    public void UpdateDetectedLinks(LinkDetectionService linkDetectionService)
+    public void UpdateDetectedLinks(ILinkDetectionService linkDetectionService)
     {
         // Get recent output from both terminals
         var customOutput = Pair.CustomTerminal.GetRecentOutput(10000);

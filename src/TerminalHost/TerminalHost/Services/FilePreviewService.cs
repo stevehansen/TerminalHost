@@ -5,16 +5,18 @@ using TerminalHost.Services.SyntaxHighlighting;
 
 namespace TerminalHost.Services;
 
-public class FilePreviewService
+internal sealed class FilePreviewService : IFilePreviewService
 {
     private const int MaxFileSize = 1024 * 1024; // 1MB max
     private const int MaxLines = 1000;
 
     private readonly Dictionary<string, ISyntaxHighlighter> _highlighters;
     private readonly PlainTextHighlighter _fallbackHighlighter;
+    private readonly IFileSystem _fileSystem;
 
-    public FilePreviewService()
+    public FilePreviewService(IFileSystem fileSystem)
     {
+        _fileSystem = fileSystem;
         _fallbackHighlighter = new PlainTextHighlighter();
 
         var highlighterList = new ISyntaxHighlighter[]
@@ -44,21 +46,22 @@ public class FilePreviewService
 
     public FilePreviewResult? LoadFilePreview(string filePath, int? highlightLine = null)
     {
-        if (!File.Exists(filePath))
+        if (!_fileSystem.FileExists(filePath))
         {
             return null;
         }
 
-        var fileInfo = new FileInfo(filePath);
+        var fileSize = _fileSystem.GetFileSize(filePath);
+        var fileName = Path.GetFileName(filePath);
 
-        if (fileInfo.Length > MaxFileSize)
+        if (fileSize > MaxFileSize)
         {
             return new FilePreviewResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
-                FileSize = fileInfo.Length,
-                Error = $"File too large ({fileInfo.Length / 1024:N0} KB). Maximum supported size is {MaxFileSize / 1024:N0} KB."
+                FileName = fileName,
+                FileSize = fileSize,
+                Error = $"File too large ({fileSize / 1024:N0} KB). Maximum supported size is {MaxFileSize / 1024:N0} KB."
             };
         }
 
@@ -73,17 +76,17 @@ public class FilePreviewService
                 content += $"\n\n... (truncated, showing first {MaxLines} of {lines.Length} lines)";
             }
 
-            var extension = fileInfo.Extension.ToLowerInvariant();
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
             var highlighter = GetHighlighter(extension);
             var document = highlighter.CreateHighlightedDocument(content, highlightLine);
 
             return new FilePreviewResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
+                FileName = fileName,
                 Document = document,
                 LineCount = lines.Length,
-                FileSize = fileInfo.Length,
+                FileSize = fileSize,
                 HighlightLine = highlightLine
             };
         }
@@ -92,8 +95,8 @@ public class FilePreviewService
             return new FilePreviewResult
             {
                 FilePath = filePath,
-                FileName = fileInfo.Name,
-                FileSize = fileInfo.Length,
+                FileName = fileName,
+                FileSize = fileSize,
                 Error = $"Error reading file: {ex.Message}"
             };
         }
@@ -106,10 +109,10 @@ public class FilePreviewService
             : _fallbackHighlighter;
     }
 
-    private static string ReadFileContent(string filePath)
+    private string ReadFileContent(string filePath)
     {
         // Try to detect encoding
-        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var stream = _fileSystem.OpenRead(filePath);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return reader.ReadToEnd();
     }

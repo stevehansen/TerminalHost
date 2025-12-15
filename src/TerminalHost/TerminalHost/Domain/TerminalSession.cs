@@ -23,7 +23,7 @@ public class TerminalSession : IDisposable
     private readonly StringBuilder _outputBuffer = new();
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
 
-    private readonly Services.StatisticsService _statisticsService;
+    private readonly Services.IStatisticsService _statisticsService;
     private readonly string _workingDirectory;
     private readonly string _terminalType;
 
@@ -51,7 +51,7 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
-    public TerminalSession(Profile profile, Services.StatisticsService statisticsService, string terminalType)
+    public TerminalSession(Profile profile, Services.IStatisticsService statisticsService, string terminalType)
     {
         Id = Guid.NewGuid();
         Profile = profile;
