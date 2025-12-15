@@ -15,6 +15,7 @@ public partial class GitFilesViewModel : ObservableObject
 {
     private readonly IGitStatusService _gitStatusService;
     private readonly IFilePreviewService _filePreviewService;
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
     private TerminalPairTabViewModel? _currentTerminalTab; // Context from MainViewModel
     private readonly DiffHighlighter _diffHighlighter = new();
 
@@ -55,10 +56,11 @@ public partial class GitFilesViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService)
+    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService) // Added IDialogService
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
+        _dialogService = dialogService; // Initialize IDialogService
         // Initialize with an empty document to avoid null reference in XAML
         _diffDocument = CreateInfoDocument("Select a file to view diff");
     }
@@ -69,7 +71,7 @@ public partial class GitFilesViewModel : ObservableObject
         _currentTerminalTab = terminalTab;
         if (terminalTab.GitStatus?.IsGitRepository != true)
         {
-            DialogService.ShowInfo(
+            _dialogService.ShowInfo( // Use injected IDialogService
                 "The selected tab is not a Git repository or Git status is unavailable.",
                 "Git Changes");
             _currentTerminalTab = null; // Clear context if not a git repo
@@ -206,10 +208,10 @@ public partial class GitFilesViewModel : ObservableObject
         var fullPath = System.IO.Path.Combine(_currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
         var directory = System.IO.Path.GetDirectoryName(fullPath);
 
-        if (System.IO.Directory.Exists(directory))
+        if (System.IO.Directory.Exists(directory)) // This uses static Directory.Exists
         {
             // Open explorer and select the file if it exists
-            if (System.IO.File.Exists(fullPath))
+            if (System.IO.File.Exists(fullPath)) // This uses static File.Exists
             {
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
             }

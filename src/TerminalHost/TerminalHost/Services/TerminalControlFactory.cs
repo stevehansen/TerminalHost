@@ -9,10 +9,12 @@ namespace TerminalHost.Services;
 internal sealed class TerminalControlFactory : ITerminalControlFactory
 {
     private readonly IFileSystem _fileSystem;
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
 
-    public TerminalControlFactory(IFileSystem fileSystem)
+    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService) // Added IDialogService
     {
         _fileSystem = fileSystem;
+        _dialogService = dialogService; // Initialize IDialogService
     }
 
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
@@ -35,7 +37,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             // Show warning on UI thread since this runs during terminal creation
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                DialogService.ShowWarning(
+                _dialogService.ShowWarning( // Use injected IDialogService
                     $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
                     "Terminal Warning");
             });
@@ -53,7 +55,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             if (command.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase) ||
                 command.Equals("cmd", StringComparison.OrdinalIgnoreCase))
             {
-                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\"";
+                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\" ";
             }
             // For PowerShell variants
             else if (command.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
@@ -61,7 +63,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
                      command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase) ||
                      command.Equals("powershell", StringComparison.OrdinalIgnoreCase))
             {
-                startupCommand = $"{command} -NoExit -WorkingDirectory \"{workingDir}\"";
+                startupCommand = $"{command} -NoExit -WorkingDirectory \"{workingDir}\" ";
             }
             else
             {

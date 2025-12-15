@@ -1,5 +1,6 @@
 using System.Windows;
 using TerminalHost.Views.Dialogs;
+using System.Linq;
 
 namespace TerminalHost.Services;
 
@@ -39,12 +40,12 @@ public enum DialogResult
 /// <summary>
 /// Provides themed dialog methods to replace MessageBox throughout the application.
 /// </summary>
-public static class DialogService
+public class DialogService : IDialogService // Make it non-static and implement interface
 {
     /// <summary>
     /// Shows an error dialog with OK button.
     /// </summary>
-    public static void ShowError(string message, string title = "Error")
+    public void ShowError(string message, string title = "Error") // Make it non-static
     {
         Show(message, title, DialogType.Error, DialogButtons.OK);
     }
@@ -52,7 +53,7 @@ public static class DialogService
     /// <summary>
     /// Shows a warning dialog with OK button.
     /// </summary>
-    public static void ShowWarning(string message, string title = "Warning")
+    public void ShowWarning(string message, string title = "Warning") // Make it non-static
     {
         Show(message, title, DialogType.Warning, DialogButtons.OK);
     }
@@ -60,7 +61,7 @@ public static class DialogService
     /// <summary>
     /// Shows an information dialog with OK button.
     /// </summary>
-    public static void ShowInfo(string message, string title = "Information")
+    public void ShowInfo(string message, string title = "Information") // Make it non-static
     {
         Show(message, title, DialogType.Information, DialogButtons.OK);
     }
@@ -69,7 +70,7 @@ public static class DialogService
     /// Shows a confirmation dialog with Yes/No buttons.
     /// Returns true if Yes was clicked, false otherwise.
     /// </summary>
-    public static bool ShowConfirmation(string message, string title = "Confirm")
+    public bool ShowConfirmation(string message, string title = "Confirm") // Make it non-static
     {
         var result = Show(message, title, DialogType.Question, DialogButtons.YesNo);
         return result == DialogResult.Yes;
@@ -78,7 +79,7 @@ public static class DialogService
     /// <summary>
     /// Shows a dialog with full control over type and buttons.
     /// </summary>
-    public static DialogResult Show(string message, string title, DialogType type, DialogButtons buttons)
+    public DialogResult Show(string message, string title, DialogType type, DialogButtons buttons) // Make it non-static
     {
         var owner = GetActiveWindow();
         var dialog = new NotificationDialog(message, title, type, buttons)
@@ -96,8 +97,10 @@ public static class DialogService
     /// <summary>
     /// Gets the currently active window to use as dialog owner.
     /// </summary>
-    private static Window? GetActiveWindow()
+    private Window? GetActiveWindow() // Make it non-static
     {
+        // In a real WPF app, Application.Current is usually available.
+        // For testing, this might be null, so handle gracefully.
         return Application.Current?.Windows
             .OfType<Window>()
             .FirstOrDefault(w => w.IsActive)

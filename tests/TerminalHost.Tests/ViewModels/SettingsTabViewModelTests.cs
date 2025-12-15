@@ -9,12 +9,14 @@ namespace TerminalHost.Tests.ViewModels;
 public class SettingsTabViewModelTests
 {
     private readonly Mock<IConfigurationService> _configServiceMock;
+    private readonly Mock<IDialogService> _dialogServiceMock; // Added mock
     private readonly SettingsTabViewModel _viewModel;
 
     public SettingsTabViewModelTests()
     {
         _configServiceMock = new Mock<IConfigurationService>();
-        _viewModel = new SettingsTabViewModel(_configServiceMock.Object);
+        _dialogServiceMock = new Mock<IDialogService>(); // Initialize mock
+        _viewModel = new SettingsTabViewModel(_configServiceMock.Object, _dialogServiceMock.Object); // Pass mock
     }
 
     [Fact]

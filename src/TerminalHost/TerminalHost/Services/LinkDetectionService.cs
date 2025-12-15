@@ -14,21 +14,39 @@ internal sealed class LinkDetectionService : ILinkDetectionService
     private readonly IProfileRegistry _profileRegistry;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
+
 
     // Built-in patterns for common link types
+    // Constructed using char arrays to completely bypass string literal escape issues
     private static readonly Regex UrlPattern = new(
-        @"https?://[^\s<>""'`\]\)]+",
+        string.Join("", new string[] { 
+            "https?://[^", 
+            new string(new char[] { '\\', 's' }), 
+            "<>\"'`", 
+            new string(new char[] { '\\', '[' }), 
+            new string(new char[] { '\\', ']' }), 
+            new string(new char[] { '\\', ')' }), 
+            "]+" 
+        }),
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex FilePathPattern = new(
-        @"(?:[A-Za-z]:\\|\\\\|/)?(?:[\w.-]+[/\\])*[\w.-]+\.\w+(?::\d+)?(?::\d+)?",
+        string.Join("", new string[] {
+            "(?:[A-Za-z]:", new string(new char[] { '\\', '\\' }), "|", new string(new char[] { '\\', '\\', '\\', '\\' }), "|/)?",
+            "(?:[", new string(new char[] { '\\', 'w' }), ".-]+[", new string(new char[] { '\\', '\\' }), "/])*",
+            "([", new string(new char[] { '\\', 'w' }), ".-]+", new string(new char[] { '\\', '.' }), new string(new char[] { '\\', 'w' }), "+)",
+            "(?::", new string(new char[] { '\\', 'd' }), "+)?",
+            "(?::", new string(new char[] { '\\', 'd' }), "+)?"
+        }),
         RegexOptions.Compiled);
 
-    public LinkDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem, IProcessService processService)
+    public LinkDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem, IProcessService processService, IDialogService dialogService) // Added IDialogService
     {
         _profileRegistry = profileRegistry;
         _fileSystem = fileSystem;
         _processService = processService;
+        _dialogService = dialogService; // Initialize IDialogService
     }
 
     /// <summary>
@@ -113,7 +131,7 @@ internal sealed class LinkDetectionService : ILinkDetectionService
         // Replace $1, $2, etc. with captured groups
         for (int i = 1; i < match.Groups.Count; i++)
         {
-            result = result.Replace($"${i}", match.Groups[i].Value);
+            result = result.Replace($"${{i}}", match.Groups[i].Value);
         }
 
         return result;
@@ -172,7 +190,10 @@ internal sealed class LinkDetectionService : ILinkDetectionService
     private static string CleanUrl(string url)
     {
         // Remove trailing punctuation that's likely not part of the URL
-        while (url.Length > 0 && ".,:;!?)>]".Contains(url[^1]))
+        // Constructed using char array to avoid string literal corruption
+        string punctuation = new string(new char[] { '.', ',', ':', ';', '!', '?', ')', ']', '>' });
+        
+        while (url.Length > 0 && punctuation.Contains(url[^1]))
         {
             // But keep if there's a matching opening bracket
             if (url[^1] == ')' && url.Contains('('))
@@ -253,7 +274,7 @@ internal sealed class LinkDetectionService : ILinkDetectionService
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Failed to open link:\n{ex.Message}", "Link Error");
+            _dialogService.ShowError($"Failed to open link:\n{ex.Message}", "Link Error"); // Use injected IDialogService
         }
     }
 

@@ -21,6 +21,9 @@ public partial class MainViewModel : ObservableObject
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly IRunUrlDetectionService _runUrlDetectionService;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
+    private readonly IFileSystem _fileSystem; // Added IFileSystem dependency
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
+
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
     private readonly DispatcherTimer _linkDetectionTimer;
@@ -129,7 +132,9 @@ public partial class MainViewModel : ObservableObject
         ILinkDetectionService linkDetectionService,
         IProjectDetectionService projectDetectionService,
         IRunUrlDetectionService runUrlDetectionService,
-        DetectedLinksViewModel detectedLinksViewModel)
+        DetectedLinksViewModel detectedLinksViewModel,
+        IFileSystem fileSystem, // Added IFileSystem
+        IDialogService dialogService) // Added IDialogService
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -141,6 +146,8 @@ public partial class MainViewModel : ObservableObject
         _projectDetectionService = projectDetectionService;
         _runUrlDetectionService = runUrlDetectionService;
         _detectedLinksViewModel = detectedLinksViewModel;
+        _fileSystem = fileSystem; // Initialize IFileSystem
+        _dialogService = dialogService; // Initialize IDialogService
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -389,7 +396,7 @@ public partial class MainViewModel : ObservableObject
         var config = _configService.Load();
         foreach (var folder in config.OpenFolders)
         {
-            if (Directory.Exists(folder))
+            if (_fileSystem.DirectoryExists(folder)) // Use injected IFileSystem
             {
                 OpenProjectTab(folder);
             }
@@ -464,7 +471,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Error opening project: {ex.Message}");
+            _dialogService.ShowError($"Error opening project: {ex.Message}"); // Use injected IDialogService
         }
     }
 
@@ -475,9 +482,9 @@ public partial class MainViewModel : ObservableObject
             // Normalize the path for comparison
             workingDirectory = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            if (!Directory.Exists(workingDirectory))
+            if (!_fileSystem.DirectoryExists(workingDirectory)) // Use injected IFileSystem
             {
-                DialogService.ShowError($"Directory not found: {workingDirectory}");
+                _dialogService.ShowError($"Directory not found: {workingDirectory}"); // Use injected IDialogService
                 return;
             }
 
@@ -569,7 +576,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Error creating terminal: {ex.Message}");
+            _dialogService.ShowError($"Error creating terminal: {ex.Message}"); // Use injected IDialogService
         }
     }
 
@@ -598,9 +605,9 @@ public partial class MainViewModel : ObservableObject
             // Normalize path
             effectiveWorkingDir = Path.GetFullPath(effectiveWorkingDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            if (!Directory.Exists(effectiveWorkingDir))
+            if (!_fileSystem.DirectoryExists(effectiveWorkingDir)) // Use injected IFileSystem
             {
-                DialogService.ShowError($"Directory not found: {effectiveWorkingDir}");
+                _dialogService.ShowError($"Directory not found: {effectiveWorkingDir}"); // Use injected IDialogService
                 return;
             }
 
@@ -635,7 +642,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Error launching profile: {ex.Message}");
+            _dialogService.ShowError($"Error launching profile: {ex.Message}"); // Use injected IDialogService
         }
     }
 
@@ -656,7 +663,7 @@ public partial class MainViewModel : ObservableObject
 
             // Set initial directory to profile's configured directory if it exists
             var initialDir = profile.GetExpandedWorkingDir();
-            if (!string.IsNullOrWhiteSpace(initialDir) && Directory.Exists(initialDir))
+            if (!string.IsNullOrWhiteSpace(initialDir) && _fileSystem.DirectoryExists(initialDir)) // Use injected IFileSystem
             {
                 dialog.InitialDirectory = initialDir;
             }
@@ -670,7 +677,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Error opening folder picker: {ex.Message}");
+            _dialogService.ShowError($"Error opening folder picker: {ex.Message}"); // Use injected IDialogService
         }
     }
 
@@ -685,7 +692,7 @@ public partial class MainViewModel : ObservableObject
 
             if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
             {
-                if (!DialogService.ShowConfirmation(
+                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
                     $"Terminals in '{terminalTab.Title}' are still running. Close anyway?",
                     "Confirm Close"))
                     return;
@@ -723,7 +730,7 @@ public partial class MainViewModel : ObservableObject
 
             if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
             {
-                if (!DialogService.ShowConfirmation(
+                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
                     $"Terminal '{profileTab.Title}' is still running. Close anyway?",
                     "Confirm Close"))
                     return;
@@ -850,7 +857,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService); // Added _dialogService
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -911,7 +918,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}");
+            _dialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}"); // Use injected IDialogService
         }
     }
 
@@ -993,7 +1000,7 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
         var folder = terminalTab.Pair.WorkingDirectory;
-        if (Directory.Exists(folder))
+        if (_fileSystem.DirectoryExists(folder)) // Use injected IFileSystem
         {
             Process.Start("explorer.exe", folder);
         }
@@ -1408,4 +1415,3 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required Domain.RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
 }
-

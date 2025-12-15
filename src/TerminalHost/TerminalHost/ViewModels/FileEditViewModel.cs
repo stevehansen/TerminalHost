@@ -15,6 +15,7 @@ public partial class FileEditViewModel : ObservableObject
 {
     private readonly IFileEditService _fileEditService;
     private readonly IFileSystem _fileSystem;
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
     private string? _currentEditFilePath;
     private System.Text.Encoding? _currentEditEncoding;
     private string? _originalContent;
@@ -69,10 +70,11 @@ public partial class FileEditViewModel : ObservableObject
     public event EventHandler<int>? ScrollToLineRequested;
     public event EventHandler<int>? SetCaretIndexRequested;
 
-    public FileEditViewModel(IFileEditService fileEditService, IFileSystem fileSystem)
+    public FileEditViewModel(IFileEditService fileEditService, IFileSystem fileSystem, IDialogService dialogService) // Added IDialogService
     {
         _fileEditService = fileEditService;
         _fileSystem = fileSystem;
+        _dialogService = dialogService; // Initialize IDialogService
     }
 
     public void Open(string filePath, int? goToLine = null)
@@ -81,7 +83,7 @@ public partial class FileEditViewModel : ObservableObject
 
         if (!result.IsSuccess)
         {
-            DialogService.ShowError(result.Error ?? "Unknown error loading file");
+            _dialogService.ShowError(result.Error ?? "Unknown error loading file"); // Use injected IDialogService
             return;
         }
 
@@ -143,7 +145,7 @@ public partial class FileEditViewModel : ObservableObject
         }
         else
         {
-            DialogService.ShowError(result.Error ?? "Unknown error saving file");
+            _dialogService.ShowError(result.Error ?? "Unknown error saving file"); // Use injected IDialogService
         }
     }
 
@@ -154,7 +156,7 @@ public partial class FileEditViewModel : ObservableObject
 
         if (IsFileModified)
         {
-            if (!DialogService.ShowConfirmation(
+            if (!_dialogService.ShowConfirmation( // Use injected IDialogService
                 "You have unsaved changes. Reload and lose changes?",
                 "Confirm Reload"))
                 return;
@@ -172,7 +174,7 @@ public partial class FileEditViewModel : ObservableObject
         }
         else
         {
-            DialogService.ShowError(editResult.Error ?? "Unknown error reloading file");
+            _dialogService.ShowError(editResult.Error ?? "Unknown error reloading file"); // Use injected IDialogService
         }
     }
 
@@ -181,7 +183,7 @@ public partial class FileEditViewModel : ObservableObject
     {
         if (IsFileModified)
         {
-            if (!DialogService.ShowConfirmation(
+            if (!_dialogService.ShowConfirmation( // Use injected IDialogService
                 "You have unsaved changes. Close without saving?",
                 "Unsaved Changes"))
                 return;

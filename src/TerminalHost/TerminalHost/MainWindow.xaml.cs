@@ -6,7 +6,6 @@ using System.Windows.Input;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using DialogService = TerminalHost.Services.DialogService;
 
 namespace TerminalHost;
 
@@ -25,9 +24,10 @@ public partial class MainWindow : Window
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly FileEditViewModel _fileEditViewModel;
     private readonly FilePreviewViewModel _filePreviewViewModel;
+    private readonly IDialogService _dialogService; // Added IDialogService dependency
     private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, ISystemTrayService? systemTrayService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!) // Added IDialogService
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         _gitFilesViewModel = gitFilesViewModel;
         _fileEditViewModel = fileEditViewModel;
         _filePreviewViewModel = filePreviewViewModel;
+        _dialogService = dialogService; // Initialize IDialogService
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
@@ -202,7 +203,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Failed to start run terminal:\n{ex.Message}", "Run Error");
+            _dialogService.ShowError($"Failed to start run terminal:\n{ex.Message}", "Run Error"); // Use injected IDialogService
             tab.OnRunStopped();
         }
     }
@@ -228,7 +229,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DialogService.ShowError($"Failed to stop run terminal:\n{ex.Message}", "Run Error");
+            _dialogService.ShowError($"Failed to stop run terminal:\n{ex.Message}", "Run Error"); // Use injected IDialogService
             tab.OnRunStopped();
         }
     }
@@ -545,7 +546,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                DialogService.ShowInfo("Please select a project tab first.", "Git Changes");
+                _dialogService.ShowInfo("Please select a project tab first.", "Git Changes"); // Use injected IDialogService
             }
         }
         // Ctrl+B: Open git branch switcher
@@ -664,7 +665,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            DialogService.ShowInfo("Please select a project tab first.", "Git Changes");
+            _dialogService.ShowInfo("Please select a project tab first.", "Git Changes"); // Use injected IDialogService
         }
     }
 
