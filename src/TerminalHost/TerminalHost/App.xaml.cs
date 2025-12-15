@@ -108,6 +108,7 @@ public partial class App : Application
         services.AddSingleton<IProjectDetectionService, ProjectDetectionService>();
         services.AddSingleton<IFileEditService, FileEditService>();
         services.AddSingleton<IFilePreviewService, FilePreviewService>();
+        services.AddSingleton<IFileExplorerService, FileExplorerService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

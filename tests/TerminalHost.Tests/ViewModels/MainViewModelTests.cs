@@ -17,9 +17,11 @@ public class MainViewModelTests
     private readonly Mock<ILinkDetectionService> _mockLinkDetectionService;
     private readonly Mock<IProjectDetectionService> _mockProjectDetectionService;
     private readonly Mock<IRunUrlDetectionService> _mockRunUrlDetectionService;
-    private readonly Mock<IFilePreviewService> _mockFilePreviewService; 
+    private readonly Mock<IFilePreviewService> _mockFilePreviewService;
+    private readonly Mock<IFileEditService> _mockFileEditService;
+    private readonly Mock<IFileExplorerService> _mockFileExplorerService;
     private readonly Mock<DetectedLinksViewModel> _mockDetectedLinksViewModel;
-    private readonly Mock<IFileSystem> _mockFileSystem; 
+    private readonly Mock<IFileSystem> _mockFileSystem;
     private readonly Mock<IDialogService> _mockDialogService; 
 
     private readonly MainViewModel _mainViewModel;
@@ -35,8 +37,10 @@ public class MainViewModelTests
         _mockLinkDetectionService = new Mock<ILinkDetectionService>();
         _mockProjectDetectionService = new Mock<IProjectDetectionService>();
         _mockRunUrlDetectionService = new Mock<IRunUrlDetectionService>();
-        _mockFilePreviewService = new Mock<IFilePreviewService>(); 
-        _mockFileSystem = new Mock<IFileSystem>(); 
+        _mockFilePreviewService = new Mock<IFilePreviewService>();
+        _mockFileEditService = new Mock<IFileEditService>();
+        _mockFileExplorerService = new Mock<IFileExplorerService>();
+        _mockFileSystem = new Mock<IFileSystem>();
         _mockDialogService = new Mock<IDialogService>();
 
         // Pass constructor arguments for DetectedLinksViewModel mock
@@ -86,8 +90,11 @@ public class MainViewModelTests
             _mockProjectDetectionService.Object,
             _mockRunUrlDetectionService.Object,
             _mockDetectedLinksViewModel.Object,
-            _mockFileSystem.Object, 
-            _mockDialogService.Object); 
+            _mockFileSystem.Object,
+            _mockDialogService.Object,
+            _mockFileExplorerService.Object,
+            _mockFilePreviewService.Object,
+            _mockFileEditService.Object);
     }
 
     // Helper to run tests in STA thread

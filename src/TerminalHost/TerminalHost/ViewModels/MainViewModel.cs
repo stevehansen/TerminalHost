@@ -23,6 +23,9 @@ public partial class MainViewModel : ObservableObject
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly IFileSystem _fileSystem; // Added IFileSystem dependency
     private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly IFileExplorerService _fileExplorerService;
+    private readonly IFilePreviewService _filePreviewService;
+    private readonly IFileEditService _fileEditService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -123,18 +126,21 @@ public partial class MainViewModel : ObservableObject
     }
 
     public MainViewModel(
-        IProfileRegistry profileRegistry, 
-        ISessionManager sessionManager, 
-        ITerminalControlFactory terminalFactory, 
-        IConfigurationService configService, 
+        IProfileRegistry profileRegistry,
+        ISessionManager sessionManager,
+        ITerminalControlFactory terminalFactory,
+        IConfigurationService configService,
         IStatisticsService statisticsService,
         IGitStatusService gitStatusService,
         ILinkDetectionService linkDetectionService,
         IProjectDetectionService projectDetectionService,
         IRunUrlDetectionService runUrlDetectionService,
         DetectedLinksViewModel detectedLinksViewModel,
-        IFileSystem fileSystem, // Added IFileSystem
-        IDialogService dialogService) // Added IDialogService
+        IFileSystem fileSystem,
+        IDialogService dialogService,
+        IFileExplorerService fileExplorerService,
+        IFilePreviewService filePreviewService,
+        IFileEditService fileEditService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -146,8 +152,11 @@ public partial class MainViewModel : ObservableObject
         _projectDetectionService = projectDetectionService;
         _runUrlDetectionService = runUrlDetectionService;
         _detectedLinksViewModel = detectedLinksViewModel;
-        _fileSystem = fileSystem; // Initialize IFileSystem
-        _dialogService = dialogService; // Initialize IDialogService
+        _fileSystem = fileSystem;
+        _dialogService = dialogService;
+        _fileExplorerService = fileExplorerService;
+        _filePreviewService = filePreviewService;
+        _fileEditService = fileEditService;
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -432,6 +441,10 @@ public partial class MainViewModel : ObservableObject
         settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
         settings.RunConfigurations = [.. tab.RunConfigurations];
 
+        // Update explorer settings
+        settings.IsExplorerVisible = tab.IsExplorerVisible;
+        settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
+
         config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
     }
@@ -567,6 +580,26 @@ public partial class MainViewModel : ObservableObject
             // Subscribe to run terminal events
             tabViewModel.RunStartRequested += OnRunStartRequested;
             tabViewModel.RunStopRequested += OnRunStopRequested;
+
+            // Initialize file explorer
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService);
+            tabViewModel.ExplorerViewModel = explorerViewModel;
+
+            // Restore explorer settings
+            if (dirSettings != null)
+            {
+                tabViewModel.IsExplorerVisible = dirSettings.IsExplorerVisible;
+                tabViewModel.ExplorerSplitRatio = dirSettings.ExplorerSplitRatio;
+            }
+
+            // Wire up explorer events
+            explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
+            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
+            explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
+            explorerViewModel.RenameRequested += OnExplorerRenameRequested;
+
+            // Initialize explorer async (don't await - let it load in background)
+            _ = explorerViewModel.InitializeAsync(workingDirectory);
 
             Tabs.Add(tabViewModel);
             SelectedTab = tabViewModel;
@@ -822,6 +855,65 @@ public partial class MainViewModel : ObservableObject
                 Configuration = tab.ActiveRunConfiguration,
                 IsStop = true
             });
+        }
+    }
+
+    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Create an embedded file viewer for the explorer
+        if (sender is FileExplorerViewModel explorerVm)
+        {
+            // Create a new FileViewerViewModel for the embedded viewer
+            if (explorerVm.EmbeddedViewer == null)
+            {
+                var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService);
+                explorerVm.EmbeddedViewer = viewer;
+
+                // Handle detach requests
+                viewer.DetachRequested += (s, _) =>
+                {
+                    if (viewer.FilePath != null)
+                    {
+                        OnExplorerPopOutRequested(explorerVm, new FileViewerRequestedEventArgs
+                        {
+                            FilePath = viewer.FilePath,
+                            Mode = viewer.Mode
+                        });
+                    }
+                };
+            }
+
+            explorerVm.EmbeddedViewer.Open(e.FilePath, e.Mode);
+        }
+    }
+
+    private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Create a detached file viewer window
+        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService);
+        viewer.Open(e.FilePath, e.Mode);
+
+        // Create and show the window
+        var window = new Views.FileViewerWindow
+        {
+            DataContext = viewer
+        };
+        window.Show();
+    }
+
+    private async void OnExplorerRenameRequested(object? sender, Domain.FileSystemNode node)
+    {
+        if (sender is not FileExplorerViewModel explorerVm)
+            return;
+
+        var newName = _dialogService.ShowInput(
+            $"Enter new name for '{node.Name}':",
+            "Rename",
+            node.Name);
+
+        if (!string.IsNullOrWhiteSpace(newName) && newName != node.Name)
+        {
+            await explorerVm.PerformRenameAsync(node, newName);
         }
     }
 

@@ -187,6 +187,13 @@ public class DirectorySettings
 
     [JsonPropertyName("detectedProjectType")]
     public string? DetectedProjectType { get; set; }  // Cached project type ID
+
+    // Explorer settings
+    [JsonPropertyName("isExplorerVisible")]
+    public bool IsExplorerVisible { get; set; } = false;
+
+    [JsonPropertyName("explorerSplitRatio")]
+    public double ExplorerSplitRatio { get; set; } = 0.25;  // Explorer takes 25% by default
 }
 
 public class WindowStateInfo

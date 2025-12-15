@@ -93,7 +93,9 @@ TerminalHost/
     │   ├── PaletteCommand.cs   # Command palette item definition
     │   ├── RunConfiguration.cs # Run configuration for project runner
     │   ├── ProjectType.cs      # Project type detection model
-    │   └── RunState.cs         # Run terminal state enum
+    │   ├── RunState.cs         # Run terminal state enum
+    │   ├── FileSystemNode.cs   # File explorer tree node with git status
+    │   └── FileIconMapper.cs   # File extension to icon mapping
     ├── Services/
     │   ├── ConfigurationService.cs   # JSON config load/save
     │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
@@ -108,7 +110,8 @@ TerminalHost/
     │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting
     │   ├── LinkDetectionService.cs   # Clickable link detection
     │   ├── ProjectDetectionService.cs # Auto-detect project type
-    │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
+    │   ├── RunUrlDetectionService.cs # Detect localhost URLs from run output
+    │   └── FileExplorerService.cs    # File explorer operations + file watcher
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
@@ -123,7 +126,9 @@ TerminalHost/
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
     │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
-    │   └── FileEditViewModel.cs          # File editor
+    │   ├── FileEditViewModel.cs          # File editor
+    │   ├── FileExplorerViewModel.cs      # File explorer tree + operations
+    │   └── FileViewerViewModel.cs        # Unified file preview/edit viewer
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
@@ -131,6 +136,9 @@ TerminalHost/
         ├── StatisticsView.xaml(.cs)      # Usage statistics UI
         ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
         ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── FileExplorerView.xaml(.cs)    # File explorer panel
+        ├── FileViewerView.xaml(.cs)      # Unified file preview/edit view
+        ├── FileViewerWindow.xaml(.cs)    # Detached/pop-out file viewer window
         ├── Dialogs/
         │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
@@ -187,6 +195,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+E`: Open current folder in Explorer
 - `Ctrl+O`: Open file preview dialog
 - `Ctrl+Shift+E`: Open file editor
+- `Ctrl+Shift+F`: Toggle file explorer panel (tree view with git status)
 
 ### Application
 - `Ctrl+,`: Open settings editor
@@ -238,7 +247,11 @@ Config file: `%APPDATA%\TerminalHost\config.json`
     "p:\\project1": {
       "isSplitView": true,
       "splitRatio": 0.6,
-      "activeTerminal": "Custom"
+      "activeTerminal": "Custom",
+      "isRunTerminalVisible": false,
+      "runSplitRatio": 0.3,
+      "isExplorerVisible": false,
+      "explorerSplitRatio": 0.25
     }
   },
   "quickCommands": [

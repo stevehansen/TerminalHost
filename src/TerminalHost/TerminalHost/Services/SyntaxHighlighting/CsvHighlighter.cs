@@ -1,4 +1,3 @@
-using Color = System.Windows.Media.Color;
 using System.Windows.Documents;
 using System.Windows.Media;
 

@@ -4,8 +4,6 @@ using System.Windows;
 using System.Windows.Documents;
 using TerminalHost.Domain;
 using TerminalHost.Services;
-using Color = System.Windows.Media.Color;
-using SolidColorBrush = System.Windows.Media.SolidColorBrush;
 
 namespace TerminalHost.ViewModels;
 

@@ -94,6 +94,25 @@ public class DialogService : IDialogService // Make it non-static and implement 
     }
 
     /// <summary>
+    /// Shows an input dialog to get text from the user.
+    /// Returns the input text, or null if cancelled.
+    /// </summary>
+    public string? ShowInput(string prompt, string title = "Input", string defaultValue = "")
+    {
+        var owner = GetActiveWindow();
+        var dialog = new InputDialog(prompt, title, defaultValue)
+        {
+            Owner = owner,
+            WindowStartupLocation = owner != null
+                ? WindowStartupLocation.CenterOwner
+                : WindowStartupLocation.CenterScreen
+        };
+
+        var result = dialog.ShowDialog();
+        return result == true ? dialog.InputText : null;
+    }
+
+    /// <summary>
     /// Gets the currently active window to use as dialog owner.
     /// </summary>
     private Window? GetActiveWindow() // Make it non-static

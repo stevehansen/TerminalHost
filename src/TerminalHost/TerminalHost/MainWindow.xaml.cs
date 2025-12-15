@@ -533,6 +533,15 @@ public partial class MainWindow : Window
             _viewModel.OpenScratchPadCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+F: Toggle file explorer
+        else if (e.Key == Key.F && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ToggleExplorerCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
         // Ctrl+G: Open git files panel
         else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
         {

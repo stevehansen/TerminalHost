@@ -149,16 +149,30 @@ public class RunStateToTooltipConverter : IValueConverter
 
 /// <summary>
 /// Converts null/empty string to Visibility.Collapsed.
+/// Use ConverterParameter=Invert to invert the logic (show when null, hide when not null).
 /// </summary>
 public class NullToCollapsedConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
     {
+        bool isNullOrEmpty;
         if (value is string str)
         {
-            return string.IsNullOrEmpty(str) ? Visibility.Collapsed : Visibility.Visible;
+            isNullOrEmpty = string.IsNullOrEmpty(str);
         }
-        return value == null ? Visibility.Collapsed : Visibility.Visible;
+        else
+        {
+            isNullOrEmpty = value == null;
+        }
+
+        // Check for Invert parameter
+        bool invert = parameter is string p && p.Equals("Invert", StringComparison.OrdinalIgnoreCase);
+        if (invert)
+        {
+            isNullOrEmpty = !isNullOrEmpty;
+        }
+
+        return isNullOrEmpty ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -205,5 +219,68 @@ public class InverseBoolConverter : IValueConverter
             return !boolValue;
         }
         return false;
+    }
+}
+
+/// <summary>
+/// Converts null to Visible, non-null to Collapsed (for showing placeholders).
+/// </summary>
+public class NullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value != null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts 0 to Visible, non-zero to Collapsed (for empty state).
+/// </summary>
+public class ZeroToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int count)
+        {
+            return count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        return Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts a hex color string to a Color object.
+/// </summary>
+public class StringToColorConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string colorString && !string.IsNullOrEmpty(colorString))
+        {
+            try
+            {
+                return (Color)ColorConverter.ConvertFromString(colorString);
+            }
+            catch
+            {
+                return Colors.Gray;
+            }
+        }
+        return Colors.Gray;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
     }
 }

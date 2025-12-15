@@ -58,6 +58,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private double _runSplitRatio = 0.3;
 
+    // Explorer panel properties
+    [ObservableProperty]
+    private bool _isExplorerVisible;
+
+    [ObservableProperty]
+    private double _explorerSplitRatio = 0.25;
+
+    [ObservableProperty]
+    private FileExplorerViewModel? _explorerViewModel;
+
     [ObservableProperty]
     private RunState _runState = RunState.Stopped;
 
@@ -109,6 +119,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool CanStop => RunState == RunState.Running || RunState == RunState.Starting;
     public bool HasDetectedRunUrl => !string.IsNullOrEmpty(DetectedRunUrl);
     public bool HasMultipleRunConfigs => RunConfigurations.Count > 1;
+
+    // Explorer column widths - use Pixel unit with 0 when hidden
+    public GridLength ExplorerColumnWidth => IsExplorerVisible
+        ? new GridLength(ExplorerSplitRatio, GridUnitType.Star)
+        : new GridLength(0, GridUnitType.Pixel);
+
+    public GridLength ExplorerSplitterWidth => IsExplorerVisible
+        ? new GridLength(4, GridUnitType.Pixel)
+        : new GridLength(0, GridUnitType.Pixel);
 
     // Git display properties
     public string TitleWithGit => GitStatus?.IsGitRepository == true
@@ -255,6 +274,19 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(CanRun));
     }
 
+    partial void OnIsExplorerVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ExplorerColumnWidth));
+        OnPropertyChanged(nameof(ExplorerSplitterWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnExplorerSplitRatioChanged(double value)
+    {
+        OnPropertyChanged(nameof(ExplorerColumnWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>
     /// Updates activity state from the terminal sessions.
     /// </summary>
@@ -338,6 +370,47 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private void HideRunTerminal()
     {
         IsRunTerminalVisible = false;
+    }
+
+    // Explorer commands
+
+    [RelayCommand]
+    private void ToggleExplorer()
+    {
+        IsExplorerVisible = !IsExplorerVisible;
+    }
+
+    [RelayCommand]
+    private void ShowExplorer()
+    {
+        IsExplorerVisible = true;
+    }
+
+    [RelayCommand]
+    private void HideExplorer()
+    {
+        IsExplorerVisible = false;
+    }
+
+    /// <summary>
+    /// Sends a cd command to the shell terminal for the specified path.
+    /// </summary>
+    public void SendCdToShell(string path)
+    {
+        var escaped = path.Replace("'", "''");
+        Pair.ShellTerminal.SendText($"cd '{escaped}'", appendNewline: true);
+    }
+
+    /// <summary>
+    /// Updates the explorer split ratio from actual column widths.
+    /// </summary>
+    public void UpdateExplorerSplitRatioFromColumnWidths(double mainWidth, double explorerWidth)
+    {
+        var total = mainWidth + explorerWidth;
+        if (total > 0)
+        {
+            ExplorerSplitRatio = explorerWidth / total;
+        }
     }
 
     /// <summary>

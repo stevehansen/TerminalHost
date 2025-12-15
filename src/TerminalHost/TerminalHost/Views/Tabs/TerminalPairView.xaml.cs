@@ -43,6 +43,24 @@ public partial class TerminalPairView : UserControl
         }
     }
 
+    private void ExplorerSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        // Update the view model with the new explorer split ratio
+        if (DataContext is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
+        {
+            // Find the parent Grid to get actual column widths
+            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 7)
+            {
+                // Main area is columns 0-4, explorer is column 6
+                var mainWidth = grid.ColumnDefinitions[0].ActualWidth +
+                               grid.ColumnDefinitions[2].ActualWidth +
+                               grid.ColumnDefinitions[4].ActualWidth;
+                var explorerWidth = grid.ColumnDefinitions[6].ActualWidth;
+                terminalTab.UpdateExplorerSplitRatioFromColumnWidths(mainWidth, explorerWidth);
+            }
+        }
+    }
+
     private void OpenDetectedRunUrl_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is TerminalPairTabViewModel terminalTab && !string.IsNullOrEmpty(terminalTab.DetectedRunUrl))

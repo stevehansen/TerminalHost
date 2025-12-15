@@ -68,6 +68,12 @@
     <Using Include="System.Windows.DragDropEffects" Alias="DragDropEffects" />
     <Using Include="System.Windows.DragEventArgs" Alias="DragEventArgs" />
 	<Using Include="System.Windows.Controls.UserControl" Alias="UserControl" />
+    <Using Include="System.Windows.Media.Color" Alias="Color" />
+    <Using Include="System.Windows.Media.Colors" Alias="Colors" />
+    <Using Include="System.Windows.Media.ColorConverter" Alias="ColorConverter" />
+    <Using Include="System.Windows.Media.Brush" Alias="Brush" />
+    <Using Include="System.Windows.Media.SolidColorBrush" Alias="SolidColorBrush" />
+    <Using Include="System.Windows.Clipboard" Alias="Clipboard" />
   </ItemGroup>
 
   <!-- Copy conpty.dll from NuGet package to output -->

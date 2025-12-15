@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
-using Color = System.Windows.Media.Color;
 using FontFamily = System.Windows.Media.FontFamily;
 
 namespace TerminalHost.Services;

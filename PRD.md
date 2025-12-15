@@ -66,6 +66,15 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Profile Launching - Launch custom profiles as standalone single-terminal tabs from Profiles UI, Command Palette, or keyboard shortcuts
 - [x] **Robust JSON File Persistence with Backup:** Implemented a generic service (`JsonFileService`) for `.json` files (e.g., `config.json`, `stats.json`) that automatically creates a `.bak` file before overwriting and attempts to recover from the backup if the primary file is corrupted.
 - [x] **Thread-Safe Configuration/Statistics Writes:** Ensured concurrent write access to `config.json` and `stats.json` is protected by `lock` primitives in `ConfigurationService` and `StatisticsService`, preventing data corruption from simultaneous save operations.
+- [x] **File Explorer Panel (Ctrl+Shift+F):** Integrated file explorer as a toggleable right panel in terminal tabs with:
+  - Tree view with lazy loading and file icons
+  - Git status integration (badges M/A/D/? and row background tints)
+  - File operations (create, rename, delete, copy path)
+  - Terminal integration (cd to folder in shell)
+  - Unified file viewer with preview/edit mode toggle
+  - Pop-out support for multiple detached file viewers
+  - Auto-refresh on file system changes
+  - State persistence (visibility and split ratio per directory)
 
 ### Deferred Features
 

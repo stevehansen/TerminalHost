@@ -6,7 +6,8 @@
              xmlns:domain="clr-namespace:TerminalHost.Domain"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
-             mc:Ignorable="d" 
+             xmlns:views="clr-namespace:TerminalHost.Views"
+             mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="1024">
     
     <Grid>
@@ -153,6 +154,44 @@
                                   Content="▶"
                                   ToolTip="Show/Hide Run Terminal"
                                   AutomationProperties.Name="Toggle Run Terminal Visibility"
+                                  Margin="0,0,4,0">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="3"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+
+                    <!-- Toggle Explorer Visibility -->
+                    <ToggleButton IsChecked="{Binding IsExplorerVisible}"
+                                  Content="📂"
+                                  ToolTip="File Explorer (Ctrl+Shift+F)"
+                                  AutomationProperties.Name="Toggle File Explorer"
                                   Margin="0,0,8,0">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
@@ -225,6 +264,10 @@
                 <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
                 <!-- Run terminal column (hidden when not visible) -->
                 <ColumnDefinition Width="{Binding RunColumnWidth}"/>
+                <!-- Explorer splitter column (hidden when explorer not visible) -->
+                <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
+                <!-- Explorer column (hidden when not visible) -->
+                <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
             </Grid.ColumnDefinitions>
 
             <!-- Custom Terminal (Column 0) -->
@@ -291,6 +334,16 @@
                 <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </Grid>
+
+            <!-- Explorer Splitter (Column 5) - only visible when explorer is visible -->
+            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="5" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
+                          Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                          DragCompleted="ExplorerSplitter_DragCompleted"/>
+
+            <!-- Explorer Panel (Column 6) - only visible when explorer is visible -->
+            <views:FileExplorerView Grid.Column="6"
+                                    DataContext="{Binding ExplorerViewModel}"
+                                    Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>
     </Grid>
 </UserControl>
