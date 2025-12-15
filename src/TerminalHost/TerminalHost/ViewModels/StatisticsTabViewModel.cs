@@ -1,6 +1,4 @@
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Services;
@@ -8,8 +6,6 @@ using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
-using System.Collections.Generic;
-using System.Globalization;
 using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels
@@ -26,7 +22,7 @@ namespace TerminalHost.ViewModels
         public string DisplayTitle => Title;
 
         [ObservableProperty]
-        private ObservableCollection<ProjectStatViewModel> _projectStats = new();
+        private ObservableCollection<ProjectStatViewModel> _projectStats = [];
         
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsChartVisible))]
@@ -51,25 +47,25 @@ namespace TerminalHost.ViewModels
             _statisticsService = statisticsService;
             LoadStats();
             
-            Series = new ISeries[]
-            {
+            Series =
+            [
                 new ColumnSeries<long> { Name = "Custom" },
                 new ColumnSeries<long> { Name = "Shell" },
                 new ColumnSeries<long> { Name = "Run" }
-            };
-            XAxes = new[]
-            {
-                new Axis { Labels = new List<string>() }
-            };
-            YAxes = new[]
-            {
+            ];
+            XAxes =
+            [
+                new Axis { Labels = [] }
+            ];
+            YAxes =
+            [
                 new Axis
                 {
                     MinLimit = 0,
                     TextSize = 12,
                     LabelsPaint = new SolidColorPaint(SKColors.White)
                 }
-            };
+            ];
         }
 
         partial void OnSelectedProjectChanged(ProjectStatViewModel? value)
@@ -105,8 +101,8 @@ namespace TerminalHost.ViewModels
                 labels.Add(date.ToString("MMM dd"));
             }
 
-            Series = new ISeries[]
-            {
+            Series =
+            [
                 new ColumnSeries<long>
                 {
                     Name = "Custom",
@@ -128,10 +124,10 @@ namespace TerminalHost.ViewModels
                     Fill = new SolidColorPaint(SKColor.Parse("#B5CEA8")),
                     Stroke = null
                 }
-            };
+            ];
             
-            XAxes = new[]
-            {
+            XAxes =
+            [
                 new Axis
                 {
                     Labels = labels,
@@ -139,7 +135,7 @@ namespace TerminalHost.ViewModels
                     TextSize = 12,
                     LabelsPaint = new SolidColorPaint(SKColors.White)
                 }
-            };
+            ];
         }
 
 

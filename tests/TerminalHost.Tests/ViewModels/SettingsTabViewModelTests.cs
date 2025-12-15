@@ -2,7 +2,6 @@ using Shouldly;
 using Moq;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using Xunit;
 
 namespace TerminalHost.Tests.ViewModels;
 

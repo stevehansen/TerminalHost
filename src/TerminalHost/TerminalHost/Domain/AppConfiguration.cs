@@ -5,7 +5,7 @@ namespace TerminalHost.Domain;
 public class AppConfiguration
 {
     [JsonPropertyName("profiles")]
-    public List<Profile> Profiles { get; set; } = new();
+    public List<Profile> Profiles { get; set; } = [];
 
     [JsonPropertyName("settings")]
     public AppSettings Settings { get; set; } = new();
@@ -14,10 +14,10 @@ public class AppConfiguration
     public WindowStateInfo WindowState { get; set; } = new();
 
     [JsonPropertyName("openFolders")]
-    public List<string> OpenFolders { get; set; } = new();
+    public List<string> OpenFolders { get; set; } = [];
 
     [JsonPropertyName("directorySettings")]
-    public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = new();
+    public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = [];
 
     [JsonPropertyName("quickCommands")]
     public List<QuickCommand> QuickCommands { get; set; } = GetDefaultQuickCommands();
@@ -26,7 +26,7 @@ public class AppConfiguration
     public List<LinkPattern> LinkPatterns { get; set; } = GetDefaultLinkPatterns();
 
     [JsonPropertyName("scratchPads")]
-    public Dictionary<string, string> ScratchPads { get; set; } = new();  // Directory path -> content
+    public Dictionary<string, string> ScratchPads { get; set; } = [];  // Directory path -> content
 
     [JsonPropertyName("globalScratchPad")]
     public string GlobalScratchPad { get; set; } = "";
@@ -174,7 +174,7 @@ public class DirectorySettings
 
     // Run terminal settings
     [JsonPropertyName("runConfigurations")]
-    public List<RunConfiguration> RunConfigurations { get; set; } = new();
+    public List<RunConfiguration> RunConfigurations { get; set; } = [];
 
     [JsonPropertyName("isRunTerminalVisible")]
     public bool IsRunTerminalVisible { get; set; } = false;

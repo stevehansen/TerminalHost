@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using TerminalHost.Domain;
@@ -266,11 +265,10 @@ internal sealed class GitStatusService : IGitStatusService
 
         // Remove duplicate remote branches that match local branches
         var localBranches = branches.Where(b => !b.IsRemote).Select(b => b.ShortName).ToHashSet();
-        branches = branches
+        branches = [.. branches
             .Where(b => !b.IsRemote || !localBranches.Contains(b.ShortName) || b.RemoteName != "origin")
             .OrderBy(b => b.SortOrder)
-            .ThenBy(b => b.Name)
-            .ToList();
+            .ThenBy(b => b.Name)];
 
         return branches;
     }

@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
-using System.Windows;
 using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels;
@@ -11,7 +10,7 @@ namespace TerminalHost.ViewModels;
 public partial class SetupViewModel : ObservableObject
 {
     [ObservableProperty]
-    private ObservableCollection<Dependency> _dependencies = new();
+    private ObservableCollection<Dependency> _dependencies = [];
 
     public SetupViewModel()
     {
@@ -108,7 +107,7 @@ public partial class SetupViewModel : ObservableObject
         {
             var (success, output, exitCode) = await RunCommandAsync(dependency.DetectionCommand);
             dependency.IsInstalled = success;
-            dependency.DetectedVersion = success ? output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
+            dependency.DetectedVersion = success ? output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
             dependency.FullOutput = output;
             dependency.ExitCode = exitCode;
         }

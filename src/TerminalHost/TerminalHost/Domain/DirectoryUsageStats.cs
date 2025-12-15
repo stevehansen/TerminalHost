@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace TerminalHost.Domain
 {
     public class DirectoryUsageStats
@@ -7,16 +5,16 @@ namespace TerminalHost.Domain
         /// <summary>
         /// Key: "yyyy-MM-dd"
         /// </summary>
-        public Dictionary<string, long> CustomTerminalCharCountsByDay { get; set; } = new();
+        public Dictionary<string, long> CustomTerminalCharCountsByDay { get; set; } = [];
 
         /// <summary>
         /// Key: "yyyy-MM-dd"
         /// </summary>
-        public Dictionary<string, long> ShellTerminalCharCountsByDay { get; set; } = new();
+        public Dictionary<string, long> ShellTerminalCharCountsByDay { get; set; } = [];
 
         /// <summary>
         /// Key: "yyyy-MM-dd"
         /// </summary>
-        public Dictionary<string, long> RunTerminalCharCountsByDay { get; set; } = new();
+        public Dictionary<string, long> RunTerminalCharCountsByDay { get; set; } = [];
     }
 }

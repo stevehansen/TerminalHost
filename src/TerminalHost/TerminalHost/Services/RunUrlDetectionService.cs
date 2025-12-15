@@ -102,7 +102,7 @@ internal sealed class RunUrlDetectionService : IRunUrlDetectionService
         var urls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrEmpty(output))
-            return urls.ToList();
+            return [.. urls];
 
         // Try custom pattern first if provided
         if (!string.IsNullOrEmpty(customPattern))
@@ -140,7 +140,7 @@ internal sealed class RunUrlDetectionService : IRunUrlDetectionService
             }
         }
 
-        return urls.ToList();
+        return [.. urls];
     }
 
     /// <summary>

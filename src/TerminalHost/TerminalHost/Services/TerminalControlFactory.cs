@@ -1,5 +1,3 @@
-using System.IO;
-using System.Windows.Media;
 using EasyWindowsTerminalControl;
 using Microsoft.Terminal.Wpf;
 using TerminalHost.Domain;
@@ -124,8 +122,8 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
                             CursorStyle = CursorStyle.BlinkingBar,
                             // 16-color palette: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray,
                             //                   DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White
-                            ColorTable = new uint[]
-                            {
+                            ColorTable =
+                            [
                                 0x0C0C0C, // Black
                                 0xDA3700, // DarkBlue (actually shows as blue due to BGR)
                                 0x0EA113, // DarkGreen
@@ -142,7 +140,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
                                 0x9E00B4, // Magenta
                                 0xA5F1F9, // Yellow
                                 0xF2F2F2  // White
-                            }
+                            ]
                         };
                         terminalControl.Theme = theme;
                     }

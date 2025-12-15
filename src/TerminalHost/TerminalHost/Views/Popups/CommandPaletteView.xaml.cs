@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using TerminalHost.Domain; // For PaletteCommand
 using TerminalHost.ViewModels; // For MainViewModel

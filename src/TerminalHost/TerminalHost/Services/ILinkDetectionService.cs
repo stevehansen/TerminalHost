@@ -1,5 +1,3 @@
-using TerminalHost.Services;
-
 namespace TerminalHost.Services;
 
 public interface ILinkDetectionService

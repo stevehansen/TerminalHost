@@ -131,10 +131,10 @@ To ensure modularity and testability, the application relies on strict interface
     - [x] Extract `IConfigurationService` interface.
     - [x] Extract `IGitStatusService` interface.
     - [x] Update `MainViewModel` to accept dependencies.
-- [ ] **Unit Tests Implementation**
+- [x] **Unit Tests Implementation**
     - [x] Test `GitStatusService.ParseStatus` (Pure logic, high value).
     - [x] Test `ProjectDetectionService` (File pattern matching).
-    - [ ] Test `MainViewModel.AddNewTab`.
+    - [x] Test `MainViewModel.AddNewTab`.
 - [ ] **UI Tests Implementation**
     - [ ] Add `AutomationId`s to `MainWindow.xaml` and `TabStrip.xaml`.
     - [ ] Write `SmokeTest_AppLaunches`.

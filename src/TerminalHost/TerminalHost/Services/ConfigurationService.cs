@@ -158,10 +158,9 @@ internal sealed class ConfigurationService : IConfigurationService
     {
         var config = new AppConfiguration
         {
-            Profiles = new List<Profile>
-            {
-                new Profile
-                {
+            Profiles =
+            [
+                new() {
                     Id = "powershell",
                     Name = "PowerShell",
                     Command = "pwsh.exe",
@@ -169,7 +168,7 @@ internal sealed class ConfigurationService : IConfigurationService
                     Icon = "🔷",
                     AutoStart = true
                 }
-            },
+            ],
             Settings = new AppSettings
             {
                 ConfirmOnClose = true,

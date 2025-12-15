@@ -73,7 +73,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <summary>
     /// Collection of available run configurations for this project.
     /// </summary>
-    public ObservableCollection<RunConfiguration> RunConfigurations { get; } = new();
+    public ObservableCollection<RunConfiguration> RunConfigurations { get; } = [];
 
     /// <summary>
     /// True if either terminal is currently producing output.
@@ -83,7 +83,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <summary>
     /// Collection of detected links from terminal output.
     /// </summary>
-    public ObservableCollection<DetectedLink> DetectedLinks { get; } = new();
+    public ObservableCollection<DetectedLink> DetectedLinks { get; } = [];
 
     /// <summary>
     /// True if there are any detected links to display.
@@ -91,8 +91,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool HasDetectedLinks => DetectedLinks.Count > 0;
 
     // Computed column widths from split ratio
-    public GridLength CustomColumnWidth => new GridLength(SplitRatio, GridUnitType.Star);
-    public GridLength ShellColumnWidth => new GridLength(1 - SplitRatio, GridUnitType.Star);
+    public GridLength CustomColumnWidth => new(SplitRatio, GridUnitType.Star);
+    public GridLength ShellColumnWidth => new(1 - SplitRatio, GridUnitType.Star);
 
     // Run terminal column width (only shown when visible)
     // Use Pixel unit with 0 when hidden so it doesn't participate in star distribution

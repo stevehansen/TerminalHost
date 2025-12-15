@@ -1,8 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Windows; // For MessageBox, for now
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -14,7 +12,7 @@ public partial class DetectedLinksViewModel : ObservableObject
     private readonly IFilePreviewService _filePreviewService;
     
     [ObservableProperty]
-    private ObservableCollection<DetectedLink> _links = new();
+    private ObservableCollection<DetectedLink> _links = [];
 
     [ObservableProperty]
     private DetectedLink? _selectedLink;

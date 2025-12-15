@@ -1,12 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Windows;
 using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Media; // Added for SolidColorBrush
-using System.Windows.Controls; // Added for StackPanel, TextBlock, TextBox, Button
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -18,7 +13,7 @@ public partial class GitBranchViewModel : ObservableObject
     private readonly MainViewModel _mainViewModel; // To get selected tab and refresh its git status
     private readonly IDialogService _dialogService; // Added IDialogService dependency
 
-    private List<GitBranch> _allBranches = new();
+    private List<GitBranch> _allBranches = [];
 
     [ObservableProperty]
     private string _currentBranchWorkingDirectory = string.Empty;
@@ -27,7 +22,7 @@ public partial class GitBranchViewModel : ObservableObject
     private string _searchText = string.Empty;
 
     [ObservableProperty]
-    private ObservableCollection<GitBranch> _branches = new();
+    private ObservableCollection<GitBranch> _branches = [];
 
     [ObservableProperty]
     private GitBranch? _selectedBranch;

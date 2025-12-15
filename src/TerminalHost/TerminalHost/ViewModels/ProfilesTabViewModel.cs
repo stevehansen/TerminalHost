@@ -14,7 +14,7 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     private string _title = "Profiles";
 
     [ObservableProperty]
-    private ObservableCollection<ProfileItemViewModel> _profiles = new();
+    private ObservableCollection<ProfileItemViewModel> _profiles = [];
 
     [ObservableProperty]
     private ProfileItemViewModel? _selectedProfile;

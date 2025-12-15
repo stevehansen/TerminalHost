@@ -1,13 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Windows; // For FlowDocument, MessageBox
 using System.Windows.Documents;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.Services.SyntaxHighlighting;
-using TerminalHost.ViewModels; // For TerminalPairTabViewModel
 
 namespace TerminalHost.ViewModels;
 
@@ -20,7 +18,7 @@ public partial class GitFilesViewModel : ObservableObject
     private readonly DiffHighlighter _diffHighlighter = new();
 
     [ObservableProperty]
-    private ObservableCollection<GitFileStatus> _gitFiles = new();
+    private ObservableCollection<GitFileStatus> _gitFiles = [];
 
     [ObservableProperty]
     private GitFileStatus? _selectedGitFile;

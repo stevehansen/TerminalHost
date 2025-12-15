@@ -1,6 +1,5 @@
 using System.Windows;
 using TerminalHost.Views.Dialogs;
-using System.Linq;
 
 namespace TerminalHost.Services;
 

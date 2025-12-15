@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace TerminalHost.Domain
 {
     public class UsageStats

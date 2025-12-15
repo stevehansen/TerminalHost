@@ -1,17 +1,8 @@
-using Xunit;
 using Moq;
 using Shouldly;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
-using System.Windows.Threading; 
-using System;
-using System.Collections.Generic;
 
 namespace TerminalHost.Tests.ViewModels;
 

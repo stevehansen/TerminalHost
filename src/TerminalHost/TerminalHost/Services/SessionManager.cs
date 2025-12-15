@@ -5,7 +5,7 @@ namespace TerminalHost.Services;
 
 internal sealed class SessionManager : ISessionManager
 {
-    private readonly List<TerminalSession> _sessions = new();
+    private readonly List<TerminalSession> _sessions = [];
     private readonly IProfileRegistry _profileRegistry;
     private readonly IStatisticsService _statisticsService;
 

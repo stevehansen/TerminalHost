@@ -55,19 +55,19 @@ public partial class MainViewModel : ObservableObject
     public ISessionManager SessionManager => _sessionManager;
 
     [ObservableProperty]
-    private ObservableCollection<ITabViewModel> _tabs = new();
+    private ObservableCollection<ITabViewModel> _tabs = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private ITabViewModel? _selectedTab;
 
     [ObservableProperty]
-    private ObservableCollection<QuickCommand> _quickCommands = new();
+    private ObservableCollection<QuickCommand> _quickCommands = [];
 
     [ObservableProperty]
     private string _dropdownSearchText = "";
 
-    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = new();
+    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = [];
     public ReadOnlyObservableCollection<ITabViewModel> FilteredDropdownTabs { get; }
 
     [ObservableProperty]
@@ -76,7 +76,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _switcherSearchText = "";
 
-    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = new();
+    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = [];
     public ReadOnlyObservableCollection<ITabViewModel> FilteredSwitcherTabs { get; }
 
     [ObservableProperty]
@@ -92,8 +92,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _paletteSearchText = "";
 
-    private ObservableCollection<PaletteCommand> _allPaletteCommands = new(); // Stores all commands
-    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = new();
+    private ObservableCollection<PaletteCommand> _allPaletteCommands = []; // Stores all commands
+    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = [];
     public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
 
     [ObservableProperty]
@@ -406,7 +406,7 @@ public partial class MainViewModel : ObservableObject
     private void SaveOpenFolders()
     {
         var config = _configService.Load();
-        config.OpenFolders = Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory).ToList();
+        config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
         _configService.Save(config);
     }
 
@@ -430,7 +430,7 @@ public partial class MainViewModel : ObservableObject
         settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
         settings.RunSplitRatio = tab.RunSplitRatio;
         settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
-        settings.RunConfigurations = tab.RunConfigurations.ToList();
+        settings.RunConfigurations = [.. tab.RunConfigurations];
 
         config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
@@ -949,7 +949,7 @@ public partial class MainViewModel : ObservableObject
             if (string.IsNullOrEmpty(cleanLine)) continue;
 
             // Try each "word" in the line
-            var words = cleanLine.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            var words = cleanLine.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
             foreach (var word in words)
             {
                 var link = _linkDetectionService.DetectLink(word, workingDirectory);
@@ -1099,11 +1099,10 @@ public partial class MainViewModel : ObservableObject
 
     private void InitializeCommandPalette()
     {
-        _allPaletteCommands = new ObservableCollection<PaletteCommand>
-        {
+        _allPaletteCommands =
+        [
             // Tab/Project commands
-            new PaletteCommand
-            {
+            new() {
                 Id = "new-project",
                 Name = "New Project",
                 Description = "Open folder as new project",
@@ -1112,8 +1111,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "Project",
                 Execute = () => OpenNewProjectCommand.Execute(null)
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "close-tab",
                 Name = "Close Tab",
                 Description = "Close current tab",
@@ -1122,8 +1120,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "Tab",
                 Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "tab-switcher",
                 Name = "Switch Tab",
                 Description = "Search and switch tabs",
@@ -1134,8 +1131,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // File commands
-            new PaletteCommand
-            {
+            new() {
                 Id = "file-preview",
                 Name = "Preview File",
                 Description = "Open file preview",
@@ -1144,8 +1140,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "File",
                 Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "file-edit",
                 Name = "Edit File",
                 Description = "Open file in editor",
@@ -1154,8 +1149,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "File",
                 Execute = () => { /* Needs to be improved */ }
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "open-explorer",
                 Name = "Open in Explorer",
                 Description = "Open folder in file explorer",
@@ -1167,8 +1161,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Terminal commands
-            new PaletteCommand
-            {
+            new() {
                 Id = "switch-terminal",
                 Name = "Switch Terminal",
                 Description = "Toggle between custom and shell",
@@ -1180,8 +1173,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Settings
-            new PaletteCommand
-            {
+            new() {
                 Id = "settings",
                 Name = "Settings",
                 Description = "Open settings editor",
@@ -1190,8 +1182,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "Settings",
                 Execute = () => OpenSettingsCommand.Execute(null)
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "profiles",
                 Name = "Profiles",
                 Description = "Manage terminal profiles",
@@ -1200,8 +1191,7 @@ public partial class MainViewModel : ObservableObject
                 Category = "Settings",
                 Execute = () => OpenProfilesCommand.Execute(null)
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "setup",
                 Name = "Setup",
                 Description = "Check dependencies and setup",
@@ -1211,8 +1201,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Help
-            new PaletteCommand
-            {
+            new() {
                 Id = "help",
                 Name = "Help",
                 Description = "Show keyboard shortcuts",
@@ -1223,8 +1212,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Scratch Pad
-            new PaletteCommand
-            {
+            new() {
                 Id = "scratch-pad",
                 Name = "Scratch Pad",
                 Description = "Open notes panel",
@@ -1235,8 +1223,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Statistics
-            new PaletteCommand
-            {
+            new() {
                 Id = "statistics",
                 Name = "Statistics",
                 Description = "View usage statistics",
@@ -1246,8 +1233,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Git
-            new PaletteCommand
-            {
+            new() {
                 Id = "git-changes",
                 Name = "Git Changes",
                 Description = "View modified files and diffs",
@@ -1257,8 +1243,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty), // Needs to be improved
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "git-branches",
                 Name = "Git Branches",
                 Description = "Switch, create, or delete branches",
@@ -1270,8 +1255,7 @@ public partial class MainViewModel : ObservableObject
             },
 
             // Run commands
-            new PaletteCommand
-            {
+            new() {
                 Id = "run-start",
                 Name = "Run: Start",
                 Description = "Start the project",
@@ -1281,8 +1265,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "run-stop",
                 Name = "Run: Stop",
                 Description = "Stop the running project",
@@ -1292,8 +1275,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "run-restart",
                 Name = "Run: Restart",
                 Description = "Restart the running project",
@@ -1302,8 +1284,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "run-toggle-terminal",
                 Name = "Run: Toggle Terminal",
                 Description = "Show/hide run terminal panel",
@@ -1312,8 +1293,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
-            new PaletteCommand
-            {
+            new() {
                 Id = "run-open-url",
                 Name = "Run: Open URL",
                 Description = "Open detected localhost URL in browser",
@@ -1322,7 +1302,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
             }
-        };
+        ];
     }
 
     private void FilterPaletteCommands()

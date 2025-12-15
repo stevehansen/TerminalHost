@@ -1,8 +1,5 @@
-using System;
 using System.IO;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services
@@ -13,10 +10,10 @@ namespace TerminalHost.Services
         private readonly string _statsPath;
         private bool _isDirty = false;
         private readonly System.Threading.Timer _saveTimer;
-        private readonly object _lock = new object();
+        private readonly object _lock = new();
         private bool _disposed = false;
 
-        private static readonly JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true, };
+        private static readonly JsonSerializerOptions options = new() { WriteIndented = true, };
 
         public StatisticsService()
         {

@@ -1,13 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using TerminalHost.Domain;
 using TerminalHost.Services;
-using TerminalHost.ViewModels;
 
 namespace TerminalHost.ViewModels;
 

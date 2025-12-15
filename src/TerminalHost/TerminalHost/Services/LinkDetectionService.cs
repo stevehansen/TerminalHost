@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
-using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
@@ -9,45 +8,41 @@ namespace TerminalHost.Services;
 /// Service for detecting and handling clickable links in terminal output.
 /// Supports URLs, file paths, and custom regex patterns.
 /// </summary>
-internal sealed class LinkDetectionService : ILinkDetectionService
+internal sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem, IProcessService processService, IDialogService dialogService) : ILinkDetectionService
 {
-    private readonly IProfileRegistry _profileRegistry;
-    private readonly IFileSystem _fileSystem;
-    private readonly IProcessService _processService;
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
-
+    private readonly IProfileRegistry _profileRegistry = profileRegistry;
+    private readonly IFileSystem _fileSystem = fileSystem;
+    private readonly IProcessService _processService = processService;
+    private readonly IDialogService _dialogService = dialogService;
 
     // Built-in patterns for common link types
     // Constructed using char arrays to completely bypass string literal escape issues
     private static readonly Regex UrlPattern = new(
-        string.Join("", new string[] { 
+        string.Join("", [ 
             "https?://[^", 
-            new string(new char[] { '\\', 's' }), 
+            new(['\\', 's']), 
             "<>\"'`", 
-            new string(new char[] { '\\', '[' }), 
-            new string(new char[] { '\\', ']' }), 
-            new string(new char[] { '\\', ')' }), 
+            new(['\\', '[']), 
+            new(['\\', ']']), 
+            new(['\\', ')']), 
             "]+" 
-        }),
+        ]),
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex FilePathPattern = new(
-        string.Join("", new string[] {
-            "(?:[A-Za-z]:", new string(new char[] { '\\', '\\' }), "|", new string(new char[] { '\\', '\\', '\\', '\\' }), "|/)?",
-            "(?:[", new string(new char[] { '\\', 'w' }), ".-]+[", new string(new char[] { '\\', '\\' }), "/])*",
-            "([", new string(new char[] { '\\', 'w' }), ".-]+", new string(new char[] { '\\', '.' }), new string(new char[] { '\\', 'w' }), "+)",
-            "(?::", new string(new char[] { '\\', 'd' }), "+)?",
-            "(?::", new string(new char[] { '\\', 'd' }), "+)?"
-        }),
+        string.Join("", [
+            "(?:[A-Za-z]:", new(['\\', '\\']), "|", new(['\\', '\\', '\\', '\\']), "|/)?",
+            "(?:[", new(['\\', 'w']), ".-]+[", new(['\\', '\\']), "/])*",
+            "([", new(['\\', 'w']), ".-]+", new(['\\', '.']), new(['\\', 'w']), "+)",
+            "(?::", new(['\\', 'd']), "+)?",
+            "(?::", new(['\\', 'd']), "+)?"
+        ]),
         RegexOptions.Compiled);
 
-    public LinkDetectionService(IProfileRegistry profileRegistry, IFileSystem fileSystem, IProcessService processService, IDialogService dialogService) // Added IDialogService
-    {
-        _profileRegistry = profileRegistry;
-        _fileSystem = fileSystem;
-        _processService = processService;
-        _dialogService = dialogService; // Initialize IDialogService
-    }
+    // Constructed using char array to avoid string literal corruption
+    private static readonly string punctuation = new(['.', ',', ':', ';', '!', '?', ')', ']', '>']);
+    // Word boundary characters (not including common URL/path characters)
+    private static readonly HashSet<char> separators = [' ', '\t', '\n', '\r', '"', '\'', '<', '>', '`', '|', ';'];
 
     /// <summary>
     /// Attempts to detect and resolve a link from the given text.
@@ -152,7 +147,7 @@ internal sealed class LinkDetectionService : ILinkDetectionService
             return null;
 
         var path = pathMatch.Groups[1].Value;
-        var lineNumber = pathMatch.Groups[2].Success ? pathMatch.Groups[2].Value : null;
+        _ = pathMatch.Groups[2].Success ? pathMatch.Groups[2].Value : null;
 
         // Try to resolve the path
         string? resolvedPath = null;
@@ -190,8 +185,6 @@ internal sealed class LinkDetectionService : ILinkDetectionService
     private static string CleanUrl(string url)
     {
         // Remove trailing punctuation that's likely not part of the URL
-        // Constructed using char array to avoid string literal corruption
-        string punctuation = new string(new char[] { '.', ',', ':', ';', '!', '?', ')', ']', '>' });
         
         while (url.Length > 0 && punctuation.Contains(url[^1]))
         {
@@ -287,9 +280,6 @@ internal sealed class LinkDetectionService : ILinkDetectionService
         if (string.IsNullOrEmpty(text) || position < 0 || position >= text.Length)
             return string.Empty;
 
-        // Word boundary characters (not including common URL/path characters)
-        var separators = new HashSet<char> { ' ', '\t', '\n', '\r', '"', '\'', '<', '>', '`', '|', ';' };
-
         // Find start of word
         var start = position;
         while (start > 0 && !separators.Contains(text[start - 1]))
@@ -318,15 +308,14 @@ internal sealed class LinkDetectionService : ILinkDetectionService
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(text))
-            return new List<DetectedLink>();
+            return [];
 
         // 1. Find all URLs with their positions
         foreach (Match match in UrlPattern.Matches(text))
         {
             var url = CleanUrl(match.Value);
-            if (!seen.Contains(url))
+            if (seen.Add(url))
             {
-                seen.Add(url);
                 allLinks.Add((match.Index, new DetectedLink
                 {
                     DisplayText = TruncateForDisplay(url, 60),
@@ -370,9 +359,8 @@ internal sealed class LinkDetectionService : ILinkDetectionService
                 foreach (Match match in regex.Matches(text))
                 {
                     var url = BuildUrlFromTemplate(pattern.UrlTemplate, match);
-                    if (!seen.Contains(url))
+                    if (seen.Add(url))
                     {
-                        seen.Add(url);
                         allLinks.Add((match.Index, new DetectedLink
                         {
                             DisplayText = $"{pattern.Name}: {match.Value}",
@@ -389,11 +377,10 @@ internal sealed class LinkDetectionService : ILinkDetectionService
         }
 
         // Sort by position and take the last maxLinks (FIFO - most recent links)
-        return allLinks
+        return [.. allLinks
             .OrderBy(x => x.Position)
             .TakeLast(maxLinks)
-            .Select(x => x.Link)
-            .ToList();
+            .Select(x => x.Link)];
     }
 
     /// <summary>

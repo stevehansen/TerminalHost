@@ -1,5 +1,3 @@
-using System;
-
 namespace TerminalHost.Domain;
 
 public class FilePreviewRequestedEventArgs : EventArgs
