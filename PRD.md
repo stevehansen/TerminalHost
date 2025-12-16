@@ -992,6 +992,63 @@ Items for future development:
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
 
+### Terminal Layout Modes (High Priority)
+- **Three-State Layout Toggle**: Replace current 2 terminal buttons with 3 toggle buttons:
+  1. **Custom Full Mode** - Custom terminal takes full width (Shell hidden but still running)
+  2. **Horizontal Split** (default) - Current behavior, Custom + Shell side by side
+  3. **Vertical Split** - Custom on top, Shell on bottom
+- **Per-Project Setting**: Store layout mode in `DirectorySettings`
+- **Implementation Notes**:
+  - `DirectorySettings` in `AppConfiguration.cs`: Add `LayoutMode` enum property (Full, Horizontal, Vertical)
+  - `TerminalPairView.xaml`: Replace Custom/Shell buttons with 3 ToggleButtons using RadioButton-like behavior
+  - `TerminalPairTabViewModel.cs`: Add LayoutMode property with command to cycle/set modes
+  - Update column/row definitions to switch between Grid.ColumnDefinitions (horizontal) and Grid.RowDefinitions (vertical)
+
+### Claude User Commands Detection
+- **Detect Claude Commands**: Scan and suggest commands from:
+  - Global: `~/.claude/commands/*.md`
+  - Per-project: `.claude/commands/user_*.md` (naming convention for user commands)
+- **Optional Shortcuts**: Allow assigning keyboard shortcuts to user commands
+- **External Marketplace/Sync**: Support for importing user profile commands from external sources for easy sharing
+- **Implementation Notes**:
+  - New domain model: `ClaudeCommand` in `Domain/ClaudeCommand.cs` (Id, Name, FilePath, Description, Shortcut, Source)
+  - New service: `ClaudeCommandService.cs` - detect commands from filesystem, watch for changes
+  - UI: Add to Command Palette with "Claude: {command-name}" prefix
+  - Per-project: Scan `.claude/commands/` on project tab creation/focus
+  - Consider: Quick command bar integration for frequently used commands
+
+### Multiple AI Assistant Support (High Priority)
+- **Support Multiple Custom Commands**: Beyond Claude, support Gemini CLI, GitHub Copilot, OpenAI Codex
+- **Global Settings**: Configure paths/commands for each AI assistant in `AppSettings`
+  - `aiAssistants: [{ id, name, command, icon, detectionCommand }]`
+- **Per-Project Selection**: Store active AI assistant per directory in `DirectorySettings.activeAiAssistantId`
+- **Implementation Notes**:
+  - `AppSettings`: Add `AiAssistants` list with default entry for Claude
+  - `DirectorySettings`: Add `ActiveAiAssistantId` property
+  - `SetupViewModel.cs`: Add optional detection for other AI CLIs (gemini, copilot, etc.)
+  - `ProfileRegistry.cs`: Get custom command from active AI assistant for directory
+  - UI: Add AI selector dropdown in TerminalPairView toolbar (near terminal buttons)
+  - `/setup` window: Detect available AI assistants, enable found ones, require at least 1
+
+### First-Run Setup Experience
+- **Auto-Launch Setup on First Run**: When config file is empty/missing, show setup dialog before main window
+- **Detect Missing Dependencies**: Run dependency checks automatically
+- **Command Line Skip**: Add `--no-setup` flag to disable for unit tests and automation
+- **Implementation Notes**:
+  - `App.xaml.cs`: Check if config exists/is empty before showing main window
+  - `ConfigurationService.cs`: Add `IsFirstRun()` method to check for empty/default config
+  - `CommandLineArgs`: Add `SkipSetupCheck` flag (`--no-setup`, `-nosetup`)
+  - Consider: Auto-skip if `DisableSingleInstance` is set (likely testing scenario)
+
+### Single Instance Behavior Improvements
+- **Show Message When No Arguments**: When `host` runs without arguments but process is already running:
+  - Instead of silently closing, show a themed dialog explaining the situation
+  - Message: "TerminalHost is already running. Use `host <path>` to open a project or `host -multi` to allow multiple instances."
+- **Implementation Notes**:
+  - `App.xaml.cs` lines 58-67: When `!startupArgs.HasValidRequest()` but another instance exists
+  - Use `DialogService.ShowInfo()` or a simple `MessageBox` (since services not yet configured)
+  - Include hint about `-multi` flag for developers who want multiple instances
+
 ### Advanced Panel Management
 - **Fixed Claude panel**: Left panel (Claude terminal) should always be visible at full height
 - **Right panel variants**: Right side can switch between different views:
@@ -1026,5 +1083,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.3*
-*Last Updated: 2025-12-15*
+*Document Version: 2.4*
+*Last Updated: 2025-12-16*
