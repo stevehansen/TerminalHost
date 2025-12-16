@@ -40,6 +40,7 @@
                     <TextBlock x:Name="ActivitySpinner"
                                DockPanel.Dock="Right"
                                Text="◐"
+                               AutomationProperties.HelpText="Terminal is active"
                                Foreground="{StaticResource SyntaxYellowBrush}"
                                FontSize="12"
                                FontWeight="Bold"
