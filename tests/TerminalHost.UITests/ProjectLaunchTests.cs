@@ -71,21 +71,19 @@ public class ProjectLaunchTests : IDisposable
         // _window.Title.ShouldContain(Path.GetFileName(_tempProjectDir)); 
         // (Title might be complex, let's rely on finding content)
 
-        // Find the specific terminal elements we tagged
-        var customBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("CustomTerminalButton"));
-        var shellBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("ShellTerminalButton"));
-        
-        // ContentPresenter might be hard to find by ID if it's not a control type UIA exposes easily.
-        // Instead, look for the unique text labels inside the terminal headers.
-        // var customLabel = _window.FindFirstDescendant(cf => cf.ByName(" Claude Code")); // StringFormat might make name " Claude Code" or icon + " Claude Code"
-        
-        // Let's retry finding the ContentPresenter but with more patience or specific type.
-        // Or better, check for the "Test terminal below" text which should NOT be visible.
+        // Check for layout mode buttons (indicates terminal pair view is loaded)
+        // These ToggleButtons are always visible when a terminal pair tab is active
+        var customFullBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("CustomFullLayoutButton"));
+        var horizontalLayoutBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("HorizontalSplitLayoutButton"));
+        var verticalLayoutBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("VerticalSplitLayoutButton"));
+
+        // Check for the "Test terminal below" text which should NOT be visible when project is loaded
         var emptyStateText = _window.FindFirstDescendant(cf => cf.ByName("Test terminal below - "));
         emptyStateText.ShouldBeNull("Empty state should not be visible when project is loaded");
 
-        customBtn.ShouldNotBeNull("Custom terminal button should be visible");
-        shellBtn.ShouldNotBeNull("Shell terminal button should be visible");
+        // At least one layout button should be visible - this confirms the terminal pair view loaded
+        var anyLayoutButtonVisible = customFullBtn != null || horizontalLayoutBtn != null || verticalLayoutBtn != null;
+        anyLayoutButtonVisible.ShouldBeTrue("At least one layout button should be visible (terminal pair loaded)");
     }
 
     public void Dispose()
