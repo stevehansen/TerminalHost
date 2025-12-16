@@ -594,7 +594,6 @@ public partial class MainViewModel : ObservableObject
 
             // Wire up explorer events
             explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
-            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
 
@@ -855,35 +854,6 @@ public partial class MainViewModel : ObservableObject
                 Configuration = tab.ActiveRunConfiguration,
                 IsStop = true
             });
-        }
-    }
-
-    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
-    {
-        // Create an embedded file viewer for the explorer
-        if (sender is FileExplorerViewModel explorerVm)
-        {
-            // Create a new FileViewerViewModel for the embedded viewer
-            if (explorerVm.EmbeddedViewer == null)
-            {
-                var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService);
-                explorerVm.EmbeddedViewer = viewer;
-
-                // Handle detach requests
-                viewer.DetachRequested += (s, _) =>
-                {
-                    if (viewer.FilePath != null)
-                    {
-                        OnExplorerPopOutRequested(explorerVm, new FileViewerRequestedEventArgs
-                        {
-                            FilePath = viewer.FilePath,
-                            Mode = viewer.Mode
-                        });
-                    }
-                };
-            }
-
-            explorerVm.EmbeddedViewer.Open(e.FilePath, e.Mode);
         }
     }
 

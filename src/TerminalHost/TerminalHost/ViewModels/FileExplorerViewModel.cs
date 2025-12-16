@@ -18,10 +18,15 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private string? _selectedPathBeforeRefresh;
     private bool _isDisposed;
     private bool _isRefreshing;
-    private bool _hasPendingChanges;
 
     [ObservableProperty]
     private string _rootPath = "";
+
+    [ObservableProperty]
+    private bool _hasPendingChanges;
+
+    [ObservableProperty]
+    private string _lastChangedFile = "";
 
     [ObservableProperty]
     private FileSystemNode? _rootNode;
@@ -34,16 +39,6 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isLoading;
-
-    [ObservableProperty]
-    private bool _isFileViewerEmbedded = true;
-
-    [ObservableProperty]
-    private double _viewerSplitRatio = 0.5;
-
-    // Embedded file viewer
-    [ObservableProperty]
-    private FileViewerViewModel? _embeddedViewer;
 
     public FileExplorerViewModel(
         IFileExplorerService fileExplorerService,
@@ -90,19 +85,51 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         _fileWatcher = _fileExplorerService.WatchDirectory(RootPath, OnFileSystemChanged);
     }
 
+    private static bool ShouldIgnoreFileChange(string path)
+    {
+        // Normalize path for comparison
+        var normalizedPath = path.Replace('/', '\\').ToLowerInvariant();
+
+        // Ignore .git folder and its contents
+        if (normalizedPath.Contains("\\.git\\") || normalizedPath.EndsWith("\\.git"))
+            return true;
+
+        // Ignore common build/temp directories
+        var ignoredFolders = new[] { "\\bin\\", "\\obj\\", "\\node_modules\\", "\\.vs\\", "\\packages\\", "\\__pycache__\\", "\\.idea\\", "\\.vscode\\" };
+        foreach (var folder in ignoredFolders)
+        {
+            if (normalizedPath.Contains(folder))
+                return true;
+        }
+
+        // Ignore common temp file patterns
+        var ignoredExtensions = new[] { ".tmp", ".temp", ".log", ".suo", ".user", ".cache" };
+        foreach (var ext in ignoredExtensions)
+        {
+            if (normalizedPath.EndsWith(ext))
+                return true;
+        }
+
+        // Ignore files starting with ~ (temp files)
+        var fileName = System.IO.Path.GetFileName(path);
+        if (fileName.StartsWith("~") || fileName.StartsWith(".#"))
+            return true;
+
+        return false;
+    }
+
     private void OnFileSystemChanged(FileSystemWatcherEventArgs e)
     {
         if (_isDisposed || _isRefreshing) return;
 
-        // Ignore .git internal changes and other noise
-        if (e.Path.Contains(".git") && !e.Path.EndsWith(".git"))
+        // Ignore common noise patterns
+        if (ShouldIgnoreFileChange(e.Path))
             return;
 
-        // Mark that we have pending changes but don't auto-refresh
-        // This prevents the flashing/selection issues
-        _hasPendingChanges = true;
+        // Store the changed file path for debugging
+        var changedPath = e.Path;
 
-        // Only auto-refresh git status (which doesn't disrupt the UI)
+        // Debounce file changes - only show indicator after changes settle
         _refreshDebounceTimer?.Stop();
         _refreshDebounceTimer?.Dispose();
 
@@ -118,7 +145,10 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             await app.Dispatcher.InvokeAsync(async () =>
             {
                 if (_isDisposed) return;
-                // Only refresh git status, not the whole tree
+                // Mark that file system has changed - user can manually refresh
+                HasPendingChanges = true;
+                LastChangedFile = changedPath;
+                // Refresh git status
                 await RefreshGitStatusAsync();
             });
         };
@@ -148,7 +178,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
                 RestoreSelection(RootNode, _selectedPathBeforeRefresh);
             }
 
-            _hasPendingChanges = false;
+            HasPendingChanges = false;
         }
         finally
         {
@@ -594,7 +624,6 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 
     // Events
-    public event EventHandler<FileViewerRequestedEventArgs>? FileViewerRequested;
     public event EventHandler<FileViewerRequestedEventArgs>? PopOutRequested;
     public event EventHandler<string>? CdToShellRequested;
     public event EventHandler<FileSystemNode>? RenameRequested;
