@@ -34,6 +34,7 @@
         <Grid Grid.Row="1">
             <!-- Show when there's a selected tab -->
             <ContentControl Content="{Binding SelectedTab}"
+                            AutomationProperties.AutomationId="MainContentControl"
                             Visibility="{Binding SelectedTab, Converter={StaticResource BoolToVisibilityConverter}}">
 
             </ContentControl>
@@ -48,6 +49,7 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8">
                     <TextBlock Text="Test terminal below - " Foreground="{StaticResource TextMutedBrush}" FontSize="14" VerticalAlignment="Center"/>
                     <Button Content="+ Open Project"
+                            AutomationProperties.AutomationId="OpenProjectButton"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding OpenNewProjectCommand}"
                             Padding="16,8"/>

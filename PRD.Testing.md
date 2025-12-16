@@ -57,7 +57,7 @@ The testing strategy covers two main areas:
 **Objective:** Run tests automatically on Pull Requests.
 
 1.  **GitHub Actions:**
-    *   Create a workflow that runs `dotnet test`.
+    *   Create a workflow that runs `dotnet test`. (Done)
     *   *Note:* UI Tests might require a Windows runner with a desktop session. If headless CI is too complex initially, UI tests can remain local-only or scheduled on a specific VM.
 
 ## Testable Architecture Requirements
@@ -151,7 +151,7 @@ To ensure modularity and testability, the application relies on strict interface
 
 - [x] **Infrastructure**
     - [x] Create `TerminalHost.Tests` project.
-    - [ ] Create `TerminalHost.UITests` project.
+    - [x] Create `TerminalHost.UITests` project.
 - [x] **Refactoring for Testability**
     - [x] Extract `IConfigurationService` interface.
     - [x] Extract `IGitStatusService` interface.
@@ -161,10 +161,10 @@ To ensure modularity and testability, the application relies on strict interface
     - [x] Test `ProjectDetectionService` (File pattern matching).
     - [x] Test `MainViewModel.AddNewTab`.
     - [x] Test `JsonFileService` (robust file persistence with backup/recovery).
-- [ ] **UI Tests Implementation**
-    - [ ] Add `AutomationId`s to `MainWindow.xaml` and `TabStrip.xaml`.
-    - [ ] Write `SmokeTest_AppLaunches`.
-    - [ ] Write `SmokeTest_CanOpenSettings`.
+- [x] **UI Tests Implementation**
+    - [x] Add `AutomationId`s to `MainWindow.xaml` and `TabStrip.xaml`.
+    - [x] Write `SmokeTest_AppLaunches`.
+    - [x] Write `SmokeTest_CanOpenSettings`.
 
 ## Success Metrics
 

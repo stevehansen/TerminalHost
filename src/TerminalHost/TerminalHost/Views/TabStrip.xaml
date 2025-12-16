@@ -32,6 +32,7 @@
                     <Button DockPanel.Dock="Right"
                             Content="×"
                             AutomationProperties.Name="Close tab"
+                            AutomationProperties.AutomationId="CloseTabButton"
                             Style="{StaticResource TabCloseButton}"
                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding}"/>
@@ -87,6 +88,7 @@
             <!-- New Project Button -->
             <Button DockPanel.Dock="Right"
                     Content="+ New Project"
+                    AutomationProperties.AutomationId="NewProjectButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenNewProjectCommand}"
                     Margin="8,0,4,0"/>
@@ -94,6 +96,7 @@
             <!-- Settings Button -->
             <Button DockPanel.Dock="Right"
                     Content="Settings"
+                    AutomationProperties.AutomationId="SettingsButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenSettingsCommand}"
                     ToolTip="Settings (Ctrl+,)"
@@ -102,6 +105,7 @@
             <!-- Profiles Button -->
             <Button DockPanel.Dock="Right"
                     Content="Profiles"
+                    AutomationProperties.AutomationId="ProfilesButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenProfilesCommand}"
                     ToolTip="Manage Profiles (Ctrl+P)"
@@ -110,6 +114,7 @@
             <!-- Statistics Button -->
             <Button DockPanel.Dock="Right"
                     Content="Statistics"
+                    AutomationProperties.AutomationId="StatisticsButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenStatisticsCommand}"
                     ToolTip="View Usage Statistics"
@@ -157,6 +162,7 @@
             <ListBox x:Name="TabList"
                      ItemsSource="{Binding Tabs}"
                      SelectedItem="{Binding SelectedTab}"
+                     AutomationProperties.AutomationId="TabList"
                      ItemTemplate="{StaticResource TabHeaderTemplate}"
                      Background="Transparent"
                      BorderThickness="0"
