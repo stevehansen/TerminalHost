@@ -6,7 +6,8 @@
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:local="clr-namespace:TerminalHost"
              d:DataContext="{d:DesignInstance viewModels:FileEditViewModel}"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     <Popup x:Name="FileEditPop"
            Placement="Absolute"
            StaysOpen="True"

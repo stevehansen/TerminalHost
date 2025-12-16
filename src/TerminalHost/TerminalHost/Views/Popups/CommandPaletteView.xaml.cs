@@ -19,7 +19,7 @@ public partial class CommandPaletteView : UserControl
         PaletteSearchBox.Focus();
     }
 
-    private void PaletteSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel mainViewModel) return;
 
@@ -49,6 +49,14 @@ public partial class CommandPaletteView : UserControl
         {
             mainViewModel.IsCommandPaletteOpen = false;
             e.Handled = true;
+        }
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel mainViewModel)
+        {
+            mainViewModel.IsCommandPaletteOpen = false;
         }
     }
 

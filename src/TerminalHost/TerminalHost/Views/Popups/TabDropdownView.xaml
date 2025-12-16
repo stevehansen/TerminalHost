@@ -7,7 +7,8 @@
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
-             d:DesignHeight="300" d:DesignWidth="200">
+             d:DesignHeight="300" d:DesignWidth="200"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     
     <Border Background="{StaticResource BackgroundMediumBrush}"
             BorderBrush="{StaticResource BorderSubtleBrush}"
@@ -22,27 +23,40 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Search Box -->
-            <TextBox x:Name="DropdownSearchBox"
-                     Grid.Row="0"
-                     Background="{StaticResource BackgroundDarkestBrush}"
-                     Foreground="{StaticResource TextPrimaryBrush}"
-                     BorderBrush="{StaticResource BorderSubtleBrush}"
-                     BorderThickness="1"
-                     Padding="6,4"
-                     Margin="0,0,0,4"
-                     Text="{Binding DropdownSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     PreviewKeyDown="DropdownSearchBox_PreviewKeyDown">
-                <TextBox.Style>
-                    <Style TargetType="TextBox">
-                        <Style.Triggers>
-                            <Trigger Property="Text" Value="">
-                                <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBox.Style>
-            </TextBox>
+            <!-- Search Box & Close Button -->
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBox x:Name="DropdownSearchBox"
+                         Grid.Column="0"
+                         Background="{StaticResource BackgroundDarkestBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="6,4"
+                         Text="{Binding DropdownSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+
+                <Button Grid.Column="1"
+                        Content="×"
+                        Click="CloseButton_Click"
+                        Style="{StaticResource TabCloseButton}"
+                        Padding="8,2"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Stretch"/>
+            </Grid>
 
             <!-- Tab List -->
             <ListBox x:Name="DropdownTabList"

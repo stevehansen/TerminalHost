@@ -7,7 +7,8 @@
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
-             d:DesignHeight="500" d:DesignWidth="400">
+             d:DesignHeight="500" d:DesignWidth="400"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundMediumBrush}"
             BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"
@@ -22,18 +23,31 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Search Box -->
-            <TextBox x:Name="SwitcherSearchBox"
-                     Grid.Row="0"
-                     Background="{StaticResource BackgroundDarkestBrush}"
-                     Foreground="{StaticResource TextPrimaryBrush}"
-                     BorderBrush="{StaticResource BorderSubtleBrush}"
-                     BorderThickness="1"
-                     Padding="8,6"
-                     Margin="0,0,0,8"
-                     FontSize="{StaticResource FontSizeNormal}"
-                     Text="{Binding SwitcherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     PreviewKeyDown="SwitcherSearchBox_PreviewKeyDown"/>
+            <!-- Search Box & Close Button -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBox x:Name="SwitcherSearchBox"
+                         Grid.Column="0"
+                         Background="{StaticResource BackgroundDarkestBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,6"
+                         FontSize="{StaticResource FontSizeNormal}"
+                         Text="{Binding SwitcherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                
+                <Button Grid.Column="1"
+                        Content="×"
+                        Click="CloseButton_Click"
+                        Style="{StaticResource TabCloseButton}"
+                        Padding="8,2"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Stretch"/>
+            </Grid>
 
             <!-- Tab List -->
             <ListBox x:Name="SwitcherTabList"

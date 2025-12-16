@@ -139,4 +139,19 @@ public partial class FileEditView : UserControl
             viewModel.UpdateCursorInfo(FileEditTextBox.CaretIndex);
         }
     }
+
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (DataContext is FileEditViewModel viewModel)
+            {
+                if (viewModel.CloseCommand.CanExecute(null))
+                {
+                    viewModel.CloseCommand.Execute(null);
+                    e.Handled = true;
+                }
+            }
+        }
+    }
 }

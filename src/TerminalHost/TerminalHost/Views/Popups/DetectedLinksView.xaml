@@ -6,7 +6,8 @@
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:local="clr-namespace:TerminalHost"
              d:DataContext="{d:DesignInstance viewModels:DetectedLinksViewModel}"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     <Popup x:Name="DetectedLinksPop"
            Placement="Center"
            PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
@@ -37,12 +38,19 @@
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
                     <DockPanel>
                         <Button DockPanel.Dock="Right"
+                                Content="×"
+                                Style="{StaticResource TabCloseButton}"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
                                 Content="↻"
                                 Style="{StaticResource TabCloseButton}"
                                 Command="{Binding RefreshLinksCommand}"
                                 ToolTip="Refresh links"
                                 FontSize="{StaticResource FontSizeNormal}"
-                                Padding="6,2"/>
+                                Padding="6,2"
+                                Margin="0,0,4,0"/>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔗" FontSize="{StaticResource FontSizeNormal}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Detected Links"
@@ -63,8 +71,7 @@
                          BorderThickness="0"
                          MaxHeight="320"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         MouseDoubleClick="LinksList_MouseDoubleClick"
-                         PreviewKeyDown="LinksList_PreviewKeyDown">
+                         MouseDoubleClick="LinksList_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="8,4">

@@ -126,4 +126,19 @@ public partial class FilePreviewView : UserControl
         if (newWidth >= 500) viewModel.Width = newWidth;
         if (newHeight >= 400) viewModel.Height = newHeight;
     }
+
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (DataContext is FilePreviewViewModel viewModel)
+            {
+                if (viewModel.CloseCommand.CanExecute(null))
+                {
+                    viewModel.CloseCommand.Execute(null);
+                    e.Handled = true;
+                }
+            }
+        }
+    }
 }

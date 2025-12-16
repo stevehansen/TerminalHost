@@ -7,7 +7,8 @@
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d" 
              d:DataContext="{d:DesignInstance vm:MainViewModel}"
-             d:DesignHeight="500" d:DesignWidth="700">
+             d:DesignHeight="500" d:DesignWidth="700"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundDarkBrush}"
         BorderBrush="{StaticResource AccentPrimaryBrush}"
         BorderThickness="1"

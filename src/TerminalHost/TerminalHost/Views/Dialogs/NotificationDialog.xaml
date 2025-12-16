@@ -102,6 +102,7 @@
                     <!-- No Button -->
                     <Button x:Name="NoButton"
                             Content="No"
+                            IsCancel="True"
                             Click="NoButton_Click"
                             Visibility="Collapsed"
                             Margin="0,0,8,0"
@@ -178,6 +179,7 @@
                     <!-- Cancel Button -->
                     <Button x:Name="CancelButton"
                             Content="Cancel"
+                            IsCancel="True"
                             Click="CancelButton_Click"
                             Visibility="Collapsed"
                             Padding="16,6"

@@ -33,7 +33,7 @@ public partial class TabDropdownView : UserControl
         }), System.Windows.Threading.DispatcherPriority.Input);
     }
 
-    private void DropdownSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel mainViewModel) return;
 
@@ -64,6 +64,14 @@ public partial class TabDropdownView : UserControl
         {
             mainViewModel.IsTabDropdownOpen = false;
             e.Handled = true;
+        }
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel mainViewModel)
+        {
+            mainViewModel.IsTabDropdownOpen = false;
         }
     }
 

@@ -6,7 +6,8 @@
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              d:DataContext="{d:DesignInstance viewModels:ScratchPadViewModel}"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
     
     <Popup x:Name="ScratchPadPopup"
            Placement="Center"

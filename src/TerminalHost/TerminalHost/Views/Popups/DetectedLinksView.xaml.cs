@@ -10,7 +10,7 @@ public partial class DetectedLinksView : UserControl
         InitializeComponent();
     }
 
-    private void LinksList_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var viewModel = DataContext as DetectedLinksViewModel;
         if (viewModel == null) return;

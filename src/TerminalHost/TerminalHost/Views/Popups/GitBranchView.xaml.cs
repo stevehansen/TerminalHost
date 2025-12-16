@@ -10,7 +10,7 @@ public partial class GitBranchView : UserControl
         InitializeComponent();
     }
 
-    private void GitBranchSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var viewModel = DataContext as GitBranchViewModel;
         if (viewModel == null) return;
