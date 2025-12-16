@@ -13,6 +13,7 @@ public class ProjectLaunchTests : IDisposable
     private readonly UIA3Automation _automation;
     private readonly Window _window;
     private readonly string _tempProjectDir;
+    private readonly string _userDataDir;
 
     public ProjectLaunchTests()
     {
@@ -20,10 +21,18 @@ public class ProjectLaunchTests : IDisposable
         _tempProjectDir = Path.Combine(Path.GetTempPath(), "TerminalHostTestProject_" + Guid.NewGuid());
         Directory.CreateDirectory(_tempProjectDir);
 
+        // Create a unique user data dir for isolation
+        _userDataDir = Path.Combine(Path.GetTempPath(), "TerminalHostUserData_" + Guid.NewGuid());
+        Directory.CreateDirectory(_userDataDir);
+
         var appPath = FindAppPath();
         
-        // Launch with the project directory as argument
-        _app = Application.Launch(appPath, _tempProjectDir);
+        // Launch with arguments
+        // 1. The project directory (positional)
+        // 2. --user-data-dir for isolated config/state
+        // 3. --disable-single-instance to allow parallel test runs
+        var args = $"\"{_tempProjectDir}\" --user-data-dir \"{_userDataDir}\" --disable-single-instance";
+        _app = Application.Launch(appPath, args);
         _automation = new UIA3Automation();
         _window = _app.GetMainWindow(_automation);
     }
@@ -89,6 +98,13 @@ public class ProjectLaunchTests : IDisposable
         {
             if (Directory.Exists(_tempProjectDir))
                 Directory.Delete(_tempProjectDir, true);
+        }
+        catch { /* ignore cleanup errors */ }
+
+        try
+        {
+            if (Directory.Exists(_userDataDir))
+                Directory.Delete(_userDataDir, true);
         }
         catch { /* ignore cleanup errors */ }
     }

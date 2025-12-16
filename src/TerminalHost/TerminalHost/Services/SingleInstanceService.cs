@@ -112,6 +112,8 @@ public class CommandLineArgs
     public string? Command { get; set; }
     public string? WorkingDir { get; set; }
     public bool IsSetupMode { get; set; }
+    public bool DisableSingleInstance { get; set; }
+    public string? UserDataDir { get; set; }
 
     public static CommandLineArgs Parse(string[] args)
     {
@@ -128,6 +130,17 @@ public class CommandLineArgs
                 case "-setup":
                 case "--setup":
                     result.IsSetupMode = true;
+                    continue;
+
+                case "--disable-single-instance":
+                case "-multi": // Short alias for testing convenience
+                    result.DisableSingleInstance = true;
+                    continue;
+
+                case "--user-data-dir":
+                case "-data":
+                    if (i + 1 < args.Length)
+                        result.UserDataDir = ResolveDirectory(args[++i]);
                     continue;
 
                 case "--profile":

@@ -16,7 +16,7 @@ public class ConfigurationServiceTests
     {
         _fileSystemMock = new Mock<IFileSystem>();
         _service = new ConfigurationService(_fileSystemMock.Object);
-        _configPath = ConfigurationService.GetConfigFilePath();
+        _configPath = _service.ConfigurationFilePath;
     }
 
     [Fact]

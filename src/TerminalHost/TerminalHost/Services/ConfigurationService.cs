@@ -11,17 +11,21 @@ internal sealed class ConfigurationService : IConfigurationService
     private readonly JsonFileService<AppConfiguration> _jsonFileService;
     private static readonly object _saveLock = new object();
 
-    public ConfigurationService(IFileSystem fileSystem)
+    public string ConfigurationFilePath { get; }
+    private readonly string _configDirectory;
+
+    public ConfigurationService(IFileSystem fileSystem, string? userDataDir = null)
     {
         _fileSystem = fileSystem;
-        _jsonFileService = new JsonFileService<AppConfiguration>(fileSystem, ConfigFilePath, JsonOptions);
+        
+        _configDirectory = userDataDir ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost");
+
+        ConfigurationFilePath = Path.Combine(_configDirectory, "config.json");
+
+        _jsonFileService = new JsonFileService<AppConfiguration>(fileSystem, ConfigurationFilePath, JsonOptions);
     }
-
-    private static readonly string ConfigDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "TerminalHost");
-
-    private static readonly string ConfigFilePath = Path.Combine(ConfigDirectory, "config.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -53,13 +57,13 @@ internal sealed class ConfigurationService : IConfigurationService
         // but it can leverage the JsonFileService's logic for finding the primary file
         // or falling back to backup before reading.
         // For simplicity, we'll try to read the primary path, and if it fails, fallback to default JSON.
-        if (_fileSystem.FileExists(ConfigFilePath))
+        if (_fileSystem.FileExists(ConfigurationFilePath))
         {
-            return _fileSystem.ReadAllText(ConfigFilePath);
+            return _fileSystem.ReadAllText(ConfigurationFilePath);
         }
-        else if (_fileSystem.FileExists(ConfigFilePath + ".bak"))
+        else if (_fileSystem.FileExists(ConfigurationFilePath + ".bak"))
         {
-            return _fileSystem.ReadAllText(ConfigFilePath + ".bak");
+            return _fileSystem.ReadAllText(ConfigurationFilePath + ".bak");
         }
 
         return JsonSerializer.Serialize(CreateDefaultConfiguration(), JsonOptions);
@@ -83,8 +87,8 @@ internal sealed class ConfigurationService : IConfigurationService
                 return (false, string.Join("\n", errors), null);
             }
 
-            _fileSystem.CreateDirectory(ConfigDirectory);
-            _fileSystem.WriteAllText(ConfigFilePath, json); // Direct write for raw JSON
+            _fileSystem.CreateDirectory(_configDirectory);
+            _fileSystem.WriteAllText(ConfigurationFilePath, json); // Direct write for raw JSON
             
             // Return success with optional warnings
             var warningMessage = warnings.Count > 0 ? string.Join("\n", warnings) : null;
@@ -155,8 +159,6 @@ internal sealed class ConfigurationService : IConfigurationService
 
         return builtIns.Any(b => b.Equals(command, StringComparison.OrdinalIgnoreCase));
     }
-
-    public static string GetConfigFilePath() => ConfigFilePath;
 
     private static AppConfiguration CreateDefaultConfiguration()
     {

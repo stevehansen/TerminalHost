@@ -14,11 +14,19 @@ public class SmokeTests : IDisposable
     private readonly Application _app;
     private readonly UIA3Automation _automation;
     private readonly Window _window;
+    private readonly string _userDataDir;
 
     public SmokeTests()
     {
+        // Create a unique user data dir for isolation
+        _userDataDir = Path.Combine(Path.GetTempPath(), "TerminalHostUserData_" + Guid.NewGuid());
+        Directory.CreateDirectory(_userDataDir);
+
         var appPath = FindAppPath();
-        _app = Application.Launch(appPath);
+        
+        // Launch with arguments for isolation
+        var args = $"--user-data-dir \"{_userDataDir}\" --disable-single-instance";
+        _app = Application.Launch(appPath, args);
         _automation = new UIA3Automation();
         _window = _app.GetMainWindow(_automation);
     }
@@ -120,5 +128,12 @@ public class SmokeTests : IDisposable
         _automation.Dispose();
         _app.Close();
         _app.Dispose();
+
+        try
+        {
+            if (Directory.Exists(_userDataDir))
+                Directory.Delete(_userDataDir, true);
+        }
+        catch { /* ignore cleanup errors */ }
     }
 }

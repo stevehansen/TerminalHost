@@ -53,25 +53,28 @@ public partial class App : Application
         _singleInstanceService = new SingleInstanceService();
 
         // Check if another instance is already running
-        if (!_singleInstanceService.TryAcquireLock())
+        if (!startupArgs.DisableSingleInstance)
         {
-            // Another instance is running, send command line args and exit
-            if (startupArgs.HasValidRequest())
+            if (!_singleInstanceService.TryAcquireLock())
             {
-                SingleInstanceService.SendToRunningInstance(startupArgs);
+                // Another instance is running, send command line args and exit
+                if (startupArgs.HasValidRequest())
+                {
+                    SingleInstanceService.SendToRunningInstance(startupArgs);
+                }
+
+                Shutdown();
+                return;
             }
 
-            Shutdown();
-            return;
+            // Start the IPC server to listen for commands from other instances
+            _singleInstanceService.StartPipeServer();
+            _singleInstanceService.CommandReceived += OnCommandReceived;
         }
-
-        // Start the IPC server to listen for commands from other instances
-        _singleInstanceService.StartPipeServer();
-        _singleInstanceService.CommandReceived += OnCommandReceived;
 
         // Configure Services
         var serviceCollection = new ServiceCollection();
-        ConfigureServices(serviceCollection);
+        ConfigureServices(serviceCollection, startupArgs);
         _services = serviceCollection.BuildServiceProvider();
 
         // Initialize system tray
@@ -88,11 +91,12 @@ public partial class App : Application
         HandleCommandLineArgs(startupArgs);
     }
 
-    private void ConfigureServices(IServiceCollection services)
+    private void ConfigureServices(IServiceCollection services, CommandLineArgs args)
     {
         // Services
         services.AddSingleton(_singleInstanceService!); // Register the already active instance
-        services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<IConfigurationService>(sp => 
+            new ConfigurationService(sp.GetRequiredService<IFileSystem>(), args.UserDataDir));
         services.AddSingleton<IStatisticsService, StatisticsService>();
         services.AddSingleton<ISystemTrayService, SystemTrayService>();
         services.AddSingleton<IDialogService, DialogService>();

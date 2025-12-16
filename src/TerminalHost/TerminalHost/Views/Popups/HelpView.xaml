@@ -206,6 +206,14 @@
                             <Run Text="host -w P:\Path" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="     # Using named argument"/>
                             </TextBlock>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host -multi" Foreground="{StaticResource SyntaxCyanBrush}"/>
+                            <Run Text="         # Allow multiple instances"/>
+                            </TextBlock>
+                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <Run Text="host -data path" Foreground="{StaticResource SyntaxCyanBrush}"/>
+                            <Run Text="     # Override config path"/>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
 

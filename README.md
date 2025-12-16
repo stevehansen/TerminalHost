@@ -38,6 +38,10 @@ host -w P:\MyProject
 
 # Launch the setup and dependency checker window
 host /setup
+
+# Advanced/Testing arguments
+host --disable-single-instance  # Allow multiple instances (or -multi)
+host --user-data-dir "C:\Path"  # Override configuration path (or -data)
 ```
 
 ## Keyboard Shortcuts

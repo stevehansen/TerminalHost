@@ -53,6 +53,18 @@ The testing strategy covers two main areas:
     *   **Settings:** Open settings window, toggle a checkbox, save, restart, verify persistence.
     *   **Terminal Pair:** Verify "Custom" and "Shell" panes are visible (using AutomationIDs).
 
+### UI Test Isolation
+To ensure UI tests run reliably and in parallel (if needed) without interfering with the user's actual application instance, tests must launch the application with specific isolation arguments:
+
+- `--disable-single-instance` (or `-multi`): Bypasses the single-instance mutex check, allowing the test instance to run even if the user has the app open.
+- `--user-data-dir <path>` (or `-data`): Overrides the default `%APPDATA%` configuration path. Each test run should generate a unique temporary directory for this to ensure a clean state (fresh config, no existing tabs).
+
+Example `Application.Launch` arguments:
+```csharp
+var args = $"--user-data-dir \"{tempDataPath}\" --disable-single-instance";
+_app = Application.Launch(appPath, args);
+```
+
 ### Phase 3: CI/CD Integration
 **Objective:** Run tests automatically on Pull Requests.
 
