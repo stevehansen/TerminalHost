@@ -7,6 +7,7 @@ public partial class Dependency : ObservableObject
     public required string Name { get; init; }
     public required string Description { get; init; }
     public string? InstallCommand { get; init; }
+    public string? InstallUrl { get; init; }
     public required string DetectionCommand { get; init; }
     public string? HomepageUrl { get; init; }
 

@@ -109,6 +109,18 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
+
+                                        <Button Content="Download"
+                                                Command="{Binding DataContext.OpenInstallLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,8,0"
+                                                Visibility="{Binding InstallUrl, Converter={StaticResource NullToCollapsedConverter}}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="ToolTip" Value="{Binding InstallUrl}"/>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                     
                                         <Button Content="Install" 
                                                 Command="{Binding DataContext.InstallDependencyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"

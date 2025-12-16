@@ -24,7 +24,8 @@ public partial class SetupViewModel : ObservableObject
             Name = "Git",
             Description = "The version control system.",
             DetectionCommand = "git --version",
-            HomepageUrl = "https://git-scm.com/"
+            HomepageUrl = "https://git-scm.com/",
+            InstallUrl = "https://git-scm.com/downloads"
         });
 
         Dependencies.Add(new Dependency
@@ -32,7 +33,8 @@ public partial class SetupViewModel : ObservableObject
             Name = "Nerd Font",
             Description = "A font with developer-focused glyphs (e.g., Cascadia Code NF).",
             DetectionCommand = "", // Special case, requires different detection logic
-            HomepageUrl = "https://www.nerdfonts.com/font-downloads"
+            HomepageUrl = "https://github.com/microsoft/cascadia-code",
+            InstallUrl = "https://github.com/microsoft/cascadia-code/releases"
         });
 
         Dependencies.Add(new Dependency
@@ -40,8 +42,9 @@ public partial class SetupViewModel : ObservableObject
             Name = "Claude Code",
             Description = "The AI code assistant CLI.",
             DetectionCommand = "claude --version",
-            InstallCommand = "irm https://claude.ai/install.ps1 | iex",
-            HomepageUrl = "https://claude.ai/"
+            // InstallCommand removed to avoid Windows Defender alerts
+            HomepageUrl = "https://claude.ai/",
+            InstallUrl = "https://docs.anthropic.com/en/docs/intro-to-claude"
         });
 
         Dependencies.Add(new Dependency
@@ -50,8 +53,18 @@ public partial class SetupViewModel : ObservableObject
             Description = "The HC.Dev tool for .NET.",
             DetectionCommand = "dev -h",
             InstallCommand = "dotnet tool install --global HC.Dev",
-            HomepageUrl = "https://www.nuget.org/packages/HC.Dev/"
+            HomepageUrl = "https://www.nuget.org/packages/HC.Dev/",
+            InstallUrl = "https://www.nuget.org/packages/HC.Dev/"
         });
+    }
+
+    [RelayCommand]
+    private void OpenInstallLink(Dependency? dependency)
+    {
+        if (dependency != null && !string.IsNullOrEmpty(dependency.InstallUrl))
+        {
+            Process.Start(new ProcessStartInfo(dependency.InstallUrl) { UseShellExecute = true });
+        }
     }
 
     [RelayCommand]
