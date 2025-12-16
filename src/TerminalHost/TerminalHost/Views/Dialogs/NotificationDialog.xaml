@@ -28,9 +28,9 @@
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <TextBlock x:Name="TitleText"
                            Foreground="{StaticResource TextBrightBrush}"
-                           FontSize="14"
+                           FontSize="{StaticResource FontSizeNormal}"
                            FontWeight="SemiBold"
-                           FontFamily="Segoe UI"/>
+                           FontFamily="{StaticResource FontFamilyStandard}"/>
             </Border>
 
             <!-- Content -->
@@ -51,8 +51,8 @@
                 <TextBlock x:Name="MessageText"
                            Grid.Column="1"
                            Foreground="{StaticResource TextPrimaryBrush}"
-                           FontSize="13"
-                           FontFamily="Segoe UI"
+                           FontSize="{StaticResource FontSizeCode}"
+                           FontFamily="{StaticResource FontFamilyStandard}"
                            TextWrapping="Wrap"
                            VerticalAlignment="Center"
                            MaxWidth="380"/>

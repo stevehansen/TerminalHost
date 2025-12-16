@@ -16,7 +16,6 @@
         Height="700"
         Width="1100"
         Background="{StaticResource BackgroundDarkestBrush}"
-        FontFamily="Cascadia Code NF, Segoe UI"
         WindowStyle="SingleBorderWindow">
 
     <!-- All styles and converters are now in App.xaml for reuse across views -->
@@ -47,7 +46,7 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8">
-                    <TextBlock Text="Test terminal below - " Foreground="{StaticResource TextMutedBrush}" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Text="Test terminal below - " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center"/>
                     <Button Content="+ Open Project"
                             AutomationProperties.AutomationId="OpenProjectButton"
                             Style="{StaticResource TerminalSwitchButton}"

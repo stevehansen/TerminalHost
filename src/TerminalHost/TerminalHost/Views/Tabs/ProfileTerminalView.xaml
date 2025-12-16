@@ -19,7 +19,7 @@
                 <!-- Profile Info -->
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">
-                        <Run Text="{Binding TabIcon, Mode=OneWay}" FontSize="14"/>
+                        <Run Text="{Binding TabIcon, Mode=OneWay}" FontSize="{StaticResource FontSizeNormal}"/>
                         <Run Text=" "/>
                         <Run Text="{Binding Profile.Name, Mode=OneWay}" FontWeight="SemiBold"/>
                     </TextBlock>
@@ -60,7 +60,7 @@
 
             <!-- Terminal Header -->
             <Border Background="{StaticResource BackgroundLightBrush}" Padding="4,2">
-                <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
+                <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
                     <Run Text="{Binding TabIcon, Mode=OneWay}"/>
                     <Run Text=" "/>
                     <Run Text="{Binding Profile.Name, Mode=OneWay}"/>

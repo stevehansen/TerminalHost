@@ -42,8 +42,8 @@
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="2,1"/>
-            <Setter Property="FontFamily" Value="Cascadia Code NF, Consolas"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
             <EventSetter Event="Expanded" Handler="TreeViewItem_Expanded"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -115,54 +115,54 @@
             <MenuItem Header="Open" Command="{Binding OpenInViewerCommand}"
                       InputGestureText="Enter">
                 <MenuItem.Icon>
-                    <TextBlock Text="📄" FontSize="12"/>
+                    <TextBlock Text="📄" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Edit" Command="{Binding EditInViewerCommand}"
                       InputGestureText="F4">
                 <MenuItem.Icon>
-                    <TextBlock Text="✏️" FontSize="12"/>
+                    <TextBlock Text="✏️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Open in New Window" Command="{Binding PopOutViewerCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="⧉" FontSize="12"/>
+                    <TextBlock Text="⧉" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Open with Default App" Command="{Binding OpenExternalCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="🚀" FontSize="12"/>
+                    <TextBlock Text="🚀" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Show in Explorer" Command="{Binding ExploreInExplorerCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="📂" FontSize="12"/>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}"
                       InputGestureText="Ctrl+C">
                 <MenuItem.Icon>
-                    <TextBlock Text="📋" FontSize="12"/>
+                    <TextBlock Text="📋" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="CD to Folder" Command="{Binding CdToFolderCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="💻" FontSize="12"/>
+                    <TextBlock Text="💻" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Rename" Command="{Binding RenameCommand}"
                       InputGestureText="F2">
                 <MenuItem.Icon>
-                    <TextBlock Text="✏️" FontSize="12"/>
+                    <TextBlock Text="✏️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Delete" Command="{Binding DeleteCommand}"
                       InputGestureText="Del">
                 <MenuItem.Icon>
-                    <TextBlock Text="🗑️" FontSize="12"/>
+                    <TextBlock Text="🗑️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -251,12 +251,12 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="📁"
                                Foreground="{StaticResource SyntaxCyanBrush}"
-                               FontSize="13"
+                               FontSize="{StaticResource FontSizeCode}"
                                VerticalAlignment="Center"
                                Margin="0,0,6,0"/>
                     <TextBlock Text="Explorer"
                                Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSmall}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                 </StackPanel>
@@ -295,7 +295,7 @@
                             <TextBlock Text="{Binding Icon}"
                                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityInvertedConverter}}"
                                        FontFamily="Segoe UI Emoji"
-                                       FontSize="12"
+                                       FontSize="{StaticResource FontSizeSmall}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,6,0"/>
 
@@ -311,7 +311,7 @@
                                     Padding="4,0"
                                     Margin="6,0,0,0">
                                 <TextBlock Text="{Binding GitStatusIcon}"
-                                           FontSize="10"
+                                           FontSize="{StaticResource FontSizeMicro}"
                                            FontWeight="Bold"
                                            VerticalAlignment="Center">
                                     <TextBlock.Foreground>
@@ -333,7 +333,7 @@
                        Foreground="{StaticResource TextDimmedBrush}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       FontSize="14"/>
+                       FontSize="{StaticResource FontSizeNormal}"/>
         </Border>
 
         <!-- Empty state -->
@@ -344,7 +344,7 @@
                        Foreground="{StaticResource TextDimmedBrush}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       FontSize="12"/>
+                       FontSize="{StaticResource FontSizeSmall}"/>
         </Border>
     </Grid>
 </UserControl>

@@ -30,10 +30,10 @@
             <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
                     MouseLeftButtonDown="TitleBar_MouseDown">
                 <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
-                           FontSize="14"
+                           FontSize="{StaticResource FontSizeNormal}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextBrightBrush}"
-                           FontFamily="Segoe UI"/>
+                           FontFamily="{StaticResource FontFamilyStandard}"/>
             </Border>
 
             <!-- Prompt -->
@@ -41,16 +41,16 @@
                        Text="{Binding Prompt, RelativeSource={RelativeSource AncestorType=Window}}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontFamily="Segoe UI"
-                       FontSize="13"
+                       FontFamily="{StaticResource FontFamilyStandard}"
+                       FontSize="{StaticResource FontSizeCode}"
                        Margin="20,16,20,8"/>
 
             <!-- Input TextBox -->
             <TextBox x:Name="InputTextBox"
                      Grid.Row="2"
                      Text="{Binding InputText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                     FontFamily="Cascadia Code NF, Consolas"
-                     FontSize="13"
+                     FontFamily="{StaticResource FontFamilyMonospace}"
+                     FontSize="{StaticResource FontSizeCode}"
                      Padding="8,6"
                      Margin="20,0,20,16"
                      Background="{DynamicResource BackgroundMediumBrush}"

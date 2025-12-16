@@ -15,7 +15,7 @@
             <Setter Property="BorderThickness" Value="0,0,0,2"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="0"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -45,7 +45,7 @@
             <Setter Property="Foreground" Value="#CCCCCC"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -158,21 +158,21 @@
                               Background="#1E1E1E">
                     <TextBlock x:Name="LineNumbers"
                                Text="{Binding LineNumbers}"
-                               FontFamily="Cascadia Code NF, Consolas, Courier New"
-                               FontSize="13"
+                               FontFamily="{StaticResource FontFamilyMonospace}"
+                               FontSize="{StaticResource FontSizeCode}"
                                Foreground="#5A5A5A"
                                Background="#1E1E1E"
                                Padding="8,4,8,4"
                                TextAlignment="Right"
-                               MinWidth="40"/>
+                               MinWidth="4"/>
                 </ScrollViewer>
 
                 <!-- Editor -->
                 <TextBox x:Name="EditTextBox"
                          Grid.Column="1"
                          Text="{Binding EditContent, UpdateSourceTrigger=PropertyChanged}"
-                         FontFamily="Cascadia Code NF, Consolas, Courier New"
-                         FontSize="13"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="{StaticResource FontSizeCode}"
                          Foreground="#CCCCCC"
                          Background="#1E1E1E"
                          CaretBrush="#AEAFAD"
@@ -191,7 +191,7 @@
             <!-- Empty state -->
             <TextBlock Text="Select a file to view"
                        Foreground="#808080"
-                       FontSize="14"
+                       FontSize="{StaticResource FontSizeNormal}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        Visibility="{Binding FilePath, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
@@ -210,7 +210,7 @@
                 <TextBlock Grid.Column="0"
                            Text="{Binding Info}"
                            Foreground="White"
-                           FontSize="11"
+                           FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"/>
 
@@ -218,7 +218,7 @@
                 <TextBlock Grid.Column="1"
                            Text="{Binding CursorInfo}"
                            Foreground="White"
-                           FontSize="11"
+                           FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"
                            Margin="16,0"
                            Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -227,7 +227,7 @@
                 <TextBlock Grid.Column="2"
                            Text="Modified"
                            Foreground="White"
-                           FontSize="11"
+                           FontSize="{StaticResource FontSizeTiny}"
                            FontWeight="Bold"
                            VerticalAlignment="Center"
                            Visibility="{Binding IsModified, Converter={StaticResource BoolToVisibilityConverter}}"/>

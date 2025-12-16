@@ -44,7 +44,7 @@
                                     Content="×"
                                     Style="{StaticResource TabCloseButton}"
                                     Command="{Binding CloseCommand}"
-                                    FontSize="16"
+                                    FontSize="{StaticResource FontSizeLarge}"
                                     Padding="8,2"/>
                         <Button DockPanel.Dock="Right"
                                     Content="↻ Refresh"
@@ -55,13 +55,13 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="📋"
                                            Foreground="{StaticResource SyntaxCyanBrush}"
-                                           FontSize="14"
+                                           FontSize="{StaticResource FontSizeNormal}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>
                             <TextBlock x:Name="GitFilesTitle"
                                            Text="{Binding Title}"
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="13"
+                                           FontSize="{StaticResource FontSizeCode}"
                                            VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
@@ -88,7 +88,7 @@
                                 <TextBlock x:Name="GitFilesCount"
                                                Text="{Binding GitFiles.Count, StringFormat='{}{0} files changed'}"
                                                Foreground="{StaticResource TextDimmedBrush}"
-                                               FontSize="11"/>
+                                               FontSize="{StaticResource FontSizeTiny}"/>
                             </Border>
 
                             <!-- File list -->
@@ -115,8 +115,8 @@
                                             <TextBlock Grid.Column="0" Grid.RowSpan="2"
                                                            Text="{Binding StatusIcon}"
                                                            Foreground="{Binding StatusColor}"
-                                                           FontFamily="Cascadia Code NF, Consolas"
-                                                           FontSize="12"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
                                                            FontWeight="Bold"
                                                            VerticalAlignment="Center"
                                                            ToolTip="{Binding StatusDescription}"/>
@@ -125,14 +125,14 @@
                                             <TextBlock Grid.Column="1" Grid.Row="0"
                                                            Text="{Binding FileName}"
                                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                                           FontSize="12"
+                                                           FontSize="{StaticResource FontSizeSmall}"
                                                            TextTrimming="CharacterEllipsis"/>
 
                                             <!-- Directory path -->
                                             <TextBlock Grid.Column="1" Grid.Row="1"
                                                            Text="{Binding Directory}"
                                                            Foreground="{StaticResource TextMutedBrush}"
-                                                           FontSize="10"
+                                                           FontSize="{StaticResource FontSizeMicro}"
                                                            TextTrimming="CharacterEllipsis"
                                                            Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </Grid>
@@ -171,7 +171,7 @@
                                            Grid.Row="1"
                                            Text="No changes"
                                            Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="13"
+                                           FontSize="{StaticResource FontSizeCode}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -214,7 +214,7 @@
                                     <TextBlock x:Name="GitDiffTitle"
                                                    Text="{Binding SelectedGitFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
                                                    Foreground="{StaticResource TextDimmedBrush}"
-                                                   FontSize="11"
+                                                   FontSize="{StaticResource FontSizeTiny}"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
                                 </DockPanel>
@@ -235,14 +235,14 @@
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
                                        Foreground="{StaticResource TextDimmedBrush}"
-                                       FontSize="11"
+                                       FontSize="{StaticResource FontSizeTiny}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,20,0"
                                        Text="Press Escape to close"/>
                         <TextBlock x:Name="GitFilesInfo"
                                        Text="{Binding Info}"
                                        Foreground="{StaticResource TextDimmedBrush}"
-                                       FontSize="11"
+                                       FontSize="{StaticResource FontSizeTiny}"
                                        VerticalAlignment="Center"/>
                     </DockPanel>
                 </Border>

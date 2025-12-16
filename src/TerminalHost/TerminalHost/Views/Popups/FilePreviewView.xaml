@@ -43,7 +43,7 @@
                                 Content="×"
                                 Style="{StaticResource TabCloseButton}"
                                 Command="{Binding CloseCommand}"
-                                FontSize="16"
+                                FontSize="{StaticResource FontSizeLarge}"
                                 Padding="8,2"/>
                         <Button DockPanel.Dock="Right"
                                 Content="✏️ Edit"
@@ -54,13 +54,13 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="👁"
                                        Foreground="{StaticResource AccentPrimaryBrush}"
-                                       FontSize="14"
+                                       FontSize="{StaticResource FontSizeNormal}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0"/>
                             <TextBlock x:Name="FilePreviewTitle"
                                        Text="{Binding Title}"
                                        Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="13"
+                                       FontSize="{StaticResource FontSizeCode}"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
@@ -81,14 +81,14 @@
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
                                    Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="11"
+                                   FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,20,0"
                                    Text="Press Escape to close"/>
                         <TextBlock x:Name="FilePreviewInfo"
                                    Text="{Binding Info}"
                                    Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="11"
+                                   FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"/>
                     </DockPanel>
                 </Border>

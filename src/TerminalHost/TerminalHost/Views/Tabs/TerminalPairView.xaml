@@ -71,7 +71,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔗" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedLinks.Count}"
-                                       FontSize="10"
+                                       FontSize="{StaticResource FontSizeMicro}"
                                        Foreground="{StaticResource SyntaxCyanBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
@@ -143,7 +143,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌐" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedRunUrl}"
-                                       FontSize="10"
+                                       FontSize="{StaticResource FontSizeMicro}"
                                        Foreground="{StaticResource SyntaxCyanBrush}"
                                        MaxWidth="150"
                                        TextTrimming="CharacterEllipsis"
@@ -162,7 +162,7 @@
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
                                 <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Template">
@@ -200,7 +200,7 @@
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
                                 <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Template">
@@ -279,7 +279,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
+                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
                         <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
                         <Run Text=" Claude Code"/>
                     </TextBlock>
@@ -300,7 +300,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10">
+                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
                         <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
                         <Run Text=" Shell"/>
                     </TextBlock>
@@ -328,7 +328,7 @@
                                 Command="{Binding ToggleRunTerminalCommand}"
                                 AutomationProperties.Name="Hide Run Terminal"
                                 ToolTip="Hide Run Terminal"/>
-                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center">
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
                             <Run Text="▶ Run"/>
                             <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
                             <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{StaticResource SyntaxCyanBrush}"/>

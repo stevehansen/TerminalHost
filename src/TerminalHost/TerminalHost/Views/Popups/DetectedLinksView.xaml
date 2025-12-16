@@ -41,13 +41,13 @@
                                 Style="{StaticResource TabCloseButton}"
                                 Command="{Binding RefreshLinksCommand}"
                                 ToolTip="Refresh links"
-                                FontSize="14"
+                                FontSize="{StaticResource FontSizeNormal}"
                                 Padding="6,2"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔗" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="🔗" FontSize="{StaticResource FontSizeNormal}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Detected Links"
                                        Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="13"
+                                       FontSize="{StaticResource FontSizeCode}"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
@@ -75,17 +75,17 @@
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Icon}"
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="14"
+                                           FontSize="{StaticResource FontSizeNormal}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding DisplayText}"
                                                Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontSize="12"
+                                               FontSize="{StaticResource FontSizeSmall}"
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Url}"
                                                Foreground="{StaticResource TextMutedBrush}"
-                                               FontSize="10"
+                                               FontSize="{StaticResource FontSizeMicro}"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTip="{Binding Url}"/>
                                 </StackPanel>
@@ -102,7 +102,7 @@
                            Grid.Row="1"
                            Text="No links detected"
                            Foreground="{StaticResource TextMutedBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSmall}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            Padding="20"
@@ -123,7 +123,7 @@
                                     ToolTip="Open link"/>
                         </StackPanel>
                         <TextBlock Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="10"
+                                   FontSize="{StaticResource FontSizeMicro}"
                                    Text="Double-click or Enter to open, Esc to close"
                                    VerticalAlignment="Center"/>
                     </DockPanel>

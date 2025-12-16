@@ -14,7 +14,7 @@
             <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -74,8 +74,8 @@
                            Foreground="{StaticResource TextDimmedBrush}"
                            VerticalAlignment="Center"
                            HorizontalAlignment="Right"
-                           FontFamily="Cascadia Code NF, Segoe UI"
-                           FontSize="12"/>
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeSmall}"/>
             </DockPanel>
         </Border>
 
@@ -86,8 +86,8 @@
                      Background="{StaticResource BackgroundDarkestBrush}"
                      Foreground="{StaticResource TextPrimaryBrush}"
                      BorderThickness="0"
-                     FontFamily="Cascadia Code NF, Consolas, Courier New"
-                     FontSize="13"
+                     FontFamily="{StaticResource FontFamilyMonospace}"
+                     FontSize="{StaticResource FontSizeCode}"
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      VerticalScrollBarVisibility="Auto"
@@ -109,8 +109,8 @@
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}">
             <TextBlock Text="{Binding ErrorMessage}"
                        Foreground="{StaticResource StatusErrorBrush}"
-                       FontFamily="Cascadia Code NF, Segoe UI"
-                       FontSize="12"/>
+                       FontFamily="{StaticResource FontFamilyMonospace}"
+                       FontSize="{StaticResource FontSizeSmall}"/>
         </Border>
     </Grid>
 </UserControl>

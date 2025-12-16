@@ -34,8 +34,8 @@ public static class JsonSyntaxHighlighter
         {
             Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
             Foreground = DefaultBrush,
-            FontFamily = new FontFamily("Cascadia Code NF, Consolas, Courier New"),
-            FontSize = 13,
+            FontFamily = (FontFamily)Application.Current.Resources["FontFamilyMonospace"],
+            FontSize = (double)Application.Current.Resources["FontSizeCode"],
             PagePadding = new Thickness(8)
         };
 

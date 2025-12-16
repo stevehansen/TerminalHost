@@ -168,8 +168,8 @@ public partial class GitFilesViewModel : ObservableObject
                 System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E)),
             Foreground = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = new System.Windows.Media.FontFamily("Cascadia Code NF, Consolas, Courier New"),
-            FontSize = 13,
+            FontFamily = (System.Windows.Media.FontFamily)System.Windows.Application.Current.Resources["FontFamilyMonospace"],
+            FontSize = (double)System.Windows.Application.Current.Resources["FontSizeCode"],
             PagePadding = new Thickness(16),
             PageWidth = 10000 // Effectively disables wrapping for diffs
         };

@@ -31,7 +31,7 @@
                      BorderThickness="1"
                      Padding="8,6"
                      Margin="0,0,0,8"
-                     FontSize="14"
+                     FontSize="{StaticResource FontSizeNormal}"
                      Text="{Binding SwitcherSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      PreviewKeyDown="SwitcherSearchBox_PreviewKeyDown"/>
 
@@ -58,19 +58,19 @@
 
                             <TextBlock Grid.Column="0" Grid.RowSpan="2"
                                        Text="{Binding TabIcon}"
-                                       FontSize="20"
+                                       FontSize="{StaticResource FontSizeHeader}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,12,0"/>
 
                             <TextBlock Grid.Column="1" Grid.Row="0"
                                        Text="{Binding Title}"
                                        Foreground="{StaticResource TextBrightBrush}"
-                                       FontSize="13"/>
+                                       FontSize="{StaticResource FontSizeCode}"/>
 
                             <TextBlock Grid.Column="1" Grid.Row="1"
                                        Text="{Binding WorkingDirectory}"
                                        Foreground="{StaticResource TextDimmedBrush}"
-                                       FontSize="11"
+                                       FontSize="{StaticResource FontSizeTiny}"
                                        TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </DataTemplate>

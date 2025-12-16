@@ -79,8 +79,8 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
             // Font must be set before initialization or SetTheme() called after
             // Fallback chain: Cascadia Code NF -> other Nerd Fonts
-            FontFamilyWhenSettingTheme = new System.Windows.Media.FontFamily(string.Join(", ", AppConstants.NerdFontNames)),
-            FontSizeWhenSettingTheme = 12,
+            FontFamilyWhenSettingTheme = System.Windows.Application.Current?.Resources["FontFamilyMonospace"] as System.Windows.Media.FontFamily ?? new System.Windows.Media.FontFamily("Cascadia Code NF"),
+            FontSizeWhenSettingTheme = (int)((double?)System.Windows.Application.Current?.Resources["FontSizeSmall"] ?? 12),
             MinHeight = 100,
             MinWidth = 100
         };

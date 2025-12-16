@@ -21,8 +21,8 @@ public abstract class SyntaxHighlighterBase : ISyntaxHighlighter
     protected static readonly SolidColorBrush LineHighlightBrush = new(Color.FromRgb(0x26, 0x4F, 0x78));
     protected static readonly SolidColorBrush LineNumberBrush = new(Color.FromRgb(0x85, 0x85, 0x85));
 
-    protected static readonly System.Windows.Media.FontFamily CodeFont = new("Cascadia Code NF, Consolas, Courier New");
-    protected const double FontSize = 13;
+    protected static System.Windows.Media.FontFamily CodeFont => (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"];
+    protected static double FontSize => (double)Application.Current.Resources["FontSizeCode"];
 
     public abstract string[] SupportedExtensions { get; }
 

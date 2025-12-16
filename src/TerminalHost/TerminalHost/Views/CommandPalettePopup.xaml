@@ -30,7 +30,7 @@
                     <TextBlock Grid.Column="0"
                                Text=">"
                                Foreground="#0078D4"
-                               FontSize="16"
+                               FontSize="{StaticResource FontSizeLarge}"
                                FontWeight="Bold"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
@@ -40,7 +40,7 @@
                              Foreground="#CCCCCC"
                              CaretBrush="#CCCCCC"
                              BorderThickness="0"
-                             FontSize="14"
+                             FontSize="{StaticResource FontSizeNormal}"
                              VerticalAlignment="Center"
                              TextChanged="SearchBox_TextChanged"
                              PreviewKeyDown="SearchBox_PreviewKeyDown"/>
@@ -65,11 +65,11 @@
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <TextBlock Text="{Binding DisplayName}"
                                            Foreground="#CCCCCC"
-                                           FontSize="13"
+                                           FontSize="{StaticResource FontSizeCode}"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding Description}"
                                            Foreground="#808080"
-                                           FontSize="12"
+                                           FontSize="{StaticResource FontSizeSmall}"
                                            VerticalAlignment="Center"
                                            Margin="12,0,0,0"
                                            Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -81,8 +81,8 @@
                                     Visibility="{Binding Shortcut, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <TextBlock Text="{Binding DisplayShortcut}"
                                            Foreground="#808080"
-                                           FontSize="11"
-                                           FontFamily="Cascadia Code NF, Consolas"/>
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontFamily="{StaticResource FontFamilyMonospace}"/>
                             </Border>
                         </Grid>
                     </DataTemplate>

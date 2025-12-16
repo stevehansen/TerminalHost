@@ -58,7 +58,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,15">
-            <TextBlock Text="TerminalHost Setup" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,5"/>
+            <TextBlock Text="TerminalHost Setup" FontSize="{StaticResource FontSizeTitle}" FontWeight="SemiBold" Margin="0,0,0,5"/>
             <TextBlock Text="Checking for recommended tools and dependencies." Foreground="{StaticResource TextDimmedBrush}"/>
         </StackPanel>
 
@@ -79,15 +79,15 @@
                                                 Command="{Binding DataContext.ToggleDetailsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="16"/>
+                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="{StaticResource FontSizeLarge}"/>
                                                 <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextLightBrush}" Margin="0,2,0,0"/>
-                                                <TextBlock Text="{Binding DetectedVersion}" Foreground="{StaticResource TextDimmedBrush}" FontSize="11" Margin="0,5,0,0"/>
+                                                <TextBlock Text="{Binding DetectedVersion}" Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock VerticalAlignment="Center" Margin="0,0,20,0" FontSize="14" ToolTip="Detection Status">
+                                        <TextBlock VerticalAlignment="Center" Margin="0,0,20,0" FontSize="{StaticResource FontSizeNormal}" ToolTip="Detection Status">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Text" Value="..."/>

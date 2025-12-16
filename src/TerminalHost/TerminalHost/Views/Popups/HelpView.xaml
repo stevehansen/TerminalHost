@@ -34,11 +34,11 @@
                         AutomationProperties.Name="Close Help"
                         Style="{StaticResource TabCloseButton}"
                         Command="{Binding CloseHelpCommand}"
-                        FontSize="18"
+                        FontSize="{StaticResource FontSizeHeader}"
                         Padding="8,2"/>
                     <TextBlock Text="TerminalHost Help"
                            Foreground="{StaticResource TextBrightBrush}"
-                           FontSize="16"
+                           FontSize="{StaticResource FontSizeLarge}"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
                 </DockPanel>
@@ -48,10 +48,10 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,16">
                 <StackPanel Margin="10">
                     <!-- Keyboard Shortcuts Section -->
-                    <TextBlock Text="Keyboard Shortcuts" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <TextBlock Text="Keyboard Shortcuts" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
                     <!-- Tab Navigation -->
-                    <TextBlock Text="Tab Navigation" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Tab Navigation" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -80,7 +80,7 @@
                     </Grid>
 
                     <!-- Terminal -->
-                    <TextBlock Text="Terminal" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Terminal" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -97,7 +97,7 @@
                     </Grid>
 
                     <!-- File Operations -->
-                    <TextBlock Text="File Operations" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="File Operations" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -120,7 +120,7 @@
                     </Grid>
 
                     <!-- Application -->
-                    <TextBlock Text="Application" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Application" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -152,7 +152,7 @@
                     </Grid>
 
                     <!-- Quick Commands Section -->
-                    <TextBlock Text="Default Quick Commands" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Default Quick Commands" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="180"/>
@@ -172,7 +172,7 @@
                     </Grid>
 
                     <!-- Tips Section -->
-                    <TextBlock Text="Tips" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Tips" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
                     <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Drag tabs to reorder them"/>
                     </TextBlock>
@@ -187,30 +187,30 @@
                     </TextBlock>
 
                     <!-- Command Line Section -->
-                    <TextBlock Text="Command Line Usage" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Command Line Usage" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Border Background="{StaticResource BackgroundDarkestBrush}" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
                         <StackPanel>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="                  # Open/focus app"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host ." Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="                # Open project from current directory"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host P:\MyProject" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="   # Open specific project"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host -w P:\Path" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="     # Using named argument"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host -multi" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="         # Allow multiple instances"/>
                             </TextBlock>
-                            <TextBlock FontFamily="Cascadia Code NF, Consolas" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
+                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
                             <Run Text="host -data path" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             <Run Text="     # Override config path"/>
                             </TextBlock>
@@ -218,7 +218,7 @@
                     </Border>
 
                     <!-- Paths Section -->
-                    <TextBlock Text="Important Paths" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Important Paths" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
@@ -228,7 +228,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Config file:" Foreground="{StaticResource SyntaxLightBlueBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="%APPDATA%\TerminalHost\config.json" Foreground="{StaticResource SyntaxOrangeBrush}" FontFamily="Cascadia Code NF, Consolas" FontSize="12" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="%APPDATA%\TerminalHost\config.json" Foreground="{StaticResource SyntaxOrangeBrush}" FontFamily="{StaticResource FontFamilyMonospace}" FontSize="{StaticResource FontSizeSmall}" Margin="0,2"/>
                     </Grid>
                 </StackPanel>
             </ScrollViewer>
@@ -238,11 +238,11 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right"
                            Foreground="{StaticResource TextDimmedBrush}"
-                           FontSize="11"
+                           FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"
                            Text="Press Escape or F1 to close"/>
                     <TextBlock Foreground="{StaticResource TextDimmedBrush}"
-                           FontSize="11"
+                           FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"
                            Text="TerminalHost v1.0"/>
                 </DockPanel>

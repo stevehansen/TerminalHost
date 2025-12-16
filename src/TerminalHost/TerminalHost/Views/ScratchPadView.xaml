@@ -43,7 +43,7 @@
                                 Content="×"
                                 Style="{StaticResource TabCloseButton}"
                                 Command="{Binding CloseCommand}"
-                                FontSize="16"
+                                FontSize="{StaticResource FontSizeLarge}"
                                 Padding="8,2"/>
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,8,0">
                             <!-- Project Scope Radio -->
@@ -84,8 +84,8 @@
                          Foreground="{StaticResource TextLightBrush}"
                          BorderThickness="0"
                          Padding="12"
-                         FontFamily="Consolas, Cascadia Code, Courier New"
-                         FontSize="14"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="{StaticResource FontSizeNormal}"
                          AcceptsReturn="True"
                          AcceptsTab="True"
                          TextWrapping="Wrap"
@@ -96,7 +96,7 @@
                     <Grid>
                         <TextBlock Text="{Binding InfoText}"
                                    Foreground="{StaticResource ResizeGripBrush}"
-                                   FontSize="11"
+                                   FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"/>
                         <Thumb HorizontalAlignment="Right"
                                VerticalAlignment="Bottom"
