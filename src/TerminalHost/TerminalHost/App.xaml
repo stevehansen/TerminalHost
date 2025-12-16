@@ -749,6 +749,37 @@
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
                              From="0" To="360" Duration="0:0:1"/>
         </Storyboard>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- TOOLTIP STYLES                                                   -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+
+        <!-- Dark Tooltip Style -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyStandard}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4"/>
+                            </Border.Effect>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

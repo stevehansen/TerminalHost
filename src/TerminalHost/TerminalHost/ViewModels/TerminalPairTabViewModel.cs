@@ -185,10 +185,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         : new GridLength(0, GridUnitType.Pixel);
 
     // Run state computed properties
-    public bool CanRun => RunState == RunState.Stopped && ActiveRunConfiguration != null;
+    public bool CanRun => RunState == RunState.Stopped && ActiveRunConfiguration != null && !string.IsNullOrWhiteSpace(ActiveRunConfiguration.Command);
     public bool CanStop => RunState == RunState.Running || RunState == RunState.Starting;
     public bool HasDetectedRunUrl => !string.IsNullOrEmpty(DetectedRunUrl);
-    public bool HasMultipleRunConfigs => RunConfigurations.Count > 1;
+    public bool HasMultipleRunConfigs => RunConfigurations.Count(c => !string.IsNullOrWhiteSpace(c.Command)) > 1;
+    public bool HasAnyRunConfiguration => RunConfigurations.Any(c => !string.IsNullOrWhiteSpace(c.Command));
 
     // Explorer column widths - use Pixel unit with 0 when hidden
     public GridLength ExplorerColumnWidth => IsExplorerVisible
@@ -637,6 +638,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
                                   ?? RunConfigurations.FirstOrDefault();
 
         OnPropertyChanged(nameof(HasMultipleRunConfigs));
+        OnPropertyChanged(nameof(HasAnyRunConfiguration));
     }
 
     /// <summary>

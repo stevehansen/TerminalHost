@@ -188,13 +188,15 @@
                             Margin="0,0,4,0"/>
 
                     <!-- Run Controls Separator -->
-                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2,8,2"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2,8,2"
+                            Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <!-- Run State Indicator (colored dot) -->
                     <Ellipse Width="8" Height="8"
                              Fill="{Binding RunState, Converter={StaticResource RunStateToColorConverter}}"
                              VerticalAlignment="Center"
-                             Margin="0,0,4,0"/>
+                             Margin="0,0,4,0"
+                             Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <!-- Run/Stop Button -->
                     <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
@@ -202,7 +204,8 @@
                             AutomationProperties.Name="Toggle Project Run"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding ToggleRunCommand}"
-                            Margin="0,0,4,0"/>
+                            Margin="0,0,4,0"
+                            Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <!-- Run Configuration Dropdown (only if multiple configs) -->
                     <ComboBox ItemsSource="{Binding RunConfigurations}"
@@ -242,7 +245,8 @@
                                   Content="▶"
                                   ToolTip="Show/Hide Run Terminal"
                                   AutomationProperties.Name="Toggle Run Terminal Visibility"
-                                  Margin="0,0,4,0">
+                                  Margin="0,0,4,0"
+                                  Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>

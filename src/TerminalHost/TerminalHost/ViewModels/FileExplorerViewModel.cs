@@ -379,6 +379,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 
     public bool CanCreateFile => !string.IsNullOrEmpty(RootPath);
+
     [RelayCommand(CanExecute = nameof(CanCreateFile))]
     private async Task NewFileAsync()
     {
@@ -386,15 +387,50 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             ? SelectedNode.FullPath
             : (SelectedNode?.Parent?.FullPath ?? RootPath);
 
-        // Simple input dialog would be better, but using a fixed name for now
-        var baseName = "NewFile";
-        var extension = ".txt";
-        var newPath = Path.Combine(parentPath, baseName + extension);
-        var counter = 1;
+        // Calculate relative path for display
+        var relativePath = GetRelativePath(parentPath);
+        var locationHint = string.IsNullOrEmpty(relativePath) ? "/" : $"/{relativePath}/";
 
-        while (File.Exists(newPath))
+        // Ask user for file name
+        var fileName = _dialogService.ShowInput(
+            $"Location: {locationHint}\n\nEnter the file name (use / for nested paths):",
+            "New File",
+            "NewFile.txt");
+
+        if (string.IsNullOrWhiteSpace(fileName))
+            return;
+
+        // Normalize slashes to backslashes for Windows
+        fileName = fileName.Replace('/', '\\').Trim();
+
+        // Remove leading/trailing slashes
+        fileName = fileName.Trim('\\');
+
+        if (string.IsNullOrWhiteSpace(fileName))
+            return;
+
+        var newPath = Path.Combine(parentPath, fileName);
+
+        // Check if file already exists
+        if (File.Exists(newPath))
         {
-            newPath = Path.Combine(parentPath, $"{baseName}{counter++}{extension}");
+            _dialogService.ShowError($"A file with this name already exists:\n{newPath}", "New File");
+            return;
+        }
+
+        // Create parent directories if needed (for deep paths like "wwwroot/robots.txt")
+        var parentDir = Path.GetDirectoryName(newPath);
+        if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+        {
+            try
+            {
+                Directory.CreateDirectory(parentDir);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"Failed to create parent directory:\n{ex.Message}", "New File");
+                return;
+            }
         }
 
         var success = await _fileExplorerService.CreateFileAsync(newPath);
@@ -417,13 +453,35 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             ? SelectedNode.FullPath
             : (SelectedNode?.Parent?.FullPath ?? RootPath);
 
-        var baseName = "NewFolder";
-        var newPath = Path.Combine(parentPath, baseName);
-        var counter = 1;
+        // Calculate relative path for display
+        var relativePath = GetRelativePath(parentPath);
+        var locationHint = string.IsNullOrEmpty(relativePath) ? "/" : $"/{relativePath}/";
 
-        while (Directory.Exists(newPath))
+        // Ask user for folder name
+        var folderName = _dialogService.ShowInput(
+            $"Location: {locationHint}\n\nEnter the folder name (use / for nested paths):",
+            "New Folder",
+            "NewFolder");
+
+        if (string.IsNullOrWhiteSpace(folderName))
+            return;
+
+        // Normalize slashes to backslashes for Windows
+        folderName = folderName.Replace('/', '\\').Trim();
+
+        // Remove leading/trailing slashes
+        folderName = folderName.Trim('\\');
+
+        if (string.IsNullOrWhiteSpace(folderName))
+            return;
+
+        var newPath = Path.Combine(parentPath, folderName);
+
+        // Check if folder already exists
+        if (Directory.Exists(newPath))
         {
-            newPath = Path.Combine(parentPath, $"{baseName}{counter++}");
+            _dialogService.ShowError($"A folder with this name already exists:\n{newPath}", "New Folder");
+            return;
         }
 
         var success = await _fileExplorerService.CreateDirectoryAsync(newPath);
@@ -608,6 +666,27 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     {
         if (RootNode == null) return;
         RestoreSelection(RootNode, path);
+    }
+
+    private string GetRelativePath(string fullPath)
+    {
+        if (string.IsNullOrEmpty(RootPath) || string.IsNullOrEmpty(fullPath))
+            return string.Empty;
+
+        // Normalize paths
+        var rootNormalized = RootPath.TrimEnd('\\', '/');
+        var pathNormalized = fullPath.TrimEnd('\\', '/');
+
+        if (pathNormalized.Equals(rootNormalized, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        if (pathNormalized.StartsWith(rootNormalized + "\\", StringComparison.OrdinalIgnoreCase) ||
+            pathNormalized.StartsWith(rootNormalized + "/", StringComparison.OrdinalIgnoreCase))
+        {
+            return pathNormalized.Substring(rootNormalized.Length + 1).Replace('\\', '/');
+        }
+
+        return fullPath.Replace('\\', '/');
     }
 
     partial void OnSelectedNodeChanged(FileSystemNode? value)

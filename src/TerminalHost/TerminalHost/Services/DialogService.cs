@@ -39,12 +39,12 @@ public enum DialogResult
 /// <summary>
 /// Provides themed dialog methods to replace MessageBox throughout the application.
 /// </summary>
-public class DialogService : IDialogService // Make it non-static and implement interface
+public class DialogService : IDialogService
 {
     /// <summary>
     /// Shows an error dialog with OK button.
     /// </summary>
-    public void ShowError(string message, string title = "Error") // Make it non-static
+    public void ShowError(string message, string title = "Error")
     {
         Show(message, title, DialogType.Error, DialogButtons.OK);
     }
@@ -52,7 +52,7 @@ public class DialogService : IDialogService // Make it non-static and implement 
     /// <summary>
     /// Shows a warning dialog with OK button.
     /// </summary>
-    public void ShowWarning(string message, string title = "Warning") // Make it non-static
+    public void ShowWarning(string message, string title = "Warning")
     {
         Show(message, title, DialogType.Warning, DialogButtons.OK);
     }
@@ -60,7 +60,7 @@ public class DialogService : IDialogService // Make it non-static and implement 
     /// <summary>
     /// Shows an information dialog with OK button.
     /// </summary>
-    public void ShowInfo(string message, string title = "Information") // Make it non-static
+    public void ShowInfo(string message, string title = "Information")
     {
         Show(message, title, DialogType.Information, DialogButtons.OK);
     }
@@ -69,7 +69,7 @@ public class DialogService : IDialogService // Make it non-static and implement 
     /// Shows a confirmation dialog with Yes/No buttons.
     /// Returns true if Yes was clicked, false otherwise.
     /// </summary>
-    public bool ShowConfirmation(string message, string title = "Confirm") // Make it non-static
+    public bool ShowConfirmation(string message, string title = "Confirm")
     {
         var result = Show(message, title, DialogType.Question, DialogButtons.YesNo);
         return result == DialogResult.Yes;
@@ -78,7 +78,7 @@ public class DialogService : IDialogService // Make it non-static and implement 
     /// <summary>
     /// Shows a dialog with full control over type and buttons.
     /// </summary>
-    public DialogResult Show(string message, string title, DialogType type, DialogButtons buttons) // Make it non-static
+    public DialogResult Show(string message, string title, DialogType type, DialogButtons buttons)
     {
         var owner = GetActiveWindow();
         var dialog = new NotificationDialog(message, title, type, buttons)
@@ -115,7 +115,7 @@ public class DialogService : IDialogService // Make it non-static and implement 
     /// <summary>
     /// Gets the currently active window to use as dialog owner.
     /// </summary>
-    private Window? GetActiveWindow() // Make it non-static
+    private static Window? GetActiveWindow()
     {
         // In a real WPF app, Application.Current is usually available.
         // For testing, this might be null, so handle gracefully.
