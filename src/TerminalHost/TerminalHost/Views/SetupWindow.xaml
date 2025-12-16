@@ -122,25 +122,25 @@
                                             </Button.Style>
                                         </Button>
                                     
-                                        <Button Content="Install" 
-                                                Command="{Binding DataContext.InstallDependencyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                IsEnabled="{Binding IsNotInstalling}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsInstalled}" Value="True">
-                                                            <Setter Property="Content" Value="Homepage"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding InstallCommand}" Value="{x:Null}">
-                                                            <Setter Property="Content" Value="Homepage"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                    </StackPanel>
-                                </Grid>
+                                                                                <Button Content="Install"
+                                                                                        Command="{Binding DataContext.InstallDependencyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                        CommandParameter="{Binding}"
+                                                                                        IsEnabled="{Binding IsNotInstalling}"
+                                                                                        ToolTip="{Binding InstallToolTipText}">
+                                                                                    <Button.Style>
+                                                                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                                                                    <Setter Property="Content" Value="Homepage"/>
+                                                                                                </DataTrigger>
+                                                                                                <DataTrigger Binding="{Binding InstallCommand}" Value="{x:Null}">
+                                                                                                    <Setter Property="Content" Value="Homepage"/>
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </Button.Style>
+                                                                                </Button>
+                                                                            </StackPanel>                                </Grid>
                             </Border>
 
                             <Border x:Name="DetailsPanel" Background="{StaticResource BackgroundDarkBrush}" Margin="20,0,20,10" Padding="10" CornerRadius="3">

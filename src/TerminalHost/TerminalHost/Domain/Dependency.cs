@@ -9,7 +9,14 @@ public partial class Dependency : ObservableObject
     public string? InstallCommand { get; init; }
     public string? InstallUrl { get; init; }
     public required string DetectionCommand { get; init; }
-    public string? HomepageUrl { get; init; }
+    public required string HomepageUrl { get; init; }
+
+    public string InstallToolTipText =>
+        !string.IsNullOrEmpty(InstallCommand)
+            ? $"Run: {InstallCommand}"
+            : !string.IsNullOrEmpty(HomepageUrl)
+                ? $"Open: {HomepageUrl}"
+                : "No installation method available.";
 
     // Properties for the UI to bind to
     [ObservableProperty]
