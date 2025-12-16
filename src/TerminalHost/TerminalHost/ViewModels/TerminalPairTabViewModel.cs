@@ -34,7 +34,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private ContentControl? _shellTerminalContent;
 
     [ObservableProperty]
-    private bool _isSplitView = true;  // Default to split view
+    private TerminalLayoutMode _layoutMode = TerminalLayoutMode.HorizontalSplit;
 
     [ObservableProperty]
     private double _splitRatio = 0.6;  // Custom terminal takes 60% by default
@@ -100,9 +100,79 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool HasDetectedLinks => DetectedLinks.Count > 0;
 
-    // Computed column widths from split ratio
-    public GridLength CustomColumnWidth => new(SplitRatio, GridUnitType.Star);
-    public GridLength ShellColumnWidth => new(1 - SplitRatio, GridUnitType.Star);
+    // Layout mode computed properties
+    public bool IsCustomFullMode => LayoutMode == TerminalLayoutMode.CustomFull;
+    public bool IsHorizontalSplitMode => LayoutMode == TerminalLayoutMode.HorizontalSplit;
+    public bool IsVerticalSplitMode => LayoutMode == TerminalLayoutMode.VerticalSplit;
+    public bool IsShellVisible => LayoutMode != TerminalLayoutMode.CustomFull;
+
+    // For Custom terminal spanning - needs to span all rows except in vertical mode, all columns except in horizontal mode
+    public bool ShouldCustomSpanAllRows => LayoutMode != TerminalLayoutMode.VerticalSplit;
+    public bool ShouldCustomSpanAllColumns => LayoutMode != TerminalLayoutMode.HorizontalSplit;
+
+    // Computed column widths for horizontal split (columns)
+    public GridLength CustomColumnWidth => LayoutMode switch
+    {
+        TerminalLayoutMode.CustomFull => new GridLength(1, GridUnitType.Star),
+        TerminalLayoutMode.HorizontalSplit => new GridLength(SplitRatio, GridUnitType.Star),
+        TerminalLayoutMode.VerticalSplit => new GridLength(1, GridUnitType.Star),
+        _ => new GridLength(SplitRatio, GridUnitType.Star)
+    };
+
+    public GridLength ShellColumnWidth => LayoutMode switch
+    {
+        TerminalLayoutMode.CustomFull => new GridLength(0, GridUnitType.Pixel),
+        TerminalLayoutMode.HorizontalSplit => new GridLength(1 - SplitRatio, GridUnitType.Star),
+        TerminalLayoutMode.VerticalSplit => new GridLength(0, GridUnitType.Pixel),
+        _ => new GridLength(1 - SplitRatio, GridUnitType.Star)
+    };
+
+    public GridLength MainSplitterWidth => LayoutMode == TerminalLayoutMode.HorizontalSplit
+        ? new GridLength(4, GridUnitType.Pixel)
+        : new GridLength(0, GridUnitType.Pixel);
+
+    // Computed row heights for vertical split (rows)
+    public GridLength CustomRowHeight => LayoutMode switch
+    {
+        TerminalLayoutMode.CustomFull => new GridLength(1, GridUnitType.Star),
+        TerminalLayoutMode.HorizontalSplit => new GridLength(1, GridUnitType.Star),
+        TerminalLayoutMode.VerticalSplit => new GridLength(SplitRatio, GridUnitType.Star),
+        _ => new GridLength(1, GridUnitType.Star)
+    };
+
+    public GridLength ShellRowHeight => LayoutMode switch
+    {
+        TerminalLayoutMode.CustomFull => new GridLength(0, GridUnitType.Pixel),
+        TerminalLayoutMode.HorizontalSplit => new GridLength(0, GridUnitType.Pixel),
+        TerminalLayoutMode.VerticalSplit => new GridLength(1 - SplitRatio, GridUnitType.Star),
+        _ => new GridLength(0, GridUnitType.Pixel)
+    };
+
+    public GridLength VerticalSplitterHeight => LayoutMode == TerminalLayoutMode.VerticalSplit
+        ? new GridLength(4, GridUnitType.Pixel)
+        : new GridLength(0, GridUnitType.Pixel);
+
+    // Main content column width (terminals + run) - takes remaining space after explorer
+    public GridLength MainContentColumnWidth
+    {
+        get
+        {
+            double explorerPortion = IsExplorerVisible ? ExplorerSplitRatio : 0;
+            double mainPortion = 1.0 - explorerPortion;
+            return new GridLength(Math.Max(0.1, mainPortion), GridUnitType.Star);
+        }
+    }
+
+    // Main terminals column width - takes remaining space after run (within MainContentGrid)
+    public GridLength MainTerminalsColumnWidth
+    {
+        get
+        {
+            double runPortion = IsRunTerminalVisible ? RunSplitRatio : 0;
+            double mainPortion = 1.0 - runPortion;
+            return new GridLength(Math.Max(0.1, mainPortion), GridUnitType.Star);
+        }
+    }
 
     // Run terminal column width (only shown when visible)
     // Use Pixel unit with 0 when hidden so it doesn't participate in star distribution
@@ -209,10 +279,44 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
+    [RelayCommand]
+    private void SetLayoutMode(TerminalLayoutMode mode)
+    {
+        LayoutMode = mode;
+    }
+
+    [RelayCommand]
+    private void SetCustomFullLayout() => LayoutMode = TerminalLayoutMode.CustomFull;
+
+    [RelayCommand]
+    private void SetHorizontalSplitLayout() => LayoutMode = TerminalLayoutMode.HorizontalSplit;
+
+    [RelayCommand]
+    private void SetVerticalSplitLayout() => LayoutMode = TerminalLayoutMode.VerticalSplit;
+
+    partial void OnLayoutModeChanged(TerminalLayoutMode value)
+    {
+        OnPropertyChanged(nameof(IsCustomFullMode));
+        OnPropertyChanged(nameof(IsHorizontalSplitMode));
+        OnPropertyChanged(nameof(IsVerticalSplitMode));
+        OnPropertyChanged(nameof(IsShellVisible));
+        OnPropertyChanged(nameof(ShouldCustomSpanAllRows));
+        OnPropertyChanged(nameof(ShouldCustomSpanAllColumns));
+        OnPropertyChanged(nameof(CustomColumnWidth));
+        OnPropertyChanged(nameof(ShellColumnWidth));
+        OnPropertyChanged(nameof(MainSplitterWidth));
+        OnPropertyChanged(nameof(CustomRowHeight));
+        OnPropertyChanged(nameof(ShellRowHeight));
+        OnPropertyChanged(nameof(VerticalSplitterHeight));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     partial void OnSplitRatioChanged(double value)
     {
         OnPropertyChanged(nameof(CustomColumnWidth));
         OnPropertyChanged(nameof(ShellColumnWidth));
+        OnPropertyChanged(nameof(CustomRowHeight));
+        OnPropertyChanged(nameof(ShellRowHeight));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -249,12 +353,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     {
         OnPropertyChanged(nameof(RunColumnWidth));
         OnPropertyChanged(nameof(RunSplitterWidth));
+        OnPropertyChanged(nameof(MainTerminalsColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     partial void OnRunSplitRatioChanged(double value)
     {
         OnPropertyChanged(nameof(RunColumnWidth));
+        OnPropertyChanged(nameof(MainTerminalsColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -278,12 +384,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     {
         OnPropertyChanged(nameof(ExplorerColumnWidth));
         OnPropertyChanged(nameof(ExplorerSplitterWidth));
+        OnPropertyChanged(nameof(MainContentColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     partial void OnExplorerSplitRatioChanged(double value)
     {
         OnPropertyChanged(nameof(ExplorerColumnWidth));
+        OnPropertyChanged(nameof(MainContentColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 

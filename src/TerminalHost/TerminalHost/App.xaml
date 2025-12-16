@@ -25,6 +25,10 @@
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <local:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>
+        <local:BoolToRowSpanConverter x:Key="BoolToRowSpanConverter"/>
+        <local:BoolToColumnSpanConverter x:Key="BoolToColumnSpanConverter"/>
+        <local:BoolToShellColumnConverter x:Key="BoolToShellColumnConverter"/>
+        <local:BoolToShellRowConverter x:Key="BoolToShellRowConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

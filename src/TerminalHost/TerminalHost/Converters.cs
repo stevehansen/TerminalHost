@@ -284,3 +284,87 @@ public class StringToColorConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts bool to RowSpan: true = 3 (span all rows), false = 1.
+/// Used for horizontal split mode where terminals span all rows.
+/// </summary>
+public class BoolToRowSpanConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isHorizontalMode)
+        {
+            return isHorizontalMode ? 3 : 1;
+        }
+        return 1;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts bool to ColumnSpan: true = 3 (span all columns), false = 1.
+/// Used for vertical split mode where shell terminal spans all columns.
+/// </summary>
+public class BoolToColumnSpanConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isVerticalMode)
+        {
+            return isVerticalMode ? 3 : 1;
+        }
+        return 1;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts bool (IsVerticalSplitMode) to Shell terminal column:
+/// true (vertical) = 0, false (horizontal) = 2.
+/// </summary>
+public class BoolToShellColumnConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isVerticalMode)
+        {
+            return isVerticalMode ? 0 : 2;
+        }
+        return 2;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts bool (IsVerticalSplitMode) to Shell terminal row:
+/// true (vertical) = 2, false (horizontal) = 0.
+/// </summary>
+public class BoolToShellRowConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isVerticalMode)
+        {
+            return isVerticalMode ? 2 : 0;
+        }
+        return 0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

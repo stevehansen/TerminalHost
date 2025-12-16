@@ -431,7 +431,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Update basic settings
-        settings.IsSplitView = tab.IsSplitView;
+        settings.LayoutMode = tab.LayoutMode;
         settings.SplitRatio = tab.SplitRatio;
         settings.ActiveTerminal = tab.ActiveTerminal.ToString();
 
@@ -553,7 +553,7 @@ public partial class MainViewModel : ObservableObject
             var dirSettings = GetDirectorySettings(workingDirectory);
             if (dirSettings != null)
             {
-                tabViewModel.IsSplitView = dirSettings.IsSplitView;
+                tabViewModel.LayoutMode = dirSettings.LayoutMode;
                 tabViewModel.SplitRatio = dirSettings.SplitRatio;
                 if (Enum.TryParse<ActiveTerminal>(dirSettings.ActiveTerminal, out var activeTerminal))
                 {

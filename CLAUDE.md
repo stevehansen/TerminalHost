@@ -249,7 +249,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
   ],
   "directorySettings": {
     "p:\\project1": {
-      "isSplitView": true,
+      "layoutMode": "HorizontalSplit",
       "splitRatio": 0.6,
       "activeTerminal": "Custom",
       "isRunTerminalVisible": false,
@@ -276,7 +276,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 ### Persistence Features
 - **Window State**: Position, size, and maximized state are saved on close and restored on startup
 - **Open Folders**: Previously open project tabs are automatically restored on startup
-- **Directory Settings**: Split ratio and active terminal are saved per directory
+- **Directory Settings**: Layout mode (CustomFull/HorizontalSplit/VerticalSplit), split ratio, and active terminal are saved per directory
 
 ### Terminal Activity Indicators
 Tabs show an animated spinning indicator when terminals are producing output:

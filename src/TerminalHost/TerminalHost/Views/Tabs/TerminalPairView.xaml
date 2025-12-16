@@ -19,36 +19,122 @@
         <!-- Terminal Switcher Bar -->
         <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
             <DockPanel>
-                <!-- Terminal Type Buttons -->
+                <!-- Layout Mode Toggle Buttons -->
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="{Binding CustomIcon, StringFormat='{}{0} Claude Code'}"
-                            AutomationProperties.AutomationId="CustomTerminalButton"
-                            Command="{Binding ShowCustomTerminalCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                    <!-- Custom Full Mode -->
+                    <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
+                                  Command="{Binding SetCustomFullLayoutCommand}"
+                                  ToolTip="Custom terminal only (full view)"
+                                  AutomationProperties.AutomationId="CustomFullLayoutButton">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="3,0,0,3"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Custom}">
+                                    <Trigger Property="IsChecked" Value="True">
                                         <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                         <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                    </DataTrigger>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
                                 </Style.Triggers>
                             </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="{Binding ShellIcon, StringFormat='{}{0} Shell'}"
-                            AutomationProperties.AutomationId="ShellTerminalButton"
-                            Command="{Binding ShowShellTerminalCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                        </ToggleButton.Style>
+                        <TextBlock Text="▣" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Horizontal Split Mode -->
+                    <ToggleButton IsChecked="{Binding IsHorizontalSplitMode, Mode=OneWay}"
+                                  Command="{Binding SetHorizontalSplitLayoutCommand}"
+                                  ToolTip="Horizontal split (side by side)"
+                                  AutomationProperties.AutomationId="HorizontalSplitLayoutButton">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="0"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ActiveTerminal}" Value="{x:Static domain:ActiveTerminal.Shell}">
+                                    <Trigger Property="IsChecked" Value="True">
                                         <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
                                         <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                    </DataTrigger>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
                                 </Style.Triggers>
                             </Style>
-                        </Button.Style>
-                    </Button>
+                        </ToggleButton.Style>
+                        <TextBlock Text="▥" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Vertical Split Mode -->
+                    <ToggleButton IsChecked="{Binding IsVerticalSplitMode, Mode=OneWay}"
+                                  Command="{Binding SetVerticalSplitLayoutCommand}"
+                                  ToolTip="Vertical split (stacked)"
+                                  AutomationProperties.AutomationId="VerticalSplitLayoutButton"
+                                  Margin="0,0,8,0">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="0,3,3,0"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                        <TextBlock Text="▤" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
 
                     <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.WorkingDirectory}"/>
@@ -253,99 +339,144 @@
             </DockPanel>
         </Border>
 
-        <!-- Terminal Content Area - Grid with dynamic column widths (3 columns when run terminal visible) -->
+        <!-- Terminal Content Area - Outer grid for Explorer only -->
         <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid.ColumnDefinitions>
-                <!-- Custom terminal column -->
-                <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
-                <!-- Splitter column -->
-                <ColumnDefinition Width="4"/>
-                <!-- Shell terminal column -->
-                <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
-                <!-- Run splitter column (hidden when run terminal not visible) -->
-                <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
-                <!-- Run terminal column (hidden when not visible) -->
-                <ColumnDefinition Width="{Binding RunColumnWidth}"/>
+                <!-- Main content area (terminals + run) -->
+                <ColumnDefinition Width="{Binding MainContentColumnWidth}"/>
                 <!-- Explorer splitter column (hidden when explorer not visible) -->
                 <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
                 <!-- Explorer column (hidden when not visible) -->
                 <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Custom Terminal (Column 0) -->
-            <Grid Grid.Column="0">
+            <!-- Main Content Grid - contains terminals and run terminal -->
+            <Grid x:Name="MainContentGrid" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <!-- Main terminals area -->
+                    <ColumnDefinition Width="{Binding MainTerminalsColumnWidth}"/>
+                    <!-- Run splitter column (hidden when run terminal not visible) -->
+                    <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
+                    <!-- Run terminal column (hidden when not visible) -->
+                    <ColumnDefinition Width="{Binding RunColumnWidth}"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Main Terminals Grid - supports both horizontal and vertical layouts -->
+                <Grid x:Name="MainTerminalsGrid" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <!-- Custom terminal column (for horizontal split) -->
+                    <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
+                    <!-- Horizontal splitter column -->
+                    <ColumnDefinition Width="{Binding MainSplitterWidth}"/>
+                    <!-- Shell terminal column (for horizontal split) -->
+                    <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
+                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <!-- Custom terminal row (for vertical split) -->
+                    <RowDefinition Height="{Binding CustomRowHeight}"/>
+                    <!-- Vertical splitter row -->
+                    <RowDefinition Height="{Binding VerticalSplitterHeight}"/>
+                    <!-- Shell terminal row (for vertical split) -->
+                    <RowDefinition Height="{Binding ShellRowHeight}"/>
                 </Grid.RowDefinitions>
-                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
-                        <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
-                        <Run Text=" Claude Code"/>
-                    </TextBlock>
-                </Border>
-                <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
-                                  AutomationProperties.AutomationId="CustomTerminalContent"
-                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </Grid>
 
-            <!-- Splitter (Column 1) -->
-            <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
-                          DragCompleted="GridSplitter_DragCompleted"/>
-
-            <!-- Shell Terminal (Column 2) -->
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
-                        <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
-                        <Run Text=" Shell"/>
-                    </TextBlock>
-                </Border>
-                <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
-                                  AutomationProperties.AutomationId="ShellTerminalContent"
-                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </Grid>
-
-            <!-- Run Splitter (Column 3) - only visible when run terminal is visible -->
-            <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="3" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
-                          Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-                          DragCompleted="RunSplitter_DragCompleted"/>
-
-            <!-- Run Terminal (Column 4) - only visible when run terminal is visible -->
-            <Grid Grid.Column="4" Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="×"
-                                Style="{StaticResource TabCloseButton}"
-                                Command="{Binding ToggleRunTerminalCommand}"
-                                AutomationProperties.Name="Hide Run Terminal"
-                                ToolTip="Hide Run Terminal"/>
-                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
-                            <Run Text="▶ Run"/>
-                            <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
-                            <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{StaticResource SyntaxCyanBrush}"/>
+                <!-- Custom Terminal (Column 0, Row 0) - always visible, spans all rows/columns in full mode -->
+                <Grid Grid.Column="0" Grid.Row="0"
+                      Grid.RowSpan="{Binding ShouldCustomSpanAllRows, Converter={StaticResource BoolToRowSpanConverter}}"
+                      Grid.ColumnSpan="{Binding ShouldCustomSpanAllColumns, Converter={StaticResource BoolToColumnSpanConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
+                            <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
+                            <Run Text=" Claude Code"/>
                         </TextBlock>
-                    </DockPanel>
-                </Border>
-                <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
-                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </Grid>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
+                                      AutomationProperties.AutomationId="CustomTerminalContent"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
 
-            <!-- Explorer Splitter (Column 5) - only visible when explorer is visible -->
-            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="5" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
+                <!-- Horizontal Splitter (Column 1, Row 0) - visible in horizontal split mode -->
+                <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Grid.Row="0" Grid.RowSpan="3"
+                              Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
+                              Visibility="{Binding IsHorizontalSplitMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                              DragCompleted="GridSplitter_DragCompleted"/>
+
+                <!-- Vertical Splitter (Column 0, Row 1) - visible in vertical split mode -->
+                <GridSplitter x:Name="VerticalTerminalSplitter" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="3"
+                              Height="4" Background="{StaticResource BackgroundMediumBrush}"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              ResizeDirection="Rows"
+                              Visibility="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                              DragCompleted="VerticalSplitter_DragCompleted"/>
+
+                <!-- Shell Terminal - Position depends on layout mode -->
+                <!-- In Horizontal mode: Column 2, Row 0, spans all rows -->
+                <!-- In Vertical mode: Column 0, Row 2, spans all columns -->
+                <Grid x:Name="ShellTerminalGrid"
+                      Grid.Column="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToShellColumnConverter}}"
+                      Grid.Row="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToShellRowConverter}}"
+                      Grid.RowSpan="{Binding IsHorizontalSplitMode, Converter={StaticResource BoolToRowSpanConverter}}"
+                      Grid.ColumnSpan="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToColumnSpanConverter}}"
+                      Visibility="{Binding IsShellVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
+                            <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
+                            <Run Text=" Shell"/>
+                        </TextBlock>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                      AutomationProperties.AutomationId="ShellTerminalContent"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+                </Grid>
+                <!-- End of MainTerminalsGrid -->
+
+                <!-- Run Splitter (Column 1 of MainContentGrid) - only visible when run terminal is visible -->
+                <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
+                              Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                              DragCompleted="RunSplitter_DragCompleted"/>
+
+                <!-- Run Terminal (Column 2 of MainContentGrid) - only visible when run terminal is visible -->
+                <Grid Grid.Column="2" Visibility="{Binding IsRunTerminalVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Command="{Binding ToggleRunTerminalCommand}"
+                                    AutomationProperties.Name="Hide Run Terminal"
+                                    ToolTip="Hide Run Terminal"/>
+                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
+                                <Run Text="▶ Run"/>
+                                <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
+                                <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{StaticResource SyntaxCyanBrush}"/>
+                            </TextBlock>
+                        </DockPanel>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+            </Grid>
+            <!-- End of MainContentGrid -->
+
+            <!-- Explorer Splitter (Column 1 of outer grid) - only visible when explorer is visible -->
+            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
                           Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"
                           DragCompleted="ExplorerSplitter_DragCompleted"/>
 
-            <!-- Explorer Panel (Column 6) - only visible when explorer is visible -->
-            <views:FileExplorerView Grid.Column="6"
+            <!-- Explorer Panel (Column 2 of outer grid) - only visible when explorer is visible -->
+            <views:FileExplorerView Grid.Column="2"
                                     DataContext="{Binding ExplorerViewModel}"
                                     Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>

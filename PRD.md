@@ -75,6 +75,12 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Pop-out support for multiple detached file viewers
   - Auto-refresh on file system changes
   - State persistence (visibility and split ratio per directory)
+- [x] **Terminal Layout Modes:** Three-state layout toggle for terminal pair views:
+  - **Custom Full Mode** - Custom terminal takes full width/height (Shell hidden but still running)
+  - **Horizontal Split** (default) - Custom + Shell side by side
+  - **Vertical Split** - Custom on top, Shell on bottom
+  - Per-project layout mode persistence in `DirectorySettings`
+  - Visual toggle buttons with grouped styling in toolbar
 
 ### Deferred Features
 
@@ -991,18 +997,6 @@ Items for future development:
 
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
-
-### Terminal Layout Modes (High Priority)
-- **Three-State Layout Toggle**: Replace current 2 terminal buttons with 3 toggle buttons:
-  1. **Custom Full Mode** - Custom terminal takes full width (Shell hidden but still running)
-  2. **Horizontal Split** (default) - Current behavior, Custom + Shell side by side
-  3. **Vertical Split** - Custom on top, Shell on bottom
-- **Per-Project Setting**: Store layout mode in `DirectorySettings`
-- **Implementation Notes**:
-  - `DirectorySettings` in `AppConfiguration.cs`: Add `LayoutMode` enum property (Full, Horizontal, Vertical)
-  - `TerminalPairView.xaml`: Replace Custom/Shell buttons with 3 ToggleButtons using RadioButton-like behavior
-  - `TerminalPairTabViewModel.cs`: Add LayoutMode property with command to cycle/set modes
-  - Update column/row definitions to switch between Grid.ColumnDefinitions (horizontal) and Grid.RowDefinitions (vertical)
 
 ### Claude User Commands Detection
 - **Detect Claude Commands**: Scan and suggest commands from:

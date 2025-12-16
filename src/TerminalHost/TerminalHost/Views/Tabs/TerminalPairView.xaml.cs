@@ -14,15 +14,36 @@ public partial class TerminalPairView : UserControl
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
     {
-        // Update the view model with the new split ratio
-        if (DataContext is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
+        // Update the view model with the new split ratio (horizontal mode)
+        if (DataContext is TerminalPairTabViewModel terminalTab)
         {
-            // Find the parent Grid to get actual column widths
-            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 3)
+            // Find the MainTerminalsGrid to get actual column widths
+            var mainGrid = FindName("MainTerminalsGrid") as Grid;
+            if (mainGrid != null && mainGrid.ColumnDefinitions.Count >= 3)
             {
-                var customWidth = grid.ColumnDefinitions[0].ActualWidth;
-                var shellWidth = grid.ColumnDefinitions[2].ActualWidth;
+                var customWidth = mainGrid.ColumnDefinitions[0].ActualWidth;
+                var shellWidth = mainGrid.ColumnDefinitions[2].ActualWidth;
                 terminalTab.UpdateSplitRatioFromColumnWidths(customWidth, shellWidth);
+            }
+        }
+    }
+
+    private void VerticalSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        // Update the view model with the new split ratio (vertical mode)
+        if (DataContext is TerminalPairTabViewModel terminalTab)
+        {
+            // Find the MainTerminalsGrid to get actual row heights
+            var mainGrid = FindName("MainTerminalsGrid") as Grid;
+            if (mainGrid != null && mainGrid.RowDefinitions.Count >= 3)
+            {
+                var customHeight = mainGrid.RowDefinitions[0].ActualHeight;
+                var shellHeight = mainGrid.RowDefinitions[2].ActualHeight;
+                var total = customHeight + shellHeight;
+                if (total > 0)
+                {
+                    terminalTab.SplitRatio = customHeight / total;
+                }
             }
         }
     }
@@ -32,13 +53,20 @@ public partial class TerminalPairView : UserControl
         // Update the view model with the new run split ratio
         if (DataContext is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
         {
-            // Find the parent Grid to get actual column widths
-            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 5)
+            // Find the MainContentGrid to get actual column widths
+            var mainContentGrid = FindName("MainContentGrid") as Grid;
+            if (mainContentGrid != null && mainContentGrid.ColumnDefinitions.Count >= 3)
             {
-                // Main terminals are columns 0-2, run terminal is column 4
-                var mainWidth = grid.ColumnDefinitions[0].ActualWidth + grid.ColumnDefinitions[2].ActualWidth;
-                var runWidth = grid.ColumnDefinitions[4].ActualWidth;
-                terminalTab.UpdateRunSplitRatioFromColumnWidths(mainWidth, runWidth);
+                // Columns: main terminals (0), run (2)
+                var mainWidth = mainContentGrid.ColumnDefinitions[0].ActualWidth;
+                var runWidth = mainContentGrid.ColumnDefinitions[2].ActualWidth;
+                var totalWidth = mainWidth + runWidth;
+
+                if (totalWidth > 0)
+                {
+                    // Run ratio is portion of main content area
+                    terminalTab.RunSplitRatio = runWidth / totalWidth;
+                }
             }
         }
     }
@@ -48,15 +76,19 @@ public partial class TerminalPairView : UserControl
         // Update the view model with the new explorer split ratio
         if (DataContext is TerminalPairTabViewModel terminalTab && sender is GridSplitter splitter)
         {
-            // Find the parent Grid to get actual column widths
-            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 7)
+            // Find the parent Grid (outer grid with 3 columns)
+            if (splitter.Parent is Grid grid && grid.ColumnDefinitions.Count >= 3)
             {
-                // Main area is columns 0-4, explorer is column 6
-                var mainWidth = grid.ColumnDefinitions[0].ActualWidth +
-                               grid.ColumnDefinitions[2].ActualWidth +
-                               grid.ColumnDefinitions[4].ActualWidth;
-                var explorerWidth = grid.ColumnDefinitions[6].ActualWidth;
-                terminalTab.UpdateExplorerSplitRatioFromColumnWidths(mainWidth, explorerWidth);
+                // Columns: main content (0), explorer (2)
+                var mainWidth = grid.ColumnDefinitions[0].ActualWidth;
+                var explorerWidth = grid.ColumnDefinitions[2].ActualWidth;
+                var totalWidth = mainWidth + explorerWidth;
+
+                if (totalWidth > 0)
+                {
+                    // Explorer ratio is portion of total
+                    terminalTab.ExplorerSplitRatio = explorerWidth / totalWidth;
+                }
             }
         }
     }

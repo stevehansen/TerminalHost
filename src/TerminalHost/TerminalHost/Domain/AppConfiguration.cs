@@ -2,6 +2,27 @@ using System.Text.Json.Serialization;
 
 namespace TerminalHost.Domain;
 
+/// <summary>
+/// Defines the layout mode for the terminal pair view.
+/// </summary>
+public enum TerminalLayoutMode
+{
+    /// <summary>
+    /// Only the Custom terminal is visible (full width/height).
+    /// </summary>
+    CustomFull,
+
+    /// <summary>
+    /// Both terminals displayed side by side (horizontal split).
+    /// </summary>
+    HorizontalSplit,
+
+    /// <summary>
+    /// Both terminals stacked vertically (vertical split).
+    /// </summary>
+    VerticalSplit
+}
+
 public class AppConfiguration
 {
     [JsonPropertyName("profiles")]
@@ -163,8 +184,9 @@ public class AppConfiguration
 
 public class DirectorySettings
 {
-    [JsonPropertyName("isSplitView")]
-    public bool IsSplitView { get; set; } = true;
+    [JsonPropertyName("layoutMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public TerminalLayoutMode LayoutMode { get; set; } = TerminalLayoutMode.HorizontalSplit;
 
     [JsonPropertyName("splitRatio")]
     public double SplitRatio { get; set; } = 0.6;  // Custom terminal takes 60% by default
