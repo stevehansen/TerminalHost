@@ -2,7 +2,7 @@ using System.Diagnostics;
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -53,8 +53,8 @@ public class SmokeTests : IDisposable
     [Fact]
     public void App_Launches_And_MainWindow_Is_Visible()
     {
-        _window.Should().NotBeNull();
-        _window.Title.Should().NotBeNullOrEmpty();
+        _window.ShouldNotBeNull();
+        _window.Title.ShouldNotBeNullOrEmpty();
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class SmokeTests : IDisposable
         // If we want to test interaction:
         if (openProjectBtn != null && !openProjectBtn.IsOffscreen)
         {
-             openProjectBtn.Name.Should().Contain("Open Project");
+             openProjectBtn.Name.ShouldContain("Open Project");
         }
     }
 
@@ -93,7 +93,7 @@ public class SmokeTests : IDisposable
 
         // 1. Find Settings button
         var settingsBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("SettingsButton"))?.AsButton();
-        settingsBtn.Should().NotBeNull("Settings button should be visible in the tab strip");
+        settingsBtn.ShouldNotBeNull("Settings button should be visible in the tab strip");
         
         // 2. Click it
         settingsBtn?.Invoke();
@@ -106,13 +106,13 @@ public class SmokeTests : IDisposable
         // We look for the UserControl with AutomationId="SettingsView"
         // Since it's inside a ContentControl/DataTemplate, it should be in the visual tree now.
         var settingsView = _window.FindFirstDescendant(cf => cf.ByAutomationId("SettingsView"));
-        settingsView.Should().NotBeNull("Settings view should appear after clicking Settings button");
+        settingsView.ShouldNotBeNull("Settings view should appear after clicking Settings button");
         
         var saveBtn = settingsView?.FindFirstDescendant(cf => cf.ByAutomationId("SaveButton"))?.AsButton();
-        saveBtn.Should().NotBeNull("Save button should be visible in Settings view");
+        saveBtn.ShouldNotBeNull("Save button should be visible in Settings view");
 
         var jsonEditor = settingsView?.FindFirstDescendant(cf => cf.ByAutomationId("JsonEditor"));
-        jsonEditor.Should().NotBeNull("JSON Editor should be visible in Settings view");
+        jsonEditor.ShouldNotBeNull("JSON Editor should be visible in Settings view");
     }
 
     public void Dispose()

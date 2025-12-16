@@ -2,7 +2,7 @@ using System.Diagnostics;
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace TerminalHost.UITests;
@@ -59,7 +59,7 @@ public class ProjectLaunchTests : IDisposable
 
         // Verify window title contains directory name (or "TerminalHost")
         // Title binding might include project name
-        // _window.Title.Should().Contain(Path.GetFileName(_tempProjectDir)); 
+        // _window.Title.ShouldContain(Path.GetFileName(_tempProjectDir)); 
         // (Title might be complex, let's rely on finding content)
 
         // Find the specific terminal elements we tagged
@@ -68,18 +68,15 @@ public class ProjectLaunchTests : IDisposable
         
         // ContentPresenter might be hard to find by ID if it's not a control type UIA exposes easily.
         // Instead, look for the unique text labels inside the terminal headers.
-        var customLabel = _window.FindFirstDescendant(cf => cf.ByName(" Claude Code")); // StringFormat might make name " Claude Code" or icon + " Claude Code"
-        // Actually, TextBlock text isn't always Name. 
-        // Let's try to find by Name if AutomationProperties.Name isn't set, it uses text.
-        // But the Run elements make it tricky.
+        // var customLabel = _window.FindFirstDescendant(cf => cf.ByName(" Claude Code")); // StringFormat might make name " Claude Code" or icon + " Claude Code"
         
         // Let's retry finding the ContentPresenter but with more patience or specific type.
         // Or better, check for the "Test terminal below" text which should NOT be visible.
         var emptyStateText = _window.FindFirstDescendant(cf => cf.ByName("Test terminal below - "));
-        emptyStateText.Should().BeNull("Empty state should not be visible when project is loaded");
+        emptyStateText.ShouldBeNull("Empty state should not be visible when project is loaded");
 
-        customBtn.Should().NotBeNull("Custom terminal button should be visible");
-        shellBtn.Should().NotBeNull("Shell terminal button should be visible");
+        customBtn.ShouldNotBeNull("Custom terminal button should be visible");
+        shellBtn.ShouldNotBeNull("Shell terminal button should be visible");
     }
 
     public void Dispose()
