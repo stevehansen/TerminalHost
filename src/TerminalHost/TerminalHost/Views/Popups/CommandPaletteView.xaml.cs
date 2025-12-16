@@ -15,8 +15,10 @@ public partial class CommandPaletteView : UserControl
 
     private void CommandPaletteView_Loaded(object sender, RoutedEventArgs e)
     {
-        // Set focus to the search box when the palette becomes visible
-        PaletteSearchBox.Focus();
+        // Set keyboard focus to the search box when the palette becomes visible
+        // Using Keyboard.Focus ensures proper keyboard input routing
+        Keyboard.Focus(PaletteSearchBox);
+        PaletteSearchBox.SelectAll();
     }
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)

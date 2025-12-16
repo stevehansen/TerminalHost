@@ -113,6 +113,7 @@ public partial class App : Application
         services.AddSingleton<IFileEditService, FileEditService>();
         services.AddSingleton<IFilePreviewService, FilePreviewService>();
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
+        services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
@@ -182,6 +183,7 @@ public partial class App : Application
             _services.GetService<ISystemTrayService>()?.Dispose();
             _services.GetService<ISingleInstanceService>()?.Dispose();
             _services.GetService<IStatisticsService>()?.Dispose();
+            (_services.GetService<IClaudeCommandService>() as IDisposable)?.Dispose();
         }
     }
 

@@ -26,6 +26,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFileExplorerService _fileExplorerService;
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
+    private readonly IClaudeCommandService _claudeCommandService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -140,7 +141,8 @@ public partial class MainViewModel : ObservableObject
         IDialogService dialogService,
         IFileExplorerService fileExplorerService,
         IFilePreviewService filePreviewService,
-        IFileEditService fileEditService)
+        IFileEditService fileEditService,
+        IClaudeCommandService claudeCommandService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -157,6 +159,10 @@ public partial class MainViewModel : ObservableObject
         _fileExplorerService = fileExplorerService;
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
+        _claudeCommandService = claudeCommandService;
+
+        // Subscribe to Claude command changes
+        _claudeCommandService.CommandsChanged += (_, _) => FilterPaletteCommands();
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -1399,6 +1405,7 @@ public partial class MainViewModel : ObservableObject
     {
         _filteredPaletteCommands.Clear();
         var searchText = PaletteSearchText?.ToLower() ?? "";
+        var allCommands = new List<PaletteCommand>();
 
         // Get static commands
         var filtered = _allPaletteCommands
@@ -1410,10 +1417,7 @@ public partial class MainViewModel : ObservableObject
                 c.Category.ToLower().Contains(searchText))
             .ToList();
 
-        foreach (var command in filtered)
-        {
-            _filteredPaletteCommands.Add(command);
-        }
+        allCommands.AddRange(filtered);
 
         // Add dynamic profile launch commands
         foreach (var profile in _profileRegistry.Profiles)
@@ -1427,7 +1431,7 @@ public partial class MainViewModel : ObservableObject
             if (matchesSearch)
             {
                 var capturedProfile = profile; // Capture for closure
-                _filteredPaletteCommands.Add(new PaletteCommand
+                allCommands.Add(new PaletteCommand
                 {
                     Id = $"launch-profile-{profile.Id}",
                     Name = profileName,
@@ -1438,6 +1442,50 @@ public partial class MainViewModel : ObservableObject
                     Execute = () => OpenProfileTab(capturedProfile)
                 });
             }
+        }
+
+        // Add Claude commands (from ~/.claude/commands/ and .claude/commands/)
+        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
+        var claudeCommands = _claudeCommandService.GetAllCommands(currentWorkingDir);
+
+        foreach (var cmd in claudeCommands)
+        {
+            var commandName = $"Claude: /{cmd.Name}";
+            var matchesSearch = string.IsNullOrEmpty(searchText) ||
+                               commandName.ToLower().Contains(searchText) ||
+                               (cmd.Description?.ToLower().Contains(searchText) ?? false) ||
+                               "claude".Contains(searchText);
+
+            if (matchesSearch)
+            {
+                var capturedCmd = cmd; // Capture for closure
+                allCommands.Add(new PaletteCommand
+                {
+                    Id = $"claude-cmd-{cmd.Id}",
+                    Name = commandName,
+                    Description = cmd.Description ?? cmd.FilePath,
+                    Shortcut = cmd.Shortcut ?? "",
+                    Icon = "🤖",
+                    Category = cmd.Source == ClaudeCommandSource.Global ? "Claude (Global)" : "Claude (Project)",
+                    Execute = () => ExecuteClaudeCommand(capturedCmd)
+                });
+            }
+        }
+
+        // Sort by MRU (most recently used first), then alphabetically
+        var mruList = _configService.Load().CommandPaletteMru;
+        var sortedCommands = allCommands
+            .OrderBy(c =>
+            {
+                var mruIndex = mruList.IndexOf(c.Id);
+                return mruIndex >= 0 ? mruIndex : int.MaxValue;
+            })
+            .ThenBy(c => c.Name)
+            .ToList();
+
+        foreach (var command in sortedCommands)
+        {
+            _filteredPaletteCommands.Add(command);
         }
 
         if (FilteredPaletteCommands.Any())
@@ -1455,9 +1503,63 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedPaletteCommand != null)
         {
+            // Track MRU before closing
+            UpdateCommandMru(SelectedPaletteCommand.Id);
+
             IsCommandPaletteOpen = false;
             SelectedPaletteCommand.Execute();
         }
+    }
+
+    private void UpdateCommandMru(string commandId)
+    {
+        var config = _configService.Load();
+
+        // Remove if already exists (will be re-added at front)
+        config.CommandPaletteMru.Remove(commandId);
+
+        // Add to front
+        config.CommandPaletteMru.Insert(0, commandId);
+
+        // Limit to 30 most recent
+        if (config.CommandPaletteMru.Count > 30)
+        {
+            config.CommandPaletteMru.RemoveRange(30, config.CommandPaletteMru.Count - 30);
+        }
+
+        _configService.Save(config);
+    }
+
+    /// <summary>
+    /// Executes a Claude command by sending the slash command to the Custom terminal.
+    /// </summary>
+    public void ExecuteClaudeCommand(ClaudeCommand command)
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab)
+            return;
+
+        // Switch to Custom terminal
+        tab.ShowCustomTerminalCommand.Execute(null);
+
+        // Send the slash command to Claude Code
+        tab.Pair.CustomTerminal.SendText(
+            $"/{command.Name}",
+            appendNewline: true,
+            newlineChar: "\r",
+            useUserInput: true  // Important for Claude Code to properly receive the command
+        );
+
+        // Focus the terminal
+        tab.Pair.CustomTerminal.Focus();
+    }
+
+    /// <summary>
+    /// Gets all Claude commands for the current project (used by MainWindow for keyboard shortcuts).
+    /// </summary>
+    public IReadOnlyList<ClaudeCommand> GetClaudeCommandsForCurrentProject()
+    {
+        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
+        return _claudeCommandService.GetAllCommands(currentWorkingDir);
     }
 
     public void Shutdown()

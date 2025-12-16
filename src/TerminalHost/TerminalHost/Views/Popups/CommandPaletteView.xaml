@@ -40,18 +40,25 @@
                                FontWeight="Bold"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
-                    <TextBox x:Name="PaletteSearchBox"
-                             Grid.Column="1"
-                             AutomationProperties.Name="Command Search"
-                             AutomationProperties.HelpText="Type to filter commands"
-                             ToolTip="Search commands"
-                             Background="Transparent"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             CaretBrush="{StaticResource TextPrimaryBrush}"
-                             BorderThickness="0"
-                             FontSize="{StaticResource FontSizeNormal}"
-                             VerticalAlignment="Center"
-                             Text="{Binding PaletteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Grid Grid.Column="1">
+                        <!-- Placeholder text -->
+                        <TextBlock Text="Type to search commands..."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeNormal}"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False"
+                                   Visibility="{Binding PaletteSearchText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
+                        <TextBox x:Name="PaletteSearchBox"
+                                 AutomationProperties.Name="Command Search"
+                                 AutomationProperties.HelpText="Type to filter commands"
+                                 Background="Transparent"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="0"
+                                 FontSize="{StaticResource FontSizeNormal}"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding PaletteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
                     <Button Grid.Column="2"
                             Content="×"
                             Click="CloseButton_Click"
@@ -76,11 +83,21 @@
                     <DataTemplate>
                         <Grid Margin="8,6">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/><!-- Fixed width for icon alignment -->
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                <TextBlock Text="{Binding DisplayName}"
+                            <!-- Icon column with fixed width -->
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Icon}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Visibility="{Binding Icon, Converter={StaticResource NullToCollapsedConverter}}"/>
+                            <!-- Name and description -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="{StaticResource FontSizeCode}"
                                            VerticalAlignment="Center"/>
@@ -89,13 +106,16 @@
                                            FontSize="{StaticResource FontSizeSmall}"
                                            VerticalAlignment="Center"
                                            Margin="12,0,0,0"
-                                           Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="250"
+                                           Visibility="{Binding Description, Converter={StaticResource NullToCollapsedConverter}}"/>
                             </StackPanel>
-                            <Border Grid.Column="1"
+                            <!-- Shortcut badge -->
+                            <Border Grid.Column="2"
                                     Background="{StaticResource BackgroundLightBrush}"
                                     CornerRadius="3"
                                     Padding="6,2"
-                                    Visibility="{Binding Shortcut, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    Visibility="{Binding Shortcut, Converter={StaticResource NullToCollapsedConverter}}">
                                 <TextBlock Text="{Binding DisplayShortcut}"
                                            Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="{StaticResource FontSizeTiny}"
@@ -122,7 +142,7 @@
                                             <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentBlueBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

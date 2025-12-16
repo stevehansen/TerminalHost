@@ -576,6 +576,11 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
         }
+        // Check Claude command shortcuts
+        else if (TryExecuteClaudeCommandShortcut(e.Key, Keyboard.Modifiers))
+        {
+            e.Handled = true;
+        }
     }
 
     private bool TryExecuteQuickCommandShortcut(Key key, ModifierKeys modifiers)
@@ -654,6 +659,27 @@ public partial class MainWindow : Window
                 if (key == expectedKey && modifiers == expectedModifiers)
                 {
                     _viewModel.OpenProfileTab(profile);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private bool TryExecuteClaudeCommandShortcut(Key key, ModifierKeys modifiers)
+    {
+        // Get all Claude commands for the current project
+        var claudeCommands = _viewModel.GetClaudeCommandsForCurrentProject();
+
+        foreach (var command in claudeCommands)
+        {
+            if (string.IsNullOrEmpty(command.Shortcut)) continue;
+
+            if (TryParseShortcut(command.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                if (key == expectedKey && modifiers == expectedModifiers)
+                {
+                    _viewModel.ExecuteClaudeCommand(command);
                     return true;
                 }
             }

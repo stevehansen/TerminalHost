@@ -81,6 +81,18 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - **Vertical Split** - Custom on top, Shell on bottom
   - Per-project layout mode persistence in `DirectorySettings`
   - Visual toggle buttons with grouped styling in toolbar
+- [x] **Claude User Commands Detection:** Integration of Claude Code custom slash commands from `.md` files:
+  - Scans `~/.claude/commands/*.md` for global commands
+  - Scans `.claude/commands/*.md` for project-specific commands
+  - Commands appear in Command Palette with "Claude: /{name}" prefix
+  - Project commands override global commands with the same name
+  - Live file watching for automatic updates when commands are added/removed
+  - Optional keyboard shortcuts for commands (configurable in settings)
+  - Execution sends `/{command-name}` to the Custom terminal
+- [x] **Command Palette MRU Ordering:** Most recently used commands appear first in the Command Palette:
+  - Tracks command usage when executed
+  - Persists MRU list in config.json (up to 30 commands)
+  - Commands not in MRU sorted alphabetically after MRU items
 
 ### Deferred Features
 
@@ -632,6 +644,55 @@ The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all 
 | Help             | Show keyboard shortcuts          |
 | Scratch Pad      | Open notes panel                 |
 | Git Changes      | View modified files and diffs    |
+| Claude: /{name}  | Execute Claude slash command     |
+
+### Claude User Commands
+
+Claude Code custom slash commands are automatically detected and available in the Command Palette.
+
+**Command Sources:**
+- **Global commands**: `~/.claude/commands/*.md`
+- **Project commands**: `.claude/commands/*.md` (relative to project root)
+
+Project commands override global commands with the same name.
+
+**Features:**
+- Commands appear in Command Palette with "Claude: /{name}" prefix
+- Search by command name or description
+- Descriptions extracted from file frontmatter or first line
+- Live file watching - new commands appear automatically
+- Optional keyboard shortcuts per command
+
+**How Commands Work:**
+- Claude Code slash commands are markdown files
+- The filename (without `.md`) becomes the command name
+- When executed, TerminalHost sends `/{command-name}` to the Custom terminal
+
+**Keyboard Shortcuts:**
+Configure shortcuts in `config.json` under `settings.claudeCommandShortcuts`:
+
+```json
+{
+  "settings": {
+    "claudeCommandShortcuts": {
+      "review-pr": "Ctrl+Alt+R",
+      "test-coverage": "Ctrl+Alt+T"
+    }
+  }
+}
+```
+
+**Example Command File:**
+```markdown
+---
+description: Review the current PR and provide feedback
+---
+
+Review the current pull request. Check the git diff and provide:
+1. Code quality feedback
+2. Potential bugs or issues
+3. Suggestions for improvement
+```
 
 ### Scratch Pad
 
@@ -997,19 +1058,6 @@ Items for future development:
 
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
-
-### Claude User Commands Detection
-- **Detect Claude Commands**: Scan and suggest commands from:
-  - Global: `~/.claude/commands/*.md`
-  - Per-project: `.claude/commands/user_*.md` (naming convention for user commands)
-- **Optional Shortcuts**: Allow assigning keyboard shortcuts to user commands
-- **External Marketplace/Sync**: Support for importing user profile commands from external sources for easy sharing
-- **Implementation Notes**:
-  - New domain model: `ClaudeCommand` in `Domain/ClaudeCommand.cs` (Id, Name, FilePath, Description, Shortcut, Source)
-  - New service: `ClaudeCommandService.cs` - detect commands from filesystem, watch for changes
-  - UI: Add to Command Palette with "Claude: {command-name}" prefix
-  - Per-project: Scan `.claude/commands/` on project tab creation/focus
-  - Consider: Quick command bar integration for frequently used commands
 
 ### Multiple AI Assistant Support (High Priority)
 - **Support Multiple Custom Commands**: Beyond Claude, support Gemini CLI, GitHub Copilot, OpenAI Codex

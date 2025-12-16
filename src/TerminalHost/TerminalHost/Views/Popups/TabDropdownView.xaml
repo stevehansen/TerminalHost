@@ -85,7 +85,7 @@
                                 <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>

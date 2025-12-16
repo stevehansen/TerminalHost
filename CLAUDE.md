@@ -97,6 +97,7 @@ TerminalHost/
     │   ├── PaletteCommand.cs   # Command palette item definition
     │   ├── RunConfiguration.cs # Run configuration for project runner
     │   ├── ProjectType.cs      # Project type detection model
+    │   ├── ClaudeCommand.cs    # Claude slash command from .md files
     │   ├── RunState.cs         # Run terminal state enum
     │   ├── FileSystemNode.cs   # File explorer tree node with git status
     │   └── FileIconMapper.cs   # File extension to icon mapping
@@ -115,7 +116,8 @@ TerminalHost/
     │   ├── LinkDetectionService.cs   # Clickable link detection
     │   ├── ProjectDetectionService.cs # Auto-detect project type
     │   ├── RunUrlDetectionService.cs # Detect localhost URLs from run output
-    │   └── FileExplorerService.cs    # File explorer operations + file watcher
+    │   ├── FileExplorerService.cs    # File explorer operations + file watcher
+    │   └── ClaudeCommandService.cs   # Claude slash commands detection + file watching
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state

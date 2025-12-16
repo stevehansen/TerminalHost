@@ -22,7 +22,8 @@ public class MainViewModelTests
     private readonly Mock<IFileExplorerService> _mockFileExplorerService;
     private readonly Mock<DetectedLinksViewModel> _mockDetectedLinksViewModel;
     private readonly Mock<IFileSystem> _mockFileSystem;
-    private readonly Mock<IDialogService> _mockDialogService; 
+    private readonly Mock<IDialogService> _mockDialogService;
+    private readonly Mock<IClaudeCommandService> _mockClaudeCommandService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -42,6 +43,11 @@ public class MainViewModelTests
         _mockFileExplorerService = new Mock<IFileExplorerService>();
         _mockFileSystem = new Mock<IFileSystem>();
         _mockDialogService = new Mock<IDialogService>();
+        _mockClaudeCommandService = new Mock<IClaudeCommandService>();
+
+        // Setup default behaviors for IClaudeCommandService
+        _mockClaudeCommandService.Setup(cs => cs.GlobalCommands).Returns(new List<ClaudeCommand>());
+        _mockClaudeCommandService.Setup(cs => cs.GetAllCommands(It.IsAny<string?>())).Returns(new List<ClaudeCommand>());
 
         // Pass constructor arguments for DetectedLinksViewModel mock
         _mockDetectedLinksViewModel = new Mock<DetectedLinksViewModel>(_mockLinkDetectionService.Object, _mockFilePreviewService.Object);
@@ -94,7 +100,8 @@ public class MainViewModelTests
             _mockDialogService.Object,
             _mockFileExplorerService.Object,
             _mockFilePreviewService.Object,
-            _mockFileEditService.Object);
+            _mockFileEditService.Object,
+            _mockClaudeCommandService.Object);
     }
 
     // Helper to run tests in STA thread

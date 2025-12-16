@@ -55,6 +55,12 @@ public class AppConfiguration
     [JsonPropertyName("projectTypes")]
     public List<ProjectType> ProjectTypes { get; set; } = ProjectType.GetDefaults();
 
+    /// <summary>
+    /// Most recently used command IDs for Command Palette sorting.
+    /// </summary>
+    [JsonPropertyName("commandPaletteMru")]
+    public List<string> CommandPaletteMru { get; set; } = [];
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
@@ -261,4 +267,11 @@ public class AppSettings
 
     [JsonPropertyName("shellCommandIcon")]
     public string ShellCommandIcon { get; set; } = "💻";
+
+    /// <summary>
+    /// Keyboard shortcuts for Claude commands (command name -> shortcut string).
+    /// Example: { "review-pr": "Ctrl+Alt+R" }
+    /// </summary>
+    [JsonPropertyName("claudeCommandShortcuts")]
+    public Dictionary<string, string> ClaudeCommandShortcuts { get; set; } = [];
 }
