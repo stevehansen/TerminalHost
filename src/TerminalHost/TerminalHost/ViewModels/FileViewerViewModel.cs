@@ -1,6 +1,9 @@
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Services;
@@ -16,6 +19,12 @@ public partial class FileViewerViewModel : ObservableObject
     private string? _currentFilePath;
     private Encoding? _currentEncoding;
     private string? _originalContent;
+
+    // Image file extensions
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif"
+    };
 
     [ObservableProperty]
     private string _title = "File Viewer";
@@ -72,9 +81,19 @@ public partial class FileViewerViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
+    // Image mode
+    [ObservableProperty]
+    private bool _isImageMode;
+
+    [ObservableProperty]
+    private ImageSource? _imageSource;
+
+    [ObservableProperty]
+    private string _imageInfo = "";
+
     // Computed properties
-    public bool IsPreviewMode => Mode == FileViewerMode.Preview;
-    public bool IsEditMode => Mode == FileViewerMode.Edit;
+    public bool IsPreviewMode => Mode == FileViewerMode.Preview && !IsImageMode;
+    public bool IsEditMode => Mode == FileViewerMode.Edit && !IsImageMode;
     public bool CanSave => IsEditMode && IsModified && !IsReadOnly;
 
     // Events for view interaction
@@ -100,8 +119,22 @@ public partial class FileViewerViewModel : ObservableObject
     {
         _currentFilePath = filePath;
         FilePath = filePath;
-        FileName = System.IO.Path.GetFileName(filePath);
+        FileName = Path.GetFileName(filePath);
         Title = FileName;
+
+        // Check if it's an image file
+        var extension = Path.GetExtension(filePath);
+        if (ImageExtensions.Contains(extension))
+        {
+            LoadImage(filePath);
+            IsOpen = true;
+            return;
+        }
+
+        // Reset image mode for text files
+        IsImageMode = false;
+        ImageSource = null;
+        ImageInfo = "";
         Mode = mode;
 
         if (mode == FileViewerMode.Preview)
@@ -114,6 +147,57 @@ public partial class FileViewerViewModel : ObservableObject
         }
 
         IsOpen = true;
+    }
+
+    [RelayCommand]
+    private void OpenDialog(string? initialDirectory)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select File to Open",
+            Filter = "All Files (*.*)|*.*|Code Files (*.cs;*.js;*.ts;*.py;*.json;*.xml)|*.cs;*.js;*.ts;*.py;*.json;*.xml|Text Files (*.txt;*.md;*.log)|*.txt;*.md;*.log|Images (*.png;*.jpg;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.gif;*.bmp",
+            FilterIndex = 1,
+            InitialDirectory = initialDirectory ?? ""
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            Open(dialog.FileName);
+        }
+    }
+
+    private void LoadImage(string filePath)
+    {
+        try
+        {
+            IsImageMode = true;
+            Mode = FileViewerMode.Preview; // Images are always in preview mode
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+
+            ImageSource = bitmap;
+
+            var fileInfo = new FileInfo(filePath);
+            ImageInfo = $"{bitmap.PixelWidth} × {bitmap.PixelHeight} px - {FormatFileSize(fileInfo.Length)}";
+            Info = ImageInfo;
+            Title = FileName;
+        }
+        catch (Exception ex)
+        {
+            IsImageMode = false;
+            ImageSource = null;
+            Title = "Error";
+            PreviewDocument = CreateErrorDocument($"Failed to load image: {ex.Message}");
+            Info = "Error loading image";
+        }
+
+        OnPropertyChanged(nameof(IsPreviewMode));
+        OnPropertyChanged(nameof(IsEditMode));
     }
 
     private void LoadPreview(string filePath, int? highlightLine)
@@ -182,6 +266,9 @@ public partial class FileViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEditMode));
         OnPropertyChanged(nameof(CanSave));
 
+        // Don't switch modes for images
+        if (IsImageMode) return;
+
         // Reload content when switching modes
         if (_currentFilePath != null)
         {
@@ -194,6 +281,12 @@ public partial class FileViewerViewModel : ObservableObject
                 LoadForEdit(_currentFilePath, null);
             }
         }
+    }
+
+    partial void OnIsImageModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPreviewMode));
+        OnPropertyChanged(nameof(IsEditMode));
     }
 
     partial void OnEditContentChanged(string value)
@@ -220,6 +313,8 @@ public partial class FileViewerViewModel : ObservableObject
     [RelayCommand]
     private void SwitchToEdit()
     {
+        // Can't edit images
+        if (IsImageMode) return;
         Mode = FileViewerMode.Edit;
     }
 
@@ -265,7 +360,7 @@ public partial class FileViewerViewModel : ObservableObject
     [RelayCommand]
     public void Close()
     {
-        if (IsModified && Mode == FileViewerMode.Edit)
+        if (IsModified && Mode == FileViewerMode.Edit && !IsImageMode)
         {
             if (!_dialogService.ShowConfirmation(
                 "You have unsaved changes. Close without saving?",
@@ -282,6 +377,11 @@ public partial class FileViewerViewModel : ObservableObject
         PreviewDocument = CreateInfoDocument("Select a file to view.");
         Title = "File Viewer";
         Info = "";
+
+        // Reset image mode
+        IsImageMode = false;
+        ImageSource = null;
+        ImageInfo = "";
     }
 
     [RelayCommand]

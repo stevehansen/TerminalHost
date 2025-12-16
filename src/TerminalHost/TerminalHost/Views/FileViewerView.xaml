@@ -97,13 +97,15 @@
                                  Command="{Binding SwitchToEditCommand}"/>
                 </StackPanel>
 
-                <!-- File name -->
-                <TextBlock Grid.Column="1"
-                           Text="{Binding Title}"
-                           Foreground="#CCCCCC"
-                           VerticalAlignment="Center"
-                           Margin="12,0"
-                           TextTrimming="CharacterEllipsis"/>
+                <!-- File name with dirty indicator -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="#CCCCCC"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text=" *"
+                               Foreground="#CCCCCC"
+                               Visibility="{Binding IsModified, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StackPanel>
 
                 <!-- Actions -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -121,10 +123,12 @@
                             Command="{Binding DetachCommand}"
                             ToolTip="Pop Out"
                             Visibility="{Binding IsDetached, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    <!-- Hide close button in detached window mode (window has its own close) -->
                     <Button Content="✕"
                             Style="{StaticResource ViewerToolbarButton}"
                             Command="{Binding CloseCommand}"
-                            ToolTip="Close"/>
+                            ToolTip="Close"
+                            Visibility="{Binding IsDetached, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -141,6 +145,7 @@
                 VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Auto"
                 IsToolBarVisible="False"
+                IsSelectionEnabled="True"
                 Zoom="100"/>
 
             <!-- Edit mode: TextBox with line numbers -->

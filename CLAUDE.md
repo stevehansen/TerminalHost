@@ -129,10 +129,8 @@ TerminalHost/
     │   ├── GitBranchViewModel.cs         # Git branch operations
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
-    │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
-    │   ├── FileEditViewModel.cs          # File editor
-    │   ├── FileExplorerViewModel.cs      # File explorer tree + operations
-    │   └── FileViewerViewModel.cs        # Unified file preview/edit viewer
+    │   ├── FileViewerViewModel.cs        # Unified file preview/edit viewer (with image support)
+    │   └── FileExplorerViewModel.cs      # File explorer tree + operations
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
@@ -156,8 +154,7 @@ TerminalHost/
             ├── GitBranchView.xaml(.cs)       # Git branch switcher (Ctrl+B)
             ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
             ├── DetectedLinksView.xaml(.cs)   # Detected links popup
-            ├── FilePreviewView.xaml(.cs)     # File preview popup (Ctrl+O)
-            └── FileEditView.xaml(.cs)        # File editor popup (Ctrl+Shift+E)
+            └── FileViewerPopup.xaml(.cs)     # Unified file viewer popup (Ctrl+O/Ctrl+Shift+E)
 ```
 
 ## Architecture
@@ -197,8 +194,8 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 ### File Operations
 - `Ctrl+N`: Open new project (folder picker)
 - `Ctrl+E`: Open current folder in Explorer
-- `Ctrl+O`: Open file preview dialog
-- `Ctrl+Shift+E`: Open file editor
+- `Ctrl+O`: Open file viewer (preview mode, supports images)
+- `Ctrl+Shift+E`: Open file viewer (edit mode)
 - `Ctrl+Shift+F`: Toggle file explorer panel (tree view with git status)
 
 ### Application

@@ -86,13 +86,8 @@
             <popups:TabSwitcherView x:Name="TabSwitcherViewControl" DataContext="{Binding}" />
         </Popup>
 
-        <!-- File Preview Popup (Ctrl+Click on file paths) -->
-        <!-- File Preview View -->
-        <popups:FilePreviewView x:Name="FilePreviewViewControl" />
-
-        <!-- File Edit Popup (Ctrl+Shift+E) -->
-        <!-- File Edit View -->
-        <popups:FileEditView x:Name="FileEditViewControl" />
+        <!-- Unified File Viewer Popup (Ctrl+O for preview, Ctrl+Shift+E for edit) -->
+        <popups:FileViewerPopup x:Name="FileViewerPopupControl" />
 
         <!-- Help Popup (F1) -->
         <Popup x:Name="HelpPopup"

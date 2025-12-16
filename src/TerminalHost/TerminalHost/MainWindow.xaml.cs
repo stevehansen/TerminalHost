@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -22,12 +23,11 @@ public partial class MainWindow : Window
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
-    private readonly FileEditViewModel _fileEditViewModel;
-    private readonly FilePreviewViewModel _filePreviewViewModel;
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly FileViewerViewModel _fileViewerViewModel;
+    private readonly IDialogService _dialogService;
     private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileEditViewModel fileEditViewModel, FilePreviewViewModel filePreviewViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!) // Added IDialogService
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -38,16 +38,14 @@ public partial class MainWindow : Window
         _gitBranchViewModel = gitBranchViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
-        _fileEditViewModel = fileEditViewModel;
-        _filePreviewViewModel = filePreviewViewModel;
-        _dialogService = dialogService; // Initialize IDialogService
+        _fileViewerViewModel = fileViewerViewModel;
+        _dialogService = dialogService;
         DataContext = viewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         GitFilesViewControl.DataContext = gitFilesViewModel;
-        FileEditViewControl.DataContext = fileEditViewModel;
-        FilePreviewViewControl.DataContext = filePreviewViewModel;
+        FileViewerPopupControl.DataContext = fileViewerViewModel;
 
         RestoreWindowState();
 
@@ -63,12 +61,12 @@ public partial class MainWindow : Window
         // Subscribe to config reload events to update tray setting
         _viewModel.ConfigReloaded += OnConfigReloaded;
 
-        // Subscribe to file preview events
+        // Subscribe to file preview/edit events
         _viewModel.FilePreviewRequested += OnFilePreviewRequested;
         _detectedLinksViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
-        _filePreviewViewModel.OpenFileEditRequested += OnFileEditRequested;
+        _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
 
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;
@@ -377,15 +375,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (_fileEditViewModel.IsOpen)
+            if (_fileViewerViewModel.IsOpen)
             {
-                _fileEditViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_filePreviewViewModel.IsOpen)
-            {
-                _filePreviewViewModel.CloseCommand.Execute(null);
+                _fileViewerViewModel.CloseCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -501,24 +493,34 @@ public partial class MainWindow : Window
             _viewModel.IsTabSwitcherOpen = true;
             e.Handled = true;
         }
-        // Ctrl+O: Open file preview
+        // Ctrl+O: Open file viewer (preview mode)
         else if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            CenterFilePreviewPopup();
+            CenterFileViewerPopup();
             var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
                 ? terminalTab.Pair.WorkingDirectory
                 : string.Empty;
-            _filePreviewViewModel.OpenDialogCommand.Execute(initialDir);
+            _fileViewerViewModel.OpenDialogCommand.Execute(initialDir);
             e.Handled = true;
         }
-        // Ctrl+Shift+E: Open file edit dialog
+        // Ctrl+Shift+E: Open file viewer (edit mode)
         else if (e.Key == Key.E && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            CenterFileEditPopup();
+            CenterFileViewerPopup();
             var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
                 ? terminalTab.Pair.WorkingDirectory
                 : string.Empty;
-            _fileEditViewModel.OpenDialogCommand.Execute(initialDir);
+            // Open dialog and switch to edit mode if a file is selected
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select File to Edit",
+                Filter = "All Files (*.*)|*.*",
+                InitialDirectory = initialDir
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                _fileViewerViewModel.Open(dialog.FileName, FileViewerMode.Edit);
+            }
             e.Handled = true;
         }
         // Ctrl+Shift+P: Open command palette
@@ -696,30 +698,48 @@ public partial class MainWindow : Window
 
     #region File Operation Handlers
 
-    private void CenterFileEditPopup()
+    private void CenterFileViewerPopup()
     {
         var windowPos = PointToScreen(new Point(0, 0));
-        _fileEditViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileEditViewModel.Width) / 2;
-        _fileEditViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileEditViewModel.Height) / 2;
-    }
-
-    private void CenterFilePreviewPopup()
-    {
-        var windowPos = PointToScreen(new Point(0, 0));
-        _filePreviewViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _filePreviewViewModel.Width) / 2;
-        _filePreviewViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _filePreviewViewModel.Height) / 2;
+        _fileViewerViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileViewerViewModel.Width) / 2;
+        _fileViewerViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileViewerViewModel.Height) / 2;
     }
 
     private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
-        CenterFilePreviewPopup();
-        _filePreviewViewModel.Open(e.FilePath, e.Line);
+        CenterFileViewerPopup();
+        var mode = e.OpenInEditMode ? FileViewerMode.Edit : FileViewerMode.Preview;
+        _fileViewerViewModel.Open(e.FilePath, mode, e.Line);
     }
 
     private void OnFileEditRequested(object? sender, FileEditRequestedEventArgs e)
     {
-        CenterFileEditPopup();
-        _fileEditViewModel.Open(e.FilePath);
+        CenterFileViewerPopup();
+        _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Edit);
+    }
+
+    private void OnFileViewerDetachRequested(object? sender, EventArgs e)
+    {
+        // Close the popup and open in a new window
+        var filePath = _fileViewerViewModel.FilePath;
+        var mode = _fileViewerViewModel.Mode;
+
+        _fileViewerViewModel.IsOpen = false;
+
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            // Create a new FileViewerViewModel for the detached window
+            var detachedViewModel = new FileViewerViewModel(
+                App.Current.Services.GetRequiredService<IFilePreviewService>(),
+                App.Current.Services.GetRequiredService<IFileEditService>(),
+                App.Current.Services.GetRequiredService<IFileSystem>(),
+                App.Current.Services.GetRequiredService<IDialogService>());
+            detachedViewModel.IsDetached = true;
+            detachedViewModel.Open(filePath, mode);
+
+            var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
+            window.Show();
+        }
     }
 
     #endregion

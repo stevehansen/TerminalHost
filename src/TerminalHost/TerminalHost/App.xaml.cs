@@ -120,8 +120,7 @@ public partial class App : Application
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
-        services.AddSingleton<FileEditViewModel>();
-        services.AddSingleton<FilePreviewViewModel>();
+        services.AddSingleton<FileViewerViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

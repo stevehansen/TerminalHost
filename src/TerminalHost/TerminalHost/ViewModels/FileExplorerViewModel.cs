@@ -547,8 +547,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     {
         if (SelectedNode?.IsDirectory != false) return;
 
-        // Always open in a pop-out window for now (embedded viewer UI not implemented)
-        PopOutRequested?.Invoke(this, new FileViewerRequestedEventArgs
+        // Open in popup viewer
+        FileViewerRequested?.Invoke(this, new FileViewerRequestedEventArgs
         {
             FilePath = SelectedNode.FullPath,
             Mode = FileViewerMode.Preview
@@ -560,8 +560,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     {
         if (SelectedNode?.IsDirectory != false) return;
 
-        // Always open in a pop-out window for now (embedded viewer UI not implemented)
-        PopOutRequested?.Invoke(this, new FileViewerRequestedEventArgs
+        // Open in popup viewer in edit mode
+        FileViewerRequested?.Invoke(this, new FileViewerRequestedEventArgs
         {
             FilePath = SelectedNode.FullPath,
             Mode = FileViewerMode.Edit
@@ -573,6 +573,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     {
         if (SelectedNode?.IsDirectory != false) return;
 
+        // Open in detached window
         PopOutRequested?.Invoke(this, new FileViewerRequestedEventArgs
         {
             FilePath = SelectedNode.FullPath,
@@ -624,6 +625,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 
     // Events
+    public event EventHandler<FileViewerRequestedEventArgs>? FileViewerRequested;
     public event EventHandler<FileViewerRequestedEventArgs>? PopOutRequested;
     public event EventHandler<string>? CdToShellRequested;
     public event EventHandler<FileSystemNode>? RenameRequested;

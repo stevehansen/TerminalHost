@@ -594,6 +594,7 @@ public partial class MainViewModel : ObservableObject
 
             // Wire up explorer events
             explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
+            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
 
@@ -857,10 +858,37 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Fire event to open in the popup viewer
+        if (e.Mode == FileViewerMode.Preview)
+        {
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = e.FilePath,
+                Line = 0,
+                Column = 0
+            });
+        }
+        else
+        {
+            // For edit mode, we need a different event or we can reuse FileEditRequested from GitFilesViewModel
+            // For now, use FilePreviewRequested and let the viewer switch to edit mode
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = e.FilePath,
+                Line = 0,
+                Column = 0,
+                OpenInEditMode = true
+            });
+        }
+    }
+
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Create a detached file viewer window
         var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService);
+        viewer.IsDetached = true;
         viewer.Open(e.FilePath, e.Mode);
 
         // Create and show the window
