@@ -8,6 +8,18 @@ public partial class GitBranchView : UserControl
     public GitBranchView()
     {
         InitializeComponent();
+
+        // Focus the search box when popup opens
+        GitBranchPopup.Opened += (s, e) =>
+        {
+            // Use Dispatcher to ensure focus happens after popup is fully rendered
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
+            {
+                GitBranchSearchBox.Focus();
+                Keyboard.Focus(GitBranchSearchBox);
+                GitBranchSearchBox.SelectAll();
+            });
+        };
     }
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -17,17 +29,35 @@ public partial class GitBranchView : UserControl
 
         if (e.Key == Key.Down)
         {
-            if (GitBranchList.SelectedIndex < GitBranchList.Items.Count - 1)
+            // Move selection down in the list
+            if (GitBranchList.Items.Count > 0)
             {
-                GitBranchList.SelectedIndex++;
+                if (GitBranchList.SelectedIndex < GitBranchList.Items.Count - 1)
+                {
+                    GitBranchList.SelectedIndex++;
+                }
+                else if (GitBranchList.SelectedIndex == -1)
+                {
+                    GitBranchList.SelectedIndex = 0;
+                }
+                GitBranchList.ScrollIntoView(GitBranchList.SelectedItem);
             }
             e.Handled = true;
         }
         else if (e.Key == Key.Up)
         {
-            if (GitBranchList.SelectedIndex > 0)
+            // Move selection up in the list
+            if (GitBranchList.Items.Count > 0)
             {
-                GitBranchList.SelectedIndex--;
+                if (GitBranchList.SelectedIndex > 0)
+                {
+                    GitBranchList.SelectedIndex--;
+                }
+                else if (GitBranchList.SelectedIndex == -1)
+                {
+                    GitBranchList.SelectedIndex = GitBranchList.Items.Count - 1;
+                }
+                GitBranchList.ScrollIntoView(GitBranchList.SelectedItem);
             }
             e.Handled = true;
         }

@@ -78,7 +78,7 @@ public class DialogService : IDialogService
     /// <summary>
     /// Shows a dialog with full control over type and buttons.
     /// </summary>
-    public DialogResult Show(string message, string title, DialogType type, DialogButtons buttons)
+    private static DialogResult Show(string message, string title, DialogType type, DialogButtons buttons)
     {
         var owner = GetActiveWindow();
         var dialog = new NotificationDialog(message, title, type, buttons)

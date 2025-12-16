@@ -248,7 +248,7 @@ public class GitStatusServiceTests
         // Arrange
         var workingDirectory = "P:\\TestRepo";
         var branchName = "new-feature";
-        _mockGitProcessRunner.Setup(r => r.RunGitOperationAsync(workingDirectory, $"checkout \"{branchName}\" ")) // Added trailing space
+        _mockGitProcessRunner.Setup(r => r.RunGitOperationAsync(workingDirectory, $"checkout \"{branchName}\""))
                              .ReturnsAsync(new GitOperationResult { Success = true, Output = $"Switched to branch '{branchName}'" });
 
         // Act

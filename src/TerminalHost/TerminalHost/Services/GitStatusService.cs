@@ -239,6 +239,17 @@ internal sealed class GitStatusService : IGitStatusService
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return branches;
 
+        // Get list of known remotes (e.g., "origin", "upstream")
+        var remotesOutput = await _gitRunner.RunGitCommandAsync(workingDirectory, "remote");
+        var knownRemotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(remotesOutput))
+        {
+            foreach (var remote in remotesOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                knownRemotes.Add(remote.Trim());
+            }
+        }
+
         // Get current branch name
         var currentBranch = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD");
         currentBranch = currentBranch?.Trim();
@@ -266,7 +277,7 @@ internal sealed class GitStatusService : IGitStatusService
             if (name == "HEAD" || name.Contains("HEAD detached"))
                 continue;
 
-            var isRemote = name.StartsWith("remotes/") || name.Contains("/");
+            var isRemote = false;
             string? remoteName = null;
             var shortName = name;
 
@@ -282,20 +293,28 @@ internal sealed class GitStatusService : IGitStatusService
                     shortName = name.Substring(slashIndex + 1);
                 }
             }
-            else if (isRemote)
+            else if (name.Contains('/'))
             {
+                // Check if it starts with a known remote name
                 var slashIndex = name.IndexOf('/');
                 if (slashIndex > 0)
                 {
-                    remoteName = name.Substring(0, slashIndex);
-                    shortName = name.Substring(slashIndex + 1);
+                    var possibleRemote = name.Substring(0, slashIndex);
+                    if (knownRemotes.Contains(possibleRemote))
+                    {
+                        // This is a remote branch (e.g., "origin/main")
+                        isRemote = true;
+                        remoteName = possibleRemote;
+                        shortName = name.Substring(slashIndex + 1);
+                    }
+                    // Otherwise it's a local branch with / in the name (e.g., "issues/123")
+                    // Keep isRemote = false, shortName = name
                 }
             }
-            else
-            {
-                shortName = name;
-                isRemote = false;
-            }
+
+            // Skip entries that are just the remote name (e.g., "origin" alone)
+            if (knownRemotes.Contains(name) && !name.Contains('/'))
+                continue;
 
             // Parse ahead/behind from track info like "[ahead 2, behind 1]" or "[ahead 2]"
             int? ahead = null, behind = null;
@@ -330,13 +349,13 @@ internal sealed class GitStatusService : IGitStatusService
         return branches;
     }
 
-    public async Task<GitOperationResult> CheckoutBranchAsync(string workingDirectory, string branchName)
+    public async Task<GitOperationResult> CheckoutBranchAsync(string workingDirectory, string branchName, bool isRemote = false)
     {
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
 
         // For remote branches, create a local tracking branch
-        if (branchName.Contains("/"))
+        if (isRemote && branchName.Contains('/'))
         {
             var slashIndex = branchName.IndexOf('/');
             var remoteName = branchName.Substring(0, slashIndex);
@@ -344,17 +363,26 @@ internal sealed class GitStatusService : IGitStatusService
 
             // Check if local branch already exists
             var localBranches = await _gitRunner.RunGitCommandAsync(workingDirectory, "branch --list");
-            if (localBranches != null && localBranches.Contains(remoteBranch))
+            if (localBranches != null)
             {
-                // Switch to existing local branch
-                return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout \"{remoteBranch}\" ");
+                // Parse branch list properly - each line may have leading spaces and * for current branch
+                var branchLines = localBranches.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in branchLines)
+                {
+                    var trimmed = line.Trim().TrimStart('*').Trim();
+                    if (trimmed == remoteBranch)
+                    {
+                        // Switch to existing local branch
+                        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout \"{remoteBranch}\"");
+                    }
+                }
             }
 
             // Create tracking branch
-            return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout -b \"{remoteBranch}\" \"{branchName}\" ");
+            return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout -b \"{remoteBranch}\" \"{branchName}\"");
         }
 
-        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout \"{branchName}\" ");
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout \"{branchName}\"");
     }
 
     public async Task<GitOperationResult> CreateBranchAsync(string workingDirectory, string branchName)

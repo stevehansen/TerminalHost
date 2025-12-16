@@ -151,7 +151,10 @@ public partial class GitBranchViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            var result = await _gitStatusService.CheckoutBranchAsync(CurrentBranchWorkingDirectory, SelectedBranch.Name);
+            var result = await _gitStatusService.CheckoutBranchAsync(
+                CurrentBranchWorkingDirectory,
+                SelectedBranch.Name,
+                SelectedBranch.IsRemote);
 
             if (result.Success)
             {
@@ -160,7 +163,9 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to switch branch:\n{0}", result.Error), "Git Checkout"); // Use string.Format
+                // Close popup before showing dialog to avoid WPF focus/ownership issues
+                IsOpen = false;
+                _dialogService.ShowWarning(string.Format("Failed to switch branch:\n{0}", result.Error), "Git Checkout");
             }
         }
         finally
@@ -197,7 +202,9 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to create branch:\n{0}", result.Error), "Git Branch"); // Use string.Format
+                // Close popup before showing dialog to avoid WPF focus/ownership issues
+                IsOpen = false;
+                _dialogService.ShowWarning(string.Format("Failed to create branch:\n{0}", result.Error), "Git Branch");
             }
         }
         finally
@@ -214,63 +221,61 @@ public partial class GitBranchViewModel : ObservableObject
 
         if (SelectedBranch.IsCurrent)
         {
-            _dialogService.ShowWarning( // Use injected IDialogService
+            // Close popup before showing dialog to avoid WPF focus/ownership issues
+            IsOpen = false;
+            _dialogService.ShowWarning(
                 "Cannot delete the current branch. Please switch to another branch first.",
                 "Git Branch");
             return;
         }
 
+        // Close popup before showing any dialogs to avoid WPF focus/ownership issues
+        var branchToDelete = SelectedBranch;
+        IsOpen = false;
+
         IsLoading = true;
         try
         {
-            if (SelectedBranch.IsRemote)
+            if (branchToDelete.IsRemote)
             {
-                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
-                    string.Format("Are you sure you want to delete the remote branch '{0}'?\n\nThis action CANNOT be undone and will affect other developers.", SelectedBranch.Name),
+                if (!_dialogService.ShowConfirmation(
+                    string.Format("Are you sure you want to delete the remote branch '{0}'?\n\nThis action CANNOT be undone and will affect other developers.", branchToDelete.Name),
                     "Delete Remote Branch"))
                     return;
 
-                var remoteName = SelectedBranch.RemoteName ?? "origin";
+                var remoteName = branchToDelete.RemoteName ?? "origin";
                 var result = await _gitStatusService.DeleteRemoteBranchAsync(
                     CurrentBranchWorkingDirectory,
                     remoteName,
-                    SelectedBranch.ShortName);
+                    branchToDelete.ShortName);
 
-                if (result.Success)
+                if (!result.Success)
                 {
-                    await RefreshGitBranchesAsync();
-                }
-                else
-                {
-                    _dialogService.ShowWarning(string.Format("Failed to delete remote branch:\n{0}", result.Error), "Git Branch"); // Use string.Format
+                    _dialogService.ShowWarning(string.Format("Failed to delete remote branch:\n{0}", result.Error), "Git Branch");
                 }
             }
             else
             {
-                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
-                    string.Format("Delete local branch '{0}'?", SelectedBranch.Name),
+                if (!_dialogService.ShowConfirmation(
+                    string.Format("Delete local branch '{0}'?", branchToDelete.Name),
                     "Delete Branch"))
                     return;
 
-                var result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, SelectedBranch.Name);
+                var result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, branchToDelete.Name);
 
                 if (!result.Success && result.Error?.Contains("not fully merged") == true)
                 {
-                    if (_dialogService.ShowConfirmation( // Use injected IDialogService
-                        string.Format("Branch '{0}' is not fully merged.\n\nDo you want to force delete it? This may result in lost commits.", SelectedBranch.Name),
+                    if (_dialogService.ShowConfirmation(
+                        string.Format("Branch '{0}' is not fully merged.\n\nDo you want to force delete it? This may result in lost commits.", branchToDelete.Name),
                         "Force Delete?"))
                     {
-                        result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, SelectedBranch.Name, force: true);
+                        result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, branchToDelete.Name, force: true);
                     }
                 }
 
-                if (result.Success)
+                if (!result.Success && result.Error?.Contains("not fully merged") != true)
                 {
-                    await RefreshGitBranchesAsync();
-                }
-                else if (result.Error?.Contains("not fully merged") != true)
-                {
-                    _dialogService.ShowWarning(string.Format("Failed to delete branch:\n{0}", result.Error), "Git Branch"); // Use string.Format
+                    _dialogService.ShowWarning(string.Format("Failed to delete branch:\n{0}", result.Error), "Git Branch");
                 }
             }
         }
@@ -300,7 +305,9 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to fetch:\n{0}", result.Error), "Git Fetch"); // Use string.Format
+                // Close popup before showing dialog to avoid WPF focus/ownership issues
+                IsOpen = false;
+                _dialogService.ShowWarning(string.Format("Failed to fetch:\n{0}", result.Error), "Git Fetch");
             }
         }
         finally
@@ -328,7 +335,9 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to pull:\n{0}", result.Error), "Git Pull"); // Use string.Format
+                // Close popup before showing dialog to avoid WPF focus/ownership issues
+                IsOpen = false;
+                _dialogService.ShowWarning(string.Format("Failed to pull:\n{0}", result.Error), "Git Pull");
             }
         }
         finally
