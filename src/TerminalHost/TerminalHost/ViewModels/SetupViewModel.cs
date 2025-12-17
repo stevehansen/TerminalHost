@@ -61,7 +61,7 @@ public partial class SetupViewModel : ObservableObject
         {
             Name = "HC.Dev Tool",
             Description = "The HC.Dev tool for .NET.",
-            DetectionCommand = "dev -h",
+            DetectionCommand = "dev h",
             InstallCommand = "dotnet tool install --global HC.Dev",
             HomepageUrl = "https://www.nuget.org/packages/HC.Dev/",
             InstallUrl = "https://www.nuget.org/packages/HC.Dev/"
@@ -153,7 +153,7 @@ public partial class SetupViewModel : ObservableObject
         }
 
         dependency.IsInstalling = true;
-        var (success, output, exitCode) = await RunCommandAsync(dependency.InstallCommand);
+        var (_, output, exitCode) = await RunCommandAsync(dependency.InstallCommand);
         dependency.FullOutput = output;
         dependency.ExitCode = exitCode;
         dependency.IsInstalling = false;

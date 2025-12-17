@@ -6,7 +6,7 @@
         xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:SetupViewModel, IsDesignTimeCreatable=True}"
-        Title="TerminalHost :: Setup" Height="600" Width="800"
+        Title="TerminalHost :: Setup" Height="640" Width="800"
         Background="{StaticResource BackgroundMediumBrush}" Foreground="{StaticResource TextBrightBrush}"
         WindowStartupLocation="CenterScreen">
 
