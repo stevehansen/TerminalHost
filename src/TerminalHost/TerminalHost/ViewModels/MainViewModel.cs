@@ -963,20 +963,22 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenProfiles()
     {
-        // Check if profiles tab already exists
-        var existingProfiles = Tabs.OfType<ProfilesTabViewModel>().FirstOrDefault();
-        if (existingProfiles != null)
+        // Open Settings and navigate to Profiles section
+        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
+        if (existingSettings != null)
         {
-            SelectedTab = existingProfiles;
+            existingSettings.SelectedSection = SettingsSection.Profiles;
+            SelectedTab = existingSettings;
             return;
         }
 
-        // Create new profiles tab
-        var profilesTab = new ProfilesTabViewModel(_profileRegistry);
-        profilesTab.CloseRequested += OnTabCloseRequested;
-        profilesTab.ProfileLaunchRequested += OnProfileLaunchRequested;
-        Tabs.Add(profilesTab);
-        SelectedTab = profilesTab;
+        // Create new settings tab with Profiles section selected
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService);
+        settingsTab.SelectedSection = SettingsSection.Profiles;
+        settingsTab.CloseRequested += OnTabCloseRequested;
+        settingsTab.ConfigSaved += OnConfigSaved;
+        Tabs.Add(settingsTab);
+        SelectedTab = settingsTab;
     }
 
     private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
@@ -1280,8 +1282,8 @@ public partial class MainViewModel : ObservableObject
             },
             new() {
                 Id = "profiles",
-                Name = "Profiles",
-                Description = "Manage terminal profiles",
+                Name = "Settings: Profiles",
+                Description = "Open settings and manage terminal profiles",
                 Shortcut = "Ctrl+P",
                 Icon = "👤",
                 Category = "Settings",

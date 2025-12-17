@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -16,7 +17,7 @@ public partial class SettingsView : UserControl
         Loaded += SettingsView_Loaded;
     }
 
-    private void SettingsView_Loaded(object sender, System.Windows.RoutedEventArgs e)
+    private void SettingsView_Loaded(object sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsTabViewModel viewModel)
         {
@@ -24,7 +25,7 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private void SettingsView_DataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
+    private void SettingsView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         // Unsubscribe from old view model
         if (_currentViewModel != null)
@@ -68,7 +69,7 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private void JsonEditor_Loaded(object sender, System.Windows.RoutedEventArgs e)
+    private void JsonEditor_Loaded(object sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsTabViewModel viewModel)
         {
@@ -84,6 +85,42 @@ public partial class SettingsView : UserControl
         {
             var currentText = JsonSyntaxHighlighter.GetPlainText(JsonEditor.Document);
             viewModel.OnTextChanged(currentText);
+        }
+    }
+
+    private void BrowseCustomCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel viewModel)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select Custom Terminal Executable",
+                Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                viewModel.CustomCommand = dialog.FileName;
+            }
+        }
+    }
+
+    private void BrowseShellCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel viewModel)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select Shell Executable",
+                Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                viewModel.ShellCommand = dialog.FileName;
+            }
         }
     }
 }

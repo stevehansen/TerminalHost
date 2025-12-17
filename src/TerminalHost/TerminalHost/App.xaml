@@ -29,6 +29,8 @@
         <local:BoolToColumnSpanConverter x:Key="BoolToColumnSpanConverter"/>
         <local:BoolToShellColumnConverter x:Key="BoolToShellColumnConverter"/>
         <local:BoolToShellRowConverter x:Key="BoolToShellRowConverter"/>
+        <local:ViewModeConverter x:Key="ViewModeConverter"/>
+        <local:SectionConverter x:Key="SectionConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

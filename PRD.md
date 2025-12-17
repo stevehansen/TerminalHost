@@ -43,9 +43,9 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Git repository status display (branch, dirty status, ahead/behind)
 - [x] Quick commands with keyboard shortcuts
 - [x] Terminal activity indicators (animated spinner in tabs)
-- [x] Settings editor tab with JSON syntax highlighting (Ctrl+,)
+- [x] Settings editor tab with Rich mode (form-based) and Raw mode (JSON) (Ctrl+,)
 - [x] System tray support (minimize to tray, restore on click)
-- [x] Profile management UI (Ctrl+P)
+- [x] Profile management integrated into Settings (Ctrl+P)
 - [x] Detected links button (scans terminal output for URLs, file paths, custom patterns)
 - [x] File preview popup with syntax highlighting
 - [x] Tab reordering via drag-and-drop
@@ -180,7 +180,7 @@ If a project tab for the specified directory already exists, it will be focused 
 |------------------|-------------------------------------|
 | Ctrl+N           | Open new project (folder picker)    |
 | Ctrl+,           | Open settings editor                |
-| Ctrl+P           | Open profile management             |
+| Ctrl+P           | Open settings (Profiles section)    |
 | Ctrl+E           | Open current folder in Explorer     |
 | Ctrl+O           | Open file preview dialog            |
 | F1               | Show help window                    |
@@ -479,17 +479,39 @@ Configure regex patterns to convert text into clickable links (e.g., ticket numb
 
 ### Settings Editor
 
-The Settings tab provides a JSON editor for the application configuration file with syntax highlighting.
+The Settings tab provides both a rich form-based editor and a raw JSON editor for the application configuration.
 
-**Features:**
-- Opens as a special tab via the Settings button or `Ctrl+,`
+**View Modes:**
+- **Rich Mode** (default): Form-based UI with sidebar navigation, proper controls, validation, and help text
+- **Raw Mode**: JSON editor with syntax highlighting for advanced users or copy-pasting configurations
+
+**Rich Mode Sections:**
+| Section            | Description                                          |
+|--------------------|------------------------------------------------------|
+| General            | App behavior (confirm on close, system tray)         |
+| Terminals          | Custom/Shell command paths, names, icons             |
+| Profiles           | Terminal profiles with add/edit/delete/reorder       |
+| Quick Commands     | Command shortcuts with add/edit/delete/reorder       |
+| Link Patterns      | Custom URL patterns (placeholder)                    |
+| Project Types      | Project detection rules (placeholder)                |
+| Claude Commands    | Claude Code shortcuts (placeholder)                  |
+| Directory Settings | Per-project layout and run configs (placeholder)     |
+
+**Rich Mode Features:**
+- Sidebar navigation (VS Code style)
+- Form controls: text inputs, file browsers, checkboxes, dropdowns, sliders
+- List editors with add/delete/apply/reorder buttons
+- Help text and tooltips for each field
+- Dark-themed ComboBox controls
+- Real-time sync between Rich and Raw modes
+
+**Raw Mode Features:**
 - JSON syntax highlighting (keys, strings, numbers, booleans)
 - Save, Reload, and Format buttons in toolbar
-- Reset Quick Commands button to restore defaults (preserves other settings)
+- Reset Quick Commands button to restore defaults
 - JSON validation on save with error messages
-- Dark theme matching the terminal interface
 
-**Syntax Highlighting Colors:**
+**Syntax Highlighting Colors (Raw Mode):**
 | Element      | Color                  |
 |--------------|------------------------|
 | Keys         | Light blue (#9CDCFE)   |
@@ -499,18 +521,21 @@ The Settings tab provides a JSON editor for the application configuration file w
 | Brackets     | Gray (#CCCCCC)         |
 
 **Implementation:**
-- Uses RichTextBox with FlowDocument for syntax highlighting
-- Regex-based tokenization for JSON elements
+- Uses RichTextBox with FlowDocument for syntax highlighting in Raw mode
+- Form-based controls in Rich mode with two-way binding
 - ConfigurationService provides raw JSON load/save with validation
+- `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` for readable shortcuts (no `\u002B` for `+`)
 
 ### Profile Management
 
-The Profiles tab (Ctrl+P) provides a UI for managing custom terminal profiles.
+Profile management is integrated into the Settings editor (Ctrl+P navigates directly to the Profiles section).
 
 **Features:**
 - Create, edit, and delete custom profiles
+- Reorder profiles with up/down buttons
 - Each profile has: name, command, icon, keyboard shortcut, and auto-start option
 - Profiles are stored in the `profiles` array in config.json
+- Auto-start badge shows which profiles launch on startup
 
 **Profile Properties:**
 | Property   | Description                                     |
@@ -1125,5 +1150,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.4*
-*Last Updated: 2025-12-16*
+*Document Version: 2.5*
+*Last Updated: 2025-12-17*

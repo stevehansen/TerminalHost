@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using TerminalHost.Domain;
+using TerminalHost.ViewModels;
 
 namespace TerminalHost;
 
@@ -361,6 +362,114 @@ public class BoolToShellRowConverter : IValueConverter
             return isVerticalMode ? 2 : 0;
         }
         return 0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts SettingsViewMode enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target mode (Rich or Raw).
+/// </summary>
+public class ViewModeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is SettingsViewMode mode && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<SettingsViewMode>(targetModeStr, out var targetMode))
+            {
+                return mode == targetMode;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<SettingsViewMode>(targetModeStr, out var targetMode))
+            {
+                return targetMode;
+            }
+        }
+        return System.Windows.Data.Binding.DoNothing;
+    }
+}
+
+/// <summary>
+/// Converts SettingsViewMode to Visibility based on TargetMode property.
+/// </summary>
+public class ViewModeToVisibilityConverter : IValueConverter
+{
+    public SettingsViewMode TargetMode { get; set; }
+
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is SettingsViewMode mode)
+        {
+            return mode == TargetMode ? Visibility.Visible : Visibility.Collapsed;
+        }
+        return Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts SettingsSection enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target section.
+/// </summary>
+public class SectionConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is SettingsSection section && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return section == targetSection;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return targetSection;
+            }
+        }
+        return System.Windows.Data.Binding.DoNothing;
+    }
+}
+
+/// <summary>
+/// Converts SettingsSection to Visibility.
+/// ConverterParameter specifies which section should be visible.
+/// </summary>
+public class SectionToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is SettingsSection section && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return section == targetSection ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+        return Visibility.Collapsed;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TerminalHost.Domain;
@@ -29,7 +30,8 @@ internal sealed class ConfigurationService : IConfigurationService
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     public AppConfiguration Load()

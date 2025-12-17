@@ -139,7 +139,7 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open profile management" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open settings (Profiles)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>

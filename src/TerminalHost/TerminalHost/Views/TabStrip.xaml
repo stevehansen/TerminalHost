@@ -103,15 +103,6 @@
                     ToolTip="Settings (Ctrl+,)"
                     Margin="0,0,4,0"/>
 
-            <!-- Profiles Button -->
-            <Button DockPanel.Dock="Right"
-                    Content="Profiles"
-                    AutomationProperties.AutomationId="ProfilesButton"
-                    Style="{StaticResource TerminalSwitchButton}"
-                    Command="{Binding OpenProfilesCommand}"
-                    ToolTip="Manage Profiles (Ctrl+P)"
-                    Margin="0,0,4,0"/>
-
             <!-- Statistics Button -->
             <Button DockPanel.Dock="Right"
                     Content="Statistics"

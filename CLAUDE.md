@@ -202,7 +202,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ### Application
 - `Ctrl+,`: Open settings editor
-- `Ctrl+P`: Open profile management
+- `Ctrl+P`: Open settings (Profiles section)
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
 - `Ctrl+G`: Open git changes panel (modified files + diffs)
