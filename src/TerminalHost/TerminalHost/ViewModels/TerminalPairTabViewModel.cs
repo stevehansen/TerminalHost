@@ -287,7 +287,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         Title = pair.DirectoryName;
         ActiveAiAssistant = activeAiAssistant;
         SelectedAiAssistant = activeAiAssistant;
-        CustomIcon = activeAiAssistant.Icon;
+        CustomIcon = activeAiAssistant.DisplayLabel;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
@@ -356,12 +356,49 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public void UpdateActiveAiAssistant(AiAssistant newAssistant)
     {
         ActiveAiAssistant = newAssistant;
-        CustomIcon = newAssistant.Icon;
+        CustomIcon = newAssistant.DisplayLabel;
 
         // Update selected without triggering the change event
         _suppressAiSwitchEvent = true;
         SelectedAiAssistant = newAssistant;
         _suppressAiSwitchEvent = false;
+    }
+
+    /// <summary>
+    /// Refreshes the available AI assistants list after settings change.
+    /// </summary>
+    public void RefreshAvailableAiAssistants(IReadOnlyList<AiAssistant> enabledAssistants)
+    {
+        _suppressAiSwitchEvent = true;
+
+        AvailableAiAssistants.Clear();
+        foreach (var assistant in enabledAssistants)
+        {
+            AvailableAiAssistants.Add(assistant);
+        }
+
+        // Update selected to match current active (find by ID)
+        if (ActiveAiAssistant != null)
+        {
+            var matchingAssistant = enabledAssistants.FirstOrDefault(a => a.Id == ActiveAiAssistant.Id);
+            if (matchingAssistant != null)
+            {
+                SelectedAiAssistant = matchingAssistant;
+                ActiveAiAssistant = matchingAssistant;
+                CustomIcon = matchingAssistant.DisplayLabel;
+            }
+            else if (enabledAssistants.Count > 0)
+            {
+                // Current assistant was disabled, switch to first enabled
+                var firstEnabled = enabledAssistants[0];
+                SelectedAiAssistant = firstEnabled;
+                ActiveAiAssistant = firstEnabled;
+                CustomIcon = firstEnabled.DisplayLabel;
+            }
+        }
+
+        _suppressAiSwitchEvent = false;
+        OnPropertyChanged(nameof(HasMultipleAiAssistants));
     }
 
     [RelayCommand]

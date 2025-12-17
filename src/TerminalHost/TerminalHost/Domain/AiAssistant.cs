@@ -50,6 +50,14 @@ public class AiAssistant
     public bool IsDefault { get; set; }
 
     /// <summary>
+    /// Gets the display label for UI (Icon if set, otherwise short name derived from Name).
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayLabel => !string.IsNullOrWhiteSpace(Icon)
+        ? Icon
+        : Name.Split(' ')[0]; // First word of name (e.g., "Claude" from "Claude Code")
+
+    /// <summary>
     /// Returns the default set of AI assistants.
     /// </summary>
     public static List<AiAssistant> GetDefaults() =>
@@ -59,7 +67,7 @@ public class AiAssistant
             Id = "claude",
             Name = "Claude Code",
             Command = @"%USERPROFILE%\.local\bin\claude.exe",
-            Icon = "Claude",
+            Icon = "", // Empty = use short name "Claude"
             DetectionCommand = "claude --version",
             Enabled = true,
             IsDefault = true
@@ -69,7 +77,7 @@ public class AiAssistant
             Id = "gemini",
             Name = "Gemini CLI",
             Command = "gemini",
-            Icon = "Gemini",
+            Icon = "", // Empty = use short name "Gemini"
             DetectionCommand = "gemini --version",
             Enabled = false,
             IsDefault = false
@@ -79,7 +87,7 @@ public class AiAssistant
             Id = "codex",
             Name = "OpenAI Codex",
             Command = "codex",
-            Icon = "Codex",
+            Icon = "", // Empty = use short name "OpenAI"
             DetectionCommand = "codex --version",
             Enabled = false,
             IsDefault = false
@@ -89,7 +97,7 @@ public class AiAssistant
             Id = "copilot",
             Name = "GitHub Copilot",
             Command = "gh copilot",
-            Icon = "Copilot",
+            Icon = "", // Empty = use short name "GitHub"
             DetectionCommand = "gh copilot --version",
             Enabled = false,
             IsDefault = false

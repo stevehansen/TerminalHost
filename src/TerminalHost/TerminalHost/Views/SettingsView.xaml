@@ -553,8 +553,10 @@
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding Icon}"
-                                                               FontSize="{StaticResource FontSizeNormal}"
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               Foreground="{StaticResource AccentPrimaryBrush}"
+                                                               FontWeight="SemiBold"
                                                                VerticalAlignment="Center"
                                                                Margin="0,0,8,0"/>
                                                     <StackPanel Grid.Column="1">
@@ -1871,6 +1873,26 @@
                                                HorizontalAlignment="Right"/>
                                 </Grid>
                                 <TextBlock Text="How much horizontal space the file explorer takes."
+                                           Style="{StaticResource HelpText}"/>
+
+                                <!-- AI Assistant -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="AI ASSISTANT"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <TextBlock Text="AI Assistant" Style="{StaticResource FieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding AiAssistants}"
+                                          SelectedItem="{Binding EditDsAiAssistant}"
+                                          Style="{StaticResource DarkComboBox}"
+                                          DisplayMemberPath="DisplayLabel"
+                                          MinWidth="150"
+                                          HorizontalAlignment="Left"
+                                          Margin="0,0,0,4"/>
+                                <TextBlock Text="Which AI assistant to use for the Custom terminal in this project."
                                            Style="{StaticResource HelpText}"/>
 
                                 <!-- Run Configurations -->

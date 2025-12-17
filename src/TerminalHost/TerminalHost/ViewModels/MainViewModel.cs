@@ -877,6 +877,11 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
+            // If targeting Shell and currently in Custom-only mode, switch to split layout
+            if (terminalTab.IsCustomFullMode)
+            {
+                terminalTab.SetVerticalSplitLayoutCommand.Execute(null);
+            }
             terminalTab.ShowShellTerminalCommand.Execute(null);
         }
 
@@ -1128,6 +1133,14 @@ public partial class MainViewModel : ObservableObject
     {
         // Reload quick commands when config is saved
         LoadQuickCommands();
+
+        // Reload AI assistants and update all terminal tabs
+        _aiAssistantService.Reload();
+        var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            tab.RefreshAvailableAiAssistants(enabledAssistants);
+        }
 
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);

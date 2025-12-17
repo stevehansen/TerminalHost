@@ -273,6 +273,10 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private double _editDsExplorerRatio = 0.25;
 
+    // AI Assistant selection for the directory
+    [ObservableProperty]
+    private AiAssistant? _editDsAiAssistant;
+
     // Run configurations for the selected directory
     [ObservableProperty]
     private ObservableCollection<RunConfiguration> _runConfigurations = [];
@@ -1346,6 +1350,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsShowExplorer = CurrentDirectorySettings.IsExplorerVisible;
             EditDsExplorerRatio = CurrentDirectorySettings.ExplorerSplitRatio;
             RunConfigurations = new ObservableCollection<RunConfiguration>(CurrentDirectorySettings.RunConfigurations);
+
+            // Load AI assistant selection
+            var aiId = CurrentDirectorySettings.ActiveAiAssistantId;
+            EditDsAiAssistant = !string.IsNullOrEmpty(aiId)
+                ? AiAssistants.FirstOrDefault(a => a.Id == aiId)
+                : AiAssistants.FirstOrDefault(a => a.IsDefault) ?? AiAssistants.FirstOrDefault();
         }
         else
         {
@@ -1356,6 +1366,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsShowExplorer = false;
             EditDsExplorerRatio = 0.25;
             RunConfigurations = [];
+            EditDsAiAssistant = AiAssistants.FirstOrDefault(a => a.IsDefault) ?? AiAssistants.FirstOrDefault();
         }
         SelectedRunConfiguration = null;
     }
@@ -1390,6 +1401,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         CurrentDirectorySettings.IsExplorerVisible = EditDsShowExplorer;
         CurrentDirectorySettings.ExplorerSplitRatio = EditDsExplorerRatio;
         CurrentDirectorySettings.RunConfigurations = RunConfigurations.ToList();
+        CurrentDirectorySettings.ActiveAiAssistantId = EditDsAiAssistant?.Id;
 
         SyncRichModeToJson();
     }
