@@ -156,6 +156,11 @@
                                 Margin="0,0,8,0"/>
                         <Button Content="+ Subtask"
                                 Command="{Binding AddSubtaskCommand}"
+                                Style="{StaticResource SmallButton}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="🔄 PR"
+                                ToolTip="Refresh PR/Branch info"
+                                Command="{Binding RefreshPrInfoCommand}"
                                 Style="{StaticResource SmallButton}"/>
                     </StackPanel>
                 </Grid>

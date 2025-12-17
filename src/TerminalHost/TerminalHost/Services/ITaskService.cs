@@ -46,6 +46,12 @@ public interface ITaskService
     // Task history
     IReadOnlyList<string> GetTaskHistory();
 
+    // PR/Branch integration
+    /// <summary>
+    /// Refresh PR info for a task (detect branch, fetch PR details).
+    /// </summary>
+    Task RefreshTaskPrInfoAsync(string taskId, string projectPath);
+
     // Events
     event EventHandler<FocusTask?>? CurrentTaskChanged;
     event EventHandler<bool>? FocusModeChanged;

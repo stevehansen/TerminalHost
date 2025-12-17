@@ -114,6 +114,7 @@ public partial class App : Application
         services.AddSingleton<IFilePreviewService, FilePreviewService>();
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
+        services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
 
         // ViewModels

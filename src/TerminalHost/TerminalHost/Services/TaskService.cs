@@ -10,6 +10,7 @@ namespace TerminalHost.Services;
 internal sealed class TaskService : ITaskService
 {
     private readonly IConfigurationService _configService;
+    private readonly IGitPrService _gitPrService;
     private readonly object _lock = new();
 
     // Cached data (loaded from config)
@@ -17,9 +18,10 @@ internal sealed class TaskService : ITaskService
     private List<QuickNote> _notes = [];
     private FocusModeState _focusMode = new();
 
-    public TaskService(IConfigurationService configService)
+    public TaskService(IConfigurationService configService, IGitPrService gitPrService)
     {
         _configService = configService;
+        _gitPrService = gitPrService;
         LoadFromConfig();
     }
 
@@ -579,6 +581,37 @@ internal sealed class TaskService : ITaskService
         lock (_lock)
         {
             return _focusMode.TaskHistory.ToList();
+        }
+    }
+
+    #endregion
+
+    #region PR/Branch Integration
+
+    public async Task RefreshTaskPrInfoAsync(string taskId, string projectPath)
+    {
+        FocusTask? task;
+        lock (_lock)
+        {
+            task = _tasks.FirstOrDefault(t => t.Id == taskId);
+        }
+
+        if (task == null) return;
+
+        var updated = await _gitPrService.AutoDetectPrInfoAsync(task, projectPath);
+
+        if (updated)
+        {
+            lock (_lock)
+            {
+                SaveToConfig();
+            }
+            OnTasksChanged();
+
+            if (_focusMode.CurrentTaskId == taskId)
+            {
+                OnCurrentTaskChanged(task);
+            }
         }
     }
 

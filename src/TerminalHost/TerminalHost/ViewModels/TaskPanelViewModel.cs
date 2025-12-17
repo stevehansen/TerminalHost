@@ -116,6 +116,25 @@ public partial class TaskPanelViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task RefreshPrInfo()
+    {
+        if (CurrentTask == null) return;
+
+        // Use first associated project, or current project if none
+        var projectPath = CurrentTask.ProjectPaths.FirstOrDefault();
+        if (string.IsNullOrEmpty(projectPath) && _mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            projectPath = terminalTab.Pair.WorkingDirectory;
+        }
+
+        if (!string.IsNullOrEmpty(projectPath))
+        {
+            await _taskService.RefreshTaskPrInfoAsync(CurrentTask.Id, projectPath);
+            RefreshCurrentTask();
+        }
+    }
+
+    [RelayCommand]
     private void AddSubtask()
     {
         if (CurrentTask == null) return;
