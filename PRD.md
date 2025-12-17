@@ -102,6 +102,16 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - PR/Branch integration via GitHub CLI (`gh`)
   - Auto-detect PR numbers from task titles (`PR #123`, `#123`, `issues/123`)
   - Task panel UI with backlog, current task, and completed today sections
+- [x] **Multiple AI Assistant Support:** Support for multiple AI CLI tools with per-project selection:
+  - Built-in AI Assistants: Claude Code (default, enabled), Gemini CLI, OpenAI Codex, GitHub Copilot (disabled by default)
+  - Per-project AI selection via toolbar dropdown
+  - Settings UI for managing AI assistants (add/edit/remove/reorder)
+  - Auto-detection of installed AI CLIs in Setup window
+  - Immediate terminal restart when switching AI
+  - Custom AI assistant support (user-defined command, name, icon)
+  - Configuration:
+    - Global: `aiAssistants[]` array in config.json with id, name, command, icon, detectionCommand, enabled, isDefault
+    - Per-project: `directorySettings[path].activeAiAssistantId`
 
 ### Deferred Features
 
@@ -1275,19 +1285,6 @@ This would help identify the source of false triggers and tune the detection log
 
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
-
-### Multiple AI Assistant Support (High Priority)
-- **Support Multiple Custom Commands**: Beyond Claude, support Gemini CLI, GitHub Copilot, OpenAI Codex
-- **Global Settings**: Configure paths/commands for each AI assistant in `AppSettings`
-  - `aiAssistants: [{ id, name, command, icon, detectionCommand }]`
-- **Per-Project Selection**: Store active AI assistant per directory in `DirectorySettings.activeAiAssistantId`
-- **Implementation Notes**:
-  - `AppSettings`: Add `AiAssistants` list with default entry for Claude
-  - `DirectorySettings`: Add `ActiveAiAssistantId` property
-  - `SetupViewModel.cs`: Add optional detection for other AI CLIs (gemini, copilot, etc.)
-  - `ProfileRegistry.cs`: Get custom command from active AI assistant for directory
-  - UI: Add AI selector dropdown in TerminalPairView toolbar (near terminal buttons)
-  - `/setup` window: Detect available AI assistants, enable found ones, require at least 1
 
 ### First-Run Setup Experience
 - **Auto-Launch Setup on First Run**: When config file is empty/missing, show setup dialog before main window
