@@ -150,5 +150,14 @@
 
         <!-- Detected Links View -->
         <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
+
+        <!-- Repository Switcher View (Ctrl+Shift+O) -->
+        <popups:RepositorySwitcherView x:Name="RepositorySwitcherViewControl" />
+
+        <!-- Test Results View (F6) -->
+        <popups:TestResultsView x:Name="TestResultsViewControl" />
+
+        <!-- PR Review View (Ctrl+Shift+R) -->
+        <popups:PrReviewView x:Name="PrReviewViewControl" />
     </Grid>
 </Window>

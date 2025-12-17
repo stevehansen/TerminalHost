@@ -1,0 +1,344 @@
+<Popup x:Class="TerminalHost.Views.Popups.PrReviewView"
+       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+       d:DataContext="{d:DesignInstance viewModels:PrReviewViewModel}"
+       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       mc:Ignorable="d"
+       AllowsTransparency="True"
+       Placement="Center"
+       StaysOpen="False"
+       IsOpen="{Binding IsOpen}">
+
+    <Border x:Name="PopupBorder"
+            Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Width="900"
+            Height="600"
+            PreviewKeyDown="PopupBorder_PreviewKeyDown"
+            Focusable="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}"
+                    CornerRadius="8,8,0,0" Padding="16,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding PullRequest.Title, FallbackValue='PR Review Mode'}"
+                                   FontSize="{StaticResource FontSizeLarge}"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="#"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"/>
+                            <TextBlock Text="{Binding PullRequest.Number}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxBlueBrush}"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="by"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding PullRequest.Author}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text=" | "
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="8,0"/>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxGreenBrush}">
+                                <Run Text="+"/>
+                                <Run Text="{Binding PullRequest.Additions, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxRedBrush}"
+                                       Margin="8,0,0,0">
+                                <Run Text="-"/>
+                                <Run Text="{Binding PullRequest.Deletions, Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="Open in Browser"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding OpenInBrowserCommand}"
+                                Padding="8,4"
+                                Margin="0,0,8,0"/>
+                        <Button Content="X"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding CloseCommand}"
+                                Padding="8,4"
+                                ToolTip="Close (Escape)"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content: Files + Diff -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Changed Files List -->
+                <Border Grid.Column="0" BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="0,0,1,0" Background="{StaticResource BackgroundDarkestBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Changed Files"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Padding="12,8"/>
+
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding ChangedFiles}"
+                                 SelectedItem="{Binding SelectedFile}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding FileName}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Path}"/>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="4,0,0,0">
+                                            <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                       Foreground="{StaticResource SyntaxGreenBrush}">
+                                                <Run Text="+"/>
+                                                <Run Text="{Binding Additions, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                       Foreground="{StaticResource SyntaxRedBrush}"
+                                                       Margin="4,0,0,0">
+                                                <Run Text="-"/>
+                                                <Run Text="{Binding Deletions, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Padding" Value="4,2"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Border"
+                                                        Background="{TemplateBinding Background}"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Border" Property="Background"
+                                                                Value="{StaticResource BackgroundDarkBrush}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Border" Property="Background"
+                                                                Value="{StaticResource BackgroundMediumBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <!-- Diff Viewer -->
+                <ScrollViewer Grid.Column="1"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              Background="{StaticResource BackgroundDarkBrush}">
+                    <TextBox Text="{Binding DiffContent, Mode=OneWay}"
+                             FontFamily="Consolas"
+                             FontSize="{StaticResource FontSizeCode}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             IsReadOnly="True"
+                             Padding="12"
+                             TextWrapping="NoWrap"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Disabled"
+                             HorizontalScrollBarVisibility="Disabled"/>
+                </ScrollViewer>
+
+                <!-- Loading Overlay -->
+                <Border Grid.Column="0" Grid.ColumnSpan="2"
+                        Background="#CC1E1E1E"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   FontSize="{StaticResource FontSizeNormal}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- No PR Message -->
+                <Border Grid.Column="0" Grid.ColumnSpan="2"
+                        Background="{StaticResource BackgroundDarkBrush}"
+                        Visibility="{Binding HasPullRequest, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsLoading, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <TextBlock Text="No PR Found"
+                                   FontSize="{StaticResource FontSizeLarge}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="The current branch doesn't have an open PR."
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Comment Input -->
+            <Border Grid.Row="2" Padding="12,8"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    BorderThickness="0,1,0,0">
+                <TextBox Text="{Binding ReviewComment, UpdateSourceTrigger=PropertyChanged}"
+                         Background="{StaticResource BackgroundDarkestBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8"
+                         Height="60"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Tag" Value="Add a comment..."/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Border>
+
+            <!-- Action Buttons -->
+            <Border Grid.Row="3" Padding="12,8"
+                    Background="{StaticResource BackgroundDarkestBrush}"
+                    CornerRadius="0,0,8,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Test Results -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button Content="Run Tests"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding RunTestsCommand}"
+                                IsEnabled="{Binding IsRunningTests, Converter={StaticResource InverseBoolConverter}}"
+                                Padding="12,6"
+                                Margin="0,0,8,0"/>
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   Visibility="{Binding TestSummary, Converter={StaticResource NullToVisibilityConverter}}">
+                            <Run Text="Tests:" Foreground="{StaticResource TextDimmedBrush}"/>
+                            <Run Text="{Binding TestSummary.PassedCount}" Foreground="{StaticResource SyntaxGreenBrush}"/>
+                            <Run Text="/" Foreground="{StaticResource TextDimmedBrush}"/>
+                            <Run Text="{Binding TestSummary.FailedCount}" Foreground="{StaticResource SyntaxRedBrush}"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Right: Review Actions -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Content="Comment"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding CommentCommand}"
+                                Padding="12,6"
+                                Margin="0,0,8,0"/>
+                        <Button Content="✓ Approve"
+                                Command="{Binding ApproveCommand}"
+                                Background="#2EA043"
+                                Foreground="#FFFFFF"
+                                FontWeight="SemiBold"
+                                Padding="12,6"
+                                Margin="0,0,8,0"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="4"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button Content="Request Changes"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding RequestChangesCommand}"
+                                Padding="12,6"
+                                Margin="0,0,8,0"/>
+                        <Button Content="⇄ Merge"
+                                Command="{Binding MergeCommand}"
+                                Background="#8957E5"
+                                Foreground="#FFFFFF"
+                                FontWeight="SemiBold"
+                                Padding="12,6"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="4"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Popup>

@@ -117,6 +117,9 @@ public partial class App : Application
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
+        services.AddSingleton<IGitHubService, GitHubService>();
+        services.AddSingleton<ITestRunnerService, TestRunnerService>();
+        services.AddSingleton<IMarkdownService, MarkdownService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
@@ -126,6 +129,10 @@ public partial class App : Application
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<FileViewerViewModel>();
+        services.AddSingleton<RepositorySwitcherViewModel>();
+        services.AddSingleton<TestResultsViewModel>();
+        services.AddSingleton<PrReviewViewModel>();
+        services.AddSingleton<MarkdownPreviewViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

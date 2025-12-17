@@ -72,6 +72,8 @@
         <SolidColorBrush x:Key="SyntaxOrangeBrush" Color="#CE9178"/>
         <SolidColorBrush x:Key="SyntaxGreenBrush" Color="#B5CEA8"/>
         <SolidColorBrush x:Key="SyntaxYellowBrush" Color="#FFD700"/>
+        <SolidColorBrush x:Key="SyntaxPurpleBrush" Color="#C586C0"/>
+        <SolidColorBrush x:Key="SyntaxRedBrush" Color="#F44747"/>
 
         <!-- Status Colors -->
         <SolidColorBrush x:Key="StatusErrorBrush" Color="#F48771"/>

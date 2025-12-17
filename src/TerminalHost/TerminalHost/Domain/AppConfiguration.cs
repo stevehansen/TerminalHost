@@ -37,6 +37,12 @@ public class AppConfiguration
     [JsonPropertyName("openFolders")]
     public List<string> OpenFolders { get; set; } = [];
 
+    /// <summary>
+    /// The last selected/active folder tab (to restore on restart).
+    /// </summary>
+    [JsonPropertyName("lastSelectedFolder")]
+    public string? LastSelectedFolder { get; set; }
+
     [JsonPropertyName("directorySettings")]
     public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = [];
 
@@ -305,4 +311,161 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("claudeCommandShortcuts")]
     public Dictionary<string, string> ClaudeCommandShortcuts { get; set; } = [];
+
+    /// <summary>
+    /// GitHub Dashboard settings.
+    /// </summary>
+    [JsonPropertyName("dashboard")]
+    public DashboardSettings Dashboard { get; set; } = new();
+
+    /// <summary>
+    /// Repository quick access settings.
+    /// </summary>
+    [JsonPropertyName("repositories")]
+    public RepositorySettings Repositories { get; set; } = new();
+
+    /// <summary>
+    /// Test runner settings.
+    /// </summary>
+    [JsonPropertyName("testing")]
+    public TestingSettings Testing { get; set; } = new();
+
+    /// <summary>
+    /// Markdown preview settings.
+    /// </summary>
+    [JsonPropertyName("markdown")]
+    public MarkdownSettings Markdown { get; set; } = new();
+}
+
+/// <summary>
+/// Settings for the GitHub Dashboard feature.
+/// </summary>
+public class DashboardSettings
+{
+    /// <summary>
+    /// Whether the dashboard feature is enabled.
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// How often to refresh dashboard data (in minutes).
+    /// </summary>
+    [JsonPropertyName("refreshIntervalMinutes")]
+    public int RefreshIntervalMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// GitHub organizations to watch for PRs/issues.
+    /// If empty, watches all accessible repos.
+    /// </summary>
+    [JsonPropertyName("watchedOrgs")]
+    public List<string> WatchedOrgs { get; set; } = [];
+
+    /// <summary>
+    /// Repositories to exclude from the dashboard.
+    /// </summary>
+    [JsonPropertyName("excludedRepos")]
+    public List<string> ExcludedRepos { get; set; } = [];
+
+    /// <summary>
+    /// Whether to show CI/workflow status.
+    /// </summary>
+    [JsonPropertyName("showCIStatus")]
+    public bool ShowCIStatus { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show the dashboard tab on startup.
+    /// </summary>
+    [JsonPropertyName("showOnStartup")]
+    public bool ShowOnStartup { get; set; } = false;
+}
+
+/// <summary>
+/// Settings for the Repository Quick Access feature.
+/// </summary>
+public class RepositorySettings
+{
+    /// <summary>
+    /// Directories to scan for git repositories.
+    /// </summary>
+    [JsonPropertyName("scanPaths")]
+    public List<string> ScanPaths { get; set; } = [];
+
+    /// <summary>
+    /// Favorite repositories (full names like "owner/repo").
+    /// </summary>
+    [JsonPropertyName("favorites")]
+    public List<string> Favorites { get; set; } = [];
+
+    /// <summary>
+    /// Default directory for cloning new repositories.
+    /// </summary>
+    [JsonPropertyName("cloneDirectory")]
+    public string CloneDirectory { get; set; } = "";
+
+    /// <summary>
+    /// Recently accessed repositories (paths).
+    /// </summary>
+    [JsonPropertyName("recentPaths")]
+    public List<string> RecentPaths { get; set; } = [];
+
+    /// <summary>
+    /// Maximum number of recent repositories to track.
+    /// </summary>
+    [JsonPropertyName("maxRecentItems")]
+    public int MaxRecentItems { get; set; } = 20;
+}
+
+/// <summary>
+/// Settings for the Test Runner feature.
+/// </summary>
+public class TestingSettings
+{
+    /// <summary>
+    /// Whether to run tests automatically on file save.
+    /// </summary>
+    [JsonPropertyName("runOnSave")]
+    public bool RunOnSave { get; set; } = false;
+
+    /// <summary>
+    /// Whether to show the test results panel automatically.
+    /// </summary>
+    [JsonPropertyName("showResultsPanel")]
+    public bool ShowResultsPanel { get; set; } = true;
+
+    /// <summary>
+    /// Whether to automatically focus the results panel on test failure.
+    /// </summary>
+    [JsonPropertyName("autoFocusOnFailure")]
+    public bool AutoFocusOnFailure { get; set; } = true;
+
+    /// <summary>
+    /// Default test command override (if not auto-detected).
+    /// </summary>
+    [JsonPropertyName("defaultTestCommand")]
+    public string? DefaultTestCommand { get; set; }
+}
+
+/// <summary>
+/// Settings for the Markdown Preview feature.
+/// </summary>
+public class MarkdownSettings
+{
+    /// <summary>
+    /// Whether to auto-reload markdown files when they change.
+    /// </summary>
+    [JsonPropertyName("autoReload")]
+    public bool AutoReload { get; set; } = true;
+
+    /// <summary>
+    /// Default panel position: "right" or "bottom".
+    /// </summary>
+    [JsonPropertyName("defaultPanelPosition")]
+    public string DefaultPanelPosition { get; set; } = "right";
+
+    /// <summary>
+    /// Whether to sync scroll position with editor.
+    /// </summary>
+    [JsonPropertyName("syncScroll")]
+    public bool SyncScroll { get; set; } = true;
 }

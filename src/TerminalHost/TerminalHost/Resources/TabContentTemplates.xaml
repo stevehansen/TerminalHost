@@ -29,4 +29,9 @@
         <views:StatisticsView/>
     </DataTemplate>
 
+    <!-- Dashboard Tab Content -->
+    <DataTemplate DataType="{x:Type vm:DashboardTabViewModel}">
+        <views:DashboardView/>
+    </DataTemplate>
+
 </ResourceDictionary>

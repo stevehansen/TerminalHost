@@ -1,0 +1,286 @@
+<UserControl x:Class="TerminalHost.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:DashboardTabViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkestBrush}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Padding="12,12,12,8">
+                    <StackPanel>
+                        <TextBlock Text="Dashboard"
+                                   FontSize="{StaticResource FontSizeLarge}"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Section Buttons -->
+                <StackPanel Grid.Row="1" Margin="8,0">
+                    <!-- Review Requests -->
+                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="Review"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalContentAlignment="Left"
+                            Margin="0,2" Padding="12,8">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Review" Width="100"/>
+                                <Border Background="{StaticResource SyntaxBlueBrush}" CornerRadius="8" Padding="6,2">
+                                    <TextBlock Text="{Binding ReviewRequestsCount}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+
+                    <!-- My PRs -->
+                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="MyPRs"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalContentAlignment="Left"
+                            Margin="0,2" Padding="12,8">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="My PRs" Width="100"/>
+                                <Border Background="{StaticResource SyntaxGreenBrush}" CornerRadius="8" Padding="6,2">
+                                    <TextBlock Text="{Binding MyPullRequestsCount}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+
+                    <!-- CI Failed -->
+                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="CIFailed"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalContentAlignment="Left"
+                            Margin="0,2" Padding="12,8"
+                            Visibility="{Binding FailedRunsCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="CI Failed" Width="100"/>
+                                <Border Background="{StaticResource SyntaxRedBrush}" CornerRadius="8" Padding="6,2">
+                                    <TextBlock Text="{Binding FailedRunsCount}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+
+                    <!-- Issues -->
+                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="Issues"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalContentAlignment="Left"
+                            Margin="0,2" Padding="12,8">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Issues" Width="100"/>
+                                <Border Background="{StaticResource SyntaxYellowBrush}" CornerRadius="8" Padding="6,2">
+                                    <TextBlock Text="{Binding MyIssuesCount}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Foreground="Black"/>
+                                </Border>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+
+                    <Separator Margin="0,16,0,8" Background="{StaticResource BorderSubtleBrush}"/>
+
+                    <!-- Recent Repos -->
+                    <TextBlock Text="Recent Repos"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               Margin="12,4"/>
+
+                    <ItemsControl ItemsSource="{Binding RecentRepos}" Margin="4,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding DataContext.OpenRepositoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        HorizontalContentAlignment="Left"
+                                        Margin="0,1" Padding="8,4">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Footer - Refresh button -->
+                <Border Grid.Row="2" Padding="8">
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalAlignment="Stretch"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Column="1">
+            <!-- GitHub CLI not available message (Z-order: bottom) -->
+            <Border Background="{StaticResource BackgroundDarkestBrush}"
+                    Visibility="{Binding IsGitHubCliAvailable, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="GitHub CLI Not Available"
+                               FontSize="{StaticResource FontSizeLarge}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Install and authenticate the gh CLI to use the Dashboard."
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0"/>
+                    <TextBlock Text="Run: gh auth login"
+                               FontSize="{StaticResource FontSizeCode}"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontFamily="Consolas"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0"/>
+                    <Button Content="Retry Detection"
+                            Command="{Binding RetryGitHubCliCommand}"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            HorizontalAlignment="Center"
+                            Margin="0,16,0,0"
+                            Padding="16,8"/>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,12,0,0"
+                               TextWrapping="Wrap"
+                               MaxWidth="400"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Content when CLI is available -->
+            <Grid Visibility="{Binding IsGitHubCliAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
+                <!-- Content List -->
+                <ListBox x:Name="ContentList"
+                         ItemsSource="{Binding CurrentSectionItems}"
+                         SelectedItem="{Binding SelectedItem}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12,8" Margin="0,4"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Title row -->
+                                    <TextBlock Grid.Row="0" Text="{Binding Title}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Meta row -->
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding Repository}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource SyntaxBlueBrush}"/>
+                                        <TextBlock Text=" by "
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"/>
+                                        <TextBlock Text="{Binding Author}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"/>
+                                    </StackPanel>
+
+                                    <!-- Action buttons -->
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="Open"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,4,0"
+                                                Padding="8,4"/>
+                                        <Button Content="Checkout"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding DataContext.CheckoutPullRequestCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Padding="8,4"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Loading indicator -->
+                <Border Background="#CC1E1E1E"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="Loading..."
+                               FontSize="{StaticResource FontSizeNormal}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Empty state -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                            IsHitTestVisible="False"
+                            Visibility="{Binding CurrentSectionItems.Count, Converter={StaticResource ZeroToVisibilityConverter}}">
+                    <TextBlock Text="No items"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Nothing to show in this section"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

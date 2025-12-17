@@ -1,0 +1,126 @@
+namespace TerminalHost.Domain;
+
+/// <summary>
+/// Represents a GitHub pull request.
+/// </summary>
+public class GitHubPullRequest
+{
+    /// <summary>
+    /// The PR number.
+    /// </summary>
+    public int Number { get; set; }
+
+    /// <summary>
+    /// The PR title.
+    /// </summary>
+    public string Title { get; set; } = "";
+
+    /// <summary>
+    /// The repository in "owner/repo" format.
+    /// </summary>
+    public string Repository { get; set; } = "";
+
+    /// <summary>
+    /// The author's GitHub username.
+    /// </summary>
+    public string Author { get; set; } = "";
+
+    /// <summary>
+    /// The PR state: "open", "merged", or "closed".
+    /// </summary>
+    public string State { get; set; } = "open";
+
+    /// <summary>
+    /// The base branch name (e.g., "main").
+    /// </summary>
+    public string? BaseBranch { get; set; }
+
+    /// <summary>
+    /// The head branch name (the PR branch).
+    /// </summary>
+    public string? HeadBranch { get; set; }
+
+    /// <summary>
+    /// Number of lines added.
+    /// </summary>
+    public int Additions { get; set; }
+
+    /// <summary>
+    /// Number of lines deleted.
+    /// </summary>
+    public int Deletions { get; set; }
+
+    /// <summary>
+    /// Number of files changed.
+    /// </summary>
+    public int ChangedFiles { get; set; }
+
+    /// <summary>
+    /// CI status: "passing", "failing", "pending", or null if unknown.
+    /// </summary>
+    public string? CiStatus { get; set; }
+
+    /// <summary>
+    /// Review decision: "approved", "changes_requested", "review_required", or null.
+    /// </summary>
+    public string? ReviewDecision { get; set; }
+
+    /// <summary>
+    /// Number of reviews completed.
+    /// </summary>
+    public int ReviewsCompleted { get; set; }
+
+    /// <summary>
+    /// Number of reviews required.
+    /// </summary>
+    public int ReviewsRequired { get; set; }
+
+    /// <summary>
+    /// When the PR was created.
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the PR was last updated.
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Gets the repository name without owner (e.g., "repo" from "owner/repo").
+    /// </summary>
+    public string RepositoryName => Repository.Contains('/') ? Repository.Split('/').Last() : Repository;
+
+    /// <summary>
+    /// Gets a human-readable time since the PR was updated.
+    /// </summary>
+    public string TimeSinceUpdate
+    {
+        get
+        {
+            var diff = DateTime.UtcNow - UpdatedAt;
+            if (diff.TotalMinutes < 60)
+                return $"{(int)diff.TotalMinutes}m ago";
+            if (diff.TotalHours < 24)
+                return $"{(int)diff.TotalHours}h ago";
+            if (diff.TotalDays < 7)
+                return $"{(int)diff.TotalDays}d ago";
+            return UpdatedAt.ToString("MMM dd");
+        }
+    }
+
+    /// <summary>
+    /// Gets a formatted diff summary (e.g., "+142 -23").
+    /// </summary>
+    public string DiffSummary => $"+{Additions} -{Deletions}";
+
+    /// <summary>
+    /// Gets a CI status icon.
+    /// </summary>
+    public string CiStatusIcon => CiStatus switch
+    {
+        "passing" => "P",
+        "failing" => "X",
+        "pending" => "O",
+        _ => "?"
+    };
+}

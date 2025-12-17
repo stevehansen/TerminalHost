@@ -25,10 +25,15 @@ public partial class MainWindow : Window
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
+    private readonly RepositorySwitcherViewModel _repositorySwitcherViewModel;
+    private readonly TestResultsViewModel _testResultsViewModel;
+    private readonly PrReviewViewModel _prReviewViewModel;
+    private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly IDialogService _dialogService;
     private bool _isExiting;
+    private Views.MarkdownPreviewWindow? _markdownPreviewWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -41,6 +46,10 @@ public partial class MainWindow : Window
         _gitFilesViewModel = gitFilesViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _taskPanelViewModel = taskPanelViewModel;
+        _repositorySwitcherViewModel = repositorySwitcherViewModel;
+        _testResultsViewModel = testResultsViewModel;
+        _prReviewViewModel = prReviewViewModel;
+        _markdownPreviewViewModel = markdownPreviewViewModel;
         _dialogService = dialogService;
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
@@ -49,6 +58,12 @@ public partial class MainWindow : Window
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         GitFilesViewControl.DataContext = gitFilesViewModel;
         FileViewerPopupControl.DataContext = fileViewerViewModel;
+        RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
+        TestResultsViewControl.DataContext = testResultsViewModel;
+        PrReviewViewControl.DataContext = prReviewViewModel;
+
+        // Subscribe to markdown preview events
+        _markdownPreviewViewModel.ShowRequested += OnMarkdownPreviewShowRequested;
 
         RestoreWindowState();
 
@@ -74,6 +89,8 @@ public partial class MainWindow : Window
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;
         _viewModel.SetupRequested += OnSetupRequested;
+        _viewModel.PrReviewRequested += OnPrReviewRequested;
+        _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -440,6 +457,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // F6: Run tests
+        if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            await _testResultsViewModel.RunAllTestsAsync();
+            e.Handled = true;
+            return;
+        }
+
         // Only handle shortcuts with modifiers - let plain Tab pass through to terminal
         if (Keyboard.Modifiers == ModifierKeys.None)
         {
@@ -605,6 +630,34 @@ public partial class MainWindow : Window
             await _gitBranchViewModel.OpenAsync();
             e.Handled = true;
         }
+        // Ctrl+Shift+O: Open repository switcher
+        else if (e.Key == Key.O && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            await _repositorySwitcherViewModel.OpenAsync();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+H: Open GitHub Dashboard
+        else if (e.Key == Key.H && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            await _viewModel.OpenDashboardCommand.ExecuteAsync(null);
+            e.Handled = true;
+        }
+        // Ctrl+Shift+R: Open PR Review Mode
+        else if (e.Key == Key.R && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+            if (currentTab != null)
+            {
+                await _prReviewViewModel.OpenAsync(currentTab.WorkingDirectory);
+            }
+            e.Handled = true;
+        }
+        // Ctrl+M: Open Markdown Preview
+        else if (e.Key == Key.M && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            await OpenMarkdownPreviewAsync();
+            e.Handled = true;
+        }
         // Check quick command shortcuts
         else if (TryExecuteQuickCommandShortcut(e.Key, Keyboard.Modifiers))
         {
@@ -757,6 +810,93 @@ public partial class MainWindow : Window
             Owner = this
         };
         setupWindow.ShowDialog();
+    }
+
+    private async void OnPrReviewRequested(object? sender, EventArgs e)
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab != null)
+        {
+            await _prReviewViewModel.OpenAsync(currentTab.WorkingDirectory);
+        }
+    }
+
+    private async void OnMarkdownPreviewRequested(object? sender, EventArgs e)
+    {
+        await OpenMarkdownPreviewAsync();
+    }
+
+    private void OnMarkdownPreviewShowRequested(object? sender, EventArgs e)
+    {
+        // Create or show the markdown preview window
+        if (_markdownPreviewWindow == null || !_markdownPreviewWindow.IsLoaded)
+        {
+            _markdownPreviewWindow = new Views.MarkdownPreviewWindow
+            {
+                DataContext = _markdownPreviewViewModel,
+                Owner = this
+            };
+            _markdownPreviewWindow.Closed += (s, args) =>
+            {
+                _markdownPreviewWindow = null;
+            };
+            _markdownPreviewWindow.Show();
+        }
+        else
+        {
+            // Bring to front
+            _markdownPreviewWindow.Activate();
+        }
+    }
+
+    private async Task OpenMarkdownPreviewAsync()
+    {
+        // If preview is open, close it
+        if (_markdownPreviewViewModel.IsOpen)
+        {
+            _markdownPreviewWindow?.Close();
+            return;
+        }
+
+        // Get current tab's working directory to find README or similar
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null) return;
+
+        var workingDir = currentTab.WorkingDirectory;
+        if (string.IsNullOrEmpty(workingDir)) return;
+
+        // Try to find a markdown file in the project
+        var mdFiles = new[] { "README.md", "readme.md", "README.MD", "CHANGELOG.md", "CONTRIBUTING.md" };
+        string? filePath = null;
+
+        foreach (var mdFile in mdFiles)
+        {
+            var path = System.IO.Path.Combine(workingDir, mdFile);
+            if (System.IO.File.Exists(path))
+            {
+                filePath = path;
+                break;
+            }
+        }
+
+        if (filePath != null)
+        {
+            await _markdownPreviewViewModel.OpenAsync(filePath);
+        }
+        else
+        {
+            // Open file picker to select a markdown file
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Markdown Files (*.md)|*.md|All Files (*.*)|*.*",
+                InitialDirectory = workingDir
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
+            }
+        }
     }
 
     #endregion

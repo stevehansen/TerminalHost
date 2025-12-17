@@ -138,6 +138,11 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
@@ -159,6 +164,16 @@
                         <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git branch switcher" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="9" Grid.Column="0" Text="F1" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="9" Grid.Column="1" Text="Show this help window" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="Ctrl+Shift+O" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="10" Grid.Column="1" Text="Repository quick access" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Ctrl+Shift+H" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="11" Grid.Column="1" Text="GitHub Dashboard" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="Ctrl+Shift+R" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="1" Text="PR Review Mode" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="F6" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="13" Grid.Column="1" Text="Run tests" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="Ctrl+M" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="14" Grid.Column="1" Text="Markdown preview" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Quick Commands Section -->

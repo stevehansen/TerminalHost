@@ -29,6 +29,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly ITaskService _taskService;
     private readonly IAiAssistantService _aiAssistantService;
+    private readonly IGitHubService _gitHubService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -162,7 +163,8 @@ public partial class MainViewModel : ObservableObject
         IFileEditService fileEditService,
         IClaudeCommandService claudeCommandService,
         ITaskService taskService,
-        IAiAssistantService aiAssistantService)
+        IAiAssistantService aiAssistantService,
+        IGitHubService gitHubService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -182,6 +184,7 @@ public partial class MainViewModel : ObservableObject
         _claudeCommandService = claudeCommandService;
         _taskService = taskService;
         _aiAssistantService = aiAssistantService;
+        _gitHubService = gitHubService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -474,9 +477,20 @@ public partial class MainViewModel : ObservableObject
         var config = _configService.Load();
         foreach (var folder in config.OpenFolders)
         {
-            if (_fileSystem.DirectoryExists(folder)) // Use injected IFileSystem
+            if (_fileSystem.DirectoryExists(folder))
             {
                 OpenProjectTab(folder);
+            }
+        }
+
+        // Restore the last selected tab
+        if (!string.IsNullOrEmpty(config.LastSelectedFolder))
+        {
+            var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
+                .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
+            if (tabToSelect != null)
+            {
+                SelectedTab = tabToSelect;
             }
         }
     }
@@ -484,7 +498,21 @@ public partial class MainViewModel : ObservableObject
     private void SaveOpenFolders()
     {
         var config = _configService.Load();
+
+        // Only save TerminalPairTabViewModel tabs (not Settings, Stats, Dashboard, etc.)
         config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
+
+        // Save the currently selected tab (if it's a project tab)
+        if (SelectedTab is TerminalPairTabViewModel selectedProjectTab)
+        {
+            config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
+        }
+        else
+        {
+            // Keep the previous selection or clear it
+            config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+        }
+
         _configService.Save(config);
     }
 
@@ -1090,6 +1118,27 @@ public partial class MainViewModel : ObservableObject
         SelectedTab = settingsTab;
     }
 
+    [RelayCommand]
+    private async Task OpenDashboardAsync()
+    {
+        // Check if dashboard tab already exists
+        var existingDashboard = Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+        if (existingDashboard != null)
+        {
+            SelectedTab = existingDashboard;
+            return;
+        }
+
+        // Create new dashboard tab
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService);
+        dashboardTab.CloseRequested += OnTabCloseRequested;
+        Tabs.Add(dashboardTab);
+        SelectedTab = dashboardTab;
+
+        // Initialize the dashboard (fetches data)
+        await dashboardTab.InitializeAsync();
+    }
+
     private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
     {
         if (e.PickFolder)
@@ -1247,6 +1296,8 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
     public event EventHandler? TaskPanelRequested;
+    public event EventHandler? PrReviewRequested;
+    public event EventHandler? MarkdownPreviewRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -1546,6 +1597,39 @@ public partial class MainViewModel : ObservableObject
                 Icon = "📊",
                 Category = "Tools",
                 Execute = () => OpenStatisticsCommand.Execute(null)
+            },
+
+            // GitHub Dashboard
+            new() {
+                Id = "dashboard",
+                Name = "Dashboard",
+                Description = "View GitHub PRs, issues, and CI status",
+                Shortcut = "Ctrl+Shift+H",
+                Icon = "🏠",
+                Category = "GitHub",
+                Execute = () => OpenDashboardCommand.Execute(null)
+            },
+            new() {
+                Id = "pr-review",
+                Name = "PR Review Mode",
+                Description = "Review the current branch's pull request",
+                Shortcut = "Ctrl+Shift+R",
+                Icon = "📝",
+                Category = "GitHub",
+                Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Markdown
+            new() {
+                Id = "markdown-preview",
+                Name = "Markdown Preview",
+                Description = "Preview markdown files",
+                Shortcut = "Ctrl+M",
+                Icon = "📄",
+                Category = "Tools",
+                Execute = () => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 
             // Git

@@ -26,6 +26,7 @@ public class MainViewModelTests
     private readonly Mock<IClaudeCommandService> _mockClaudeCommandService;
     private readonly Mock<ITaskService> _mockTaskService;
     private readonly Mock<IAiAssistantService> _mockAiAssistantService;
+    private readonly Mock<IGitHubService> _mockGitHubService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -48,6 +49,7 @@ public class MainViewModelTests
         _mockClaudeCommandService = new Mock<IClaudeCommandService>();
         _mockTaskService = new Mock<ITaskService>();
         _mockAiAssistantService = new Mock<IAiAssistantService>();
+        _mockGitHubService = new Mock<IGitHubService>();
 
         // Setup default behaviors for IAiAssistantService
         var defaultAssistant = new AiAssistant
@@ -121,7 +123,8 @@ public class MainViewModelTests
             _mockFileEditService.Object,
             _mockClaudeCommandService.Object,
             _mockTaskService.Object,
-            _mockAiAssistantService.Object);
+            _mockAiAssistantService.Object,
+            _mockGitHubService.Object);
     }
 
     // Helper to run tests in STA thread

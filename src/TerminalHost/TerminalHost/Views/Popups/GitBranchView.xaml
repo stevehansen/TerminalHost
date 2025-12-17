@@ -187,7 +187,7 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            Padding="20"
-                           Visibility="{Binding Branches.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverse}"/>
+                           Visibility="{Binding Branches.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
 
                 <!-- Footer with action buttons -->
                 <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">

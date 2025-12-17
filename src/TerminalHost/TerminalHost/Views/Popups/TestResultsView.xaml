@@ -1,0 +1,269 @@
+<UserControl x:Class="TerminalHost.Views.Popups.TestResultsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:TestResultsViewModel}"
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
+
+    <Popup x:Name="TestResultsPopup"
+           Placement="Center"
+           PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+           StaysOpen="True"
+           AllowsTransparency="True"
+           IsOpen="{Binding IsOpen, Mode=TwoWay}">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxGreenBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                MinWidth="600"
+                MaxWidth="800"
+                MaxHeight="600"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Style="{StaticResource TabCloseButton}"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="T" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text=" (F6)"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Summary Bar -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                    <DockPanel>
+                        <!-- Action buttons on right -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Stop"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding CancelTestsCommand}"
+                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Rerun"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding RerunTestsCommand}"
+                                    ToolTip="Re-run all tests"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Run Failed"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding RunFailedTestsCommand}"
+                                    ToolTip="Re-run only failed tests"/>
+                        </StackPanel>
+
+                        <!-- Summary counts -->
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Passed -->
+                            <Border Background="{StaticResource SyntaxGreenBrush}" CornerRadius="4" Padding="8,4" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="P " Foreground="White" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding PassedCount}" Foreground="White" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Failed -->
+                            <Border CornerRadius="4" Padding="8,4" Margin="0,0,8,0">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FailedCount, Converter={StaticResource BoolToVisibilityConverter}}" Value="Visible">
+                                                <Setter Property="Background" Value="{StaticResource SyntaxRedBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="X " Foreground="White" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding FailedCount}" Foreground="White" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Skipped -->
+                            <Border Background="{StaticResource SyntaxYellowBrush}" CornerRadius="4" Padding="8,4" Margin="0,0,8,0"
+                                    Visibility="{Binding SkippedCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="O " Foreground="Black" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding SkippedCount}" Foreground="Black" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Duration -->
+                            <TextBlock Text="{Binding TotalDuration}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0,0,0"
+                                       Visibility="{Binding TotalDuration, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Test Results List -->
+                <ListBox x:Name="TestResultsList"
+                         Grid.Row="2"
+                         ItemsSource="{Binding Results}"
+                         SelectedItem="{Binding SelectedResult}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Status icon -->
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding StatusIcon}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Passed">
+                                                    <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Failed">
+                                                    <Setter Property="Foreground" Value="{StaticResource SyntaxRedBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Skipped">
+                                                    <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- Test name -->
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding DisplayName}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding FullName}"/>
+
+                                <!-- Duration -->
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding DurationDisplay}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="ItemBorder"
+                                                Background="{TemplateBinding Background}"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Loading/Running indicator -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource BackgroundDarkBrush}"
+                        Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="Running tests..."
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Error Details Panel (for selected failed test) -->
+                <Border Grid.Row="3"
+                        Background="{StaticResource BackgroundDarkestBrush}"
+                        Padding="12,8"
+                        Visibility="{Binding SelectedResult.ErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"
+                        MaxHeight="150">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="{Binding SelectedResult.ErrorMessage}"
+                                       Foreground="{StaticResource SyntaxRedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       FontFamily="Consolas"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SelectedResult.StackTrace}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       FontFamily="Consolas"
+                                       TextWrapping="Wrap"
+                                       Margin="0,8,0,0"
+                                       Visibility="{Binding SelectedResult.StackTrace, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Footer -->
+                <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Popup>
+</UserControl>

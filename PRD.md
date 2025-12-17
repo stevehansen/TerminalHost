@@ -112,6 +112,38 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Configuration:
     - Global: `aiAssistants[]` array in config.json with id, name, command, icon, detectionCommand, enabled, isDefault
     - Per-project: `directorySettings[path].activeAiAssistantId`
+- [x] **GitHub Dashboard (Ctrl+Shift+H):** Centralized view of GitHub activity:
+  - Review Requests: PRs where you're requested as reviewer (excludes drafts)
+  - My PRs: Your open pull requests across all repositories
+  - Issues: Issues assigned to you
+  - Section sidebar with counts for each category
+  - Open in browser and Checkout actions for PRs
+  - Uses GitHub API via `gh api` for reliable data fetching (up to 100 items per section)
+  - Auto-refresh capability with configurable interval
+- [x] **Repository Quick Access (Ctrl+Shift+O):** Quick repository switcher popup:
+  - Search/filter repositories by name
+  - Shows open tabs, favorites, and GitHub repositories
+  - Favorite toggle for quick access
+  - Clone button for remote repositories
+  - Status indicators (open, local, favorite)
+- [x] **PR Review Mode (Ctrl+Shift+R):** Review PRs for the current branch:
+  - File list with additions/deletions per file
+  - Diff viewer for selected files
+  - Review actions: Approve, Request Changes, Comment, Merge
+  - Run tests integration
+  - Opens PR details for the current branch's PR
+- [x] **Quick Test Runner (F6):** Run project tests with visual results:
+  - Auto-detects test framework from project type
+  - Displays pass/fail/skip counts
+  - Test tree view with status icons
+  - Error details and stack traces for failed tests
+  - Re-run failed tests option
+- [x] **Markdown Preview (Ctrl+M):** Preview markdown files in a dedicated window:
+  - Auto-finds README.md or prompts for file selection
+  - Live preview with dark theme styling
+  - Auto-reload on file changes (toggleable)
+  - Resizable, draggable window with native controls
+  - Refresh button (F5) for manual reload
 
 ### Deferred Features
 
@@ -217,9 +249,13 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+G           | Open git changes panel              |
 | Ctrl+B           | Open git branch switcher            |
 | Ctrl+T           | Open task panel (focus mode)        |
+| Ctrl+Shift+H     | Open GitHub Dashboard               |
+| Ctrl+Shift+O     | Open Repository Quick Access        |
+| Ctrl+Shift+R     | Open PR Review Mode                 |
+| F6               | Run tests (Quick Test Runner)       |
+| Ctrl+M           | Open Markdown Preview               |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
-| Ctrl+Shift+R     | Quick command: Rate Code (Claude Code) |
-| Ctrl+Shift+V     | Quick command: Review PR (Claude Code) |
+| Ctrl+Shift+V     | Quick command: Review (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
 | Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
 | Ctrl+Shift+B     | Quick command: Dev Build (Shell)    |
@@ -1339,5 +1375,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.8*
-*Last Updated: 2025-12-17*
+*Document Version: 2.9*
+*Last Updated: 2025-12-18*

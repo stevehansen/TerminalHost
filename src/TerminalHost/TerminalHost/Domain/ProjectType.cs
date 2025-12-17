@@ -50,6 +50,24 @@ public class ProjectType
     public int Priority { get; set; } = 0;
 
     /// <summary>
+    /// Command to run tests (e.g., "dotnet test", "npm test").
+    /// </summary>
+    [JsonPropertyName("testCommand")]
+    public string? TestCommand { get; set; }
+
+    /// <summary>
+    /// Glob pattern for test files (e.g., "**/*Tests.cs", "**/*.test.ts").
+    /// </summary>
+    [JsonPropertyName("testFilePattern")]
+    public string? TestFilePattern { get; set; }
+
+    /// <summary>
+    /// Command to run tests for a single file. Use {file} as placeholder.
+    /// </summary>
+    [JsonPropertyName("testSingleFileCommand")]
+    public string? TestSingleFileCommand { get; set; }
+
+    /// <summary>
     /// Gets the default project types for common frameworks.
     /// </summary>
     public static List<ProjectType> GetDefaults() =>
@@ -62,7 +80,10 @@ public class ProjectType
             DefaultCommand = "dotnet run",
             WatchCommand = "dotnet watch run",
             UrlPattern = @"Now listening on: (https?://[^\s]+)",
-            Priority = 10
+            Priority = 10,
+            TestCommand = "dotnet test",
+            TestFilePattern = "**/*Tests.cs",
+            TestSingleFileCommand = "dotnet test --filter \"FullyQualifiedName~{testClass}\""
         },
         new ProjectType
         {
@@ -72,7 +93,10 @@ public class ProjectType
             DefaultCommand = "npm start",
             WatchCommand = "npm run dev",
             UrlPattern = @"(?:Local|http):\s*(https?://(?:localhost|127\.0\.0\.1)[:\d]*)",
-            Priority = 5
+            Priority = 5,
+            TestCommand = "npm test",
+            TestFilePattern = "**/*.test.{js,ts,jsx,tsx}",
+            TestSingleFileCommand = "npm test -- {file}"
         },
         new ProjectType
         {
@@ -82,7 +106,10 @@ public class ProjectType
             DefaultCommand = "python main.py",
             WatchCommand = "flask run",
             UrlPattern = @"Running on (https?://[^\s]+)",
-            Priority = 3
+            Priority = 3,
+            TestCommand = "pytest",
+            TestFilePattern = "**/test_*.py",
+            TestSingleFileCommand = "pytest {file}"
         },
         new ProjectType
         {
@@ -92,7 +119,9 @@ public class ProjectType
             DefaultCommand = "cargo run",
             WatchCommand = "cargo watch -x run",
             UrlPattern = @"(https?://(?:localhost|127\.0\.0\.1):\d+)",
-            Priority = 4
+            Priority = 4,
+            TestCommand = "cargo test",
+            TestFilePattern = "**/tests/**/*.rs"
         },
         new ProjectType
         {
@@ -102,7 +131,9 @@ public class ProjectType
             DefaultCommand = "go run .",
             WatchCommand = null,
             UrlPattern = @"(https?://(?:localhost|127\.0\.0\.1):\d+)",
-            Priority = 4
+            Priority = 4,
+            TestCommand = "go test ./...",
+            TestFilePattern = "**/*_test.go"
         }
     ];
 }
