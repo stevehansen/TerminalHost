@@ -544,6 +544,18 @@ public partial class MainWindow : Window
             _viewModel.OpenScratchPadCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+Q: Quick add task
+        else if (e.Key == Key.Q && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _viewModel.OpenQuickTaskCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+Shift+M: Quick add note
+        else if (e.Key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _viewModel.OpenQuickNoteCommand.Execute(null);
+            e.Handled = true;
+        }
         // Ctrl+Shift+F: Toggle file explorer
         else if (e.Key == Key.F && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {

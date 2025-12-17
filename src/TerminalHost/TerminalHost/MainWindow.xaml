@@ -122,6 +122,26 @@
             <popups:TaskPanelView DataContext="{Binding TaskPanelViewModel}" />
         </Popup>
 
+        <!-- Quick Task View (Ctrl+Shift+Q) -->
+        <Popup x:Name="QuickTaskPopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsQuickTaskOpen, Mode=TwoWay}">
+            <popups:QuickTaskView DataContext="{Binding}" />
+        </Popup>
+
+        <!-- Quick Note View (Ctrl+Shift+M) -->
+        <Popup x:Name="QuickNotePopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsQuickNoteOpen, Mode=TwoWay}">
+            <popups:QuickNoteView DataContext="{Binding}" />
+        </Popup>
+
         <!-- Git Files View (Ctrl+G) -->
         <popups:GitFilesView x:Name="GitFilesViewControl" />
 

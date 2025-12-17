@@ -107,6 +107,19 @@ public partial class MainViewModel : ObservableObject
     // Task Panel
     public TaskPanelViewModel? TaskPanelViewModel { get; set; }
 
+    // Quick Capture
+    [ObservableProperty]
+    private bool _isQuickTaskOpen;
+
+    [ObservableProperty]
+    private string _quickTaskTitle = string.Empty;
+
+    [ObservableProperty]
+    private bool _isQuickNoteOpen;
+
+    [ObservableProperty]
+    private string _quickNoteText = string.Empty;
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -1203,6 +1216,71 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenQuickTask()
+    {
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = true;
+    }
+
+    [RelayCommand]
+    private void CreateQuickTask()
+    {
+        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
+
+        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
+
+        // Associate with current project if available
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
+        }
+
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = false;
+    }
+
+    [RelayCommand]
+    private void CreateAndStartQuickTask()
+    {
+        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
+
+        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
+
+        // Associate with current project if available
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
+        }
+
+        _taskService.StartTask(task.Id);
+
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenQuickNote()
+    {
+        QuickNoteText = string.Empty;
+        IsQuickNoteOpen = true;
+    }
+
+    [RelayCommand]
+    private void CreateQuickNote()
+    {
+        if (string.IsNullOrWhiteSpace(QuickNoteText)) return;
+
+        var projectPath = SelectedTab is TerminalPairTabViewModel terminalTab
+            ? terminalTab.Pair.WorkingDirectory
+            : null;
+
+        _taskService.CreateNote(QuickNoteText.Trim(), projectPath);
+
+        QuickNoteText = string.Empty;
+        IsQuickNoteOpen = false;
+    }
+
+    [RelayCommand]
     private void OpenHelp()
     {
         IsHelpOpen = true;
@@ -1372,6 +1450,24 @@ public partial class MainViewModel : ObservableObject
                 Icon = "📋",
                 Category = "Tools",
                 Execute = () => OpenTaskPanelCommand.Execute(null)
+            },
+            new() {
+                Id = "quick-task",
+                Name = "Quick Task",
+                Description = "Quickly add a new task",
+                Shortcut = "Ctrl+Shift+Q",
+                Icon = "+",
+                Category = "Tools",
+                Execute = () => OpenQuickTaskCommand.Execute(null)
+            },
+            new() {
+                Id = "quick-note",
+                Name = "Quick Note",
+                Description = "Capture a quick note",
+                Shortcut = "Ctrl+Shift+M",
+                Icon = "📝",
+                Category = "Tools",
+                Execute = () => OpenQuickNoteCommand.Execute(null)
             },
 
             // Scratch Pad
