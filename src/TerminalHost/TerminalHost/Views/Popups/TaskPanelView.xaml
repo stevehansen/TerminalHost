@@ -51,7 +51,8 @@
                     <!-- Focus Mode Toggle -->
                     <Button Grid.Column="2"
                             Command="{Binding ToggleFocusModeCommand}"
-                            ToolTip="{Binding FocusModeButtonText}"
+                            ToolTip="{Binding FocusModeTooltip}"
+                            IsEnabled="{Binding CanToggleFocusMode}"
                             Margin="0,0,8,0"
                             Style="{StaticResource TerminalSwitchButton}">
                         <StackPanel Orientation="Horizontal">
@@ -218,6 +219,7 @@
 
                                         <TextBlock Grid.Column="0"
                                                    Text="{Binding StatusIcon}"
+                                                   Foreground="{Binding StatusColorHex, Converter={StaticResource HexToBrushConverter}}"
                                                    FontSize="14"
                                                    VerticalAlignment="Center"
                                                    Margin="0,0,8,0"/>
@@ -263,6 +265,171 @@
                                FontStyle="Italic"
                                Margin="0,4,0,12"
                                Visibility="{Binding BacklogTasks.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+
+                    <!-- Edit Task Panel -->
+                    <Border Background="{StaticResource BackgroundLightBrush}"
+                            CornerRadius="4"
+                            Padding="12"
+                            Margin="0,8,0,12"
+                            Visibility="{Binding HasSelectedTask, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="✏️ EDIT TASK"
+                                       Foreground="{StaticResource SyntaxYellowBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,10"/>
+
+                            <!-- Title -->
+                            <TextBlock Text="Title"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding EditTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,6"
+                                     FontSize="{StaticResource FontSizeNormal}"
+                                     Margin="0,0,0,10"/>
+
+                            <!-- Description -->
+                            <TextBlock Text="Description (optional)"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding EditDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,6"
+                                     FontSize="{StaticResource FontSizeSmall}"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     Height="50"
+                                     Margin="0,0,0,10"/>
+
+                            <!-- Priority and Issue/PR in a row -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Priority -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Priority"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding EditPriority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="{StaticResource BackgroundDarkestBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,6"
+                                             Width="60"
+                                             HorizontalAlignment="Left"/>
+                                </StackPanel>
+
+                                <!-- Issue/PR -->
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Text="Issue/PR # or branch"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding EditLinkedIssue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="{StaticResource BackgroundDarkestBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,6"
+                                             ToolTip="Enter #123 for issue/PR, or branch name"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Projects -->
+                            <TextBlock Text="Linked Projects"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       Margin="0,0,0,4"/>
+                            <Border Background="{StaticResource BackgroundDarkestBrush}"
+                                    CornerRadius="3"
+                                    Padding="6"
+                                    Margin="0,0,0,6"
+                                    MinHeight="30">
+                                <ItemsControl ItemsSource="{Binding SelectedTaskProjects}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource BackgroundLightBrush}"
+                                                    CornerRadius="3"
+                                                    Padding="6,3"
+                                                    Margin="0,0,4,4">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Converter={StaticResource PathToFolderNameConverter}}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontSize="{StaticResource FontSizeTiny}"
+                                                               VerticalAlignment="Center"/>
+                                                    <Button Content="×"
+                                                            Command="{Binding DataContext.RemoveProjectFromSelectedTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource TabCloseButton}"
+                                                            Padding="4,0"
+                                                            Margin="4,0,0,0"
+                                                            FontSize="10"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                            <Button Content="+ Add Current Project"
+                                    Command="{Binding AddProjectToSelectedTaskCommand}"
+                                    Style="{StaticResource SmallButton}"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,10"/>
+
+                            <!-- Notes -->
+                            <TextBlock Text="Notes (scratch pad for this task)"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding EditNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,6"
+                                     FontSize="{StaticResource FontSizeSmall}"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     Height="60"
+                                     Margin="0,0,0,12"/>
+
+                            <!-- Action buttons -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Cancel"
+                                        Command="{Binding CancelEditCommand}"
+                                        Style="{StaticResource SmallButton}"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="Save"
+                                        Command="{Binding SaveEditedTaskCommand}"
+                                        Style="{StaticResource SmallButton}"
+                                        Background="{StaticResource AccentBlueBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Quick Notes Section -->
                     <TextBlock Text="📝 QUICK NOTES"

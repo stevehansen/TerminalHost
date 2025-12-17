@@ -93,6 +93,15 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Tracks command usage when executed
   - Persists MRU list in config.json (up to 30 commands)
   - Commands not in MRU sorted alphabetically after MRU items
+- [x] **Task/Focus Mode (Ctrl+T):** Task management system for organizing daily work:
+  - Hierarchical task tree with parent/child relationships
+  - Task statuses: NotStarted, InProgress, Completed, Deferred
+  - Focus mode filters tabs to show only task-related projects
+  - Quick notes that can be converted to tasks
+  - Time tracking with elapsed time display
+  - PR/Branch integration via GitHub CLI (`gh`)
+  - Auto-detect PR numbers from task titles (`PR #123`, `#123`, `issues/123`)
+  - Task panel UI with backlog, current task, and completed today sections
 
 ### Deferred Features
 
@@ -197,6 +206,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+N     | Open scratch pad (notes)            |
 | Ctrl+G           | Open git changes panel              |
 | Ctrl+B           | Open git branch switcher            |
+| Ctrl+T           | Open task panel (focus mode)        |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+R     | Quick command: Rate Code (Claude Code) |
 | Ctrl+Shift+V     | Quick command: Review PR (Claude Code) |
@@ -832,6 +842,128 @@ The Git Branch popup (`Ctrl+B`) provides quick branch operations without using t
 - Local branches: Direct checkout
 - Remote branches: Creates local tracking branch if needed
 
+### Task/Focus Mode
+
+The Task Panel (`Ctrl+T`) provides a task management system for organizing daily work with focus mode to filter visible project tabs.
+
+**Core Concepts:**
+- **Task tree**: Hierarchical task structure (supports parent/child for subtasks or deferred work)
+- **Focus mode**: When active, only shows project tabs linked to the current task
+- **Quick notes**: Capture ideas quickly, convert to tasks later
+
+**Task Properties:**
+| Property      | Type     | Description                                    |
+|---------------|----------|------------------------------------------------|
+| id            | string   | Unique identifier (auto-generated)             |
+| title         | string   | Short task title (required)                    |
+| description   | string?  | Longer description (optional)                  |
+| notes         | string?  | Scratch notes for this task                    |
+| parentTaskId  | string?  | Parent task ID for hierarchy (null = root)     |
+| projectPaths  | string[] | Associated project directories                 |
+| status        | enum     | NotStarted, InProgress, Completed, Deferred    |
+| priority      | int      | Higher = more important (default: 0)           |
+| tags          | string[] | Optional tags for categorization               |
+| linkedBranch  | string?  | Associated git branch name                     |
+| linkedPrNumber| string?  | Associated PR number                           |
+| linkedPrUrl   | string?  | Full PR URL for quick access                   |
+
+**Task Status Icons:**
+| Status      | Icon | Color  | Description                    |
+|-------------|------|--------|--------------------------------|
+| NotStarted  | ○    | Gray   | Task in backlog                |
+| InProgress  | ●    | Yellow | Currently working on           |
+| Completed   | ✓    | Green  | Task finished                  |
+| Deferred    | ◐    | Blue   | Paused/deferred for later      |
+
+**Task Panel Sections:**
+1. **Current Task** (highlighted): Shows active task with elapsed time, linked projects, PR info
+2. **Backlog**: Tasks not yet started, with priority badges
+3. **Quick Notes**: Captured notes that can be converted to tasks
+4. **Completed Today**: Tasks finished today with strikethrough
+
+**Task Operations:**
+| Button/Action    | Description                                    |
+|------------------|------------------------------------------------|
+| ▶ Start          | Begin working on a backlog task                |
+| ✓ Complete       | Mark current task as done                      |
+| ⏸ Pause          | Pause current task (returns to backlog)        |
+| + Subtask        | Create a child task under current task         |
+| 🔄 PR            | Refresh PR/branch info from GitHub             |
+| + New Task       | Add a new task to backlog                      |
+| Add & Start      | Create task and immediately start it           |
+
+**Focus Mode:**
+- Toggle with the "Focus Mode" / "Exit Focus" button
+- When enabled, only project tabs linked to the current task are visible
+- Other tabs remain open but hidden until focus mode is disabled
+- Visual indicator shows when focus mode is active
+
+**PR/Branch Integration:**
+Automatic detection of PR and issue numbers from task titles:
+- `PR #123` or `PR123` → Links to PR #123
+- `#123` → Could be PR or issue
+- `pull/123` → Links to PR #123
+- `issues/123` or `issue/123` → Links to issue
+
+When a PR number is detected:
+- Searches for matching branches (e.g., `issues/123`, `feature/123`, `123-fix-auth`)
+- Fetches PR details via GitHub CLI (`gh pr view`)
+- Displays PR title, author, state, and change stats
+
+**Quick Notes:**
+- Capture quick thoughts without creating a full task
+- Convert to task with one click (→ Task button)
+- Useful for ideas that come up while working
+
+**Configuration:**
+Tasks and focus mode state are stored in `config.json`:
+```json
+{
+  "focusMode": {
+    "isEnabled": false,
+    "currentTaskId": "task-20251217120000-abc12345",
+    "taskHistory": ["task-20251217120000-abc12345"]
+  },
+  "tasks": [
+    {
+      "id": "task-20251217120000-abc12345",
+      "title": "Implement PR #123",
+      "description": null,
+      "notes": null,
+      "parentTaskId": null,
+      "projectPaths": ["P:\\MyProject"],
+      "status": "InProgress",
+      "priority": 0,
+      "tags": [],
+      "createdAt": "2025-12-17T12:00:00Z",
+      "startedAt": "2025-12-17T12:05:00Z",
+      "completedAt": null,
+      "linkedBranch": "issues/123",
+      "linkedPrNumber": "123",
+      "linkedPrUrl": null,
+      "prDetails": null
+    }
+  ],
+  "quickNotes": [
+    {
+      "id": "note-20251217164814-eb58e2f0",
+      "text": "Quick note text",
+      "createdAt": "2025-12-17T16:48:14Z",
+      "convertedToTaskId": null,
+      "projectPath": "P:\\MyProject"
+    }
+  ]
+}
+```
+
+**Command Palette Commands:**
+| Command          | Description                      |
+|------------------|----------------------------------|
+| Tasks            | Open task panel (Ctrl+T)         |
+| Task: New        | Create a new task                |
+| Task: Complete   | Complete current task            |
+| Task: Focus Mode | Toggle focus mode                |
+
 ### Help Window
 
 Press `F1` to open the Help window, which displays:
@@ -944,7 +1076,12 @@ TerminalHost/
         │   ├── PaletteCommand.cs   # Command palette item definition
         │   ├── RunConfiguration.cs # Run configuration for project runner
         │   ├── ProjectType.cs      # Project type detection model
-        │   └── RunState.cs         # Run terminal state enum
+        │   ├── RunState.cs         # Run terminal state enum
+        │   ├── FocusTask.cs        # Task model for focus mode
+        │   ├── FocusTaskStatus.cs  # Task status enum (NotStarted, InProgress, etc.)
+        │   ├── FocusModeState.cs   # Focus mode state container
+        │   ├── QuickNote.cs        # Quick note model
+        │   └── GitPrDetails.cs     # GitHub PR details model
         ├── Services/
         │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
         │   ├── JsonFileService.cs        # Generic service for robust JSON file persistence with backup
@@ -961,7 +1098,11 @@ TerminalHost/
         │   ├── JsonSyntaxHighlighter.cs  # JSON syntax highlighting for settings
         │   ├── LinkDetectionService.cs   # Clickable link detection and handling
         │   ├── ProjectDetectionService.cs # Auto-detect project type for runner
-        │   └── RunUrlDetectionService.cs # Detect localhost URLs from run output
+        │   ├── RunUrlDetectionService.cs # Detect localhost URLs from run output
+        │   ├── ITaskService.cs           # Interface for task/focus mode service
+        │   ├── TaskService.cs            # Task management and focus mode
+        │   ├── IGitPrService.cs          # Interface for GitHub PR service
+        │   └── GitPrService.cs           # GitHub PR detection and fetching
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
@@ -976,7 +1117,8 @@ TerminalHost/
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
     │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
-    │   └── FileEditViewModel.cs          # File editor
+    │   ├── FileEditViewModel.cs          # File editor
+    │   └── TaskPanelViewModel.cs         # Task panel for focus mode
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
@@ -998,7 +1140,9 @@ TerminalHost/
             ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
             ├── DetectedLinksView.xaml(.cs)   # Detected links popup
             ├── FilePreviewView.xaml(.cs)     # File preview popup (Ctrl+O)
-            └── FileEditView.xaml(.cs)        # File editor popup (Ctrl+Shift+E)
+            ├── FileEditView.xaml(.cs)        # File editor popup (Ctrl+Shift+E)
+            ├── TaskPanelView.xaml(.cs)       # Task panel popup (Ctrl+T)
+            └── QuickTaskView.xaml(.cs)       # Quick task input popup
 ```
 
 ### Setup Mode
@@ -1015,6 +1159,7 @@ To help users configure their environment correctly, the application includes a 
   - Git (for version control integration)
   - A Nerd Font (for proper icon/glyph rendering in the terminal)
   - Claude Code CLI
+  - GitHub CLI (for PR/issue integration in Tasks)
   - HC.Dev Tool
 - **Installation Help**: Provides one-click buttons to either run the installation command (for CLIs) or open the download homepage (for fonts and Git).
 - **Debug Information**: For troubleshooting, users can view the detailed output and exit code of each detection command.
@@ -1128,34 +1273,6 @@ The current activity indicator implementation sometimes shows false positives du
 
 This would help identify the source of false triggers and tune the detection logic.
 
-### Task/Focus Mode
-A task management system to help organize daily work by constraining visible projects to relevant ones and tracking progress through a tree of tasks.
-
-**Core Concepts:**
-- **Task tree**: Hierarchical task structure (usually flat, but supports branching for prerequisites or deferred subtasks)
-- **Focus mode**: When active, only shows project tabs relevant to the current task
-- **Task switching**: Changing tasks automatically switches which project tabs are visible
-
-**Task Operations:**
-| Operation | Description |
-|-----------|-------------|
-| Enqueue task | Add a new task at root level or under current task |
-| Pop task | Complete current task and return to parent/next |
-| Start sibling | Begin a new task at the same level |
-| Branch off | Create a subtask (e.g., "need to fix X first" or "todo for later") |
-| Exit focus mode | Return to normal view showing all tabs |
-
-**Data Model:**
-- Tasks persisted in config (id, name, associated project paths, parent task id, status)
-- Current task tracked in app state
-- Project visibility controlled by task association
-
-**UI Considerations:**
-- Visual indicator when in focus mode (e.g., colored border, task name in title bar)
-- Task panel/popup for viewing tree and managing tasks
-- Quick actions in command palette (new task, pop task, switch task)
-- Optional keyboard shortcuts for common operations
-
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
 
@@ -1225,5 +1342,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.7*
+*Document Version: 2.8*
 *Last Updated: 2025-12-17*

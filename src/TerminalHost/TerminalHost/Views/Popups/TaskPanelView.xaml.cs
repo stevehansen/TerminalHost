@@ -64,11 +64,20 @@ public partial class TaskPanelView : UserControl
 
     private void TaskItem_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount == 2 && sender is FrameworkElement element && element.DataContext is FocusTask task)
+        if (sender is FrameworkElement element && element.DataContext is FocusTask task)
         {
             if (DataContext is TaskPanelViewModel viewModel)
             {
-                viewModel.StartTaskCommand.Execute(task);
+                if (e.ClickCount == 2)
+                {
+                    // Double-click: start the task
+                    viewModel.StartTaskCommand.Execute(task);
+                }
+                else
+                {
+                    // Single-click: select for editing
+                    viewModel.SelectTaskForEditCommand.Execute(task);
+                }
             }
         }
     }

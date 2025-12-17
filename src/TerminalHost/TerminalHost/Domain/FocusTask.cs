@@ -110,15 +110,26 @@ public class FocusTask
         }
     }
 
-    /// <summary>Gets the status icon.</summary>
+    /// <summary>Gets the status icon (simple Unicode for reliable rendering).</summary>
     [JsonIgnore]
     public string StatusIcon => Status switch
     {
-        FocusTaskStatus.NotStarted => "⚪",
-        FocusTaskStatus.InProgress => "🟡",
-        FocusTaskStatus.Completed => "✅",
-        FocusTaskStatus.Deferred => "⏸️",
-        _ => "⚪"
+        FocusTaskStatus.NotStarted => "○",
+        FocusTaskStatus.InProgress => "●",
+        FocusTaskStatus.Completed => "✓",
+        FocusTaskStatus.Deferred => "◐",
+        _ => "○"
+    };
+
+    /// <summary>Gets the status color hex for UI binding.</summary>
+    [JsonIgnore]
+    public string StatusColorHex => Status switch
+    {
+        FocusTaskStatus.NotStarted => "#808080",  // Gray
+        FocusTaskStatus.InProgress => "#FFD700",  // Yellow/Gold
+        FocusTaskStatus.Completed => "#4EC9B0",   // Green
+        FocusTaskStatus.Deferred => "#569CD6",    // Blue
+        _ => "#808080"
     };
 
     /// <summary>

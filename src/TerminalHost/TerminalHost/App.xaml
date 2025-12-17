@@ -25,6 +25,8 @@
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <local:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>
+        <local:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <local:PathToFolderNameConverter x:Key="PathToFolderNameConverter"/>
         <local:BoolToRowSpanConverter x:Key="BoolToRowSpanConverter"/>
         <local:BoolToColumnSpanConverter x:Key="BoolToColumnSpanConverter"/>
         <local:BoolToShellColumnConverter x:Key="BoolToShellColumnConverter"/>

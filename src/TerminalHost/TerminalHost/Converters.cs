@@ -287,6 +287,56 @@ public class StringToColorConverter : IValueConverter
 }
 
 /// <summary>
+/// Converts a full path to just the folder name.
+/// </summary>
+public class PathToFolderNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string path && !string.IsNullOrEmpty(path))
+        {
+            return System.IO.Path.GetFileName(path.TrimEnd('\\', '/')) ?? path;
+        }
+        return value ?? "";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts a hex color string to a SolidColorBrush for UI binding.
+/// </summary>
+public class HexToBrushConverter : IValueConverter
+{
+    private static readonly SolidColorBrush DefaultBrush = new(Colors.Gray);
+
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string colorHex && !string.IsNullOrEmpty(colorHex))
+        {
+            try
+            {
+                var color = (Color)ColorConverter.ConvertFromString(colorHex);
+                return new SolidColorBrush(color);
+            }
+            catch
+            {
+                return DefaultBrush;
+            }
+        }
+        return DefaultBrush;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Converts bool to RowSpan: true = 3 (span all rows), false = 1.
 /// Used for horizontal split mode where terminals span all rows.
 /// </summary>

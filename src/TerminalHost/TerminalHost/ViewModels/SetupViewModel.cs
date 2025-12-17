@@ -49,6 +49,16 @@ public partial class SetupViewModel : ObservableObject
 
         Dependencies.Add(new Dependency
         {
+            Name = "GitHub CLI",
+            Description = "CLI for GitHub. Used for PR/issue integration in Tasks.",
+            DetectionCommand = "gh --version",
+            InstallCommand = "winget install --id GitHub.cli",
+            HomepageUrl = "https://cli.github.com/",
+            InstallUrl = "https://cli.github.com/"
+        });
+
+        Dependencies.Add(new Dependency
+        {
             Name = "HC.Dev Tool",
             Description = "The HC.Dev tool for .NET.",
             DetectionCommand = "dev -h",

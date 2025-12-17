@@ -101,9 +101,14 @@ internal sealed class TaskService : ITaskService
     {
         lock (_lock)
         {
+            // Include NotStarted, Deferred, and InProgress (paused) tasks
+            // Exclude the current task (shown in Current section) and completed tasks
+            var currentTaskId = _focusMode.CurrentTaskId;
+
             return _tasks
-                .Where(t => t.Status == FocusTaskStatus.NotStarted || t.Status == FocusTaskStatus.Deferred)
-                .OrderByDescending(t => t.Priority)
+                .Where(t => t.Status != FocusTaskStatus.Completed && t.Id != currentTaskId)
+                .OrderByDescending(t => t.Status == FocusTaskStatus.InProgress) // Paused tasks first
+                .ThenByDescending(t => t.Priority)
                 .ThenBy(t => t.CreatedAt)
                 .ToList();
         }
@@ -284,13 +289,17 @@ internal sealed class TaskService : ITaskService
             var task = _tasks.FirstOrDefault(t => t.Id == id);
             if (task == null) return;
 
-            // Keep status as InProgress but clear as current task
+            // Set status to Deferred (paused) and clear as current task
+            task.Defer();
+
             if (_focusMode.CurrentTaskId == id)
             {
                 _focusMode.CurrentTaskId = null;
-                SaveToConfig();
                 OnCurrentTaskChanged(null);
             }
+
+            SaveToConfig();
+            OnTasksChanged();
         }
     }
 
