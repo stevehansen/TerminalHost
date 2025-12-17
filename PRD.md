@@ -1112,6 +1112,12 @@ This provides both a high-level overview of which projects are most active and a
 
 Items for future development:
 
+### Versioning and Auto-Updates
+
+See **[PRD.Versioning.md](PRD.Versioning.md)** for detailed implementation plan.
+
+**Summary**: Implement application versioning using MinVer (git tag-based) and automatic updates using Updatum (GitHub Releases integration). This enables tracking feature releases, displaying version in UI, and notifying users of available updates with optional auto-install.
+
 ### Activity Indicator Debugging
 
 The current activity indicator implementation sometimes shows false positives due to terminal control rendering events. To improve reliability, consider adding debugging capabilities:
