@@ -29,6 +29,17 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     [ObservableProperty]
     private bool _isActive;
 
+    [ObservableProperty]
+    private bool _hasUnreadActivity;
+
+    // Track previous activity state to detect transitions
+    private bool _wasActive;
+
+    /// <summary>
+    /// Whether this tab is currently selected. Set by MainViewModel.
+    /// </summary>
+    public bool IsSelected { get; set; }
+
     public bool IsAnyTerminalActive => IsActive;
 
     public Profile Profile { get; }
@@ -81,6 +92,27 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     partial void OnIsActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+
+        // Transition from active to idle: mark as unread, but only if tab is NOT selected
+        // This prevents false positives from terminal focus/blur rendering events
+        if (_wasActive && !value && !IsSelected)
+        {
+            HasUnreadActivity = true;
+        }
+
+        _wasActive = value;
+    }
+
+    /// <summary>
+    /// Clears the unread activity state. Called when the tab becomes focused/selected.
+    /// Also resets the transition tracking to prevent false positives from terminal
+    /// rendering/focus events that briefly trigger activity.
+    /// </summary>
+    public void ClearUnreadActivity()
+    {
+        HasUnreadActivity = false;
+        // Sync tracking state to current state to avoid false transition detection
+        _wasActive = IsActive;
     }
 
     /// <summary>

@@ -218,16 +218,28 @@ public partial class MainViewModel : ObservableObject
         UpdateFilteredSwitcherTabs();
     }
 
-    partial void OnSelectedTabChanged(ITabViewModel? value)
+    partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
     {
         // If the selected tab changes, and the dropdown is open, close it.
-        if (IsTabDropdownOpen && value != null)
+        if (IsTabDropdownOpen && newValue != null)
         {
             IsTabDropdownOpen = false;
         }
-        if (IsTabSwitcherOpen && value != null)
+        if (IsTabSwitcherOpen && newValue != null)
         {
             IsTabSwitcherOpen = false;
+        }
+
+        // Update IsSelected state on tabs
+        if (oldValue != null)
+        {
+            oldValue.IsSelected = false;
+        }
+        if (newValue != null)
+        {
+            newValue.IsSelected = true;
+            // Clear unread activity indicator when tab is selected/focused
+            newValue.ClearUnreadActivity();
         }
     }
 

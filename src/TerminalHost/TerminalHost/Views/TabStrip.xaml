@@ -52,6 +52,17 @@
                             <RotateTransform Angle="0"/>
                         </TextBlock.RenderTransform>
                     </TextBlock>
+                    <!-- Completed indicator - solid green dot when activity finished but tab not yet focused -->
+                    <TextBlock x:Name="CompletedIndicator"
+                               DockPanel.Dock="Right"
+                               Text="●"
+                               AutomationProperties.HelpText="Terminal activity completed"
+                               Foreground="{StaticResource SyntaxGreenBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               Visibility="Collapsed"/>
                     <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"
                                Text="{Binding DisplayTitle, Mode=OneWay}"/>
@@ -80,6 +91,15 @@
                     <MultiDataTrigger.ExitActions>
                         <StopStoryboard BeginStoryboardName="SpinnerStoryboard"/>
                     </MultiDataTrigger.ExitActions>
+                </MultiDataTrigger>
+                <!-- Show green indicator when activity completed (not active) AND has unread activity AND tab is NOT selected -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding HasUnreadActivity}" Value="True"/>
+                        <Condition Binding="{Binding IsAnyTerminalActive}" Value="False"/>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="CompletedIndicator" Property="Visibility" Value="Visible"/>
                 </MultiDataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>

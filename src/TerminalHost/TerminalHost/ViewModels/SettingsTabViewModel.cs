@@ -267,6 +267,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public string WorkingDirectory => "Settings";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
+    public bool HasUnreadActivity => false;
+    public bool IsSelected { get; set; }
+    public void ClearUnreadActivity() { }
     public string DisplayTitle => Title;
 
     public event EventHandler? CloseRequested;

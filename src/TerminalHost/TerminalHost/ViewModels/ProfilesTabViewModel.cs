@@ -44,6 +44,9 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     public string WorkingDirectory => "Profiles";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
+    public bool HasUnreadActivity => false;
+    public bool IsSelected { get; set; }
+    public void ClearUnreadActivity() { }
     public string DisplayTitle => Title;
 
     public event EventHandler? CloseRequested;

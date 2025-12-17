@@ -321,16 +321,20 @@ Status refreshes automatically every 5 seconds for the active tab.
 
 ### Terminal Activity Indicators
 
-Tabs display an animated spinning indicator (◌) when terminals are actively producing output:
-- **Active state**: Spinner visible and rotating when output received within last 2 seconds
-- **Idle state**: Spinner hidden when no output for 2+ seconds
+Tabs display visual indicators to show terminal activity status with three states:
 
-This helps users see at a glance which tabs have terminals doing work vs waiting for input.
+- **Active (yellow spinner ◐)**: Terminal producing output - spinner visible and rotating when output received within last 2 seconds
+- **Completed (green dot ●)**: Activity stopped but tab hasn't been focused yet - indicates "something finished, check me"
+- **Idle (no indicator)**: Tab has been focused since last activity, clearing the green indicator
+
+This creates a simple workflow: yellow = working, green = done/unread, nothing = reviewed. Users can see at a glance which tabs have active terminals and which have completed work waiting to be reviewed.
 
 **Implementation:**
 - Uses `ConPTYTerm.InterceptOutputToUITerminal` delegate to track output timing
 - Activity state checked every 1 second to detect idle transitions
 - Events fire immediately when transitioning from idle to active
+- `HasUnreadActivity` property tracks completed-but-unread state
+- Selecting/focusing a tab clears its unread activity indicator
 
 ### Tab Management
 
@@ -1108,6 +1112,44 @@ This provides both a high-level overview of which projects are most active and a
 
 Items for future development:
 
+### Activity Indicator Debugging
+
+The current activity indicator implementation sometimes shows false positives due to terminal control rendering events. To improve reliability, consider adding debugging capabilities:
+
+- **Activity log panel**: Show recent terminal output events with timestamps and character counts per terminal
+- **Visual debug mode**: Display what triggered activity state changes (which terminal, output length, timing)
+- **Filtering options**: Allow configuring minimum output threshold or duration before counting as "activity"
+
+This would help identify the source of false triggers and tune the detection logic.
+
+### Task/Focus Mode
+A task management system to help organize daily work by constraining visible projects to relevant ones and tracking progress through a tree of tasks.
+
+**Core Concepts:**
+- **Task tree**: Hierarchical task structure (usually flat, but supports branching for prerequisites or deferred subtasks)
+- **Focus mode**: When active, only shows project tabs relevant to the current task
+- **Task switching**: Changing tasks automatically switches which project tabs are visible
+
+**Task Operations:**
+| Operation | Description |
+|-----------|-------------|
+| Enqueue task | Add a new task at root level or under current task |
+| Pop task | Complete current task and return to parent/next |
+| Start sibling | Begin a new task at the same level |
+| Branch off | Create a subtask (e.g., "need to fix X first" or "todo for later") |
+| Exit focus mode | Return to normal view showing all tabs |
+
+**Data Model:**
+- Tasks persisted in config (id, name, associated project paths, parent task id, status)
+- Current task tracked in app state
+- Project visibility controlled by task association
+
+**UI Considerations:**
+- Visual indicator when in focus mode (e.g., colored border, task name in title bar)
+- Task panel/popup for viewing tree and managing tasks
+- Quick actions in command palette (new task, pop task, switch task)
+- Optional keyboard shortcuts for common operations
+
 ### Tab Management
 - **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
 
@@ -1177,5 +1219,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.5*
+*Document Version: 2.7*
 *Last Updated: 2025-12-17*

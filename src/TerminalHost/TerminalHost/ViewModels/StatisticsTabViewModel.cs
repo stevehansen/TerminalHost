@@ -19,6 +19,9 @@ namespace TerminalHost.ViewModels
         public bool IsCloseable => true;
         public string WorkingDirectory => string.Empty;
         public bool IsAnyTerminalActive => false;
+        public bool HasUnreadActivity => false;
+        public bool IsSelected { get; set; }
+        public void ClearUnreadActivity() { }
         public string DisplayTitle => Title;
 
         [ObservableProperty]

@@ -78,6 +78,17 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private bool _isRunTerminalActive;
 
     [ObservableProperty]
+    private bool _hasUnreadActivity;
+
+    // Track previous activity state to detect transitions
+    private bool _wasAnyTerminalActive;
+
+    /// <summary>
+    /// Whether this tab is currently selected. Set by MainViewModel.
+    /// </summary>
+    public bool IsSelected { get; set; }
+
+    [ObservableProperty]
     private RunConfiguration? _activeRunConfiguration;
 
     /// <summary>
@@ -338,16 +349,49 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     partial void OnIsCustomTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        CheckActivityTransition();
     }
 
     partial void OnIsShellTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        CheckActivityTransition();
     }
 
     partial void OnIsRunTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        CheckActivityTransition();
+    }
+
+    /// <summary>
+    /// Checks for activity state transitions and updates HasUnreadActivity accordingly.
+    /// When activity stops (active → idle) on a non-selected tab, marks it as having unread activity.
+    /// </summary>
+    private void CheckActivityTransition()
+    {
+        var isCurrentlyActive = IsAnyTerminalActive;
+
+        // Transition from active to idle: mark as unread, but only if tab is NOT selected
+        // This prevents false positives from terminal focus/blur rendering events
+        if (_wasAnyTerminalActive && !isCurrentlyActive && !IsSelected)
+        {
+            HasUnreadActivity = true;
+        }
+
+        _wasAnyTerminalActive = isCurrentlyActive;
+    }
+
+    /// <summary>
+    /// Clears the unread activity state. Called when the tab becomes focused/selected.
+    /// Also resets the transition tracking to prevent false positives from terminal
+    /// rendering/focus events that briefly trigger activity.
+    /// </summary>
+    public void ClearUnreadActivity()
+    {
+        HasUnreadActivity = false;
+        // Sync tracking state to current state to avoid false transition detection
+        _wasAnyTerminalActive = IsAnyTerminalActive;
     }
 
     partial void OnIsRunTerminalVisibleChanged(bool value)
