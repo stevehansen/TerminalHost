@@ -300,11 +300,13 @@
                                  GroupName="ViewMode"
                                  Style="{StaticResource ModeToggleButton}"
                                  IsChecked="{Binding ViewMode, Converter={StaticResource ViewModeConverter}, ConverterParameter=Rich}"
+                                 AutomationProperties.AutomationId="RichModeButton"
                                  Margin="0,0,2,0"/>
                     <RadioButton Content="Raw"
                                  GroupName="ViewMode"
                                  Style="{StaticResource ModeToggleButton}"
                                  IsChecked="{Binding ViewMode, Converter={StaticResource ViewModeConverter}, ConverterParameter=Raw}"
+                                 AutomationProperties.AutomationId="RawModeButton"
                                  Margin="0,0,12,0"/>
 
                     <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,2,12,2"/>

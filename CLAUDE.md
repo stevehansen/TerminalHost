@@ -11,6 +11,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - When adding new keyboard shortcuts, update the shortcuts list
 - Keep both CLAUDE.md and PRD.md in sync with the actual implementation
 
+## Important: Testing Requirements
+
+**Always verify tests when modifying features that have test coverage:**
+
+### Running Tests
+```bash
+# Run all tests
+dotnet test
+
+# Run specific test project
+dotnet test tests/TerminalHost.Tests
+dotnet test tests/TerminalHost.UITests
+
+# Run specific test
+dotnet test --filter "FullyQualifiedName~SmokeTest_CanOpenSettings"
+```
+
+### Test Maintenance Guidelines
+- **Before modifying a feature**: Check if tests exist in `tests/` directory
+- **During feature development**: Update tests to match new behavior
+- **After making changes**: Run affected tests to verify they pass
+- **When adding UI elements**: Add `AutomationProperties.AutomationId` attributes for testability
+- **When changing UI structure**: Update UI tests that rely on element visibility or location
+- **When adding new features**: Consider adding test coverage
+
+### Test Projects
+- **TerminalHost.Tests**: Unit tests for services and view models
+- **TerminalHost.UITests**: Automated UI tests using FlaUI (require built executable)
+
+### Common Test Failures
+- **UI tests**: May fail if UI structure changes (e.g., elements moved, visibility changed, new modes added)
+- **Element not found**: Check if AutomationId exists and element is visible in current state
+- **Timing issues**: UI tests may need delays for data template loading or state transitions
+
 ## Project Overview
 
 **TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), plus an optional run terminal for development servers. Allows easy switching between them without termination.

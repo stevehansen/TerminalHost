@@ -102,10 +102,10 @@ public class SmokeTests : IDisposable
         // 1. Find Settings button
         var settingsBtn = _window.FindFirstDescendant(cf => cf.ByAutomationId("SettingsButton"))?.AsButton();
         settingsBtn.ShouldNotBeNull("Settings button should be visible in the tab strip");
-        
+
         // 2. Click it
         settingsBtn?.Invoke();
-        
+
         // Wait for tab switch (which involves data template loading)
         Thread.Sleep(500); // Simple wait, better to wait for condition
         _app.WaitWhileBusy();
@@ -115,12 +115,22 @@ public class SmokeTests : IDisposable
         // Since it's inside a ContentControl/DataTemplate, it should be in the visual tree now.
         var settingsView = _window.FindFirstDescendant(cf => cf.ByAutomationId("SettingsView"));
         settingsView.ShouldNotBeNull("Settings view should appear after clicking Settings button");
-        
+
         var saveBtn = settingsView?.FindFirstDescendant(cf => cf.ByAutomationId("SaveButton"))?.AsButton();
         saveBtn.ShouldNotBeNull("Save button should be visible in Settings view");
 
+        // 4. Switch to Raw mode to access JSON Editor (Rich mode is default)
+        var rawModeBtn = settingsView?.FindFirstDescendant(cf => cf.ByAutomationId("RawModeButton"))?.AsRadioButton();
+        rawModeBtn.ShouldNotBeNull("Raw mode button should be visible in Settings view");
+        rawModeBtn?.Click();
+
+        // Wait for mode switch
+        Thread.Sleep(300);
+        _app.WaitWhileBusy();
+
+        // 5. Verify JSON Editor is now visible
         var jsonEditor = settingsView?.FindFirstDescendant(cf => cf.ByAutomationId("JsonEditor"));
-        jsonEditor.ShouldNotBeNull("JSON Editor should be visible in Settings view");
+        jsonEditor.ShouldNotBeNull("JSON Editor should be visible in Raw mode");
     }
 
     public void Dispose()
