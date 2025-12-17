@@ -42,6 +42,34 @@ namespace TerminalHost.Views
         {
             Close();
         }
+
+        private void CopyInstallCommand_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button button && button.Tag is string command)
+            {
+                try
+                {
+                    Clipboard.SetText(command);
+                    // Briefly change button text to indicate success
+                    var originalContent = button.Content;
+                    button.Content = "Copied!";
+                    var timer = new System.Windows.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromSeconds(1.5)
+                    };
+                    timer.Tick += (s, args) =>
+                    {
+                        button.Content = originalContent;
+                        timer.Stop();
+                    };
+                    timer.Start();
+                }
+                catch
+                {
+                    // Clipboard operation failed
+                }
+            }
+        }
     }
 }
 

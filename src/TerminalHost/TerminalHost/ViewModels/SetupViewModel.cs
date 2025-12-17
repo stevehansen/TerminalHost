@@ -42,9 +42,9 @@ public partial class SetupViewModel : ObservableObject
             Name = "Claude Code",
             Description = "The AI code assistant CLI.",
             DetectionCommand = "claude --version",
-            // InstallCommand removed to avoid Windows Defender alerts
+            InstallCommand = "npm install -g @anthropic-ai/claude-code",
             HomepageUrl = "https://claude.ai/",
-            InstallUrl = "https://docs.anthropic.com/en/docs/intro-to-claude",
+            InstallUrl = "https://docs.anthropic.com/en/docs/claude-code",
             IsAiAssistant = true,
             AiAssistantId = "claude"
         });
@@ -54,19 +54,21 @@ public partial class SetupViewModel : ObservableObject
             Name = "Gemini CLI",
             Description = "Google's Gemini AI assistant CLI.",
             DetectionCommand = "gemini --version",
-            HomepageUrl = "https://ai.google.dev/",
-            InstallUrl = "https://geminicli.com/docs/get-started/deployment/",
+            InstallCommand = "npm install -g @google/gemini-cli",
+            HomepageUrl = "https://github.com/anthropics/anthropic-quickstarts/tree/main/gemini-cli",
+            InstallUrl = "https://github.com/anthropics/anthropic-quickstarts/tree/main/gemini-cli",
             IsAiAssistant = true,
             AiAssistantId = "gemini"
         });
 
         Dependencies.Add(new Dependency
         {
-            Name = "OpenAI Codex",
+            Name = "OpenAI Codex CLI",
             Description = "OpenAI's Codex CLI assistant.",
             DetectionCommand = "codex --version",
-            HomepageUrl = "https://openai.com/",
-            InstallUrl = "https://platform.openai.com/docs",
+            InstallCommand = "npm install -g @openai/codex",
+            HomepageUrl = "https://github.com/openai/codex-cli",
+            InstallUrl = "https://github.com/openai/codex-cli",
             IsAiAssistant = true,
             AiAssistantId = "codex"
         });
@@ -74,8 +76,10 @@ public partial class SetupViewModel : ObservableObject
         Dependencies.Add(new Dependency
         {
             Name = "GitHub Copilot CLI",
-            Description = "GitHub Copilot in the command line.",
-            DetectionCommand = "gh copilot --version",
+            Description = "GitHub Copilot in the command line (requires gh CLI).",
+            DetectionCommand = "gh extension list",
+            DetectionOutputContains = "copilot",
+            InstallCommand = "gh extension install github/gh-copilot",
             HomepageUrl = "https://github.com/features/copilot",
             InstallUrl = "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
             IsAiAssistant = true,
@@ -164,8 +168,19 @@ public partial class SetupViewModel : ObservableObject
         else
         {
             var (success, output, exitCode) = await RunCommandAsync(dependency.DetectionCommand);
-            dependency.IsInstalled = success;
-            dependency.DetectedVersion = success ? output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
+
+            // For commands that need to check output content (e.g., gh extension list)
+            if (!string.IsNullOrEmpty(dependency.DetectionOutputContains))
+            {
+                dependency.IsInstalled = success && output.Contains(dependency.DetectionOutputContains, StringComparison.OrdinalIgnoreCase);
+                dependency.DetectedVersion = dependency.IsInstalled ? "Installed" : "Not found";
+            }
+            else
+            {
+                dependency.IsInstalled = success;
+                dependency.DetectedVersion = success ? output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
+            }
+
             dependency.FullOutput = output;
             dependency.ExitCode = exitCode;
         }

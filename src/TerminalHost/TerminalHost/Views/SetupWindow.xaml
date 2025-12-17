@@ -143,6 +143,48 @@
                                                                             </StackPanel>                                </Grid>
                             </Border>
 
+                            <!-- Install Command Box (visible when not installed and has install command) -->
+                            <Border Background="{StaticResource BackgroundDarkestBrush}"
+                                    Margin="20,0,20,10"
+                                    Padding="8"
+                                    CornerRadius="4"
+                                    Visibility="{Binding InstallCommand, Converter={StaticResource NullToCollapsedConverter}}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0"
+                                             Text="{Binding InstallCommand, Mode=OneWay}"
+                                             IsReadOnly="True"
+                                             Background="Transparent"
+                                             Foreground="{StaticResource SyntaxGreenBrush}"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Code, Consolas, monospace"
+                                             FontSize="12"
+                                             VerticalContentAlignment="Center"
+                                             Padding="4,0"/>
+                                    <Button Grid.Column="1"
+                                            Content="Copy"
+                                            Click="CopyInstallCommand_Click"
+                                            Tag="{Binding InstallCommand}"
+                                            Padding="12,4"
+                                            Margin="8,0,0,0"
+                                            Background="{StaticResource BackgroundMediumBrush}"
+                                            Foreground="{StaticResource TextLightBrush}"
+                                            ToolTip="Copy command to clipboard"/>
+                                </Grid>
+                            </Border>
+
                             <Border x:Name="DetailsPanel" Background="{StaticResource BackgroundDarkBrush}" Margin="20,0,20,10" Padding="10" CornerRadius="3">
                                 <StackPanel>
                                     <TextBlock Text="Debug Info" FontWeight="Bold" Foreground="{StaticResource TextDimmedBrush}"/>

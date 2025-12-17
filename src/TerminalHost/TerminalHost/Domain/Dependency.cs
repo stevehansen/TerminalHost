@@ -12,6 +12,13 @@ public partial class Dependency : ObservableObject
     public required string HomepageUrl { get; init; }
 
     /// <summary>
+    /// If set, the detection is considered successful if the output contains this string
+    /// (case-insensitive). Used for commands like "gh extension list" where we need to
+    /// check if a specific extension is in the output.
+    /// </summary>
+    public string? DetectionOutputContains { get; init; }
+
+    /// <summary>
     /// Whether this dependency is an AI assistant (Claude, Gemini, etc.).
     /// </summary>
     public bool IsAiAssistant { get; init; }
