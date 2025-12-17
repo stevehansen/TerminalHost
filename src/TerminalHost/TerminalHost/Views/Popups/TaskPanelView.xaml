@@ -52,27 +52,11 @@
                     <Button Grid.Column="2"
                             Command="{Binding ToggleFocusModeCommand}"
                             ToolTip="{Binding FocusModeButtonText}"
-                            Margin="0,0,8,0">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Setter Property="BorderBrush" Value="{StaticResource BorderDimBrush}"/>
-                                <Setter Property="Padding" Value="8,4"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsFocusModeEnabled}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
-                                        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            Margin="0,0,8,0"
+                            Style="{StaticResource TerminalSwitchButton}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding FocusModeIcon}" Margin="0,0,4,0"/>
-                            <TextBlock Text="{Binding FocusModeButtonText}"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="{StaticResource FontSizeSmall}"/>
+                            <TextBlock Text="{Binding FocusModeButtonText}"/>
                         </StackPanel>
                     </Button>
 
@@ -107,7 +91,7 @@
 
                         <TextBlock Grid.Column="0"
                                    Text="● CURRENT"
-                                   Foreground="{StaticResource AccentYellowBrush}"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    FontWeight="Bold"
                                    VerticalAlignment="Center"/>
@@ -148,7 +132,6 @@
                         <Button Content="✓ Complete"
                                 Command="{Binding CompleteCurrentTaskCommand}"
                                 Style="{StaticResource SmallButton}"
-                                Background="{StaticResource AccentGreenBrush}"
                                 Margin="0,0,8,0"/>
                         <Button Content="⏸ Pause"
                                 Command="{Binding PauseCurrentTaskCommand}"
@@ -189,7 +172,7 @@
                                      Foreground="{StaticResource TextPrimaryBrush}"
                                      CaretBrush="{StaticResource TextPrimaryBrush}"
                                      BorderThickness="1"
-                                     BorderBrush="{StaticResource BorderDimBrush}"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
                                      Padding="8,6"
                                      FontSize="{StaticResource FontSizeNormal}"/>
 
@@ -279,7 +262,7 @@
                                FontSize="{StaticResource FontSizeSmall}"
                                FontStyle="Italic"
                                Margin="0,4,0,12"
-                               Visibility="{Binding BacklogTasks.Count, Converter={StaticResource ZeroToVisibleConverter}}"/>
+                               Visibility="{Binding BacklogTasks.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
 
                     <!-- Quick Notes Section -->
                     <TextBlock Text="📝 QUICK NOTES"

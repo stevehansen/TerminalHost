@@ -7,7 +7,7 @@
              d:DesignHeight="120" d:DesignWidth="450"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundDarkBrush}"
-            BorderBrush="{StaticResource AccentYellowBrush}"
+            BorderBrush="{StaticResource SyntaxYellowBrush}"
             BorderThickness="1"
             CornerRadius="6"
             Width="450"
@@ -60,7 +60,7 @@
                          Foreground="{StaticResource TextPrimaryBrush}"
                          CaretBrush="{StaticResource TextPrimaryBrush}"
                          BorderThickness="1"
-                         BorderBrush="{StaticResource BorderDimBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
                          Padding="10,8"
                          FontSize="{StaticResource FontSizeNormal}"
                          TextWrapping="Wrap"

@@ -135,6 +135,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
@@ -144,12 +147,18 @@
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+G" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open git changes panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+B" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Open git branch switcher" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="F1" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Show this help window" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+T" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open task panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+Shift+Q" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Quick add task" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Ctrl+Shift+M" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Quick add note" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Ctrl+G" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Open git changes panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Ctrl+B" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git branch switcher" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="F1" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Show this help window" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Quick Commands Section -->

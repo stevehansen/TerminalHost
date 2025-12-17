@@ -62,7 +62,7 @@
                          Foreground="{StaticResource TextPrimaryBrush}"
                          CaretBrush="{StaticResource TextPrimaryBrush}"
                          BorderThickness="1"
-                         BorderBrush="{StaticResource BorderDimBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
                          Padding="10,8"
                          FontSize="{StaticResource FontSizeNormal}"/>
             </Border>

@@ -390,6 +390,24 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (_viewModel.TaskPanelViewModel?.IsOpen == true)
+            {
+                _viewModel.TaskPanelViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_viewModel.IsQuickTaskOpen)
+            {
+                _viewModel.IsQuickTaskOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_viewModel.IsQuickNoteOpen)
+            {
+                _viewModel.IsQuickNoteOpen = false;
+                e.Handled = true;
+                return;
+            }
         }
 
         // F1: Toggle help popup
