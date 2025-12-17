@@ -6,7 +6,7 @@
         xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:SetupViewModel, IsDesignTimeCreatable=True}"
-        Title="TerminalHost :: Setup" Height="640" Width="800"
+        Title="TerminalHost :: Setup" Height="800" Width="800"
         Background="{StaticResource BackgroundMediumBrush}" Foreground="{StaticResource TextBrightBrush}"
         WindowStartupLocation="CenterScreen">
 
@@ -147,14 +147,19 @@
                             <Border Background="{StaticResource BackgroundDarkestBrush}"
                                     Margin="20,0,20,10"
                                     Padding="8"
-                                    CornerRadius="4"
-                                    Visibility="{Binding InstallCommand, Converter={StaticResource NullToCollapsedConverter}}">
+                                    CornerRadius="4">
                                 <Border.Style>
                                     <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsInstalled}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
+                                            <!-- Only show when: has install command AND not installed -->
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding InstallCommand, Converter={StaticResource NullToBoolConverter}}" Value="False"/>
+                                                    <Condition Binding="{Binding IsInstalled}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
