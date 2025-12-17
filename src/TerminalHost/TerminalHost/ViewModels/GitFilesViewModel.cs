@@ -164,12 +164,12 @@ public partial class GitFilesViewModel : ObservableObject
     {
         return new FlowDocument
         {
-            Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = (System.Windows.Media.FontFamily)System.Windows.Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)System.Windows.Application.Current.Resources["FontSizeCode"],
+            Background = new SolidColorBrush(
+                Color.FromRgb(0x1E, 0x1E, 0x1E)),
+            Foreground = new SolidColorBrush(
+                Color.FromRgb(0x80, 0x80, 0x80)),
+            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
+            FontSize = (double)Application.Current.Resources["FontSizeCode"],
             PagePadding = new Thickness(16),
             PageWidth = 10000 // Effectively disables wrapping for diffs
         };

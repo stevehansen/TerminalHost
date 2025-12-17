@@ -11,7 +11,7 @@ public partial class FileEditViewModel : ObservableObject
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService; // Added IDialogService dependency
     private string? _currentEditFilePath;
-    private System.Text.Encoding? _currentEditEncoding;
+    private Encoding? _currentEditEncoding;
     private string? _originalContent;
 
     [ObservableProperty]

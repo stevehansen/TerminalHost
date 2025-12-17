@@ -67,10 +67,10 @@ public class CountToVisibilityConverter : IValueConverter
 /// </summary>
 public class RunStateToColorConverter : IValueConverter
 {
-    private static readonly SolidColorBrush StoppedBrush = new(System.Windows.Media.Color.FromRgb(128, 128, 128));   // Gray
-    private static readonly SolidColorBrush StartingBrush = new(System.Windows.Media.Color.FromRgb(255, 200, 0));   // Yellow/Amber
-    private static readonly SolidColorBrush RunningBrush = new(System.Windows.Media.Color.FromRgb(50, 205, 50));    // Lime Green
-    private static readonly SolidColorBrush StoppingBrush = new(System.Windows.Media.Color.FromRgb(255, 165, 0));   // Orange
+    private static readonly SolidColorBrush StoppedBrush = new(Color.FromRgb(128, 128, 128));   // Gray
+    private static readonly SolidColorBrush StartingBrush = new(Color.FromRgb(255, 200, 0));   // Yellow/Amber
+    private static readonly SolidColorBrush RunningBrush = new(Color.FromRgb(50, 205, 50));    // Lime Green
+    private static readonly SolidColorBrush StoppingBrush = new(Color.FromRgb(255, 165, 0));   // Orange
 
     public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
     {

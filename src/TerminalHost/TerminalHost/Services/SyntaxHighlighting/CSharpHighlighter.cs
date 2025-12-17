@@ -76,7 +76,7 @@ public partial class CSharpHighlighter : SyntaxHighlighterBase
         }
     }
 
-    private List<(string text, SolidColorBrush brush)> TokenizeLine(string line)
+    private static List<(string text, SolidColorBrush brush)> TokenizeLine(string line)
     {
         var result = new List<(string, SolidColorBrush)>();
         var processed = new bool[line.Length];

@@ -39,11 +39,11 @@ public partial class NotificationDialog : Window
         // Set icon color based on type
         IconText.Foreground = type switch
         {
-            DialogType.Error => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE7, 0x48, 0x56)),
-            DialogType.Warning => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF9, 0xA8, 0x25)),
-            DialogType.Information => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x78, 0xD4)),
-            DialogType.Question => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x78, 0xD4)),
-            _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0x78, 0xD4))
+            DialogType.Error => new SolidColorBrush(Color.FromRgb(0xE7, 0x48, 0x56)),
+            DialogType.Warning => new SolidColorBrush(Color.FromRgb(0xF9, 0xA8, 0x25)),
+            DialogType.Information => new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4)),
+            DialogType.Question => new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4)),
+            _ => new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4))
         };
 
         // Configure buttons based on DialogButtons

@@ -26,7 +26,7 @@ public partial class TabDropdownView : UserControl
 
     private void FocusSearchBox()
     {
-        Dispatcher.BeginInvoke(new System.Action(() =>
+        Dispatcher.BeginInvoke(new Action(() =>
         {
             DropdownSearchBox.Focus();
             Keyboard.Focus(DropdownSearchBox);

@@ -163,7 +163,7 @@ internal sealed partial class ClaudeCommandService : IClaudeCommandService, IDis
         };
     }
 
-    private string? ExtractDescription(string content)
+    private static string? ExtractDescription(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
             return null;

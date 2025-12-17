@@ -241,7 +241,7 @@ public class FileExplorerService : IFileExplorerService
         }
     }
 
-    private bool HasModifiedDescendants(FileSystemNode node)
+    private static bool HasModifiedDescendants(FileSystemNode node)
     {
         if (node.GitStatus != null)
             return true;

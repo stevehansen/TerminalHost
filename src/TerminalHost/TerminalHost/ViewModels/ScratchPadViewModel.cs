@@ -105,7 +105,7 @@ public partial class ScratchPadViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleScope()
+    private static void ToggleScope()
     {
         // Toggle logic is handled by binding to IsGlobalScope setter
         // When IsGlobalScope changes, LoadContent is called

@@ -26,7 +26,7 @@ public partial class TabSwitcherView : UserControl
 
     private void FocusSearchBox()
     {
-        Dispatcher.BeginInvoke(new System.Action(() =>
+        Dispatcher.BeginInvoke(new Action(() =>
         {
             SwitcherSearchBox.Focus();
             Keyboard.Focus(SwitcherSearchBox);

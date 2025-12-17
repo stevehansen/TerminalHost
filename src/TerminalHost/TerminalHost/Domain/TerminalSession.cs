@@ -288,7 +288,7 @@ public class TerminalSession : IDisposable
     /// <summary>
     /// Sends text to the terminal (without executing - user presses Enter manually).
     /// </summary>
-    private void SendViaUserInput(TermPTY conPtyTerm, string input)
+    private static void SendViaUserInput(TermPTY conPtyTerm, string input)
     {
         try
         {

@@ -166,7 +166,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void StartRunTerminal(TerminalPairTabViewModel tab, Domain.RunConfiguration config)
+    private void StartRunTerminal(TerminalPairTabViewModel tab, RunConfiguration config)
     {
         try
         {

@@ -111,7 +111,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         }
 
         // Ignore files starting with ~ (temp files)
-        var fileName = System.IO.Path.GetFileName(path);
+        var fileName = Path.GetFileName(path);
         if (fileName.StartsWith("~") || fileName.StartsWith(".#"))
             return true;
 
@@ -236,7 +236,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void CollectExpandedPaths(FileSystemNode node, HashSet<string> paths)
+    private static void CollectExpandedPaths(FileSystemNode node, HashSet<string> paths)
     {
         if (node.IsExpanded && node.IsDirectory)
         {
@@ -340,7 +340,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         }
     }
 
-    private IEnumerable<FileSystemNode> GetAllNodes(FileSystemNode root)
+    private static IEnumerable<FileSystemNode> GetAllNodes(FileSystemNode root)
     {
         yield return root;
         foreach (var child in root.Children.Where(c => !c.IsLoading))
@@ -372,7 +372,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void CollapseNode(FileSystemNode node)
+    private static void CollapseNode(FileSystemNode node)
     {
         if (!node.IsDirectory) return;
         node.IsExpanded = false;

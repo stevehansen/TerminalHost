@@ -33,7 +33,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         if (!commandExists && !IsBuiltInCommand(commandExe))
         {
             // Show warning on UI thread since this runs during terminal creation
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            Application.Current?.Dispatcher.BeginInvoke(() =>
             {
                 _dialogService.ShowWarning( // Use injected IDialogService
                     $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
@@ -79,8 +79,8 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
             // Font must be set before initialization or SetTheme() called after
             // Fallback chain: Cascadia Code NF -> other Nerd Fonts
-            FontFamilyWhenSettingTheme = System.Windows.Application.Current?.Resources["FontFamilyMonospace"] as System.Windows.Media.FontFamily ?? new System.Windows.Media.FontFamily("Cascadia Code NF"),
-            FontSizeWhenSettingTheme = (int)((double?)System.Windows.Application.Current?.Resources["FontSizeSmall"] ?? 12),
+            FontFamilyWhenSettingTheme = Application.Current?.Resources["FontFamilyMonospace"] as System.Windows.Media.FontFamily ?? new System.Windows.Media.FontFamily("Cascadia Code NF"),
+            FontSizeWhenSettingTheme = (int)((double?)Application.Current?.Resources["FontSizeSmall"] ?? 12),
             MinHeight = 100,
             MinWidth = 100
         };
@@ -116,9 +116,9 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
                         // Standard Campbell color scheme (Windows Terminal default)
                         var theme = new TerminalTheme
                         {
-                            DefaultBackground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0x0C, 0x0C, 0x0C)),
-                            DefaultForeground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)),
-                            DefaultSelectionBackground = EasyTerminalControl.ColorToVal(System.Windows.Media.Color.FromRgb(0x26, 0x4F, 0x78)),
+                            DefaultBackground = EasyTerminalControl.ColorToVal(Color.FromRgb(0x0C, 0x0C, 0x0C)),
+                            DefaultForeground = EasyTerminalControl.ColorToVal(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+                            DefaultSelectionBackground = EasyTerminalControl.ColorToVal(Color.FromRgb(0x26, 0x4F, 0x78)),
                             CursorStyle = CursorStyle.BlinkingBar,
                             // 16-color palette: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray,
                             //                   DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White

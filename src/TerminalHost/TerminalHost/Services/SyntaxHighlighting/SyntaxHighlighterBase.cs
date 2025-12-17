@@ -89,7 +89,7 @@ public abstract class SyntaxHighlighterBase : ISyntaxHighlighter
 
     protected abstract void HighlightLine(Paragraph paragraph, string line);
 
-    protected void AddRun(Paragraph paragraph, string text, SolidColorBrush brush)
+    protected static void AddRun(Paragraph paragraph, string text, SolidColorBrush brush)
     {
         if (!string.IsNullOrEmpty(text))
         {

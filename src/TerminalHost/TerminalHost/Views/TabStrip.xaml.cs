@@ -104,8 +104,8 @@ public partial class TabStrip : UserControl
 
         if (sender is Border border)
         {
-            border.BorderBrush = new System.Windows.Media.SolidColorBrush(
-                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0078D4"));
+            border.BorderBrush = new SolidColorBrush(
+                (Color)ColorConverter.ConvertFromString("#0078D4"));
             border.BorderThickness = new Thickness(2, 2, 2, 0);
         }
     }

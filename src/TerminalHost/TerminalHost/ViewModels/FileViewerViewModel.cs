@@ -456,8 +456,8 @@ public partial class FileViewerViewModel : ObservableObject
         {
             Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
             Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = (System.Windows.Media.FontFamily)System.Windows.Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)System.Windows.Application.Current.Resources["FontSizeCode"],
+            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
+            FontSize = (double)Application.Current.Resources["FontSizeCode"],
             PagePadding = new Thickness(16),
             PageWidth = 10000
         };
@@ -469,8 +469,8 @@ public partial class FileViewerViewModel : ObservableObject
         {
             Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
             Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
-            FontFamily = (System.Windows.Media.FontFamily)System.Windows.Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)System.Windows.Application.Current.Resources["FontSizeCode"],
+            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
+            FontSize = (double)Application.Current.Resources["FontSizeCode"],
             PagePadding = new Thickness(16),
             PageWidth = 10000
         };

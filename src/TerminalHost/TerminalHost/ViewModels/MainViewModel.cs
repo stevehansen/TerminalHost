@@ -534,7 +534,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             // Use folder browser dialog
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            var dialog = new FolderBrowserDialog
             {
                 Description = "Select Project Directory",
                 ShowNewFolderButton = true,
@@ -753,7 +753,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            var dialog = new FolderBrowserDialog
             {
                 Description = $"Select Working Directory for {profile.Name}",
                 ShowNewFolderButton = true,
@@ -898,7 +898,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OnRunStartRequested(object? sender, Domain.RunConfiguration configuration)
+    private void OnRunStartRequested(object? sender, RunConfiguration configuration)
     {
         if (sender is TerminalPairTabViewModel tab)
         {
@@ -965,7 +965,7 @@ public partial class MainViewModel : ObservableObject
         window.Show();
     }
 
-    private async void OnExplorerRenameRequested(object? sender, Domain.FileSystemNode node)
+    private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
     {
         if (sender is not FileExplorerViewModel explorerVm)
             return;
@@ -983,7 +983,7 @@ public partial class MainViewModel : ObservableObject
 
     private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
     {
-        List<Domain.RunConfiguration> configs;
+        List<RunConfiguration> configs;
 
         if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
         {
@@ -1747,6 +1747,6 @@ public partial class MainViewModel : ObservableObject
 public class RunTerminalRequestedEventArgs : EventArgs
 {
     public required TerminalPairTabViewModel Tab { get; init; }
-    public required Domain.RunConfiguration Configuration { get; init; }
+    public required RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
 }

@@ -69,7 +69,7 @@ public partial class SetupViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenInstallLink(Dependency? dependency)
+    private static void OpenInstallLink(Dependency? dependency)
     {
         if (dependency != null && !string.IsNullOrEmpty(dependency.InstallUrl))
         {
@@ -162,7 +162,7 @@ public partial class SetupViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleDetails(Dependency? dependency)
+    private static void ToggleDetails(Dependency? dependency)
     {
         if (dependency != null)
         {
@@ -170,7 +170,7 @@ public partial class SetupViewModel : ObservableObject
         }
     }
     
-    private async Task<(bool success, string output, int exitCode)> RunCommandAsync(string command)
+    private static async Task<(bool success, string output, int exitCode)> RunCommandAsync(string command)
     {
         if (string.IsNullOrEmpty(command))
         {

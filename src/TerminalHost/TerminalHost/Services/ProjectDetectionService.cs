@@ -307,7 +307,7 @@ internal sealed class ProjectDetectionService : IProjectDetectionService
     /// <summary>
     /// Gets a relative path from a base directory.
     /// </summary>
-    private string GetRelativePath(string basePath, string fullPath)
+    private static string GetRelativePath(string basePath, string fullPath)
     {
         var baseUri = new Uri(basePath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
         var fullUri = new Uri(fullPath);
