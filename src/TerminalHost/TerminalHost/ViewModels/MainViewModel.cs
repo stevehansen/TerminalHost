@@ -21,13 +21,14 @@ public partial class MainViewModel : ObservableObject
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly IRunUrlDetectionService _runUrlDetectionService;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
-    private readonly IFileSystem _fileSystem; // Added IFileSystem dependency
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly IFileSystem _fileSystem;
+    private readonly IDialogService _dialogService;
     private readonly IFileExplorerService _fileExplorerService;
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly ITaskService _taskService;
+    private readonly IAiAssistantService _aiAssistantService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -160,7 +161,8 @@ public partial class MainViewModel : ObservableObject
         IFilePreviewService filePreviewService,
         IFileEditService fileEditService,
         IClaudeCommandService claudeCommandService,
-        ITaskService taskService)
+        ITaskService taskService,
+        IAiAssistantService aiAssistantService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -179,6 +181,7 @@ public partial class MainViewModel : ObservableObject
         _fileEditService = fileEditService;
         _claudeCommandService = claudeCommandService;
         _taskService = taskService;
+        _aiAssistantService = aiAssistantService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -583,14 +586,18 @@ public partial class MainViewModel : ObservableObject
 
             var settings = _profileRegistry.Settings;
 
+            // Get the AI assistant for this directory
+            var aiAssistant = _aiAssistantService.GetAssistantForDirectory(workingDirectory);
+            var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
+
             // Create profiles for custom command and shell
             var customProfile = new Profile
             {
                 Id = "custom",
-                Name = settings.CustomCommandName,
-                Command = settings.CustomCommand,
+                Name = aiAssistant.Name,
+                Command = aiAssistant.Command,
                 WorkingDir = workingDirectory,
-                Icon = settings.CustomCommandIcon
+                Icon = aiAssistant.Icon
             };
 
             var shellProfile = new Profile
@@ -609,8 +616,9 @@ public partial class MainViewModel : ObservableObject
             var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
-            // Create view model
-            var tabViewModel = new TerminalPairTabViewModel(pair, settings.CustomCommandIcon, settings.ShellCommandIcon, _statisticsService);
+            // Create view model with AI assistant info
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService);
+            tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
@@ -895,6 +903,42 @@ public partial class MainViewModel : ObservableObject
         if (sender is TerminalPairTabViewModel tab)
         {
             SaveDirectorySettings(tab);
+        }
+    }
+
+    private void OnAiAssistantSwitchRequested(object? sender, AiAssistantSwitchEventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            // Save the new AI selection
+            _aiAssistantService.SetAssistantForDirectory(tab.WorkingDirectory, e.NewAssistant.Id);
+
+            // Create new profile for the new AI assistant
+            var newProfile = new Profile
+            {
+                Id = "custom",
+                Name = e.NewAssistant.Name,
+                Command = e.NewAssistant.Command,
+                WorkingDir = tab.WorkingDirectory,
+                Icon = e.NewAssistant.Icon
+            };
+
+            // Close old custom terminal session
+            var oldSession = tab.Pair.CustomTerminal;
+            _sessionManager.CloseSession(oldSession);
+
+            // Create new session and control
+            var newSession = new TerminalSession(newProfile, _statisticsService, "Custom");
+            var newControl = _terminalFactory.CreateTerminalControl(newSession);
+            _sessionManager.TrackSession(newSession);
+
+            // Subscribe to link click events
+            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+
+            // Replace the terminal in the pair
+            tab.Pair.ReplaceCustomTerminal(newSession);
+            tab.SetCustomTerminalControl(newControl);
+            tab.UpdateActiveAiAssistant(e.NewAssistant);
         }
     }
 

@@ -14,7 +14,7 @@ public class TerminalPair : IDisposable
     public string DirectoryName => Path.GetFileName(WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
                                    ?? WorkingDirectory;
 
-    public TerminalSession CustomTerminal { get; }
+    public TerminalSession CustomTerminal { get; private set; }
     public TerminalSession ShellTerminal { get; }
 
     /// <summary>
@@ -105,6 +105,15 @@ public class TerminalPair : IDisposable
     /// Returns true if the run terminal has been created.
     /// </summary>
     public bool HasRunTerminal => RunTerminal != null;
+
+    /// <summary>
+    /// Replaces the custom terminal with a new session (e.g., when switching AI assistant).
+    /// The old session is NOT disposed here - caller is responsible for cleanup.
+    /// </summary>
+    public void ReplaceCustomTerminal(TerminalSession newSession)
+    {
+        CustomTerminal = newSession;
+    }
 
     public void Dispose()
     {

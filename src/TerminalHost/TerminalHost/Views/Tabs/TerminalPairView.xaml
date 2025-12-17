@@ -136,6 +136,34 @@
                         <TextBlock Text="▤" FontSize="14" VerticalAlignment="Center"/>
                     </ToggleButton>
 
+                    <!-- AI Assistant Selector (visible only when multiple assistants enabled) -->
+                    <ComboBox ItemsSource="{Binding AvailableAiAssistants}"
+                              SelectedItem="{Binding SelectedAiAssistant, Mode=TwoWay}"
+                              Visibility="{Binding HasMultipleAiAssistants, Converter={StaticResource BoolToVisibilityConverter}}"
+                              AutomationProperties.AutomationId="AiAssistantSelector"
+                              ToolTip="Switch AI Assistant"
+                              Margin="8,0,0,0"
+                              MinWidth="120"
+                              VerticalContentAlignment="Center">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                            </Style>
+                        </ComboBox.Style>
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Icon}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
                     <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.WorkingDirectory}"/>
 

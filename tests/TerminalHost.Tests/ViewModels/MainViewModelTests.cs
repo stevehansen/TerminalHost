@@ -25,6 +25,7 @@ public class MainViewModelTests
     private readonly Mock<IDialogService> _mockDialogService;
     private readonly Mock<IClaudeCommandService> _mockClaudeCommandService;
     private readonly Mock<ITaskService> _mockTaskService;
+    private readonly Mock<IAiAssistantService> _mockAiAssistantService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -46,6 +47,21 @@ public class MainViewModelTests
         _mockDialogService = new Mock<IDialogService>();
         _mockClaudeCommandService = new Mock<IClaudeCommandService>();
         _mockTaskService = new Mock<ITaskService>();
+        _mockAiAssistantService = new Mock<IAiAssistantService>();
+
+        // Setup default behaviors for IAiAssistantService
+        var defaultAssistant = new AiAssistant
+        {
+            Id = "claude",
+            Name = "Claude Code",
+            Command = "claude.exe",
+            Icon = "Claude",
+            Enabled = true,
+            IsDefault = true
+        };
+        _mockAiAssistantService.Setup(ai => ai.GetAssistantForDirectory(It.IsAny<string>())).Returns(defaultAssistant);
+        _mockAiAssistantService.Setup(ai => ai.GetEnabledAssistants()).Returns(new List<AiAssistant> { defaultAssistant });
+        _mockAiAssistantService.Setup(ai => ai.GetDefaultAssistant()).Returns(defaultAssistant);
 
         // Setup default behaviors for IClaudeCommandService
         _mockClaudeCommandService.Setup(cs => cs.GlobalCommands).Returns(new List<ClaudeCommand>());
@@ -104,7 +120,8 @@ public class MainViewModelTests
             _mockFilePreviewService.Object,
             _mockFileEditService.Object,
             _mockClaudeCommandService.Object,
-            _mockTaskService.Object);
+            _mockTaskService.Object,
+            _mockAiAssistantService.Object);
     }
 
     // Helper to run tests in STA thread

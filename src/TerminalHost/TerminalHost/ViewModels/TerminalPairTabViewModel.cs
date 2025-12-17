@@ -91,6 +91,23 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
 
+    // AI Assistant support
+    [ObservableProperty]
+    private AiAssistant? _activeAiAssistant;
+
+    [ObservableProperty]
+    private ObservableCollection<AiAssistant> _availableAiAssistants = [];
+
+    [ObservableProperty]
+    private AiAssistant? _selectedAiAssistant;
+
+    private bool _suppressAiSwitchEvent;
+
+    /// <summary>
+    /// Whether multiple AI assistants are enabled (controls visibility of selector).
+    /// </summary>
+    public bool HasMultipleAiAssistants => AvailableAiAssistants.Count > 1;
+
     /// <summary>
     /// Updates visibility based on focus mode state.
     /// </summary>
@@ -252,6 +269,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public event EventHandler? CloseRequested;
     public event EventHandler? SettingsChanged;
+    public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
     public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService)
     {
@@ -261,6 +279,36 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
+    }
+
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService)
+    {
+        Pair = pair;
+        Title = pair.DirectoryName;
+        ActiveAiAssistant = activeAiAssistant;
+        SelectedAiAssistant = activeAiAssistant;
+        CustomIcon = activeAiAssistant.Icon;
+        ShellIcon = shellIcon;
+        _statisticsService = statisticsService;
+        ActiveTerminal = pair.ActiveTerminal;
+
+        // Populate available assistants
+        foreach (var assistant in enabledAssistants)
+        {
+            AvailableAiAssistants.Add(assistant);
+        }
+    }
+
+    partial void OnSelectedAiAssistantChanged(AiAssistant? oldValue, AiAssistant? newValue)
+    {
+        // Only fire event if the user actually changed the selection (not suppressed)
+        if (_suppressAiSwitchEvent)
+            return;
+
+        if (newValue != null && oldValue != null && newValue.Id != oldValue.Id)
+        {
+            AiAssistantSwitchRequested?.Invoke(this, new AiAssistantSwitchEventArgs { NewAssistant = newValue });
+        }
     }
 
     public void SetTerminalControls(EasyTerminalControl customControl, EasyTerminalControl shellControl)
@@ -283,6 +331,37 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         // Notify that CurrentTerminalContent has changed
         OnPropertyChanged(nameof(CurrentTerminalContent));
+    }
+
+    /// <summary>
+    /// Sets the custom terminal control when switching AI assistant.
+    /// </summary>
+    public void SetCustomTerminalControl(EasyTerminalControl newControl)
+    {
+        CustomTerminalContent = newControl;
+        Pair.CustomTerminal.SetTerminalControl(newControl);
+
+        // Subscribe to activity changes
+        Pair.CustomTerminal.ActivityChanged += (s, e) =>
+        {
+            IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
+        };
+
+        OnPropertyChanged(nameof(CurrentTerminalContent));
+    }
+
+    /// <summary>
+    /// Updates the active AI assistant after switching.
+    /// </summary>
+    public void UpdateActiveAiAssistant(AiAssistant newAssistant)
+    {
+        ActiveAiAssistant = newAssistant;
+        CustomIcon = newAssistant.Icon;
+
+        // Update selected without triggering the change event
+        _suppressAiSwitchEvent = true;
+        SelectedAiAssistant = newAssistant;
+        _suppressAiSwitchEvent = false;
     }
 
     [RelayCommand]

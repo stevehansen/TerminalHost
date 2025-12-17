@@ -116,6 +116,7 @@ public partial class App : Application
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
+        services.AddSingleton<IAiAssistantService, AiAssistantService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

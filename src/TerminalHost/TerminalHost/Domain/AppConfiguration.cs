@@ -79,6 +79,12 @@ public class AppConfiguration
     [JsonPropertyName("quickNotes")]
     public List<QuickNote> QuickNotes { get; set; } = [];
 
+    /// <summary>
+    /// Configured AI assistants (Claude, Gemini, Codex, Copilot, custom).
+    /// </summary>
+    [JsonPropertyName("aiAssistants")]
+    public List<AiAssistant> AiAssistants { get; set; } = [];
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
@@ -240,6 +246,13 @@ public class DirectorySettings
 
     [JsonPropertyName("explorerSplitRatio")]
     public double ExplorerSplitRatio { get; set; } = 0.25;  // Explorer takes 25% by default
+
+    /// <summary>
+    /// ID of the active AI assistant for this directory.
+    /// If null, uses the default assistant.
+    /// </summary>
+    [JsonPropertyName("activeAiAssistantId")]
+    public string? ActiveAiAssistantId { get; set; }
 }
 
 public class WindowStateInfo
