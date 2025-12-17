@@ -492,10 +492,10 @@ The Settings tab provides both a rich form-based editor and a raw JSON editor fo
 | Terminals          | Custom/Shell command paths, names, icons             |
 | Profiles           | Terminal profiles with add/edit/delete/reorder       |
 | Quick Commands     | Command shortcuts with add/edit/delete/reorder       |
-| Link Patterns      | Custom URL patterns (placeholder)                    |
-| Project Types      | Project detection rules (placeholder)                |
-| Claude Commands    | Claude Code shortcuts (placeholder)                  |
-| Directory Settings | Per-project layout and run configs (placeholder)     |
+| Link Patterns      | Custom URL patterns with live regex test panel       |
+| Project Types      | Project detection rules with file patterns           |
+| Claude Commands    | Info about auto-detected commands + folder links     |
+| Directory Settings | Per-project layout, run terminal, explorer settings  |
 
 **Rich Mode Features:**
 - Sidebar navigation (VS Code style)
@@ -504,6 +504,33 @@ The Settings tab provides both a rich form-based editor and a raw JSON editor fo
 - Help text and tooltips for each field
 - Dark-themed ComboBox controls
 - Real-time sync between Rich and Raw modes
+
+**Link Patterns Section:**
+- List view with pattern name, regex preview, and enabled toggle
+- Edit panel with name, regex pattern, URL template, priority, enabled checkbox
+- **Live regex test panel**: Enter test input and see match results + generated URL in real-time
+- Regex validation with error messages for invalid patterns
+
+**Project Types Section:**
+- List view with name, default command, and priority badge
+- Edit panel with ID, name, detection files (one per line), default/watch commands, URL pattern, priority
+- Add/Reset/Reorder buttons for managing project types
+
+**Claude Commands Section:**
+- Informational view explaining auto-detection from `.claude/commands/` folders
+- **Clickable folder paths**: Opens folder in Explorer, prompts to create if missing
+  - `~/.claude/commands/` (global commands)
+  - `.claude/commands/` (project commands, relative to current project)
+- **Documentation link**: Opens official Claude Code slash commands documentation
+- Instructions for assigning shortcuts via `settings.claudeCommandShortcuts`
+
+**Directory Settings Section:**
+- Directory dropdown to select which project to configure
+- **Layout settings**: Radio buttons (Custom Only / Horizontal / Vertical) + split ratio slider
+- **Run terminal settings**: Visibility toggle + size slider
+- **File explorer settings**: Visibility toggle + width slider
+- **Run configurations editor**: Nested list with add/edit/delete for custom run configs
+- Apply button to save changes
 
 **Raw Mode Features:**
 - JSON syntax highlighting (keys, strings, numbers, booleans)

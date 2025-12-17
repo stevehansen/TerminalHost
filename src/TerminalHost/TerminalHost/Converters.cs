@@ -424,6 +424,37 @@ public class ViewModeToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
+/// Converts TerminalLayoutMode enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target layout mode.
+/// </summary>
+public class LayoutModeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is TerminalLayoutMode mode && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<TerminalLayoutMode>(targetModeStr, out var targetMode))
+            {
+                return mode == targetMode;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<TerminalLayoutMode>(targetModeStr, out var targetMode))
+            {
+                return targetMode;
+            }
+        }
+        return System.Windows.Data.Binding.DoNothing;
+    }
+}
+
+/// <summary>
 /// Converts SettingsSection enum to boolean for RadioButton binding.
 /// ConverterParameter specifies the target section.
 /// </summary>

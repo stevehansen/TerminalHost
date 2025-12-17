@@ -1,5 +1,9 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Navigation;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 
@@ -9,6 +13,7 @@ public partial class SettingsView : UserControl
 {
     private bool _isUpdatingDocument;
     private SettingsTabViewModel? _currentViewModel;
+    private IDialogService? _dialogService;
 
     public SettingsView()
     {
@@ -122,5 +127,107 @@ public partial class SettingsView : UserControl
                 viewModel.ShellCommand = dialog.FileName;
             }
         }
+    }
+
+    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        // Open URL in default browser
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = e.Uri.AbsoluteUri,
+            UseShellExecute = true
+        });
+        e.Handled = true;
+    }
+
+    private void GlobalCommandsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var globalCommandsPath = Path.Combine(userProfile, ".claude", "commands");
+        OpenOrCreateFolder(globalCommandsPath, "global commands");
+    }
+
+    private void ProjectCommandsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        // Get the current project directory from MainViewModel
+        var mainWindow = Window.GetWindow(this);
+        if (mainWindow?.DataContext is MainViewModel mainVm)
+        {
+            // Find the currently selected terminal tab to get its working directory
+            var terminalTab = mainVm.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t => t == mainVm.SelectedTab)
+                           ?? mainVm.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault();
+
+            if (terminalTab != null)
+            {
+                var projectCommandsPath = Path.Combine(terminalTab.WorkingDirectory, ".claude", "commands");
+                OpenOrCreateFolder(projectCommandsPath, "project commands");
+            }
+            else
+            {
+                GetDialogService()?.ShowWarning(
+                    "No project is currently open.\n\nOpen a project directory first to create project-specific commands.",
+                    "No Project Open");
+            }
+        }
+    }
+
+    private void OpenOrCreateFolder(string path, string folderDescription)
+    {
+        if (Directory.Exists(path))
+        {
+            // Open folder in Explorer
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{path}\"",
+                UseShellExecute = true
+            });
+        }
+        else
+        {
+            // Ask user if they want to create it
+            var dialogService = GetDialogService();
+            if (dialogService != null)
+            {
+                var result = dialogService.ShowConfirmation(
+                    $"The {folderDescription} folder does not exist:\n\n{path}\n\nWould you like to create it?",
+                    "Create Folder?");
+
+                if (result)
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(path);
+                        // Open the newly created folder
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = $"\"{path}\"",
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        dialogService.ShowError($"Failed to create folder:\n\n{ex.Message}", "Error");
+                    }
+                }
+            }
+        }
+    }
+
+    private IDialogService? GetDialogService()
+    {
+        if (_dialogService != null) return _dialogService;
+
+        // Try to get from SettingsTabViewModel
+        if (_currentViewModel != null)
+        {
+            // Get via reflection since _dialogService is private
+            var field = typeof(SettingsTabViewModel).GetField("_dialogService",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            _dialogService = field?.GetValue(_currentViewModel) as IDialogService;
+        }
+
+        return _dialogService;
     }
 }

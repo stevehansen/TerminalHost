@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -159,6 +160,60 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private ProjectType? _selectedProjectType;
 
+    // Link pattern editing properties
+    [ObservableProperty]
+    private string _editLpName = "";
+
+    [ObservableProperty]
+    private string _editLpPattern = "";
+
+    [ObservableProperty]
+    private string _editLpUrlTemplate = "";
+
+    [ObservableProperty]
+    private bool _editLpEnabled = true;
+
+    [ObservableProperty]
+    private int _editLpPriority = 0;
+
+    // Regex test properties
+    [ObservableProperty]
+    private string _regexTestInput = "";
+
+    [ObservableProperty]
+    private string _regexTestMatch = "";
+
+    [ObservableProperty]
+    private string _regexTestUrl = "";
+
+    [ObservableProperty]
+    private bool _regexTestIsValid = true;
+
+    [ObservableProperty]
+    private string _regexTestError = "";
+
+    // Project type editing properties
+    [ObservableProperty]
+    private string _editPtId = "";
+
+    [ObservableProperty]
+    private string _editPtName = "";
+
+    [ObservableProperty]
+    private string _editPtDetectFiles = "";
+
+    [ObservableProperty]
+    private string _editPtDefaultCommand = "";
+
+    [ObservableProperty]
+    private string _editPtWatchCommand = "";
+
+    [ObservableProperty]
+    private string _editPtUrlPattern = "";
+
+    [ObservableProperty]
+    private int _editPtPriority = 0;
+
     // Directory settings
     [ObservableProperty]
     private ObservableCollection<string> _directories = [];
@@ -168,6 +223,45 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private DirectorySettings? _currentDirectorySettings;
+
+    // Directory settings editing properties
+    [ObservableProperty]
+    private TerminalLayoutMode _editDsLayoutMode = TerminalLayoutMode.HorizontalSplit;
+
+    [ObservableProperty]
+    private double _editDsSplitRatio = 0.6;
+
+    [ObservableProperty]
+    private bool _editDsShowRunTerminal = false;
+
+    [ObservableProperty]
+    private double _editDsRunSplitRatio = 0.3;
+
+    [ObservableProperty]
+    private bool _editDsShowExplorer = false;
+
+    [ObservableProperty]
+    private double _editDsExplorerRatio = 0.25;
+
+    // Run configurations for the selected directory
+    [ObservableProperty]
+    private ObservableCollection<RunConfiguration> _runConfigurations = [];
+
+    [ObservableProperty]
+    private RunConfiguration? _selectedRunConfiguration;
+
+    // Run configuration editing properties
+    [ObservableProperty]
+    private string _editRcName = "";
+
+    [ObservableProperty]
+    private string _editRcCommand = "";
+
+    [ObservableProperty]
+    private bool _editRcIsDefault = false;
+
+    [ObservableProperty]
+    private string _editRcUrlPattern = "";
 
     public string TabIcon => "\u2699"; // Gear symbol
     public string WorkingDirectory => "Settings";
@@ -291,11 +385,6 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ErrorMessage = $"Cannot sync settings: {ex.Message}";
             HasError = true;
         }
-    }
-
-    partial void OnSelectedDirectoryChanged(string? value)
-    {
-        UpdateCurrentDirectorySettings();
     }
 
     private void UpdateCurrentDirectorySettings()
@@ -758,6 +847,477 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             Profiles.Insert(index + 1, profile);
             SelectedProfile = profile;
             SyncRichModeToJson();
+        }
+    }
+
+    // Link pattern management
+    partial void OnSelectedLinkPatternChanged(LinkPattern? value)
+    {
+        if (value != null)
+        {
+            EditLpName = value.Name;
+            EditLpPattern = value.Pattern;
+            EditLpUrlTemplate = value.UrlTemplate;
+            EditLpEnabled = value.Enabled;
+            EditLpPriority = value.Priority;
+            // Clear test results
+            RegexTestInput = "";
+            RegexTestMatch = "";
+            RegexTestUrl = "";
+        }
+        else
+        {
+            EditLpName = "";
+            EditLpPattern = "";
+            EditLpUrlTemplate = "";
+            EditLpEnabled = true;
+            EditLpPriority = 0;
+        }
+        UpdateRegexTest();
+    }
+
+    partial void OnEditLpPatternChanged(string value) => UpdateRegexTest();
+    partial void OnEditLpUrlTemplateChanged(string value) => UpdateRegexTest();
+    partial void OnRegexTestInputChanged(string value) => UpdateRegexTest();
+
+    private void UpdateRegexTest()
+    {
+        if (string.IsNullOrEmpty(EditLpPattern))
+        {
+            RegexTestIsValid = true;
+            RegexTestError = "";
+            RegexTestMatch = "";
+            RegexTestUrl = "";
+            return;
+        }
+
+        try
+        {
+            var regex = new Regex(EditLpPattern, RegexOptions.None, TimeSpan.FromMilliseconds(100));
+            RegexTestIsValid = true;
+            RegexTestError = "";
+
+            if (!string.IsNullOrEmpty(RegexTestInput))
+            {
+                var match = regex.Match(RegexTestInput);
+                if (match.Success)
+                {
+                    RegexTestMatch = match.Value;
+                    // Build URL from template
+                    var url = EditLpUrlTemplate ?? "";
+                    url = url.Replace("$0", match.Value);
+                    for (int i = 1; i < match.Groups.Count; i++)
+                    {
+                        url = url.Replace($"${i}", match.Groups[i].Value);
+                    }
+                    RegexTestUrl = url;
+                }
+                else
+                {
+                    RegexTestMatch = "(no match)";
+                    RegexTestUrl = "";
+                }
+            }
+            else
+            {
+                RegexTestMatch = "";
+                RegexTestUrl = "";
+            }
+        }
+        catch (RegexParseException ex)
+        {
+            RegexTestIsValid = false;
+            RegexTestError = ex.Message;
+            RegexTestMatch = "";
+            RegexTestUrl = "";
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            RegexTestIsValid = false;
+            RegexTestError = "Pattern timed out (too complex)";
+            RegexTestMatch = "";
+            RegexTestUrl = "";
+        }
+    }
+
+    [RelayCommand]
+    private void AddLinkPattern()
+    {
+        var newPattern = new LinkPattern
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "New Pattern",
+            Pattern = "",
+            UrlTemplate = "",
+            Enabled = true,
+            Priority = 0
+        };
+
+        LinkPatterns.Add(newPattern);
+        SelectedLinkPattern = newPattern;
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void DeleteLinkPattern()
+    {
+        if (SelectedLinkPattern == null) return;
+
+        var index = LinkPatterns.IndexOf(SelectedLinkPattern);
+        LinkPatterns.Remove(SelectedLinkPattern);
+
+        if (LinkPatterns.Count > 0)
+        {
+            SelectedLinkPattern = LinkPatterns[Math.Min(index, LinkPatterns.Count - 1)];
+        }
+        else
+        {
+            SelectedLinkPattern = null;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ApplyLinkPattern()
+    {
+        if (SelectedLinkPattern == null) return;
+
+        SelectedLinkPattern.Name = EditLpName;
+        SelectedLinkPattern.Pattern = EditLpPattern;
+        SelectedLinkPattern.UrlTemplate = EditLpUrlTemplate;
+        SelectedLinkPattern.Enabled = EditLpEnabled;
+        SelectedLinkPattern.Priority = EditLpPriority;
+
+        // Force collection refresh
+        var index = LinkPatterns.IndexOf(SelectedLinkPattern);
+        if (index >= 0)
+        {
+            var pattern = SelectedLinkPattern;
+            LinkPatterns.RemoveAt(index);
+            LinkPatterns.Insert(index, pattern);
+            SelectedLinkPattern = pattern;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void MoveLinkPatternUp()
+    {
+        if (SelectedLinkPattern == null) return;
+
+        var index = LinkPatterns.IndexOf(SelectedLinkPattern);
+        if (index > 0)
+        {
+            var pattern = SelectedLinkPattern;
+            LinkPatterns.RemoveAt(index);
+            LinkPatterns.Insert(index - 1, pattern);
+            SelectedLinkPattern = pattern;
+            SyncRichModeToJson();
+        }
+    }
+
+    [RelayCommand]
+    private void MoveLinkPatternDown()
+    {
+        if (SelectedLinkPattern == null) return;
+
+        var index = LinkPatterns.IndexOf(SelectedLinkPattern);
+        if (index < LinkPatterns.Count - 1)
+        {
+            var pattern = SelectedLinkPattern;
+            LinkPatterns.RemoveAt(index);
+            LinkPatterns.Insert(index + 1, pattern);
+            SelectedLinkPattern = pattern;
+            SyncRichModeToJson();
+        }
+    }
+
+    // Project type management
+    partial void OnSelectedProjectTypeChanged(ProjectType? value)
+    {
+        if (value != null)
+        {
+            EditPtId = value.Id;
+            EditPtName = value.Name;
+            EditPtDetectFiles = string.Join("\n", value.DetectFiles);
+            EditPtDefaultCommand = value.DefaultCommand;
+            EditPtWatchCommand = value.WatchCommand ?? "";
+            EditPtUrlPattern = value.UrlPattern ?? "";
+            EditPtPriority = value.Priority;
+        }
+        else
+        {
+            EditPtId = "";
+            EditPtName = "";
+            EditPtDetectFiles = "";
+            EditPtDefaultCommand = "";
+            EditPtWatchCommand = "";
+            EditPtUrlPattern = "";
+            EditPtPriority = 0;
+        }
+    }
+
+    [RelayCommand]
+    private void AddProjectType()
+    {
+        var newType = new ProjectType
+        {
+            Id = $"custom-{DateTime.Now:yyyyMMddHHmmss}",
+            Name = "New Project Type",
+            DetectFiles = [],
+            DefaultCommand = "",
+            Priority = 0
+        };
+
+        ProjectTypes.Add(newType);
+        SelectedProjectType = newType;
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void DeleteProjectType()
+    {
+        if (SelectedProjectType == null) return;
+
+        var index = ProjectTypes.IndexOf(SelectedProjectType);
+        ProjectTypes.Remove(SelectedProjectType);
+
+        if (ProjectTypes.Count > 0)
+        {
+            SelectedProjectType = ProjectTypes[Math.Min(index, ProjectTypes.Count - 1)];
+        }
+        else
+        {
+            SelectedProjectType = null;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ApplyProjectType()
+    {
+        if (SelectedProjectType == null) return;
+
+        SelectedProjectType.Id = EditPtId;
+        SelectedProjectType.Name = EditPtName;
+        SelectedProjectType.DetectFiles = EditPtDetectFiles
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        SelectedProjectType.DefaultCommand = EditPtDefaultCommand;
+        SelectedProjectType.WatchCommand = string.IsNullOrWhiteSpace(EditPtWatchCommand) ? null : EditPtWatchCommand;
+        SelectedProjectType.UrlPattern = string.IsNullOrWhiteSpace(EditPtUrlPattern) ? null : EditPtUrlPattern;
+        SelectedProjectType.Priority = EditPtPriority;
+
+        // Force collection refresh
+        var index = ProjectTypes.IndexOf(SelectedProjectType);
+        if (index >= 0)
+        {
+            var type = SelectedProjectType;
+            ProjectTypes.RemoveAt(index);
+            ProjectTypes.Insert(index, type);
+            SelectedProjectType = type;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void MoveProjectTypeUp()
+    {
+        if (SelectedProjectType == null) return;
+
+        var index = ProjectTypes.IndexOf(SelectedProjectType);
+        if (index > 0)
+        {
+            var type = SelectedProjectType;
+            ProjectTypes.RemoveAt(index);
+            ProjectTypes.Insert(index - 1, type);
+            SelectedProjectType = type;
+            SyncRichModeToJson();
+        }
+    }
+
+    [RelayCommand]
+    private void MoveProjectTypeDown()
+    {
+        if (SelectedProjectType == null) return;
+
+        var index = ProjectTypes.IndexOf(SelectedProjectType);
+        if (index < ProjectTypes.Count - 1)
+        {
+            var type = SelectedProjectType;
+            ProjectTypes.RemoveAt(index);
+            ProjectTypes.Insert(index + 1, type);
+            SelectedProjectType = type;
+            SyncRichModeToJson();
+        }
+    }
+
+    // Directory settings management
+    partial void OnSelectedDirectoryChanged(string? value)
+    {
+        UpdateCurrentDirectorySettings();
+        LoadDirectorySettingsToEdit();
+    }
+
+    private void LoadDirectorySettingsToEdit()
+    {
+        if (CurrentDirectorySettings != null)
+        {
+            EditDsLayoutMode = CurrentDirectorySettings.LayoutMode;
+            EditDsSplitRatio = CurrentDirectorySettings.SplitRatio;
+            EditDsShowRunTerminal = CurrentDirectorySettings.IsRunTerminalVisible;
+            EditDsRunSplitRatio = CurrentDirectorySettings.RunSplitRatio;
+            EditDsShowExplorer = CurrentDirectorySettings.IsExplorerVisible;
+            EditDsExplorerRatio = CurrentDirectorySettings.ExplorerSplitRatio;
+            RunConfigurations = new ObservableCollection<RunConfiguration>(CurrentDirectorySettings.RunConfigurations);
+        }
+        else
+        {
+            EditDsLayoutMode = TerminalLayoutMode.HorizontalSplit;
+            EditDsSplitRatio = 0.6;
+            EditDsShowRunTerminal = false;
+            EditDsRunSplitRatio = 0.3;
+            EditDsShowExplorer = false;
+            EditDsExplorerRatio = 0.25;
+            RunConfigurations = [];
+        }
+        SelectedRunConfiguration = null;
+    }
+
+    partial void OnSelectedRunConfigurationChanged(RunConfiguration? value)
+    {
+        if (value != null)
+        {
+            EditRcName = value.Name;
+            EditRcCommand = value.Command;
+            EditRcIsDefault = value.IsDefault;
+            EditRcUrlPattern = value.UrlPattern ?? "";
+        }
+        else
+        {
+            EditRcName = "";
+            EditRcCommand = "";
+            EditRcIsDefault = false;
+            EditRcUrlPattern = "";
+        }
+    }
+
+    [RelayCommand]
+    private void ApplyDirectorySettings()
+    {
+        if (SelectedDirectory == null || CurrentDirectorySettings == null) return;
+
+        CurrentDirectorySettings.LayoutMode = EditDsLayoutMode;
+        CurrentDirectorySettings.SplitRatio = EditDsSplitRatio;
+        CurrentDirectorySettings.IsRunTerminalVisible = EditDsShowRunTerminal;
+        CurrentDirectorySettings.RunSplitRatio = EditDsRunSplitRatio;
+        CurrentDirectorySettings.IsExplorerVisible = EditDsShowExplorer;
+        CurrentDirectorySettings.ExplorerSplitRatio = EditDsExplorerRatio;
+        CurrentDirectorySettings.RunConfigurations = RunConfigurations.ToList();
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void DeleteDirectorySettings()
+    {
+        if (SelectedDirectory == null) return;
+
+        try
+        {
+            var config = JsonSerializer.Deserialize<AppConfiguration>(JsonText, JsonOptions);
+            if (config?.DirectorySettings.ContainsKey(SelectedDirectory) == true)
+            {
+                config.DirectorySettings.Remove(SelectedDirectory);
+                JsonText = JsonSerializer.Serialize(config, JsonOptions);
+                IsDirty = JsonText != _originalJson;
+
+                // Refresh directories list
+                Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
+                if (Directories.Count > 0)
+                {
+                    SelectedDirectory = Directories.First();
+                }
+                else
+                {
+                    SelectedDirectory = null;
+                    CurrentDirectorySettings = null;
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            ErrorMessage = $"Cannot delete directory settings: {ex.Message}";
+            HasError = true;
+        }
+    }
+
+    [RelayCommand]
+    private void AddRunConfiguration()
+    {
+        var newConfig = new RunConfiguration
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "New Configuration",
+            Command = "",
+            IsDefault = RunConfigurations.Count == 0
+        };
+
+        RunConfigurations.Add(newConfig);
+        SelectedRunConfiguration = newConfig;
+    }
+
+    [RelayCommand]
+    private void DeleteRunConfiguration()
+    {
+        if (SelectedRunConfiguration == null) return;
+
+        var index = RunConfigurations.IndexOf(SelectedRunConfiguration);
+        RunConfigurations.Remove(SelectedRunConfiguration);
+
+        if (RunConfigurations.Count > 0)
+        {
+            SelectedRunConfiguration = RunConfigurations[Math.Min(index, RunConfigurations.Count - 1)];
+        }
+        else
+        {
+            SelectedRunConfiguration = null;
+        }
+    }
+
+    [RelayCommand]
+    private void ApplyRunConfiguration()
+    {
+        if (SelectedRunConfiguration == null) return;
+
+        SelectedRunConfiguration.Name = EditRcName;
+        SelectedRunConfiguration.Command = EditRcCommand;
+        SelectedRunConfiguration.UrlPattern = string.IsNullOrWhiteSpace(EditRcUrlPattern) ? null : EditRcUrlPattern;
+
+        // Handle default flag
+        if (EditRcIsDefault)
+        {
+            foreach (var config in RunConfigurations)
+            {
+                config.IsDefault = config == SelectedRunConfiguration;
+            }
+        }
+        else
+        {
+            SelectedRunConfiguration.IsDefault = false;
+        }
+
+        // Force collection refresh
+        var index = RunConfigurations.IndexOf(SelectedRunConfiguration);
+        if (index >= 0)
+        {
+            var config = SelectedRunConfiguration;
+            RunConfigurations.RemoveAt(index);
+            RunConfigurations.Insert(index, config);
+            SelectedRunConfiguration = config;
         }
     }
 }
