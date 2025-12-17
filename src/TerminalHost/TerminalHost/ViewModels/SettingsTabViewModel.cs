@@ -61,6 +61,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _isDirty;
 
+    // Flag to prevent syncing during load
+    private bool _isLoading;
+
     // View mode (Rich or Raw)
     [ObservableProperty]
     private SettingsViewMode _viewMode = SettingsViewMode.Rich;
@@ -287,20 +290,30 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     public void LoadSettings()
     {
-        _originalJson = _configService.LoadRawJson();
-        JsonText = _originalJson;
-        IsDirty = false;
-        ErrorMessage = "";
-        HasError = false;
+        _isLoading = true;
+        try
+        {
+            _originalJson = _configService.LoadRawJson();
+            JsonText = _originalJson;
+            IsDirty = false;
+            ErrorMessage = "";
+            HasError = false;
 
-        // Load rich mode properties from JSON
-        LoadRichModeProperties();
+            // Load rich mode properties from JSON
+            LoadRichModeProperties();
 
-        JsonTextReloaded?.Invoke(this, EventArgs.Empty);
+            JsonTextReloaded?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     private void LoadRichModeProperties()
     {
+        if (string.IsNullOrEmpty(JsonText)) return;
+
         try
         {
             var config = JsonSerializer.Deserialize<AppConfiguration>(JsonText, JsonOptions);
@@ -424,6 +437,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     private void MarkDirtyFromRichMode()
     {
+        if (_isLoading) return;
+
         if (ViewMode == SettingsViewMode.Rich)
         {
             SyncRichModeToJson();
