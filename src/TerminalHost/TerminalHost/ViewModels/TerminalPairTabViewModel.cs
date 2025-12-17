@@ -89,6 +89,27 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool IsSelected { get; set; }
 
     [ObservableProperty]
+    private bool _isVisibleInFocusMode = true;
+
+    /// <summary>
+    /// Updates visibility based on focus mode state.
+    /// </summary>
+    public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects)
+    {
+        if (!isFocusModeEnabled || currentTaskProjects.Count == 0)
+        {
+            // Focus mode disabled or no projects in task = show all tabs
+            IsVisibleInFocusMode = true;
+            return;
+        }
+
+        // Check if this tab's working directory matches any project in the current task
+        var normalizedPath = WorkingDirectory.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+        IsVisibleInFocusMode = currentTaskProjects.Any(p =>
+            p.Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [ObservableProperty]
     private RunConfiguration? _activeRunConfiguration;
 
     /// <summary>

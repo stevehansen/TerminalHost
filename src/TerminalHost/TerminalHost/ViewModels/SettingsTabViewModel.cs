@@ -269,6 +269,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
     public bool IsSelected { get; set; }
+    public bool IsVisibleInFocusMode => true; // Settings always visible
+    public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { } // No-op, always visible
     public void ClearUnreadActivity() { }
     public string DisplayTitle => Title;
 

@@ -27,6 +27,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
     private readonly IClaudeCommandService _claudeCommandService;
+    private readonly ITaskService _taskService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -145,7 +146,8 @@ public partial class MainViewModel : ObservableObject
         IFileExplorerService fileExplorerService,
         IFilePreviewService filePreviewService,
         IFileEditService fileEditService,
-        IClaudeCommandService claudeCommandService)
+        IClaudeCommandService claudeCommandService,
+        ITaskService taskService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -163,6 +165,11 @@ public partial class MainViewModel : ObservableObject
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
         _claudeCommandService = claudeCommandService;
+        _taskService = taskService;
+
+        // Subscribe to focus mode changes
+        _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
+        _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
 
         // Subscribe to Claude command changes
         _claudeCommandService.CommandsChanged += (_, _) => FilterPaletteCommands();
@@ -304,6 +311,31 @@ public partial class MainViewModel : ObservableObject
                 t.WorkingDirectory.ToLower().Contains(searchText)))
             {
                 _filteredSwitcherTabs.Add(tab);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates visibility of all tabs based on focus mode state.
+    /// Called when focus mode is toggled or current task changes.
+    /// </summary>
+    private void UpdateTabFocusModeVisibility()
+    {
+        var isFocusModeEnabled = _taskService.IsFocusModeEnabled;
+        var currentTaskProjects = _taskService.GetProjectsForCurrentTask();
+
+        foreach (var tab in Tabs)
+        {
+            tab.UpdateFocusModeVisibility(isFocusModeEnabled, currentTaskProjects);
+        }
+
+        // If the selected tab is now hidden, try to select a visible one
+        if (SelectedTab != null && !SelectedTab.IsVisibleInFocusMode)
+        {
+            var visibleTab = Tabs.FirstOrDefault(t => t.IsVisibleInFocusMode);
+            if (visibleTab != null)
+            {
+                SelectedTab = visibleTab;
             }
         }
     }

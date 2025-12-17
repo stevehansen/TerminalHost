@@ -46,6 +46,8 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
     public bool IsSelected { get; set; }
+    public bool IsVisibleInFocusMode => true; // Profiles always visible
+    public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { }
     public void ClearUnreadActivity() { }
     public string DisplayTitle => Title;
 

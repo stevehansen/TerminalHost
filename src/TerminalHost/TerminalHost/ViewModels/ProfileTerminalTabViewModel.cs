@@ -40,6 +40,28 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     /// </summary>
     public bool IsSelected { get; set; }
 
+    [ObservableProperty]
+    private bool _isVisibleInFocusMode = true;
+
+    /// <summary>
+    /// Updates visibility based on focus mode state.
+    /// Profile terminals follow the same logic as project tabs.
+    /// </summary>
+    public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects)
+    {
+        if (!isFocusModeEnabled || currentTaskProjects.Count == 0 || string.IsNullOrEmpty(WorkingDirectory))
+        {
+            // Focus mode disabled, no projects in task, or no working dir = show all
+            IsVisibleInFocusMode = true;
+            return;
+        }
+
+        // Check if this tab's working directory matches any project in the current task
+        var normalizedPath = WorkingDirectory.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+        IsVisibleInFocusMode = currentTaskProjects.Any(p =>
+            p.Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+    }
+
     public bool IsAnyTerminalActive => IsActive;
 
     public Profile Profile { get; }

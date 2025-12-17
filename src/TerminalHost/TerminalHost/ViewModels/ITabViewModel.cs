@@ -32,5 +32,16 @@ public interface ITabViewModel : INotifyPropertyChanged
     /// </summary>
     string DisplayTitle { get; }
 
+    /// <summary>
+    /// Whether this tab should be visible when focus mode is enabled.
+    /// Returns true if focus mode is disabled or if the tab's project is in the current task.
+    /// </summary>
+    bool IsVisibleInFocusMode { get; }
+
+    /// <summary>
+    /// Updates the IsVisibleInFocusMode property based on current focus mode state.
+    /// </summary>
+    void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects);
+
     event EventHandler? CloseRequested;
 }
