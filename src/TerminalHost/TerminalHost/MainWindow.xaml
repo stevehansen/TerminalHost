@@ -112,6 +112,16 @@
         <!-- Scratch Pad View (Ctrl+Shift+N) -->
         <views:ScratchPadView x:Name="ScratchPadViewControl" />
 
+        <!-- Task Panel View (Ctrl+T) -->
+        <Popup x:Name="TaskPanelPopup"
+               Placement="Center"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding TaskPanelViewModel.IsOpen, Mode=TwoWay}">
+            <popups:TaskPanelView DataContext="{Binding TaskPanelViewModel}" />
+        </Popup>
+
         <!-- Git Files View (Ctrl+G) -->
         <popups:GitFilesView x:Name="GitFilesViewControl" />
 

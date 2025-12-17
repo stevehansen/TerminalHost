@@ -24,10 +24,11 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
+    private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly IDialogService _dialogService;
     private bool _isExiting;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -39,8 +40,10 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _fileViewerViewModel = fileViewerViewModel;
+        _taskPanelViewModel = taskPanelViewModel;
         _dialogService = dialogService;
         DataContext = viewModel;
+        viewModel.TaskPanelViewModel = taskPanelViewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
@@ -484,6 +487,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control)
         {
             _viewModel.OpenInExplorerCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+T: Open task panel
+        else if (e.Key == Key.T && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.OpenTaskPanelCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+Shift+T: Open tab switcher

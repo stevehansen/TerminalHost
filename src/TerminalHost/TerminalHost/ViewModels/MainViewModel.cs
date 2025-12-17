@@ -103,6 +103,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private PaletteCommand? _selectedPaletteCommand;
 
+    // Task Panel
+    public TaskPanelViewModel? TaskPanelViewModel { get; set; }
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
@@ -1141,6 +1144,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
+    public event EventHandler? TaskPanelRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -1158,6 +1162,12 @@ public partial class MainViewModel : ObservableObject
     private void OpenGitChanges()
     {
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenTaskPanel()
+    {
+        TaskPanelRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
@@ -1319,6 +1329,17 @@ public partial class MainViewModel : ObservableObject
                 Icon = "❓",
                 Category = "Help",
                 Execute = () => IsHelpOpen = true
+            },
+
+            // Task Panel
+            new() {
+                Id = "task-panel",
+                Name = "Tasks",
+                Description = "Open task management panel",
+                Shortcut = "Ctrl+T",
+                Icon = "📋",
+                Category = "Tools",
+                Execute = () => OpenTaskPanelCommand.Execute(null)
             },
 
             // Scratch Pad

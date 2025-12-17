@@ -61,6 +61,24 @@ public class AppConfiguration
     [JsonPropertyName("commandPaletteMru")]
     public List<string> CommandPaletteMru { get; set; } = [];
 
+    /// <summary>
+    /// Focus mode state (enabled, current task, history).
+    /// </summary>
+    [JsonPropertyName("focusMode")]
+    public FocusModeState FocusMode { get; set; } = new();
+
+    /// <summary>
+    /// All focus tasks.
+    /// </summary>
+    [JsonPropertyName("tasks")]
+    public List<FocusTask> Tasks { get; set; } = [];
+
+    /// <summary>
+    /// Quick notes (not yet converted to tasks).
+    /// </summary>
+    [JsonPropertyName("quickNotes")]
+    public List<QuickNote> QuickNotes { get; set; } = [];
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
