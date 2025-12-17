@@ -44,7 +44,42 @@ public partial class SetupViewModel : ObservableObject
             DetectionCommand = "claude --version",
             // InstallCommand removed to avoid Windows Defender alerts
             HomepageUrl = "https://claude.ai/",
-            InstallUrl = "https://docs.anthropic.com/en/docs/intro-to-claude"
+            InstallUrl = "https://docs.anthropic.com/en/docs/intro-to-claude",
+            IsAiAssistant = true,
+            AiAssistantId = "claude"
+        });
+
+        Dependencies.Add(new Dependency
+        {
+            Name = "Gemini CLI",
+            Description = "Google's Gemini AI assistant CLI.",
+            DetectionCommand = "gemini --version",
+            HomepageUrl = "https://ai.google.dev/",
+            InstallUrl = "https://geminicli.com/docs/get-started/deployment/",
+            IsAiAssistant = true,
+            AiAssistantId = "gemini"
+        });
+
+        Dependencies.Add(new Dependency
+        {
+            Name = "OpenAI Codex",
+            Description = "OpenAI's Codex CLI assistant.",
+            DetectionCommand = "codex --version",
+            HomepageUrl = "https://openai.com/",
+            InstallUrl = "https://platform.openai.com/docs",
+            IsAiAssistant = true,
+            AiAssistantId = "codex"
+        });
+
+        Dependencies.Add(new Dependency
+        {
+            Name = "GitHub Copilot CLI",
+            Description = "GitHub Copilot in the command line.",
+            DetectionCommand = "gh copilot --version",
+            HomepageUrl = "https://github.com/features/copilot",
+            InstallUrl = "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line",
+            IsAiAssistant = true,
+            AiAssistantId = "copilot"
         });
 
         Dependencies.Add(new Dependency

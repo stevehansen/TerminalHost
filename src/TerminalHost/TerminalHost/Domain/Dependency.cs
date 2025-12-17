@@ -11,6 +11,16 @@ public partial class Dependency : ObservableObject
     public required string DetectionCommand { get; init; }
     public required string HomepageUrl { get; init; }
 
+    /// <summary>
+    /// Whether this dependency is an AI assistant (Claude, Gemini, etc.).
+    /// </summary>
+    public bool IsAiAssistant { get; init; }
+
+    /// <summary>
+    /// The ID of the AI assistant in the AiAssistants config (e.g., "claude", "gemini").
+    /// </summary>
+    public string? AiAssistantId { get; init; }
+
     public string InstallToolTipText =>
         !string.IsNullOrEmpty(InstallCommand)
             ? $"Run: {InstallCommand}"

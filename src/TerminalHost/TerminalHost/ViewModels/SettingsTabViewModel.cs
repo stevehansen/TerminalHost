@@ -25,6 +25,7 @@ public enum SettingsSection
 {
     General,
     Terminals,
+    AiAssistants,
     Profiles,
     QuickCommands,
     LinkPatterns,
@@ -125,6 +126,32 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private bool _editQcUseUserInput = false;
+
+    // AI Assistants collection
+    [ObservableProperty]
+    private ObservableCollection<AiAssistant> _aiAssistants = [];
+
+    [ObservableProperty]
+    private AiAssistant? _selectedAiAssistant;
+
+    // AI Assistant editing properties
+    [ObservableProperty]
+    private string _editAiName = "";
+
+    [ObservableProperty]
+    private string _editAiCommand = "";
+
+    [ObservableProperty]
+    private string _editAiIcon = "";
+
+    [ObservableProperty]
+    private string _editAiDetectionCommand = "";
+
+    [ObservableProperty]
+    private bool _editAiEnabled;
+
+    [ObservableProperty]
+    private bool _editAiIsDefault;
 
     // Profiles collection
     [ObservableProperty]
@@ -335,6 +362,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Profiles
             Profiles = new ObservableCollection<Profile>(config.Profiles);
 
+            // AI Assistants
+            var aiAssistants = config.AiAssistants.Count > 0
+                ? config.AiAssistants
+                : AiAssistant.GetDefaults();
+            AiAssistants = new ObservableCollection<AiAssistant>(aiAssistants);
+
             // Quick commands
             QuickCommands = new ObservableCollection<QuickCommand>(config.QuickCommands);
 
@@ -378,6 +411,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Profiles
             config.Profiles = Profiles.ToList();
+
+            // AI Assistants
+            config.AiAssistants = AiAssistants.ToList();
 
             // Quick commands
             config.QuickCommands = QuickCommands.ToList();
@@ -868,6 +904,123 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             SelectedProfile = profile;
             SyncRichModeToJson();
         }
+    }
+
+    // AI Assistant management
+    partial void OnSelectedAiAssistantChanged(AiAssistant? value)
+    {
+        if (value != null)
+        {
+            EditAiName = value.Name;
+            EditAiCommand = value.Command;
+            EditAiIcon = value.Icon;
+            EditAiDetectionCommand = value.DetectionCommand ?? "";
+            EditAiEnabled = value.Enabled;
+            EditAiIsDefault = value.IsDefault;
+        }
+        else
+        {
+            EditAiName = "";
+            EditAiCommand = "";
+            EditAiIcon = "";
+            EditAiDetectionCommand = "";
+            EditAiEnabled = false;
+            EditAiIsDefault = false;
+        }
+    }
+
+    [RelayCommand]
+    private void AddAiAssistant()
+    {
+        var newAi = new AiAssistant
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "New AI Assistant",
+            Command = "",
+            Icon = "AI",
+            Enabled = false,
+            IsDefault = false
+        };
+
+        AiAssistants.Add(newAi);
+        SelectedAiAssistant = newAi;
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void DeleteAiAssistant()
+    {
+        if (SelectedAiAssistant == null) return;
+
+        // Don't allow deleting if it's the last enabled assistant
+        if (SelectedAiAssistant.Enabled && AiAssistants.Count(a => a.Enabled) <= 1)
+        {
+            _dialogService.ShowWarning("Cannot delete the last enabled AI assistant.", "Warning");
+            return;
+        }
+
+        var index = AiAssistants.IndexOf(SelectedAiAssistant);
+        AiAssistants.Remove(SelectedAiAssistant);
+
+        if (AiAssistants.Count > 0)
+        {
+            SelectedAiAssistant = AiAssistants[Math.Min(index, AiAssistants.Count - 1)];
+        }
+        else
+        {
+            SelectedAiAssistant = null;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ApplyAiAssistant()
+    {
+        if (SelectedAiAssistant == null) return;
+
+        // If making this the default, clear other defaults
+        if (EditAiIsDefault && !SelectedAiAssistant.IsDefault)
+        {
+            foreach (var ai in AiAssistants)
+            {
+                ai.IsDefault = false;
+            }
+        }
+
+        SelectedAiAssistant.Name = EditAiName;
+        SelectedAiAssistant.Command = EditAiCommand;
+        SelectedAiAssistant.Icon = EditAiIcon;
+        SelectedAiAssistant.DetectionCommand = string.IsNullOrWhiteSpace(EditAiDetectionCommand) ? null : EditAiDetectionCommand;
+        SelectedAiAssistant.Enabled = EditAiEnabled;
+        SelectedAiAssistant.IsDefault = EditAiIsDefault;
+
+        // Ensure at least one is enabled
+        if (!AiAssistants.Any(a => a.Enabled))
+        {
+            SelectedAiAssistant.Enabled = true;
+            EditAiEnabled = true;
+        }
+
+        // Force collection refresh
+        var index = AiAssistants.IndexOf(SelectedAiAssistant);
+        if (index >= 0)
+        {
+            var ai = SelectedAiAssistant;
+            AiAssistants.RemoveAt(index);
+            AiAssistants.Insert(index, ai);
+            SelectedAiAssistant = ai;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ResetAiAssistants()
+    {
+        AiAssistants = new ObservableCollection<AiAssistant>(AiAssistant.GetDefaults());
+        SelectedAiAssistant = null;
+        SyncRichModeToJson();
     }
 
     // Link pattern management

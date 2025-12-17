@@ -349,6 +349,10 @@
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Terminals}"/>
+                    <RadioButton Content="AI Assistants"
+                                 GroupName="SettingsSection"
+                                 Style="{StaticResource SidebarItemButton}"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=AiAssistants}"/>
                     <RadioButton Content="Profiles"
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
@@ -491,6 +495,195 @@
                         <TextBlock Text="Single emoji character displayed in the tab."
                                    Style="{StaticResource HelpText}"/>
                     </StackPanel>
+
+                    <!-- AI Assistants Section -->
+                    <Grid Margin="24"
+                          Visibility="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=AiAssistants}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="AI Assistants" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Grid.Row="1" Text="Configure AI CLI assistants. Enabled assistants appear in the toolbar dropdown for per-project selection." Style="{StaticResource SectionDescription}"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: AI Assistant List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddAiAssistantCommand}"
+                                                    Style="{StaticResource SettingsToolbarButton}"
+                                                    ToolTip="Add a new AI assistant"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="Reset"
+                                                    Command="{Binding ResetAiAssistantsCommand}"
+                                                    Style="{StaticResource SettingsToolbarButton}"
+                                                    ToolTip="Reset to default AI assistants"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- AI Assistant List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding AiAssistants}"
+                                             SelectedItem="{Binding SelectedAiAssistant}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Icon}"
+                                                               FontSize="{StaticResource FontSizeNormal}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,8,0"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"/>
+                                                        <TextBlock Text="{Binding Command}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Border Background="{StaticResource StatusSuccessBrush}"
+                                                                CornerRadius="2"
+                                                                Padding="4,1"
+                                                                Margin="4,0,0,0"
+                                                                Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Default"
+                                                                       Foreground="{StaticResource TextBrightBrush}"
+                                                                       FontSize="{StaticResource FontSizeTiny}"/>
+                                                        </Border>
+                                                        <Border Background="{StaticResource AccentPrimaryBrush}"
+                                                                CornerRadius="2"
+                                                                Padding="4,1"
+                                                                Margin="4,0,0,0"
+                                                                Visibility="{Binding Enabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Enabled"
+                                                                       Foreground="{StaticResource TextBrightBrush}"
+                                                                       FontSize="{StaticResource FontSizeTiny}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="Border" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                                                </Trigger>
+                                                                <MultiTrigger>
+                                                                    <MultiTrigger.Conditions>
+                                                                        <Condition Property="IsMouseOver" Value="True"/>
+                                                                        <Condition Property="IsSelected" Value="False"/>
+                                                                    </MultiTrigger.Conditions>
+                                                                    <Setter TargetName="Border" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                                </MultiTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Form -->
+                            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4" Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="Edit AI Assistant" Style="{StaticResource SubsectionHeader}" Margin="0,0,0,16"/>
+
+                                    <StackPanel Visibility="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <TextBlock Text="Name" Style="{StaticResource FormLabel}"/>
+                                        <TextBox Text="{Binding EditAiName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}"/>
+
+                                        <TextBlock Text="Command" Style="{StaticResource FormLabel}" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiCommand, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}"/>
+                                        <TextBlock Text="The command to run (supports environment variables like %USERPROFILE%)"
+                                                   Style="{StaticResource HelpText}"/>
+
+                                        <TextBlock Text="Icon" Style="{StaticResource FormLabel}" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiIcon, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}"
+                                                 Width="80"
+                                                 HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Short text or emoji shown in the UI"
+                                                   Style="{StaticResource HelpText}"/>
+
+                                        <TextBlock Text="Detection Command" Style="{StaticResource FormLabel}" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiDetectionCommand, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}"/>
+                                        <TextBlock Text="Command to check if this assistant is installed (e.g., 'claude --version')"
+                                                   Style="{StaticResource HelpText}"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Enabled"
+                                                      IsChecked="{Binding EditAiEnabled}"
+                                                      Foreground="{StaticResource TextPrimaryBrush}"
+                                                      VerticalContentAlignment="Center"/>
+                                            <CheckBox Content="Default"
+                                                      IsChecked="{Binding EditAiIsDefault}"
+                                                      Foreground="{StaticResource TextPrimaryBrush}"
+                                                      VerticalContentAlignment="Center"
+                                                      Margin="16,0,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyAiAssistantCommand}"
+                                                    Style="{StaticResource PrimaryButton}"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteAiAssistantCommand}"
+                                                    Style="{StaticResource DangerButton}"
+                                                    Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <TextBlock Text="Select an AI assistant to edit"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontStyle="Italic"
+                                               Visibility="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
 
                     <!-- Profiles Section -->
                     <Grid Margin="24"
