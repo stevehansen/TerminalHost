@@ -4,6 +4,93 @@
 
 It's designed for developers who work with AI coding assistants and need to seamlessly switch between the AI and a regular shell without losing context.
 
+## Getting Started
+
+### Opening Projects
+
+From the command line:
+```bash
+host              # Open/focus the application
+host .            # Open project from current directory
+host P:\MyProject # Open project from a specific path
+host /setup       # Launch the setup/dependency checker
+```
+
+From within the application:
+- `Ctrl+N` - Open new project via folder picker
+- `Ctrl+Shift+O` - Quick repository switcher (favorites, recent, GitHub repos)
+
+### The Three Terminals
+
+Each project tab gives you three terminals:
+
+| Terminal | Purpose | Toggle |
+|----------|---------|--------|
+| **Custom** | AI assistant (Claude Code by default) | Always visible (left/top) |
+| **Shell** | PowerShell for manual commands | `Ctrl+\`` to switch focus |
+| **Run** | Development server output | `F5` to start, toggle visibility in toolbar |
+
+Layout modes: Custom Full, Horizontal Split, Vertical Split (toggle in toolbar).
+
+### Essential Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Switch Custom/Shell focus | `Ctrl+\`` |
+| Start/Stop project run | `F5` |
+| Command palette | `Ctrl+Shift+P` |
+| Git changes | `Ctrl+G` |
+| File explorer | `Ctrl+Shift+F` |
+| Settings | `Ctrl+,` |
+| Help | `F1` |
+
+### Workflows
+
+**Per-Project Development** (default)
+- Each tab is a project directory with paired terminals
+- Split view keeps AI and shell visible simultaneously
+- Quick commands (`Ctrl+Shift+C` commit, `Ctrl+Shift+U` push) for common actions
+
+**Task/Focus Mode** (`Ctrl+T`)
+- Create tasks linked to specific projects
+- Focus mode hides unrelated tabs
+- PR/branch integration with time tracking
+- Quick notes that convert to tasks
+
+**PR Review Mode** (`Ctrl+Shift+R`)
+- View file changes with diff viewer
+- Approve, request changes, or comment
+- Integrated test runner (`F6`)
+
+### Integrations
+
+**Multiple AI Assistants**
+- Built-in support for Claude Code, Gemini CLI, GitHub Copilot
+- Per-project AI selection via toolbar dropdown
+- Add custom AI assistants in Settings
+
+**Claude Commands** (auto-detected)
+- Global: `~/.claude/commands/*.md`
+- Project: `.claude/commands/*.md`
+- Commands appear in Command Palette with `Claude: /` prefix
+- Live file watching - new commands appear automatically
+
+**GitHub Integration**
+- `Ctrl+Shift+H` - GitHub Dashboard (PRs, reviews, issues)
+- `Ctrl+B` - Branch switcher with fetch/pull/delete
+- `Ctrl+G` - Git changes with inline diffs
+
+**File Tools**
+- `Ctrl+O` - File preview with syntax highlighting
+- `Ctrl+Shift+E` - File editor
+- `Ctrl+Shift+F` - File explorer panel with git status
+- `Ctrl+M` - Markdown preview (auto-reload)
+
+**Project Runner**
+- Auto-detects project type (.NET, Node.js, Python, Rust, Go)
+- URL detection for localhost servers
+- Custom run configurations per project
+
 ## Features
 
 - **Directory-centric terminal pairs**: Each project directory gets a paired custom + shell terminal.
