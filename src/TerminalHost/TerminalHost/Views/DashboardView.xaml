@@ -33,6 +33,8 @@
                         <TextBlock Text="{Binding StatusMessage}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    Foreground="{StaticResource TextDimmedBrush}"
+                                   TextWrapping="Wrap"
+                                   ToolTip="{Binding StatusMessage}"
                                    Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>

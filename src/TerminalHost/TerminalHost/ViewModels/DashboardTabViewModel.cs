@@ -245,73 +245,13 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     {
         if (item is not GitHubPullRequest pr) return;
 
-        // Check if we have a local clone
+        // Ensure we have a local clone
         var localPath = FindLocalRepository(pr.Repository);
-
         if (string.IsNullOrEmpty(localPath))
         {
-            // Ask user what to do - browse or clone
-            var repoName = pr.Repository.Contains('/') ? pr.Repository.Split('/').Last() : pr.Repository;
-            var result = _dialogService.ShowConfirmation(
-                $"Repository '{pr.Repository}' not found locally.\n\n" +
-                "Would you like to browse for an existing folder?\n" +
-                "(Click 'No' to clone automatically)",
-                "Repository Not Found");
-
-            if (result)
-            {
-                // Browse for existing folder
-                var dialog = new OpenFolderDialog
-                {
-                    Title = $"Select local folder for {repoName}",
-                    Multiselect = false
-                };
-
-                if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.FolderName))
-                {
-                    localPath = dialog.FolderName;
-                }
-                else
-                {
-                    return; // User cancelled
-                }
-            }
-            else
-            {
-                // Clone automatically
-                var config = _configService.Load();
-                var cloneDir = config.Settings.Repositories.CloneDirectory;
-
-                if (string.IsNullOrEmpty(cloneDir))
-                {
-                    var cloneDirDialog = new OpenFolderDialog
-                    {
-                        Title = "Select directory to clone repositories into",
-                        Multiselect = false
-                    };
-
-                    if (cloneDirDialog.ShowDialog() == true && !string.IsNullOrEmpty(cloneDirDialog.FolderName))
-                    {
-                        cloneDir = cloneDirDialog.FolderName;
-                    }
-                    else
-                    {
-                        return; // User cancelled
-                    }
-
-                    config.Settings.Repositories.CloneDirectory = cloneDir;
-                    _configService.Save(config);
-                }
-
-                StatusMessage = $"Cloning {pr.Repository}...";
-                localPath = await _gitHubService.CloneRepositoryAsync(pr.Repository, cloneDir);
-
-                if (string.IsNullOrEmpty(localPath))
-                {
-                    _dialogService.ShowWarning($"Failed to clone {pr.Repository}", "Checkout Failed");
-                    return;
-                }
-            }
+            localPath = await EnsureRepositoryAvailableAsync(pr);
+            if (string.IsNullOrEmpty(localPath))
+                return; // Clone failed or was cancelled
         }
 
         // Checkout the PR branch
@@ -325,9 +265,77 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         }
         else
         {
-            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}", "Checkout Failed");
+            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}.\n\nYou may have uncommitted changes that need to be stashed or committed first.", "Checkout Failed");
             StatusMessage = "Checkout failed";
         }
+    }
+
+    /// <summary>
+    /// Ensures a repository is available locally (clone or browse).
+    /// Returns the local path or null if cancelled/failed.
+    /// </summary>
+    private async Task<string?> EnsureRepositoryAvailableAsync(GitHubPullRequest pr)
+    {
+        // Ask user what to do - browse or clone
+        var repoName = pr.Repository.Contains('/') ? pr.Repository.Split('/').Last() : pr.Repository;
+        var result = _dialogService.ShowConfirmation(
+            $"Repository '{pr.Repository}' not found locally.\n\n" +
+            "Would you like to browse for an existing folder?\n" +
+            "(Click 'No' to clone automatically)",
+            "Repository Not Found");
+
+        if (result)
+        {
+            // Browse for existing folder
+            var dialog = new OpenFolderDialog
+            {
+                Title = $"Select local folder for {repoName}",
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.FolderName))
+            {
+                return dialog.FolderName;
+            }
+
+            return null; // User cancelled
+        }
+
+        // Clone automatically
+        var config = _configService.Load();
+        var cloneDir = config.Settings.Repositories.CloneDirectory;
+
+        if (string.IsNullOrEmpty(cloneDir))
+        {
+            var cloneDirDialog = new OpenFolderDialog
+            {
+                Title = "Select directory to clone repositories into",
+                Multiselect = false
+            };
+
+            if (cloneDirDialog.ShowDialog() == true && !string.IsNullOrEmpty(cloneDirDialog.FolderName))
+            {
+                cloneDir = cloneDirDialog.FolderName;
+            }
+            else
+            {
+                return null; // User cancelled
+            }
+
+            config.Settings.Repositories.CloneDirectory = cloneDir;
+            _configService.Save(config);
+        }
+
+        StatusMessage = $"Cloning {pr.Repository}...";
+        var localPath = await _gitHubService.CloneRepositoryAsync(pr.Repository, cloneDir);
+
+        if (string.IsNullOrEmpty(localPath))
+        {
+            _dialogService.ShowWarning($"Failed to clone {pr.Repository}", "Clone Failed");
+            return null;
+        }
+
+        return localPath;
     }
 
     private bool CanOpenReviewMode(object? item) => item is GitHubPullRequest;
@@ -342,15 +350,28 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         if (string.IsNullOrEmpty(localPath))
         {
-            // Need to checkout first
-            await CheckoutPullRequestAsync(item);
+            // Need to find/clone repo first
+            await EnsureRepositoryAvailableAsync(pr);
             localPath = FindLocalRepository(pr.Repository);
 
             if (string.IsNullOrEmpty(localPath))
             {
-                return; // Checkout failed or was cancelled
+                return; // Clone failed or was cancelled
             }
         }
+
+        // Always checkout the PR branch (handles fetching, creating branch, switching)
+        StatusMessage = $"Checking out PR #{pr.Number}...";
+        var success = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
+
+        if (!success)
+        {
+            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}.\n\nYou may have uncommitted changes that need to be stashed or committed first.", "Checkout Failed");
+            StatusMessage = "Checkout failed";
+            return;
+        }
+
+        StatusMessage = $"Checked out PR #{pr.Number}";
 
         // Open the project tab if not already open
         _mainViewModel.OpenProjectTab(localPath);

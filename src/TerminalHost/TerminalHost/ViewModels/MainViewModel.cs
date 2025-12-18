@@ -196,8 +196,8 @@ public partial class MainViewModel : ObservableObject
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
         _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
 
-        // Subscribe to Claude command changes
-        _claudeCommandService.CommandsChanged += (_, _) => FilterPaletteCommands();
+        // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
+        _claudeCommandService.CommandsChanged += (_, _) => Application.Current.Dispatcher.BeginInvoke(FilterPaletteCommands);
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
