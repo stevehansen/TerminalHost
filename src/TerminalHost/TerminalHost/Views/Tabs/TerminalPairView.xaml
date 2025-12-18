@@ -403,10 +403,12 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
-                            <Run Text="{Binding CustomIcon, Mode=OneWay}"/>
-                            <Run Text=" Claude Code"/>
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+                        <TextBlock FontSize="{StaticResource FontSizeSmall}" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding CustomIcon, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <Run Text=" Claude Code" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <Run Text="{Binding CustomTerminalTitleDisplay, Mode=OneWay}"
+                                 Foreground="{StaticResource TextSecondaryBrush}"/>
                         </TextBlock>
                     </Border>
                     <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
@@ -441,10 +443,12 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
-                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
-                            <Run Text="{Binding ShellIcon, Mode=OneWay}"/>
-                            <Run Text=" Shell"/>
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+                        <TextBlock FontSize="{StaticResource FontSizeSmall}" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding ShellIcon, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <Run Text=" Shell" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <Run Text="{Binding ShellTerminalTitleDisplay, Mode=OneWay}"
+                                 Foreground="{StaticResource TextSecondaryBrush}"/>
                         </TextBlock>
                     </Border>
                     <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
@@ -465,16 +469,16 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Content="×"
                                     Style="{StaticResource TabCloseButton}"
                                     Command="{Binding ToggleRunTerminalCommand}"
                                     AutomationProperties.Name="Hide Run Terminal"
                                     ToolTip="Hide Run Terminal"/>
-                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
+                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center">
                                 <Run Text="▶ Run"/>
-                                <Run Text=" - " Foreground="{StaticResource TextMutedBrush}"/>
+                                <Run Text=" - " Foreground="{StaticResource TextSecondaryBrush}"/>
                                 <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{StaticResource SyntaxCyanBrush}"/>
                             </TextBlock>
                         </DockPanel>

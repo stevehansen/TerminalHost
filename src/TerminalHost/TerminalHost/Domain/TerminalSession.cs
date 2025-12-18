@@ -19,6 +19,11 @@ public class TerminalSession : IDisposable
     private DateTime? _lastOutputTime;
     private bool _wasActive;
 
+    // Terminal title tracking (parsed from OSC escape sequences)
+    private string _terminalTitle = string.Empty;
+    private readonly StringBuilder _oscBuffer = new();
+    private bool _parsingOsc;
+
     // Output buffer for link detection (circular buffer of recent lines)
     private readonly StringBuilder _outputBuffer = new();
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
@@ -44,6 +49,16 @@ public class TerminalSession : IDisposable
     /// Fired when the terminal transitions from idle to active or vice versa.
     /// </summary>
     public event EventHandler? ActivityChanged;
+
+    /// <summary>
+    /// The current terminal title (parsed from OSC escape sequences).
+    /// </summary>
+    public string TerminalTitle => _terminalTitle;
+
+    /// <summary>
+    /// Fired when the terminal title changes.
+    /// </summary>
+    public event EventHandler<string>? TitleChanged;
 
     /// <summary>
     /// Fired when a Ctrl+Click is detected and a link should be opened.
@@ -166,6 +181,9 @@ public class TerminalSession : IDisposable
             ActivityChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        // Parse OSC escape sequences for title changes
+        ParseOscSequences(str);
+
         // Append to output buffer for link detection
         lock (_outputBuffer)
         {
@@ -178,6 +196,83 @@ public class TerminalSession : IDisposable
                 var kept = _outputBuffer.ToString(keepFrom, _outputBuffer.Length - keepFrom);
                 _outputBuffer.Clear();
                 _outputBuffer.Append(kept);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses OSC escape sequences for terminal title changes.
+    /// OSC format: ESC ] Ps ; Pt BEL  or  ESC ] Ps ; Pt ST
+    /// Where Ps = 0 (set icon name and window title), 2 (set window title)
+    /// </summary>
+    private void ParseOscSequences(Span<char> str)
+    {
+        for (int i = 0; i < str.Length; i++)
+        {
+            char c = str[i];
+
+            if (_parsingOsc)
+            {
+                // Check for sequence termination
+                if (c == '\x07') // BEL
+                {
+                    ProcessOscSequence();
+                    continue;
+                }
+                else if (c == '\x1b' && i + 1 < str.Length && str[i + 1] == '\\') // ST (ESC \)
+                {
+                    ProcessOscSequence();
+                    i++; // Skip the backslash
+                    continue;
+                }
+                else
+                {
+                    _oscBuffer.Append(c);
+                    // Safety limit to prevent buffer overflow on malformed sequences
+                    if (_oscBuffer.Length > 1024)
+                    {
+                        _parsingOsc = false;
+                        _oscBuffer.Clear();
+                    }
+                }
+            }
+            else if (c == '\x1b' && i + 1 < str.Length && str[i + 1] == ']')
+            {
+                // Start of OSC sequence
+                _parsingOsc = true;
+                _oscBuffer.Clear();
+                i++; // Skip the ]
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a completed OSC sequence and extracts the title if applicable.
+    /// </summary>
+    private void ProcessOscSequence()
+    {
+        _parsingOsc = false;
+        var content = _oscBuffer.ToString();
+        _oscBuffer.Clear();
+
+        // Format: "Ps;Pt" where Ps is the parameter and Pt is the text
+        var semicolonIndex = content.IndexOf(';');
+        if (semicolonIndex > 0)
+        {
+            var paramStr = content[..semicolonIndex];
+            if (int.TryParse(paramStr, out int param))
+            {
+                // Ps = 0: Set icon name and window title
+                // Ps = 2: Set window title
+                if (param == 0 || param == 2)
+                {
+                    var newTitle = content[(semicolonIndex + 1)..];
+                    if (newTitle != _terminalTitle)
+                    {
+                        _terminalTitle = newTitle;
+                        TitleChanged?.Invoke(this, newTitle);
+                    }
+                }
             }
         }
     }

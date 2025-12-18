@@ -25,6 +25,39 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private string _shellIcon = "💻";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomTerminalTitleDisplay))]
+    private string _customTerminalTitle = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShellTerminalTitleDisplay))]
+    private string _shellTerminalTitle = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RunTerminalTitleDisplay))]
+    private string _runTerminalTitle = string.Empty;
+
+    /// <summary>
+    /// Formatted custom terminal title for display (includes " - " prefix when title exists).
+    /// </summary>
+    public string CustomTerminalTitleDisplay => string.IsNullOrEmpty(CustomTerminalTitle)
+        ? string.Empty
+        : $" - {CustomTerminalTitle}";
+
+    /// <summary>
+    /// Formatted shell terminal title for display (includes " - " prefix when title exists).
+    /// </summary>
+    public string ShellTerminalTitleDisplay => string.IsNullOrEmpty(ShellTerminalTitle)
+        ? string.Empty
+        : $" - {ShellTerminalTitle}";
+
+    /// <summary>
+    /// Formatted run terminal title for display (includes " - " prefix when title exists).
+    /// </summary>
+    public string RunTerminalTitleDisplay => string.IsNullOrEmpty(RunTerminalTitle)
+        ? string.Empty
+        : $" - {RunTerminalTitle}";
+
+    [ObservableProperty]
     private ActiveTerminal _activeTerminal = ActiveTerminal.Custom;
 
     [ObservableProperty]
@@ -329,6 +362,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             IsShellTerminalActive = Pair.ShellTerminal.IsActive;
         };
 
+        // Subscribe to title changes
+        Pair.CustomTerminal.TitleChanged += (s, title) =>
+        {
+            CustomTerminalTitle = title;
+        };
+        Pair.ShellTerminal.TitleChanged += (s, title) =>
+        {
+            ShellTerminalTitle = title;
+        };
+
         // Notify that CurrentTerminalContent has changed
         OnPropertyChanged(nameof(CurrentTerminalContent));
     }
@@ -346,6 +389,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
         };
+
+        // Subscribe to title changes
+        Pair.CustomTerminal.TitleChanged += (s, title) =>
+        {
+            CustomTerminalTitle = title;
+        };
+
+        // Reset title for new terminal
+        CustomTerminalTitle = string.Empty;
 
         OnPropertyChanged(nameof(CurrentTerminalContent));
     }
@@ -795,7 +847,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             {
                 IsRunTerminalActive = Pair.RunTerminal.IsActive;
             };
+
+            // Subscribe to title changes
+            Pair.RunTerminal.TitleChanged += (s, title) =>
+            {
+                RunTerminalTitle = title;
+            };
         }
+
+        // Reset title for new terminal
+        RunTerminalTitle = string.Empty;
     }
 
     /// <summary>
