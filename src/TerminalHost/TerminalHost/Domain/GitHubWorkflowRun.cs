@@ -72,7 +72,7 @@ public class GitHubWorkflowRun
     {
         get
         {
-            var diff = DateTime.UtcNow - UpdatedAt;
+            var diff = DateTime.Now - UpdatedAt;
             if (diff.TotalMinutes < 60)
                 return $"{(int)diff.TotalMinutes}m ago";
             if (diff.TotalHours < 24)
