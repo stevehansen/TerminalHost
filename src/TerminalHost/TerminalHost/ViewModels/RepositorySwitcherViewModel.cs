@@ -305,7 +305,7 @@ public partial class RepositorySwitcherViewModel : ObservableObject
         {
             try
             {
-                Directory.CreateDirectory(cloneDir);
+                _fileSystem.CreateDirectory(cloneDir);
             }
             catch
             {

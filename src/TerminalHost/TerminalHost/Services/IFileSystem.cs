@@ -4,9 +4,9 @@ namespace TerminalHost.Services;
 
 public interface IFileSystem
 {
-    bool DirectoryExists(string path);
+    bool DirectoryExists(string? path);
     void CreateDirectory(string path);
-    bool FileExists(string path);
+    bool FileExists(string? path);
     string ReadAllText(string path);
     Task<string> ReadAllTextAsync(string path);
     void WriteAllText(string path, string contents);
@@ -29,9 +29,9 @@ public interface IFileSystem
 
 internal sealed class FileSystem : IFileSystem
 {
-    public bool DirectoryExists(string path) => Directory.Exists(path);
+    public bool DirectoryExists(string? path) => !string.IsNullOrEmpty(path) && Directory.Exists(path);
     public void CreateDirectory(string path) => Directory.CreateDirectory(path);
-    public bool FileExists(string path) => File.Exists(path);
+    public bool FileExists(string? path) => !string.IsNullOrEmpty(path) && File.Exists(path);
     public string ReadAllText(string path) => File.ReadAllText(path);
     public Task<string> ReadAllTextAsync(string path) => File.ReadAllTextAsync(path);
     public void WriteAllText(string path, string contents) => File.WriteAllText(path, contents);

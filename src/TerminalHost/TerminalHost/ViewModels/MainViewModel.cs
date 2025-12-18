@@ -31,6 +31,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IAiAssistantService _aiAssistantService;
     private readonly IGitHubService _gitHubService;
     private readonly IMarkdownService _markdownService;
+    private readonly IProcessService _processService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -166,7 +167,8 @@ public partial class MainViewModel : ObservableObject
         ITaskService taskService,
         IAiAssistantService aiAssistantService,
         IGitHubService gitHubService,
-        IMarkdownService markdownService)
+        IMarkdownService markdownService,
+        IProcessService processService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -188,6 +190,7 @@ public partial class MainViewModel : ObservableObject
         _aiAssistantService = aiAssistantService;
         _gitHubService = gitHubService;
         _markdownService = markdownService;
+        _processService = processService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -687,7 +690,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService);
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService);
             tabViewModel.ExplorerViewModel = explorerViewModel;
 
             // Restore explorer settings
@@ -1133,7 +1136,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         Tabs.Add(dashboardTab);
         SelectedTab = dashboardTab;
@@ -1267,9 +1270,9 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
         var folder = terminalTab.Pair.WorkingDirectory;
-        if (_fileSystem.DirectoryExists(folder)) // Use injected IFileSystem
+        if (_fileSystem.DirectoryExists(folder))
         {
-            Process.Start("explorer.exe", folder);
+            _processService.Start("explorer.exe", folder);
         }
     }
 

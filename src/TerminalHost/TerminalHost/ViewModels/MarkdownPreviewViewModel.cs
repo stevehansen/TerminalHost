@@ -11,6 +11,7 @@ namespace TerminalHost.ViewModels;
 public partial class MarkdownPreviewViewModel : ObservableObject
 {
     private readonly IMarkdownService _markdownService;
+    private readonly IFileSystem _fileSystem;
     private FileSystemWatcher? _fileWatcher;
 
     [ObservableProperty]
@@ -55,9 +56,10 @@ public partial class MarkdownPreviewViewModel : ObservableObject
     /// </summary>
     public event EventHandler? ShowRequested;
 
-    public MarkdownPreviewViewModel(IMarkdownService markdownService)
+    public MarkdownPreviewViewModel(IMarkdownService markdownService, IFileSystem fileSystem)
     {
         _markdownService = markdownService;
+        _fileSystem = fileSystem;
     }
 
     /// <summary>
@@ -102,7 +104,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
     {
         _fileWatcher?.Dispose();
 
-        if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
+        if (string.IsNullOrEmpty(FilePath) || !_fileSystem.FileExists(FilePath))
             return;
 
         var directory = System.IO.Path.GetDirectoryName(FilePath);

@@ -17,6 +17,8 @@ public partial class PrReviewViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly ITestRunnerService _testRunnerService;
     private readonly IProjectDetectionService _projectDetectionService;
+    private readonly IFileSystem _fileSystem;
+    private readonly IProcessService _processService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -60,12 +62,16 @@ public partial class PrReviewViewModel : ObservableObject
         IGitHubService gitHubService,
         IDialogService dialogService,
         ITestRunnerService testRunnerService,
-        IProjectDetectionService projectDetectionService)
+        IProjectDetectionService projectDetectionService,
+        IFileSystem fileSystem,
+        IProcessService processService)
     {
         _gitHubService = gitHubService;
         _dialogService = dialogService;
         _testRunnerService = testRunnerService;
         _projectDetectionService = projectDetectionService;
+        _fileSystem = fileSystem;
+        _processService = processService;
     }
 
     /// <summary>
@@ -329,7 +335,7 @@ public partial class PrReviewViewModel : ObservableObject
         if (PullRequest == null) return;
 
         var url = $"https://github.com/{PullRequest.Repository}/pull/{PullRequest.Number}";
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        _processService.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     [RelayCommand]
@@ -338,7 +344,7 @@ public partial class PrReviewViewModel : ObservableObject
         if (file == null || string.IsNullOrEmpty(WorkingDirectory)) return;
 
         var fullPath = System.IO.Path.Combine(WorkingDirectory, file.Path);
-        if (!System.IO.File.Exists(fullPath)) return;
+        if (!_fileSystem.FileExists(fullPath)) return;
 
         // This will be handled by the MainWindow via an event
         FileOpenRequested?.Invoke(this, fullPath);

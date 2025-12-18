@@ -45,6 +45,64 @@ dotnet test --filter "FullyQualifiedName~SmokeTest_CanOpenSettings"
 - **Element not found**: Check if AutomationId exists and element is visible in current state
 - **Timing issues**: UI tests may need delays for data template loading or state transitions
 
+## Important: Service Abstractions for Testability
+
+**Do NOT use system APIs directly in ViewModels or Services.** Use the injected service abstractions instead to enable unit testing with mocks.
+
+### Required Service Abstractions
+
+| Instead of... | Use... |
+|---------------|--------|
+| `System.IO.File.*` / `System.IO.Directory.*` | `IFileSystem` |
+| `MessageBox.Show()` | `IDialogService` |
+| `Process.Start()` | `IProcessService` |
+| Running git commands directly | `IGitProcessRunner` |
+
+### Examples
+
+```csharp
+// BAD - Direct IO, cannot be mocked in tests
+if (File.Exists(path)) { ... }
+var content = File.ReadAllText(path);
+
+// GOOD - Uses injected service
+if (_fileSystem.FileExists(path)) { ... }
+var content = _fileSystem.ReadAllText(path);
+
+// BAD - Direct MessageBox, blocks tests
+MessageBox.Show("Error occurred", "Error", MessageBoxButton.OK);
+
+// GOOD - Uses injected service
+_dialogService.ShowError("Error occurred", "Error");
+
+// BAD - Direct Process.Start
+Process.Start("notepad.exe");
+
+// GOOD - Uses injected service
+_processService.Start("notepad.exe");
+```
+
+### Exceptions (OK to use directly)
+- `System.IO.Path.*` methods (pure string manipulation, no IO)
+- `FileSystemWatcher` for file change monitoring (special OS facility)
+
+### Known Technical Debt (Views and Startup Code)
+The following use direct system calls because they don't participate in DI or execute before DI is configured:
+
+**Views (code-behind) - No DI available:**
+- `SettingsView.xaml.cs` - Direct Process.Start and Directory operations
+- `ProfileTerminalView.xaml.cs` - Direct Process.Start and Directory.Exists
+- `FileViewerWindow.xaml.cs` - Direct MessageBox (unsaved changes prompt)
+
+**Startup code (before DI):**
+- `App.xaml.cs` - MessageBox for startup errors
+
+**Non-DI ViewModels:**
+- `SetupViewModel.cs` - Created with `new`, uses Process.Start for opening URLs
+
+**Internal CLI services:**
+- `GitHubService.cs`, `GitPrService.cs` - Direct Process.Start for running `gh` CLI (the process execution IS the service's purpose)
+
 ## Project Overview
 
 **TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), plus an optional run terminal for development servers. Allows easy switching between them without termination.

@@ -12,10 +12,16 @@ namespace TerminalHost.Services;
 /// </summary>
 internal sealed partial class TestRunnerService : ITestRunnerService
 {
+    private readonly IFileSystem _fileSystem;
     private Process? _currentProcess;
     private readonly object _lock = new();
     private string? _lastCommand;
     private string? _lastWorkingDirectory;
+
+    public TestRunnerService(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
 
     public event EventHandler<string>? OutputReceived;
     public event EventHandler<TestRunSummary>? TestRunCompleted;
@@ -136,10 +142,10 @@ internal sealed partial class TestRunnerService : ITestRunnerService
             output.Append(outputText);
 
             // Parse results
-            if (isDotNet && File.Exists(trxPath))
+            if (isDotNet && _fileSystem.FileExists(trxPath))
             {
                 results = ParseTrxResults(trxPath);
-                File.Delete(trxPath);
+                _fileSystem.DeleteFile(trxPath);
             }
             else
             {

@@ -13,6 +13,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private readonly IFileExplorerService _fileExplorerService;
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
+    private readonly IFileSystem _fileSystem;
+    private readonly IProcessService _processService;
     private IDisposable? _fileWatcher;
     private System.Timers.Timer? _refreshDebounceTimer;
     private string? _selectedPathBeforeRefresh;
@@ -43,11 +45,15 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     public FileExplorerViewModel(
         IFileExplorerService fileExplorerService,
         IGitStatusService gitStatusService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IFileSystem fileSystem,
+        IProcessService processService)
     {
         _fileExplorerService = fileExplorerService;
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
+        _fileSystem = fileSystem;
+        _processService = processService;
     }
 
     public async Task InitializeAsync(string workingDirectory)
@@ -79,7 +85,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     {
         _fileWatcher?.Dispose();
 
-        if (string.IsNullOrEmpty(RootPath) || !Directory.Exists(RootPath))
+        if (string.IsNullOrEmpty(RootPath) || !_fileSystem.DirectoryExists(RootPath))
             return;
 
         _fileWatcher = _fileExplorerService.WatchDirectory(RootPath, OnFileSystemChanged);
@@ -215,12 +221,13 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             else if (child.IsDirectory)
             {
                 // Check if has children for lazy loading
+                var childPath = child.FullPath;
                 var hasChildren = await Task.Run(() =>
                 {
                     try
                     {
-                        var dirs = Directory.GetDirectories(child.FullPath);
-                        var files = Directory.GetFiles(child.FullPath);
+                        var dirs = _fileSystem.GetDirectories(childPath);
+                        var files = _fileSystem.GetFiles(childPath);
                         return dirs.Length > 0 || files.Length > 0;
                     }
                     catch { return false; }
@@ -283,12 +290,13 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             // Add dummy child for directories (lazy loading)
             if (child.IsDirectory)
             {
+                var childPath = child.FullPath;
                 var hasChildren = await Task.Run(() =>
                 {
                     try
                     {
-                        var dirs = Directory.GetDirectories(child.FullPath);
-                        var files = Directory.GetFiles(child.FullPath);
+                        var dirs = _fileSystem.GetDirectories(childPath);
+                        var files = _fileSystem.GetFiles(childPath);
                         return dirs.Length > 0 || files.Length > 0;
                     }
                     catch { return false; }
@@ -412,7 +420,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         var newPath = Path.Combine(parentPath, fileName);
 
         // Check if file already exists
-        if (File.Exists(newPath))
+        if (_fileSystem.FileExists(newPath))
         {
             _dialogService.ShowError($"A file with this name already exists:\n{newPath}", "New File");
             return;
@@ -420,11 +428,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
         // Create parent directories if needed (for deep paths like "wwwroot/robots.txt")
         var parentDir = Path.GetDirectoryName(newPath);
-        if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+        if (!string.IsNullOrEmpty(parentDir) && !_fileSystem.DirectoryExists(parentDir))
         {
             try
             {
-                Directory.CreateDirectory(parentDir);
+                _fileSystem.CreateDirectory(parentDir);
             }
             catch (Exception ex)
             {
@@ -478,7 +486,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         var newPath = Path.Combine(parentPath, folderName);
 
         // Check if folder already exists
-        if (Directory.Exists(newPath))
+        if (_fileSystem.DirectoryExists(newPath))
         {
             _dialogService.ShowError($"A folder with this name already exists:\n{newPath}", "New Folder");
             return;
@@ -591,7 +599,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
                 FileName = SelectedNode.FullPath,
                 UseShellExecute = true
             };
-            System.Diagnostics.Process.Start(psi);
+            _processService.Start(psi);
         }
         catch (Exception ex)
         {
@@ -649,11 +657,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         {
             if (SelectedNode.IsDirectory)
             {
-                System.Diagnostics.Process.Start("explorer.exe", SelectedNode.FullPath);
+                _processService.Start("explorer.exe", SelectedNode.FullPath);
             }
             else
             {
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{SelectedNode.FullPath}\"");
+                _processService.Start("explorer.exe", $"/select,\"{SelectedNode.FullPath}\"");
             }
         }
         catch

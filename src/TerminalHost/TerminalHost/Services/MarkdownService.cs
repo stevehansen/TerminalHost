@@ -1,4 +1,3 @@
-using System.IO;
 using Markdig;
 
 namespace TerminalHost.Services;
@@ -9,6 +8,7 @@ namespace TerminalHost.Services;
 public class MarkdownService : IMarkdownService
 {
     private readonly MarkdownPipeline _pipeline;
+    private readonly IFileSystem _fileSystem;
 
     private const string DarkThemeCss = @"
         body {
@@ -103,13 +103,13 @@ public class MarkdownService : IMarkdownService
         }
     ";
 
-    public MarkdownService()
+    public MarkdownService(IFileSystem fileSystem)
     {
+        _fileSystem = fileSystem;
         // Configure Markdig pipeline with common extensions
         _pipeline = new MarkdownPipelineBuilder()
             .UseAdvancedExtensions()
-            .UseTaskLists()
-            .UseAutoLinks()
+            .UseAlertBlocks()
             .UseYamlFrontMatter()
             .Build();
     }
@@ -125,12 +125,12 @@ public class MarkdownService : IMarkdownService
 
     public async Task<string> ConvertFileToHtmlAsync(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        if (string.IsNullOrEmpty(filePath) || !_fileSystem.FileExists(filePath))
             return WrapHtml("<p style='color: #f44747;'>File not found</p>");
 
         try
         {
-            var markdown = await File.ReadAllTextAsync(filePath);
+            var markdown = await _fileSystem.ReadAllTextAsync(filePath);
             return ConvertToHtml(markdown);
         }
         catch (Exception ex)

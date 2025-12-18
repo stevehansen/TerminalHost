@@ -17,6 +17,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IConfigurationService _configService;
     private readonly MainViewModel _mainViewModel;
     private readonly IDialogService _dialogService;
+    private readonly IFileSystem _fileSystem;
+    private readonly IProcessService _processService;
     private readonly DispatcherTimer _refreshTimer;
 
     #region ITabViewModel Implementation
@@ -80,12 +82,16 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IGitHubService gitHubService,
         IConfigurationService configService,
         MainViewModel mainViewModel,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IFileSystem fileSystem,
+        IProcessService processService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
+        _fileSystem = fileSystem;
+        _processService = processService;
 
         // Setup auto-refresh timer
         _refreshTimer = new DispatcherTimer
@@ -181,7 +187,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         if (!string.IsNullOrEmpty(url))
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            _processService.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
     }
 
@@ -255,11 +261,11 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         foreach (var tab in _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>())
         {
             var gitConfigPath = System.IO.Path.Combine(tab.Pair.WorkingDirectory, ".git", "config");
-            if (System.IO.File.Exists(gitConfigPath))
+            if (_fileSystem.FileExists(gitConfigPath))
             {
                 try
                 {
-                    var content = System.IO.File.ReadAllText(gitConfigPath);
+                    var content = _fileSystem.ReadAllText(gitConfigPath);
                     if (content.Contains(repoFullName, StringComparison.OrdinalIgnoreCase))
                     {
                         return tab.Pair.WorkingDirectory;
@@ -276,16 +282,16 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         var config = _configService.Load();
         foreach (var scanPath in config.Settings.Repositories.ScanPaths)
         {
-            if (!System.IO.Directory.Exists(scanPath)) continue;
+            if (!_fileSystem.DirectoryExists(scanPath)) continue;
 
-            foreach (var dir in System.IO.Directory.GetDirectories(scanPath))
+            foreach (var dir in _fileSystem.GetDirectories(scanPath))
             {
                 var gitConfigPath = System.IO.Path.Combine(dir, ".git", "config");
-                if (!System.IO.File.Exists(gitConfigPath)) continue;
+                if (!_fileSystem.FileExists(gitConfigPath)) continue;
 
                 try
                 {
-                    var content = System.IO.File.ReadAllText(gitConfigPath);
+                    var content = _fileSystem.ReadAllText(gitConfigPath);
                     if (content.Contains(repoFullName, StringComparison.OrdinalIgnoreCase))
                     {
                         return dir;

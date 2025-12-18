@@ -5,6 +5,7 @@ namespace TerminalHost.Services;
 
 internal sealed class SystemTrayService : ISystemTrayService
 {
+    private readonly IFileSystem _fileSystem;
     private NotifyIcon? _notifyIcon;
     private Window? _mainWindow;
     private bool _isEnabled;
@@ -12,6 +13,11 @@ internal sealed class SystemTrayService : ISystemTrayService
 
     public event EventHandler? ShowRequested;
     public event EventHandler? ExitRequested;
+
+    public SystemTrayService(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
 
     public bool IsEnabled
     {
@@ -38,7 +44,7 @@ internal sealed class SystemTrayService : ISystemTrayService
 
         // Load the icon from resource
         var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
-        if (File.Exists(iconPath))
+        if (_fileSystem.FileExists(iconPath))
         {
             _notifyIcon.Icon = new Icon(iconPath);
         }

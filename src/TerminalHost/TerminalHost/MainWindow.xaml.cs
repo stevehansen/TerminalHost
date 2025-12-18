@@ -30,10 +30,11 @@ public partial class MainWindow : Window
     private readonly PrReviewViewModel _prReviewViewModel;
     private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly IDialogService _dialogService;
+    private readonly IFileSystem _fileSystem;
     private bool _isExiting;
     private Views.MarkdownPreviewWindow? _markdownPreviewWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
         _prReviewViewModel = prReviewViewModel;
         _markdownPreviewViewModel = markdownPreviewViewModel;
         _dialogService = dialogService;
+        _fileSystem = fileSystem;
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
@@ -872,7 +874,7 @@ public partial class MainWindow : Window
         foreach (var mdFile in mdFiles)
         {
             var path = System.IO.Path.Combine(workingDir, mdFile);
-            if (System.IO.File.Exists(path))
+            if (_fileSystem.FileExists(path))
             {
                 filePath = path;
                 break;

@@ -20,21 +20,18 @@ namespace TerminalHost.Services
         public StatisticsService(IFileSystem fileSystem)
         {
             _fileSystem = fileSystem;
-            _statsPath = GetStatsPath();
+            _statsPath = GetStatsPath(fileSystem);
             _jsonFileService = new JsonFileService<UsageStats>(_fileSystem, _statsPath, options);
             _stats = LoadStats();
             // Save every 30 seconds if there are changes
             _saveTimer = new System.Threading.Timer(_ => SaveStatsIfNeeded(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         }
 
-        private static string GetStatsPath()
+        private static string GetStatsPath(IFileSystem fileSystem)
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var statsDir = Path.Combine(appData, "TerminalHost");
-            // Note: Directory.CreateDirectory is not using _fileSystem here because it's a static utility
-            // that ensures the directory exists for _statsPath. The JsonFileService internally calls
-            // _fileSystem.CreateDirectory for its own path.
-            Directory.CreateDirectory(statsDir); 
+            fileSystem.CreateDirectory(statsDir);
             return Path.Combine(statsDir, "stats.json");
         }
 

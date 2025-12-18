@@ -11,7 +11,9 @@ public partial class GitFilesViewModel : ObservableObject
 {
     private readonly IGitStatusService _gitStatusService;
     private readonly IFilePreviewService _filePreviewService;
-    private readonly IDialogService _dialogService; 
+    private readonly IDialogService _dialogService;
+    private readonly IFileSystem _fileSystem;
+    private readonly IProcessService _processService;
     private TerminalPairTabViewModel? _currentTerminalTab; 
 
     [ObservableProperty]
@@ -50,12 +52,14 @@ public partial class GitFilesViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService) 
+    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService, IFileSystem fileSystem, IProcessService processService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
-        _dialogService = dialogService; 
-        _diffText = ""; 
+        _dialogService = dialogService;
+        _fileSystem = fileSystem;
+        _processService = processService;
+        _diffText = "";
     }
 
     [RelayCommand]
@@ -180,15 +184,15 @@ public partial class GitFilesViewModel : ObservableObject
         var fullPath = System.IO.Path.Combine(_currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
         var directory = System.IO.Path.GetDirectoryName(fullPath);
 
-        if (System.IO.Directory.Exists(directory)) 
+        if (_fileSystem.DirectoryExists(directory))
         {
-            if (System.IO.File.Exists(fullPath)) 
+            if (_fileSystem.FileExists(fullPath))
             {
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
+                _processService.Start("explorer.exe", $"/select,\"{fullPath}\"");
             }
             else
             {
-                System.Diagnostics.Process.Start("explorer.exe", directory);
+                _processService.Start("explorer.exe", directory!);
             }
         }
     }
