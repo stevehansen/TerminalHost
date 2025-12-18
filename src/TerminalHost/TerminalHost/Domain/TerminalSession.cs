@@ -1,6 +1,9 @@
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using EasyWindowsTerminalControl;
 
 namespace TerminalHost.Domain;
@@ -414,6 +417,150 @@ public class TerminalSession : IDisposable
             // Ignore focus errors
         }
     }
+
+    /// <summary>
+    /// Gets the currently selected text in the terminal.
+    /// Note: This clears the selection after retrieving the text.
+    /// </summary>
+    /// <returns>The selected text, or empty string if no selection.</returns>
+    public string GetSelectedText()
+    {
+        try
+        {
+            // Access the underlying Terminal control which has GetSelectedText()
+            return _easyTerminalControl?.Terminal?.GetSelectedText() ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Copies the currently selected text to the clipboard.
+    /// </summary>
+    /// <returns>True if text was copied, false if no selection.</returns>
+    public bool CopySelectionToClipboard()
+    {
+        var text = GetSelectedText();
+        if (!string.IsNullOrEmpty(text))
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(text);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetFocus();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetParent(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(POINT point);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
+    /// <summary>
+    /// Checks if this terminal has Win32 keyboard focus.
+    /// Walks up from the focused HWND to find if it's within this control's visual tree.
+    /// </summary>
+    public bool HasWin32Focus()
+    {
+        try
+        {
+            if (_easyTerminalControl == null) return false;
+
+            var focusedHwnd = GetFocus();
+            if (focusedHwnd == IntPtr.Zero) return false;
+
+            // Get the HWND that hosts this control
+            var source = PresentationSource.FromVisual(_easyTerminalControl) as HwndSource;
+            if (source == null) return false;
+
+            // Get the bounds of our control in screen coordinates
+            var controlBounds = GetScreenBounds(_easyTerminalControl);
+            if (controlBounds == null) return false;
+
+            // Get the position of the focused window
+            // If it's within our bounds, we have focus
+            if (GetCursorPos(out POINT cursorPos))
+            {
+                var hwndUnderCursor = WindowFromPoint(cursorPos);
+                if (hwndUnderCursor != IntPtr.Zero)
+                {
+                    // Check if the cursor is within our control's bounds
+                    var bounds = controlBounds.Value;
+                    if (cursorPos.X >= bounds.Left && cursorPos.X <= bounds.Right &&
+                        cursorPos.Y >= bounds.Top && cursorPos.Y <= bounds.Bottom)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors
+        }
+        return false;
+    }
+
+    private static System.Windows.Rect? GetScreenBounds(System.Windows.Media.Visual visual)
+    {
+        try
+        {
+            var source = PresentationSource.FromVisual(visual);
+            if (source?.CompositionTarget == null) return null;
+
+            // Get the transform from the visual to the screen
+            var transform = visual.TransformToAncestor(source.RootVisual);
+            var topLeft = transform.Transform(new System.Windows.Point(0, 0));
+
+            // Convert to screen coordinates
+            var screenTopLeft = source.CompositionTarget.TransformToDevice.Transform(topLeft);
+
+            // Get the window position
+            if (source is HwndSource hwndSource)
+            {
+                var windowRect = new RECT();
+                GetWindowRect(hwndSource.Handle, out windowRect);
+
+                // Get the size of the visual
+                if (visual is System.Windows.FrameworkElement fe)
+                {
+                    var size = source.CompositionTarget.TransformToDevice.Transform(
+                        new System.Windows.Point(fe.ActualWidth, fe.ActualHeight));
+
+                    return new System.Windows.Rect(
+                        windowRect.Left + screenTopLeft.X,
+                        windowRect.Top + screenTopLeft.Y,
+                        size.X,
+                        size.Y);
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
 
     public void Dispose()
     {

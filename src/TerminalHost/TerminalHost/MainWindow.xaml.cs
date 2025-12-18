@@ -476,7 +476,66 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Only handle shortcuts with modifiers - let plain Tab pass through to terminal
+        // Handle Tab and Shift+Tab specially for terminals - prevent WPF from stealing focus
+        if (e.Key == Key.Tab && IsFocusInTerminal())
+        {
+            // Send Tab character to the terminal manually since we're blocking WPF navigation
+            var tabChar = Keyboard.Modifiers == ModifierKeys.Shift ? "\x1b[Z" : "\t"; // Shift+Tab sends escape sequence
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.GetFocusedSession()?.SendText(tabChar, appendNewline: false);
+            }
+            else if (_viewModel.SelectedTab is ProfileTerminalTabViewModel profileTab)
+            {
+                profileTab.Session?.SendText(tabChar, appendNewline: false);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Ctrl+V for paste into terminal
+        if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control && IsFocusInTerminal())
+        {
+            // Paste clipboard content to the focused terminal
+            if (Clipboard.ContainsText())
+            {
+                var text = Clipboard.GetText();
+                if (!string.IsNullOrEmpty(text) && _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+                {
+                    terminalTab.GetFocusedSession()?.SendText(text, appendNewline: false);
+                }
+                else if (!string.IsNullOrEmpty(text) && _viewModel.SelectedTab is ProfileTerminalTabViewModel profileTab)
+                {
+                    profileTab.Session?.SendText(text, appendNewline: false);
+                }
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Ctrl+C for copy from terminal (only if there's a selection, otherwise let it pass through for SIGINT)
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control && IsFocusInTerminal())
+        {
+            // Try to copy selected text - if successful, handle the event; otherwise let Ctrl+C pass through
+            bool copied = false;
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                copied = terminalTab.GetFocusedSession()?.CopySelectionToClipboard() ?? false;
+            }
+            else if (_viewModel.SelectedTab is ProfileTerminalTabViewModel profileTab)
+            {
+                copied = profileTab.Session?.CopySelectionToClipboard() ?? false;
+            }
+
+            if (copied)
+            {
+                e.Handled = true;
+                return;
+            }
+            // If no selection was copied, don't handle - let Ctrl+C pass through to terminal for interrupt
+        }
+
+        // Only handle shortcuts with modifiers - let other unmodified keys pass through to terminal
         if (Keyboard.Modifiers == ModifierKeys.None)
         {
             return; // Don't intercept unmodified keys
@@ -976,6 +1035,61 @@ public partial class MainWindow : Window
     private void TestTerminal_MouseDown(object sender, MouseButtonEventArgs e)
     {
         TestTerminal.Focus();
+    }
+
+    #endregion
+
+    #region Terminal Focus Detection
+
+    /// <summary>
+    /// Checks if the currently focused element is inside a terminal control.
+    /// This uses multiple detection methods because EasyTerminalControl uses native HWND hosting.
+    /// </summary>
+    private bool IsFocusInTerminal()
+    {
+        // Method 1: Check if the selected tab is a terminal tab and no WPF input control has focus
+        var focused = Keyboard.FocusedElement;
+
+        // If a TextBox, ComboBox, or other WPF input control has focus, Tab should work normally there
+        if (focused is System.Windows.Controls.TextBox ||
+            focused is System.Windows.Controls.ComboBox ||
+            focused is System.Windows.Controls.ListBox ||
+            focused is System.Windows.Controls.ListView)
+        {
+            return false;
+        }
+
+        // If we're in a terminal tab, assume terminal has focus (HWND hosting doesn't report to WPF)
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel || _viewModel.SelectedTab is ProfileTerminalTabViewModel)
+        {
+            // Method 2: Walk up the visual tree from focused element to find EasyTerminalControl
+            var focusedDep = focused as DependencyObject;
+            while (focusedDep != null)
+            {
+                if (focusedDep is EasyWindowsTerminalControl.EasyTerminalControl)
+                    return true;
+
+                focusedDep = System.Windows.Media.VisualTreeHelper.GetParent(focusedDep);
+            }
+
+            // Method 3: If no WPF element really has focus, the HWND terminal likely has it
+            // Check if focus is on the window itself or no specific element
+            if (focused == null || focused == this)
+            {
+                return true;
+            }
+
+            // Method 4: Check if focus is on the ContentPresenter holding the terminal
+            if (focused is System.Windows.Controls.ContentPresenter ||
+                focused is System.Windows.Controls.ContentControl ||
+                focused is System.Windows.Controls.Grid ||
+                focused is System.Windows.Controls.UserControl)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #endregion

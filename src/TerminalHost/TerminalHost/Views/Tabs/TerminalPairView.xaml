@@ -396,7 +396,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Custom Terminal (Column 0, Row 0) - always visible, spans all rows/columns in full mode -->
-                <Grid Grid.Column="0" Grid.Row="0"
+                <Grid x:Name="CustomTerminalGrid" Grid.Column="0" Grid.Row="0"
                       Grid.RowSpan="{Binding ShouldCustomSpanAllRows, Converter={StaticResource BoolToRowSpanConverter}}"
                       Grid.ColumnSpan="{Binding ShouldCustomSpanAllColumns, Converter={StaticResource BoolToColumnSpanConverter}}">
                     <Grid.RowDefinitions>

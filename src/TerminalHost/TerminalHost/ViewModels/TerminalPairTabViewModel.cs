@@ -81,6 +81,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _isShellTerminalActive;
 
+    /// <summary>
+    /// Tracks which terminal currently has focus (for clipboard operations).
+    /// Defaults to Custom, updated when user clicks/focuses a terminal.
+    /// </summary>
+    [ObservableProperty]
+    private ActiveTerminal _focusedTerminal = ActiveTerminal.Custom;
+
     // Run terminal properties
     [ObservableProperty]
     private ContentControl? _runTerminalContent;
@@ -371,6 +378,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             ShellTerminalTitle = title;
         };
+
+        // Note: Focus tracking for clipboard operations is handled in TerminalPairView.xaml.cs
+        // via MouseDown handlers on the Grid containers (works better with HWND-hosted controls)
 
         // Notify that CurrentTerminalContent has changed
         OnPropertyChanged(nameof(CurrentTerminalContent));
@@ -732,6 +742,37 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private void HideExplorer()
     {
         IsExplorerVisible = false;
+    }
+
+    // Clipboard commands
+
+    /// <summary>
+    /// Copies the selected text from the focused terminal to the clipboard.
+    /// </summary>
+    [RelayCommand]
+    private void CopySelection()
+    {
+        GetFocusedSession()?.CopySelectionToClipboard();
+    }
+
+    /// <summary>
+    /// Gets the currently focused terminal session.
+    /// Uses Win32 cursor position to determine which terminal has focus.
+    /// </summary>
+    public Domain.TerminalSession? GetFocusedSession()
+    {
+        // Check which terminal the cursor is over (works for HWND-hosted controls)
+        if (Pair.RunTerminal != null && IsRunTerminalVisible && Pair.RunTerminal.HasWin32Focus())
+            return Pair.RunTerminal;
+        if (Pair.ShellTerminal.HasWin32Focus())
+            return Pair.ShellTerminal;
+        if (Pair.CustomTerminal.HasWin32Focus())
+            return Pair.CustomTerminal;
+
+        // Fallback to tracked property
+        return FocusedTerminal == ActiveTerminal.Custom
+            ? Pair.CustomTerminal
+            : Pair.ShellTerminal;
     }
 
     /// <summary>
