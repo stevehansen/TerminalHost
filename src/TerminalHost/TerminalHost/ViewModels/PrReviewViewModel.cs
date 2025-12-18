@@ -19,6 +19,7 @@ public partial class PrReviewViewModel : ObservableObject
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IMarkdownService _markdownService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -56,7 +57,15 @@ public partial class PrReviewViewModel : ObservableObject
     [ObservableProperty]
     private TestRunSummary? _testSummary;
 
+    [ObservableProperty]
+    private string _bodyHtml = "";
+
+    [ObservableProperty]
+    private bool _isBodyExpanded;
+
     public bool HasPullRequest => PullRequest != null;
+
+    public bool HasBody => !string.IsNullOrWhiteSpace(PullRequest?.Body);
 
     public PrReviewViewModel(
         IGitHubService gitHubService,
@@ -64,7 +73,8 @@ public partial class PrReviewViewModel : ObservableObject
         ITestRunnerService testRunnerService,
         IProjectDetectionService projectDetectionService,
         IFileSystem fileSystem,
-        IProcessService processService)
+        IProcessService processService,
+        IMarkdownService markdownService)
     {
         _gitHubService = gitHubService;
         _dialogService = dialogService;
@@ -72,6 +82,7 @@ public partial class PrReviewViewModel : ObservableObject
         _projectDetectionService = projectDetectionService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _markdownService = markdownService;
     }
 
     /// <summary>
@@ -88,6 +99,8 @@ public partial class PrReviewViewModel : ObservableObject
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
+        BodyHtml = "";
+        IsBodyExpanded = false;
 
         try
         {
@@ -103,7 +116,14 @@ public partial class PrReviewViewModel : ObservableObject
 
             PullRequest = pr;
             OnPropertyChanged(nameof(HasPullRequest));
+            OnPropertyChanged(nameof(HasBody));
             StatusMessage = $"PR #{pr.Number}: {pr.Title}";
+
+            // Convert body markdown to HTML
+            if (!string.IsNullOrWhiteSpace(pr.Body))
+            {
+                BodyHtml = _markdownService.ConvertToHtml(pr.Body);
+            }
 
             // Load the files changed in this PR
             await LoadChangedFilesAsync();
@@ -128,13 +148,33 @@ public partial class PrReviewViewModel : ObservableObject
         IsLoading = true;
         PullRequest = pr;
         OnPropertyChanged(nameof(HasPullRequest));
+        OnPropertyChanged(nameof(HasBody));
         StatusMessage = $"Loading PR #{pr.Number}...";
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
+        BodyHtml = "";
+        IsBodyExpanded = false;
 
         try
         {
+            // If body is not populated (from list view), fetch full PR details
+            if (pr.Body == null)
+            {
+                var fullPr = await _gitHubService.GetCurrentPullRequestAsync(workingDirectory);
+                if (fullPr != null)
+                {
+                    pr.Body = fullPr.Body;
+                }
+            }
+
+            // Convert body markdown to HTML
+            if (!string.IsNullOrWhiteSpace(pr.Body))
+            {
+                BodyHtml = _markdownService.ConvertToHtml(pr.Body);
+                OnPropertyChanged(nameof(HasBody));
+            }
+
             await LoadChangedFilesAsync();
             StatusMessage = $"PR #{pr.Number}: {pr.Title}";
         }
@@ -194,6 +234,14 @@ public partial class PrReviewViewModel : ObservableObject
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
+        BodyHtml = "";
+        IsBodyExpanded = false;
+    }
+
+    [RelayCommand]
+    private void ToggleBody()
+    {
+        IsBodyExpanded = !IsBodyExpanded;
     }
 
     [RelayCommand]
@@ -268,10 +316,13 @@ public partial class PrReviewViewModel : ObservableObject
     {
         if (PullRequest == null || string.IsNullOrEmpty(WorkingDirectory)) return;
 
-        // Confirm merge
+        // Build the expected squash commit message
+        var squashCommitMessage = $"{PullRequest.Title} (#{PullRequest.Number})";
+
+        // Confirm merge with squash commit preview
         var confirmed = _dialogService.ShowConfirmation(
-            $"Are you sure you want to merge PR #{PullRequest.Number}?\n\n{PullRequest.Title}",
-            "Confirm Merge");
+            $"Squash and merge PR #{PullRequest.Number}?\n\nCommit message:\n{squashCommitMessage}",
+            "Confirm Squash & Merge");
 
         if (!confirmed) return;
 

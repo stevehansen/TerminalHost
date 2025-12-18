@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:controls="clr-namespace:TerminalHost.Controls"
+             xmlns:converters="clr-namespace:TerminalHost"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              d:DataContext="{d:DesignInstance viewModels:PrReviewViewModel}"
@@ -27,6 +28,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -34,41 +36,74 @@
 
                 <!-- PR Details (moved from Header) -->
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,8">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="#"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextDimmedBrush}"/>
-                        <TextBlock Text="{Binding PullRequest.Number}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource SyntaxBlueBrush}"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="by"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   Margin="0,0,4,0"/>
-                        <TextBlock Text="{Binding PullRequest.Author}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextMutedBrush}"/>
-                        <TextBlock Text=" | "
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   Margin="8,0"/>
-                        <TextBlock FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource SyntaxGreenBrush}">
-                            <Run Text="+"/>
-                            <Run Text="{Binding PullRequest.Additions, Mode=OneWay}"/>
-                        </TextBlock>
-                        <TextBlock FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource SyntaxRedBrush}"
-                                   Margin="8,0,0,0">
-                            <Run Text="-"/>
-                            <Run Text="{Binding PullRequest.Deletions, Mode=OneWay}"/>
-                        </TextBlock>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="#"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"/>
+                            <TextBlock Text="{Binding PullRequest.Number}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxBlueBrush}"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="by"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding PullRequest.Author}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text=" | "
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="8,0"/>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxGreenBrush}">
+                                <Run Text="+"/>
+                                <Run Text="{Binding PullRequest.Additions, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxRedBrush}"
+                                       Margin="8,0,0,0">
+                                <Run Text="-"/>
+                                <Run Text="{Binding PullRequest.Deletions, Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Toggle Description Button -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ToggleBodyCommand}"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Padding="8,2"
+                                Visibility="{Binding HasBody, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding IsBodyExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text=" Description"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Collapsible PR Body/Description -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource BackgroundDarkestBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="0,0,0,1"
+                        Height="200"
+                        Visibility="{Binding IsBodyExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <controls:MarkdownViewer HtmlContent="{Binding BodyHtml}"/>
                 </Border>
 
                 <!-- Main Content: Files + Diff -->
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="250"/>
                         <ColumnDefinition Width="*"/>
@@ -194,7 +229,7 @@
                 </Grid>
 
                 <!-- Comment Input -->
-                <Border Grid.Row="2" Padding="12,8"
+                <Border Grid.Row="3" Padding="12,8"
                         BorderBrush="{StaticResource BorderSubtleBrush}"
                         BorderThickness="0,1,0,0">
                     <TextBox Text="{Binding ReviewComment, UpdateSourceTrigger=PropertyChanged}"
@@ -220,7 +255,7 @@
                 </Border>
 
                 <!-- Action Buttons -->
-                <Border Grid.Row="3" Padding="12,8"
+                <Border Grid.Row="4" Padding="12,8,24,8"
                         Background="{StaticResource BackgroundDarkestBrush}"
                         CornerRadius="0,0,8,8">
                     <Grid>
@@ -279,7 +314,7 @@
                                     Command="{Binding RequestChangesCommand}"
                                     Padding="12,6"
                                     Margin="0,0,8,0"/>
-                            <Button Content="⇄ Merge"
+                            <Button Content="⇄ Squash &amp; Merge"
                                     Command="{Binding MergeCommand}"
                                     Background="#8957E5"
                                     Foreground="#FFFFFF"

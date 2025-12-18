@@ -40,6 +40,12 @@ public class GitHubPullRequest
     public string Title { get; set; } = "";
 
     /// <summary>
+    /// The PR body/description (markdown).
+    /// Only populated when viewing a single PR in review mode.
+    /// </summary>
+    public string? Body { get; set; }
+
+    /// <summary>
     /// The repository in "owner/repo" format.
     /// </summary>
     public string Repository { get; set; } = "";

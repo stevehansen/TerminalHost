@@ -36,6 +36,7 @@
         <local:SectionConverter x:Key="SectionConverter"/>
         <local:BoolToBackgroundConverter x:Key="BoolToBackgroundConverter"/>
         <local:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+        <local:BoolToExpandCollapseTextConverter x:Key="BoolToExpandCollapseTextConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

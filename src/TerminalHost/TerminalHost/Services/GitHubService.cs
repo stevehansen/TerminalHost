@@ -392,7 +392,7 @@ internal sealed class GitHubService : IGitHubService
         {
             var (exitCode, output) = await RunGhCommandAsync(
                 workingDirectory,
-                "pr view --json number,title,author,state,baseRefName,headRefName,additions,deletions,changedFiles,createdAt,updatedAt,reviewDecision");
+                "pr view --json number,title,body,author,state,baseRefName,headRefName,additions,deletions,changedFiles,createdAt,updatedAt,reviewDecision");
 
             if (exitCode != 0 || string.IsNullOrEmpty(output))
                 return null;
@@ -501,7 +501,9 @@ internal sealed class GitHubService : IGitHubService
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
             };
 
             if (!string.IsNullOrEmpty(workingDirectory))
@@ -596,6 +598,7 @@ internal sealed class GitHubService : IGitHubService
             {
                 Number = root.TryGetProperty("number", out var num) ? num.GetInt32() : 0,
                 Title = root.TryGetProperty("title", out var title) ? title.GetString() ?? "" : "",
+                Body = root.TryGetProperty("body", out var body) ? body.GetString() : null,
                 Repository = repo,
                 Author = root.TryGetProperty("author", out var author) && author.TryGetProperty("login", out var login)
                     ? login.GetString() ?? ""
