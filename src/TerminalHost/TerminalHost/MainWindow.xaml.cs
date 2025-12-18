@@ -31,10 +31,12 @@ public partial class MainWindow : Window
     private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
+    private readonly IToastService _toastService;
     private bool _isExiting;
     private Views.MarkdownPreviewWindow? _markdownPreviewWindow;
+    private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -53,6 +55,7 @@ public partial class MainWindow : Window
         _markdownPreviewViewModel = markdownPreviewViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
+        _toastService = toastService;
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
@@ -328,6 +331,11 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _viewModel.Initialize();
+
+        // Create and show toast window (must be after main window is shown for Owner to work)
+        _toastWindow = new Views.ToastWindow();
+        _toastWindow.Initialize(this, _toastService);
+        _toastWindow.Show();
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)

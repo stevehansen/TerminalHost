@@ -32,6 +32,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IGitHubService _gitHubService;
     private readonly IMarkdownService _markdownService;
     private readonly IProcessService _processService;
+    private readonly IToastService _toastService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -168,7 +169,8 @@ public partial class MainViewModel : ObservableObject
         IAiAssistantService aiAssistantService,
         IGitHubService gitHubService,
         IMarkdownService markdownService,
-        IProcessService processService)
+        IProcessService processService,
+        IToastService toastService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -191,6 +193,7 @@ public partial class MainViewModel : ObservableObject
         _gitHubService = gitHubService;
         _markdownService = markdownService;
         _processService = processService;
+        _toastService = toastService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -1113,7 +1116,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService); // Added _dialogService
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -1133,7 +1136,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab with Profiles section selected
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
         settingsTab.SelectedSection = SettingsSection.Profiles;
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
@@ -1153,7 +1156,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);

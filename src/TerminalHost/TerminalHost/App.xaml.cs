@@ -120,6 +120,7 @@ public partial class App : Application
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
+        services.AddSingleton<IToastService, ToastService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

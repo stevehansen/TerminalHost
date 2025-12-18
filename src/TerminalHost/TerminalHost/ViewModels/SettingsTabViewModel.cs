@@ -45,6 +45,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     private readonly IConfigurationService _configService;
     private readonly IDialogService _dialogService;
+    private readonly IToastService _toastService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -312,10 +313,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? JsonTextReloaded;
     public event EventHandler? ConfigSaved;
 
-    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService) // Added IDialogService
+    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService)
     {
         _configService = configService;
-        _dialogService = dialogService; // Initialize IDialogService
+        _dialogService = dialogService;
+        _toastService = toastService;
         LoadSettings();
     }
 
@@ -538,7 +540,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Show warning dialog if there are warnings (save succeeded but with issues)
             if (!string.IsNullOrEmpty(warning))
             {
-                _dialogService.ShowWarning($"Settings saved with warnings:\n\n{warning}", "Configuration Warning"); // Use injected IDialogService
+                _dialogService.ShowWarning($"Settings saved with warnings:\n\n{warning}", "Configuration Warning");
+            }
+            else
+            {
+                // Show success toast when saved without warnings
+                _toastService.Show("Settings saved", ToastType.Success);
             }
         }
         else

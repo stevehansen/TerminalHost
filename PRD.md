@@ -144,6 +144,13 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Auto-reload on file changes (toggleable)
   - Resizable, draggable window with native controls
   - Refresh button (F5) for manual reload
+- [x] **Toast Notifications:** Non-intrusive feedback for operations:
+  - Simple toasts for quick feedback (settings saved, actions completed)
+  - Progress toasts for multi-step operations (PR checkout, merge)
+  - Auto-dismiss after 5 seconds (configurable)
+  - Queue management (max 5 visible, others queued)
+  - Type-based styling (Info=blue, Success=green, Warning=yellow, Error=red)
+  - Integrated with Settings save and Dashboard PR checkout actions
 
 ### Deferred Features
 
@@ -1072,6 +1079,55 @@ if (DialogService.ShowConfirmation("Are you sure?", "Confirm"))
 }
 ```
 
+### Toast Notifications
+
+Toast notifications provide non-intrusive feedback for operations without interrupting the user's workflow. They appear in the bottom-right corner and persist across tab switches.
+
+**Toast Types:**
+| Type     | Icon | Color  | Auto-Close | Usage                          |
+|----------|------|--------|------------|--------------------------------|
+| Info     | ℹ    | Blue   | Yes (5s)   | General information            |
+| Success  | ✓    | Green  | Yes (5s)   | Operation completed            |
+| Warning  | ⚠    | Yellow | Yes (5s)   | Warning messages               |
+| Error    | ✕    | Red    | Yes (5s)   | Error notifications            |
+| Progress | ⏳   | Gray   | No         | Multi-step operations          |
+
+**Behavior:**
+- **Positioning**: Bottom-right corner of main window
+- **Stacking**: New toasts appear above existing ones
+- **Max visible**: 5 toasts maximum, additional toasts queued
+- **Queue**: When a toast closes, next queued toast appears
+- **Dismissal**: Click X button to close immediately
+- **Overlay window**: Uses separate transparent window to render above terminal controls (WPF airspace workaround)
+
+**Usage in Code:**
+```csharp
+// Simple toast
+_toastService.Show("Settings saved", ToastType.Success);
+_toastService.Show("Warning message", ToastType.Warning);
+
+// Progress toast for multi-step operations
+using var toast = _toastService.ShowProgress("Checking out PR #123...");
+var success = await CheckoutAsync();
+if (success)
+    toast.Complete("PR #123 checked out");
+else
+    toast.Fail("Failed to checkout PR #123");
+
+// Multi-step progress updates
+using var toast = _toastService.ShowProgress("Starting merge...");
+toast.Update("Fetching latest changes...");
+await FetchAsync();
+toast.Update("Merging PR #123...");
+await MergeAsync();
+toast.Complete("Merge completed successfully");
+```
+
+**Current Integrations:**
+- Settings save: Shows success toast when settings are saved
+- Dashboard PR checkout: Shows progress toast during checkout
+- Dashboard PR review: Shows progress toast during review mode setup
+
 ### File Preview Syntax Highlighting
 
 File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting for:
@@ -1148,7 +1204,9 @@ TerminalHost/
         │   ├── ITaskService.cs           # Interface for task/focus mode service
         │   ├── TaskService.cs            # Task management and focus mode
         │   ├── IGitPrService.cs          # Interface for GitHub PR service
-        │   └── GitPrService.cs           # GitHub PR detection and fetching
+        │   ├── GitPrService.cs           # GitHub PR detection and fetching
+        │   ├── IToastService.cs          # Interface for toast notifications
+        │   └── ToastService.cs           # Toast notification service
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
@@ -1163,7 +1221,8 @@ TerminalHost/
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
     │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
-    │   └── TaskPanelViewModel.cs         # Task panel for focus mode
+    │   ├── TaskPanelViewModel.cs         # Task panel for focus mode
+    │   └── ToastViewModel.cs             # Individual toast notification state
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
@@ -1171,6 +1230,9 @@ TerminalHost/
         ├── StatisticsView.xaml(.cs)      # Usage statistics UI
         ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
         ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── ToastContainerView.xaml(.cs)  # Toast notification container
+        ├── ToastItemView.xaml(.cs)       # Individual toast UI
+        ├── ToastWindow.xaml(.cs)         # Overlay window for toasts (airspace fix)
         ├── Dialogs/
         │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
@@ -1373,5 +1435,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.9*
+*Document Version: 2.10*
 *Last Updated: 2025-12-18*

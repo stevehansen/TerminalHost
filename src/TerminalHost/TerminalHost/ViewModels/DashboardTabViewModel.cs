@@ -20,6 +20,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IToastService _toastService;
     private readonly DispatcherTimer _refreshTimer;
 
     #region ITabViewModel Implementation
@@ -108,7 +109,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         MainViewModel mainViewModel,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IProcessService processService)
+        IProcessService processService,
+        IToastService toastService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -116,6 +118,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _toastService = toastService;
 
         // Setup auto-refresh timer
         _refreshTimer = new DispatcherTimer
@@ -254,7 +257,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
                 return; // Clone failed or was cancelled
         }
 
-        // Checkout the PR branch
+        // Checkout the PR branch with progress toast
+        using var toast = _toastService.ShowProgress($"Checking out PR #{pr.Number}...");
         StatusMessage = $"Checking out PR #{pr.Number}...";
         var success = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
 
@@ -262,10 +266,11 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         {
             _mainViewModel.OpenProjectTab(localPath);
             StatusMessage = $"Checked out PR #{pr.Number}";
+            toast.Complete($"PR #{pr.Number} checked out");
         }
         else
         {
-            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}.\n\nYou may have uncommitted changes that need to be stashed or committed first.", "Checkout Failed");
+            toast.Fail($"Failed to checkout PR #{pr.Number}");
             StatusMessage = "Checkout failed";
         }
     }
@@ -361,17 +366,19 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         }
 
         // Always checkout the PR branch (handles fetching, creating branch, switching)
+        using var toast = _toastService.ShowProgress($"Checking out PR #{pr.Number} for review...");
         StatusMessage = $"Checking out PR #{pr.Number}...";
         var success = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
 
         if (!success)
         {
-            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}.\n\nYou may have uncommitted changes that need to be stashed or committed first.", "Checkout Failed");
+            toast.Fail($"Failed to checkout PR #{pr.Number}");
             StatusMessage = "Checkout failed";
             return;
         }
 
         StatusMessage = $"Checked out PR #{pr.Number}";
+        toast.Complete($"PR #{pr.Number} ready for review");
 
         // Open the project tab if not already open
         _mainViewModel.OpenProjectTab(localPath);

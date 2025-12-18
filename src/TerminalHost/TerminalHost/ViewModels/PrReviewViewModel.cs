@@ -20,6 +20,7 @@ public partial class PrReviewViewModel : ObservableObject
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
     private readonly IMarkdownService _markdownService;
+    private readonly IToastService _toastService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -74,7 +75,8 @@ public partial class PrReviewViewModel : ObservableObject
         IProjectDetectionService projectDetectionService,
         IFileSystem fileSystem,
         IProcessService processService,
-        IMarkdownService markdownService)
+        IMarkdownService markdownService,
+        IToastService toastService)
     {
         _gitHubService = gitHubService;
         _dialogService = dialogService;
@@ -83,6 +85,7 @@ public partial class PrReviewViewModel : ObservableObject
         _fileSystem = fileSystem;
         _processService = processService;
         _markdownService = markdownService;
+        _toastService = toastService;
     }
 
     /// <summary>
@@ -249,6 +252,7 @@ public partial class PrReviewViewModel : ObservableObject
     {
         if (PullRequest == null || string.IsNullOrEmpty(WorkingDirectory)) return;
 
+        using var toast = _toastService.ShowProgress($"Approving PR #{PullRequest.Number}...");
         var comment = string.IsNullOrWhiteSpace(ReviewComment) ? null : ReviewComment.Trim();
         var success = await _gitHubService.ApprovePullRequestAsync(WorkingDirectory, PullRequest.Number, comment);
 
@@ -256,10 +260,11 @@ public partial class PrReviewViewModel : ObservableObject
         {
             StatusMessage = "PR approved";
             ReviewComment = "";
+            toast.Complete($"PR #{PullRequest.Number} approved");
         }
         else
         {
-            _dialogService.ShowWarning("Failed to approve PR", "Review Failed");
+            toast.Fail("Failed to approve PR");
         }
     }
 
@@ -274,16 +279,18 @@ public partial class PrReviewViewModel : ObservableObject
             return;
         }
 
+        using var toast = _toastService.ShowProgress($"Requesting changes on PR #{PullRequest.Number}...");
         var success = await _gitHubService.RequestChangesAsync(WorkingDirectory, PullRequest.Number, ReviewComment.Trim());
 
         if (success)
         {
             StatusMessage = "Changes requested";
             ReviewComment = "";
+            toast.Complete($"Changes requested on PR #{PullRequest.Number}");
         }
         else
         {
-            _dialogService.ShowWarning("Failed to request changes", "Review Failed");
+            toast.Fail("Failed to request changes");
         }
     }
 
@@ -298,16 +305,18 @@ public partial class PrReviewViewModel : ObservableObject
             return;
         }
 
+        using var toast = _toastService.ShowProgress("Adding comment...");
         var success = await _gitHubService.CommentOnPullRequestAsync(WorkingDirectory, PullRequest.Number, ReviewComment.Trim());
 
         if (success)
         {
             StatusMessage = "Comment added";
             ReviewComment = "";
+            toast.Complete("Comment added");
         }
         else
         {
-            _dialogService.ShowWarning("Failed to add comment", "Comment Failed");
+            toast.Fail("Failed to add comment");
         }
     }
 
@@ -326,16 +335,18 @@ public partial class PrReviewViewModel : ObservableObject
 
         if (!confirmed) return;
 
+        using var toast = _toastService.ShowProgress($"Merging PR #{PullRequest.Number}...");
         var success = await _gitHubService.MergePullRequestAsync(WorkingDirectory, PullRequest.Number, "squash");
 
         if (success)
         {
             StatusMessage = "PR merged successfully";
+            toast.Complete($"PR #{PullRequest.Number} merged");
             Close();
         }
         else
         {
-            _dialogService.ShowWarning("Failed to merge PR. Check if all requirements are met.", "Merge Failed");
+            toast.Fail("Failed to merge PR");
         }
     }
 

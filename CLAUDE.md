@@ -57,6 +57,7 @@ dotnet test --filter "FullyQualifiedName~SmokeTest_CanOpenSettings"
 | `MessageBox.Show()` | `IDialogService` |
 | `Process.Start()` | `IProcessService` |
 | Running git commands directly | `IGitProcessRunner` |
+| User feedback for operations | `IToastService` |
 
 ### Examples
 
@@ -80,6 +81,18 @@ Process.Start("notepad.exe");
 
 // GOOD - Uses injected service
 _processService.Start("notepad.exe");
+
+// User feedback with toasts (non-blocking, non-intrusive)
+// Simple success feedback
+_toastService.Show("Settings saved", ToastType.Success);
+
+// Progress toast for multi-step operations
+using var toast = _toastService.ShowProgress("Checking out PR...");
+var success = await DoOperationAsync();
+if (success)
+    toast.Complete("PR checked out");
+else
+    toast.Fail("Checkout failed");
 ```
 
 ### Exceptions (OK to use directly)
@@ -209,7 +222,9 @@ TerminalHost/
     │   ├── ProjectDetectionService.cs # Auto-detect project type
     │   ├── RunUrlDetectionService.cs # Detect localhost URLs from run output
     │   ├── FileExplorerService.cs    # File explorer operations + file watcher
-    │   └── ClaudeCommandService.cs   # Claude slash commands detection + file watching
+    │   ├── ClaudeCommandService.cs   # Claude slash commands detection + file watching
+    │   ├── IToastService.cs          # Toast notification interface
+    │   └── ToastService.cs           # Toast notification service
     ├── ViewModels/
     │   ├── ITabViewModel.cs              # Interface for tab view models
     │   ├── MainViewModel.cs              # Main window logic, popup state
@@ -224,7 +239,8 @@ TerminalHost/
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
     │   ├── FileViewerViewModel.cs        # Unified file preview/edit viewer (with image support)
-    │   └── FileExplorerViewModel.cs      # File explorer tree + operations
+    │   ├── FileExplorerViewModel.cs      # File explorer tree + operations
+    │   └── ToastViewModel.cs             # Individual toast state
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
         ├── SettingsView.xaml(.cs)        # Settings editor UI
@@ -235,6 +251,9 @@ TerminalHost/
         ├── FileExplorerView.xaml(.cs)    # File explorer panel
         ├── FileViewerView.xaml(.cs)      # Unified file preview/edit view
         ├── FileViewerWindow.xaml(.cs)    # Detached/pop-out file viewer window
+        ├── ToastContainerView.xaml(.cs)  # Toast notification container
+        ├── ToastItemView.xaml(.cs)       # Individual toast UI
+        ├── ToastWindow.xaml(.cs)         # Overlay window for toasts (airspace fix)
         ├── Dialogs/
         │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
         ├── Tabs/
