@@ -7,7 +7,8 @@
         AllowsTransparency="True"
         ResizeMode="NoResize"
         Background="Transparent"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Topmost="True">
 
     <Border Background="{DynamicResource BackgroundDarkBrush}"
             BorderBrush="{DynamicResource AccentPrimaryBrush}"
@@ -28,7 +29,8 @@
 
             <!-- Title Bar -->
             <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
-                    MouseLeftButtonDown="TitleBar_MouseDown">
+                    MouseLeftButtonDown="TitleBar_MouseDown"
+                    Cursor="SizeAll">
                 <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
                            FontSize="{StaticResource FontSizeNormal}"
                            FontWeight="SemiBold"

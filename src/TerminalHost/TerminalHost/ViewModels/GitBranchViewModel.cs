@@ -163,8 +163,6 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                // Close popup before showing dialog to avoid WPF focus/ownership issues
-                IsOpen = false;
                 _dialogService.ShowWarning(string.Format("Failed to switch branch:\n{0}", result.Error), "Git Checkout");
             }
         }
@@ -202,8 +200,6 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                // Close popup before showing dialog to avoid WPF focus/ownership issues
-                IsOpen = false;
                 _dialogService.ShowWarning(string.Format("Failed to create branch:\n{0}", result.Error), "Git Branch");
             }
         }
@@ -221,17 +217,13 @@ public partial class GitBranchViewModel : ObservableObject
 
         if (SelectedBranch.IsCurrent)
         {
-            // Close popup before showing dialog to avoid WPF focus/ownership issues
-            IsOpen = false;
             _dialogService.ShowWarning(
                 "Cannot delete the current branch. Please switch to another branch first.",
                 "Git Branch");
             return;
         }
 
-        // Close popup before showing any dialogs to avoid WPF focus/ownership issues
         var branchToDelete = SelectedBranch;
-        IsOpen = false;
 
         IsLoading = true;
         try
@@ -249,7 +241,12 @@ public partial class GitBranchViewModel : ObservableObject
                     remoteName,
                     branchToDelete.ShortName);
 
-                if (!result.Success)
+                if (result.Success)
+                {
+                    IsOpen = false;
+                    await RefreshTerminalGitStatusAsync();
+                }
+                else
                 {
                     _dialogService.ShowWarning(string.Format("Failed to delete remote branch:\n{0}", result.Error), "Git Branch");
                 }
@@ -273,7 +270,12 @@ public partial class GitBranchViewModel : ObservableObject
                     }
                 }
 
-                if (!result.Success && result.Error?.Contains("not fully merged") != true)
+                if (result.Success)
+                {
+                    IsOpen = false;
+                    await RefreshTerminalGitStatusAsync();
+                }
+                else if (result.Error?.Contains("not fully merged") != true)
                 {
                     _dialogService.ShowWarning(string.Format("Failed to delete branch:\n{0}", result.Error), "Git Branch");
                 }
@@ -305,8 +307,6 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                // Close popup before showing dialog to avoid WPF focus/ownership issues
-                IsOpen = false;
                 _dialogService.ShowWarning(string.Format("Failed to fetch:\n{0}", result.Error), "Git Fetch");
             }
         }
@@ -335,8 +335,6 @@ public partial class GitBranchViewModel : ObservableObject
             }
             else
             {
-                // Close popup before showing dialog to avoid WPF focus/ownership issues
-                IsOpen = false;
                 _dialogService.ShowWarning(string.Format("Failed to pull:\n{0}", result.Error), "Git Pull");
             }
         }

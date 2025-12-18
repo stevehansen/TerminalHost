@@ -6,6 +6,7 @@
         Background="Transparent"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        Topmost="True"
         SizeToContent="WidthAndHeight"
         MinWidth="350"
         MaxWidth="500">
@@ -25,7 +26,8 @@
 
             <!-- Header -->
             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
-                    MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                    MouseLeftButtonDown="Header_MouseLeftButtonDown"
+                    Cursor="SizeAll">
                 <TextBlock x:Name="TitleText"
                            Foreground="{StaticResource TextBrightBrush}"
                            FontSize="{StaticResource FontSizeNormal}"
