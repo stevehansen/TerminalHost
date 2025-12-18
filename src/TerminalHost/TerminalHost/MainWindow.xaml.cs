@@ -92,6 +92,7 @@ public partial class MainWindow : Window
         _viewModel.GitChangesRequested += OnGitChangesRequested;
         _viewModel.SetupRequested += OnSetupRequested;
         _viewModel.PrReviewRequested += OnPrReviewRequested;
+        _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
 
         // Subscribe to run terminal events
@@ -821,6 +822,12 @@ public partial class MainWindow : Window
         {
             await _prReviewViewModel.OpenAsync(currentTab.WorkingDirectory);
         }
+    }
+
+    private async void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
+    {
+        // Open PR Review Mode for the specific PR from the Dashboard
+        await _prReviewViewModel.OpenForPrAsync(e.WorkingDirectory, e.PullRequest);
     }
 
     private async void OnMarkdownPreviewRequested(object? sender, EventArgs e)

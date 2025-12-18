@@ -34,6 +34,8 @@
         <local:BoolToShellRowConverter x:Key="BoolToShellRowConverter"/>
         <local:ViewModeConverter x:Key="ViewModeConverter"/>
         <local:SectionConverter x:Key="SectionConverter"/>
+        <local:BoolToBackgroundConverter x:Key="BoolToBackgroundConverter"/>
+        <local:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

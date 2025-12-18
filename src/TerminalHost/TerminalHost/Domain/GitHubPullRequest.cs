@@ -1,6 +1,30 @@
 namespace TerminalHost.Domain;
 
 /// <summary>
+/// Represents a GitHub label.
+/// </summary>
+public class GitHubLabel
+{
+    public string Name { get; set; } = "";
+    public string Color { get; set; } = "";
+
+    /// <summary>
+    /// Gets whether this is a size label.
+    /// </summary>
+    public bool IsSizeLabel => Name.StartsWith("size/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets the size value (XS, S, M, L, XL, XXL) if this is a size label.
+    /// </summary>
+    public string? SizeValue => IsSizeLabel ? Name.Replace("size/", "", StringComparison.OrdinalIgnoreCase) : null;
+
+    /// <summary>
+    /// Gets a color with # prefix for XAML binding.
+    /// </summary>
+    public string ColorHex => string.IsNullOrEmpty(Color) ? "#808080" : $"#{Color}";
+}
+
+/// <summary>
 /// Represents a GitHub pull request.
 /// </summary>
 public class GitHubPullRequest
@@ -86,9 +110,29 @@ public class GitHubPullRequest
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
+    /// Labels attached to the PR.
+    /// </summary>
+    public List<GitHubLabel> Labels { get; set; } = [];
+
+    /// <summary>
     /// Gets the repository name without owner (e.g., "repo" from "owner/repo").
     /// </summary>
     public string RepositoryName => Repository.Contains('/') ? Repository.Split('/').Last() : Repository;
+
+    /// <summary>
+    /// Gets the size label if present (e.g., "XS", "S", "M", "L", "XL", "XXL").
+    /// </summary>
+    public GitHubLabel? SizeLabel => Labels.FirstOrDefault(l => l.IsSizeLabel);
+
+    /// <summary>
+    /// Gets the size display text (e.g., "XS", "M", "XXL").
+    /// </summary>
+    public string? SizeDisplay => SizeLabel?.SizeValue;
+
+    /// <summary>
+    /// Gets the size label color for display.
+    /// </summary>
+    public string? SizeColor => SizeLabel?.ColorHex;
 
     /// <summary>
     /// Gets a human-readable time since the PR was updated.

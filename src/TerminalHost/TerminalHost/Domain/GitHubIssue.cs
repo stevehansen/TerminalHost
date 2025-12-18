@@ -31,9 +31,9 @@ public class GitHubIssue
     public string State { get; set; } = "open";
 
     /// <summary>
-    /// Labels assigned to the issue.
+    /// Labels assigned to the issue (rich format with colors).
     /// </summary>
-    public List<string> Labels { get; set; } = [];
+    public List<GitHubLabel> Labels { get; set; } = [];
 
     /// <summary>
     /// When the issue was created.
@@ -71,5 +71,20 @@ public class GitHubIssue
     /// <summary>
     /// Gets a comma-separated list of labels.
     /// </summary>
-    public string LabelsSummary => Labels.Count > 0 ? string.Join(", ", Labels.Take(3)) : "";
+    public string LabelsSummary => Labels.Count > 0 ? string.Join(", ", Labels.Take(3).Select(l => l.Name)) : "";
+
+    /// <summary>
+    /// Gets the size label if present (e.g., "XS", "S", "M", "L", "XL", "XXL").
+    /// </summary>
+    public GitHubLabel? SizeLabel => Labels.FirstOrDefault(l => l.IsSizeLabel);
+
+    /// <summary>
+    /// Gets the size display text (e.g., "XS", "M", "XXL").
+    /// </summary>
+    public string? SizeDisplay => SizeLabel?.SizeValue;
+
+    /// <summary>
+    /// Gets the size label color for display.
+    /// </summary>
+    public string? SizeColor => SizeLabel?.ColorHex;
 }

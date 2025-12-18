@@ -696,10 +696,15 @@ internal sealed class GitHubService : IGitHubService
 
                 if (item.TryGetProperty("labels", out var labels) && labels.ValueKind == JsonValueKind.Array)
                 {
-                    issue.Labels = labels.EnumerateArray()
-                        .Select(l => l.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "")
-                        .Where(l => !string.IsNullOrEmpty(l))
-                        .ToList();
+                    foreach (var label in labels.EnumerateArray())
+                    {
+                        var name = label.TryGetProperty("name", out var labelName) ? labelName.GetString() ?? "" : "";
+                        var color = label.TryGetProperty("color", out var labelColor) ? labelColor.GetString() ?? "" : "";
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            issue.Labels.Add(new GitHubLabel { Name = name, Color = color });
+                        }
+                    }
                 }
 
                 if (item.TryGetProperty("createdAt", out var created) && DateTime.TryParse(created.GetString(), out var createdDt))
@@ -767,6 +772,20 @@ internal sealed class GitHubService : IGitHubService
                 if (item.TryGetProperty("updated_at", out var updated) && DateTime.TryParse(updated.GetString(), out var updatedDt))
                 {
                     pr.UpdatedAt = updatedDt;
+                }
+
+                // Parse labels
+                if (item.TryGetProperty("labels", out var labels) && labels.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var label in labels.EnumerateArray())
+                    {
+                        var name = label.TryGetProperty("name", out var labelName) ? labelName.GetString() ?? "" : "";
+                        var color = label.TryGetProperty("color", out var labelColor) ? labelColor.GetString() ?? "" : "";
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            pr.Labels.Add(new GitHubLabel { Name = name, Color = color });
+                        }
+                    }
                 }
 
                 results.Add(pr);

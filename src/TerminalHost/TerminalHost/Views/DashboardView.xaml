@@ -40,73 +40,89 @@
                 <!-- Section Buttons -->
                 <StackPanel Grid.Row="1" Margin="8,0">
                     <!-- Review Requests -->
-                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="Review"
-                            Style="{StaticResource TerminalSwitchButton}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,2" Padding="12,8">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Review" Width="100"/>
-                                <Border Background="{StaticResource SyntaxBlueBrush}" CornerRadius="8" Padding="6,2">
-                                    <TextBlock Text="{Binding ReviewRequestsCount}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               Foreground="White"/>
-                                </Border>
-                            </StackPanel>
-                        </Button.Content>
-                    </Button>
+                    <Border CornerRadius="4" Margin="0,2"
+                            Background="{Binding IsReviewSelected, Converter={StaticResource BoolToBackgroundConverter}}">
+                        <Button Command="{Binding SelectSectionCommand}" CommandParameter="Review"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,8">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Review" Width="100"
+                                               FontWeight="{Binding IsReviewSelected, Converter={StaticResource BoolToFontWeightConverter}}"/>
+                                    <Border Background="{StaticResource SyntaxBlueBrush}" CornerRadius="8" Padding="6,2">
+                                        <TextBlock Text="{Binding ReviewRequestsCount}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </Border>
 
                     <!-- My PRs -->
-                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="MyPRs"
-                            Style="{StaticResource TerminalSwitchButton}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,2" Padding="12,8">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="My PRs" Width="100"/>
-                                <Border Background="{StaticResource SyntaxGreenBrush}" CornerRadius="8" Padding="6,2">
-                                    <TextBlock Text="{Binding MyPullRequestsCount}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               Foreground="White"/>
-                                </Border>
-                            </StackPanel>
-                        </Button.Content>
-                    </Button>
+                    <Border CornerRadius="4" Margin="0,2"
+                            Background="{Binding IsMyPRsSelected, Converter={StaticResource BoolToBackgroundConverter}}">
+                        <Button Command="{Binding SelectSectionCommand}" CommandParameter="MyPRs"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,8">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="My PRs" Width="100"
+                                               FontWeight="{Binding IsMyPRsSelected, Converter={StaticResource BoolToFontWeightConverter}}"/>
+                                    <Border Background="{StaticResource SyntaxGreenBrush}" CornerRadius="8" Padding="6,2">
+                                        <TextBlock Text="{Binding MyPullRequestsCount}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </Border>
 
                     <!-- CI Failed -->
-                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="CIFailed"
-                            Style="{StaticResource TerminalSwitchButton}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,2" Padding="12,8"
-                            Visibility="{Binding FailedRunsCount, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="CI Failed" Width="100"/>
-                                <Border Background="{StaticResource SyntaxRedBrush}" CornerRadius="8" Padding="6,2">
-                                    <TextBlock Text="{Binding FailedRunsCount}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               Foreground="White"/>
-                                </Border>
-                            </StackPanel>
-                        </Button.Content>
-                    </Button>
+                    <Border CornerRadius="4" Margin="0,2"
+                            Background="{Binding IsCIFailedSelected, Converter={StaticResource BoolToBackgroundConverter}}"
+                            Visibility="{Binding FailedRunsCount, Converter={StaticResource CountToVisibilityConverter}}">
+                        <Button Command="{Binding SelectSectionCommand}" CommandParameter="CIFailed"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,8">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="CI Failed" Width="100"
+                                               FontWeight="{Binding IsCIFailedSelected, Converter={StaticResource BoolToFontWeightConverter}}"/>
+                                    <Border Background="{StaticResource SyntaxRedBrush}" CornerRadius="8" Padding="6,2">
+                                        <TextBlock Text="{Binding FailedRunsCount}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </Border>
 
                     <!-- Issues -->
-                    <Button Command="{Binding SelectSectionCommand}" CommandParameter="Issues"
-                            Style="{StaticResource TerminalSwitchButton}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,2" Padding="12,8">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Issues" Width="100"/>
-                                <Border Background="{StaticResource SyntaxYellowBrush}" CornerRadius="8" Padding="6,2">
-                                    <TextBlock Text="{Binding MyIssuesCount}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               Foreground="Black"/>
-                                </Border>
-                            </StackPanel>
-                        </Button.Content>
-                    </Button>
+                    <Border CornerRadius="4" Margin="0,2"
+                            Background="{Binding IsIssuesSelected, Converter={StaticResource BoolToBackgroundConverter}}">
+                        <Button Command="{Binding SelectSectionCommand}" CommandParameter="Issues"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,8">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Issues" Width="100"
+                                               FontWeight="{Binding IsIssuesSelected, Converter={StaticResource BoolToFontWeightConverter}}"/>
+                                    <Border Background="{StaticResource SyntaxYellowBrush}" CornerRadius="8" Padding="6,2">
+                                        <TextBlock Text="{Binding MyIssuesCount}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="Black"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </Border>
 
                     <Separator Margin="0,16,0,8" Background="{StaticResource BorderSubtleBrush}"/>
 
@@ -189,52 +205,110 @@
                          SelectedItem="{Binding SelectedItem}"
                          Background="Transparent"
                          BorderThickness="0"
-                         Margin="8">
+                         Margin="8"
+                         Grid.IsSharedSizeScope="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="12,8" Margin="0,4"
+                            <Border Padding="12,6" Margin="0,2"
                                     Background="{StaticResource BackgroundDarkBrush}"
                                     CornerRadius="4">
                                 <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="42"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="TitleColumn"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Title row -->
-                                    <TextBlock Grid.Row="0" Text="{Binding Title}"
+                                    <!-- Size badge (left, fixed width column for alignment) -->
+                                    <Border Grid.Column="0" Grid.RowSpan="2"
+                                            CornerRadius="4" Padding="6,4" Margin="0,0,10,0"
+                                            HorizontalAlignment="Left"
+                                            Background="{Binding SizeColor, Converter={StaticResource HexToBrushConverter}}"
+                                            Visibility="{Binding SizeDisplay, Converter={StaticResource NullToCollapsedConverter}}"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SizeDisplay}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   FontWeight="Bold"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center"
+                                                   MinWidth="20"/>
+                                    </Border>
+
+                                    <!-- Title and meta (center) -->
+                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                               Text="{Binding Title}"
                                                FontSize="{StaticResource FontSizeSmall}"
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource TextPrimaryBrush}"
-                                               TextTrimming="CharacterEllipsis"/>
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               MaxWidth="600"/>
 
-                                    <!-- Meta row -->
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                    <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,0">
                                         <TextBlock Text="{Binding Repository}"
                                                    FontSize="{StaticResource FontSizeTiny}"
                                                    Foreground="{StaticResource SyntaxBlueBrush}"/>
-                                        <TextBlock Text=" by "
+                                        <TextBlock Text=" · "
                                                    FontSize="{StaticResource FontSizeTiny}"
                                                    Foreground="{StaticResource TextDimmedBrush}"/>
                                         <TextBlock Text="{Binding Author}"
                                                    FontSize="{StaticResource FontSizeTiny}"
                                                    Foreground="{StaticResource TextDimmedBrush}"/>
+                                        <TextBlock Text=" · "
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"/>
+                                        <TextBlock Text="{Binding TimeSinceUpdate}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   ToolTip="{Binding UpdatedAt, StringFormat='Last updated: {0:yyyy-MM-dd HH:mm}'}"/>
                                     </StackPanel>
 
-                                    <!-- Action buttons -->
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <!-- Action buttons (right) -->
+                                    <StackPanel Grid.Column="2" Grid.RowSpan="2"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center"
+                                                Margin="12,0,0,0">
                                         <Button Content="Open"
                                                 Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.OpenInBrowserCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
                                                 Margin="0,0,4,0"
                                                 Padding="8,4"/>
+                                        <Button Content="Review"
+                                                Command="{Binding DataContext.OpenReviewModeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,4,0"
+                                                Padding="8,4"
+                                                ToolTip="Open PR Review Mode">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.4"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                         <Button Content="Checkout"
-                                                Style="{StaticResource TerminalSwitchButton}"
                                                 Command="{Binding DataContext.CheckoutPullRequestCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Padding="8,4"/>
+                                                Padding="8,4"
+                                                ToolTip="Clone/checkout and open project">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.4"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
                             </Border>

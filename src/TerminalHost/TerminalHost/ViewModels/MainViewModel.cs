@@ -481,6 +481,13 @@ public partial class MainViewModel : ObservableObject
     private void RestoreOpenFolders()
     {
         var config = _configService.Load();
+
+        // Restore dashboard if it was open
+        if (config.Settings.Dashboard.ShowOnStartup && config.Settings.Dashboard.Enabled)
+        {
+            _ = OpenDashboardAsync();
+        }
+
         foreach (var folder in config.OpenFolders)
         {
             if (_fileSystem.DirectoryExists(folder))
@@ -865,6 +872,16 @@ public partial class MainViewModel : ObservableObject
         {
             statsTab.CloseRequested -= OnTabCloseRequested;
         }
+        else if (tab is DashboardTabViewModel dashboardTab)
+        {
+            dashboardTab.CloseRequested -= OnTabCloseRequested;
+            dashboardTab.PrReviewRequested -= OnDashboardPrReviewRequested;
+
+            // Save that dashboard is closed
+            var config = _configService.Load();
+            config.Settings.Dashboard.ShowOnStartup = false;
+            _configService.Save(config);
+        }
         else if (tab is ProfileTerminalTabViewModel profileTab)
         {
             var hasRunning = profileTab.Session.IsProcessRunning();
@@ -1138,11 +1155,27 @@ public partial class MainViewModel : ObservableObject
         // Create new dashboard tab
         var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
+        dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);
         SelectedTab = dashboardTab;
 
+        // Save that dashboard is open
+        var config = _configService.Load();
+        config.Settings.Dashboard.ShowOnStartup = true;
+        _configService.Save(config);
+
         // Initialize the dashboard (fetches data)
         await dashboardTab.InitializeAsync();
+    }
+
+    /// <summary>
+    /// Event raised when PR Review Mode should be opened from the Dashboard.
+    /// </summary>
+    public event EventHandler<PrReviewRequestedEventArgs>? DashboardPrReviewRequested;
+
+    private void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
+    {
+        DashboardPrReviewRequested?.Invoke(this, e);
     }
 
     private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)

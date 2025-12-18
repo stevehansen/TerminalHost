@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Threading;
@@ -24,7 +25,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     #region ITabViewModel Implementation
 
     public string Title => "Dashboard";
-    public string TabIcon => "D";  // Home icon
+    public string TabIcon => "G";  // GitHub icon
     public string WorkingDirectory => "";
     public bool IsCloseable => true;
     public bool IsAnyTerminalActive => false;
@@ -40,6 +41,11 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
     #endregion
 
+    /// <summary>
+    /// Event raised when PR Review Mode should be opened for a specific PR.
+    /// </summary>
+    public event EventHandler<PrReviewRequestedEventArgs>? PrReviewRequested;
+
     [ObservableProperty]
     private bool _isLoading;
 
@@ -51,18 +57,30 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
+    [NotifyPropertyChangedFor(nameof(IsReviewSelected))]
+    [NotifyPropertyChangedFor(nameof(IsMyPRsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsIssuesSelected))]
+    [NotifyPropertyChangedFor(nameof(IsCIFailedSelected))]
     private string _selectedSection = "Review";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
+    [NotifyPropertyChangedFor(nameof(ReviewRequestsCount))]
     private ObservableCollection<GitHubPullRequest> _reviewRequests = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
+    [NotifyPropertyChangedFor(nameof(MyPullRequestsCount))]
     private ObservableCollection<GitHubPullRequest> _myPullRequests = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
+    [NotifyPropertyChangedFor(nameof(MyIssuesCount))]
     private ObservableCollection<GitHubIssue> _myIssues = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
+    [NotifyPropertyChangedFor(nameof(FailedRunsCount))]
     private ObservableCollection<GitHubWorkflowRun> _failedRuns = [];
 
     [ObservableProperty]
@@ -70,6 +88,12 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private object? _selectedItem;
+
+    // Selection state helpers for UI binding
+    public bool IsReviewSelected => SelectedSection == "Review";
+    public bool IsMyPRsSelected => SelectedSection == "MyPRs";
+    public bool IsIssuesSelected => SelectedSection == "Issues";
+    public bool IsCIFailedSelected => SelectedSection == "CIFailed";
 
     public bool IsGitHubCliAvailable => _gitHubService.IsGitHubCliAvailable();
 
@@ -99,6 +123,9 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
             Interval = TimeSpan.FromMinutes(5)
         };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync();
+
+        // Populate recent repos from open tabs
+        PopulateRecentRepos();
     }
 
     public async Task InitializeAsync()
@@ -141,18 +168,22 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
             var reviewTask = _gitHubService.GetReviewRequestsAsync();
             var myPrsTask = _gitHubService.GetMyPullRequestsAsync();
             var issuesTask = _gitHubService.GetMyIssuesAsync();
+            var failedRunsTask = _gitHubService.GetFailedWorkflowRunsAsync();
 
-            await Task.WhenAll(reviewTask, myPrsTask, issuesTask);
+            await Task.WhenAll(reviewTask, myPrsTask, issuesTask, failedRunsTask);
 
-            ReviewRequests = new ObservableCollection<GitHubPullRequest>(await reviewTask);
-            MyPullRequests = new ObservableCollection<GitHubPullRequest>(await myPrsTask);
-            MyIssues = new ObservableCollection<GitHubIssue>(await issuesTask);
+            // Sort by UpdatedAt descending (most recent first)
+            ReviewRequests = new ObservableCollection<GitHubPullRequest>(
+                (await reviewTask).OrderByDescending(p => p.UpdatedAt));
+            MyPullRequests = new ObservableCollection<GitHubPullRequest>(
+                (await myPrsTask).OrderByDescending(p => p.UpdatedAt));
+            MyIssues = new ObservableCollection<GitHubIssue>(
+                (await issuesTask).OrderByDescending(i => i.UpdatedAt));
+            FailedRuns = new ObservableCollection<GitHubWorkflowRun>(
+                (await failedRunsTask).OrderByDescending(r => r.UpdatedAt));
 
-            // Notify count changes
-            OnPropertyChanged(nameof(ReviewRequestsCount));
-            OnPropertyChanged(nameof(MyPullRequestsCount));
-            OnPropertyChanged(nameof(MyIssuesCount));
-            OnPropertyChanged(nameof(FailedRunsCount));
+            // Update recent repos
+            PopulateRecentRepos();
 
             LastRefreshed = DateTime.Now;
             StatusMessage = $"Last updated: {LastRefreshed:HH:mm}";
@@ -164,6 +195,22 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void RetryGitHubCli()
+    {
+        _gitHubService.ResetAvailabilityCache();
+        OnPropertyChanged(nameof(IsGitHubCliAvailable));
+
+        if (IsGitHubCliAvailable)
+        {
+            _ = RefreshAsync();
+        }
+        else
+        {
+            StatusMessage = "GitHub CLI still not available. Please run: gh auth login";
         }
     }
 
@@ -203,24 +250,67 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         if (string.IsNullOrEmpty(localPath))
         {
-            // Ask to clone
-            var config = _configService.Load();
-            var cloneDir = config.Settings.Repositories.CloneDirectory;
+            // Ask user what to do - browse or clone
+            var repoName = pr.Repository.Contains('/') ? pr.Repository.Split('/').Last() : pr.Repository;
+            var result = _dialogService.ShowConfirmation(
+                $"Repository '{pr.Repository}' not found locally.\n\n" +
+                "Would you like to browse for an existing folder?\n" +
+                "(Click 'No' to clone automatically)",
+                "Repository Not Found");
 
-            if (string.IsNullOrEmpty(cloneDir))
+            if (result)
             {
-                cloneDir = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "repos");
+                // Browse for existing folder
+                var dialog = new OpenFolderDialog
+                {
+                    Title = $"Select local folder for {repoName}",
+                    Multiselect = false
+                };
+
+                if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.FolderName))
+                {
+                    localPath = dialog.FolderName;
+                }
+                else
+                {
+                    return; // User cancelled
+                }
             }
-
-            StatusMessage = $"Cloning {pr.Repository}...";
-            localPath = await _gitHubService.CloneRepositoryAsync(pr.Repository, cloneDir);
-
-            if (string.IsNullOrEmpty(localPath))
+            else
             {
-                _dialogService.ShowWarning($"Failed to clone {pr.Repository}", "Checkout Failed");
-                return;
+                // Clone automatically
+                var config = _configService.Load();
+                var cloneDir = config.Settings.Repositories.CloneDirectory;
+
+                if (string.IsNullOrEmpty(cloneDir))
+                {
+                    var cloneDirDialog = new OpenFolderDialog
+                    {
+                        Title = "Select directory to clone repositories into",
+                        Multiselect = false
+                    };
+
+                    if (cloneDirDialog.ShowDialog() == true && !string.IsNullOrEmpty(cloneDirDialog.FolderName))
+                    {
+                        cloneDir = cloneDirDialog.FolderName;
+                    }
+                    else
+                    {
+                        return; // User cancelled
+                    }
+
+                    config.Settings.Repositories.CloneDirectory = cloneDir;
+                    _configService.Save(config);
+                }
+
+                StatusMessage = $"Cloning {pr.Repository}...";
+                localPath = await _gitHubService.CloneRepositoryAsync(pr.Repository, cloneDir);
+
+                if (string.IsNullOrEmpty(localPath))
+                {
+                    _dialogService.ShowWarning($"Failed to clone {pr.Repository}", "Checkout Failed");
+                    return;
+                }
             }
         }
 
@@ -238,6 +328,35 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
             _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}", "Checkout Failed");
             StatusMessage = "Checkout failed";
         }
+    }
+
+    private bool CanOpenReviewMode(object? item) => item is GitHubPullRequest;
+
+    [RelayCommand(CanExecute = nameof(CanOpenReviewMode))]
+    private async Task OpenReviewModeAsync(object? item)
+    {
+        if (item is not GitHubPullRequest pr) return;
+
+        // Check if we have a local clone
+        var localPath = FindLocalRepository(pr.Repository);
+
+        if (string.IsNullOrEmpty(localPath))
+        {
+            // Need to checkout first
+            await CheckoutPullRequestAsync(item);
+            localPath = FindLocalRepository(pr.Repository);
+
+            if (string.IsNullOrEmpty(localPath))
+            {
+                return; // Checkout failed or was cancelled
+            }
+        }
+
+        // Open the project tab if not already open
+        _mainViewModel.OpenProjectTab(localPath);
+
+        // Raise event to open PR Review Mode
+        PrReviewRequested?.Invoke(this, new PrReviewRequestedEventArgs(localPath, pr));
     }
 
     [RelayCommand]
@@ -318,4 +437,66 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         "CIFailed" => FailedRuns,
         _ => ReviewRequests
     };
+
+    /// <summary>
+    /// Populates the recent repos list from open tabs and config.
+    /// </summary>
+    private void PopulateRecentRepos()
+    {
+        var repos = new List<RepositoryItem>();
+
+        // Add from open tabs
+        foreach (var tab in _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            var dir = tab.Pair.WorkingDirectory;
+            var gitDir = System.IO.Path.Combine(dir, ".git");
+
+            if (_fileSystem.DirectoryExists(gitDir))
+            {
+                repos.Add(new RepositoryItem
+                {
+                    FullName = System.IO.Path.GetFileName(dir),
+                    LocalPath = dir,
+                    IsOpen = true,
+                    IsLocal = true
+                });
+            }
+        }
+
+        // Add from recent paths in config (if not already in list)
+        var config = _configService.Load();
+        foreach (var path in config.Settings.Repositories.RecentPaths.Take(10))
+        {
+            if (repos.Any(r => r.LocalPath?.Equals(path, StringComparison.OrdinalIgnoreCase) == true))
+                continue;
+
+            if (_fileSystem.DirectoryExists(path))
+            {
+                repos.Add(new RepositoryItem
+                {
+                    FullName = System.IO.Path.GetFileName(path),
+                    LocalPath = path,
+                    IsOpen = false,
+                    IsLocal = true
+                });
+            }
+        }
+
+        RecentRepos = new ObservableCollection<RepositoryItem>(repos.Take(10));
+    }
+}
+
+/// <summary>
+/// Event args for requesting PR Review Mode to open for a specific PR.
+/// </summary>
+public class PrReviewRequestedEventArgs : EventArgs
+{
+    public string WorkingDirectory { get; }
+    public GitHubPullRequest PullRequest { get; }
+
+    public PrReviewRequestedEventArgs(string workingDirectory, GitHubPullRequest pullRequest)
+    {
+        WorkingDirectory = workingDirectory;
+        PullRequest = pullRequest;
+    }
 }

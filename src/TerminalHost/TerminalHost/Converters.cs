@@ -574,3 +574,47 @@ public class SectionToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts bool to a background brush for selected state.
+/// True = subtle highlight, False = transparent.
+/// </summary>
+public class BoolToBackgroundConverter : IValueConverter
+{
+    private static readonly SolidColorBrush SelectedBrush = new(Color.FromArgb(40, 255, 255, 255));  // Semi-transparent white
+    private static readonly SolidColorBrush TransparentBrush = System.Windows.Media.Brushes.Transparent;
+
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isSelected && isSelected)
+        {
+            return SelectedBrush;
+        }
+        return TransparentBrush;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts bool to FontWeight: true = SemiBold, false = Normal.
+/// </summary>
+public class BoolToFontWeightConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isSelected && isSelected)
+        {
+            return FontWeights.SemiBold;
+        }
+        return FontWeights.Normal;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
