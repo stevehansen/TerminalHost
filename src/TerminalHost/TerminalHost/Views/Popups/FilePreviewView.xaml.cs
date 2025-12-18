@@ -1,16 +1,13 @@
 using System.Windows;
-using System.Windows.Controls.Primitives;
+using System.Windows.Controls;
 using System.Windows.Documents;
-using System.Windows.Input;
+using System.Windows.Media;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;
 
 public partial class FilePreviewView : UserControl
 {
-    private bool _isDragging;
-    private Point _dragStartPoint;
-
     public FilePreviewView()
     {
         InitializeComponent();
@@ -38,10 +35,11 @@ public partial class FilePreviewView : UserControl
 
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            if (FilePreviewContent.Document == null) return;
+            var filePreviewContent = FindVisualChild<FlowDocumentScrollViewer>(this);
+            if (filePreviewContent == null || filePreviewContent.Document == null) return;
 
             int currentLine = 0;
-            foreach (Block block in FilePreviewContent.Document.Blocks)
+            foreach (Block block in filePreviewContent.Document.Blocks)
             {
                 if (block is Table table)
                 {
@@ -76,69 +74,24 @@ public partial class FilePreviewView : UserControl
         }), System.Windows.Threading.DispatcherPriority.Background);
     }
 
-    private void FilePreviewHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
     {
-        var viewModel = DataContext as FilePreviewViewModel;
-        if (viewModel == null) return;
+        if (parent == null) return null;
 
-        _isDragging = true;
-        _dragStartPoint = PointToScreen(e.GetPosition(this));
-        Mouse.Capture((IInputElement)sender);
-        e.Handled = true;
-    }
-
-    private void FilePreviewHeader_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDragging) return;
-
-        var currentPos = PointToScreen(e.GetPosition(this));
-        var diff = currentPos - _dragStartPoint;
-
-        var viewModel = DataContext as FilePreviewViewModel;
-        if (viewModel != null)
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
-            viewModel.HorizontalOffset += diff.X;
-            viewModel.VerticalOffset += diff.Y;
-        }
-
-        _dragStartPoint = currentPos;
-        e.Handled = true;
-    }
-
-    private void FilePreviewHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            Mouse.Capture(null);
-            e.Handled = true;
-        }
-    }
-
-    private void FilePreviewResizeGrip_DragDelta(object sender, DragDeltaEventArgs e)
-    {
-        var viewModel = DataContext as FilePreviewViewModel;
-        if (viewModel == null) return;
-
-        var newWidth = viewModel.Width + e.HorizontalChange;
-        var newHeight = viewModel.Height + e.VerticalChange;
-
-        if (newWidth >= 500) viewModel.Width = newWidth;
-        if (newHeight >= 400) viewModel.Height = newHeight;
-    }
-
-    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Escape)
-        {
-            if (DataContext is FilePreviewViewModel viewModel)
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typedChild)
             {
-                if (viewModel.CloseCommand.CanExecute(null))
-                {
-                    viewModel.CloseCommand.Execute(null);
-                    e.Handled = true;
-                }
+                return typedChild;
+            }
+
+            var result = FindVisualChild<T>(child);
+            if (result != null)
+            {
+                return result;
             }
         }
+        return null;
     }
 }

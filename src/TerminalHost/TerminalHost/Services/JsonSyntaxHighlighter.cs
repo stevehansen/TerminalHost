@@ -1,8 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
-using System.Windows.Media;
-using FontFamily = System.Windows.Media.FontFamily;
 
 namespace TerminalHost.Services;
 

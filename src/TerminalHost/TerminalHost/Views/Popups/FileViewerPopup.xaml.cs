@@ -1,22 +1,18 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;
 
 public partial class FileViewerPopup : UserControl
 {
-    private bool _isDragging;
-    private Point _dragStartPoint;
-
     public FileViewerPopup()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
-        FileViewerPop.Opened += OnPopupOpened;
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -38,32 +34,27 @@ public partial class FileViewerPopup : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // When switching to edit mode, focus the editor
-        if (e.PropertyName == nameof(FileViewerViewModel.Mode) && DataContext is FileViewerViewModel vm)
+        if (DataContext is not FileViewerViewModel vm) return;
+
+        // When switching to edit mode or opening, focus the editor
+        if (e.PropertyName == nameof(FileViewerViewModel.Mode) || 
+            e.PropertyName == nameof(FileViewerViewModel.IsOpen))
         {
-            if (vm.IsEditMode)
+            if (vm.IsEditMode && vm.IsOpen)
             {
                 Dispatcher.BeginInvoke(() => FocusEditor(), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
     }
 
-    private void OnPopupOpened(object? sender, EventArgs e)
-    {
-        // When popup opens, focus the appropriate control
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (DataContext is FileViewerViewModel vm && vm.IsEditMode)
-            {
-                FocusEditor();
-            }
-        }, System.Windows.Threading.DispatcherPriority.Input);
-    }
-
     private void FocusEditor()
     {
-        EditTextBox.Focus();
-        Keyboard.Focus(EditTextBox);
+        var editTextBox = FindVisualChild<TextBox>(this);
+        if (editTextBox != null)
+        {
+            editTextBox.Focus();
+            Keyboard.Focus(editTextBox);
+        }
     }
 
     private void OnScrollToLineRequested(object? sender, int lineNumber)
@@ -72,8 +63,12 @@ public partial class FileViewerPopup : UserControl
         {
             if (DataContext is FileViewerViewModel { IsEditMode: true })
             {
-                EditTextBox.ScrollToLine(Math.Max(0, lineNumber));
-                EditTextBox.Focus();
+                var editTextBox = FindVisualChild<TextBox>(this);
+                if (editTextBox != null)
+                {
+                    editTextBox.ScrollToLine(Math.Max(0, lineNumber));
+                    editTextBox.Focus();
+                }
             }
         });
     }
@@ -82,72 +77,28 @@ public partial class FileViewerPopup : UserControl
     {
         Dispatcher.BeginInvoke(() =>
         {
-            EditTextBox.Focus();
-            EditTextBox.CaretIndex = Math.Min(caretIndex, EditTextBox.Text.Length);
+            var editTextBox = FindVisualChild<TextBox>(this);
+            if (editTextBox != null)
+            {
+                editTextBox.Focus();
+                editTextBox.CaretIndex = Math.Min(caretIndex, editTextBox.Text.Length);
+            }
         });
     }
-
-    #region Drag handling
-
-    private void DragHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (DataContext is not FileViewerViewModel) return;
-
-        _isDragging = true;
-        _dragStartPoint = PointToScreen(e.GetPosition(this));
-        Mouse.Capture((IInputElement)sender);
-        e.Handled = true;
-    }
-
-    private void DragHeader_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDragging) return;
-
-        var currentPos = PointToScreen(e.GetPosition(this));
-        var diff = currentPos - _dragStartPoint;
-
-        if (DataContext is FileViewerViewModel viewModel)
-        {
-            viewModel.HorizontalOffset += diff.X;
-            viewModel.VerticalOffset += diff.Y;
-        }
-
-        _dragStartPoint = currentPos;
-        e.Handled = true;
-    }
-
-    private void DragHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            Mouse.Capture(null);
-            e.Handled = true;
-        }
-    }
-
-    #endregion
-
-    #region Resize handling
-
-    private void ResizeGrip_DragDelta(object sender, DragDeltaEventArgs e)
-    {
-        if (DataContext is not FileViewerViewModel viewModel) return;
-
-        var newWidth = viewModel.Width + e.HorizontalChange;
-        var newHeight = viewModel.Height + e.VerticalChange;
-
-        if (newWidth >= 600) viewModel.Width = newWidth;
-        if (newHeight >= 450) viewModel.Height = newHeight;
-    }
-
-    #endregion
 
     #region Editor handling
 
     private void EditTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        LineNumbersScroll.ScrollToVerticalOffset(e.VerticalOffset);
+        // Find the ScrollViewer that holds the line numbers (it's the first ScrollViewer we find, hopefully, 
+        // or we can search by a property if we tag it, but standard traversal usually works if layout is simple)
+        // Actually, we have two ScrollViewers. One for Text and one for LineNumbers.
+        // We can distinguish them by HorizontalScrollBarVisibility.
+        
+        var scrollConsumers = FindVisualChildren<ScrollViewer>(this).ToList();
+        var lineNumbersScroll = scrollConsumers.FirstOrDefault(s => s.HorizontalScrollBarVisibility == ScrollBarVisibility.Hidden);
+
+        lineNumbersScroll?.ScrollToVerticalOffset(e.VerticalOffset);
     }
 
     private void EditTextBox_SelectionChanged(object sender, RoutedEventArgs e)
@@ -184,28 +135,60 @@ public partial class FileViewerPopup : UserControl
     {
         if (DataContext is FileViewerViewModel viewModel)
         {
-            viewModel.UpdateCursorInfo(EditTextBox.CaretIndex);
+            var editTextBox = FindVisualChild<TextBox>(this);
+            if (editTextBox != null)
+            {
+                viewModel.UpdateCursorInfo(editTextBox.CaretIndex);
+            }
         }
     }
 
     private void EditTextBox_GotFocus(object sender, RoutedEventArgs e)
     {
-        // Ensure the TextBox is properly focused for keyboard input
-        Keyboard.Focus(EditTextBox);
+        if (sender is TextBox textBox)
+        {
+            Keyboard.Focus(textBox);
+        }
     }
 
     #endregion
 
-    private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
     {
-        if (e.Key == Key.Escape)
+        if (parent == null) return null;
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
-            if (DataContext is FileViewerViewModel viewModel)
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typedChild)
             {
-                if (viewModel.CloseCommand.CanExecute(null))
+                return typedChild;
+            }
+
+            var result = FindVisualChild<T>(child);
+            if (result != null)
+            {
+                return result;
+            }
+        }
+        return null;
+    }
+    
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject? depObj) where T : DependencyObject
+    {
+        if (depObj != null)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(depObj, i);
+                if (child != null && child is T)
                 {
-                    viewModel.CloseCommand.Execute(null);
-                    e.Handled = true;
+                    yield return (T)child;
+                }
+
+                foreach (T childOfChild in FindVisualChildren<T>(child))
+                {
+                    yield return childOfChild;
                 }
             }
         }

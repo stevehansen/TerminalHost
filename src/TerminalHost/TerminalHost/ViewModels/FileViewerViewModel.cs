@@ -16,6 +16,7 @@ public partial class FileViewerViewModel : ObservableObject
     private readonly IFileEditService _fileEditService;
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
+    private readonly IMarkdownService _markdownService;
     private string? _currentFilePath;
     private Encoding? _currentEncoding;
     private string? _originalContent;
@@ -91,8 +92,19 @@ public partial class FileViewerViewModel : ObservableObject
     [ObservableProperty]
     private string _imageInfo = "";
 
-    // Computed properties
-    public bool IsPreviewMode => Mode == FileViewerMode.Preview && !IsImageMode;
+    // Markdown mode
+    [ObservableProperty]
+    private bool _isMarkdownMode;
+
+    [ObservableProperty]
+    private string _renderedHtml = "";
+
+    // Computed properties for tab selection (used by radio buttons)
+    public bool IsPreviewModeSelected => Mode == FileViewerMode.Preview && !IsImageMode;
+    public bool IsEditModeSelected => Mode == FileViewerMode.Edit && !IsImageMode;
+
+    // Computed properties for content visibility
+    public bool IsPreviewMode => Mode == FileViewerMode.Preview && !IsImageMode && !IsMarkdownMode;
     public bool IsEditMode => Mode == FileViewerMode.Edit && !IsImageMode;
     public bool CanSave => IsEditMode && IsModified && !IsReadOnly;
 
@@ -105,12 +117,14 @@ public partial class FileViewerViewModel : ObservableObject
         IFilePreviewService filePreviewService,
         IFileEditService fileEditService,
         IFileSystem fileSystem,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IMarkdownService markdownService)
     {
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
+        _markdownService = markdownService;
 
         _previewDocument = CreateInfoDocument("Select a file to view.");
     }
@@ -203,20 +217,36 @@ public partial class FileViewerViewModel : ObservableObject
     private void LoadPreview(string filePath, int? highlightLine)
     {
         var result = _filePreviewService.LoadFilePreview(filePath, highlightLine);
+        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+        // Reset markdown mode
+        IsMarkdownMode = false;
+        RenderedHtml = "";
 
         if (result == null)
         {
             Title = "Error";
             PreviewDocument = CreateErrorDocument("Failed to load file preview.");
             Info = "Error";
+            OnPropertyChanged(nameof(IsPreviewMode));
             return;
         }
 
         if (result.IsSuccess)
         {
             Title = result.FileName;
-            PreviewDocument = result.Document!;
             Info = $"{result.LineCount:N0} lines - {FormatFileSize(result.FileSize)}";
+
+            // Check if it's a markdown file
+            if (extension == ".md" || extension == ".markdown")
+            {
+                IsMarkdownMode = true;
+                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "");
+            }
+            else
+            {
+                PreviewDocument = result.Document!;
+            }
         }
         else
         {
@@ -225,7 +255,9 @@ public partial class FileViewerViewModel : ObservableObject
             Info = $"Error - {FormatFileSize(result.FileSize)}";
         }
 
-        if (highlightLine.HasValue && result?.Document != null)
+        OnPropertyChanged(nameof(IsPreviewMode));
+
+        if (highlightLine.HasValue && result?.Document != null && !IsMarkdownMode)
         {
             ScrollToLineRequested?.Invoke(this, highlightLine.Value);
         }
@@ -264,10 +296,19 @@ public partial class FileViewerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsPreviewMode));
         OnPropertyChanged(nameof(IsEditMode));
+        OnPropertyChanged(nameof(IsPreviewModeSelected));
+        OnPropertyChanged(nameof(IsEditModeSelected));
         OnPropertyChanged(nameof(CanSave));
 
         // Don't switch modes for images
         if (IsImageMode) return;
+
+        // Reset markdown mode when switching to Edit (edit mode uses plain text)
+        if (value == FileViewerMode.Edit)
+        {
+            IsMarkdownMode = false;
+            RenderedHtml = "";
+        }
 
         // Reload content when switching modes
         if (_currentFilePath != null)
@@ -287,6 +328,13 @@ public partial class FileViewerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsPreviewMode));
         OnPropertyChanged(nameof(IsEditMode));
+        OnPropertyChanged(nameof(IsPreviewModeSelected));
+        OnPropertyChanged(nameof(IsEditModeSelected));
+    }
+
+    partial void OnIsMarkdownModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPreviewMode));
     }
 
     partial void OnEditContentChanged(string value)
@@ -382,6 +430,10 @@ public partial class FileViewerViewModel : ObservableObject
         IsImageMode = false;
         ImageSource = null;
         ImageInfo = "";
+
+        // Reset markdown mode
+        IsMarkdownMode = false;
+        RenderedHtml = "";
     }
 
     [RelayCommand]

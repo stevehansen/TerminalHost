@@ -85,6 +85,7 @@ internal sealed class FilePreviewService : IFilePreviewService
                 FilePath = filePath,
                 FileName = fileName,
                 Document = document,
+                Content = content,
                 LineCount = lines.Length,
                 FileSize = fileSize,
                 HighlightLine = highlightLine
@@ -160,6 +161,7 @@ public class FilePreviewResult
     public required string FilePath { get; init; }
     public required string FileName { get; init; }
     public FlowDocument? Document { get; init; }
+    public string? Content { get; init; }
     public string? Error { get; init; }
     public int LineCount { get; init; }
     public long FileSize { get; init; }

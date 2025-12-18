@@ -1163,7 +1163,6 @@ TerminalHost/
     │   ├── GitFilesViewModel.cs          # Git changed files + diff
     │   ├── DetectedLinksViewModel.cs     # Terminal link detection
     │   ├── FilePreviewViewModel.cs       # File preview with syntax highlighting
-    │   ├── FileEditViewModel.cs          # File editor
     │   └── TaskPanelViewModel.cs         # Task panel for focus mode
     └── Views/
         ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
@@ -1186,7 +1185,6 @@ TerminalHost/
             ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
             ├── DetectedLinksView.xaml(.cs)   # Detected links popup
             ├── FilePreviewView.xaml(.cs)     # File preview popup (Ctrl+O)
-            ├── FileEditView.xaml(.cs)        # File editor popup (Ctrl+Shift+E)
             ├── TaskPanelView.xaml(.cs)       # Task panel popup (Ctrl+T)
             └── QuickTaskView.xaml(.cs)       # Quick task input popup
 ```

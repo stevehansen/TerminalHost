@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITaskService _taskService;
     private readonly IAiAssistantService _aiAssistantService;
     private readonly IGitHubService _gitHubService;
+    private readonly IMarkdownService _markdownService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -164,7 +165,8 @@ public partial class MainViewModel : ObservableObject
         IClaudeCommandService claudeCommandService,
         ITaskService taskService,
         IAiAssistantService aiAssistantService,
-        IGitHubService gitHubService)
+        IGitHubService gitHubService,
+        IMarkdownService markdownService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -185,6 +187,7 @@ public partial class MainViewModel : ObservableObject
         _taskService = taskService;
         _aiAssistantService = aiAssistantService;
         _gitHubService = gitHubService;
+        _markdownService = markdownService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -1030,7 +1033,7 @@ public partial class MainViewModel : ObservableObject
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Create a detached file viewer window
-        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService);
+        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService, _markdownService);
         viewer.IsDetached = true;
         viewer.Open(e.FilePath, e.Mode);
 

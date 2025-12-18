@@ -76,6 +76,7 @@
     <Using Include="System.Windows.Media.Brush" Alias="Brush" />
     <Using Include="System.Windows.Media.SolidColorBrush" Alias="SolidColorBrush" />
     <Using Include="System.Windows.Clipboard" Alias="Clipboard" />
+    <Using Include="System.Windows.Media.FontFamily" Alias="FontFamily" />
   </ItemGroup>
 
   <!-- Copy conpty.dll from NuGet package to output -->

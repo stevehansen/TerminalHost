@@ -1,11 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Windows; // For FlowDocument, MessageBox
-using System.Windows.Documents;
+using System.Windows; // For Application.Current resource access (optional, but used in other parts if any)
 using TerminalHost.Domain;
 using TerminalHost.Services;
-using TerminalHost.Services.SyntaxHighlighting;
 
 namespace TerminalHost.ViewModels;
 
@@ -13,9 +11,8 @@ public partial class GitFilesViewModel : ObservableObject
 {
     private readonly IGitStatusService _gitStatusService;
     private readonly IFilePreviewService _filePreviewService;
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
-    private TerminalPairTabViewModel? _currentTerminalTab; // Context from MainViewModel
-    private readonly DiffHighlighter _diffHighlighter = new();
+    private readonly IDialogService _dialogService; 
+    private TerminalPairTabViewModel? _currentTerminalTab; 
 
     [ObservableProperty]
     private ObservableCollection<GitFileStatus> _gitFiles = [];
@@ -24,7 +21,7 @@ public partial class GitFilesViewModel : ObservableObject
     private GitFileStatus? _selectedGitFile;
 
     [ObservableProperty]
-    private FlowDocument _diffDocument = new();
+    private string _diffText = "";
 
     [ObservableProperty]
     private string _title = "Git Changes";
@@ -39,9 +36,8 @@ public partial class GitFilesViewModel : ObservableObject
     private bool _isOpen;
 
     [ObservableProperty]
-    private bool _isDragging; // For popup dragging
+    private bool _isDragging; 
     
-    // View properties for positioning/sizing the popup (similar to DetectedLinksViewModel)
     [ObservableProperty]
     private double _width = 1100;
     
@@ -54,13 +50,12 @@ public partial class GitFilesViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService) // Added IDialogService
+    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService) 
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
-        _dialogService = dialogService; // Initialize IDialogService
-        // Initialize with an empty document to avoid null reference in XAML
-        _diffDocument = CreateInfoDocument("Select a file to view diff");
+        _dialogService = dialogService; 
+        _diffText = ""; 
     }
 
     [RelayCommand]
@@ -69,10 +64,10 @@ public partial class GitFilesViewModel : ObservableObject
         _currentTerminalTab = terminalTab;
         if (terminalTab.GitStatus?.IsGitRepository != true)
         {
-            _dialogService.ShowInfo( // Use injected IDialogService
+            _dialogService.ShowInfo( 
                 "The selected tab is not a Git repository or Git status is unavailable.",
                 "Git Changes");
-            _currentTerminalTab = null; // Clear context if not a git repo
+            _currentTerminalTab = null; 
             return;
         }
 
@@ -80,9 +75,6 @@ public partial class GitFilesViewModel : ObservableObject
         Info = terminalTab.Pair.WorkingDirectory;
 
         await RefreshGitFilesAsync();
-
-        // Calculate initial offset if needed, or rely on XAML placement
-        // For now, let XAML handle initial placement, or MainWindow.xaml.cs might override
         
         IsOpen = true;
     }
@@ -92,9 +84,8 @@ public partial class GitFilesViewModel : ObservableObject
     {
         IsOpen = false;
         SelectedGitFile = null;
-        // Clear diff document
-        DiffDocument = CreateInfoDocument("Select a file to view diff");
-        _currentTerminalTab = null; // Clear context
+        DiffText = "";
+        _currentTerminalTab = null; 
     }
 
     [RelayCommand]
@@ -105,7 +96,7 @@ public partial class GitFilesViewModel : ObservableObject
             GitFiles.Clear();
             IsEmptyStateVisible = true;
             SelectedGitFile = null;
-            DiffDocument = CreateInfoDocument("No Git repository selected.");
+            DiffText = "";
             return;
         }
 
@@ -115,11 +106,9 @@ public partial class GitFilesViewModel : ObservableObject
         GitFiles = new ObservableCollection<GitFileStatus>(files);
         IsEmptyStateVisible = !GitFiles.Any();
 
-        // Clear selection and diff
         SelectedGitFile = null;
-        DiffDocument = CreateInfoDocument(IsEmptyStateVisible ? "No changes to display." : "Select a file to view diff.");
+        DiffText = IsEmptyStateVisible ? "" : "";
 
-        // Auto-select first file if any
         if (GitFiles.Any())
         {
             SelectedGitFile = GitFiles.First();
@@ -136,7 +125,7 @@ public partial class GitFilesViewModel : ObservableObject
     {
         if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null)
         {
-            DiffDocument = CreateInfoDocument("Select a file to view diff.");
+            DiffText = "";
             return;
         }
 
@@ -145,11 +134,11 @@ public partial class GitFilesViewModel : ObservableObject
 
         if (!string.IsNullOrEmpty(diff))
         {
-            DiffDocument = _diffHighlighter.CreateHighlightedDocument(diff, null);
+            DiffText = diff;
         }
         else
         {
-            DiffDocument = CreateInfoDocument("No changes to display.");
+            DiffText = "";
         }
     }
 
@@ -158,21 +147,6 @@ public partial class GitFilesViewModel : ObservableObject
         PreviewFileCommand.NotifyCanExecuteChanged();
         EditFileCommand.NotifyCanExecuteChanged();
         ExploreFileCommand.NotifyCanExecuteChanged();
-    }
-
-    private static FlowDocument CreateInfoDocument(string message)
-    {
-        return new FlowDocument
-        {
-            Background = new SolidColorBrush(
-                Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new SolidColorBrush(
-                Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)Application.Current.Resources["FontSizeCode"],
-            PagePadding = new Thickness(16),
-            PageWidth = 10000 // Effectively disables wrapping for diffs
-        };
     }
 
     public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
@@ -206,10 +180,9 @@ public partial class GitFilesViewModel : ObservableObject
         var fullPath = System.IO.Path.Combine(_currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
         var directory = System.IO.Path.GetDirectoryName(fullPath);
 
-        if (System.IO.Directory.Exists(directory)) // This uses static Directory.Exists
+        if (System.IO.Directory.Exists(directory)) 
         {
-            // Open explorer and select the file if it exists
-            if (System.IO.File.Exists(fullPath)) // This uses static File.Exists
+            if (System.IO.File.Exists(fullPath)) 
             {
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
             }
