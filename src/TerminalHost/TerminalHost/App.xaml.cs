@@ -121,6 +121,7 @@ public partial class App : Application
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
+        services.AddSingleton<IDiffParserService, DiffParserService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

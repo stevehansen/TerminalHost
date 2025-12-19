@@ -128,6 +128,7 @@ public partial class RepositorySwitcherViewModel : ObservableObject
                     LocalPath = path,
                     IsLocal = true,
                     IsOpen = false,
+                    IsRecent = true,
                     IsFavorite = favorites.Contains(fullName ?? path)
                 });
             }
@@ -226,10 +227,11 @@ public partial class RepositorySwitcherViewModel : ObservableObject
                 r.Description.ToLowerInvariant().Contains(searchTextLower));
         }
 
-        // Sort: favorites first, then open, then by name
+        // Sort: favorites first, then open, then recent, then local, then by name
         var sorted = filtered
             .OrderByDescending(r => r.IsFavorite)
             .ThenByDescending(r => r.IsOpen)
+            .ThenByDescending(r => r.IsRecent)
             .ThenByDescending(r => r.IsLocal)
             .ThenBy(r => r.FullName)
             .ToList();

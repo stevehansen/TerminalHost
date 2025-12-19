@@ -575,6 +575,31 @@ public partial class MainViewModel : ObservableObject
         return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
     }
 
+    /// <summary>
+    /// Updates the recent folders list when a folder is opened.
+    /// </summary>
+    private void UpdateRecentFolders(string path)
+    {
+        var config = _configService.Load();
+        var recentPaths = config.Settings.Repositories.RecentPaths;
+        var maxItems = config.Settings.Repositories.MaxRecentItems;
+
+        // Normalize path for comparison
+        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        // Remove existing entry (case-insensitive) and add to front
+        recentPaths.RemoveAll(p => p.Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+        recentPaths.Insert(0, normalizedPath);
+
+        // Trim to max
+        while (recentPaths.Count > maxItems)
+        {
+            recentPaths.RemoveAt(recentPaths.Count - 1);
+        }
+
+        _configService.Save(config);
+    }
+
     [RelayCommand]
     private void OpenNewProject()
     {
@@ -721,6 +746,9 @@ public partial class MainViewModel : ObservableObject
 
             Tabs.Add(tabViewModel);
             SelectedTab = tabViewModel;
+
+            // Track in recent folders
+            UpdateRecentFolders(workingDirectory);
 
             // Fetch git status for the new tab
             _ = RefreshTabGitStatusAsync(tabViewModel);

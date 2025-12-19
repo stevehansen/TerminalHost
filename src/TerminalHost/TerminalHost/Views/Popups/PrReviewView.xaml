@@ -11,8 +11,8 @@
 
     <controls:DraggablePopup
         IsOpen="{Binding IsOpen, Mode=TwoWay}"
-        PopupWidth="1000"
-        PopupHeight="700"
+        PopupWidth="1400"
+        PopupHeight="900"
         Title="{Binding PullRequest.Title, FallbackValue='PR Review Mode'}"
         CloseCommand="{Binding CloseCommand}">
 
@@ -194,8 +194,101 @@
                         </Grid>
                     </Border>
 
-                    <!-- Diff Viewer -->
-                    <controls:DiffViewer Grid.Column="1" DiffText="{Binding DiffContent}" />
+                    <!-- Diff Viewer and Comments -->
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Diff Viewer -->
+                        <controls:DiffViewer Grid.Row="0" DiffText="{Binding DiffContent}" />
+
+                        <!-- Comments Header Bar -->
+                        <Border Grid.Row="1"
+                                Background="{StaticResource BackgroundMediumBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,1,0,0">
+                            <Grid Margin="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Toggle expand/collapse -->
+                                <Button Grid.Column="0"
+                                        Command="{Binding ToggleCommentsCommand}"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Padding="8,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding IsCommentsExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0">
+                                            <Run Text=" Comments ("/>
+                                            <Run Text="{Binding TotalCommentCount, Mode=OneWay}"/>
+                                            <Run Text=")"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Filter toggle -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                            Visibility="{Binding IsCommentsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <RadioButton Content="All"
+                                                 Style="{StaticResource PopupModeTabButton}"
+                                                 IsChecked="{Binding ShowAllComments}"
+                                                 Command="{Binding ToggleCommentFilterCommand}"
+                                                 Padding="8,2"
+                                                 FontSize="{StaticResource FontSizeTiny}"
+                                                 Margin="0,0,4,0"/>
+                                    <RadioButton Content="Current File"
+                                                 Style="{StaticResource PopupModeTabButton}"
+                                                 IsChecked="{Binding ShowAllComments, Converter={StaticResource InverseBoolConverter}}"
+                                                 Command="{Binding ToggleCommentFilterCommand}"
+                                                 Padding="8,2"
+                                                 FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Comments Panel -->
+                        <Border Grid.Row="2"
+                                Background="{StaticResource BackgroundDarkBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,1,0,0"
+                                MaxHeight="250"
+                                Visibility="{Binding IsCommentsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid>
+                                <!-- Comments list -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              Padding="8"
+                                              Visibility="{Binding TotalCommentCount, Converter={StaticResource IntToVisibilityConverter}}">
+                                    <ItemsControl ItemsSource="{Binding DisplayedThreads}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <controls:PrCommentThread/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <!-- Empty state -->
+                                <TextBlock Text="No comments on this PR"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Margin="16"
+                                           Visibility="{Binding TotalCommentCount, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
                     <!-- Loading Overlay -->
                     <Border Grid.Column="0" Grid.ColumnSpan="2"

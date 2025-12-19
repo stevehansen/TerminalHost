@@ -34,6 +34,11 @@ public partial class RepositoryItem : ObservableObject
     public bool IsOpen { get; set; }
 
     /// <summary>
+    /// Whether this repository is in the recent folders list.
+    /// </summary>
+    public bool IsRecent { get; set; }
+
+    /// <summary>
     /// When the repository was last accessed.
     /// </summary>
     public DateTime? LastAccessedAt { get; set; }
@@ -83,6 +88,7 @@ public partial class RepositoryItem : ObservableObject
         {
             if (IsFavorite) return "*";  // Star
             if (IsOpen) return ">";      // Currently open
+            if (IsRecent) return "r";    // Recent
             if (!IsLocal) return "c";    // Cloud/remote only
             return "";
         }

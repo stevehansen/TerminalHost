@@ -3,14 +3,87 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
-    <FlowDocumentScrollViewer x:Name="DiffScrollViewer"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Auto"
-                              Background="{StaticResource BackgroundDarkestBrush}"
-                              BorderThickness="0"
-                              IsToolBarVisible="False"
-                              IsSelectionEnabled="True"
-                              Zoom="100"/>
+
+    <UserControl.Resources>
+        <Style x:Key="DiffModeToggleButton" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsChecked" Value="True"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                </MultiTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Mode toggle bar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <RadioButton x:Name="UnifiedModeButton"
+                             Content="Unified"
+                             Style="{StaticResource DiffModeToggleButton}"
+                             IsChecked="True"
+                             Checked="OnUnifiedModeChecked"
+                             Margin="0,0,4,0"/>
+                <RadioButton x:Name="SideBySideModeButton"
+                             Content="Side by Side"
+                             Style="{StaticResource DiffModeToggleButton}"
+                             Checked="OnSideBySideModeChecked"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Unified diff view -->
+        <FlowDocumentScrollViewer x:Name="DiffScrollViewer"
+                                  Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BackgroundDarkestBrush}"
+                                  BorderThickness="0"
+                                  IsToolBarVisible="False"
+                                  IsSelectionEnabled="True"
+                                  Zoom="100"/>
+
+        <!-- Side-by-side diff view -->
+        <controls:SideBySideDiffViewer x:Name="SideBySideViewer"
+                                        Grid.Row="1"
+                                        Visibility="Collapsed"/>
+    </Grid>
 </UserControl>

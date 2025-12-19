@@ -122,16 +122,21 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Auto-refresh capability with configurable interval
 - [x] **Repository Quick Access (Ctrl+Shift+O):** Quick repository switcher popup:
   - Search/filter repositories by name
-  - Shows open tabs, favorites, and GitHub repositories
+  - Shows open tabs, favorites, recent folders, and GitHub repositories
+  - **Recent Folders section**: Tracks last 20 opened project directories
   - Favorite toggle for quick access
   - Clone button for remote repositories
-  - Status indicators (open, local, favorite)
+  - Status indicators (open, local, favorite, recent)
 - [x] **PR Review Mode (Ctrl+Shift+R):** Review PRs for the current branch:
   - File list with additions/deletions per file
-  - Diff viewer for selected files
+  - Diff viewer for selected files (unified or side-by-side)
   - Review actions: Approve, Request Changes, Comment, Merge
   - Run tests integration
   - Opens PR details for the current branch's PR
+  - **PR Comments display**: View existing review comments inline
+    - Comments panel below diff viewer with All/Current File filter
+    - Expandable comment threads with resolved/outdated status
+    - Shows author, timestamp, and full comment body
 - [x] **Quick Test Runner (F6):** Run project tests with visual results:
   - Auto-detects test framework from project type
   - Displays pass/fail/skip counts
@@ -151,6 +156,20 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Queue management (max 5 visible, others queued)
   - Type-based styling (Info=blue, Success=green, Warning=yellow, Error=red)
   - Integrated with Settings save and Dashboard PR checkout actions
+- [x] **Side-by-Side Diff Viewer:** Alternative diff display mode:
+  - Toggle between Unified and Side-by-Side views in DiffViewer
+  - Two synchronized scrolling columns for old/new file versions
+  - Color-coded additions (green) and deletions (red)
+  - Line numbers on both sides
+  - Empty placeholders for unmatched additions/deletions
+  - Available in Git Changes panel (Ctrl+G) and PR Review Mode
+- [x] **Markdown Side-by-Side Editor:** Tri-state viewing mode for markdown files:
+  - **Preview mode**: Rendered markdown (existing)
+  - **Edit mode**: Plain text editor with line numbers (existing)
+  - **Side-by-Side mode**: Editor on left, live preview on right
+  - Live preview updates with 300ms debounce during editing
+  - Available in File Viewer (Ctrl+O), popup, and detached window
+  - Side-by-Side tab only visible for .md files
 
 ### Deferred Features
 
@@ -298,6 +317,10 @@ Config file: `%APPDATA%\TerminalHost\config.json`
   "openFolders": [
     "P:\\Project1",
     "P:\\Project2"
+  ],
+  "recentFolders": [
+    "P:\\Project3",
+    "P:\\Project4"
   ],
   "directorySettings": {
     "p:\\project1": {
@@ -1179,6 +1202,9 @@ TerminalHost/
         │   ├── RunConfiguration.cs # Run configuration for project runner
         │   ├── ProjectType.cs      # Project type detection model
         │   ├── RunState.cs         # Run terminal state enum
+        │   ├── DiffViewMode.cs     # Diff display mode enum (Unified, SideBySide)
+        │   ├── ParsedDiff.cs       # Parsed diff models for side-by-side display
+        │   ├── PrComments.cs       # PR comment and review thread models
         │   ├── FocusTask.cs        # Task model for focus mode
         │   ├── FocusTaskStatus.cs  # Task status enum (NotStarted, InProgress, etc.)
         │   ├── FocusModeState.cs   # Focus mode state container
@@ -1201,6 +1227,7 @@ TerminalHost/
         │   ├── LinkDetectionService.cs   # Clickable link detection and handling
         │   ├── ProjectDetectionService.cs # Auto-detect project type for runner
         │   ├── RunUrlDetectionService.cs # Detect localhost URLs from run output
+        │   ├── DiffParserService.cs  # Parse unified diffs and convert to side-by-side format
         │   ├── ITaskService.cs           # Interface for task/focus mode service
         │   ├── TaskService.cs            # Task management and focus mode
         │   ├── IGitPrService.cs          # Interface for GitHub PR service
@@ -1435,5 +1462,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.10*
-*Last Updated: 2025-12-18*
+*Document Version: 2.11*
+*Last Updated: 2025-12-19*

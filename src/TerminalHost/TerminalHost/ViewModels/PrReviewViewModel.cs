@@ -64,9 +64,32 @@ public partial class PrReviewViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBodyExpanded;
 
+    [ObservableProperty]
+    private PrComments? _prComments;
+
+    [ObservableProperty]
+    private ObservableCollection<PrReviewThread> _currentFileThreads = [];
+
+    [ObservableProperty]
+    private ObservableCollection<PrReviewThread> _allThreads = [];
+
+    [ObservableProperty]
+    private bool _isCommentsExpanded = true;
+
+    [ObservableProperty]
+    private bool _showAllComments = true;
+
     public bool HasPullRequest => PullRequest != null;
 
     public bool HasBody => !string.IsNullOrWhiteSpace(PullRequest?.Body);
+
+    public bool HasComments => PrComments != null && PrComments.TotalThreadCount > 0;
+
+    public int CurrentFileCommentCount => CurrentFileThreads.Count;
+
+    public int TotalCommentCount => AllThreads.Count;
+
+    public ObservableCollection<PrReviewThread> DisplayedThreads => ShowAllComments ? AllThreads : CurrentFileThreads;
 
     public PrReviewViewModel(
         IGitHubService gitHubService,
@@ -130,6 +153,9 @@ public partial class PrReviewViewModel : ObservableObject
 
             // Load the files changed in this PR
             await LoadChangedFilesAsync();
+
+            // Load PR comments
+            await LoadCommentsAsync();
         }
         catch (Exception ex)
         {
@@ -179,6 +205,10 @@ public partial class PrReviewViewModel : ObservableObject
             }
 
             await LoadChangedFilesAsync();
+
+            // Load PR comments
+            await LoadCommentsAsync();
+
             StatusMessage = $"PR #{pr.Number}: {pr.Title}";
         }
         catch (Exception ex)
@@ -204,15 +234,65 @@ public partial class PrReviewViewModel : ObservableObject
         }
     }
 
+    private async Task LoadCommentsAsync()
+    {
+        if (PullRequest == null || string.IsNullOrEmpty(PullRequest.Repository)) return;
+
+        try
+        {
+            PrComments = await _gitHubService.GetPullRequestCommentsAsync(PullRequest.Repository, PullRequest.Number);
+            OnPropertyChanged(nameof(HasComments));
+
+            // Populate all threads
+            if (PrComments != null)
+            {
+                AllThreads = new ObservableCollection<PrReviewThread>(PrComments.ReviewThreads);
+            }
+            else
+            {
+                AllThreads.Clear();
+            }
+            OnPropertyChanged(nameof(TotalCommentCount));
+            OnPropertyChanged(nameof(DisplayedThreads));
+
+            UpdateCurrentFileThreads();
+        }
+        catch
+        {
+            PrComments = null;
+            AllThreads.Clear();
+            OnPropertyChanged(nameof(HasComments));
+            OnPropertyChanged(nameof(TotalCommentCount));
+            OnPropertyChanged(nameof(DisplayedThreads));
+        }
+    }
+
+    private void UpdateCurrentFileThreads()
+    {
+        if (PrComments == null || SelectedFile == null)
+        {
+            CurrentFileThreads.Clear();
+            OnPropertyChanged(nameof(CurrentFileCommentCount));
+            return;
+        }
+
+        var threads = PrComments.GetThreadsForFile(SelectedFile.Path);
+        CurrentFileThreads = new ObservableCollection<PrReviewThread>(threads);
+        OnPropertyChanged(nameof(CurrentFileCommentCount));
+    }
+
     partial void OnSelectedFileChanged(GitHubPrFile? value)
     {
         if (value == null)
         {
             DiffContent = "";
+            CurrentFileThreads.Clear();
+            OnPropertyChanged(nameof(CurrentFileCommentCount));
             return;
         }
 
         _ = LoadFileDiffAsync(value);
+        UpdateCurrentFileThreads();
     }
 
     private async Task LoadFileDiffAsync(GitHubPrFile file)
@@ -239,12 +319,39 @@ public partial class PrReviewViewModel : ObservableObject
         PendingComments.Clear();
         BodyHtml = "";
         IsBodyExpanded = false;
+        PrComments = null;
+        CurrentFileThreads.Clear();
+        AllThreads.Clear();
+        IsCommentsExpanded = true;
+        ShowAllComments = true;
+        OnPropertyChanged(nameof(HasComments));
+        OnPropertyChanged(nameof(CurrentFileCommentCount));
+        OnPropertyChanged(nameof(TotalCommentCount));
+        OnPropertyChanged(nameof(DisplayedThreads));
     }
 
     [RelayCommand]
     private void ToggleBody()
     {
         IsBodyExpanded = !IsBodyExpanded;
+    }
+
+    [RelayCommand]
+    private void ToggleComments()
+    {
+        IsCommentsExpanded = !IsCommentsExpanded;
+    }
+
+    [RelayCommand]
+    private void ToggleCommentFilter()
+    {
+        ShowAllComments = !ShowAllComments;
+        OnPropertyChanged(nameof(DisplayedThreads));
+    }
+
+    partial void OnShowAllCommentsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(DisplayedThreads));
     }
 
     [RelayCommand]

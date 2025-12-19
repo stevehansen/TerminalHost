@@ -36,11 +36,11 @@ public partial class FileViewerPopup : UserControl
     {
         if (DataContext is not FileViewerViewModel vm) return;
 
-        // When switching to edit mode or opening, focus the editor
-        if (e.PropertyName == nameof(FileViewerViewModel.Mode) || 
+        // When switching to edit/side-by-side mode or opening, focus the editor
+        if (e.PropertyName == nameof(FileViewerViewModel.Mode) ||
             e.PropertyName == nameof(FileViewerViewModel.IsOpen))
         {
-            if (vm.IsEditMode && vm.IsOpen)
+            if ((vm.IsEditMode || vm.IsSideBySideMode) && vm.IsOpen)
             {
                 Dispatcher.BeginInvoke(() => FocusEditor(), System.Windows.Threading.DispatcherPriority.Input);
             }
@@ -144,6 +144,65 @@ public partial class FileViewerPopup : UserControl
     }
 
     private void EditTextBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            Keyboard.Focus(textBox);
+        }
+    }
+
+    #endregion
+
+    #region Side-by-Side editor handling
+
+    private void SideBySideEditTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // Find line numbers ScrollViewer by Tag and sync scroll
+        var lineNumbersScroll = FindVisualChildren<ScrollViewer>(this)
+            .FirstOrDefault(s => s.Tag?.ToString() == "SideBySideLineNumbers");
+        lineNumbersScroll?.ScrollToVerticalOffset(e.VerticalOffset);
+    }
+
+    private void SideBySideEditTextBox_SelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is FileViewerViewModel viewModel && sender is TextBox textBox)
+        {
+            viewModel.UpdateCursorInfo(textBox.CaretIndex);
+        }
+    }
+
+    private void SideBySideEditTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not FileViewerViewModel viewModel) return;
+
+        if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (viewModel.SaveCommand.CanExecute(null))
+            {
+                viewModel.SaveCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            viewModel.GoToLineDialogCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right ||
+                 e.Key == Key.Home || e.Key == Key.End || e.Key == Key.PageUp || e.Key == Key.PageDown)
+        {
+            // Defer update to ensure caret has moved
+            if (sender is TextBox textBox)
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    viewModel.UpdateCursorInfo(textBox.CaretIndex);
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+    }
+
+    private void SideBySideEditTextBox_GotFocus(object sender, RoutedEventArgs e)
     {
         if (sender is TextBox textBox)
         {

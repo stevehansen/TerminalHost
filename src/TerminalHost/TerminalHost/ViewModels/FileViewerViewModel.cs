@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Services;
@@ -20,6 +21,10 @@ public partial class FileViewerViewModel : ObservableObject
     private string? _currentFilePath;
     private Encoding? _currentEncoding;
     private string? _originalContent;
+
+    // Debounce timer for live markdown preview
+    private DispatcherTimer? _markdownDebounceTimer;
+    private const int MarkdownDebounceMs = 300;
 
     // Image file extensions
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -102,11 +107,22 @@ public partial class FileViewerViewModel : ObservableObject
     // Computed properties for tab selection (used by radio buttons)
     public bool IsPreviewModeSelected => Mode == FileViewerMode.Preview && !IsImageMode;
     public bool IsEditModeSelected => Mode == FileViewerMode.Edit && !IsImageMode;
+    public bool IsSideBySideModeSelected => Mode == FileViewerMode.SideBySide && !IsImageMode;
 
     // Computed properties for content visibility
     public bool IsPreviewMode => Mode == FileViewerMode.Preview && !IsImageMode && !IsMarkdownMode;
     public bool IsEditMode => Mode == FileViewerMode.Edit && !IsImageMode;
-    public bool CanSave => IsEditMode && IsModified && !IsReadOnly;
+    public bool IsSideBySideMode => Mode == FileViewerMode.SideBySide && !IsImageMode;
+    /// <summary>
+    /// Show the standalone markdown preview only in Preview mode (not in SideBySide mode).
+    /// </summary>
+    public bool IsMarkdownPreviewMode => IsMarkdownMode && Mode == FileViewerMode.Preview && !IsImageMode;
+    public bool CanSave => (IsEditMode || IsSideBySideMode) && IsModified && !IsReadOnly;
+
+    /// <summary>
+    /// Show the Side-by-Side tab only for markdown files.
+    /// </summary>
+    public bool ShowSideBySideTab => IsMarkdownFile(_currentFilePath) && !IsImageMode;
 
     // Events for view interaction
     public event EventHandler<int>? ScrollToLineRequested;
@@ -136,6 +152,9 @@ public partial class FileViewerViewModel : ObservableObject
         FileName = Path.GetFileName(filePath);
         Title = FileName;
 
+        // Notify that ShowSideBySideTab may have changed
+        OnPropertyChanged(nameof(ShowSideBySideTab));
+
         // Check if it's an image file
         var extension = Path.GetExtension(filePath);
         if (ImageExtensions.Contains(extension))
@@ -154,6 +173,10 @@ public partial class FileViewerViewModel : ObservableObject
         if (mode == FileViewerMode.Preview)
         {
             LoadPreview(filePath, goToLine);
+        }
+        else if (mode == FileViewerMode.SideBySide)
+        {
+            LoadForSideBySide(filePath);
         }
         else
         {
@@ -292,12 +315,56 @@ public partial class FileViewerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Loads file for side-by-side editing (markdown editor + live preview).
+    /// </summary>
+    private void LoadForSideBySide(string filePath)
+    {
+        var result = _fileEditService.LoadFile(filePath);
+
+        if (!result.IsSuccess)
+        {
+            _dialogService.ShowError(result.Error ?? "Unknown error loading file");
+            // Fall back to preview mode
+            Mode = FileViewerMode.Preview;
+            LoadPreview(filePath, null);
+            return;
+        }
+
+        _currentEncoding = result.Encoding;
+        _originalContent = result.Content;
+        EditContent = result.Content ?? "";
+        IsModified = false;
+        IsReadOnly = result.IsReadOnly;
+
+        // Keep markdown mode true for side-by-side to show MarkdownViewer
+        IsMarkdownMode = true;
+        RenderedHtml = _markdownService.ConvertToHtml(EditContent);
+
+        Title = result.FileName + (IsReadOnly ? " (Read-only)" : "");
+        UpdateEditInfo(result.LineCount, result.FileSize, result.IsReadOnly);
+        UpdateLineNumbers();
+    }
+
+    /// <summary>
+    /// Checks if the file is a markdown file based on extension.
+    /// </summary>
+    private static bool IsMarkdownFile(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext == ".md" || ext == ".markdown";
+    }
+
     partial void OnModeChanged(FileViewerMode value)
     {
         OnPropertyChanged(nameof(IsPreviewMode));
         OnPropertyChanged(nameof(IsEditMode));
+        OnPropertyChanged(nameof(IsSideBySideMode));
+        OnPropertyChanged(nameof(IsMarkdownPreviewMode));
         OnPropertyChanged(nameof(IsPreviewModeSelected));
         OnPropertyChanged(nameof(IsEditModeSelected));
+        OnPropertyChanged(nameof(IsSideBySideModeSelected));
         OnPropertyChanged(nameof(CanSave));
 
         // Don't switch modes for images
@@ -321,6 +388,10 @@ public partial class FileViewerViewModel : ObservableObject
             {
                 LoadForEdit(_currentFilePath, null);
             }
+            else if (value == FileViewerMode.SideBySide)
+            {
+                LoadForSideBySide(_currentFilePath);
+            }
         }
     }
 
@@ -335,6 +406,7 @@ public partial class FileViewerViewModel : ObservableObject
     partial void OnIsMarkdownModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsPreviewMode));
+        OnPropertyChanged(nameof(IsMarkdownPreviewMode));
     }
 
     partial void OnEditContentChanged(string value)
@@ -342,12 +414,33 @@ public partial class FileViewerViewModel : ObservableObject
         IsModified = value != _originalContent;
         OnPropertyChanged(nameof(CanSave));
         UpdateLineNumbers();
+
+        // Live preview for side-by-side markdown mode
+        if (Mode == FileViewerMode.SideBySide && IsMarkdownFile(_currentFilePath))
+        {
+            DebouncedUpdateMarkdownPreview(value);
+        }
+    }
+
+    private void DebouncedUpdateMarkdownPreview(string markdown)
+    {
+        _markdownDebounceTimer?.Stop();
+        _markdownDebounceTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(MarkdownDebounceMs)
+        };
+        _markdownDebounceTimer.Tick += (s, e) =>
+        {
+            _markdownDebounceTimer?.Stop();
+            RenderedHtml = _markdownService.ConvertToHtml(markdown);
+        };
+        _markdownDebounceTimer.Start();
     }
 
     [RelayCommand]
     private void SwitchToPreview()
     {
-        if (IsModified)
+        if (IsModified && (Mode == FileViewerMode.Edit || Mode == FileViewerMode.SideBySide))
         {
             if (!_dialogService.ShowConfirmation(
                 "You have unsaved changes. Switch to preview mode and lose changes?",
@@ -364,6 +457,14 @@ public partial class FileViewerViewModel : ObservableObject
         // Can't edit images
         if (IsImageMode) return;
         Mode = FileViewerMode.Edit;
+    }
+
+    [RelayCommand]
+    private void SwitchToSideBySide()
+    {
+        // Can't use side-by-side for images or non-markdown files
+        if (IsImageMode || !IsMarkdownFile(_currentFilePath)) return;
+        Mode = FileViewerMode.SideBySide;
     }
 
     [RelayCommand]
@@ -408,7 +509,7 @@ public partial class FileViewerViewModel : ObservableObject
     [RelayCommand]
     public void Close()
     {
-        if (IsModified && Mode == FileViewerMode.Edit && !IsImageMode)
+        if (IsModified && (Mode == FileViewerMode.Edit || Mode == FileViewerMode.SideBySide) && !IsImageMode)
         {
             if (!_dialogService.ShowConfirmation(
                 "You have unsaved changes. Close without saving?",

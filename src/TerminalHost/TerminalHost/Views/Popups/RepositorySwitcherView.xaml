@@ -132,6 +132,10 @@
                                                     <Setter Property="Text" Value=">"/>
                                                     <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
                                                 </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsRecent}" Value="True">
+                                                    <Setter Property="Text" Value="r"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource SyntaxOrangeBrush}"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsLocal}" Value="False">
                                                     <Setter Property="Text" Value="c"/>
                                                     <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>

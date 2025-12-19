@@ -734,5 +734,6 @@ public class FileViewerRequestedEventArgs : EventArgs
 public enum FileViewerMode
 {
     Preview,
-    Edit
+    Edit,
+    SideBySide
 }

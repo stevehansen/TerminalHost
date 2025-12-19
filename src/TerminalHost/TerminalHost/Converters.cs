@@ -638,3 +638,116 @@ public class BoolToExpandCollapseTextConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Truncates a string to a specified length with ellipsis.
+/// ConverterParameter specifies the max length (default 50).
+/// </summary>
+public class TruncateConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not string str)
+            return "";
+
+        int maxLength = 50;
+        if (parameter is string paramStr && int.TryParse(paramStr, out var parsed))
+        {
+            maxLength = parsed;
+        }
+
+        // Replace newlines with spaces for preview
+        str = str.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+
+        if (str.Length <= maxLength)
+            return str;
+
+        return str[..maxLength] + "...";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts int to Visibility: > 0 = Visible, 0 = Collapsed.
+/// </summary>
+public class IntToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int intValue)
+        {
+            return intValue > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        return Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts a DateTime to a relative time string (e.g., "2 hours ago", "3 days ago").
+/// </summary>
+public class RelativeTimeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not DateTime dateTime)
+            return "";
+
+        var now = DateTime.Now;
+        var utcNow = DateTime.UtcNow;
+
+        // Handle both local and UTC times
+        var diff = dateTime.Kind == DateTimeKind.Utc
+            ? utcNow - dateTime
+            : now - dateTime;
+
+        if (diff.TotalSeconds < 60)
+            return "just now";
+
+        if (diff.TotalMinutes < 60)
+        {
+            var mins = (int)diff.TotalMinutes;
+            return mins == 1 ? "1 minute ago" : $"{mins} minutes ago";
+        }
+
+        if (diff.TotalHours < 24)
+        {
+            var hours = (int)diff.TotalHours;
+            return hours == 1 ? "1 hour ago" : $"{hours} hours ago";
+        }
+
+        if (diff.TotalDays < 7)
+        {
+            var days = (int)diff.TotalDays;
+            return days == 1 ? "yesterday" : $"{days} days ago";
+        }
+
+        if (diff.TotalDays < 30)
+        {
+            var weeks = (int)(diff.TotalDays / 7);
+            return weeks == 1 ? "1 week ago" : $"{weeks} weeks ago";
+        }
+
+        if (diff.TotalDays < 365)
+        {
+            var months = (int)(diff.TotalDays / 30);
+            return months == 1 ? "1 month ago" : $"{months} months ago";
+        }
+
+        var years = (int)(diff.TotalDays / 365);
+        return years == 1 ? "1 year ago" : $"{years} years ago";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

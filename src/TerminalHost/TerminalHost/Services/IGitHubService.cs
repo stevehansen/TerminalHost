@@ -102,4 +102,9 @@ public interface IGitHubService
     /// Uses git diff to get the changes.
     /// </summary>
     Task<string> GetFileDiffAsync(string workingDirectory, string filename);
+
+    /// <summary>
+    /// Gets all comments and review threads for a pull request.
+    /// </summary>
+    Task<PrComments?> GetPullRequestCommentsAsync(string repo, int prNumber);
 }

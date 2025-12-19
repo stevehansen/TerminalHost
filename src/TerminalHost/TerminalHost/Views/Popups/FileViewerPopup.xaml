@@ -38,7 +38,13 @@
                     <RadioButton Content="✏ Edit"
                                  Style="{StaticResource PopupModeTabButton}"
                                  IsChecked="{Binding IsEditModeSelected, Mode=OneWay}"
-                                 Command="{Binding SwitchToEditCommand}"/>
+                                 Command="{Binding SwitchToEditCommand}"
+                                 Margin="0,0,4,0"/>
+                    <RadioButton Content="⫏ Side by Side"
+                                 Style="{StaticResource PopupModeTabButton}"
+                                 IsChecked="{Binding IsSideBySideModeSelected, Mode=OneWay}"
+                                 Command="{Binding SwitchToSideBySideCommand}"
+                                 Visibility="{Binding ShowSideBySideTab, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 </StackPanel>
 
                 <!-- Title -->
@@ -79,11 +85,11 @@
                     IsSelectionEnabled="True"
                     Zoom="100"/>
 
-                <!-- Markdown preview mode: WebView2-based rich rendering -->
+                <!-- Markdown preview mode: WebView2-based rich rendering (only in Preview mode, not SideBySide) -->
                 <controls:MarkdownViewer
                     Grid.Row="0"
                     HtmlContent="{Binding RenderedHtml}"
-                    Visibility="{Binding IsMarkdownMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    Visibility="{Binding IsMarkdownPreviewMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <!-- Edit mode: TextBox with line numbers -->
                 <Grid Grid.Row="0" Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -131,6 +137,73 @@
                              GotFocus="EditTextBox_GotFocus"/>
                 </Grid>
 
+                <!-- Side-by-Side mode: Editor + Preview for markdown files -->
+                <Grid Grid.Row="0" Visibility="{Binding IsSideBySideMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Editor with line numbers -->
+                    <Grid Grid.Column="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Line numbers -->
+                        <ScrollViewer Grid.Column="0"
+                                      Tag="SideBySideLineNumbers"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      Background="{StaticResource BackgroundDarkBrush}">
+                            <TextBlock Text="{Binding LineNumbers}"
+                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Background="{StaticResource BackgroundDarkBrush}"
+                                       Padding="8,4,8,4"
+                                       TextAlignment="Right"
+                                       MinWidth="40"/>
+                        </ScrollViewer>
+
+                        <!-- Editor -->
+                        <TextBox Tag="SideBySideEditor"
+                                 Grid.Column="1"
+                                 Text="{Binding EditContent, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                 FontSize="{StaticResource FontSizeCode}"
+                                 Foreground="#CCCCCC"
+                                 Background="{StaticResource BackgroundDarkestBrush}"
+                                 CaretBrush="#AEAFAD"
+                                 BorderThickness="0"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 IsReadOnly="{Binding IsReadOnly}"
+                                 Padding="4"
+                                 Focusable="True"
+                                 IsTabStop="True"
+                                 ScrollViewer.ScrollChanged="SideBySideEditTextBox_ScrollChanged"
+                                 SelectionChanged="SideBySideEditTextBox_SelectionChanged"
+                                 PreviewKeyDown="SideBySideEditTextBox_PreviewKeyDown"
+                                 GotFocus="SideBySideEditTextBox_GotFocus"/>
+                    </Grid>
+
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1"
+                                  Width="4"
+                                  Background="{StaticResource BorderSubtleBrush}"
+                                  HorizontalAlignment="Stretch"/>
+
+                    <!-- Right: Markdown Preview -->
+                    <controls:MarkdownViewer Grid.Column="2"
+                                             HtmlContent="{Binding RenderedHtml}"/>
+                </Grid>
+
                 <!-- Image preview mode -->
                 <Grid Grid.Row="0"
                       Visibility="{Binding IsImageMode, Converter={StaticResource BoolToVisibilityConverter}}"
@@ -170,7 +243,7 @@
                                     Style="{StaticResource StatusBarButton}"
                                     Command="{Binding SaveCommand}"
                                     ToolTip="Save (Ctrl+S)"
-                                    Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    Visibility="{Binding CanSave, Converter={StaticResource BoolToVisibilityConverter}}"
                                     IsEnabled="{Binding CanSave}"
                                     Margin="0,0,8,0"/>
                             <Button Content="↻ Reload"
@@ -188,16 +261,29 @@
                                    Margin="16,0"
                                    TextTrimming="CharacterEllipsis"/>
 
-                        <!-- Cursor position (edit mode) -->
+                        <!-- Cursor position (edit and side-by-side modes) -->
                         <TextBlock Grid.Column="2"
                                    Text="{Binding CursorInfo}"
                                    Foreground="White"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"
-                                   Margin="0,0,16,0"
-                                   Visibility="{Binding IsEditMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                   Margin="0,0,16,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSideBySideMode}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
-                        <!-- Shortcuts hint (different for edit vs preview mode) -->
+                        <!-- Shortcuts hint (different for edit/side-by-side vs preview mode) -->
                         <TextBlock Grid.Column="3"
                                    Foreground="#CCFFFFFF"
                                    FontSize="{StaticResource FontSizeTiny}"
@@ -207,6 +293,9 @@
                                     <Setter Property="Text" Value="Escape close"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                                            <Setter Property="Text" Value="Ctrl+S save · Escape close"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSideBySideMode}" Value="True">
                                             <Setter Property="Text" Value="Ctrl+S save · Escape close"/>
                                         </DataTrigger>
                                     </Style.Triggers>

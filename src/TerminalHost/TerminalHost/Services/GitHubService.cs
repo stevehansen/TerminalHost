@@ -409,6 +409,118 @@ internal sealed class GitHubService : IGitHubService
         }
     }
 
+    public async Task<PrComments?> GetPullRequestCommentsAsync(string repo, int prNumber)
+    {
+        if (!IsGitHubCliAvailable())
+            return null;
+
+        try
+        {
+            var parts = repo.Split('/');
+            if (parts.Length != 2)
+                return null;
+
+            var owner = parts[0];
+            var repoName = parts[1];
+
+            // Use GraphQL to get review threads with comments
+            var query = @"query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      comments(first: 100) {
+        nodes {
+          author { login }
+          body
+          createdAt
+        }
+      }
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          diffSide
+          comments(first: 50) {
+            nodes {
+              author { login }
+              body
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  }
+}";
+
+            var output = await RunGhGraphQLQueryAsync(query, owner, repoName, prNumber);
+
+            if (string.IsNullOrEmpty(output))
+                return null;
+
+            return ParsePrComments(output);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> RunGhGraphQLQueryAsync(string query, string owner, string repo, int pr)
+    {
+        try
+        {
+            // Use cmd.exe to ensure PATH is resolved correctly
+            // Write query to temp file and use @file syntax
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllTextAsync(tempFile, query);
+
+                var args = $"/c gh api graphql -F owner={owner} -F repo={repo} -F pr={pr} -F query=@\"{tempFile}\"";
+                System.Diagnostics.Debug.WriteLine($"GraphQL: Running cmd.exe {args}");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = System.Text.Encoding.UTF8,
+                    StandardErrorEncoding = System.Text.Encoding.UTF8
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("GraphQL: Failed to start process");
+                    return null;
+                }
+
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var error = await process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                System.Diagnostics.Debug.WriteLine($"GraphQL: Exit code {process.ExitCode}, Output length: {output?.Length ?? 0}, Error: {error}");
+
+                return process.ExitCode == 0 ? output : null;
+            }
+            finally
+            {
+                try { File.Delete(tempFile); } catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"GraphQL: Exception {ex.Message}");
+            return null;
+        }
+    }
+
     public async Task<string> GetFileDiffAsync(string workingDirectory, string filename)
     {
         if (string.IsNullOrEmpty(workingDirectory) || string.IsNullOrEmpty(filename))
@@ -877,6 +989,123 @@ internal sealed class GitHubService : IGitHubService
         }
 
         return results;
+    }
+
+    private static PrComments? ParsePrComments(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("data", out var data))
+                return null;
+
+            if (!data.TryGetProperty("repository", out var repository))
+                return null;
+
+            if (!repository.TryGetProperty("pullRequest", out var pr))
+                return null;
+
+            var result = new PrComments();
+
+            // Parse general comments
+            if (pr.TryGetProperty("comments", out var comments) &&
+                comments.TryGetProperty("nodes", out var commentNodes) &&
+                commentNodes.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var node in commentNodes.EnumerateArray())
+                {
+                    var comment = ParseCommentItem(node);
+                    if (comment != null)
+                    {
+                        result.GeneralComments.Add(comment);
+                    }
+                }
+            }
+
+            // Parse review threads
+            if (pr.TryGetProperty("reviewThreads", out var threads) &&
+                threads.TryGetProperty("nodes", out var threadNodes) &&
+                threadNodes.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var node in threadNodes.EnumerateArray())
+                {
+                    var thread = new PrReviewThread
+                    {
+                        Id = node.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
+                        FilePath = node.TryGetProperty("path", out var path) ? path.GetString() ?? "" : "",
+                        IsResolved = node.TryGetProperty("isResolved", out var resolved) && resolved.GetBoolean(),
+                        IsOutdated = node.TryGetProperty("isOutdated", out var outdated) && outdated.GetBoolean(),
+                        DiffSide = node.TryGetProperty("diffSide", out var side) ? side.GetString() : null
+                    };
+
+                    if (node.TryGetProperty("line", out var line) && line.ValueKind == JsonValueKind.Number)
+                    {
+                        thread.Line = line.GetInt32();
+                    }
+
+                    // Parse thread comments
+                    if (node.TryGetProperty("comments", out var threadComments) &&
+                        threadComments.TryGetProperty("nodes", out var threadCommentNodes) &&
+                        threadCommentNodes.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var commentNode in threadCommentNodes.EnumerateArray())
+                        {
+                            var comment = ParseCommentItem(commentNode);
+                            if (comment != null)
+                            {
+                                thread.Comments.Add(comment);
+                            }
+                        }
+                    }
+
+                    if (thread.Comments.Count > 0)
+                    {
+                        result.ReviewThreads.Add(thread);
+                    }
+                }
+            }
+
+            return result;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static PrCommentItem? ParseCommentItem(JsonElement node)
+    {
+        try
+        {
+            var author = "";
+            if (node.TryGetProperty("author", out var authorObj) && authorObj.ValueKind == JsonValueKind.Object)
+            {
+                author = authorObj.TryGetProperty("login", out var login) ? login.GetString() ?? "" : "";
+            }
+
+            var body = node.TryGetProperty("body", out var bodyProp) ? bodyProp.GetString() ?? "" : "";
+
+            DateTime createdAt = DateTime.MinValue;
+            if (node.TryGetProperty("createdAt", out var created) &&
+                DateTime.TryParse(created.GetString(), out var parsed))
+            {
+                createdAt = parsed;
+            }
+
+            return new PrCommentItem
+            {
+                Author = author,
+                Body = body,
+                CreatedAt = createdAt,
+                IsBot = author.EndsWith("[bot]", StringComparison.OrdinalIgnoreCase)
+            };
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? ExtractFileDiff(string fullDiff, string filePath)

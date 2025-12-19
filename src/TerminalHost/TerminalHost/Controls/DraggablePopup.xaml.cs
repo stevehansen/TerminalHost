@@ -9,6 +9,7 @@ public partial class DraggablePopup : UserControl
 {
     private bool _isDragging;
     private Point _dragStartPoint;
+    private bool _hasBeenPositioned;
 
     public DraggablePopup()
     {
@@ -18,12 +19,53 @@ public partial class DraggablePopup : UserControl
     #region Dependency Properties
 
     public static readonly DependencyProperty IsOpenProperty =
-        DependencyProperty.Register("IsOpen", typeof(bool), typeof(DraggablePopup), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+        DependencyProperty.Register("IsOpen", typeof(bool), typeof(DraggablePopup), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnIsOpenChanged));
 
     public bool IsOpen
     {
         get => (bool)GetValue(IsOpenProperty);
         set => SetValue(IsOpenProperty, value);
+    }
+
+    private static void OnIsOpenChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is DraggablePopup popup && e.NewValue is true)
+        {
+            popup.CenterOnScreen();
+        }
+    }
+
+    private void CenterOnScreen()
+    {
+        // Only center if this is the first time opening or offsets are at default (0,0)
+        if (_hasBeenPositioned && (HorizontalOffset != 0 || VerticalOffset != 0))
+            return;
+
+        // Try to center relative to the main window
+        var mainWindow = Application.Current.MainWindow;
+        if (mainWindow != null)
+        {
+            // Get window position and size
+            var windowLeft = mainWindow.Left;
+            var windowTop = mainWindow.Top;
+            var windowWidth = mainWindow.ActualWidth;
+            var windowHeight = mainWindow.ActualHeight;
+
+            // Center within the window bounds
+            HorizontalOffset = windowLeft + (windowWidth - PopupWidth) / 2;
+            VerticalOffset = windowTop + (windowHeight - PopupHeight) / 2;
+        }
+        else
+        {
+            // Fallback to screen center
+            var screenWidth = SystemParameters.PrimaryScreenWidth;
+            var screenHeight = SystemParameters.PrimaryScreenHeight;
+
+            HorizontalOffset = (screenWidth - PopupWidth) / 2;
+            VerticalOffset = (screenHeight - PopupHeight) / 2;
+        }
+
+        _hasBeenPositioned = true;
     }
 
     public static readonly DependencyProperty PopupWidthProperty =

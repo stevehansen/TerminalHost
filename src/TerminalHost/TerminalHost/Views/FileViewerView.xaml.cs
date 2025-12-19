@@ -68,4 +68,18 @@ public partial class FileViewerView : UserControl
             vm.UpdateCursorInfo(EditTextBox.CaretIndex);
         }
     }
+
+    private void SideBySideEditTextBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // Sync line numbers scroll with editor scroll in side-by-side mode
+        SideBySideLineNumbersScroll.ScrollToVerticalOffset(e.VerticalOffset);
+    }
+
+    private void SideBySideEditTextBox_SelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is FileViewerViewModel vm)
+        {
+            vm.UpdateCursorInfo(SideBySideEditTextBox.CaretIndex);
+        }
+    }
 }
