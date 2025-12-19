@@ -54,8 +54,9 @@ public interface IGitHubService
 
     /// <summary>
     /// Checks out a pull request branch in the specified directory.
+    /// Returns (success, errorMessage) tuple.
     /// </summary>
-    Task<bool> CheckoutPullRequestAsync(string workingDirectory, int prNumber);
+    Task<(bool success, string? error)> CheckoutPullRequestAsync(string workingDirectory, int prNumber);
 
     /// <summary>
     /// Approves a pull request.

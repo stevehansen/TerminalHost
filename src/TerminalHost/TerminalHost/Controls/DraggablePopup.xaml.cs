@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace TerminalHost.Controls;
 
@@ -45,19 +47,55 @@ public partial class DraggablePopup : UserControl
         var mainWindow = Application.Current.MainWindow;
         if (mainWindow != null)
         {
-            // Get window position and size
-            var windowLeft = mainWindow.Left;
-            var windowTop = mainWindow.Top;
-            var windowWidth = mainWindow.ActualWidth;
-            var windowHeight = mainWindow.ActualHeight;
+            // Get the DPI scaling factor for proper coordinate conversion
+            var source = PresentationSource.FromVisual(mainWindow);
+            var dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            var dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
 
-            // Center within the window bounds
-            HorizontalOffset = windowLeft + (windowWidth - PopupWidth) / 2;
-            VerticalOffset = windowTop + (windowHeight - PopupHeight) / 2;
+            // Get window bounds in screen pixels using Win32
+            var hwnd = new WindowInteropHelper(mainWindow).Handle;
+            var screen = System.Windows.Forms.Screen.FromHandle(hwnd);
+            var workArea = screen.WorkingArea;
+
+            // Get window position and size in screen pixels
+            double windowLeft, windowTop, windowWidth, windowHeight;
+
+            if (mainWindow.WindowState == WindowState.Maximized)
+            {
+                // For maximized, use the working area
+                windowLeft = workArea.Left;
+                windowTop = workArea.Top;
+                windowWidth = workArea.Width;
+                windowHeight = workArea.Height;
+            }
+            else
+            {
+                // Convert WPF DIUs to screen pixels
+                windowLeft = mainWindow.Left * dpiX;
+                windowTop = mainWindow.Top * dpiY;
+                windowWidth = mainWindow.ActualWidth * dpiX;
+                windowHeight = mainWindow.ActualHeight * dpiY;
+            }
+
+            // Calculate popup size in screen pixels
+            var popupWidth = PopupWidth * dpiX;
+            var popupHeight = PopupHeight * dpiY;
+
+            // Center within the window bounds (in screen pixels for Popup with Placement=Absolute)
+            HorizontalOffset = windowLeft + (windowWidth - popupWidth) / 2;
+            VerticalOffset = windowTop + (windowHeight - popupHeight) / 2;
+
+            // Clamp to screen bounds
+            if (HorizontalOffset < workArea.Left) HorizontalOffset = workArea.Left;
+            if (VerticalOffset < workArea.Top) VerticalOffset = workArea.Top;
+            if (HorizontalOffset + popupWidth > workArea.Right)
+                HorizontalOffset = workArea.Right - popupWidth;
+            if (VerticalOffset + popupHeight > workArea.Bottom)
+                VerticalOffset = workArea.Bottom - popupHeight;
         }
         else
         {
-            // Fallback to screen center
+            // Fallback to primary screen center
             var screenWidth = SystemParameters.PrimaryScreenWidth;
             var screenHeight = SystemParameters.PrimaryScreenHeight;
 

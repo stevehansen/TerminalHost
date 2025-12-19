@@ -10,6 +10,7 @@
     <RootNamespace>TerminalHost</RootNamespace>
     <AssemblyName>host</AssemblyName>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 	<NoWarn>$(NoWarn);NU1701</NoWarn>
 
 	<!-- Single-file publish settings -->

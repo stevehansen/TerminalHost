@@ -30,6 +30,10 @@ public partial class ToastWindow : Window
         // Position initially
         UpdatePosition();
 
+        // Also schedule a delayed position update after layout is complete
+        // This helps with multi-monitor setups where dimensions may not be immediately available
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, UpdatePosition);
+
         // Track owner window changes
         owner.LocationChanged += (_, _) => UpdatePosition();
         owner.SizeChanged += (_, _) => UpdatePosition();
@@ -48,6 +52,9 @@ public partial class ToastWindow : Window
         var extendedStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE,
             extendedStyle | NativeMethods.WS_EX_NOACTIVATE);
+
+        // Re-update position now that both windows are fully loaded
+        UpdatePosition();
     }
 
     private void OnOwnerStateChanged(object? sender, EventArgs e)
@@ -69,29 +76,67 @@ public partial class ToastWindow : Window
     {
         if (_ownerWindow == null) return;
 
-        // Position at bottom-right of owner window
-        var ownerLeft = _ownerWindow.Left;
-        var ownerTop = _ownerWindow.Top;
-        var ownerWidth = _ownerWindow.ActualWidth;
-        var ownerHeight = _ownerWindow.ActualHeight;
+        // Get the DPI scaling factor
+        var source = PresentationSource.FromVisual(_ownerWindow);
+        var dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        var dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
 
-        // Handle maximized state
+        // Get screen info (in screen pixels)
+        var hwnd = new WindowInteropHelper(_ownerWindow).Handle;
+        var screen = System.Windows.Forms.Screen.FromHandle(hwnd);
+        var workArea = screen.WorkingArea;
+
+        // Convert work area from screen pixels to WPF DIUs
+        var workAreaLeft = workArea.Left / dpiX;
+        var workAreaTop = workArea.Top / dpiY;
+        var workAreaWidth = workArea.Width / dpiX;
+        var workAreaHeight = workArea.Height / dpiY;
+
+        // Get owner window bounds in WPF DIUs
+        double ownerLeft, ownerTop, ownerWidth, ownerHeight;
+
         if (_ownerWindow.WindowState == WindowState.Maximized)
         {
-            // Get working area of the screen
-            var screen = System.Windows.Forms.Screen.FromHandle(
-                new WindowInteropHelper(_ownerWindow).Handle);
-            var workArea = screen.WorkingArea;
+            // For maximized windows, use the working area (converted to DIUs)
+            ownerLeft = workAreaLeft;
+            ownerTop = workAreaTop;
+            ownerWidth = workAreaWidth;
+            ownerHeight = workAreaHeight;
+        }
+        else
+        {
+            ownerLeft = _ownerWindow.Left;
+            ownerTop = _ownerWindow.Top;
+            ownerWidth = _ownerWindow.ActualWidth;
+            ownerHeight = _ownerWindow.ActualHeight;
 
-            ownerLeft = workArea.Left;
-            ownerTop = workArea.Top;
-            ownerWidth = workArea.Width;
-            ownerHeight = workArea.Height;
+            // Fallback if ActualWidth/Height not yet available
+            if (ownerWidth <= 0) ownerWidth = _ownerWindow.Width;
+            if (ownerHeight <= 0) ownerHeight = _ownerWindow.Height;
+
+            // Handle NaN values (can happen before window is shown)
+            if (double.IsNaN(ownerLeft) || double.IsNaN(ownerTop) ||
+                double.IsNaN(ownerWidth) || double.IsNaN(ownerHeight) ||
+                ownerWidth <= 0 || ownerHeight <= 0)
+            {
+                return; // Skip positioning until window has valid dimensions
+            }
         }
 
-        // Position toast window at bottom-right corner of owner
-        Left = ownerLeft + ownerWidth - Width;
-        Top = ownerTop + ownerHeight - Height;
+        // Calculate desired position (bottom-right corner of owner) in WPF DIUs
+        var newLeft = ownerLeft + ownerWidth - Width;
+        var newTop = ownerTop + ownerHeight - Height;
+
+        // Clamp to work area bounds (in WPF DIUs)
+        if (newLeft < workAreaLeft) newLeft = workAreaLeft;
+        if (newTop < workAreaTop) newTop = workAreaTop;
+        if (newLeft + Width > workAreaLeft + workAreaWidth)
+            newLeft = workAreaLeft + workAreaWidth - Width;
+        if (newTop + Height > workAreaTop + workAreaHeight)
+            newTop = workAreaTop + workAreaHeight - Height;
+
+        Left = newLeft;
+        Top = newTop;
     }
 
     private void BringToFront()

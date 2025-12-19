@@ -68,7 +68,7 @@ internal sealed class GitHubService : IGitHubService
         try
         {
             // Use GitHub API search for PRs where current user is requested reviewer (exclude drafts)
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 "api search/issues --method GET -f q='is:pr is:open review-requested:@me draft:false' -f per_page=100");
 
@@ -91,7 +91,7 @@ internal sealed class GitHubService : IGitHubService
         try
         {
             // Use GitHub API search endpoint directly
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 "api search/issues --method GET -f q='is:pr is:open author:@me' -f per_page=100");
 
@@ -113,7 +113,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 "search issues --assignee=@me --state=open --json number,title,repository,author,labels,createdAt,updatedAt --limit 100");
 
@@ -153,7 +153,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 $"pr view {prNumber} --repo {repo} --json number,title,author,state,baseRefName,headRefName,additions,deletions,changedFiles,createdAt,updatedAt,reviewDecision,statusCheckRollup");
 
@@ -175,7 +175,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 $"pr view {prNumber} --repo {repo} --json files");
 
@@ -197,7 +197,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 $"pr diff {prNumber} --repo {repo}");
 
@@ -213,19 +213,24 @@ internal sealed class GitHubService : IGitHubService
         }
     }
 
-    public async Task<bool> CheckoutPullRequestAsync(string workingDirectory, int prNumber)
+    public async Task<(bool success, string? error)> CheckoutPullRequestAsync(string workingDirectory, int prNumber)
     {
         if (!IsGitHubCliAvailable())
-            return false;
+            return (false, "GitHub CLI not available");
 
         try
         {
-            var (exitCode, _) = await RunGhCommandAsync(workingDirectory, $"pr checkout {prNumber}");
-            return exitCode == 0;
+            var (exitCode, _, error) = await RunGhCommandAsync(workingDirectory, $"pr checkout {prNumber}", timeoutSeconds: 60);
+            if (exitCode == 0)
+                return (true, null);
+
+            // Return a meaningful error message
+            var errorMsg = !string.IsNullOrWhiteSpace(error) ? error.Trim() : $"gh pr checkout failed with exit code {exitCode}";
+            return (false, errorMsg);
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return (false, ex.Message);
         }
     }
 
@@ -242,7 +247,7 @@ internal sealed class GitHubService : IGitHubService
                 args += $" --body \"{EscapeArgument(comment)}\"";
             }
 
-            var (exitCode, _) = await RunGhCommandAsync(workingDirectory, args);
+            var (exitCode, _, _) = await RunGhCommandAsync(workingDirectory, args);
             return exitCode == 0;
         }
         catch
@@ -258,7 +263,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, _) = await RunGhCommandAsync(
+            var (exitCode, _, _) = await RunGhCommandAsync(
                 workingDirectory,
                 $"pr review {prNumber} --request-changes --body \"{EscapeArgument(comment)}\"");
             return exitCode == 0;
@@ -276,7 +281,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, _) = await RunGhCommandAsync(
+            var (exitCode, _, _) = await RunGhCommandAsync(
                 workingDirectory,
                 $"pr comment {prNumber} --body \"{EscapeArgument(comment)}\"");
             return exitCode == 0;
@@ -301,7 +306,7 @@ internal sealed class GitHubService : IGitHubService
                 _ => "--squash"
             };
 
-            var (exitCode, _) = await RunGhCommandAsync(
+            var (exitCode, _, _) = await RunGhCommandAsync(
                 workingDirectory,
                 $"pr merge {prNumber} {methodArg} --delete-branch");
             return exitCode == 0;
@@ -319,7 +324,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 null,
                 $"repo list --json nameWithOwner,description,isPrivate,pushedAt --limit {limit}");
 
@@ -344,7 +349,7 @@ internal sealed class GitHubService : IGitHubService
             var repoName = repoFullName.Contains('/') ? repoFullName.Split('/').Last() : repoFullName;
             var clonePath = Path.Combine(targetDirectory, repoName);
 
-            var (exitCode, _) = await RunGhCommandAsync(
+            var (exitCode, _, _) = await RunGhCommandAsync(
                 targetDirectory,
                 $"repo clone {repoFullName} \"{clonePath}\"");
 
@@ -366,7 +371,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(null, "api user --jq .login");
+            var (exitCode, output, _) = await RunGhCommandAsync(null, "api user --jq .login");
 
             if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
@@ -390,7 +395,7 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            var (exitCode, output) = await RunGhCommandAsync(
+            var (exitCode, output, _) = await RunGhCommandAsync(
                 workingDirectory,
                 "pr view --json number,title,body,author,state,baseRefName,headRefName,additions,deletions,changedFiles,createdAt,updatedAt,reviewDecision");
 
@@ -398,7 +403,7 @@ internal sealed class GitHubService : IGitHubService
                 return null;
 
             // Get the repo name from the working directory
-            var (repoExitCode, repoOutput) = await RunGhCommandAsync(workingDirectory, "repo view --json nameWithOwner --jq .nameWithOwner");
+            var (repoExitCode, repoOutput, _) = await RunGhCommandAsync(workingDirectory, "repo view --json nameWithOwner --jq .nameWithOwner");
             var repo = repoExitCode == 0 ? repoOutput?.Trim() ?? "" : "";
 
             return ParsePullRequestDetails(output, repo);
@@ -601,7 +606,7 @@ internal sealed class GitHubService : IGitHubService
 
     #region Private Helpers
 
-    private static async Task<(int exitCode, string output)> RunGhCommandAsync(string? workingDirectory, string arguments)
+    private static async Task<(int exitCode, string output, string error)> RunGhCommandAsync(string? workingDirectory, string arguments, int timeoutSeconds = 120)
     {
         try
         {
@@ -625,16 +630,30 @@ internal sealed class GitHubService : IGitHubService
 
             using var process = Process.Start(psi);
             if (process == null)
-                return (-1, "");
+                return (-1, "", "Failed to start process");
 
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            try
+            {
+                // Read both streams concurrently to avoid deadlocks
+                var outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+                var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
 
-            return (process.ExitCode, output);
+                await Task.WhenAll(outputTask, errorTask);
+                await process.WaitForExitAsync(cts.Token);
+
+                return (process.ExitCode, await outputTask, await errorTask);
+            }
+            catch (OperationCanceledException)
+            {
+                // Timeout - kill the process
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return (-1, "", $"Operation timed out after {timeoutSeconds} seconds");
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            return (-1, "");
+            return (-1, "", ex.Message);
         }
     }
 

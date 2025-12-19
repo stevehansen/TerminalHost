@@ -260,7 +260,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         // Checkout the PR branch with progress toast
         using var toast = _toastService.ShowProgress($"Checking out PR #{pr.Number}...");
         StatusMessage = $"Checking out PR #{pr.Number}...";
-        var success = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
+        var (success, error) = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
 
         if (success)
         {
@@ -270,8 +270,10 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         }
         else
         {
-            toast.Fail($"Failed to checkout PR #{pr.Number}");
-            StatusMessage = "Checkout failed";
+            var errorMsg = !string.IsNullOrWhiteSpace(error) ? error : "Unknown error";
+            toast.Fail($"Checkout failed");
+            StatusMessage = $"Checkout failed: {errorMsg}";
+            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}:\n\n{errorMsg}", "Checkout Failed");
         }
     }
 
@@ -356,9 +358,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         if (string.IsNullOrEmpty(localPath))
         {
             // Need to find/clone repo first
-            await EnsureRepositoryAvailableAsync(pr);
-            localPath = FindLocalRepository(pr.Repository);
-
+            localPath = await EnsureRepositoryAvailableAsync(pr);
             if (string.IsNullOrEmpty(localPath))
             {
                 return; // Clone failed or was cancelled
@@ -368,12 +368,14 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         // Always checkout the PR branch (handles fetching, creating branch, switching)
         using var toast = _toastService.ShowProgress($"Checking out PR #{pr.Number} for review...");
         StatusMessage = $"Checking out PR #{pr.Number}...";
-        var success = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
+        var (success, error) = await _gitHubService.CheckoutPullRequestAsync(localPath, pr.Number);
 
         if (!success)
         {
-            toast.Fail($"Failed to checkout PR #{pr.Number}");
-            StatusMessage = "Checkout failed";
+            var errorMsg = !string.IsNullOrWhiteSpace(error) ? error : "Unknown error";
+            toast.Fail($"Checkout failed");
+            StatusMessage = $"Checkout failed: {errorMsg}";
+            _dialogService.ShowWarning($"Failed to checkout PR #{pr.Number}:\n\n{errorMsg}", "Checkout Failed");
             return;
         }
 
