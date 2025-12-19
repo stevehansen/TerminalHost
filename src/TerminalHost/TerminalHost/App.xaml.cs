@@ -1,4 +1,9 @@
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -12,9 +17,27 @@ public partial class App : Application
 {
     private ISingleInstanceService? _singleInstanceService;
     private IServiceProvider? _services;
+    private bool _ignoreFocusChange;
 
     public new static App Current => (App)Application.Current;
     public IServiceProvider Services => _services!;
+
+    public App()
+    {
+        // Register class handlers to fix WPF popup focus synchronization issues
+        // when the main window isn't active
+        EventManager.RegisterClassHandler(
+            typeof(Popup),
+            Keyboard.GotKeyboardFocusEvent,
+            new RoutedEventHandler(OnPopupGotKeyboardFocus));
+
+        // Also handle mouse clicks to force activation before focus is set
+        EventManager.RegisterClassHandler(
+            typeof(Popup),
+            UIElement.PreviewMouseLeftButtonDownEvent,
+            new MouseButtonEventHandler(OnPopupPreviewMouseDown),
+            handledEventsToo: true);
+    }
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
@@ -222,7 +245,185 @@ public partial class App : Application
             "Application Error",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
-        
-        Shutdown(); 
+
+        Shutdown();
     }
+
+    #region Popup Focus Fix
+    // Workaround for WPF popup focus synchronization issues when main window isn't active.
+    // See: https://github.com/dotnet/wpf/issues/1150
+
+    private void OnPopupPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_ignoreFocusChange)
+            return;
+
+        if (sender is not Popup popup)
+            return;
+
+        // Check if main window is active - if not, we need to handle focus specially
+        var mainWindow = MainWindow;
+        if (mainWindow == null || mainWindow.IsActive)
+            return;
+
+        // Main window is not active - force activation and then focus the clicked element
+        _ignoreFocusChange = true;
+        try
+        {
+            // Get the main window's handle and activate it
+            var mainWindowHandle = new WindowInteropHelper(mainWindow).Handle;
+            if (mainWindowHandle != IntPtr.Zero)
+            {
+                NativeMethods.SetForegroundWindow(mainWindowHandle);
+            }
+
+            // Find and focus the clicked element after activation
+            if (e.OriginalSource is DependencyObject source)
+            {
+                popup.Dispatcher.InvokeAsync(() =>
+                {
+                    // Find the focusable element (TextBox, etc.) that was clicked
+                    IInputElement? element = source as IInputElement;
+                    if (element == null || (element is FrameworkElement fe && !fe.Focusable))
+                    {
+                        // Walk up to find a focusable parent
+                        var current = source as DependencyObject;
+                        while (current != null)
+                        {
+                            if (current is FrameworkElement fwe && fwe.Focusable)
+                            {
+                                element = fwe;
+                                break;
+                            }
+                            current = VisualTreeHelper.GetParent(current);
+                        }
+                    }
+
+                    if (element != null)
+                    {
+                        Keyboard.Focus(element);
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Input);
+            }
+        }
+        finally
+        {
+            _ignoreFocusChange = false;
+        }
+    }
+
+    private void OnPopupGotKeyboardFocus(object sender, RoutedEventArgs e)
+    {
+        var popup = (UIElement)sender;
+        var windowHandle = (PresentationSource.FromVisual(popup) as HwndSource)?.Handle;
+        var focusedNativeWindow = NativeMethods.GetFocus();
+
+        if (_ignoreFocusChange)
+            return;
+
+        if (focusedNativeWindow == windowHandle)
+            return;
+
+        popup.Dispatcher.InvokeAsync(
+            () => VerifyPopupFocus(popup, e),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void VerifyPopupFocus(UIElement popup, RoutedEventArgs e)
+    {
+        var focusedElement = Keyboard.FocusedElement;
+        var focusedNativeWindow = NativeMethods.GetFocus();
+
+        if (focusedElement is not Visual focusedVisual
+            || PresentationSource.FromVisual(focusedVisual) is not HwndSource nativeWindow)
+        {
+            // The element with keyboard focus is not a WPF element
+            return;
+        }
+
+        var focusScope = FocusManager.GetFocusScope((DependencyObject)e.Source);
+        var focusScopeWindowHandle = (PresentationSource.FromVisual((Visual)focusScope) as HwndSource)?.Handle;
+
+        if (focusedNativeWindow == focusScopeWindowHandle)
+        {
+            // Focused native window is the focus scope window, no change needed
+            return;
+        }
+
+        var nativeWindowHandle = nativeWindow.Handle;
+
+        if (nativeWindowHandle == focusedNativeWindow)
+        {
+            // The focus is within WPF. Nothing needs to be done.
+            return;
+        }
+
+        var activeWindow = Windows.Cast<Window>().FirstOrDefault(x => x.IsActive);
+
+        var windowToFocus = nativeWindowHandle;
+        var focusScopeToFocus = focusScope;
+
+        if (activeWindow != null)
+        {
+            var activeWindowHandle = new WindowInteropHelper(activeWindow).Handle;
+            if (activeWindowHandle == focusedNativeWindow)
+            {
+                // The focus is within WPF. Nothing needs to be done.
+                return;
+            }
+
+            windowToFocus = activeWindowHandle;
+            focusScopeToFocus = activeWindow;
+        }
+
+        ForceFocusToWpfElement(windowToFocus, focusScopeToFocus, focusedElement);
+    }
+
+    private void ForceFocusToWpfElement(IntPtr windowHandle, DependencyObject focusScope, IInputElement focusedElement)
+    {
+        // The focused HWND is not a WPF window, but WPF thinks it has Keyboard Focus.
+        // This means that the focus is out of sync. (The HWND that has focus will receive keyboard input,
+        // but WPF will render the UI as if the focused element has focus.)
+        //
+        // To fix this state, we need to focus the WPF window so that it receives the input.
+        // We then have to restore the focus to the previously focused element in WPF.
+        _ignoreFocusChange = true;
+        try
+        {
+            NativeMethods.SetFocus(windowHandle);
+            var elementFocusedByMovingFocusToWpfWindow = FocusManager.GetFocusedElement(focusScope);
+
+            if (elementFocusedByMovingFocusToWpfWindow != null
+                && elementFocusedByMovingFocusToWpfWindow != focusedElement)
+            {
+                // Focus the element from WPF as well, since WPF seems to not fully update its internal state
+                // when just restoring focus when the main window receives focus by a native call.
+                elementFocusedByMovingFocusToWpfWindow.Focus();
+            }
+
+            focusedElement.Focus();
+        }
+        finally
+        {
+            _ignoreFocusChange = false;
+        }
+    }
+
+    private static class NativeMethods
+    {
+        [DllImport("user32.dll")]
+        internal static extern IntPtr SetFocus(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        internal static extern IntPtr GetFocus();
+
+        [DllImport("user32.dll")]
+        internal static extern IntPtr SetActiveWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetForegroundWindow(IntPtr hWnd);
+    }
+
+    #endregion
 }
