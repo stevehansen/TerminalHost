@@ -76,7 +76,11 @@ public interface IGitHubService
     /// <summary>
     /// Merges a pull request.
     /// </summary>
-    Task<bool> MergePullRequestAsync(string workingDirectory, int prNumber, string method = "squash");
+    /// <param name="workingDirectory">The working directory.</param>
+    /// <param name="prNumber">The PR number.</param>
+    /// <param name="method">The merge method (squash, merge, rebase).</param>
+    /// <param name="commitSubject">Optional commit message subject (title). For squash, defaults to "PR Title (#Number)" if not provided.</param>
+    Task<bool> MergePullRequestAsync(string workingDirectory, int prNumber, string method = "squash", string? commitSubject = null);
 
     /// <summary>
     /// Gets repositories accessible to the current user.

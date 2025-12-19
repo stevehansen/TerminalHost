@@ -443,7 +443,7 @@ public partial class PrReviewViewModel : ObservableObject
         if (!confirmed) return;
 
         using var toast = _toastService.ShowProgress($"Merging PR #{PullRequest.Number}...");
-        var success = await _gitHubService.MergePullRequestAsync(WorkingDirectory, PullRequest.Number, "squash");
+        var success = await _gitHubService.MergePullRequestAsync(WorkingDirectory, PullRequest.Number, "squash", squashCommitMessage);
 
         if (success)
         {

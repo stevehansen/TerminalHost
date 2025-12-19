@@ -292,7 +292,7 @@ internal sealed class GitHubService : IGitHubService
         }
     }
 
-    public async Task<bool> MergePullRequestAsync(string workingDirectory, int prNumber, string method = "squash")
+    public async Task<bool> MergePullRequestAsync(string workingDirectory, int prNumber, string method = "squash", string? commitSubject = null)
     {
         if (!IsGitHubCliAvailable())
             return false;
@@ -306,9 +306,15 @@ internal sealed class GitHubService : IGitHubService
                 _ => "--squash"
             };
 
-            var (exitCode, _, _) = await RunGhCommandAsync(
-                workingDirectory,
-                $"pr merge {prNumber} {methodArg} --delete-branch");
+            var args = $"pr merge {prNumber} {methodArg} --delete-branch";
+
+            // Add commit subject if provided (primarily used for squash merges)
+            if (!string.IsNullOrEmpty(commitSubject))
+            {
+                args += $" --subject \"{EscapeArgument(commitSubject)}\"";
+            }
+
+            var (exitCode, _, _) = await RunGhCommandAsync(workingDirectory, args);
             return exitCode == 0;
         }
         catch
