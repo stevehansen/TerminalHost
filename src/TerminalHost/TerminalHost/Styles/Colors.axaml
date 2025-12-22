@@ -1,0 +1,129 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- COLOR PALETTE - All colors should be defined here               -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- Background Colors -->
+    <Color x:Key="BackgroundDarkestColor">#1E1E1E</Color>
+    <Color x:Key="BackgroundDarkColor">#252525</Color>
+    <Color x:Key="BackgroundMediumColor">#2D2D2D</Color>
+    <Color x:Key="BackgroundLightColor">#3C3C3C</Color>
+    <Color x:Key="BackgroundHoverColor">#3E3E3E</Color>
+    <Color x:Key="BackgroundActiveColor">#4E4E4E</Color>
+
+    <SolidColorBrush x:Key="BackgroundDarkestBrush" Color="{StaticResource BackgroundDarkestColor}"/>
+    <SolidColorBrush x:Key="BackgroundDarkBrush" Color="{StaticResource BackgroundDarkColor}"/>
+    <SolidColorBrush x:Key="BackgroundMediumBrush" Color="{StaticResource BackgroundMediumColor}"/>
+    <SolidColorBrush x:Key="BackgroundLightBrush" Color="{StaticResource BackgroundLightColor}"/>
+    <SolidColorBrush x:Key="BackgroundHoverBrush" Color="{StaticResource BackgroundHoverColor}"/>
+    <SolidColorBrush x:Key="BackgroundActiveBrush" Color="{StaticResource BackgroundActiveColor}"/>
+
+    <!-- Border Colors -->
+    <Color x:Key="BorderSubtleColor">#444444</Color>
+    <Color x:Key="BorderDefaultColor">#555555</Color>
+
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}"/>
+    <SolidColorBrush x:Key="BorderDefaultBrush" Color="{StaticResource BorderDefaultColor}"/>
+
+    <!-- Text Colors -->
+    <Color x:Key="TextMutedColor">#666666</Color>
+    <Color x:Key="TextDimmedColor">#808080</Color>
+    <Color x:Key="TextSecondaryColor">#AAAAAA</Color>
+    <Color x:Key="TextPrimaryColor">#CCCCCC</Color>
+    <Color x:Key="TextLightColor">#D4D4D4</Color>
+    <Color x:Key="TextBrightColor">#FFFFFF</Color>
+
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="TextDimmedBrush" Color="{StaticResource TextDimmedColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextLightBrush" Color="{StaticResource TextLightColor}"/>
+    <SolidColorBrush x:Key="TextBrightBrush" Color="{StaticResource TextBrightColor}"/>
+
+    <!-- Accent Colors -->
+    <Color x:Key="AccentPrimaryColor">#0078D4</Color>
+    <Color x:Key="AccentHoverColor">#1084D8</Color>
+    <Color x:Key="AccentDarkColor">#0E639C</Color>
+    <Color x:Key="AccentBlueColor">#264F78</Color>
+
+    <SolidColorBrush x:Key="AccentPrimaryBrush" Color="{StaticResource AccentPrimaryColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="{StaticResource AccentDarkColor}"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlueColor}"/>
+
+    <!-- Syntax/Semantic Colors (VS Code theme) -->
+    <Color x:Key="SyntaxBlueColor">#569CD6</Color>
+    <Color x:Key="SyntaxCyanColor">#4EC9B0</Color>
+    <Color x:Key="SyntaxLightBlueColor">#9CDCFE</Color>
+    <Color x:Key="SyntaxOrangeColor">#CE9178</Color>
+    <Color x:Key="SyntaxGreenColor">#B5CEA8</Color>
+    <Color x:Key="SyntaxYellowColor">#FFD700</Color>
+    <Color x:Key="SyntaxPurpleColor">#C586C0</Color>
+    <Color x:Key="SyntaxRedColor">#F44747</Color>
+
+    <SolidColorBrush x:Key="SyntaxBlueBrush" Color="{StaticResource SyntaxBlueColor}"/>
+    <SolidColorBrush x:Key="SyntaxCyanBrush" Color="{StaticResource SyntaxCyanColor}"/>
+    <SolidColorBrush x:Key="SyntaxLightBlueBrush" Color="{StaticResource SyntaxLightBlueColor}"/>
+    <SolidColorBrush x:Key="SyntaxOrangeBrush" Color="{StaticResource SyntaxOrangeColor}"/>
+    <SolidColorBrush x:Key="SyntaxGreenBrush" Color="{StaticResource SyntaxGreenColor}"/>
+    <SolidColorBrush x:Key="SyntaxYellowBrush" Color="{StaticResource SyntaxYellowColor}"/>
+    <SolidColorBrush x:Key="SyntaxPurpleBrush" Color="{StaticResource SyntaxPurpleColor}"/>
+    <SolidColorBrush x:Key="SyntaxRedBrush" Color="{StaticResource SyntaxRedColor}"/>
+
+    <!-- Status Colors -->
+    <Color x:Key="StatusErrorColor">#F48771</Color>
+    <Color x:Key="StatusWarningColor">#FFCC00</Color>
+    <Color x:Key="StatusSuccessColor">#4F8A10</Color>
+    <Color x:Key="DangerBackgroundColor">#5A2D2D</Color>
+    <Color x:Key="DangerHoverColor">#8B3A3A</Color>
+
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusErrorColor}"/>
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarningColor}"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccessColor}"/>
+    <SolidColorBrush x:Key="DangerBackgroundBrush" Color="{StaticResource DangerBackgroundColor}"/>
+    <SolidColorBrush x:Key="DangerHoverBrush" Color="{StaticResource DangerHoverColor}"/>
+
+    <!-- Resize Grip -->
+    <Color x:Key="ResizeGripColor">#888888</Color>
+    <SolidColorBrush x:Key="ResizeGripBrush" Color="{StaticResource ResizeGripColor}"/>
+
+    <!-- Scrollbar Colors -->
+    <Color x:Key="ScrollBarBackgroundColor">#252525</Color>
+    <Color x:Key="ScrollBarTrackBackgroundColor">#3C3C3C</Color>
+    <Color x:Key="ScrollBarThumbBackgroundColor">#555555</Color>
+    <Color x:Key="ScrollBarThumbMouseOverColor">#777777</Color>
+    <Color x:Key="ScrollBarThumbPressedColor">#0078D4</Color>
+    <Color x:Key="ScrollBarButtonBackgroundColor">#3C3C3C</Color>
+    <Color x:Key="ScrollBarButtonForegroundColor">#CCCCCC</Color>
+
+    <SolidColorBrush x:Key="ScrollBarBackgroundBrush" Color="{StaticResource ScrollBarBackgroundColor}"/>
+    <SolidColorBrush x:Key="ScrollBarTrackBackgroundBrush" Color="{StaticResource ScrollBarTrackBackgroundColor}"/>
+    <SolidColorBrush x:Key="ScrollBarThumbBackgroundBrush" Color="{StaticResource ScrollBarThumbBackgroundColor}"/>
+    <SolidColorBrush x:Key="ScrollBarThumbMouseOverBrush" Color="{StaticResource ScrollBarThumbMouseOverColor}"/>
+    <SolidColorBrush x:Key="ScrollBarThumbPressedBrush" Color="{StaticResource ScrollBarThumbPressedColor}"/>
+    <SolidColorBrush x:Key="ScrollBarButtonBackgroundBrush" Color="{StaticResource ScrollBarButtonBackgroundColor}"/>
+    <SolidColorBrush x:Key="ScrollBarButtonForegroundBrush" Color="{StaticResource ScrollBarButtonForegroundColor}"/>
+
+    <!-- Terminal Colors -->
+    <Color x:Key="TerminalBackgroundColor">#0C0C0C</Color>
+    <Color x:Key="TerminalForegroundColor">#CCCCCC</Color>
+
+    <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="{StaticResource TerminalBackgroundColor}"/>
+    <SolidColorBrush x:Key="TerminalForegroundBrush" Color="{StaticResource TerminalForegroundColor}"/>
+
+    <!-- Git Status Colors -->
+    <Color x:Key="GitModifiedColor">#E2C08D</Color>
+    <Color x:Key="GitAddedColor">#89D185</Color>
+    <Color x:Key="GitDeletedColor">#C74E39</Color>
+    <Color x:Key="GitUntrackedColor">#73C991</Color>
+    <Color x:Key="GitConflictColor">#E51400</Color>
+
+    <SolidColorBrush x:Key="GitModifiedBrush" Color="{StaticResource GitModifiedColor}"/>
+    <SolidColorBrush x:Key="GitAddedBrush" Color="{StaticResource GitAddedColor}"/>
+    <SolidColorBrush x:Key="GitDeletedBrush" Color="{StaticResource GitDeletedColor}"/>
+    <SolidColorBrush x:Key="GitUntrackedBrush" Color="{StaticResource GitUntrackedColor}"/>
+    <SolidColorBrush x:Key="GitConflictBrush" Color="{StaticResource GitConflictColor}"/>
+
+</ResourceDictionary>

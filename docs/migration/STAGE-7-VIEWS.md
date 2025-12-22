@@ -23,6 +23,191 @@ Convert all 44 XAML view files from WPF to Avalonia AXAML format, including cust
 
 ---
 
+## Deferred from Stage 5
+
+The following style files were deferred from Stage 5 to be created when control styles are needed:
+
+### 7.0.1 Styles/Controls.axaml
+
+**CREATE:** `src/TerminalHost/TerminalHost/Styles/Controls.axaml`
+
+```xml
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- TextBox Styles -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{StaticResource InputBackground}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="8,6"/>
+    </Style>
+
+    <Style Selector="TextBox:focus">
+        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+    </Style>
+
+    <!-- ListBox Styles -->
+    <Style Selector="ListBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="Padding" Value="8,4"/>
+    </Style>
+
+    <Style Selector="ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+    </Style>
+
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+    </Style>
+
+</ResourceDictionary>
+```
+
+### 7.0.2 Styles/Buttons.axaml
+
+**CREATE:** `src/TerminalHost/TerminalHost/Styles/Buttons.axaml`
+
+```xml
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Default Button Style -->
+    <Style Selector="Button">
+        <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button:pointerover">
+        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+    </Style>
+
+    <Style Selector="Button:pressed">
+        <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+    </Style>
+
+    <!-- Primary/Accent Button -->
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+    </Style>
+
+    <Style Selector="Button.primary:pointerover">
+        <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+    </Style>
+
+    <!-- Danger Button -->
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="{StaticResource DangerBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+    </Style>
+
+    <Style Selector="Button.danger:pointerover">
+        <Setter Property="Background" Value="{StaticResource DangerHoverBrush}"/>
+    </Style>
+
+    <!-- Icon Button (transparent background) -->
+    <Style Selector="Button.icon">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="MinWidth" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+    </Style>
+
+    <Style Selector="Button.icon:pointerover">
+        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+    </Style>
+
+</ResourceDictionary>
+```
+
+### 7.0.3 Styles/ScrollBars.axaml
+
+**CREATE:** `src/TerminalHost/TerminalHost/Styles/ScrollBars.axaml`
+
+```xml
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Scrollbar Thumb -->
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbBackgroundBrush}"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="ScrollBar /template/ Thumb:pointerover">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbMouseOverBrush}"/>
+    </Style>
+
+    <Style Selector="ScrollBar /template/ Thumb:pressed">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbPressedBrush}"/>
+    </Style>
+
+    <!-- Scrollbar Track -->
+    <Style Selector="ScrollBar /template/ Track">
+        <Setter Property="Background" Value="{StaticResource ScrollBarTrackBackgroundBrush}"/>
+    </Style>
+
+    <!-- Hide scroll buttons for minimal look -->
+    <Style Selector="ScrollBar /template/ RepeatButton">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+</ResourceDictionary>
+```
+
+### 7.0.4 Register Styles in App.axaml
+
+After creating the style files, update `App.axaml` to include them:
+
+```xml
+<Application.Resources>
+    <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://host/Styles/Colors.axaml"/>
+            <ResourceInclude Source="avares://host/Styles/Typography.axaml"/>
+            <ResourceInclude Source="avares://host/Styles/Controls.axaml"/>
+            <ResourceInclude Source="avares://host/Styles/Buttons.axaml"/>
+            <ResourceInclude Source="avares://host/Styles/ScrollBars.axaml"/>
+            <ResourceInclude Source="avares://host/Resources/Converters.axaml"/>
+        </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+</Application.Resources>
+```
+
+### 7.0.5 Tab Management Integration
+
+Once TabStrip.axaml is created (Phase 7A), integrate it with MainWindow:
+
+**Update:** `src/TerminalHost/TerminalHost/MainWindow.axaml`
+
+```xml
+<Grid RowDefinitions="Auto,*">
+    <!-- Replace placeholder Tab Strip with actual implementation -->
+    <views:TabStrip Grid.Row="0"
+                    DataContext="{Binding}"
+                    Tabs="{Binding Tabs}"
+                    SelectedTab="{Binding SelectedTab, Mode=TwoWay}"/>
+
+    <!-- Content Area with DataTemplate selection -->
+    <ContentControl Grid.Row="1"
+                    Content="{Binding SelectedTab}"
+                    ContentTemplate="{StaticResource TabContentTemplates}"/>
+</Grid>
+```
+
+---
+
 ## Migration Priority
 
 ### Phase 7A: Critical Views (Days 1-3)

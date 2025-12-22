@@ -1,8 +1,21 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:TerminalHost"
              x:Class="TerminalHost.App"
              RequestedThemeVariant="Dark">
+
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Colors and Typography are resource dictionaries, not styles -->
+                <ResourceInclude Source="avares://host/Styles/Colors.axaml"/>
+                <ResourceInclude Source="avares://host/Styles/Typography.axaml"/>
+                <ResourceInclude Source="avares://host/Resources/Converters.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

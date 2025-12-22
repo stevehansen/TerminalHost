@@ -23,6 +23,64 @@ Update all ViewModels to use the new platform-agnostic service abstractions, rem
 
 ---
 
+## Deferred from Stage 5
+
+The following items were deferred from Stage 5 and must be completed in this stage:
+
+### 6.0.1 MainWindow Keyboard Shortcuts with ViewModels
+
+**File:** `src/TerminalHost/TerminalHost/MainWindow.axaml.cs`
+
+Stage 5 created a placeholder MainWindow with basic keyboard handling. Once MainViewModel is migrated, update MainWindow to use ViewModel commands:
+
+```csharp
+// After MainViewModel is migrated, update MainWindow constructor:
+public MainWindow()
+{
+    InitializeComponent();
+
+    // Get services from DI
+    _viewModel = App.Current.Services.GetRequiredService<MainViewModel>();
+    _configService = App.Current.Services.GetRequiredService<IConfigurationService>();
+
+    DataContext = _viewModel;
+
+    // Event handlers
+    Opened += OnOpened;
+    Closing += OnClosing;
+}
+
+// Update OnOpened to call ViewModel.Initialize()
+private void OnOpened(object? sender, EventArgs e)
+{
+    _viewModel.Initialize();
+}
+```
+
+### 6.0.2 Full Keyboard Shortcut Implementation
+
+Once MainViewModel has all commands migrated, add proper keybindings to `MainWindow.axaml`:
+
+```xml
+<Window.KeyBindings>
+    <!-- Tab Navigation -->
+    <KeyBinding Gesture="Ctrl+PageDown" Command="{Binding CycleTabCommand}" CommandParameter="True"/>
+    <KeyBinding Gesture="Ctrl+PageUp" Command="{Binding CycleTabCommand}" CommandParameter="False"/>
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseTabCommand}" CommandParameter="{Binding SelectedTab}"/>
+
+    <!-- Application -->
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding OpenNewProjectCommand}"/>
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}"/>
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProfilesCommand}"/>
+    <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenInExplorerCommand}"/>
+
+    <!-- Terminal -->
+    <KeyBinding Gesture="Ctrl+OemTilde" Command="{Binding SwitchActiveTerminalCommand}"/>
+</Window.KeyBindings>
+```
+
+---
+
 ## ViewModel Changes Summary
 
 | ViewModel | Changes Required |

@@ -77,6 +77,9 @@
 
     <!-- Exclude XAML files (will be replaced with AXAML) -->
     <None Remove="**\*.xaml" />
+
+    <!-- Exclude WPF XAML from Avalonia compilation -->
+    <AvaloniaXaml Remove="**\*.xaml" />
   </ItemGroup>
 
   <!-- Stage 4: Re-include terminal control files after Stage 1 exclusions -->
@@ -89,6 +92,7 @@
     <Compile Include="Domain\SessionState.cs" />
     <Compile Include="Domain\UsageStats.cs" />
     <Compile Include="Domain\DirectoryUsageStats.cs" />
+    <Compile Include="Domain\RunState.cs" />
 
     <!-- Service interfaces and implementations for Stage 4 -->
     <Compile Include="Services\ITerminalControlFactory.cs" />
@@ -107,6 +111,23 @@
     <!-- Terminal control -->
     <Compile Include="Controls\MacTerminalControl.cs" />
   </ItemGroup>
+
+  <!-- Stage 5: Core UI files -->
+  <ItemGroup>
+    <!-- MainWindow code-behind (axaml file is auto-included by SDK) -->
+    <Compile Include="MainWindow.axaml.cs" />
+  </ItemGroup>
+
+  <!--
+    Note: .axaml files (MainWindow.axaml, App.axaml, Styles/*.axaml, Resources/*.axaml)
+    are automatically included by the Avalonia SDK as AvaloniaResource.
+    Converters\*.cs files are automatically included by the SDK as Compile.
+  -->
+
+  <!--
+    Note: Converters\*.cs files are automatically included by the SDK
+    since we only excluded the root Converters.cs, not the Converters folder
+  -->
 
   <!-- Remove PDB files after publish -->
   <Target Name="RemovePdbFiles" AfterTargets="Publish">
