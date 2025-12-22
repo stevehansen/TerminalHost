@@ -1,92 +1,76 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>TerminalHost</RootNamespace>
     <AssemblyName>host</AssemblyName>
-    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-	<NoWarn>$(NoWarn);NU1701</NoWarn>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
 
-	<!-- Single-file publish settings -->
+    <!-- macOS publish settings -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\app.ico" />
+    <!-- Include only image resources, not WPF XAML files -->
+    <AvaloniaResource Include="Resources\**\*" Exclude="Resources\**\*.xaml" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Avalonia UI Framework -->
+    <PackageReference Include="Avalonia" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.1" Condition="'$(Configuration)' == 'Debug'" />
+
+    <!-- Existing cross-platform packages -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="EasyWindowsTerminalControl" Version="1.0.36" ExcludeAssets="symbols" />
-    <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0-rc5.4" />
     <PackageReference Include="Markdig" Version="0.44.0" />
     <PackageReference Include="Markdig.SyntaxHighlighting" Version="1.1.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3650.58" />
     <PackageReference Include="System.Text.Json" Version="10.0.1" />
+
+    <!-- Avalonia-compatible charts -->
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4" />
+
+    <!-- Terminal PTY support will be added in Stage 4 -->
   </ItemGroup>
 
   <ItemGroup>
-	<!--
-	using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-    using MessageBox = System.Windows.MessageBox;
-    using MessageBoxButton = System.Windows.MessageBoxButton;
-    using MessageBoxImage = System.Windows.MessageBoxImage;
-    using MessageBoxResult = System.Windows.MessageBoxResult;
-    using TextBox = System.Windows.Controls.TextBox;
-    using Button = System.Windows.Controls.Button;
-    using Orientation = System.Windows.Controls.Orientation;
-    using HorizontalAlignment = System.Windows.HorizontalAlignment;
-    using Application = System.Windows.Application;
-    using Point = System.Windows.Point;
-    using MouseEventArgs = System.Windows.Input.MouseEventArgs;
-    using DataObject = System.Windows.DataObject;
-    using DragDropEffects = System.Windows.DragDropEffects;
-    using DragEventArgs = System.Windows.DragEventArgs;
-    using UserControl = System.Windows.Controls.UserControl;
+    <!--
+    Stage 1: Exclude ALL WPF-dependent files until migrated in later stages.
+    Only include the minimal Avalonia entry point files.
     -->
-    <Using Include="System.Windows.Input.KeyEventArgs" Alias="KeyEventArgs" />
-    <Using Include="System.Windows.MessageBox" Alias="MessageBox" />
-    <Using Include="System.Windows.MessageBoxButton" Alias="MessageBoxButton" />
-    <Using Include="System.Windows.MessageBoxImage" Alias="MessageBoxImage" />
-    <Using Include="System.Windows.MessageBoxResult" Alias="MessageBoxResult" />
-    <Using Include="System.Windows.Controls.TextBox" Alias="TextBox" />
-    <Using Include="System.Windows.Controls.Button" Alias="Button" />
-    <Using Include="System.Windows.Controls.Orientation" Alias="Orientation" />
-    <Using Include="System.Windows.HorizontalAlignment" Alias="HorizontalAlignment" />
-    <Using Include="System.Windows.Application" Alias="Application" />
-    <Using Include="System.Windows.Point" Alias="Point" />
-    <Using Include="System.Windows.Input.MouseEventArgs" Alias="MouseEventArgs" />
-    <Using Include="System.Windows.DataObject" Alias="DataObject" />
-    <Using Include="System.Windows.DragDropEffects" Alias="DragDropEffects" />
-    <Using Include="System.Windows.DragEventArgs" Alias="DragEventArgs" />
-	<Using Include="System.Windows.Controls.UserControl" Alias="UserControl" />
-    <Using Include="System.Windows.Media.Color" Alias="Color" />
-    <Using Include="System.Windows.Media.Colors" Alias="Colors" />
-    <Using Include="System.Windows.Media.ColorConverter" Alias="ColorConverter" />
-    <Using Include="System.Windows.Media.Brush" Alias="Brush" />
-    <Using Include="System.Windows.Media.SolidColorBrush" Alias="SolidColorBrush" />
-    <Using Include="System.Windows.Clipboard" Alias="Clipboard" />
-    <Using Include="System.Windows.Media.FontFamily" Alias="FontFamily" />
-  </ItemGroup>
 
-  <!-- Copy conpty.dll from NuGet package to output -->
-  <ItemGroup>
-    <None Include="$(NuGetPackageRoot)ci.microsoft.windows.console.conpty\1.22.250314001\runtimes\win10-x64\native\conpty.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>conpty.dll</Link>
-    </None>
+    <!-- Exclude all WPF code-behind and views -->
+    <Compile Remove="App.xaml.cs" />
+    <Compile Remove="MainWindow.xaml.cs" />
+    <Compile Remove="MainWindow.*.cs" />
+    <Compile Remove="Views\**\*.cs" />
+    <Compile Remove="Controls\**\*.cs" />
+
+    <!-- Exclude all ViewModels (reference WPF types) -->
+    <Compile Remove="ViewModels\**\*.cs" />
+
+    <!-- Exclude all Domain models (many reference WPF types like Brush, Color) -->
+    <Compile Remove="Domain\**\*.cs" />
+
+    <!-- Exclude all Services (most reference WPF types or Windows-specific APIs) -->
+    <Compile Remove="Services\**\*.cs" />
+
+    <!-- Exclude WPF converters -->
+    <Compile Remove="Converters.cs" />
+
+    <!-- Exclude XAML files (will be replaced with AXAML) -->
+    <None Remove="**\*.xaml" />
   </ItemGroup>
 
   <!-- Remove PDB files after publish -->
