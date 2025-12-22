@@ -69,6 +69,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **File Explorer Panel (Ctrl+Shift+F):** Integrated file explorer as a toggleable right panel in terminal tabs with:
   - Tree view with lazy loading and file icons
   - Git status integration (badges M/A/D/? and row background tints)
+  - **.gitignore support**: Respects git ignore patterns, hides ignored files by default
+  - "Show Ignored" toggle button to reveal ignored files (dimmed with 50% opacity)
   - File operations (create, rename, delete, copy path)
   - Terminal integration (cd to folder in shell)
   - Unified file viewer with preview/edit mode toggle
@@ -1396,6 +1398,17 @@ See **[PRD.Versioning.md](PRD.Versioning.md)** for detailed implementation plan.
 
 **Summary**: Implement application versioning using MinVer (git tag-based) and automatic updates using Updatum (GitHub Releases integration). This enables tracking feature releases, displaying version in UI, and notifying users of available updates with optional auto-install.
 
+### Unified Panel System and UX Improvements
+
+See **[PRD.Panels.md](PRD.Panels.md)** for detailed implementation plan.
+
+**Summary**: Comprehensive UX improvements including:
+- **Unified Panel System**: Content can transition between Panel (docked), Popup (floating), and Window (detached) states
+- **File Explorer .gitignore Support**: Respect `.gitignore` patterns, hide ignored files by default
+- **Single Instance UX**: Show dialog when running without arguments while app is already running
+- **Multiple Tabs for Same Folder**: Allow duplicate tabs for same directory with visual distinction
+- **First-Run Setup**: Detect first run and show setup window (with false positive prevention)
+
 ### Activity Indicator Debugging
 
 The current activity indicator implementation sometimes shows false positives due to terminal control rendering events. To improve reliability, consider adding debugging capabilities:
@@ -1405,44 +1418,6 @@ The current activity indicator implementation sometimes shows false positives du
 - **Filtering options**: Allow configuring minimum output threshold or duration before counting as "activity"
 
 This would help identify the source of false triggers and tune the detection logic.
-
-### Tab Management
-- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
-
-### First-Run Setup Experience
-- **Auto-Launch Setup on First Run**: When config file is empty/missing, show setup dialog before main window
-- **Detect Missing Dependencies**: Run dependency checks automatically
-- **Command Line Skip**: Add `--no-setup` flag to disable for unit tests and automation
-- **Implementation Notes**:
-  - `App.xaml.cs`: Check if config exists/is empty before showing main window
-  - `ConfigurationService.cs`: Add `IsFirstRun()` method to check for empty/default config
-  - `CommandLineArgs`: Add `SkipSetupCheck` flag (`--no-setup`, `-nosetup`)
-  - Consider: Auto-skip if `DisableSingleInstance` is set (likely testing scenario)
-
-### Single Instance Behavior Improvements
-- **Show Message When No Arguments**: When `host` runs without arguments but process is already running:
-  - Instead of silently closing, show a themed dialog explaining the situation
-  - Message: "TerminalHost is already running. Use `host <path>` to open a project or `host -multi` to allow multiple instances."
-- **Implementation Notes**:
-  - `App.xaml.cs` lines 58-67: When `!startupArgs.HasValidRequest()` but another instance exists
-  - Use `DialogService.ShowInfo()` or a simple `MessageBox` (since services not yet configured)
-  - Include hint about `-multi` flag for developers who want multiple instances
-
-### Advanced Panel Management
-- **Fixed Claude panel**: Left panel (Claude terminal) should always be visible at full height
-- **Right panel variants**: Right side can switch between different views:
-  - Shell terminal (current behavior)
-  - Project Runner terminal
-  - Dedicated markdown viewer (auto-updated on file change) for PRD/progress tracking
-- **Split right panel**: Alternative layout with right side split in half:
-  - Top: Shell/console terminal
-  - Bottom: Runner/PRD/other content panel
-- **File explorer panel**: Simple tree-based folder/file browser
-- **Persistent file viewer panel**: Auto-reloading file panel with multiple modes:
-  - Preview mode (syntax highlighted, read-only)
-  - Edit mode (editable)
-  - Diff mode (show changes)
-  - Auto-reload from disk when file changes externally
 
 ### Other Features
 - **Custom profile pairs**: Different command pairs for different project types
@@ -1462,5 +1437,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.11*
-*Last Updated: 2025-12-19*
+*Document Version: 2.13*
+*Last Updated: 2025-12-22*

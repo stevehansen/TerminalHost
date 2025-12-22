@@ -16,6 +16,7 @@ public class MainViewModelTests
     private readonly Mock<IConfigurationService> _mockConfigService;
     private readonly Mock<IStatisticsService> _mockStatisticsService;
     private readonly Mock<IGitStatusService> _mockGitStatusService;
+    private readonly Mock<IGitIgnoreService> _mockGitIgnoreService;
     private readonly Mock<ILinkDetectionService> _mockLinkDetectionService;
     private readonly Mock<IProjectDetectionService> _mockProjectDetectionService;
     private readonly Mock<IRunUrlDetectionService> _mockRunUrlDetectionService;
@@ -46,6 +47,7 @@ public class MainViewModelTests
         _mockConfigService = new Mock<IConfigurationService>();
         _mockStatisticsService = new Mock<IStatisticsService>();
         _mockGitStatusService = new Mock<IGitStatusService>();
+        _mockGitIgnoreService = new Mock<IGitIgnoreService>();
         _mockLinkDetectionService = new Mock<ILinkDetectionService>();
         _mockProjectDetectionService = new Mock<IProjectDetectionService>();
         _mockRunUrlDetectionService = new Mock<IRunUrlDetectionService>();
@@ -130,6 +132,7 @@ public class MainViewModelTests
             _mockConfigService.Object,
             _mockStatisticsService.Object,
             _mockGitStatusService.Object,
+            _mockGitIgnoreService.Object,
             _mockLinkDetectionService.Object,
             _mockProjectDetectionService.Object,
             _mockRunUrlDetectionService.Object,

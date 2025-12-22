@@ -19,6 +19,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IConfigurationService _configService;
     private readonly IStatisticsService _statisticsService;
     private readonly IGitStatusService _gitStatusService;
+    private readonly IGitIgnoreService _gitIgnoreService;
     private readonly ILinkDetectionService _linkDetectionService;
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly IRunUrlDetectionService _runUrlDetectionService;
@@ -160,6 +161,7 @@ public partial class MainViewModel : ObservableObject
         IConfigurationService configService,
         IStatisticsService statisticsService,
         IGitStatusService gitStatusService,
+        IGitIgnoreService gitIgnoreService,
         ILinkDetectionService linkDetectionService,
         IProjectDetectionService projectDetectionService,
         IRunUrlDetectionService runUrlDetectionService,
@@ -186,6 +188,7 @@ public partial class MainViewModel : ObservableObject
         _configService = configService;
         _statisticsService = statisticsService;
         _gitStatusService = gitStatusService;
+        _gitIgnoreService = gitIgnoreService;
         _linkDetectionService = linkDetectionService;
         _projectDetectionService = projectDetectionService;
         _runUrlDetectionService = runUrlDetectionService;
@@ -711,7 +714,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService);
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _gitIgnoreService, _dialogService, _fileSystem, _processService);
             tabViewModel.ExplorerViewModel = explorerViewModel;
 
             // Restore explorer settings

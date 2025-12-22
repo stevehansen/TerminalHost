@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -13,6 +14,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 {
     private readonly IFileExplorerService _fileExplorerService;
     private readonly IGitStatusService _gitStatusService;
+    private readonly IGitIgnoreService _gitIgnoreService;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
@@ -21,6 +23,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private string? _selectedPathBeforeRefresh;
     private bool _isDisposed;
     private bool _isRefreshing;
+    private HashSet<string> _ignoredPaths = new(StringComparer.OrdinalIgnoreCase);
 
     [ObservableProperty]
     private string _rootPath = "";
@@ -41,17 +44,22 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private bool _showHiddenFiles;
 
     [ObservableProperty]
+    private bool _showIgnoredFiles;
+
+    [ObservableProperty]
     private bool _isLoading;
 
     public FileExplorerViewModel(
         IFileExplorerService fileExplorerService,
         IGitStatusService gitStatusService,
+        IGitIgnoreService gitIgnoreService,
         IDialogService dialogService,
         IFileSystem fileSystem,
         IProcessService processService)
     {
         _fileExplorerService = fileExplorerService;
         _gitStatusService = gitStatusService;
+        _gitIgnoreService = gitIgnoreService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _processService = processService;
@@ -71,6 +79,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             ChildrenLoaded = false
         };
 
+        // Load ignored paths for filtering
+        await RefreshIgnoredPathsAsync();
+
         // Load root children
         await LoadChildrenAsync(RootNode);
         RootNode.IsExpanded = true;
@@ -80,6 +91,24 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
         // Initial git status refresh
         await RefreshGitStatusAsync();
+    }
+
+    private async Task RefreshIgnoredPathsAsync()
+    {
+        if (string.IsNullOrEmpty(RootPath))
+        {
+            _ignoredPaths.Clear();
+            return;
+        }
+
+        try
+        {
+            _ignoredPaths = await _gitIgnoreService.GetIgnoredPathsAsync(RootPath);
+        }
+        catch
+        {
+            _ignoredPaths.Clear();
+        }
     }
 
     private void StartFileWatcher()
@@ -92,35 +121,41 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         _fileWatcher = _fileExplorerService.WatchDirectory(RootPath, OnFileSystemChanged);
     }
 
-    private static bool ShouldIgnoreFileChange(string path)
+    private bool ShouldIgnoreFileChange(string path)
     {
         // Normalize path for comparison
         var normalizedPath = path.Replace('/', '\\').ToLowerInvariant();
 
-        // Ignore .git folder and its contents
+        // Always ignore .git folder and its contents (git modifies these constantly)
         if (normalizedPath.Contains("\\.git\\") || normalizedPath.EndsWith("\\.git"))
             return true;
 
-        // Ignore common build/temp directories
-        var ignoredFolders = new[] { "\\bin\\", "\\obj\\", "\\node_modules\\", "\\.vs\\", "\\packages\\", "\\__pycache__\\", "\\.idea\\", "\\.vscode\\" };
-        foreach (var folder in ignoredFolders)
-        {
-            if (normalizedPath.Contains(folder))
-                return true;
-        }
-
-        // Ignore common temp file patterns
-        var ignoredExtensions = new[] { ".tmp", ".temp", ".log", ".suo", ".user", ".cache" };
+        // Ignore common temp file patterns (these are noise, not in gitignore)
+        var ignoredExtensions = new[] { ".tmp", ".temp", ".suo", ".user", ".cache" };
         foreach (var ext in ignoredExtensions)
         {
             if (normalizedPath.EndsWith(ext))
                 return true;
         }
 
-        // Ignore files starting with ~ (temp files)
+        // Ignore files starting with ~ (temp files from editors)
         var fileName = Path.GetFileName(path);
         if (fileName.StartsWith("~") || fileName.StartsWith(".#"))
             return true;
+
+        // Check against gitignore paths (includes node_modules, bin, obj, etc.)
+        var fullPath = Path.GetFullPath(path);
+        if (_ignoredPaths.Contains(fullPath))
+            return true;
+
+        // Also check if any parent directory is ignored (for nested files)
+        var parent = Path.GetDirectoryName(fullPath);
+        while (!string.IsNullOrEmpty(parent) && parent.Length > RootPath.Length)
+        {
+            if (_ignoredPaths.Contains(parent))
+                return true;
+            parent = Path.GetDirectoryName(parent);
+        }
 
         return false;
     }
@@ -173,6 +208,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             // Store selection
             _selectedPathBeforeRefresh = SelectedNode?.FullPath;
 
+            // Refresh ignored paths (gitignore may have changed)
+            await RefreshIgnoredPathsAsync();
+
             // Refresh the root node's children while preserving expanded state
             if (RootNode != null)
             {
@@ -210,6 +248,14 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         node.Children.Clear();
         foreach (var child in children)
         {
+            // Check if this child is ignored by git
+            var isIgnored = _ignoredPaths.Contains(child.FullPath);
+            child.IsGitIgnored = isIgnored;
+
+            // Skip ignored files unless ShowIgnoredFiles is enabled
+            if (isIgnored && !ShowIgnoredFiles)
+                continue;
+
             child.Parent = node;
 
             // Restore expanded state
@@ -286,6 +332,14 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
         foreach (var child in children)
         {
+            // Check if this child is ignored by git
+            var isIgnored = _ignoredPaths.Contains(child.FullPath);
+            child.IsGitIgnored = isIgnored;
+
+            // Skip ignored files unless ShowIgnoredFiles is enabled
+            if (isIgnored && !ShowIgnoredFiles)
+                continue;
+
             child.Parent = node;
 
             // Add dummy child for directories (lazy loading)
@@ -362,6 +416,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 
     partial void OnShowHiddenFilesChanged(bool value)
+    {
+        _ = RefreshAsync();
+    }
+
+    partial void OnShowIgnoredFilesChanged(bool value)
     {
         _ = RefreshAsync();
     }
