@@ -152,6 +152,7 @@ public partial class App : Application
         services.AddSingleton<IDiffParserService, DiffParserService>();
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();
+        services.AddSingleton<IFolderPickerService, FolderPickerService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

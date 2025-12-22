@@ -37,6 +37,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly IFolderPickerService _folderPickerService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _activityTimer;
@@ -176,7 +177,8 @@ public partial class MainViewModel : ObservableObject
         IProcessService processService,
         IToastService toastService,
         ITimerService timerService,
-        IDispatcherService dispatcherService)
+        IDispatcherService dispatcherService,
+        IFolderPickerService folderPickerService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -202,6 +204,7 @@ public partial class MainViewModel : ObservableObject
         _toastService = toastService;
         _timerService = timerService;
         _dispatcherService = dispatcherService;
+        _folderPickerService = folderPickerService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -597,24 +600,15 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // Use folder browser dialog
-            var dialog = new FolderBrowserDialog
+            var selectedPath = _folderPickerService.PickFolder("Select Project Directory");
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                Description = "Select Project Directory",
-                ShowNewFolderButton = true,
-                UseDescriptionForTitle = true
-            };
-
-            var result = dialog.ShowDialog();
-
-            if (result == System.Windows.Forms.DialogResult.OK)
-            {
-                OpenProjectTab(dialog.SelectedPath);
+                OpenProjectTab(selectedPath);
             }
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"Error opening project: {ex.Message}"); // Use injected IDialogService
+            _dialogService.ShowError($"Error opening project: {ex.Message}");
         }
     }
 
@@ -825,30 +819,25 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            var dialog = new FolderBrowserDialog
-            {
-                Description = $"Select Working Directory for {profile.Name}",
-                ShowNewFolderButton = true,
-                UseDescriptionForTitle = true
-            };
-
-            // Set initial directory to profile's configured directory if it exists
+            // Get initial directory from profile's configured directory if it exists
             var initialDir = profile.GetExpandedWorkingDir();
-            if (!string.IsNullOrWhiteSpace(initialDir) && _fileSystem.DirectoryExists(initialDir)) // Use injected IFileSystem
+            if (string.IsNullOrWhiteSpace(initialDir) || !_fileSystem.DirectoryExists(initialDir))
             {
-                dialog.InitialDirectory = initialDir;
+                initialDir = null;
             }
 
-            var result = dialog.ShowDialog();
+            var selectedPath = _folderPickerService.PickFolder(
+                $"Select Working Directory for {profile.Name}",
+                initialDir);
 
-            if (result == System.Windows.Forms.DialogResult.OK)
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                OpenProfileTab(profile, dialog.SelectedPath);
+                OpenProfileTab(profile, selectedPath);
             }
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"Error opening folder picker: {ex.Message}"); // Use injected IDialogService
+            _dialogService.ShowError($"Error opening folder picker: {ex.Message}");
         }
     }
 
@@ -1176,7 +1165,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);

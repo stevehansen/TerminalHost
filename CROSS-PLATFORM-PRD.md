@@ -110,7 +110,7 @@ Portable ViewModels using CommunityToolkit.Mvvm:
 - `SessionManager` - Manages `TerminalSession` lifecycle
 
 **WPF-Coupled ViewModels**:
-- `MainViewModel` - Uses `FolderBrowserDialog` (timers now abstracted via ITimerService)
+- `MainViewModel` - Uses `CollectionViewSource` (timers and folder picker now abstracted)
 - `TerminalPairTabViewModel` - Uses `GridLength`, `GridUnitType`
 - `FileViewerViewModel` - Uses `FlowDocument`, `BitmapImage` (timers now abstracted)
 - `GitBranchViewModel` - Uses `CollectionViewSource`
@@ -154,18 +154,20 @@ public interface IDispatcherService
 **Implementation**: `DispatcherService` in TerminalHost.Windows uses WPF `Application.Current.Dispatcher`
 **Used by**: MainViewModel (command filtering), MarkdownPreviewViewModel (file watcher)
 
+### Folder Picker (✅ Implemented)
+```csharp
+// In TerminalHost.Core.Interfaces
+public interface IFolderPickerService
+{
+    string? PickFolder(string? title = null, string? initialPath = null);
+}
+```
+**Implementation**: `FolderPickerService` in TerminalHost.Windows uses WPF `OpenFolderDialog`
+**Used by**: MainViewModel (open project, profile picker), DashboardTabViewModel (clone directory)
+
 ## Missing Abstractions for Cross-Platform
 
 To achieve full cross-platform support, these additional abstractions would need to be created:
-
-### Folder Picker
-```csharp
-// Replace FolderBrowserDialog
-public interface IFolderPickerService
-{
-    string? PickFolder(string? initialPath = null);
-}
-```
 
 ### Document Rendering
 ```csharp
@@ -228,7 +230,7 @@ The biggest challenge - replacing `EasyWindowsTerminalControl`:
 ### Future Work (for cross-platform)
 - [x] Create ITimerService abstraction
 - [x] Create IDispatcherService abstraction
-- [ ] Create IFolderPickerService abstraction
+- [x] Create IFolderPickerService abstraction
 - [ ] Abstract FlowDocument usage
 - [ ] Abstract BitmapImage usage
 - [ ] Research cross-platform terminal controls

@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using TerminalHost.Domain;
@@ -23,6 +22,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
+    private readonly IFolderPickerService _folderPickerService;
     private readonly IAppTimer _refreshTimer;
 
     #region ITabViewModel Implementation
@@ -113,7 +113,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IFileSystem fileSystem,
         IProcessService processService,
         IToastService toastService,
-        ITimerService timerService)
+        ITimerService timerService,
+        IFolderPickerService folderPickerService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -123,6 +124,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _processService = processService;
         _toastService = toastService;
         _timerService = timerService;
+        _folderPickerService = folderPickerService;
 
         // Setup auto-refresh timer
         _refreshTimer = _timerService.CreateTimer(TimeSpan.FromMinutes(5), async () => await RefreshAsync());
@@ -294,18 +296,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         if (result)
         {
             // Browse for existing folder
-            var dialog = new OpenFolderDialog
-            {
-                Title = $"Select local folder for {repoName}",
-                Multiselect = false
-            };
-
-            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.FolderName))
-            {
-                return dialog.FolderName;
-            }
-
-            return null; // User cancelled
+            var selectedFolder = _folderPickerService.PickFolder($"Select local folder for {repoName}");
+            return selectedFolder; // Returns null if user cancelled
         }
 
         // Clone automatically
@@ -314,17 +306,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         if (string.IsNullOrEmpty(cloneDir))
         {
-            var cloneDirDialog = new OpenFolderDialog
-            {
-                Title = "Select directory to clone repositories into",
-                Multiselect = false
-            };
-
-            if (cloneDirDialog.ShowDialog() == true && !string.IsNullOrEmpty(cloneDirDialog.FolderName))
-            {
-                cloneDir = cloneDirDialog.FolderName;
-            }
-            else
+            cloneDir = _folderPickerService.PickFolder("Select directory to clone repositories into");
+            if (string.IsNullOrEmpty(cloneDir))
             {
                 return null; // User cancelled
             }
