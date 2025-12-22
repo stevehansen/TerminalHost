@@ -11,6 +11,16 @@ public class CommandLineArgs
     public bool DisableSingleInstance { get; set; }
     public string? UserDataDir { get; set; }
 
+    /// <summary>
+    /// When true, forces creation of a new tab even if a tab for this directory exists.
+    /// </summary>
+    public bool ForceNewTab { get; set; }
+
+    /// <summary>
+    /// Signals the first instance to show the single instance choice dialog.
+    /// </summary>
+    public bool IsShowChoiceDialog { get; set; }
+
     public static CommandLineArgs Parse(string[] args)
     {
         var result = new CommandLineArgs();
@@ -56,6 +66,18 @@ public class CommandLineArgs
                     if (i + 1 < args.Length)
                         result.WorkingDir = ResolveDirectory(args[++i]);
                     continue;
+
+                case "--new":
+                case "-n":
+                    result.ForceNewTab = true;
+                    // Optionally consume the next argument as the directory
+                    if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        result.WorkingDir = ResolveDirectory(args[++i]);
+                    continue;
+
+                case "--show-choice-dialog":
+                    result.IsShowChoiceDialog = true;
+                    continue;
             }
 
             // Handle positional argument (first non-flag argument is treated as directory)
@@ -87,6 +109,6 @@ public class CommandLineArgs
 
     public bool HasValidRequest()
     {
-        return !string.IsNullOrEmpty(WorkingDir) || IsSetupMode;
+        return !string.IsNullOrEmpty(WorkingDir) || IsSetupMode || IsShowChoiceDialog;
     }
 }

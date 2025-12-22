@@ -19,6 +19,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public string TabIcon => "📁";
     public string WorkingDirectory => Pair.WorkingDirectory;
     public bool IsCloseable => true;
+    public bool CanDuplicate => true;
 
     [ObservableProperty]
     private string _customIcon = "🤖";
@@ -132,6 +133,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
+
+    /// <summary>
+    /// Index for duplicate tabs of the same directory.
+    /// 0 = first/original tab (no suffix), 2+ = duplicate tabs.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    private int _duplicateIndex;
 
     // AI Assistant support
     [ObservableProperty]
@@ -296,7 +305,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? $"{Title} {GitStatus.BranchDisplayShort}"
         : Title;
 
-    public string DisplayTitle => TitleWithGit;
+    public string DisplayTitle => DuplicateIndex > 0
+        ? $"{TitleWithGit} ({DuplicateIndex})"
+        : TitleWithGit;
 
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
@@ -313,7 +324,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -321,9 +332,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
+        DuplicateIndex = duplicateIndex;
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -333,6 +345,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
+        DuplicateIndex = duplicateIndex;
 
         // Populate available assistants
         foreach (var assistant in enabledAssistants)

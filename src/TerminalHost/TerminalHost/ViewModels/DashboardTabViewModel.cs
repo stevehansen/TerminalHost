@@ -31,6 +31,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     public string TabIcon => "G";  // GitHub icon
     public string WorkingDirectory => "";
     public bool IsCloseable => true;
+    public bool CanDuplicate => false;
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
     public bool IsSelected { get; set; }

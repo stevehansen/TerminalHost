@@ -615,7 +615,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public void OpenProjectTab(string workingDirectory)
+    public void OpenProjectTab(string workingDirectory, bool forceNew = false)
     {
         try
         {
@@ -628,19 +628,25 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            // Check if we already have a tab open for this directory
-            var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
-                string.Equals(
-                    Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    workingDirectory,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (existingTab != null)
+            // Check if we already have a tab open for this directory (unless forceNew)
+            if (!forceNew)
             {
-                // Focus the existing tab instead of creating a new one
-                SelectedTab = existingTab;
-                return;
+                var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
+                    string.Equals(
+                        Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                        workingDirectory,
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (existingTab != null)
+                {
+                    // Focus the existing tab instead of creating a new one
+                    SelectedTab = existingTab;
+                    return;
+                }
             }
+
+            // Calculate duplicate index for display title
+            var duplicateIndex = GetDuplicateTabIndex(workingDirectory);
 
             var settings = _profileRegistry.Settings;
 
@@ -675,7 +681,7 @@ public partial class MainViewModel : ObservableObject
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
             // Create view model with AI assistant info
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, duplicateIndex);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
@@ -745,6 +751,100 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _dialogService.ShowError($"Error creating terminal: {ex.Message}"); // Use injected IDialogService
+        }
+    }
+
+    /// <summary>
+    /// Gets the next duplicate index for tabs with the same working directory.
+    /// Returns 0 for the first tab (no suffix), 2 for the second, etc.
+    /// </summary>
+    private int GetDuplicateTabIndex(string workingDirectory)
+    {
+        var normalizedPath = Path.GetFullPath(workingDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        var existingTabs = Tabs.OfType<TerminalPairTabViewModel>()
+            .Where(t => string.Equals(
+                Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                normalizedPath,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (existingTabs.Count == 0)
+            return 0; // First tab, no index needed
+
+        // Find the highest existing index and add 1
+        var maxIndex = existingTabs.Max(t => t.DuplicateIndex);
+        return Math.Max(2, maxIndex + 1);
+    }
+
+    /// <summary>
+    /// Duplicates the specified tab, creating a new tab for the same directory.
+    /// </summary>
+    [RelayCommand]
+    private void DuplicateTab(ITabViewModel? tab)
+    {
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenProjectTab(terminalTab.Pair.WorkingDirectory, forceNew: true);
+        }
+    }
+
+    /// <summary>
+    /// Moves the specified tab to the front of the tab list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveTabToFront(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index > 0)
+        {
+            Tabs.Move(index, 0);
+        }
+    }
+
+    /// <summary>
+    /// Moves the specified tab to the end of the tab list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveTabToEnd(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index >= 0 && index < Tabs.Count - 1)
+        {
+            Tabs.Move(index, Tabs.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// Closes all tabs except the specified one.
+    /// </summary>
+    [RelayCommand]
+    private void CloseOtherTabs(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var tabsToClose = Tabs.Where(t => t != tab && t.IsCloseable).ToList();
+        foreach (var t in tabsToClose)
+        {
+            CloseTabCommand.Execute(t);
+        }
+    }
+
+    /// <summary>
+    /// Closes all tabs to the right of the specified tab.
+    /// </summary>
+    [RelayCommand]
+    private void CloseTabsToRight(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index < 0) return;
+        var tabsToClose = Tabs.Skip(index + 1).Where(t => t.IsCloseable).ToList();
+        foreach (var t in tabsToClose)
+        {
+            CloseTabCommand.Execute(t);
         }
     }
 
@@ -1520,6 +1620,15 @@ public partial class MainViewModel : ObservableObject
                 Icon = "🔍",
                 Category = "Tab",
                 Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
+            },
+            new() {
+                Id = "duplicate-tab",
+                Name = "Duplicate Tab",
+                Description = "Open new tab for same directory",
+                Icon = "📋",
+                Category = "Tab",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) DuplicateTabCommand.Execute(tab); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 
             // File commands

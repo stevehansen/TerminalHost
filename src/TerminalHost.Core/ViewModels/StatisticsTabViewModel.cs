@@ -17,6 +17,7 @@ namespace TerminalHost.Core.ViewModels
         public string Title => "Statistics";
         public string TabIcon => "📊";
         public bool IsCloseable => true;
+        public bool CanDuplicate => false;
         public string WorkingDirectory => string.Empty;
         public bool IsAnyTerminalActive => false;
         public bool HasUnreadActivity => false;

@@ -1,4 +1,7 @@
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -85,10 +88,40 @@ public partial class App : Application
         {
             if (!_singleInstanceService.TryAcquireLock())
             {
-                // Another instance is running, send command line args and exit
+                // Another instance is running
                 if (startupArgs.HasValidRequest())
                 {
+                    // Has path or show-dialog command - send and exit
                     SingleInstanceService.SendToRunningInstance(startupArgs);
+                }
+                else
+                {
+                    // No arguments - check behavior setting
+                    var behavior = GetSingleInstanceBehavior();
+
+                    switch (behavior)
+                    {
+                        case SingleInstanceBehavior.ShowDialog:
+                            // Tell first instance to show choice dialog
+                            SingleInstanceService.SendToRunningInstance(
+                                new CommandLineArgs { IsShowChoiceDialog = true });
+                            break;
+
+                        case SingleInstanceBehavior.SilentFocus:
+                            // Just send empty args to focus existing window
+                            SingleInstanceService.SendToRunningInstance(new CommandLineArgs());
+                            break;
+
+                        case SingleInstanceBehavior.AllowMultiple:
+                            // Restart with -multi flag
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = Environment.ProcessPath,
+                                Arguments = "-multi",
+                                UseShellExecute = true
+                            });
+                            break;
+                    }
                 }
 
                 Shutdown();
@@ -214,11 +247,71 @@ public partial class App : Application
         var mainViewModel = Services.GetService<MainViewModel>();
         if (mainViewModel == null) return;
 
+        // Handle single instance choice dialog request
+        if (args.IsShowChoiceDialog)
+        {
+            ShowSingleInstanceChoiceDialog();
+            return;
+        }
+
         // If a working directory is specified, open a project tab
         if (!string.IsNullOrEmpty(args.WorkingDir))
         {
-            mainViewModel.OpenProjectTab(args.WorkingDir);
+            mainViewModel.OpenProjectTab(args.WorkingDir, args.ForceNewTab);
         }
+    }
+
+    /// <summary>
+    /// Shows a dialog when another instance tried to start without arguments.
+    /// </summary>
+    private void ShowSingleInstanceChoiceDialog()
+    {
+        var dialogService = Services.GetService<IDialogService>();
+        if (dialogService == null) return;
+
+        var result = dialogService.ShowCustomButtons(
+            "TerminalHost is already running.\n\nUse 'host <path>' to open a project, or click 'Open New Instance' to start another instance.",
+            "Already Running",
+            "Focus Existing", "Open New Instance", "Cancel");
+
+        switch (result)
+        {
+            case 0: // Focus Existing (already focused by bringing window to front)
+                break;
+            case 1: // Open New Instance
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = Environment.ProcessPath,
+                    Arguments = "-multi",
+                    UseShellExecute = true
+                });
+                break;
+            // 2 or -1 = Cancel, do nothing
+        }
+    }
+
+    /// <summary>
+    /// Reads the single instance behavior setting from config (before DI is set up).
+    /// </summary>
+    private static SingleInstanceBehavior GetSingleInstanceBehavior()
+    {
+        try
+        {
+            var configPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TerminalHost", "config.json");
+            if (File.Exists(configPath))
+            {
+                var json = File.ReadAllText(configPath);
+                var config = JsonSerializer.Deserialize<AppConfiguration>(json);
+                return config?.Settings?.SingleInstanceBehavior ?? SingleInstanceBehavior.ShowDialog;
+            }
+        }
+        catch
+        {
+            // Ignore config read errors
+        }
+        return SingleInstanceBehavior.ShowDialog;
     }
 
     private void OnExit(object sender, ExitEventArgs e)

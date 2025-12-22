@@ -43,5 +43,10 @@ public interface ITabViewModel : INotifyPropertyChanged
     /// </summary>
     void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects);
 
+    /// <summary>
+    /// Whether this tab can be duplicated. Only project tabs can be duplicated.
+    /// </summary>
+    bool CanDuplicate { get; }
+
     event EventHandler? CloseRequested;
 }

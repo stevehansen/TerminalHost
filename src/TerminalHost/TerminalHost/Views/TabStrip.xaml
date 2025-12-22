@@ -22,12 +22,39 @@
                     Margin="0,0,2,0"
                     MinWidth="100"
                     AllowDrop="True"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                     PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
                     PreviewMouseMove="Tab_PreviewMouseMove"
                     MouseDown="Tab_MouseDown"
                     DragOver="Tab_DragOver"
                     DragLeave="Tab_DragLeave"
                     Drop="Tab_Drop">
+                <Border.ContextMenu>
+                    <ContextMenu Style="{StaticResource DarkContextMenu}">
+                        <MenuItem Header="Duplicate Tab"
+                                  Command="{Binding PlacementTarget.Tag.DuplicateTabCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Visibility="{Binding PlacementTarget.DataContext.CanDuplicate, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <Separator Visibility="{Binding PlacementTarget.DataContext.CanDuplicate, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <MenuItem Header="Move to Front"
+                                  Command="{Binding PlacementTarget.Tag.MoveTabToFrontCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Move to End"
+                                  Command="{Binding PlacementTarget.Tag.MoveTabToEndCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Close Other Tabs"
+                                  Command="{Binding PlacementTarget.Tag.CloseOtherTabsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Close Tabs to the Right"
+                                  Command="{Binding PlacementTarget.Tag.CloseTabsToRightCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Close Tab"
+                                  Command="{Binding PlacementTarget.Tag.CloseTabCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
                             Content="×"

@@ -43,6 +43,7 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     public string TabIcon => "\uD83D\uDC64"; // Profile icon
     public string WorkingDirectory => "Profiles";
     public bool IsCloseable => true;
+    public bool CanDuplicate => false;
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
     public bool IsSelected { get; set; }

@@ -301,6 +301,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public string TabIcon => "\u2699"; // Gear symbol
     public string WorkingDirectory => "Settings";
     public bool IsCloseable => true;
+    public bool CanDuplicate => false;
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
     public bool IsSelected { get; set; }

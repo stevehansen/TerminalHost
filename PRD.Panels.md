@@ -336,11 +336,13 @@ bool IsFirstRun()
 3. ~~Add "Show Ignored" toggle to toolbar~~ - Added toggle button with `◌` icon
 4. ~~Add dimmed visual style for ignored files~~ - 50% opacity + "(ignored)" label
 
-### Phase 2: Single Instance & Duplicate Tabs
-1. Add dialog when running without arguments
-2. Implement "Duplicate Tab" feature
-3. Add CLI flag `--new`
-4. Add tab indexing for duplicates
+### Phase 2: Single Instance & Duplicate Tabs [COMPLETED]
+1. ~~Add dialog when running without arguments~~ - Shows custom button dialog with Focus Existing/Open New Instance/Cancel
+2. ~~Implement "Duplicate Tab" feature~~ - Right-click context menu + command palette command
+3. ~~Add CLI flag `--new`~~ - `host --new <path>` or `host -n <path>` forces new tab
+4. ~~Add tab indexing for duplicates~~ - Displays as "MyProject (2)", "MyProject (3)", etc.
+5. ~~Add `singleInstanceBehavior` setting~~ - ShowDialog (default), SilentFocus, AllowMultiple
+6. ~~Add `allowDuplicateTabs` setting~~ - Enables duplicate tab features (default: true)
 
 ### Phase 3: First-Run Setup
 1. Add `IsFirstRun()` detection logic

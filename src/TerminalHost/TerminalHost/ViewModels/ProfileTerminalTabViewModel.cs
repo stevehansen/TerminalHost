@@ -23,6 +23,7 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
 
     public string WorkingDirectory { get; }
     public bool IsCloseable => true;
+    public bool CanDuplicate => false;
     public string DisplayTitle => Title;
 
     [ObservableProperty]

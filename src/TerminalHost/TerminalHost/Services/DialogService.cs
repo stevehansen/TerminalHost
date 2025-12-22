@@ -114,6 +114,30 @@ public class DialogService : IDialogService
     }
 
     /// <summary>
+    /// Shows a dialog with custom button labels.
+    /// Returns the index of the clicked button (0-based), or -1 if dialog was closed without selection.
+    /// </summary>
+    public int ShowCustomButtons(string message, string title, params string[] buttons)
+    {
+        if (buttons == null || buttons.Length == 0)
+        {
+            buttons = ["OK"];
+        }
+
+        var owner = GetActiveWindow();
+        var dialog = new CustomButtonDialog(message, title, buttons)
+        {
+            Owner = owner,
+            WindowStartupLocation = owner != null
+                ? WindowStartupLocation.CenterOwner
+                : WindowStartupLocation.CenterScreen
+        };
+
+        dialog.ShowDialog();
+        return dialog.SelectedButtonIndex;
+    }
+
+    /// <summary>
     /// Gets the currently active window to use as dialog owner.
     /// </summary>
     private static Window? GetActiveWindow()

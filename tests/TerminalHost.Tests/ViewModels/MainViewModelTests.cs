@@ -221,7 +221,7 @@ public class MainViewModelTests
             // Ensure current selected tab is not the one we want to open again (simulate different tab selected)
             // Fix: Create mock pair with different working directory via constructor to avoid duplicate detection logic during setup
             var mockTerminalPair = new Mock<TerminalPair>(workingDirectory + "_other", new Profile(), new Profile(), _mockStatisticsService.Object);
-            var mockTabViewModel = new Mock<TerminalPairTabViewModel>(mockTerminalPair.Object, "", "", _mockStatisticsService.Object);
+            var mockTabViewModel = new Mock<TerminalPairTabViewModel>(mockTerminalPair.Object, "", "", _mockStatisticsService.Object, 0);
             // mockTabViewModel.Setup(t => t.Pair.WorkingDirectory).Returns(workingDirectory + "_other"); // REMOVED as unsupported
             
             _mainViewModel.Tabs.Add(mockTabViewModel.Object); // Add another tab

@@ -23,6 +23,27 @@ public enum TerminalLayoutMode
     VerticalSplit
 }
 
+/// <summary>
+/// Defines behavior when launching the app while another instance is running.
+/// </summary>
+public enum SingleInstanceBehavior
+{
+    /// <summary>
+    /// Show a dialog offering Focus Existing, Open New Instance, or Cancel.
+    /// </summary>
+    ShowDialog,
+
+    /// <summary>
+    /// Silently focus the existing instance without showing any dialog.
+    /// </summary>
+    SilentFocus,
+
+    /// <summary>
+    /// Always allow multiple instances without checking.
+    /// </summary>
+    AllowMultiple
+}
+
 public class AppConfiguration
 {
     [JsonPropertyName("profiles")]
@@ -335,6 +356,19 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("markdown")]
     public MarkdownSettings Markdown { get; set; } = new();
+
+    /// <summary>
+    /// Behavior when launching without arguments while an instance is running.
+    /// </summary>
+    [JsonPropertyName("singleInstanceBehavior")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public SingleInstanceBehavior SingleInstanceBehavior { get; set; } = SingleInstanceBehavior.ShowDialog;
+
+    /// <summary>
+    /// Whether to allow multiple tabs for the same folder.
+    /// </summary>
+    [JsonPropertyName("allowDuplicateTabs")]
+    public bool AllowDuplicateTabs { get; set; } = true;
 }
 
 /// <summary>

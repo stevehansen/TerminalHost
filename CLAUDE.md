@@ -167,12 +167,17 @@ host -w P:\MyProject
 # Launch the setup and dependency checker window
 host /setup
 
+# Force new tab even if directory already open
+host --new P:\MyProject
+host -n P:\MyProject
+host -n .
+
 # Advanced/Testing arguments
 host --disable-single-instance  # Allow multiple instances (or -multi)
 host --user-data-dir "C:\Path"  # Override configuration path (or -data)
 ```
 
-If a project tab for the specified directory already exists, it will be focused instead of creating a new tab.
+If a project tab for the specified directory already exists, it will be focused instead of creating a new tab (unless `--new` is used).
 
 ## Project Structure
 
