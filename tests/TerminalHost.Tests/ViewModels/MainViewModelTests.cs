@@ -32,6 +32,8 @@ public class MainViewModelTests
     private readonly Mock<IMarkdownService> _mockMarkdownService;
     private readonly Mock<IProcessService> _mockProcessService;
     private readonly Mock<IToastService> _mockToastService;
+    private readonly Mock<ITimerService> _mockTimerService;
+    private readonly Mock<IDispatcherService> _mockDispatcherService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -58,6 +60,12 @@ public class MainViewModelTests
         _mockMarkdownService = new Mock<IMarkdownService>();
         _mockProcessService = new Mock<IProcessService>();
         _mockToastService = new Mock<IToastService>();
+        _mockTimerService = new Mock<ITimerService>();
+        _mockDispatcherService = new Mock<IDispatcherService>();
+
+        // Setup timer service to return a mock timer
+        _mockTimerService.Setup(ts => ts.CreateTimer(It.IsAny<TimeSpan>(), It.IsAny<Action>()))
+            .Returns(new Mock<IAppTimer>().Object);
 
         // Setup default behaviors for IAiAssistantService
         var defaultAssistant = new AiAssistant
@@ -135,7 +143,9 @@ public class MainViewModelTests
             _mockGitHubService.Object,
             _mockMarkdownService.Object,
             _mockProcessService.Object,
-            _mockToastService.Object);
+            _mockToastService.Object,
+            _mockTimerService.Object,
+            _mockDispatcherService.Object);
     }
 
     // Helper to run tests in STA thread

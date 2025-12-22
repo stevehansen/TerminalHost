@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Windows.Threading;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -23,7 +22,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
-    private readonly DispatcherTimer _refreshTimer;
+    private readonly ITimerService _timerService;
+    private readonly IAppTimer _refreshTimer;
 
     #region ITabViewModel Implementation
 
@@ -112,7 +112,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IDialogService dialogService,
         IFileSystem fileSystem,
         IProcessService processService,
-        IToastService toastService)
+        IToastService toastService,
+        ITimerService timerService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -121,13 +122,10 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _fileSystem = fileSystem;
         _processService = processService;
         _toastService = toastService;
+        _timerService = timerService;
 
         // Setup auto-refresh timer
-        _refreshTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMinutes(5)
-        };
-        _refreshTimer.Tick += async (_, _) => await RefreshAsync();
+        _refreshTimer = _timerService.CreateTimer(TimeSpan.FromMinutes(5), async () => await RefreshAsync());
 
         // Populate recent repos from open tabs
         PopulateRecentRepos();

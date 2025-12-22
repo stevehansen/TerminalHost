@@ -110,37 +110,53 @@ Portable ViewModels using CommunityToolkit.Mvvm:
 - `SessionManager` - Manages `TerminalSession` lifecycle
 
 **WPF-Coupled ViewModels**:
-- `MainViewModel` - Uses `DispatcherTimer`, `FolderBrowserDialog`
+- `MainViewModel` - Uses `FolderBrowserDialog` (timers now abstracted via ITimerService)
 - `TerminalPairTabViewModel` - Uses `GridLength`, `GridUnitType`
-- `FileViewerViewModel` - Uses `FlowDocument`, `BitmapImage`
+- `FileViewerViewModel` - Uses `FlowDocument`, `BitmapImage` (timers now abstracted)
 - `GitBranchViewModel` - Uses `CollectionViewSource`
-- `ScratchPadViewModel` - Uses `DispatcherTimer`
 - `SetupViewModel` - Uses `System.Windows.Media.Fonts`
 - And more...
 
-## Missing Abstractions for Cross-Platform
+## Implemented Abstractions
 
-To achieve full cross-platform support, these abstractions would need to be created:
+These abstractions have been implemented to improve cross-platform readiness:
 
-### Timer Abstraction
+### Timer Abstraction (✅ Implemented)
 ```csharp
-// Replace DispatcherTimer usage
+// In TerminalHost.Core.Interfaces
 public interface ITimerService
 {
-    ITimer CreateTimer(TimeSpan interval, Action callback);
+    IAppTimer CreateTimer(TimeSpan interval, Action callback);
+}
+
+public interface IAppTimer : IDisposable
+{
+    void Start();
+    void Stop();
+    bool IsEnabled { get; set; }
+    TimeSpan Interval { get; set; }
 }
 ```
+**Implementation**: `TimerService` in TerminalHost.Windows uses WPF `DispatcherTimer`
+**Used by**: MainViewModel (4 timers), DashboardTabViewModel, FileViewerViewModel, ScratchPadViewModel
 
-### UI Thread Dispatcher
+### UI Thread Dispatcher (✅ Implemented)
 ```csharp
-// Replace Application.Current.Dispatcher
+// In TerminalHost.Core.Interfaces
 public interface IDispatcherService
 {
+    void BeginInvoke(Action action);
     void Invoke(Action action);
     Task InvokeAsync(Func<Task> action);
     bool CheckAccess();
 }
 ```
+**Implementation**: `DispatcherService` in TerminalHost.Windows uses WPF `Application.Current.Dispatcher`
+**Used by**: MainViewModel (command filtering), MarkdownPreviewViewModel (file watcher)
+
+## Missing Abstractions for Cross-Platform
+
+To achieve full cross-platform support, these additional abstractions would need to be created:
 
 ### Folder Picker
 ```csharp
@@ -210,8 +226,8 @@ The biggest challenge - replacing `EasyWindowsTerminalControl`:
 - [x] Verify all tests pass (52/52)
 
 ### Future Work (for cross-platform)
-- [ ] Create ITimerService abstraction
-- [ ] Create IDispatcherService abstraction
+- [x] Create ITimerService abstraction
+- [x] Create IDispatcherService abstraction
 - [ ] Create IFolderPickerService abstraction
 - [ ] Abstract FlowDocument usage
 - [ ] Abstract BitmapImage usage

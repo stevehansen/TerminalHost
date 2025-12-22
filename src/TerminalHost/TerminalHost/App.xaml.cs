@@ -150,6 +150,8 @@ public partial class App : Application
         services.AddSingleton<IMarkdownService, MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
+        services.AddSingleton<ITimerService, TimerService>();
+        services.AddSingleton<IDispatcherService, DispatcherService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

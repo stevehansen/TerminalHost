@@ -119,5 +119,46 @@ public partial class NotificationDialog : Window
             Close();
             e.Handled = true;
         }
+        else if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            // Ctrl+C copies the dialog content like standard MessageBox
+            CopyDialogContent();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Copies the dialog content to clipboard in the same format as Windows MessageBox.
+    /// Format: [Window Title]\r\n[Message]\r\n[Buttons]
+    /// </summary>
+    private void CopyDialogContent()
+    {
+        var buttons = new List<string>();
+        if (OKButton.Visibility == Visibility.Visible) buttons.Add("OK");
+        if (CancelButton.Visibility == Visibility.Visible) buttons.Add("Cancel");
+        if (YesButton.Visibility == Visibility.Visible) buttons.Add("Yes");
+        if (NoButton.Visibility == Visibility.Visible) buttons.Add("No");
+
+        var buttonText = string.Join("   ", buttons);
+        var separator = new string('-', 27);
+
+        var content = $"""
+            {separator}
+            {TitleText.Text}
+            {separator}
+            {MessageText.Text}
+            {separator}
+            {buttonText}
+            {separator}
+            """;
+
+        try
+        {
+            System.Windows.Clipboard.SetText(content);
+        }
+        catch
+        {
+            // Clipboard operation failed, ignore
+        }
     }
 }

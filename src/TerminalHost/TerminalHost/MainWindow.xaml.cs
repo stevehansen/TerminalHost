@@ -1019,7 +1019,8 @@ public partial class MainWindow : Window
                 App.Current.Services.GetRequiredService<IFileEditService>(),
                 App.Current.Services.GetRequiredService<IFileSystem>(),
                 App.Current.Services.GetRequiredService<IDialogService>(),
-                App.Current.Services.GetRequiredService<IMarkdownService>());
+                App.Current.Services.GetRequiredService<IMarkdownService>(),
+                App.Current.Services.GetRequiredService<ITimerService>());
             detachedViewModel.IsDetached = true;
             detachedViewModel.Open(filePath, mode);
 

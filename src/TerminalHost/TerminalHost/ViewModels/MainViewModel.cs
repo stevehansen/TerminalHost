@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -36,11 +35,13 @@ public partial class MainViewModel : ObservableObject
     private readonly IMarkdownService _markdownService;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
+    private readonly ITimerService _timerService;
+    private readonly IDispatcherService _dispatcherService;
 
-    private readonly DispatcherTimer _gitStatusTimer;
-    private readonly DispatcherTimer _activityTimer;
-    private readonly DispatcherTimer _linkDetectionTimer;
-    private readonly DispatcherTimer _runUrlDetectionTimer;
+    private readonly IAppTimer _gitStatusTimer;
+    private readonly IAppTimer _activityTimer;
+    private readonly IAppTimer _linkDetectionTimer;
+    private readonly IAppTimer _runUrlDetectionTimer;
 
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
@@ -173,7 +174,9 @@ public partial class MainViewModel : ObservableObject
         IGitHubService gitHubService,
         IMarkdownService markdownService,
         IProcessService processService,
-        IToastService toastService)
+        IToastService toastService,
+        ITimerService timerService,
+        IDispatcherService dispatcherService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -197,13 +200,15 @@ public partial class MainViewModel : ObservableObject
         _markdownService = markdownService;
         _processService = processService;
         _toastService = toastService;
+        _timerService = timerService;
+        _dispatcherService = dispatcherService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
         _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
-        _claudeCommandService.CommandsChanged += (_, _) => Application.Current.Dispatcher.BeginInvoke(FilterPaletteCommands);
+        _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -215,32 +220,16 @@ public partial class MainViewModel : ObservableObject
         InitializeCommandPalette(); // Initialize commands once
 
         // Set up timer for periodic git status refresh (every 5 seconds)
-        _gitStatusTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(5)
-        };
-        _gitStatusTimer.Tick += async (_, _) => await RefreshSelectedTabGitStatusAsync();
+        _gitStatusTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(5), async () => await RefreshSelectedTabGitStatusAsync());
 
         // Set up timer for activity state refresh (every 1 second to detect idle transitions)
-        _activityTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _activityTimer.Tick += (_, _) => RefreshActivityState();
+        _activityTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(1), RefreshActivityState);
 
         // Set up timer for link detection refresh (every 3 seconds)
-        _linkDetectionTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(3)
-        };
-        _linkDetectionTimer.Tick += (_, _) => RefreshDetectedLinks();
+        _linkDetectionTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(3), RefreshDetectedLinks);
 
         // Set up timer for run URL detection (every 2 seconds, only when running)
-        _runUrlDetectionTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(2)
-        };
-        _runUrlDetectionTimer.Tick += (_, _) => RefreshRunUrlDetection();
+        _runUrlDetectionTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(2), RefreshRunUrlDetection);
     }
 
     partial void OnDropdownSearchTextChanged(string value)
@@ -1087,7 +1076,7 @@ public partial class MainViewModel : ObservableObject
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Create a detached file viewer window
-        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService, _markdownService);
+        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService, _markdownService, _timerService);
         viewer.IsDetached = true;
         viewer.Open(e.FilePath, e.Mode);
 
@@ -1187,7 +1176,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);

@@ -4,9 +4,9 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -18,12 +18,13 @@ public partial class FileViewerViewModel : ObservableObject
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
     private readonly IMarkdownService _markdownService;
+    private readonly ITimerService _timerService;
     private string? _currentFilePath;
     private Encoding? _currentEncoding;
     private string? _originalContent;
 
     // Debounce timer for live markdown preview
-    private DispatcherTimer? _markdownDebounceTimer;
+    private IAppTimer? _markdownDebounceTimer;
     private const int MarkdownDebounceMs = 300;
 
     // Image file extensions
@@ -134,13 +135,15 @@ public partial class FileViewerViewModel : ObservableObject
         IFileEditService fileEditService,
         IFileSystem fileSystem,
         IDialogService dialogService,
-        IMarkdownService markdownService)
+        IMarkdownService markdownService,
+        ITimerService timerService)
     {
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _markdownService = markdownService;
+        _timerService = timerService;
 
         _previewDocument = CreateInfoDocument("Select a file to view.");
     }
@@ -425,15 +428,12 @@ public partial class FileViewerViewModel : ObservableObject
     private void DebouncedUpdateMarkdownPreview(string markdown)
     {
         _markdownDebounceTimer?.Stop();
-        _markdownDebounceTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(MarkdownDebounceMs)
-        };
-        _markdownDebounceTimer.Tick += (s, e) =>
+        _markdownDebounceTimer?.Dispose();
+        _markdownDebounceTimer = _timerService.CreateTimer(TimeSpan.FromMilliseconds(MarkdownDebounceMs), () =>
         {
             _markdownDebounceTimer?.Stop();
             RenderedHtml = _markdownService.ConvertToHtml(markdown);
-        };
+        });
         _markdownDebounceTimer.Start();
     }
 
