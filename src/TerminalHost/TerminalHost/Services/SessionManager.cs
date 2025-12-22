@@ -8,14 +8,16 @@ internal sealed class SessionManager : ISessionManager
     private readonly List<TerminalSession> _sessions = [];
     private readonly IProfileRegistry _profileRegistry;
     private readonly IStatisticsService _statisticsService;
+    private readonly IClipboardService _clipboardService;
 
     public IReadOnlyList<TerminalSession> ActiveSessions => _sessions.AsReadOnly();
     public IProfileRegistry ProfileRegistry => _profileRegistry;
 
-    public SessionManager(IProfileRegistry profileRegistry, IStatisticsService statisticsService)
+    public SessionManager(IProfileRegistry profileRegistry, IStatisticsService statisticsService, IClipboardService clipboardService)
     {
         _profileRegistry = profileRegistry;
         _statisticsService = statisticsService;
+        _clipboardService = clipboardService;
     }
 
     public event EventHandler<TerminalSession>? SessionCreated;
@@ -23,7 +25,7 @@ internal sealed class SessionManager : ISessionManager
 
     public TerminalSession CreateSession(Profile profile)
     {
-        var session = new TerminalSession(profile, _statisticsService, "AdHoc");
+        var session = new TerminalSession(profile, _statisticsService, _clipboardService, "AdHoc");
         _sessions.Add(session);
         SessionCreated?.Invoke(this, session);
         return session;

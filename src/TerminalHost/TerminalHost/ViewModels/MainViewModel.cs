@@ -33,6 +33,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IMarkdownService _markdownService;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
+    private readonly IClipboardService _clipboardService;
 
     private readonly DispatcherTimer _gitStatusTimer;
     private readonly DispatcherTimer _activityTimer;
@@ -170,7 +171,8 @@ public partial class MainViewModel : ObservableObject
         IGitHubService gitHubService,
         IMarkdownService markdownService,
         IProcessService processService,
-        IToastService toastService)
+        IToastService toastService,
+        IClipboardService clipboardService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -194,6 +196,7 @@ public partial class MainViewModel : ObservableObject
         _markdownService = markdownService;
         _processService = processService;
         _toastService = toastService;
+        _clipboardService = clipboardService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -679,7 +682,7 @@ public partial class MainViewModel : ObservableObject
             };
 
             // Create the terminal pair
-            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService);
+            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create terminal controls for both
             var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
@@ -803,7 +806,7 @@ public partial class MainViewModel : ObservableObject
             };
 
             // Create view model
-            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService);
+            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService, _clipboardService);
 
             // Create terminal control
             var terminalControl = _terminalFactory.CreateTerminalControl(tabViewModel.Session);
@@ -1015,7 +1018,7 @@ public partial class MainViewModel : ObservableObject
             _sessionManager.CloseSession(oldSession);
 
             // Create new session and control
-            var newSession = new TerminalSession(newProfile, _statisticsService, "Custom");
+            var newSession = new TerminalSession(newProfile, _statisticsService, _clipboardService, "Custom");
             var newControl = _terminalFactory.CreateTerminalControl(newSession);
             _sessionManager.TrackSession(newSession);
 

@@ -32,11 +32,12 @@ public partial class MainWindow : Window
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
+    private readonly IClipboardService _clipboardService;
     private bool _isExiting;
     private Views.MarkdownPreviewWindow? _markdownPreviewWindow;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, IClipboardService clipboardService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
+        _clipboardService = clipboardService;
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
         ScratchPadViewControl.DataContext = scratchPadViewModel;
@@ -517,18 +519,20 @@ public partial class MainWindow : Window
         if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control && IsFocusInTerminal())
         {
             // Try to copy selected text - if successful, handle the event; otherwise let Ctrl+C pass through
-            bool copied = false;
+            string? selectedText = null;
             if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
             {
-                copied = terminalTab.GetFocusedSession()?.CopySelectionToClipboard() ?? false;
+                selectedText = terminalTab.GetFocusedSession()?.GetSelectedText();
             }
             else if (_viewModel.SelectedTab is ProfileTerminalTabViewModel profileTab)
             {
-                copied = profileTab.Session?.CopySelectionToClipboard() ?? false;
+                selectedText = profileTab.Session?.GetSelectedText();
             }
 
-            if (copied)
+            if (!string.IsNullOrEmpty(selectedText))
             {
+                // Copy asynchronously (fire and forget in UI context)
+                _ = CopyToClipboardAsync(selectedText);
                 e.Handled = true;
                 return;
             }
@@ -1090,6 +1094,21 @@ public partial class MainWindow : Window
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Copies text to clipboard using the clipboard service.
+    /// </summary>
+    private async Task CopyToClipboardAsync(string text)
+    {
+        try
+        {
+            await _clipboardService.SetTextAsync(text);
+        }
+        catch
+        {
+            // Ignore clipboard errors
+        }
     }
 
     #endregion

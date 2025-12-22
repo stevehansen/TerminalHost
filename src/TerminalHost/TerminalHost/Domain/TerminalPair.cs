@@ -22,6 +22,7 @@ public class TerminalPair : IDisposable
     /// </summary>
     public TerminalSession? RunTerminal { get; private set; }
     private readonly IStatisticsService _statisticsService;
+    private readonly IClipboardService _clipboardService;
 
     /// <summary>
     /// Current state of the run terminal.
@@ -38,18 +39,24 @@ public class TerminalPair : IDisposable
         _ => CustomTerminal
     };
 
-    public TerminalPair(string workingDirectory, Profile customProfile, Profile shellProfile, IStatisticsService statisticsService)
+    public TerminalPair(
+        string workingDirectory,
+        Profile customProfile,
+        Profile shellProfile,
+        IStatisticsService statisticsService,
+        IClipboardService clipboardService)
     {
         Id = Guid.NewGuid();
         WorkingDirectory = workingDirectory;
         _statisticsService = statisticsService;
+        _clipboardService = clipboardService;
 
         // Override the working directory for both profiles
         var customWithDir = CloneProfileWithWorkingDir(customProfile, workingDirectory);
         var shellWithDir = CloneProfileWithWorkingDir(shellProfile, workingDirectory);
 
-        CustomTerminal = new TerminalSession(customWithDir, _statisticsService, "Custom");
-        ShellTerminal = new TerminalSession(shellWithDir, _statisticsService, "Shell");
+        CustomTerminal = new TerminalSession(customWithDir, _statisticsService, _clipboardService, "Custom");
+        ShellTerminal = new TerminalSession(shellWithDir, _statisticsService, _clipboardService, "Shell");
     }
 
     private static Profile CloneProfileWithWorkingDir(Profile profile, string workingDir)
@@ -86,7 +93,7 @@ public class TerminalPair : IDisposable
             var profile = string.IsNullOrEmpty(runProfile.WorkingDir)
                 ? runProfile
                 : CloneProfileWithWorkingDir(runProfile, WorkingDirectory);
-            RunTerminal = new TerminalSession(profile, _statisticsService, "Run");
+            RunTerminal = new TerminalSession(profile, _statisticsService, _clipboardService, "Run");
         }
         return RunTerminal;
     }

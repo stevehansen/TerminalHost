@@ -15,12 +15,12 @@ Remove all P/Invoke (Win32 API calls) from Domain models and replace with platfo
 
 ## Success Criteria
 
-- [ ] No `[DllImport]` attributes remain in Domain/
-- [ ] No `System.Windows.*` references in Domain/
-- [ ] TerminalSession uses IClipboardService
-- [ ] Focus detection uses abstracted interface
-- [ ] FileSystemNode uses platform-agnostic color representation (Gap Fix)
-- [ ] All domain models compile independently
+- [x] No `[DllImport]` attributes remain in Domain/
+- [x] No `System.Windows.*` references in Domain/
+- [x] TerminalSession uses IClipboardService
+- [x] Focus detection uses abstracted interface
+- [x] FileSystemNode uses platform-agnostic color representation (Gap Fix)
+- [x] All domain models compile independently
 
 ---
 
@@ -912,6 +912,54 @@ The following changes will require updates in dependent code:
 4. **SetTerminalControl** parameter type changed to `ITerminalControl`
 
 These will be addressed in Stages 4 (terminal control) and 6 (ViewModels).
+
+---
+
+## Completion Notes
+
+**Stage 3 completed on 2025-12-22**
+
+### Summary of Changes Made
+
+1. **ITerminalControl.cs** - Created new interface at `Domain/ITerminalControl.cs`
+   - Includes `TerminalMouseEventArgs` class
+
+2. **TerminalSession.cs** - Major refactoring completed
+   - Removed 5 P/Invoke declarations (GetFocus, GetParent, WindowFromPoint, GetCursorPos, GetWindowRect)
+   - Removed GetScreenBounds method
+   - Replaced `HasWin32Focus()` with `HasFocus()` using ITerminalControl.IsFocused
+   - Added IClipboardService constructor parameter
+   - Replaced sync `CopySelectionToClipboard()` with async `CopySelectionToClipboardAsync()`
+   - Replaced `_easyTerminalControl` with `_terminalControl` (ITerminalControl)
+   - Removed all Windows-specific using statements
+
+3. **TerminalPair.cs** - Updated to pass IClipboardService
+   - Added `_clipboardService` field
+   - Updated constructor to accept IClipboardService
+   - Updated `CreateRunTerminal` to pass clipboard service
+
+4. **FileSystemNode.cs** - Removed WPF types
+   - Removed `using System.Windows.Media`
+   - Replaced `Brush? RowBackground` with `string? RowBackgroundHex`
+   - Updated `FileExplorerView.xaml` to use `HexToBrushConverter`
+
+### Additional Changes (to maintain build success)
+
+The breaking changes documented above required updates to dependent code:
+
+- **TerminalPairTabViewModel.cs**: Updated `HasWin32Focus()` → `HasFocus()`, `CopySelectionToClipboard()` → async
+- **MainWindow.xaml.cs**: Added IClipboardService, updated clipboard copying to async
+- **MainViewModel.cs**: Added IClipboardService, updated TerminalPair/TerminalSession creation
+- **SessionManager.cs**: Added IClipboardService constructor parameter
+- **ProfileTerminalTabViewModel.cs**: Added IClipboardService constructor parameter
+
+### Build Status
+
+```
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+```
 
 ---
 

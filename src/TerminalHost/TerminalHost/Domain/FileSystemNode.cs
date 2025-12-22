@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace TerminalHost.Domain;
@@ -72,14 +71,17 @@ public partial class FileSystemNode : ObservableObject
         _ => "#CCCCCC"
     };
 
-    public Brush? RowBackground => GitStatus switch
+    /// <summary>
+    /// Row background color as hex string (with alpha). UI layer converts to brush.
+    /// </summary>
+    public string? RowBackgroundHex => GitStatus switch
     {
-        GitFileStatusType.Modified => new SolidColorBrush(Color.FromArgb(0x20, 0xFF, 0xFF, 0x00)),   // Yellow tint
-        GitFileStatusType.Added => new SolidColorBrush(Color.FromArgb(0x20, 0x00, 0xFF, 0x00)),      // Green tint
-        GitFileStatusType.Deleted => new SolidColorBrush(Color.FromArgb(0x20, 0xFF, 0x00, 0x00)),    // Red tint
-        GitFileStatusType.Untracked => new SolidColorBrush(Color.FromArgb(0x20, 0x80, 0x80, 0x80)),  // Gray tint
-        GitFileStatusType.Renamed => new SolidColorBrush(Color.FromArgb(0x20, 0x00, 0x80, 0xFF)),    // Blue tint
-        GitFileStatusType.Conflicted => new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0x00, 0x00)), // Stronger red
+        GitFileStatusType.Modified => "#20FFFF00",   // Yellow tint
+        GitFileStatusType.Added => "#2000FF00",      // Green tint
+        GitFileStatusType.Deleted => "#20FF0000",    // Red tint
+        GitFileStatusType.Untracked => "#20808080",  // Gray tint
+        GitFileStatusType.Renamed => "#200080FF",    // Blue tint
+        GitFileStatusType.Conflicted => "#40FF0000", // Stronger red
         _ => null
     };
 
@@ -92,7 +94,7 @@ public partial class FileSystemNode : ObservableObject
     {
         OnPropertyChanged(nameof(GitStatusIcon));
         OnPropertyChanged(nameof(GitStatusColor));
-        OnPropertyChanged(nameof(RowBackground));
+        OnPropertyChanged(nameof(RowBackgroundHex));
     }
 
     public static FileSystemNode CreateDummy()

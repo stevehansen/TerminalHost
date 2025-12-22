@@ -750,23 +750,27 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// Copies the selected text from the focused terminal to the clipboard.
     /// </summary>
     [RelayCommand]
-    private void CopySelection()
+    private async Task CopySelectionAsync()
     {
-        GetFocusedSession()?.CopySelectionToClipboard();
+        var session = GetFocusedSession();
+        if (session != null)
+        {
+            await session.CopySelectionToClipboardAsync();
+        }
     }
 
     /// <summary>
     /// Gets the currently focused terminal session.
-    /// Uses Win32 cursor position to determine which terminal has focus.
+    /// Uses the terminal control's focus state to determine which terminal has focus.
     /// </summary>
     public Domain.TerminalSession? GetFocusedSession()
     {
-        // Check which terminal the cursor is over (works for HWND-hosted controls)
-        if (Pair.RunTerminal != null && IsRunTerminalVisible && Pair.RunTerminal.HasWin32Focus())
+        // Check which terminal has focus
+        if (Pair.RunTerminal != null && IsRunTerminalVisible && Pair.RunTerminal.HasFocus())
             return Pair.RunTerminal;
-        if (Pair.ShellTerminal.HasWin32Focus())
+        if (Pair.ShellTerminal.HasFocus())
             return Pair.ShellTerminal;
-        if (Pair.CustomTerminal.HasWin32Focus())
+        if (Pair.CustomTerminal.HasFocus())
             return Pair.CustomTerminal;
 
         // Fallback to tracked property

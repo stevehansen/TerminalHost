@@ -68,17 +68,20 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     public TerminalSession Session { get; }
 
     private readonly IStatisticsService _statisticsService;
+    private readonly IClipboardService _clipboardService;
 
     public event EventHandler? CloseRequested;
 
     public ProfileTerminalTabViewModel(
         Profile profile,
         string workingDirectory,
-        IStatisticsService statisticsService)
+        IStatisticsService statisticsService,
+        IClipboardService clipboardService)
     {
         Profile = profile;
         WorkingDirectory = workingDirectory;
         _statisticsService = statisticsService;
+        _clipboardService = clipboardService;
 
         // Set title: "ProfileName - DirectoryName" or just "ProfileName" if no working dir
         var dirName = string.IsNullOrWhiteSpace(workingDirectory)
@@ -93,7 +96,7 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
         TabIcon = string.IsNullOrWhiteSpace(profile.Icon) ? "▶" : profile.Icon;
 
         // Create the terminal session
-        Session = new TerminalSession(profile, statisticsService, "Profile");
+        Session = new TerminalSession(profile, statisticsService, clipboardService, "Profile");
     }
 
     /// <summary>

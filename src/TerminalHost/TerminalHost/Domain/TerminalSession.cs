@@ -1,10 +1,5 @@
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Interop;
-using EasyWindowsTerminalControl;
+using TerminalHost.Services;
 
 namespace TerminalHost.Domain;
 
@@ -14,9 +9,13 @@ public class TerminalSession : IDisposable
     public Profile Profile { get; }
     public SessionState State { get; private set; }
     public int? ExitCode { get; private set; }
-    public ContentControl? TerminalControl { get; set; }
+    public object? TerminalControl { get; set; }
 
-    private EasyTerminalControl? _easyTerminalControl;
+    private ITerminalControl? _terminalControl;
+    private readonly IClipboardService _clipboardService;
+    private readonly IStatisticsService _statisticsService;
+    private readonly string _workingDirectory;
+    private readonly string _terminalType;
 
     // Activity tracking
     private DateTime? _lastOutputTime;
@@ -30,10 +29,6 @@ public class TerminalSession : IDisposable
     // Output buffer for link detection (circular buffer of recent lines)
     private readonly StringBuilder _outputBuffer = new();
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
-
-    private readonly Services.IStatisticsService _statisticsService;
-    private readonly string _workingDirectory;
-    private readonly string _terminalType;
 
     /// <summary>
     /// The last time output was received from the terminal.
@@ -69,77 +64,106 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
-    public TerminalSession(Profile profile, Services.IStatisticsService statisticsService, string terminalType)
+    public TerminalSession(
+        Profile profile,
+        IStatisticsService statisticsService,
+        IClipboardService clipboardService,
+        string terminalType)
     {
         Id = Guid.NewGuid();
         Profile = profile;
         State = SessionState.Running;
 
         _statisticsService = statisticsService;
+        _clipboardService = clipboardService;
         _workingDirectory = profile.WorkingDir;
         _terminalType = terminalType;
     }
 
-    public void SetTerminalControl(EasyTerminalControl control)
+    public void SetTerminalControl(ITerminalControl control)
     {
-        _easyTerminalControl = control;
-        TerminalControl = control;
+        _terminalControl = control;
+        TerminalControl = control.NativeControl;
 
-        // Hook output interception for activity tracking after control is loaded
-        control.Loaded += (s, e) =>
-        {
-            control.Dispatcher.InvokeAsync(() =>
-            {
-                try
-                {
-                    if (control.ConPTYTerm != null)
-                    {
-                        control.ConPTYTerm.InterceptOutputToUITerminal = OnTerminalOutput;
-                    }
-                }
-                catch
-                {
-                    // Ignore errors during hook setup
-                }
-            }, System.Windows.Threading.DispatcherPriority.Background);
-        };
+        control.Loaded += OnTerminalLoaded;
+        control.OutputReceived += OnTerminalOutput;
+        control.MouseClicked += OnTerminalMouseClicked;
+        control.ProcessExited += OnProcessExited;
+    }
 
-        // Hook Ctrl+Click for link detection
-        control.PreviewMouseDown += OnTerminalMouseDown;
+    private void OnTerminalLoaded(object? sender, EventArgs e)
+    {
+        // Terminal is ready for use
     }
 
     /// <summary>
-    /// Handles Ctrl+Click on the terminal for link detection.
+    /// Called when terminal output is received. Updates activity tracking and output buffer.
     /// </summary>
-    private void OnTerminalMouseDown(object sender, MouseButtonEventArgs e)
+    private void OnTerminalOutput(string output)
     {
-        // Only handle Ctrl+Click
-        if (e.LeftButton != MouseButtonState.Pressed ||
-            !Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+        // Increment character count for statistics
+        _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, output.Length);
+
+        _lastOutputTime = DateTime.Now;
+
+        // Fire activity changed if we transitioned from idle to active
+        if (!_wasActive)
         {
-            return;
+            _wasActive = true;
+            ActivityChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        // Try to get selected text or find a link near the click
-        var clickedText = GetTextForLinkDetection();
-        if (!string.IsNullOrEmpty(clickedText))
+        // Parse OSC escape sequences for title changes
+        ParseOscSequences(output.AsSpan());
+
+        // Append to output buffer for link detection
+        AppendToOutputBuffer(output);
+    }
+
+    /// <summary>
+    /// Handles mouse click events from the terminal control.
+    /// </summary>
+    private void OnTerminalMouseClicked(object? sender, TerminalMouseEventArgs e)
+    {
+        // Only handle Ctrl+Click for link detection
+        if (e.IsLeftButton && e.IsCtrlPressed)
         {
-            LinkClicked?.Invoke(this, clickedText);
-            // Don't mark as handled - let the terminal process the click normally too
+            var clickedText = GetTextForLinkDetection();
+            if (!string.IsNullOrEmpty(clickedText))
+            {
+                LinkClicked?.Invoke(this, clickedText);
+            }
+        }
+    }
+
+    private void OnProcessExited(object? sender, int exitCode)
+    {
+        State = SessionState.Exited;
+        ExitCode = exitCode;
+        ProcessExited?.Invoke(this, exitCode);
+    }
+
+    /// <summary>
+    /// Checks if this terminal has focus.
+    /// Uses the terminal control's focus state.
+    /// </summary>
+    public bool HasFocus()
+    {
+        try
+        {
+            return _terminalControl?.IsFocused ?? false;
+        }
+        catch
+        {
+            return false;
         }
     }
 
     /// <summary>
     /// Gets text for link detection, trying selection first, then recent output.
     /// </summary>
-    private string? GetTextForLinkDetection()
+    public string? GetTextForLinkDetection()
     {
-        // First try to get any selected text (user may have selected a URL/path)
-        // This requires the user to double-click first to select, then Ctrl+click
-        // Unfortunately, EasyTerminalControl doesn't expose selection APIs directly
-
-        // For now, we'll look at the last few lines of output to find potential links
-        // The user can also select text before Ctrl+clicking
         lock (_outputBuffer)
         {
             if (_outputBuffer.Length == 0)
@@ -166,31 +190,11 @@ public class TerminalSession : IDisposable
         }
     }
 
-    /// <summary>
-    /// Called when terminal output is received. Updates activity tracking and output buffer.
-    /// </summary>
-    private void OnTerminalOutput(ref Span<char> str)
+    private void AppendToOutputBuffer(string output)
     {
-        // Increment character count for statistics
-        _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, str.Length);
-
-        // Don't modify the output, just track timing
-        _lastOutputTime = DateTime.Now;
-
-        // Fire activity changed if we transitioned from idle to active
-        if (!_wasActive)
-        {
-            _wasActive = true;
-            ActivityChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        // Parse OSC escape sequences for title changes
-        ParseOscSequences(str);
-
-        // Append to output buffer for link detection
         lock (_outputBuffer)
         {
-            _outputBuffer.Append(str);
+            _outputBuffer.Append(output);
 
             // Trim if too large (keep last half)
             if (_outputBuffer.Length > MaxOutputBufferSize)
@@ -208,7 +212,7 @@ public class TerminalSession : IDisposable
     /// OSC format: ESC ] Ps ; Pt BEL  or  ESC ] Ps ; Pt ST
     /// Where Ps = 0 (set icon name and window title), 2 (set window title)
     /// </summary>
-    private void ParseOscSequences(Span<char> str)
+    private void ParseOscSequences(ReadOnlySpan<char> str)
     {
         for (int i = 0; i < str.Length; i++)
         {
@@ -304,15 +308,9 @@ public class TerminalSession : IDisposable
     {
         try
         {
-            // Try to kill the process through the IProcess interface
             if (State == SessionState.Running)
             {
-                var termPty = _easyTerminalControl?.ConPTYTerm;
-                var process = termPty?.Process;
-                if (process != null && !process.HasExited)
-                {
-                    process.Kill();
-                }
+                _terminalControl?.Kill();
             }
         }
         catch
@@ -330,15 +328,7 @@ public class TerminalSession : IDisposable
         if (State == SessionState.Exited)
             return false;
 
-        try
-        {
-            var termPty = _easyTerminalControl?.ConPTYTerm;
-            return termPty?.Process != null && !termPty.Process.HasExited;
-        }
-        catch
-        {
-            return false;
-        }
+        return _terminalControl?.IsProcessRunning ?? false;
     }
 
     /// <summary>
@@ -347,59 +337,26 @@ public class TerminalSession : IDisposable
     /// <param name="text">The text to send.</param>
     /// <param name="appendNewline">If true, appends a newline to execute the command.</param>
     /// <param name="newlineChar">The newline character to use (default: \r for shells).</param>
-    /// <param name="useUserInput">If true, uses internal UserInput method (for apps like Claude Code).</param>
+    /// <param name="useUserInput">If true, focuses the terminal first (for apps like Claude Code).</param>
     public void SendText(string text, bool appendNewline = true, string newlineChar = "\r", bool useUserInput = false)
     {
         try
         {
-            var termPty = _easyTerminalControl?.ConPTYTerm;
-            if (termPty == null || !IsProcessRunning())
+            if (_terminalControl == null || !IsProcessRunning())
                 return;
+
+            var textToSend = appendNewline ? text + newlineChar : text;
 
             if (useUserInput)
             {
-                // Focus first
-                _easyTerminalControl?.Focus();
+                _terminalControl.Focus();
+            }
 
-                // Send text + newline via the internal UserInput method
-                // This properly triggers key handling for apps like Claude Code
-                // Use BeginInvoke to allow focus to settle before sending input
-                var textToSend = appendNewline ? text + "\r" : text;
-                _easyTerminalControl?.Dispatcher.BeginInvoke(() =>
-                {
-                    SendViaUserInput(termPty, textToSend);
-                }, System.Windows.Threading.DispatcherPriority.Input);
-            }
-            else
-            {
-                // Use WriteToTerm for standard shell commands
-                var textToSend = appendNewline ? text + newlineChar : text;
-                termPty.WriteToTerm(textToSend.AsSpan());
-            }
+            _terminalControl.WriteToTerminal(textToSend);
         }
         catch
         {
             // Ignore errors when sending text
-        }
-    }
-
-    /// <summary>
-    /// Sends text to the terminal (without executing - user presses Enter manually).
-    /// </summary>
-    private static void SendViaUserInput(TermPTY conPtyTerm, string input)
-    {
-        try
-        {
-            // Strip any newline characters - user will press Enter manually
-            var textOnly = input.TrimEnd('\r', '\n');
-            if (!string.IsNullOrEmpty(textOnly))
-            {
-                conPtyTerm.WriteToTerm(textOnly.AsSpan());
-            }
-        }
-        catch
-        {
-            // Silently ignore errors
         }
     }
 
@@ -410,7 +367,7 @@ public class TerminalSession : IDisposable
     {
         try
         {
-            _easyTerminalControl?.Focus();
+            _terminalControl?.Focus();
         }
         catch
         {
@@ -420,15 +377,13 @@ public class TerminalSession : IDisposable
 
     /// <summary>
     /// Gets the currently selected text in the terminal.
-    /// Note: This clears the selection after retrieving the text.
     /// </summary>
     /// <returns>The selected text, or empty string if no selection.</returns>
     public string GetSelectedText()
     {
         try
         {
-            // Access the underlying Terminal control which has GetSelectedText()
-            return _easyTerminalControl?.Terminal?.GetSelectedText() ?? string.Empty;
+            return _terminalControl?.GetSelectedText() ?? string.Empty;
         }
         catch
         {
@@ -440,14 +395,14 @@ public class TerminalSession : IDisposable
     /// Copies the currently selected text to the clipboard.
     /// </summary>
     /// <returns>True if text was copied, false if no selection.</returns>
-    public bool CopySelectionToClipboard()
+    public async Task<bool> CopySelectionToClipboardAsync()
     {
         var text = GetSelectedText();
         if (!string.IsNullOrEmpty(text))
         {
             try
             {
-                System.Windows.Clipboard.SetText(text);
+                await _clipboardService.SetTextAsync(text);
                 return true;
             }
             catch
@@ -457,110 +412,6 @@ public class TerminalSession : IDisposable
         }
         return false;
     }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetFocus();
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetParent(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr WindowFromPoint(POINT point);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetCursorPos(out POINT lpPoint);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT { public int X; public int Y; }
-
-    /// <summary>
-    /// Checks if this terminal has Win32 keyboard focus.
-    /// Walks up from the focused HWND to find if it's within this control's visual tree.
-    /// </summary>
-    public bool HasWin32Focus()
-    {
-        try
-        {
-            if (_easyTerminalControl == null) return false;
-
-            var focusedHwnd = GetFocus();
-            if (focusedHwnd == IntPtr.Zero) return false;
-
-            // Get the HWND that hosts this control
-            var source = PresentationSource.FromVisual(_easyTerminalControl) as HwndSource;
-            if (source == null) return false;
-
-            // Get the bounds of our control in screen coordinates
-            var controlBounds = GetScreenBounds(_easyTerminalControl);
-            if (controlBounds == null) return false;
-
-            // Get the position of the focused window
-            // If it's within our bounds, we have focus
-            if (GetCursorPos(out POINT cursorPos))
-            {
-                var hwndUnderCursor = WindowFromPoint(cursorPos);
-                if (hwndUnderCursor != IntPtr.Zero)
-                {
-                    // Check if the cursor is within our control's bounds
-                    var bounds = controlBounds.Value;
-                    if (cursorPos.X >= bounds.Left && cursorPos.X <= bounds.Right &&
-                        cursorPos.Y >= bounds.Top && cursorPos.Y <= bounds.Bottom)
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Ignore errors
-        }
-        return false;
-    }
-
-    private static System.Windows.Rect? GetScreenBounds(System.Windows.Media.Visual visual)
-    {
-        try
-        {
-            var source = PresentationSource.FromVisual(visual);
-            if (source?.CompositionTarget == null) return null;
-
-            // Get the transform from the visual to the screen
-            var transform = visual.TransformToAncestor(source.RootVisual);
-            var topLeft = transform.Transform(new System.Windows.Point(0, 0));
-
-            // Convert to screen coordinates
-            var screenTopLeft = source.CompositionTarget.TransformToDevice.Transform(topLeft);
-
-            // Get the window position
-            if (source is HwndSource hwndSource)
-            {
-                var windowRect = new RECT();
-                GetWindowRect(hwndSource.Handle, out windowRect);
-
-                // Get the size of the visual
-                if (visual is System.Windows.FrameworkElement fe)
-                {
-                    var size = source.CompositionTarget.TransformToDevice.Transform(
-                        new System.Windows.Point(fe.ActualWidth, fe.ActualHeight));
-
-                    return new System.Windows.Rect(
-                        windowRect.Left + screenTopLeft.X,
-                        windowRect.Top + screenTopLeft.Y,
-                        size.X,
-                        size.Y);
-                }
-            }
-        }
-        catch { }
-        return null;
-    }
-
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
 
     public void Dispose()
     {
