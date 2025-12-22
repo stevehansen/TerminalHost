@@ -24,12 +24,4 @@
     <ProjectReference Include="..\..\src\TerminalHost\TerminalHost\TerminalHost.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!--
-    Stage 1: Exclude all tests temporarily until Domain/Services/ViewModels are migrated
-    Tests will be re-enabled in later stages as code is ported to Avalonia
-    -->
-    <Compile Remove="**\*.cs" />
-  </ItemGroup>
-
 </Project>
