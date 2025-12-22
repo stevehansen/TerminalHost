@@ -1,0 +1,1254 @@
+# Stage 7: Views & Controls Migration
+
+## Overview
+
+| Attribute | Value |
+|-----------|-------|
+| **Estimated Effort** | 10-15 days |
+| **Risk Level** | **High** |
+| **Dependencies** | Stages 1-6 complete |
+| **Blocking For** | Stage 8 |
+
+## Objective
+
+Convert all 44 XAML view files from WPF to Avalonia AXAML format, including custom controls, data templates, and styles.
+
+## Success Criteria
+
+- [ ] All views render correctly
+- [ ] Data bindings work
+- [ ] Styles apply properly
+- [ ] User interactions work
+- [ ] No compilation errors
+
+---
+
+## Migration Priority
+
+### Phase 7A: Critical Views (Days 1-3)
+
+| File | Priority | Complexity |
+|------|----------|------------|
+| TabStrip.axaml | Critical | High |
+| TerminalPairView.axaml | Critical | High |
+| TabContentTemplates.axaml | Critical | Medium |
+
+### Phase 7B: Secondary Views (Days 4-6)
+
+| File | Priority | Complexity |
+|------|----------|------------|
+| ProfileTerminalView.axaml | High | Medium |
+| FileExplorerView.axaml | High | High |
+| FileViewerView.axaml | High | High |
+| SettingsView.axaml | High | **Very High** |
+
+### Phase 7C: Popups (Days 7-10)
+
+| File | Priority | Complexity |
+|------|----------|------------|
+| CommandPaletteView.axaml | Medium | Medium |
+| GitFilesView.axaml | Medium | High |
+| GitBranchView.axaml | Medium | Medium |
+| TabSwitcherView.axaml | Medium | Low |
+| HelpView.axaml | Medium | Low |
+| DetectedLinksView.axaml | Medium | Low |
+| All other popups | Medium | Medium |
+
+### Phase 7D: Controls (Days 11-12)
+
+| File | Priority | Complexity |
+|------|----------|------------|
+| DraggablePopup.axaml | High | High |
+| DiffViewer.axaml | Medium | High |
+| MarkdownViewer.axaml | Medium | High |
+
+### Phase 7E: Remaining (Days 13-15)
+
+All remaining views, polish, and bug fixes.
+
+---
+
+## XAML Conversion Patterns
+
+### Pattern 1: Visibility
+
+**WPF:**
+```xml
+<Border Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}"/>
+<Border Visibility="Collapsed"/>
+```
+
+**Avalonia:**
+```xml
+<Border IsVisible="{Binding IsVisible}"/>
+<Border IsVisible="False"/>
+```
+
+### Pattern 2: Triggers → Styles with Selectors
+
+**WPF:**
+```xml
+<Style TargetType="Button">
+    <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+            <Setter Property="Background" Value="Red"/>
+        </Trigger>
+    </Style.Triggers>
+</Style>
+```
+
+**Avalonia:**
+```xml
+<Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="Red"/>
+</Style>
+```
+
+### Pattern 3: DataTrigger → Classes
+
+**WPF:**
+```xml
+<Style TargetType="Border">
+    <Style.Triggers>
+        <DataTrigger Binding="{Binding IsActive}" Value="True">
+            <Setter Property="Background" Value="Green"/>
+        </DataTrigger>
+    </Style.Triggers>
+</Style>
+```
+
+**Avalonia:**
+```xml
+<Border Classes.active="{Binding IsActive}">
+    <!-- content -->
+</Border>
+
+<Style Selector="Border.active">
+    <Setter Property="Background" Value="Green"/>
+</Style>
+```
+
+### Pattern 4: DataTemplate
+
+**WPF:**
+```xml
+<DataTemplate DataType="{x:Type vm:MyViewModel}">
+    <views:MyView/>
+</DataTemplate>
+```
+
+**Avalonia:**
+```xml
+<DataTemplate DataType="vm:MyViewModel">
+    <views:MyView/>
+</DataTemplate>
+```
+
+### Pattern 5: ControlTemplate
+
+**WPF:**
+```xml
+<ControlTemplate TargetType="Button">
+    <Border Background="{TemplateBinding Background}">
+        <ContentPresenter/>
+    </Border>
+</ControlTemplate>
+```
+
+**Avalonia:**
+```xml
+<ControlTemplate TargetType="Button">
+    <Border Background="{TemplateBinding Background}">
+        <ContentPresenter Content="{TemplateBinding Content}"/>
+    </Border>
+</ControlTemplate>
+```
+
+### Pattern 6: Event Handlers
+
+**WPF:**
+```xml
+<Button Click="OnButtonClick"/>
+```
+
+**Avalonia:**
+```xml
+<!-- Option 1: Command binding (preferred) -->
+<Button Command="{Binding MyCommand}"/>
+
+<!-- Option 2: Event handler (in code-behind) -->
+<Button Click="OnButtonClick"/>
+```
+
+---
+
+## Detailed View Migrations
+
+### 7.1 TabStrip.axaml
+
+**CREATE:** `src/TerminalHost/TerminalHost/Views/TabStrip.axaml`
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TerminalHost.ViewModels"
+             x:Class="TerminalHost.Views.TabStrip"
+             x:DataType="vm:MainViewModel">
+
+    <Grid ColumnDefinitions="*,Auto" Background="{StaticResource TabBackgroundBrush}">
+
+        <!-- Tab List -->
+        <ListBox Grid.Column="0"
+                 Items="{Binding Tabs}"
+                 SelectedItem="{Binding SelectedTab}"
+                 Background="Transparent"
+                 BorderThickness="0">
+
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ITabViewModel">
+                    <Border Padding="8,4"
+                            Background="{StaticResource TabBackgroundBrush}"
+                            Classes.selected="{Binding $parent[ListBoxItem].IsSelected}">
+
+                        <Grid ColumnDefinitions="Auto,Auto,Auto">
+                            <!-- Icon -->
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Icon}"
+                                       Margin="0,0,6,0"/>
+
+                            <!-- Title -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Title}"
+                                       Foreground="{StaticResource TextBrush}"/>
+
+                            <!-- Close Button -->
+                            <Button Grid.Column="2"
+                                    Content="×"
+                                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).CloseTabCommand}"
+                                    CommandParameter="{Binding}"
+                                    Margin="8,0,0,0"
+                                    Padding="4,0"
+                                    Background="Transparent"
+                                    BorderThickness="0"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Tab Actions -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0">
+            <Button Content="+"
+                    Command="{Binding OpenNewProjectCommand}"
+                    ToolTip.Tip="New Project (Ctrl+N)"/>
+            <Button Content="⚙"
+                    Command="{Binding OpenSettingsCommand}"
+                    ToolTip.Tip="Settings (Ctrl+,)"/>
+        </StackPanel>
+    </Grid>
+
+    <UserControl.Styles>
+        <Style Selector="Border.selected">
+            <Setter Property="Background" Value="{StaticResource TabBackgroundActive}"/>
+        </Style>
+
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{StaticResource TabBackgroundHover}"/>
+        </Style>
+    </UserControl.Styles>
+</UserControl>
+```
+
+### 7.1a TabStrip.axaml.cs - Drag-and-Drop Migration (Gap Fix)
+
+**File:** `src/TerminalHost/TerminalHost/Views/TabStrip.xaml.cs`
+
+The TabStrip uses WPF drag-and-drop APIs for tab reordering. These must be migrated to Avalonia equivalents.
+
+**WPF Types to Replace:**
+
+| WPF Type | Avalonia Equivalent |
+|----------|---------------------|
+| `DataObject` | `Avalonia.Input.DataObject` |
+| `DragDrop.DoDragDrop()` | `DragDrop.DoDragDrop()` |
+| `DragDropEffects` | `DragDropEffects` |
+| `DragEventArgs` | `DragEventArgs` |
+| `MouseButtonEventArgs` | `PointerPressedEventArgs` |
+
+**Before (WPF drag start):**
+```csharp
+private void OnTabMouseMove(object sender, MouseEventArgs e)
+{
+    if (e.LeftButton == MouseButtonState.Pressed && _isDragging)
+    {
+        var data = new DataObject(typeof(ITabViewModel), draggedTab);
+        DragDrop.DoDragDrop(sender as UIElement, data, DragDropEffects.Move);
+    }
+}
+
+private void OnTabDrop(object sender, DragEventArgs e)
+{
+    if (e.Data.GetDataPresent(typeof(ITabViewModel)))
+    {
+        var droppedTab = e.Data.GetData(typeof(ITabViewModel)) as ITabViewModel;
+        // Reorder tabs
+    }
+}
+```
+
+**After (Avalonia drag-and-drop):**
+```csharp
+using Avalonia.Input;
+
+private async void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+{
+    if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+    {
+        _draggedTab = (sender as Control)?.DataContext as ITabViewModel;
+        if (_draggedTab != null)
+        {
+            var data = new DataObject();
+            data.Set("TabViewModel", _draggedTab);
+
+            var result = await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+        }
+    }
+}
+
+private void OnTabDragOver(object? sender, DragEventArgs e)
+{
+    e.DragEffects = e.Data.Contains("TabViewModel")
+        ? DragDropEffects.Move
+        : DragDropEffects.None;
+}
+
+private void OnTabDrop(object? sender, DragEventArgs e)
+{
+    if (e.Data.Get("TabViewModel") is ITabViewModel droppedTab)
+    {
+        var targetTab = (sender as Control)?.DataContext as ITabViewModel;
+        if (targetTab != null && droppedTab != targetTab)
+        {
+            // Reorder tabs in ViewModel
+            var vm = DataContext as MainViewModel;
+            vm?.ReorderTab(droppedTab, targetTab);
+        }
+    }
+}
+```
+
+**AXAML for Avalonia DnD:**
+```xml
+<Border DragDrop.AllowDrop="True"
+        PointerPressed="OnTabPointerPressed"
+        DragOver="OnTabDragOver"
+        Drop="OnTabDrop">
+    <!-- Tab content -->
+</Border>
+```
+
+**Key Differences:**
+1. Avalonia uses `PointerPressed` instead of `MouseDown`/`MouseMove`
+2. `DragDrop.DoDragDrop` is async in Avalonia
+3. Use `DataObject.Set()` and `DataObject.Get()` with string keys
+4. Add `DragDrop.AllowDrop="True"` to drop targets
+5. Handle `DragOver` to set allowed effects
+
+---
+
+### 7.2 TerminalPairView.axaml
+
+**CREATE:** `src/TerminalHost/TerminalHost/Views/Tabs/TerminalPairView.axaml`
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TerminalHost.ViewModels"
+             xmlns:controls="using:TerminalHost.Controls"
+             x:Class="TerminalHost.Views.Tabs.TerminalPairView"
+             x:DataType="vm:TerminalPairTabViewModel">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- File Explorer (optional) -->
+            <ColumnDefinition Width="{Binding ExplorerWidth, Mode=TwoWay}"/>
+            <ColumnDefinition Width="Auto"/>
+
+            <!-- Main terminals area -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- File Explorer -->
+        <views:FileExplorerView Grid.Column="0"
+                                IsVisible="{Binding IsExplorerVisible}"
+                                DataContext="{Binding FileExplorerViewModel}"/>
+
+        <!-- Explorer Splitter -->
+        <GridSplitter Grid.Column="1"
+                      Width="4"
+                      IsVisible="{Binding IsExplorerVisible}"
+                      Background="{StaticResource BorderBrush}"/>
+
+        <!-- Terminal Area -->
+        <Grid Grid.Column="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{Binding CustomColumnRatio, Converter={StaticResource RatioToGridLength}}"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="{Binding ShellColumnRatio, Converter={StaticResource RatioToGridLength}}"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Custom Terminal -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource TerminalBackground}">
+                <ContentControl Content="{Binding CustomTerminalControl}"/>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          Background="{StaticResource BorderBrush}"/>
+
+            <!-- Shell Terminal -->
+            <Border Grid.Column="2"
+                    Background="{StaticResource TerminalBackground}">
+                <ContentControl Content="{Binding ShellTerminalControl}"/>
+            </Border>
+        </Grid>
+
+        <!-- Terminal Switch Buttons -->
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,4,4,0">
+
+            <Button Content="{Binding CustomTerminalIcon}"
+                    Command="{Binding SwitchToCustomCommand}"
+                    Classes.active="{Binding IsCustomActive}"
+                    ToolTip.Tip="Custom Terminal (Ctrl+`)"/>
+
+            <Button Content="{Binding ShellTerminalIcon}"
+                    Command="{Binding SwitchToShellCommand}"
+                    Classes.active="{Binding IsShellActive}"
+                    ToolTip.Tip="Shell Terminal (Ctrl+`)"/>
+        </StackPanel>
+
+        <!-- Git Status Bar -->
+        <Border Grid.Column="2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="8,0,0,8"
+                Padding="8,4"
+                Background="#80000000"
+                CornerRadius="4"
+                IsVisible="{Binding HasGitStatus}">
+
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⎇"
+                           Foreground="{StaticResource AccentBrush}"
+                           Margin="0,0,4,0"/>
+                <TextBlock Text="{Binding GitBranch}"
+                           Foreground="{StaticResource TextBrush}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+
+    <UserControl.Styles>
+        <Style Selector="Button.active">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+        </Style>
+    </UserControl.Styles>
+</UserControl>
+```
+
+---
+
+### 7.3 SettingsView.axaml (Partial - Very Large)
+
+The settings view is the largest file (~30K tokens). Break into sections.
+
+**CREATE:** `src/TerminalHost/TerminalHost/Views/SettingsView.axaml`
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TerminalHost.ViewModels"
+             x:Class="TerminalHost.Views.SettingsView"
+             x:DataType="vm:SettingsTabViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <Border Grid.Row="0"
+                Background="{StaticResource SidebarBackgroundBrush}"
+                Padding="16,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Settings"
+                           FontSize="{StaticResource FontSizeLarge}"
+                           FontWeight="SemiBold"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <ToggleButton Content="Rich"
+                                  IsChecked="{Binding !IsRawMode}"
+                                  Margin="0,0,8,0"/>
+                    <ToggleButton Content="Raw JSON"
+                                  IsChecked="{Binding IsRawMode}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" Padding="16">
+            <!-- Rich mode content or JSON editor based on IsRawMode -->
+            <Panel>
+                <!-- Rich mode sections -->
+                <StackPanel IsVisible="{Binding !IsRawMode}">
+                    <!-- General Settings Section -->
+                    <views:SettingsGeneralSection DataContext="{Binding}"/>
+
+                    <!-- Profiles Section -->
+                    <views:SettingsProfilesSection DataContext="{Binding}"/>
+
+                    <!-- Quick Commands Section -->
+                    <views:SettingsQuickCommandsSection DataContext="{Binding}"/>
+
+                    <!-- AI Assistants Section -->
+                    <views:SettingsAiSection DataContext="{Binding}"/>
+                </StackPanel>
+
+                <!-- Raw JSON Editor -->
+                <TextBox IsVisible="{Binding IsRawMode}"
+                         Text="{Binding RawJson}"
+                         AcceptsReturn="True"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         Background="{StaticResource InputBackground}"/>
+            </Panel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Border Grid.Row="2"
+                Background="{StaticResource SidebarBackgroundBrush}"
+                Padding="16,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Save"
+                        Command="{Binding SaveCommand}"
+                        IsEnabled="{Binding IsDirty}"
+                        Margin="0,0,8,0"/>
+                <Button Content="Reset"
+                        Command="{Binding ResetCommand}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
+```
+
+---
+
+### 7.4 DraggablePopup Control
+
+This control needs special attention as WPF Popup behavior differs from Avalonia.
+
+**CREATE:** `src/TerminalHost/TerminalHost/Controls/DraggablePopup.axaml`
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TerminalHost.Controls.DraggablePopup">
+
+    <Border Background="{StaticResource PopupBackground}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            BoxShadow="0 8 24 0 #40000000">
+
+        <Grid RowDefinitions="Auto,*">
+            <!-- Draggable Header -->
+            <Border Grid.Row="0"
+                    x:Name="HeaderBorder"
+                    Background="{StaticResource SidebarBackgroundBrush}"
+                    Padding="12,8"
+                    CornerRadius="4,4,0,0">
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Title}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="1"
+                            Content="×"
+                            Command="{Binding CloseCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="8,4"/>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <ContentPresenter Grid.Row="1"
+                              Content="{Binding PopupContent}"
+                              Margin="12"/>
+        </Grid>
+    </Border>
+</UserControl>
+```
+
+**CREATE:** `src/TerminalHost/TerminalHost/Controls/DraggablePopup.axaml.cs`
+
+```csharp
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+
+namespace TerminalHost.Controls;
+
+public partial class DraggablePopup : UserControl
+{
+    private bool _isDragging;
+    private Point _dragStart;
+    private Point _positionStart;
+
+    public static readonly StyledProperty<string> TitleProperty =
+        AvaloniaProperty.Register<DraggablePopup, string>(nameof(Title), "Popup");
+
+    public static readonly StyledProperty<object?> PopupContentProperty =
+        AvaloniaProperty.Register<DraggablePopup, object?>(nameof(PopupContent));
+
+    public string Title
+    {
+        get => GetValue(TitleProperty);
+        set => SetValue(TitleProperty, value);
+    }
+
+    public object? PopupContent
+    {
+        get => GetValue(PopupContentProperty);
+        set => SetValue(PopupContentProperty, value);
+    }
+
+    public DraggablePopup()
+    {
+        InitializeComponent();
+        DataContext = this;
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+
+        var source = e.Source as Control;
+        if (source?.Name == "HeaderBorder" || source?.Parent?.Name == "HeaderBorder")
+        {
+            _isDragging = true;
+            _dragStart = e.GetPosition(Parent as Visual);
+            _positionStart = new Point(Canvas.GetLeft(this), Canvas.GetTop(this));
+            e.Pointer.Capture(this);
+        }
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+
+        if (_isDragging)
+        {
+            var current = e.GetPosition(Parent as Visual);
+            var delta = current - _dragStart;
+
+            Canvas.SetLeft(this, _positionStart.X + delta.X);
+            Canvas.SetTop(this, _positionStart.Y + delta.Y);
+        }
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+
+        if (_isDragging)
+        {
+            _isDragging = false;
+            e.Pointer.Capture(null);
+        }
+    }
+}
+```
+
+---
+
+## 7.5 ToastWindow.axaml - P/Invoke Removal (Gap Fix - CRITICAL)
+
+**File:** `src/TerminalHost/TerminalHost/Views/ToastWindow.xaml.cs`
+
+This file contains P/Invoke declarations for creating a click-through overlay window. These must be completely removed and replaced with Avalonia alternatives.
+
+### 7.5.1 P/Invoke to DELETE
+
+**DELETE lines 163-171:**
+```csharp
+// DELETE THIS ENTIRE SECTION:
+[DllImport("user32.dll")]
+private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+[DllImport("user32.dll")]
+private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+[DllImport("user32.dll")]
+private static extern bool SetWindowPos(IntPtr hwnd, IntPtr hwndInsertAfter,
+    int x, int y, int cx, int cy, uint flags);
+```
+
+### 7.5.2 WindowInteropHelper Usage to DELETE
+
+**DELETE lines 51, 85, 147:**
+```csharp
+// DELETE:
+var helper = new WindowInteropHelper(this);
+var hwnd = helper.Handle;
+```
+
+### 7.5.3 Screen.FromHandle to DELETE
+
+**Line 86:**
+```csharp
+// DELETE:
+using System.Windows.Forms;
+var screen = Screen.FromHandle(hwnd);
+
+// REPLACE with IScreenService:
+var screen = _screenService.GetPrimaryWorkingArea();
+```
+
+### 7.5.4 Avalonia ToastWindow Replacement
+
+**CREATE:** `src/TerminalHost/TerminalHost/Views/ToastWindow.axaml`
+
+```xml
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TerminalHost.Views.ToastWindow"
+        Title="Toasts"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        CanResize="False"
+        Topmost="True">
+
+    <views:ToastContainerView x:Name="ToastContainer"/>
+</Window>
+```
+
+**CREATE:** `src/TerminalHost/TerminalHost/Views/ToastWindow.axaml.cs`
+
+```csharp
+using Avalonia;
+using Avalonia.Controls;
+using TerminalHost.Services;
+
+namespace TerminalHost.Views;
+
+public partial class ToastWindow : Window
+{
+    private readonly IScreenService _screenService;
+
+    public ToastWindow(IScreenService screenService)
+    {
+        InitializeComponent();
+        _screenService = screenService;
+
+        // Position at bottom-right of screen
+        PositionWindow();
+
+        // Avalonia handles transparency natively - no P/Invoke needed
+        // For click-through behavior on macOS, the window is just transparent
+        // and positioned to not interfere with normal interaction
+    }
+
+    private void PositionWindow()
+    {
+        var workArea = _screenService.GetPrimaryWorkingArea();
+
+        // Position at bottom-right with margin
+        const int margin = 16;
+        const int width = 350;
+        const int height = 400;
+
+        Position = new PixelPoint(
+            (int)(workArea.X + workArea.Width - width - margin),
+            (int)(workArea.Y + workArea.Height - height - margin));
+
+        Width = width;
+        Height = height;
+    }
+}
+```
+
+---
+
+## 7.6 FlowDocument Replacement Strategy (Gap Fix - CRITICAL)
+
+FlowDocument is a WPF-only feature used for rich text rendering. This affects multiple files and requires a comprehensive replacement strategy.
+
+### 7.6.1 Files Affected by FlowDocument
+
+| File | Usage | Replacement Strategy |
+|------|-------|---------------------|
+| `Services/JsonSyntaxHighlighter.cs` | Syntax-highlighted JSON | **AvaloniaEdit** or TextBlock with Inlines |
+| `Services/FilePreviewService.cs` | File preview result | TextBlock-based rendering |
+| `Services/SyntaxHighlighting/SyntaxHighlighterBase.cs` | Base highlighter | AvaloniaEdit SelectionColorizer |
+| `Services/SyntaxHighlighting/DiffHighlighter.cs` | Diff rendering | Custom diff control |
+| `ViewModels/FileViewerViewModel.cs` | Preview document | String/HTML content |
+| `ViewModels/FilePreviewViewModel.cs` | Content property | String/HTML content |
+| `Controls/DiffViewer.xaml.cs` | Info document | TextBlock |
+
+### 7.6.2 Replacement Options
+
+**Option A: AvaloniaEdit (RECOMMENDED)**
+
+For code/text editing with syntax highlighting:
+
+```xml
+<!-- Add package: AvaloniaEdit -->
+<PackageReference Include="AvaloniaEdit" Version="11.0.x" />
+```
+
+```xml
+<avaloniaEdit:TextEditor
+    x:Name="Editor"
+    Document="{Binding Document}"
+    IsReadOnly="True"
+    FontFamily="{StaticResource FontFamilyMonospace}"
+    ShowLineNumbers="True"
+    Background="{StaticResource BackgroundBrush}"/>
+```
+
+**Option B: TextBlock with FormattedText**
+
+For simple highlighted text display:
+
+```csharp
+// Create formatted text spans
+var textBlock = new TextBlock();
+textBlock.Inlines.Add(new Run("keyword") { Foreground = Brushes.Blue });
+textBlock.Inlines.Add(new Run(" normal text"));
+textBlock.Inlines.Add(new Run("string") { Foreground = Brushes.Brown });
+```
+
+**Option C: ItemsControl with Line Models**
+
+For diff views and line-by-line display:
+
+```xml
+<ItemsControl Items="{Binding Lines}">
+    <ItemsControl.ItemTemplate>
+        <DataTemplate>
+            <Border Background="{Binding BackgroundColor}">
+                <Grid ColumnDefinitions="50,*">
+                    <TextBlock Grid.Column="0" Text="{Binding LineNumber}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Content}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </ItemsControl.ItemTemplate>
+</ItemsControl>
+```
+
+### 7.6.3 JsonSyntaxHighlighter Replacement
+
+**REWRITE:** `src/TerminalHost/TerminalHost/Services/JsonSyntaxHighlighter.cs`
+
+```csharp
+using Avalonia.Controls;
+using Avalonia.Media;
+
+namespace TerminalHost.Services;
+
+public static class JsonSyntaxHighlighter
+{
+    /// <summary>
+    /// Creates a TextBlock with highlighted JSON.
+    /// </summary>
+    public static TextBlock CreateHighlightedTextBlock(string json)
+    {
+        var textBlock = new TextBlock
+        {
+            FontFamily = new FontFamily("SF Mono, Menlo, monospace"),
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var tokens = TokenizeJson(json);
+        foreach (var token in tokens)
+        {
+            textBlock.Inlines?.Add(new Run(token.Text)
+            {
+                Foreground = GetTokenBrush(token.Type)
+            });
+        }
+
+        return textBlock;
+    }
+
+    /// <summary>
+    /// Returns plain highlighted text as formatted string for AvaloniaEdit.
+    /// </summary>
+    public static string GetPlainText(string json) => json;
+
+    private static IBrush GetTokenBrush(JsonTokenType type) => type switch
+    {
+        JsonTokenType.Property => new SolidColorBrush(Color.Parse("#9CDCFE")),
+        JsonTokenType.String => new SolidColorBrush(Color.Parse("#CE9178")),
+        JsonTokenType.Number => new SolidColorBrush(Color.Parse("#B5CEA8")),
+        JsonTokenType.Boolean => new SolidColorBrush(Color.Parse("#569CD6")),
+        JsonTokenType.Null => new SolidColorBrush(Color.Parse("#569CD6")),
+        _ => new SolidColorBrush(Color.Parse("#CCCCCC"))
+    };
+
+    private record JsonToken(string Text, JsonTokenType Type);
+    private enum JsonTokenType { Property, String, Number, Boolean, Null, Punctuation }
+
+    private static IEnumerable<JsonToken> TokenizeJson(string json)
+    {
+        // Simple tokenizer implementation
+        // ... (implement based on regex or character scanning)
+        yield return new JsonToken(json, JsonTokenType.Punctuation);
+    }
+}
+```
+
+### 7.6.4 FilePreviewService Result Update
+
+**MODIFY:** `src/TerminalHost/TerminalHost/Services/FilePreviewService.cs`
+
+```csharp
+// BEFORE:
+public FlowDocument? Document { get; init; }
+
+// AFTER:
+public string? HighlightedContent { get; init; }
+public IEnumerable<HighlightedLine>? Lines { get; init; }
+
+public record HighlightedLine(
+    int LineNumber,
+    string Content,
+    string? BackgroundColor = null);
+```
+
+### 7.6.5 Update XAML Views Using FlowDocumentScrollViewer
+
+**Replace FlowDocumentScrollViewer with ScrollViewer + TextBlock/ItemsControl:**
+
+```xml
+<!-- BEFORE (WPF): -->
+<FlowDocumentScrollViewer Document="{Binding PreviewDocument}"/>
+
+<!-- AFTER (Avalonia): -->
+<ScrollViewer>
+    <ItemsControl Items="{Binding PreviewLines}">
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <TextBlock Text="{Binding Content}"
+                           Background="{Binding BackgroundColor}"/>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</ScrollViewer>
+```
+
+---
+
+## 7.7 WebView2 Replacement for Markdown (Gap Fix)
+
+WebView2 is Windows-only. Replace with Avalonia-compatible alternatives.
+
+### 7.7.1 Files Affected
+
+| File | Usage |
+|------|-------|
+| `Controls/MarkdownViewer.xaml` | WebView2 control |
+| `Controls/MarkdownViewer.xaml.cs` | WebView2 initialization |
+| `Views/MarkdownPreviewWindow.xaml` | WebView2 control |
+| `Views/MarkdownPreviewWindow.xaml.cs` | WebView2 navigation |
+
+### 7.7.2 Replacement Option A: Markdown.Avalonia (RECOMMENDED)
+
+```xml
+<!-- Add package -->
+<PackageReference Include="Markdown.Avalonia" Version="11.x.x" />
+```
+
+```xml
+<markdown:MarkdownScrollViewer
+    Markdown="{Binding MarkdownContent}"
+    AssetPathRoot="{Binding AssetPath}"/>
+```
+
+### 7.7.3 Replacement Option B: AvaloniaWebView
+
+For full HTML rendering (if markdown library is insufficient):
+
+```xml
+<PackageReference Include="AvaloniaWebView" Version="x.x.x" />
+```
+
+Note: AvaloniaWebView uses platform-native WebKit on macOS.
+
+### 7.7.4 MarkdownViewer.axaml Replacement
+
+**CREATE:** `src/TerminalHost/TerminalHost/Controls/MarkdownViewer.axaml`
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+             x:Class="TerminalHost.Controls.MarkdownViewer">
+
+    <md:MarkdownScrollViewer
+        x:Name="MarkdownRenderer"
+        Markdown="{Binding HtmlContent}"
+        Background="{StaticResource BackgroundBrush}"/>
+</UserControl>
+```
+
+---
+
+## 7.8 Code-Behind Migration Details (Gap Fix)
+
+### 7.8.1 Views with Significant Code-Behind Changes
+
+| File | Platform Code | Action |
+|------|--------------|--------|
+| `Views/SetupWindow.xaml.cs:52,56` | Clipboard, DispatcherTimer | Use services |
+| `Views/SettingsView.xaml.cs:100,118,181,204` | OpenFileDialog, explorer.exe | Use services |
+| `Views/Tabs/ProfileTerminalView.xaml.cs:26` | explorer.exe Process.Start | Use IProcessService |
+| `Views/FileExplorerView.xaml.cs:138` | VisualTreeHelper | Use Avalonia visual tree |
+| `Views/Popups/FileViewerPopup.xaml.cs:219-242` | VisualTreeHelper | Use Avalonia visual tree |
+| `Controls/DraggablePopup.xaml.cs:56,99-100` | Screen.FromHandle, SystemParameters | Use IScreenService |
+| `Views/TabStrip.xaml.cs:44,84-85,173-175` | DispatcherPriority, SystemParameters, VisualTreeHelper | Avalonia equivalents |
+
+### 7.8.2 SetupWindow.xaml.cs Updates
+
+**Line 52 - Clipboard:**
+```csharp
+// BEFORE:
+Clipboard.SetText(command);
+
+// AFTER:
+await _clipboardService.SetTextAsync(command);
+```
+
+**Line 56 - DispatcherTimer:**
+```csharp
+// BEFORE:
+var timer = new System.Windows.Threading.DispatcherTimer { ... };
+
+// AFTER:
+var timer = _timerService.CreateTimer(TimeSpan.FromSeconds(1), () => { ... });
+```
+
+### 7.8.3 SettingsView.xaml.cs Updates
+
+**Lines 100, 118 - OpenFileDialog:**
+```csharp
+// BEFORE:
+var dialog = new Microsoft.Win32.OpenFileDialog { ... };
+if (dialog.ShowDialog() == true) { ... }
+
+// AFTER:
+var topLevel = TopLevel.GetTopLevel(this);
+var files = await topLevel!.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+{
+    Title = "Select File",
+    AllowMultiple = false
+});
+if (files.Count > 0) { ... }
+```
+
+**Lines 181, 204 - explorer.exe:**
+```csharp
+// BEFORE:
+Process.Start(new ProcessStartInfo { FileName = "explorer.exe", ... });
+
+// AFTER:
+_processService.OpenFolder(path);
+// Or:
+_processService.RevealInFinder(filePath);
+```
+
+### 7.8.4 DraggablePopup.xaml.cs Updates
+
+**Lines 56, 99-100:**
+```csharp
+// BEFORE:
+var screen = System.Windows.Forms.Screen.FromHandle(hwnd);
+var width = SystemParameters.PrimaryScreenWidth;
+var height = SystemParameters.PrimaryScreenHeight;
+
+// AFTER:
+var bounds = _screenService.GetPrimaryScreenBounds();
+var width = bounds.Width;
+var height = bounds.Height;
+```
+
+### 7.8.5 DependencyProperty to StyledProperty Migration
+
+**Controls with DependencyProperty:**
+
+```csharp
+// BEFORE (WPF):
+public static readonly DependencyProperty TitleProperty =
+    DependencyProperty.Register(nameof(Title), typeof(string), typeof(DraggablePopup));
+
+public string Title
+{
+    get => (string)GetValue(TitleProperty);
+    set => SetValue(TitleProperty, value);
+}
+
+// AFTER (Avalonia):
+public static readonly StyledProperty<string> TitleProperty =
+    AvaloniaProperty.Register<DraggablePopup, string>(nameof(Title));
+
+public string Title
+{
+    get => GetValue(TitleProperty);
+    set => SetValue(TitleProperty, value);
+}
+```
+
+---
+
+## 7.9 HelpView.xaml UI Text Update (Gap Fix)
+
+**File:** `src/TerminalHost/TerminalHost/Views/Popups/HelpView.xaml`
+
+**Line 256 - Update Windows path to macOS path:**
+
+```xml
+<!-- BEFORE: -->
+<TextBlock Text="%APPDATA%\TerminalHost\config.json"/>
+
+<!-- AFTER: -->
+<TextBlock Text="~/Library/Application Support/TerminalHost/config.json"/>
+```
+
+---
+
+## Code-Behind Migration Notes
+
+### Key Differences
+
+| WPF | Avalonia |
+|-----|----------|
+| `InitializeComponent()` in constructor | Same |
+| `Loaded` event | `AttachedToVisualTree` or `Loaded` |
+| `e.GetPosition(this)` | Same |
+| `Mouse.Capture` | `e.Pointer.Capture` |
+| `MessageBox.Show` | Use IDialogService |
+| `Dispatcher.Invoke` | `Dispatcher.UIThread.Post/Invoke` |
+| `DependencyProperty.Register` | `AvaloniaProperty.Register` |
+| `VisualTreeHelper.GetParent` | `element.GetVisualParent()` |
+| `SystemParameters.*` | Use IScreenService |
+| `WindowInteropHelper` | Not needed |
+
+### Common Patterns
+
+```csharp
+// Focus on loaded
+protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+{
+    base.OnAttachedToVisualTree(e);
+    MyTextBox.Focus();
+}
+
+// Handle key events
+protected override void OnKeyDown(KeyEventArgs e)
+{
+    if (e.Key == Key.Escape)
+    {
+        // Handle escape
+        e.Handled = true;
+    }
+    base.OnKeyDown(e);
+}
+
+// Get visual parent (Avalonia equivalent of VisualTreeHelper)
+var parent = element.GetVisualParent();
+var ancestor = element.FindAncestorOfType<Window>();
+```
+
+---
+
+## File Migration Checklist
+
+### Phase 7A
+- [ ] `Views/TabStrip.axaml`
+- [ ] `Views/Tabs/TerminalPairView.axaml`
+- [ ] `Resources/TabContentTemplates.axaml`
+
+### Phase 7B
+- [ ] `Views/Tabs/ProfileTerminalView.axaml`
+- [ ] `Views/FileExplorerView.axaml`
+- [ ] `Views/FileViewerView.axaml`
+- [ ] `Views/SettingsView.axaml`
+- [ ] `Views/ProfilesView.axaml`
+- [ ] `Views/StatisticsView.axaml`
+
+### Phase 7C
+- [ ] `Views/Popups/CommandPaletteView.axaml`
+- [ ] `Views/Popups/GitFilesView.axaml`
+- [ ] `Views/Popups/GitBranchView.axaml`
+- [ ] `Views/Popups/TabSwitcherView.axaml`
+- [ ] `Views/Popups/HelpView.axaml`
+- [ ] `Views/Popups/DetectedLinksView.axaml`
+- [ ] `Views/Popups/FileViewerPopup.axaml`
+- [ ] `Views/Popups/PrReviewView.axaml`
+- [ ] `Views/Popups/QuickTaskView.axaml`
+- [ ] `Views/Popups/QuickNoteView.axaml`
+- [ ] `Views/Popups/TaskPanelView.axaml`
+- [ ] `Views/Popups/TestResultsView.axaml`
+- [ ] `Views/Popups/RepositorySwitcherView.axaml`
+- [ ] `Views/ScratchPadView.axaml`
+
+### Phase 7D
+- [ ] `Controls/DraggablePopup.axaml`
+- [ ] `Controls/DiffViewer.axaml`
+- [ ] `Controls/SideBySideDiffViewer.axaml`
+- [ ] `Controls/MarkdownViewer.axaml`
+- [ ] `Controls/PrCommentThread.axaml`
+
+### Phase 7E
+- [ ] `Views/SetupWindow.axaml`
+- [ ] `Views/FileViewerWindow.axaml`
+- [ ] `Views/MarkdownPreviewWindow.axaml`
+- [ ] `Views/ToastContainerView.axaml`
+- [ ] `Views/ToastItemView.axaml`
+- [ ] `Views/ToastWindow.axaml`
+- [ ] `Views/DashboardView.axaml`
+- [ ] `Views/Dialogs/NotificationDialog.axaml`
+
+---
+
+## Verification Steps
+
+After each phase:
+
+1. **Build Check:** `dotnet build`
+2. **Visual Inspection:** Launch app, check each view
+3. **Interaction Test:** Click buttons, type in fields
+4. **Style Check:** Verify colors, fonts, spacing
+5. **Data Binding:** Verify data displays correctly
+
+---
+
+## Next Stage
+
+After completing Stage 7, proceed to **Stage 8: Testing & Polish** for final testing and macOS-specific refinements.
