@@ -175,6 +175,7 @@ host -n .
 # Advanced/Testing arguments
 host --disable-single-instance  # Allow multiple instances (or -multi)
 host --user-data-dir "C:\Path"  # Override configuration path (or -data)
+host --no-setup                 # Skip first-run setup check
 ```
 
 If a project tab for the specified directory already exists, it will be focused instead of creating a new tab (unless `--new` is used).

@@ -68,7 +68,22 @@ public partial class App : Application
 
         var startupArgs = CommandLineArgs.Parse(e.Args);
 
-        if (startupArgs.IsSetupMode)
+        // Check for first-run setup (automatic, before explicit /setup check)
+        if (IsFirstRun(startupArgs))
+        {
+            var setupViewModel = new SetupViewModel();
+            var setupWindow = new SetupWindow(setupViewModel, isStartupMode: true);
+            if (setupWindow.ShowDialog() != true)
+            {
+                // User clicked Close (not Continue), exit the app
+                Shutdown();
+                return;
+            }
+            // User clicked Continue - mark first run as completed
+            MarkFirstRunCompleted();
+        }
+        // Check for explicit /setup flag
+        else if (startupArgs.IsSetupMode)
         {
             var setupViewModel = new SetupViewModel();
             var setupWindow = new SetupWindow(setupViewModel);
@@ -312,6 +327,85 @@ public partial class App : Application
             // Ignore config read errors
         }
         return SingleInstanceBehavior.ShowDialog;
+    }
+
+    /// <summary>
+    /// Determines if this is a first-run scenario where setup should be shown automatically.
+    /// </summary>
+    private static bool IsFirstRun(CommandLineArgs args)
+    {
+        // Skip if --no-setup flag passed
+        if (args.SkipSetup) return false;
+
+        // Skip if testing/debug flags (likely development/testing)
+        if (args.DisableSingleInstance) return false;
+
+        // Skip if explicitly requesting setup (will show anyway)
+        if (args.IsSetupMode) return false;
+
+        // Skip if opened with a path (user knows how to use the app)
+        if (args.HasValidRequest()) return false;
+
+        try
+        {
+            var configPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TerminalHost", "config.json");
+
+            // No config file = first run
+            if (!File.Exists(configPath)) return true;
+
+            // Check if config is default/untouched
+            var json = File.ReadAllText(configPath);
+            var config = JsonSerializer.Deserialize<AppConfiguration>(json);
+            return config?.IsDefault() ?? true;
+        }
+        catch
+        {
+            // Error reading config - assume first run
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Marks first-run setup as completed and saves to config.
+    /// </summary>
+    private static void MarkFirstRunCompleted()
+    {
+        try
+        {
+            var configPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TerminalHost", "config.json");
+
+            AppConfiguration config;
+            if (File.Exists(configPath))
+            {
+                var json = File.ReadAllText(configPath);
+                config = JsonSerializer.Deserialize<AppConfiguration>(json) ?? new AppConfiguration();
+            }
+            else
+            {
+                config = new AppConfiguration();
+            }
+
+            config.Settings.FirstRunCompleted = true;
+            config.Settings.FirstRunDate = DateTime.UtcNow;
+
+            // Ensure directory exists
+            var dir = Path.GetDirectoryName(configPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText(configPath, JsonSerializer.Serialize(config, options));
+        }
+        catch
+        {
+            // Ignore save errors - not critical
+        }
     }
 
     private void OnExit(object sender, ExitEventArgs e)

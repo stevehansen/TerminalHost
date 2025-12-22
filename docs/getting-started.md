@@ -7,6 +7,12 @@ title: Getting Started
 
 # Getting Started
 
+## First Run
+
+When you launch TerminalHost for the first time, the **Setup Window** will automatically appear to help you verify that all dependencies are installed (Claude Code, PowerShell, Git, etc.). After clicking "Continue", the main application will start and you won't see this setup again.
+
+To skip this check, use `host --no-setup`.
+
 ## Open projects
 
 ### From the command line

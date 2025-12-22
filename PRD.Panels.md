@@ -344,11 +344,11 @@ bool IsFirstRun()
 5. ~~Add `singleInstanceBehavior` setting~~ - ShowDialog (default), SilentFocus, AllowMultiple
 6. ~~Add `allowDuplicateTabs` setting~~ - Enables duplicate tab features (default: true)
 
-### Phase 3: First-Run Setup
-1. Add `IsFirstRun()` detection logic
-2. Add `--no-setup` CLI flag
-3. Show setup window before MainWindow on first run
-4. Add `firstRunCompleted` flag to config
+### Phase 3: First-Run Setup [COMPLETED]
+1. ~~Add `IsFirstRun()` detection logic~~ - Detects untouched config (no open folders, scratch pads, tasks, etc.)
+2. ~~Add `--no-setup` CLI flag~~ - Skips first-run setup check
+3. ~~Show setup window before MainWindow on first run~~ - Uses existing SetupWindow with `isStartupMode: true`
+4. ~~Add `firstRunCompleted` flag to config~~ - Added `FirstRunCompleted` and `FirstRunDate` to AppSettings
 
 ### Phase 4: Unified Panel System
 1. Design `IPanelableViewModel` interface

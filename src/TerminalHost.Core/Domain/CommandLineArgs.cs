@@ -12,6 +12,11 @@ public class CommandLineArgs
     public string? UserDataDir { get; set; }
 
     /// <summary>
+    /// When true, skips the first-run setup check.
+    /// </summary>
+    public bool SkipSetup { get; set; }
+
+    /// <summary>
     /// When true, forces creation of a new tab even if a tab for this directory exists.
     /// </summary>
     public bool ForceNewTab { get; set; }
@@ -36,6 +41,12 @@ public class CommandLineArgs
                 case "-setup":
                 case "--setup":
                     result.IsSetupMode = true;
+                    continue;
+
+                case "--no-setup":
+                case "-no-setup":
+                case "/no-setup":
+                    result.SkipSetup = true;
                     continue;
 
                 case "--disable-single-instance":

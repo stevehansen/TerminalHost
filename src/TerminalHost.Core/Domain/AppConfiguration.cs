@@ -112,6 +112,38 @@ public class AppConfiguration
     [JsonPropertyName("aiAssistants")]
     public List<AiAssistant> AiAssistants { get; set; } = [];
 
+    /// <summary>
+    /// Determines if this configuration is in its default/untouched state.
+    /// Used for first-run detection.
+    /// </summary>
+    public bool IsDefault()
+    {
+        // Already completed first run - not default
+        if (Settings.FirstRunCompleted) return false;
+
+        // Has open folders history - user has used the app
+        if (OpenFolders.Count > 0) return false;
+
+        // Has custom scratch pad content
+        if (!string.IsNullOrEmpty(GlobalScratchPad)) return false;
+        if (ScratchPads.Count > 0) return false;
+
+        // Has custom profiles (beyond default PowerShell)
+        if (Profiles.Count > 1) return false;
+        if (Profiles.Count == 1 && Profiles[0].Id != "powershell") return false;
+
+        // Has directory-specific settings
+        if (DirectorySettings.Count > 0) return false;
+
+        // Has command palette history
+        if (CommandPaletteMru.Count > 0) return false;
+
+        // Has tasks
+        if (Tasks.Count > 0) return false;
+
+        return true;
+    }
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
@@ -369,6 +401,18 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("allowDuplicateTabs")]
     public bool AllowDuplicateTabs { get; set; } = true;
+
+    /// <summary>
+    /// Whether the first-run setup has been completed.
+    /// </summary>
+    [JsonPropertyName("firstRunCompleted")]
+    public bool FirstRunCompleted { get; set; } = false;
+
+    /// <summary>
+    /// The date/time when first-run setup was completed.
+    /// </summary>
+    [JsonPropertyName("firstRunDate")]
+    public DateTime? FirstRunDate { get; set; } = null;
 }
 
 /// <summary>
