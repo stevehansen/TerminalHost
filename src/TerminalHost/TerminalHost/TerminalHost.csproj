@@ -41,7 +41,13 @@
     <!-- Avalonia-compatible charts -->
     <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4" />
 
-    <!-- Terminal PTY support will be added in Stage 4 -->
+    <!-- Stage 4: Terminal PTY support -->
+    <PackageReference Include="sch.pty.net" Version="0.3.36-pre" />
+  </ItemGroup>
+
+  <!-- Stage 4: XtermSharp terminal emulation -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\external\XtermSharp\XtermSharp\XtermSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -71,6 +77,35 @@
 
     <!-- Exclude XAML files (will be replaced with AXAML) -->
     <None Remove="**\*.xaml" />
+  </ItemGroup>
+
+  <!-- Stage 4: Re-include terminal control files after Stage 1 exclusions -->
+  <ItemGroup>
+    <!-- Domain interfaces and models -->
+    <Compile Include="Domain\ITerminalControl.cs" />
+    <Compile Include="Domain\TerminalTheme.cs" />
+    <Compile Include="Domain\Profile.cs" />
+    <Compile Include="Domain\TerminalSession.cs" />
+    <Compile Include="Domain\SessionState.cs" />
+    <Compile Include="Domain\UsageStats.cs" />
+    <Compile Include="Domain\DirectoryUsageStats.cs" />
+
+    <!-- Service interfaces and implementations for Stage 4 -->
+    <Compile Include="Services\ITerminalControlFactory.cs" />
+    <Compile Include="Services\TerminalControlFactory.cs" />
+    <Compile Include="Services\ISystemInfoService.cs" />
+    <Compile Include="Services\SystemInfoService.cs" />
+    <Compile Include="Services\IFileSystem.cs" />
+    <Compile Include="Services\IDialogService.cs" />
+    <Compile Include="Services\DialogService.cs" />
+    <Compile Include="Services\IClipboardService.cs" />
+    <Compile Include="Services\ClipboardService.cs" />
+    <Compile Include="Services\IStatisticsService.cs" />
+    <Compile Include="Services\StatisticsService.cs" />
+    <Compile Include="Services\JsonFileService.cs" />
+
+    <!-- Terminal control -->
+    <Compile Include="Controls\MacTerminalControl.cs" />
   </ItemGroup>
 
   <!-- Remove PDB files after publish -->

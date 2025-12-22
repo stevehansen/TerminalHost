@@ -1,171 +1,134 @@
-using EasyWindowsTerminalControl;
-using Microsoft.Terminal.Wpf;
+using Avalonia.Threading;
+using TerminalHost.Controls;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
+/// <summary>
+/// Factory for creating terminal controls using Pty.Net and XtermSharp.
+/// </summary>
 internal sealed class TerminalControlFactory : ITerminalControlFactory
 {
     private readonly IFileSystem _fileSystem;
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly IDialogService _dialogService;
+    private readonly ISystemInfoService _systemInfoService;
 
-    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService) // Added IDialogService
+    public TerminalControlFactory(
+        IFileSystem fileSystem,
+        IDialogService dialogService,
+        ISystemInfoService systemInfoService)
     {
         _fileSystem = fileSystem;
-        _dialogService = dialogService; // Initialize IDialogService
+        _dialogService = dialogService;
+        _systemInfoService = systemInfoService;
     }
 
-    public EasyTerminalControl CreateTerminalControl(TerminalSession session)
+    public async Task<ITerminalControl> CreateTerminalControlAsync(TerminalSession session)
     {
         var profile = session.Profile;
         var workingDir = profile.GetExpandedWorkingDir();
-        var command = string.IsNullOrWhiteSpace(profile.Command) ? "cmd.exe" : profile.Command;
+        var command = GetCommand(profile);
 
-
-        // Build a startup command that changes to working directory first, then runs the command
-        string startupCommand;
-
-        // Check if the command executable exists (for custom commands like claude.exe)
-        var commandExe = command.Split(' ')[0];
-        var commandExists = _fileSystem.FileExists(commandExe) ||
-                           _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe));
-
-        if (!commandExists && !IsBuiltInCommand(commandExe))
+        // Verify command exists
+        if (!IsValidCommand(command))
         {
-            // Show warning on UI thread since this runs during terminal creation
-            Application.Current?.Dispatcher.BeginInvoke(() =>
-            {
-                _dialogService.ShowWarning( // Use injected IDialogService
-                    $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
-                    "Terminal Warning");
-            });
-            command = "cmd.exe";
+            await ShowCommandWarningAsync(command);
+            command = _systemInfoService.GetDefaultShell();
         }
 
-        if (string.IsNullOrWhiteSpace(workingDir))
+        // Ensure working directory exists
+        if (string.IsNullOrEmpty(workingDir) || !_fileSystem.DirectoryExists(workingDir))
         {
-            // Just use the command directly
-            startupCommand = command;
-        }
-        else
-        {
-            // For cmd, use /K with cd
-            if (command.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase) ||
-                command.Equals("cmd", StringComparison.OrdinalIgnoreCase))
-            {
-                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\" ";
-            }
-            // For PowerShell variants
-            else if (command.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("pwsh", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("powershell", StringComparison.OrdinalIgnoreCase))
-            {
-                startupCommand = $"{command} -NoExit -WorkingDirectory \"{workingDir}\" ";
-            }
-            else
-            {
-                // For other commands, run them from the directory using cmd
-                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\" && {command}";
-            }
+            workingDir = _systemInfoService.GetUserHomePath();
         }
 
+        var control = new MacTerminalControl();
 
-        // Create the terminal control with configured command line
-        var terminalControl = new EasyTerminalControl
+        // Set theme
+        control.Theme = TerminalTheme.Campbell;
+
+        await control.InitializeAsync(command, workingDir);
+
+        return control;
+    }
+
+    private string GetCommand(Profile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Command))
         {
-            StartupCommandLine = startupCommand,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = System.Windows.VerticalAlignment.Stretch,
-            // Font must be set before initialization or SetTheme() called after
-            // Fallback chain: Cascadia Code NF -> other Nerd Fonts
-            FontFamilyWhenSettingTheme = Application.Current?.Resources["FontFamilyMonospace"] as System.Windows.Media.FontFamily ?? new System.Windows.Media.FontFamily("Cascadia Code NF"),
-            FontSizeWhenSettingTheme = (int)((double?)Application.Current?.Resources["FontSizeSmall"] ?? 12),
-            MinHeight = 100,
-            MinWidth = 100
+            return _systemInfoService.GetDefaultShell();
+        }
+
+        // Expand environment variables
+        return Environment.ExpandEnvironmentVariables(profile.Command);
+    }
+
+    private bool IsValidCommand(string command)
+    {
+        // Check if it's a full path that exists
+        if (File.Exists(command))
+            return true;
+
+        // Get just the executable name if command has arguments
+        var execName = command.Split(' ')[0];
+        if (File.Exists(execName))
+            return true;
+
+        // Check if it's in PATH
+        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
+        var paths = pathEnv.Split(':');
+
+        foreach (var path in paths)
+        {
+            var fullPath = Path.Combine(path, execName);
+            if (File.Exists(fullPath))
+                return true;
+        }
+
+        // Check common macOS locations
+        var commonPaths = new[]
+        {
+            "/bin",
+            "/usr/bin",
+            "/usr/local/bin",
+            "/opt/homebrew/bin", // Apple Silicon Homebrew
+            "/usr/local/Homebrew/bin", // Intel Homebrew
         };
 
-        // Initialize terminal after it's loaded into the visual tree
-        terminalControl.Loaded += (s, e) =>
+        foreach (var path in commonPaths)
         {
-            // Use Dispatcher to ensure we're fully in the visual tree before checking/starting process
-            terminalControl.Dispatcher.InvokeAsync(async () =>
-            {
-                // Give the control a moment to fully initialize
-                await Task.Delay(100);
+            var fullPath = Path.Combine(path, execName);
+            if (File.Exists(fullPath))
+                return true;
+        }
 
-                if (terminalControl.ConPTYTerm != null)
-                {
-                    // If process didn't start, try restarting the terminal
-                    if (terminalControl.ConPTYTerm.Process == null || terminalControl.ConPTYTerm.Process.HasExited)
-                    {
-                        try
-                        {
-                            await terminalControl.RestartTerm();
-                            await Task.Delay(500);
-                        }
-                        catch
-                        {
-                            // RestartTerm failed
-                        }
-                    }
-
-                    // Apply theme with font settings - this triggers internal SetTheme
-                    try
-                    {
-                        // Standard Campbell color scheme (Windows Terminal default)
-                        var theme = new TerminalTheme
-                        {
-                            DefaultBackground = EasyTerminalControl.ColorToVal(Color.FromRgb(0x0C, 0x0C, 0x0C)),
-                            DefaultForeground = EasyTerminalControl.ColorToVal(Color.FromRgb(0xCC, 0xCC, 0xCC)),
-                            DefaultSelectionBackground = EasyTerminalControl.ColorToVal(Color.FromRgb(0x26, 0x4F, 0x78)),
-                            CursorStyle = CursorStyle.BlinkingBar,
-                            // 16-color palette: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray,
-                            //                   DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White
-                            ColorTable =
-                            [
-                                0x0C0C0C, // Black
-                                0xDA3700, // DarkBlue (actually shows as blue due to BGR)
-                                0x0EA113, // DarkGreen
-                                0xDD963A, // DarkCyan
-                                0x1F0FC5, // DarkRed
-                                0x981788, // DarkMagenta
-                                0x009CC1, // DarkYellow
-                                0xCCCCCC, // Gray
-                                0x767676, // DarkGray
-                                0xFF783B, // Blue
-                                0x0CC616, // Green
-                                0xD6D661, // Cyan
-                                0x5648E7, // Red
-                                0x9E00B4, // Magenta
-                                0xA5F1F9, // Yellow
-                                0xF2F2F2  // White
-                            ]
-                        };
-                        terminalControl.Theme = theme;
-                    }
-                    catch
-                    {
-                        // Theme update failed
-                    }
-                }
-            }, System.Windows.Threading.DispatcherPriority.Background);
-        };
-
-        return terminalControl;
+        // Check if it's a built-in shell
+        return IsBuiltInCommand(execName);
     }
 
     private static bool IsBuiltInCommand(string command)
     {
         var builtIns = new[]
         {
-            "cmd", "cmd.exe",
-            "pwsh", "pwsh.exe",
-            "powershell", "powershell.exe",
-            "bash", "bash.exe",
-            "wsl", "wsl.exe"
+            "zsh", "/bin/zsh",
+            "bash", "/bin/bash",
+            "sh", "/bin/sh",
+            "fish", "/usr/local/bin/fish", "/opt/homebrew/bin/fish",
+            "tcsh", "/bin/tcsh",
+            "csh", "/bin/csh",
         };
 
-        return builtIns.Any(b => b.Equals(command, StringComparison.OrdinalIgnoreCase));
+        return builtIns.Any(b => command.EndsWith(b, StringComparison.OrdinalIgnoreCase) ||
+                                 command.Equals(b, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task ShowCommandWarningAsync(string command)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _dialogService.ShowWarning(
+                $"Command not found: {command}\n\nFalling back to default shell.",
+                "Terminal Warning");
+        });
     }
 }

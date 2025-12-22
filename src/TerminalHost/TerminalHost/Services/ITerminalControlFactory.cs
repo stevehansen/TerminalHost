@@ -1,9 +1,14 @@
-using EasyWindowsTerminalControl;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
+/// <summary>
+/// Factory for creating terminal controls.
+/// </summary>
 public interface ITerminalControlFactory
 {
-    EasyTerminalControl CreateTerminalControl(TerminalSession session);
+    /// <summary>
+    /// Creates a terminal control for the given session.
+    /// </summary>
+    Task<ITerminalControl> CreateTerminalControlAsync(TerminalSession session);
 }
