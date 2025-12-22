@@ -239,31 +239,18 @@ internal sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFi
                 // It's a file path - check if it exists
                 if (_fileSystem.FileExists(link))
                 {
-                    _processService.Start(new ProcessStartInfo
-                    {
-                        FileName = link,
-                        UseShellExecute = true
-                    });
+                    _processService.OpenWithDefaultApp(link);
                     return;
                 }
                 else if (_fileSystem.DirectoryExists(link))
                 {
-                    _processService.Start(new ProcessStartInfo
-                    {
-                        FileName = "explorer.exe",
-                        Arguments = $"\"{link}\"",
-                        UseShellExecute = true
-                    });
+                    _processService.OpenFolder(link);
                     return;
                 }
             }
 
             // It's a URL - open in default browser
-            _processService.Start(new ProcessStartInfo
-            {
-                FileName = link,
-                UseShellExecute = true
-            });
+            _processService.OpenUrl(link);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -79,7 +80,7 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
         // Create a new profile with defaults
         var newId = $"profile-{DateTime.Now:yyyyMMddHHmmss}";
         EditName = "New Profile";
-        EditCommand = "pwsh.exe";
+        EditCommand = GetDefaultShell();
         EditIcon = "\uD83D\uDCBB"; // Computer icon
         EditShortcut = "";
         EditAutoStart = false;
@@ -206,6 +207,20 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     private void Close()
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static string GetDefaultShell()
+    {
+        // Check for environment variable first
+        var shell = Environment.GetEnvironmentVariable("SHELL");
+        if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
+            return shell;
+
+        // macOS defaults
+        if (File.Exists("/bin/zsh")) return "/bin/zsh";
+        if (File.Exists("/bin/bash")) return "/bin/bash";
+
+        return "/bin/sh";
     }
 }
 

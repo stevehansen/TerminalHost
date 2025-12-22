@@ -22,11 +22,11 @@ internal sealed class GitHubService : IGitHubService
 
         try
         {
-            // Use PowerShell to ensure PATH is resolved correctly (same as SetupViewModel)
+            // macOS: use /bin/sh to run gh command
             var psi = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -Command \"gh auth token\"",
+                FileName = "/bin/sh",
+                Arguments = "-c \"gh auth token\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -483,19 +483,20 @@ internal sealed class GitHubService : IGitHubService
     {
         try
         {
-            // Use cmd.exe to ensure PATH is resolved correctly
+            // macOS: use /bin/sh to run gh command
             // Write query to temp file and use @file syntax
             var tempFile = Path.GetTempFileName();
             try
             {
                 await File.WriteAllTextAsync(tempFile, query);
 
-                var args = $"/c gh api graphql -F owner={owner} -F repo={repo} -F pr={pr} -F query=@\"{tempFile}\"";
-                System.Diagnostics.Debug.WriteLine($"GraphQL: Running cmd.exe {args}");
+                var escapedTempFile = tempFile.Replace("\"", "\\\"");
+                var args = $"-c \"gh api graphql -F owner={owner} -F repo={repo} -F pr={pr} -F query=@\\\"{escapedTempFile}\\\"\"";
+                System.Diagnostics.Debug.WriteLine($"GraphQL: Running /bin/sh {args}");
 
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "cmd.exe",
+                    FileName = "/bin/sh",
                     Arguments = args,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -616,11 +617,12 @@ internal sealed class GitHubService : IGitHubService
     {
         try
         {
-            // Use PowerShell to ensure PATH is resolved correctly (same as SetupViewModel)
+            // macOS: use /bin/sh to run gh command
+            var escapedArguments = arguments.Replace("\"", "\\\"");
             var psi = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -Command \"gh {arguments}\"",
+                FileName = "/bin/sh",
+                Arguments = $"-c \"gh {escapedArguments}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

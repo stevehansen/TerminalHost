@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -830,8 +831,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         {
             Id = $"profile-{DateTime.Now:yyyyMMddHHmmss}",
             Name = "New Profile",
-            Command = "pwsh.exe",
-            WorkingDir = "%USERPROFILE%",
+            Command = GetDefaultShell(),
+            WorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             Icon = "",
             AutoStart = false
         };
@@ -1511,5 +1512,19 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             RunConfigurations.Insert(index, config);
             SelectedRunConfiguration = config;
         }
+    }
+
+    private static string GetDefaultShell()
+    {
+        // Check for environment variable first
+        var shell = Environment.GetEnvironmentVariable("SHELL");
+        if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
+            return shell;
+
+        // macOS defaults
+        if (File.Exists("/bin/zsh")) return "/bin/zsh";
+        if (File.Exists("/bin/bash")) return "/bin/bash";
+
+        return "/bin/sh";
     }
 }

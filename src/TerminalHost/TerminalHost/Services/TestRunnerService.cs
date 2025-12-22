@@ -216,9 +216,9 @@ internal sealed partial class TestRunnerService : ITestRunnerService
             }
             else
             {
-                // Default: use cmd to run the command
-                psi.FileName = "cmd.exe";
-                psi.Arguments = $"/c {command}";
+                // macOS: use /bin/sh to run the command
+                psi.FileName = "/bin/sh";
+                psi.Arguments = $"-c \"{command.Replace("\"", "\\\"")}\"";
             }
 
             using var process = new Process { StartInfo = psi };

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json.Serialization;
 
 namespace TerminalHost.Domain;
@@ -288,7 +289,7 @@ public class AppSettings
     public bool ShowInSystemTray { get; set; } = false;
 
     [JsonPropertyName("customCommand")]
-    public string CustomCommand { get; set; } = @"%USERPROFILE%\.local\bin\claude.exe";
+    public string CustomCommand { get; set; } = GetDefaultClaudeCommand();
 
     [JsonPropertyName("customCommandName")]
     public string CustomCommandName { get; set; } = "Claude Code";
@@ -297,13 +298,51 @@ public class AppSettings
     public string CustomCommandIcon { get; set; } = "🤖";
 
     [JsonPropertyName("shellCommand")]
-    public string ShellCommand { get; set; } = "pwsh.exe";
+    public string ShellCommand { get; set; } = GetDefaultShell();
 
     [JsonPropertyName("shellCommandName")]
-    public string ShellCommandName { get; set; } = "PowerShell";
+    public string ShellCommandName { get; set; } = GetDefaultShellName();
 
     [JsonPropertyName("shellCommandIcon")]
     public string ShellCommandIcon { get; set; } = "💻";
+
+    private static string GetDefaultClaudeCommand()
+    {
+        // macOS: ~/.local/bin/claude
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var claudePath = Path.Combine(home, ".local", "bin", "claude");
+        if (File.Exists(claudePath))
+            return claudePath;
+
+        // Fallback to just "claude" in PATH
+        return "claude";
+    }
+
+    private static string GetDefaultShell()
+    {
+        // Check for environment variable first
+        var shell = Environment.GetEnvironmentVariable("SHELL");
+        if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
+            return shell;
+
+        // macOS defaults
+        if (File.Exists("/bin/zsh")) return "/bin/zsh";
+        if (File.Exists("/bin/bash")) return "/bin/bash";
+
+        return "/bin/sh";
+    }
+
+    private static string GetDefaultShellName()
+    {
+        var shell = GetDefaultShell();
+        return Path.GetFileName(shell) switch
+        {
+            "zsh" => "Zsh",
+            "bash" => "Bash",
+            "fish" => "Fish",
+            _ => "Shell"
+        };
+    }
 
     /// <summary>
     /// Keyboard shortcuts for Claude commands (command name -> shortcut string).

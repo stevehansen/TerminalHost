@@ -1,117 +1,42 @@
-using System.IO;
-using System.Windows;
-
 namespace TerminalHost.Services;
 
+/// <summary>
+/// macOS implementation of system tray service.
+/// Note: Full implementation requires native macOS interop for NSStatusBar.
+/// This is a stub that can be enhanced later.
+/// </summary>
 internal sealed class SystemTrayService : ISystemTrayService
 {
-    private readonly IFileSystem _fileSystem;
-    private NotifyIcon? _notifyIcon;
-    private Window? _mainWindow;
     private bool _isEnabled;
-    private bool _disposed;
 
     public event EventHandler? ShowRequested;
     public event EventHandler? ExitRequested;
 
-    public SystemTrayService(IFileSystem fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-
     public bool IsEnabled
     {
         get => _isEnabled;
-        set
-        {
-            if (_isEnabled != value)
-            {
-                _isEnabled = value;
-                UpdateTrayVisibility();
-            }
-        }
+        set => _isEnabled = value; // No-op for now
     }
 
-    public void Initialize(Window mainWindow)
+    public void Initialize(object mainWindow)
     {
-        _mainWindow = mainWindow;
-
-        _notifyIcon = new NotifyIcon
-        {
-            Text = "TerminalHost",
-            Visible = false
-        };
-
-        // Load the icon from resource
-        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
-        if (_fileSystem.FileExists(iconPath))
-        {
-            _notifyIcon.Icon = new Icon(iconPath);
-        }
-        else
-        {
-            // Try to get from application resources
-            try
-            {
-                var resourceStream = Application.GetResourceStream(new Uri("pack://application:,,,/Resources/app.ico"));
-                if (resourceStream != null)
-                {
-                    _notifyIcon.Icon = new Icon(resourceStream.Stream);
-                }
-            }
-            catch
-            {
-                // Use system default if icon not found
-                _notifyIcon.Icon = SystemIcons.Application;
-            }
-        }
-
-        // Create context menu
-        var contextMenu = new ContextMenuStrip();
-
-        var showItem = new ToolStripMenuItem("Show TerminalHost");
-        showItem.Click += (_, _) => ShowRequested?.Invoke(this, EventArgs.Empty);
-        showItem.Font = new Font(showItem.Font, System.Drawing.FontStyle.Bold);
-        contextMenu.Items.Add(showItem);
-
-        contextMenu.Items.Add(new ToolStripSeparator());
-
-        var exitItem = new ToolStripMenuItem("Exit");
-        exitItem.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
-        contextMenu.Items.Add(exitItem);
-
-        _notifyIcon.ContextMenuStrip = contextMenu;
-        _notifyIcon.DoubleClick += (_, _) => ShowRequested?.Invoke(this, EventArgs.Empty);
-
-        UpdateTrayVisibility();
+        // No-op: macOS menu bar implementation would go here
+        // Could use Avalonia.Native or direct ObjC interop
     }
 
-    public void ShowBalloonTip(string title, string text, ToolTipIcon icon = ToolTipIcon.Info)
+    public void ShowBalloonTip(string title, string text, int icon = 0)
     {
-        if (_notifyIcon != null && _isEnabled)
-        {
-            _notifyIcon.ShowBalloonTip(3000, title, text, icon);
-        }
-    }
-
-    private void UpdateTrayVisibility()
-    {
-        if (_notifyIcon != null)
-        {
-            _notifyIcon.Visible = _isEnabled;
-        }
+        // macOS notification could be implemented via NSUserNotificationCenter
+        // or the newer UNUserNotificationCenter
+        System.Diagnostics.Debug.WriteLine($"[Notification] {title}: {text}");
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-
-        if (_notifyIcon != null)
-        {
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
-            _notifyIcon = null;
-        }
+        // Nothing to dispose in stub
     }
+
+    // Suppress unused event warnings - these will be used when full implementation is added
+    private void OnShowRequested() => ShowRequested?.Invoke(this, EventArgs.Empty);
+    private void OnExitRequested() => ExitRequested?.Invoke(this, EventArgs.Empty);
 }

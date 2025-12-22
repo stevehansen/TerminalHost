@@ -18,10 +18,17 @@ internal sealed class ConfigurationService : IConfigurationService
     public ConfigurationService(IFileSystem fileSystem, string? userDataDir = null)
     {
         _fileSystem = fileSystem;
-        
-        _configDirectory = userDataDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TerminalHost");
+
+        if (!string.IsNullOrEmpty(userDataDir))
+        {
+            _configDirectory = userDataDir;
+        }
+        else
+        {
+            // macOS: ~/Library/Application Support/TerminalHost
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            _configDirectory = Path.Combine(home, "Library", "Application Support", "TerminalHost");
+        }
 
         ConfigurationFilePath = Path.Combine(_configDirectory, "config.json");
 
@@ -37,9 +44,9 @@ internal sealed class ConfigurationService : IConfigurationService
     public AppConfiguration Load()
     {
         var config = _jsonFileService.Load();
-        if (!config.Profiles.Any()) // If config has no profiles, add the default PowerShell profile
+        if (!config.Profiles.Any()) // If config has no profiles, add the default shell profile
         {
-            config.Profiles.Add(CreateDefaultPowerShellProfile());
+            config.Profiles.Add(CreateDefaultShellProfile());
             Save(config); // Save after adding the default profile
         }
         return config;
@@ -152,14 +159,19 @@ internal sealed class ConfigurationService : IConfigurationService
     {
         var builtIns = new[]
         {
-            "cmd", "cmd.exe",
-            "pwsh", "pwsh.exe",
-            "powershell", "powershell.exe",
-            "bash", "bash.exe",
-            "wsl", "wsl.exe"
+            // macOS shells
+            "zsh", "/bin/zsh",
+            "bash", "/bin/bash",
+            "sh", "/bin/sh",
+            "fish", "/usr/local/bin/fish", "/opt/homebrew/bin/fish",
+            // Common utilities
+            "tmux", "screen"
         };
 
-        return builtIns.Any(b => b.Equals(command, StringComparison.OrdinalIgnoreCase));
+        var commandName = Path.GetFileName(command);
+        return builtIns.Any(b =>
+            commandName.Equals(b, StringComparison.OrdinalIgnoreCase) ||
+            command.Equals(b, StringComparison.OrdinalIgnoreCase));
     }
 
     private static AppConfiguration CreateDefaultConfiguration()
@@ -168,14 +180,7 @@ internal sealed class ConfigurationService : IConfigurationService
         {
             Profiles =
             [
-                new() {
-                    Id = "powershell",
-                    Name = "PowerShell",
-                    Command = "pwsh.exe",
-                    WorkingDir = "%USERPROFILE%",
-                    Icon = "🔷",
-                    AutoStart = true
-                }
+                CreateDefaultShellProfile()
             ],
             Settings = new AppSettings
             {
@@ -187,17 +192,40 @@ internal sealed class ConfigurationService : IConfigurationService
         return config;
     }
 
-    // Helper method to create a default PowerShell profile
-    private static Profile CreateDefaultPowerShellProfile()
+    // Helper method to create a default shell profile
+    private static Profile CreateDefaultShellProfile()
     {
+        var shell = GetDefaultShell();
+        var shellName = Path.GetFileName(shell) switch
+        {
+            "zsh" => "Zsh",
+            "bash" => "Bash",
+            "fish" => "Fish",
+            _ => "Shell"
+        };
+
         return new()
         {
-            Id = "powershell",
-            Name = "PowerShell",
-            Command = "pwsh.exe",
-            WorkingDir = "%USERPROFILE%",
+            Id = "shell",
+            Name = shellName,
+            Command = shell,
+            WorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             Icon = "🔷",
             AutoStart = true
         };
+    }
+
+    private static string GetDefaultShell()
+    {
+        // Check for environment variable first
+        var shell = Environment.GetEnvironmentVariable("SHELL");
+        if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
+            return shell;
+
+        // macOS defaults
+        if (File.Exists("/bin/zsh")) return "/bin/zsh";
+        if (File.Exists("/bin/bash")) return "/bin/bash";
+
+        return "/bin/sh";
     }
 }

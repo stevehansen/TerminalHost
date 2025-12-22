@@ -7,9 +7,14 @@ namespace TerminalHost.Services;
 internal sealed class SingleInstanceService : ISingleInstanceService
 {
     private const string MutexName = "TerminalHost_SingleInstance_Mutex";
-    private const string PipeName = "TerminalHost_IPC_Pipe";
+
+    // macOS: Use /tmp for named pipes
+    private static readonly string PipeName = Path.Combine(
+        Path.GetTempPath(),
+        "TerminalHost_IPC_Pipe");
 
     private Mutex? _mutex;
+    private FileStream? _lockFileStream;
     private CancellationTokenSource? _pipeServerCts;
     private Task? _pipeServerTask;
 
@@ -17,8 +22,37 @@ internal sealed class SingleInstanceService : ISingleInstanceService
 
     public bool TryAcquireLock()
     {
-        _mutex = new Mutex(true, MutexName, out bool createdNew);
-        return createdNew;
+        try
+        {
+            // On macOS, Mutex with named prefix works differently
+            // Use a file-based lock as fallback
+            _mutex = new Mutex(true, MutexName, out bool createdNew);
+            return createdNew;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // Fallback: use a lock file
+            return TryAcquireFileLock();
+        }
+    }
+
+    private bool TryAcquireFileLock()
+    {
+        var lockFile = Path.Combine(Path.GetTempPath(), "TerminalHost.lock");
+        try
+        {
+            // Try to create exclusive lock file
+            _lockFileStream = new FileStream(
+                lockFile,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     public void StartPipeServer()
@@ -103,6 +137,7 @@ internal sealed class SingleInstanceService : ISingleInstanceService
         _pipeServerTask?.Wait(TimeSpan.FromSeconds(2)); // This should now complete without timing out.
         _pipeServerCts?.Dispose();
         _mutex?.Dispose();
+        _lockFileStream?.Dispose();
     }
 }
 
