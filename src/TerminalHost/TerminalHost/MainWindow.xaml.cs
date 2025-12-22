@@ -88,6 +88,7 @@ public partial class MainWindow : Window
 
         // Subscribe to file preview/edit events
         _viewModel.FilePreviewRequested += OnFilePreviewRequested;
+        _viewModel.FilePopOutRequested += OnFilePopOutRequested;
         _detectedLinksViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
@@ -1019,13 +1020,33 @@ public partial class MainWindow : Window
                 App.Current.Services.GetRequiredService<IFileEditService>(),
                 App.Current.Services.GetRequiredService<IFileSystem>(),
                 App.Current.Services.GetRequiredService<IDialogService>(),
-                App.Current.Services.GetRequiredService<IMarkdownService>());
+                App.Current.Services.GetRequiredService<IMarkdownService>(),
+                App.Current.Services.GetRequiredService<ITimerService>(),
+                App.Current.Services.GetRequiredService<IFilePickerService>());
             detachedViewModel.IsDetached = true;
             detachedViewModel.Open(filePath, mode);
 
             var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
             window.Show();
         }
+    }
+
+    private void OnFilePopOutRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Create a detached file viewer window for the requested file
+        var detachedViewModel = new FileViewerViewModel(
+            App.Current.Services.GetRequiredService<IFilePreviewService>(),
+            App.Current.Services.GetRequiredService<IFileEditService>(),
+            App.Current.Services.GetRequiredService<IFileSystem>(),
+            App.Current.Services.GetRequiredService<IDialogService>(),
+            App.Current.Services.GetRequiredService<IMarkdownService>(),
+            App.Current.Services.GetRequiredService<ITimerService>(),
+            App.Current.Services.GetRequiredService<IFilePickerService>());
+        detachedViewModel.IsDetached = true;
+        detachedViewModel.Open(e.FilePath, e.Mode);
+
+        var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
+        window.Show();
     }
 
     #endregion

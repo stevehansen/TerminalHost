@@ -15,6 +15,7 @@ public partial class TestResultsViewModel : ObservableObject
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly MainViewModel _mainViewModel;
     private readonly IDialogService _dialogService;
+    private readonly IDispatcherService _dispatcherService;
 
     private string _currentWorkingDirectory = string.Empty;
     private ProjectType? _currentProjectType;
@@ -69,12 +70,14 @@ public partial class TestResultsViewModel : ObservableObject
         ITestRunnerService testRunnerService,
         IProjectDetectionService projectDetectionService,
         MainViewModel mainViewModel,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IDispatcherService dispatcherService)
     {
         _testRunnerService = testRunnerService;
         _projectDetectionService = projectDetectionService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
+        _dispatcherService = dispatcherService;
 
         _testRunnerService.OutputReceived += OnOutputReceived;
         _testRunnerService.TestRunCompleted += OnTestRunCompleted;
@@ -214,7 +217,7 @@ public partial class TestResultsViewModel : ObservableObject
 
     private void OnOutputReceived(object? sender, string output)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        _dispatcherService.Post(() =>
         {
             Output += output + Environment.NewLine;
         });
@@ -222,7 +225,7 @@ public partial class TestResultsViewModel : ObservableObject
 
     private void OnTestRunCompleted(object? sender, TestRunSummary summary)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        _dispatcherService.Post(() =>
         {
             PassedCount = summary.Passed;
             FailedCount = summary.Failed;

@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -34,11 +33,15 @@ public partial class MainViewModel : ObservableObject
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
     private readonly IClipboardService _clipboardService;
+    private readonly IFolderPickerService _folderPickerService;
+    private readonly IFilePickerService _filePickerService;
+    private readonly ITimerService _timerService;
+    private readonly IDispatcherService _dispatcherService;
 
-    private readonly DispatcherTimer _gitStatusTimer;
-    private readonly DispatcherTimer _activityTimer;
-    private readonly DispatcherTimer _linkDetectionTimer;
-    private readonly DispatcherTimer _runUrlDetectionTimer;
+    private readonly IPlatformTimer _gitStatusTimer;
+    private readonly IPlatformTimer _activityTimer;
+    private readonly IPlatformTimer _linkDetectionTimer;
+    private readonly IPlatformTimer _runUrlDetectionTimer;
 
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
@@ -128,6 +131,7 @@ public partial class MainViewModel : ObservableObject
 
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
+    public event EventHandler<FileViewerRequestedEventArgs>? FilePopOutRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
 
     public string WindowTitle
@@ -172,7 +176,11 @@ public partial class MainViewModel : ObservableObject
         IMarkdownService markdownService,
         IProcessService processService,
         IToastService toastService,
-        IClipboardService clipboardService)
+        IClipboardService clipboardService,
+        IFolderPickerService folderPickerService,
+        IFilePickerService filePickerService,
+        ITimerService timerService,
+        IDispatcherService dispatcherService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -197,13 +205,17 @@ public partial class MainViewModel : ObservableObject
         _processService = processService;
         _toastService = toastService;
         _clipboardService = clipboardService;
+        _folderPickerService = folderPickerService;
+        _filePickerService = filePickerService;
+        _timerService = timerService;
+        _dispatcherService = dispatcherService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
         _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
-        _claudeCommandService.CommandsChanged += (_, _) => Application.Current.Dispatcher.BeginInvoke(FilterPaletteCommands);
+        _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.Post(FilterPaletteCommands);
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -215,32 +227,24 @@ public partial class MainViewModel : ObservableObject
         InitializeCommandPalette(); // Initialize commands once
 
         // Set up timer for periodic git status refresh (every 5 seconds)
-        _gitStatusTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(5)
-        };
-        _gitStatusTimer.Tick += async (_, _) => await RefreshSelectedTabGitStatusAsync();
+        _gitStatusTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(5),
+            async () => await RefreshSelectedTabGitStatusAsync());
 
         // Set up timer for activity state refresh (every 1 second to detect idle transitions)
-        _activityTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _activityTimer.Tick += (_, _) => RefreshActivityState();
+        _activityTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(1),
+            RefreshActivityState);
 
         // Set up timer for link detection refresh (every 3 seconds)
-        _linkDetectionTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(3)
-        };
-        _linkDetectionTimer.Tick += (_, _) => RefreshDetectedLinks();
+        _linkDetectionTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(3),
+            RefreshDetectedLinks);
 
         // Set up timer for run URL detection (every 2 seconds, only when running)
-        _runUrlDetectionTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(2)
-        };
-        _runUrlDetectionTimer.Tick += (_, _) => RefreshRunUrlDetection();
+        _runUrlDetectionTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(2),
+            RefreshRunUrlDetection);
     }
 
     partial void OnDropdownSearchTextChanged(string value)
@@ -604,32 +608,23 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenNewProject()
+    private async Task OpenNewProjectAsync()
     {
         try
         {
-            // Use folder browser dialog
-            var dialog = new FolderBrowserDialog
+            var path = await _folderPickerService.PickFolderAsync("Select Project Directory");
+            if (!string.IsNullOrEmpty(path))
             {
-                Description = "Select Project Directory",
-                ShowNewFolderButton = true,
-                UseDescriptionForTitle = true
-            };
-
-            var result = dialog.ShowDialog();
-
-            if (result == System.Windows.Forms.DialogResult.OK)
-            {
-                OpenProjectTab(dialog.SelectedPath);
+                OpenProjectTab(path);
             }
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"Error opening project: {ex.Message}"); // Use injected IDialogService
+            _dialogService.ShowError($"Error opening project: {ex.Message}");
         }
     }
 
-    public void OpenProjectTab(string workingDirectory)
+    public async void OpenProjectTab(string workingDirectory)
     {
         try
         {
@@ -685,8 +680,8 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create terminal controls for both
-            var customControl = _terminalFactory.CreateTerminalControl(pair.CustomTerminal);
-            var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
+            var customControl = await _terminalFactory.CreateTerminalControlAsync(pair.CustomTerminal);
+            var shellControl = await _terminalFactory.CreateTerminalControlAsync(pair.ShellTerminal);
 
             // Create view model with AI assistant info
             var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService);
@@ -728,7 +723,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService);
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService, _dispatcherService, _clipboardService);
             tabViewModel.ExplorerViewModel = explorerViewModel;
 
             // Restore explorer settings
@@ -767,7 +762,7 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     /// <param name="profile">The profile to launch.</param>
     /// <param name="workingDirectory">Optional working directory. If null, uses the profile's WorkingDir.</param>
-    public void OpenProfileTab(Profile profile, string? workingDirectory = null)
+    public async void OpenProfileTab(Profile profile, string? workingDirectory = null)
     {
         try
         {
@@ -809,7 +804,7 @@ public partial class MainViewModel : ObservableObject
             var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService, _clipboardService);
 
             // Create terminal control
-            var terminalControl = _terminalFactory.CreateTerminalControl(tabViewModel.Session);
+            var terminalControl = await _terminalFactory.CreateTerminalControlAsync(tabViewModel.Session);
             tabViewModel.SetTerminalControl(terminalControl);
 
             // Subscribe to events
@@ -832,34 +827,29 @@ public partial class MainViewModel : ObservableObject
     /// Opens a profile tab with a folder picker to select the working directory.
     /// </summary>
     /// <param name="profile">The profile to launch.</param>
-    public void OpenProfileTabWithPicker(Profile profile)
+    public async Task OpenProfileTabWithPickerAsync(Profile profile)
     {
         try
         {
-            var dialog = new FolderBrowserDialog
-            {
-                Description = $"Select Working Directory for {profile.Name}",
-                ShowNewFolderButton = true,
-                UseDescriptionForTitle = true
-            };
-
             // Set initial directory to profile's configured directory if it exists
             var initialDir = profile.GetExpandedWorkingDir();
-            if (!string.IsNullOrWhiteSpace(initialDir) && _fileSystem.DirectoryExists(initialDir)) // Use injected IFileSystem
+            if (string.IsNullOrWhiteSpace(initialDir) || !_fileSystem.DirectoryExists(initialDir))
             {
-                dialog.InitialDirectory = initialDir;
+                initialDir = null;
             }
 
-            var result = dialog.ShowDialog();
+            var path = await _folderPickerService.PickFolderAsync(
+                $"Select Working Directory for {profile.Name}",
+                initialDir);
 
-            if (result == System.Windows.Forms.DialogResult.OK)
+            if (!string.IsNullOrEmpty(path))
             {
-                OpenProfileTab(profile, dialog.SelectedPath);
+                OpenProfileTab(profile, path);
             }
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"Error opening folder picker: {ex.Message}"); // Use injected IDialogService
+            _dialogService.ShowError($"Error opening folder picker: {ex.Message}");
         }
     }
 
@@ -996,7 +986,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OnAiAssistantSwitchRequested(object? sender, AiAssistantSwitchEventArgs e)
+    private async void OnAiAssistantSwitchRequested(object? sender, AiAssistantSwitchEventArgs e)
     {
         if (sender is TerminalPairTabViewModel tab)
         {
@@ -1019,7 +1009,7 @@ public partial class MainViewModel : ObservableObject
 
             // Create new session and control
             var newSession = new TerminalSession(newProfile, _statisticsService, _clipboardService, "Custom");
-            var newControl = _terminalFactory.CreateTerminalControl(newSession);
+            var newControl = await _terminalFactory.CreateTerminalControlAsync(newSession);
             _sessionManager.TrackSession(newSession);
 
             // Subscribe to link click events
@@ -1086,17 +1076,9 @@ public partial class MainViewModel : ObservableObject
 
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
-        // Create a detached file viewer window
-        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService, _markdownService);
-        viewer.IsDetached = true;
-        viewer.Open(e.FilePath, e.Mode);
-
-        // Create and show the window
-        var window = new Views.FileViewerWindow
-        {
-            DataContext = viewer
-        };
-        window.Show();
+        // Forward the pop-out request to MainWindow which will create the actual window
+        // (ViewModels should not create windows directly - that's the View's responsibility)
+        FilePopOutRequested?.Invoke(this, e);
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
@@ -1187,7 +1169,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);
@@ -1212,11 +1194,11 @@ public partial class MainViewModel : ObservableObject
         DashboardPrReviewRequested?.Invoke(this, e);
     }
 
-    private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
+    private async void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
     {
         if (e.PickFolder)
         {
-            OpenProfileTabWithPicker(e.Profile);
+            await OpenProfileTabWithPickerAsync(e.Profile);
         }
         else
         {
@@ -1339,7 +1321,7 @@ public partial class MainViewModel : ObservableObject
         var folder = terminalTab.Pair.WorkingDirectory;
         if (_fileSystem.DirectoryExists(folder))
         {
-            _processService.Start("explorer.exe", folder);
+            _processService.OpenFolder(folder);
         }
     }
 
@@ -1941,11 +1923,11 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
-        // Stop timers
-        _gitStatusTimer.Stop();
-        _activityTimer.Stop();
-        _linkDetectionTimer.Stop();
-        _runUrlDetectionTimer.Stop();
+        // Stop and dispose timers
+        _gitStatusTimer.Dispose();
+        _activityTimer.Dispose();
+        _linkDetectionTimer.Dispose();
+        _runUrlDetectionTimer.Dispose();
 
         // Save open folders before closing
         SaveOpenFolders();

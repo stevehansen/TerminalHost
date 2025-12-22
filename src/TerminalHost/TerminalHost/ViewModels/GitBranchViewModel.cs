@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Windows.Data;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -116,11 +115,9 @@ public partial class GitBranchViewModel : ObservableObject
                 (b.IssueNumber?.ToLower().Contains(searchTextLower) ?? false));
         }
 
-        // Group branches by type
-        var view = new CollectionViewSource { Source = filtered.ToList() }.View;
-        view.GroupDescriptions.Add(new PropertyGroupDescription("TypeGroup"));
-
-        Branches = new ObservableCollection<GitBranch>(view.Cast<GitBranch>());
+        // Group branches by type - sorting is sufficient for Avalonia grouping in XAML
+        var sorted = filtered.OrderBy(b => b.TypeGroup).ThenBy(b => b.Name).ToList();
+        Branches = new ObservableCollection<GitBranch>(sorted);
 
         // Show/hide empty state
         StatusMessage = Branches.Any() ? string.Empty : "No branches found matching your search.";

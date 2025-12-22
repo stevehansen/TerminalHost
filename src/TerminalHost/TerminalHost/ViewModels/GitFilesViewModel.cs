@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
-using System.Windows; // For Application.Current resource access (optional, but used in other parts if any)
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -188,11 +187,11 @@ public partial class GitFilesViewModel : ObservableObject
         {
             if (_fileSystem.FileExists(fullPath))
             {
-                _processService.Start("explorer.exe", $"/select,\"{fullPath}\"");
+                _processService.RevealInFinder(fullPath);
             }
             else
             {
-                _processService.Start("explorer.exe", directory!);
+                _processService.OpenFolder(directory!);
             }
         }
     }

@@ -12,6 +12,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
 {
     private readonly IMarkdownService _markdownService;
     private readonly IFileSystem _fileSystem;
+    private readonly IDispatcherService _dispatcherService;
     private FileSystemWatcher? _fileWatcher;
 
     [ObservableProperty]
@@ -56,10 +57,11 @@ public partial class MarkdownPreviewViewModel : ObservableObject
     /// </summary>
     public event EventHandler? ShowRequested;
 
-    public MarkdownPreviewViewModel(IMarkdownService markdownService, IFileSystem fileSystem)
+    public MarkdownPreviewViewModel(IMarkdownService markdownService, IFileSystem fileSystem, IDispatcherService dispatcherService)
     {
         _markdownService = markdownService;
         _fileSystem = fileSystem;
+        _dispatcherService = dispatcherService;
     }
 
     /// <summary>
@@ -127,7 +129,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
                 {
                     // Add a small delay to avoid reading while file is still being written
                     await Task.Delay(100);
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                    await _dispatcherService.InvokeAsync(async () =>
                     {
                         await RefreshAsync();
                     });

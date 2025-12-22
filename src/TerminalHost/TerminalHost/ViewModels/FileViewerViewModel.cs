@@ -1,10 +1,8 @@
 using System.IO;
 using System.Text;
-using System.Windows;
-using System.Windows.Documents;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Services;
@@ -18,12 +16,14 @@ public partial class FileViewerViewModel : ObservableObject
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
     private readonly IMarkdownService _markdownService;
+    private readonly ITimerService _timerService;
+    private readonly IFilePickerService _filePickerService;
     private string? _currentFilePath;
     private Encoding? _currentEncoding;
     private string? _originalContent;
 
     // Debounce timer for live markdown preview
-    private DispatcherTimer? _markdownDebounceTimer;
+    private IPlatformTimer? _markdownDebounceTimer;
     private const int MarkdownDebounceMs = 300;
 
     // Image file extensions
@@ -41,9 +41,12 @@ public partial class FileViewerViewModel : ObservableObject
     [ObservableProperty]
     private string _fileName = "";
 
-    // Preview mode content
+    // Preview mode content - using string-based content instead of FlowDocument
     [ObservableProperty]
-    private FlowDocument _previewDocument = new();
+    private string _previewContent = "";
+
+    [ObservableProperty]
+    private string _previewError = "";
 
     // Edit mode content
     [ObservableProperty]
@@ -92,7 +95,7 @@ public partial class FileViewerViewModel : ObservableObject
     private bool _isImageMode;
 
     [ObservableProperty]
-    private ImageSource? _imageSource;
+    private IImage? _imageSource;
 
     [ObservableProperty]
     private string _imageInfo = "";
@@ -134,15 +137,19 @@ public partial class FileViewerViewModel : ObservableObject
         IFileEditService fileEditService,
         IFileSystem fileSystem,
         IDialogService dialogService,
-        IMarkdownService markdownService)
+        IMarkdownService markdownService,
+        ITimerService timerService,
+        IFilePickerService filePickerService)
     {
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _markdownService = markdownService;
+        _timerService = timerService;
+        _filePickerService = filePickerService;
 
-        _previewDocument = CreateInfoDocument("Select a file to view.");
+        PreviewContent = "Select a file to view.";
     }
 
     public void Open(string filePath, FileViewerMode mode = FileViewerMode.Preview, int? goToLine = null)
@@ -187,19 +194,24 @@ public partial class FileViewerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenDialog(string? initialDirectory)
+    private async Task OpenDialogAsync(string? initialDirectory)
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var filters = new List<FilePickerFilter>
         {
-            Title = "Select File to Open",
-            Filter = "All Files (*.*)|*.*|Code Files (*.cs;*.js;*.ts;*.py;*.json;*.xml)|*.cs;*.js;*.ts;*.py;*.json;*.xml|Text Files (*.txt;*.md;*.log)|*.txt;*.md;*.log|Images (*.png;*.jpg;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.gif;*.bmp",
-            FilterIndex = 1,
-            InitialDirectory = initialDirectory ?? ""
+            new("All Files", "*"),
+            new("Code Files", "cs", "js", "ts", "py", "json", "xml"),
+            new("Text Files", "txt", "md", "log"),
+            new("Images", "png", "jpg", "jpeg", "gif", "bmp")
         };
 
-        if (dialog.ShowDialog() == true)
+        var path = await _filePickerService.PickFileAsync(
+            "Select File to Open",
+            filters,
+            initialDirectory);
+
+        if (!string.IsNullOrEmpty(path))
         {
-            Open(dialog.FileName);
+            Open(path);
         }
     }
 
@@ -210,17 +222,12 @@ public partial class FileViewerViewModel : ObservableObject
             IsImageMode = true;
             Mode = FileViewerMode.Preview; // Images are always in preview mode
 
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
-            bitmap.Freeze();
+            var bitmap = new Bitmap(filePath);
 
             ImageSource = bitmap;
 
             var fileInfo = new FileInfo(filePath);
-            ImageInfo = $"{bitmap.PixelWidth} × {bitmap.PixelHeight} px - {FormatFileSize(fileInfo.Length)}";
+            ImageInfo = $"{bitmap.PixelSize.Width} × {bitmap.PixelSize.Height} px - {FormatFileSize(fileInfo.Length)}";
             Info = ImageInfo;
             Title = FileName;
         }
@@ -229,7 +236,8 @@ public partial class FileViewerViewModel : ObservableObject
             IsImageMode = false;
             ImageSource = null;
             Title = "Error";
-            PreviewDocument = CreateErrorDocument($"Failed to load image: {ex.Message}");
+            PreviewError = $"Failed to load image: {ex.Message}";
+            PreviewContent = "";
             Info = "Error loading image";
         }
 
@@ -245,11 +253,13 @@ public partial class FileViewerViewModel : ObservableObject
         // Reset markdown mode
         IsMarkdownMode = false;
         RenderedHtml = "";
+        PreviewError = "";
 
         if (result == null)
         {
             Title = "Error";
-            PreviewDocument = CreateErrorDocument("Failed to load file preview.");
+            PreviewError = "Failed to load file preview.";
+            PreviewContent = "";
             Info = "Error";
             OnPropertyChanged(nameof(IsPreviewMode));
             return;
@@ -268,19 +278,21 @@ public partial class FileViewerViewModel : ObservableObject
             }
             else
             {
-                PreviewDocument = result.Document!;
+                // Use string content for preview
+                PreviewContent = result.Content ?? "";
             }
         }
         else
         {
             Title = result.FileName;
-            PreviewDocument = CreateErrorDocument(result.Error!);
+            PreviewError = result.Error!;
+            PreviewContent = "";
             Info = $"Error - {FormatFileSize(result.FileSize)}";
         }
 
         OnPropertyChanged(nameof(IsPreviewMode));
 
-        if (highlightLine.HasValue && result?.Document != null && !IsMarkdownMode)
+        if (highlightLine.HasValue && result?.Content != null && !IsMarkdownMode)
         {
             ScrollToLineRequested?.Invoke(this, highlightLine.Value);
         }
@@ -424,16 +436,14 @@ public partial class FileViewerViewModel : ObservableObject
 
     private void DebouncedUpdateMarkdownPreview(string markdown)
     {
-        _markdownDebounceTimer?.Stop();
-        _markdownDebounceTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(MarkdownDebounceMs)
-        };
-        _markdownDebounceTimer.Tick += (s, e) =>
-        {
-            _markdownDebounceTimer?.Stop();
-            RenderedHtml = _markdownService.ConvertToHtml(markdown);
-        };
+        _markdownDebounceTimer?.Dispose();
+        _markdownDebounceTimer = _timerService.CreateTimer(
+            TimeSpan.FromMilliseconds(MarkdownDebounceMs),
+            () =>
+            {
+                _markdownDebounceTimer?.Stop();
+                RenderedHtml = _markdownService.ConvertToHtml(markdown);
+            });
         _markdownDebounceTimer.Start();
     }
 
@@ -523,7 +533,8 @@ public partial class FileViewerViewModel : ObservableObject
         _originalContent = null;
         IsModified = false;
         EditContent = "";
-        PreviewDocument = CreateInfoDocument("Select a file to view.");
+        PreviewContent = "Select a file to view.";
+        PreviewError = "";
         Title = "File Viewer";
         Info = "";
 
@@ -547,7 +558,7 @@ public partial class FileViewerViewModel : ObservableObject
     private void GoToLineDialog()
     {
         var lineCount = EditContent.Split('\n').Length;
-        var input = Microsoft.VisualBasic.Interaction.InputBox(
+        var input = _dialogService.ShowInput(
             $"Enter line number (1-{lineCount}):",
             "Go to Line",
             "1");
@@ -601,41 +612,6 @@ public partial class FileViewerViewModel : ObservableObject
         if (isReadOnly) info += " - Read-only";
         if (status != null) info += " - " + status;
         Info = info;
-    }
-
-    private static FlowDocument CreateInfoDocument(string message)
-    {
-        return new FlowDocument
-        {
-            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)Application.Current.Resources["FontSizeCode"],
-            PagePadding = new Thickness(16),
-            PageWidth = 10000
-        };
-    }
-
-    private static FlowDocument CreateErrorDocument(string error)
-    {
-        var document = new FlowDocument
-        {
-            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
-            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)Application.Current.Resources["FontSizeCode"],
-            PagePadding = new Thickness(16),
-            PageWidth = 10000
-        };
-
-        var paragraph = new Paragraph();
-        paragraph.Inlines.Add(new Run(error)
-        {
-            Foreground = new SolidColorBrush(Color.FromRgb(0xF1, 0x48, 0x48))
-        });
-        document.Blocks.Add(paragraph);
-
-        return document;
     }
 
     private static string FormatFileSize(long bytes)

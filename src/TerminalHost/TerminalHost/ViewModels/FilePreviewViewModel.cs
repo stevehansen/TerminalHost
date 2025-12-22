@@ -1,9 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
-using System.Windows;
-using System.Windows.Documents;
-using System.Windows.Media;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -14,13 +11,17 @@ public partial class FilePreviewViewModel : ObservableObject
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileSystem _fileSystem;
     private readonly IMarkdownService _markdownService;
+    private readonly IFilePickerService _filePickerService;
     private string? _currentFilePath;
 
     [ObservableProperty]
     private string _title = "File Preview";
 
     [ObservableProperty]
-    private FlowDocument _content = new();
+    private string _content = "";
+
+    [ObservableProperty]
+    private string _contentError = "";
 
     [ObservableProperty]
     private string _renderedHtml = "";
@@ -62,13 +63,14 @@ public partial class FilePreviewViewModel : ObservableObject
     public event EventHandler<FileEditRequestedEventArgs>? OpenFileEditRequested;
     public event EventHandler<int>? ScrollToLineRequested;
 
-    public FilePreviewViewModel(IFilePreviewService filePreviewService, IFileSystem fileSystem, IMarkdownService markdownService)
+    public FilePreviewViewModel(IFilePreviewService filePreviewService, IFileSystem fileSystem, IMarkdownService markdownService, IFilePickerService filePickerService)
     {
         _filePreviewService = filePreviewService;
         _fileSystem = fileSystem;
         _markdownService = markdownService;
-        // Initialize with an empty document
-        _content = CreateInfoDocument("Select a file to preview.");
+        _filePickerService = filePickerService;
+        // Initialize with placeholder text
+        _content = "Select a file to preview.";
     }
 
     public void Open(string filePath, int? highlightLine = null)
@@ -102,7 +104,8 @@ public partial class FilePreviewViewModel : ObservableObject
         {
             Title = "Error";
             IsText = true;
-            Content = CreateErrorDocument("Failed to load file preview service result.");
+            ContentError = "Failed to load file preview service result.";
+            Content = "";
             Info = "Error";
             IsOpen = true;
             return;
@@ -112,6 +115,7 @@ public partial class FilePreviewViewModel : ObservableObject
         {
             Title = result.FileName;
             Info = $"{result.LineCount:N0} lines • {FormatFileSize(result.FileSize)}";
+            ContentError = "";
 
             if (extension == ".md")
             {
@@ -121,21 +125,22 @@ public partial class FilePreviewViewModel : ObservableObject
             else
             {
                 IsText = true;
-                Content = result.Document!;
+                Content = result.Content ?? "";
             }
         }
         else
         {
             Title = result.FileName;
             IsText = true;
-            Content = CreateErrorDocument(result.Error!);
+            ContentError = result.Error!;
+            Content = "";
             Info = $"Error • {FormatFileSize(result.FileSize)}";
         }
 
         CanOpenInEditor = !string.IsNullOrEmpty(_currentFilePath) && _fileSystem.FileExists(_currentFilePath);
         IsOpen = true;
 
-        if (highlightLine.HasValue && result?.Document != null && IsText)
+        if (highlightLine.HasValue && result?.Content != null && IsText)
         {
             ScrollToLineRequested?.Invoke(this, highlightLine.Value);
         }
@@ -147,19 +152,23 @@ public partial class FilePreviewViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenDialog(string initialDirectory)
+    private async Task OpenDialogAsync(string initialDirectory)
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var filters = new List<FilePickerFilter>
         {
-            Title = "Select File to Preview",
-            Filter = "All Files (*.*)|*.*|Code Files (*.cs;*.js;*.ts;*.py;*.json;*.xml)|*.cs;*.js;*.ts;*.py;*.json;*.xml|Text Files (*.txt;*.md;*.log)|*.txt;*.md;*.log",
-            FilterIndex = 1,
-            InitialDirectory = initialDirectory
+            new("All Files", "*"),
+            new("Code Files", "cs", "js", "ts", "py", "json", "xml"),
+            new("Text Files", "txt", "md", "log")
         };
 
-        if (dialog.ShowDialog() == true)
+        var path = await _filePickerService.PickFileAsync(
+            "Select File to Preview",
+            filters,
+            initialDirectory);
+
+        if (!string.IsNullOrEmpty(path))
         {
-            Open(dialog.FileName);
+            Open(path);
         }
     }
 
@@ -168,7 +177,8 @@ public partial class FilePreviewViewModel : ObservableObject
     {
         IsOpen = false;
         _currentFilePath = null;
-        Content = CreateInfoDocument("Select a file to preview.");
+        Content = "Select a file to preview.";
+        ContentError = "";
         RenderedHtml = "";
         ImageSource = "";
         IsText = true;
@@ -186,41 +196,6 @@ public partial class FilePreviewViewModel : ObservableObject
             IsOpen = false; // Close preview before opening editor
             OpenFileEditRequested?.Invoke(this, new FileEditRequestedEventArgs { FilePath = _currentFilePath });
         }
-    }
-
-    private static FlowDocument CreateInfoDocument(string message)
-    {
-        return new FlowDocument
-        {
-            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
-            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)Application.Current.Resources["FontSizeCode"],
-            PagePadding = new Thickness(16),
-            PageWidth = 10000
-        };
-    }
-
-    private static FlowDocument CreateErrorDocument(string error)
-    {
-        var document = new FlowDocument
-        {
-            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
-            FontFamily = (System.Windows.Media.FontFamily)Application.Current.Resources["FontFamilyMonospace"],
-            FontSize = (double)Application.Current.Resources["FontSizeCode"],
-            PagePadding = new Thickness(16),
-            PageWidth = 10000
-        };
-
-        var paragraph = new Paragraph();
-        paragraph.Inlines.Add(new Run(error)
-        {
-            Foreground = new SolidColorBrush(Color.FromRgb(0xF1, 0x48, 0x48))
-        });
-        document.Blocks.Add(paragraph);
-
-        return document;
     }
 
     private static string FormatFileSize(long bytes)

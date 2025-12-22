@@ -1,9 +1,8 @@
 using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using EasyWindowsTerminalControl;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -351,10 +350,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public void SetTerminalControls(EasyTerminalControl customControl, EasyTerminalControl shellControl)
+    public void SetTerminalControls(ITerminalControl customControl, ITerminalControl shellControl)
     {
-        CustomTerminalContent = customControl;
-        ShellTerminalContent = shellControl;
+        CustomTerminalContent = customControl.NativeControl as ContentControl;
+        ShellTerminalContent = shellControl.NativeControl as ContentControl;
 
         Pair.CustomTerminal.SetTerminalControl(customControl);
         Pair.ShellTerminal.SetTerminalControl(shellControl);
@@ -389,9 +388,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <summary>
     /// Sets the custom terminal control when switching AI assistant.
     /// </summary>
-    public void SetCustomTerminalControl(EasyTerminalControl newControl)
+    public void SetCustomTerminalControl(ITerminalControl newControl)
     {
-        CustomTerminalContent = newControl;
+        CustomTerminalContent = newControl.NativeControl as ContentControl;
         Pair.CustomTerminal.SetTerminalControl(newControl);
 
         // Subscribe to activity changes
@@ -879,9 +878,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <summary>
     /// Sets the run terminal control after it's created.
     /// </summary>
-    public void SetRunTerminalControl(EasyTerminalControl runControl)
+    public void SetRunTerminalControl(ITerminalControl runControl)
     {
-        RunTerminalContent = runControl;
+        RunTerminalContent = runControl.NativeControl as ContentControl;
 
         if (Pair.RunTerminal != null)
         {

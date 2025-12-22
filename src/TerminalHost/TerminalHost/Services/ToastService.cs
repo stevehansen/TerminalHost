@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Threading;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Services;
@@ -11,9 +9,17 @@ namespace TerminalHost.Services;
 internal sealed class ToastService : IToastService
 {
     private const int MaxVisibleToasts = 5;
+    private readonly ITimerService _timerService;
+    private readonly IDispatcherService _dispatcherService;
     private readonly Queue<ToastViewModel> _queue = new();
-    private readonly Dictionary<string, DispatcherTimer> _autoCloseTimers = new();
+    private readonly Dictionary<string, IPlatformTimer> _autoCloseTimers = new();
     private readonly object _lock = new();
+
+    public ToastService(ITimerService timerService, IDispatcherService dispatcherService)
+    {
+        _timerService = timerService;
+        _dispatcherService = dispatcherService;
+    }
 
     public ObservableCollection<ToastViewModel> Toasts { get; } = [];
 
@@ -93,6 +99,7 @@ internal sealed class ToastService : IToastService
             foreach (var timer in _autoCloseTimers.Values)
             {
                 timer.Stop();
+                timer.Dispose();
             }
             _autoCloseTimers.Clear();
 
@@ -170,16 +177,10 @@ internal sealed class ToastService : IToastService
 
     private void StartAutoCloseTimer(ToastViewModel toast)
     {
-        var timer = new DispatcherTimer
+        var timer = _timerService.CreateTimer(toast.AutoCloseDelay, () =>
         {
-            Interval = toast.AutoCloseDelay
-        };
-
-        timer.Tick += (s, e) =>
-        {
-            timer.Stop();
             RemoveToast(toast.Id);
-        };
+        });
 
         _autoCloseTimers[toast.Id] = timer;
         timer.Start();
@@ -190,6 +191,7 @@ internal sealed class ToastService : IToastService
         if (_autoCloseTimers.TryGetValue(id, out var timer))
         {
             timer.Stop();
+            timer.Dispose();
             _autoCloseTimers.Remove(id);
         }
     }
@@ -202,23 +204,15 @@ internal sealed class ToastService : IToastService
         }
     }
 
-    private static void Dispatch(Action action)
+    private void Dispatch(Action action)
     {
-        if (Application.Current?.Dispatcher is Dispatcher dispatcher)
+        if (_dispatcherService.CheckAccess())
         {
-            if (dispatcher.CheckAccess())
-            {
-                action();
-            }
-            else
-            {
-                dispatcher.Invoke(action);
-            }
+            action();
         }
         else
         {
-            // No dispatcher available (e.g., in tests), just run directly
-            action();
+            _dispatcherService.InvokeAsync(action).Wait();
         }
     }
 
@@ -249,7 +243,7 @@ internal sealed class ToastService : IToastService
         {
             if (_disposed) return;
 
-            Dispatch(() =>
+            _service.Dispatch(() =>
             {
                 _toast.Message = message;
                 _toast.Icon = ToastViewModel.GetDefaultIcon(type);

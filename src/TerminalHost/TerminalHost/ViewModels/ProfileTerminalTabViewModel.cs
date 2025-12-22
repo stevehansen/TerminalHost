@@ -1,7 +1,6 @@
-using System.Windows.Controls;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using EasyWindowsTerminalControl;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -102,9 +101,9 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     /// <summary>
     /// Sets the terminal control after it's created by the factory.
     /// </summary>
-    public void SetTerminalControl(EasyTerminalControl control)
+    public void SetTerminalControl(ITerminalControl control)
     {
-        TerminalContent = control;
+        TerminalContent = control.NativeControl as ContentControl;
         Session.SetTerminalControl(control);
 
         // Subscribe to activity changes for UI updates

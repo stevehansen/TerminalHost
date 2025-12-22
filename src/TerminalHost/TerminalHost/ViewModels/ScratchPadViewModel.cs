@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.IO;
-using System.Windows.Threading;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -10,7 +9,8 @@ public partial class ScratchPadViewModel : ObservableObject
 {
     private readonly IConfigurationService _configService;
     private readonly MainViewModel _mainViewModel; // Needed to get the current project
-    private DispatcherTimer? _saveTimer;
+    private readonly ITimerService _timerService;
+    private IPlatformTimer? _saveTimer;
     
     [ObservableProperty]
     private string _contentText = string.Empty;
@@ -48,10 +48,11 @@ public partial class ScratchPadViewModel : ObservableObject
         ? "Shared across all projects" 
         : (_mainViewModel.SelectedTab is TerminalPairTabViewModel t ? t.Pair.WorkingDirectory : "No active project");
 
-    public ScratchPadViewModel(IConfigurationService configService, MainViewModel mainViewModel)
+    public ScratchPadViewModel(IConfigurationService configService, MainViewModel mainViewModel, ITimerService timerService)
     {
         _configService = configService;
         _mainViewModel = mainViewModel;
+        _timerService = timerService;
 
         // Subscribe to MainViewModel events to handle opening requests
         _mainViewModel.ScratchPadRequested += (s, e) => Open();
@@ -120,13 +121,14 @@ public partial class ScratchPadViewModel : ObservableObject
     partial void OnContentTextChanged(string value)
     {
         // Debounce save
-        _saveTimer?.Stop();
-        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _saveTimer.Tick += (s, e) =>
-        {
-            _saveTimer?.Stop();
-            SaveContent();
-        };
+        _saveTimer?.Dispose();
+        _saveTimer = _timerService.CreateTimer(
+            TimeSpan.FromMilliseconds(500),
+            () =>
+            {
+                _saveTimer?.Stop();
+                SaveContent();
+            });
         _saveTimer.Start();
     }
 

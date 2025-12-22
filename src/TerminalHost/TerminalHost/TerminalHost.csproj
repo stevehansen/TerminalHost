@@ -118,6 +118,132 @@
     <Compile Include="MainWindow.axaml.cs" />
   </ItemGroup>
 
+  <!-- Stage 6: ViewModels (all updated to use platform-agnostic services) -->
+  <ItemGroup>
+    <Compile Include="ViewModels\ITabViewModel.cs" />
+    <Compile Include="ViewModels\MainViewModel.cs" />
+    <Compile Include="ViewModels\TerminalPairTabViewModel.cs" />
+    <Compile Include="ViewModels\ProfileTerminalTabViewModel.cs" />
+    <Compile Include="ViewModels\TerminalTabViewModel.cs" />
+    <Compile Include="ViewModels\FileViewerViewModel.cs" />
+    <Compile Include="ViewModels\FilePreviewViewModel.cs" />
+    <Compile Include="ViewModels\FileExplorerViewModel.cs" />
+    <Compile Include="ViewModels\GitFilesViewModel.cs" />
+    <Compile Include="ViewModels\GitBranchViewModel.cs" />
+    <Compile Include="ViewModels\ScratchPadViewModel.cs" />
+    <Compile Include="ViewModels\MarkdownPreviewViewModel.cs" />
+    <Compile Include="ViewModels\SetupViewModel.cs" />
+    <Compile Include="ViewModels\DashboardTabViewModel.cs" />
+    <Compile Include="ViewModels\DetectedLinksViewModel.cs" />
+    <Compile Include="ViewModels\ToastViewModel.cs" />
+    <Compile Include="ViewModels\SettingsTabViewModel.cs" />
+    <Compile Include="ViewModels\ProfilesTabViewModel.cs" />
+    <Compile Include="ViewModels\StatisticsTabViewModel.cs" />
+    <Compile Include="ViewModels\TaskPanelViewModel.cs" />
+    <Compile Include="ViewModels\PrReviewViewModel.cs" />
+    <Compile Include="ViewModels\ProjectStatViewModel.cs" />
+    <Compile Include="ViewModels\RepositorySwitcherViewModel.cs" />
+    <Compile Include="ViewModels\TestResultsViewModel.cs" />
+  </ItemGroup>
+
+  <!-- Stage 6: Additional Domain models needed by ViewModels -->
+  <ItemGroup>
+    <Compile Include="Domain\AppConfiguration.cs" />
+    <Compile Include="Domain\GitStatus.cs" />
+    <Compile Include="Domain\GitBranch.cs" />
+    <Compile Include="Domain\GitFileStatus.cs" />
+    <Compile Include="Domain\TerminalPair.cs" />
+    <Compile Include="Domain\FileSystemNode.cs" />
+    <Compile Include="Domain\FileIconMapper.cs" />
+    <Compile Include="Domain\LinkPattern.cs" />
+    <Compile Include="Domain\PaletteCommand.cs" />
+    <Compile Include="Domain\QuickCommand.cs" />
+    <Compile Include="Domain\RunConfiguration.cs" />
+    <Compile Include="Domain\ProjectType.cs" />
+    <Compile Include="Domain\ClaudeCommand.cs" />
+    <Compile Include="Domain\Dependency.cs" />
+    <Compile Include="Domain\AppConstants.cs" />
+    <Compile Include="Domain\FocusModeState.cs" />
+    <Compile Include="Domain\FocusTask.cs" />
+    <Compile Include="Domain\FocusTaskStatus.cs" />
+    <Compile Include="Domain\QuickNote.cs" />
+    <Compile Include="Domain\AiAssistant.cs" />
+    <Compile Include="Domain\AiAssistantSwitchEventArgs.cs" />
+    <Compile Include="Domain\FilePreviewRequestedEventArgs.cs" />
+    <Compile Include="Domain\FileEditRequestedEventArgs.cs" />
+    <Compile Include="Domain\GitHubPullRequest.cs" />
+    <Compile Include="Domain\GitHubIssue.cs" />
+    <Compile Include="Domain\GitHubWorkflowRun.cs" />
+    <Compile Include="Domain\GitHubPrFile.cs" />
+    <Compile Include="Domain\GitHubRepository.cs" />
+    <Compile Include="Domain\GitPrDetails.cs" />
+    <Compile Include="Domain\PrComments.cs" />
+    <Compile Include="Domain\PrReviewComment.cs" />
+    <Compile Include="Domain\RepositoryItem.cs" />
+    <Compile Include="Domain\DiffViewMode.cs" />
+    <Compile Include="Domain\ParsedDiff.cs" />
+    <Compile Include="Domain\TestResult.cs" />
+    <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
+    <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
+  </ItemGroup>
+
+  <!-- Stage 6: Additional Services needed by ViewModels -->
+  <ItemGroup>
+    <Compile Include="Services\ITimerService.cs" />
+    <Compile Include="Services\TimerService.cs" />
+    <Compile Include="Services\IDispatcherService.cs" />
+    <Compile Include="Services\DispatcherService.cs" />
+    <Compile Include="Services\IFolderPickerService.cs" />
+    <Compile Include="Services\FolderPickerService.cs" />
+    <Compile Include="Services\IFilePickerService.cs" />
+    <Compile Include="Services\FilePickerService.cs" />
+    <Compile Include="Services\IScreenService.cs" />
+    <Compile Include="Services\ScreenService.cs" />
+    <Compile Include="Services\IProcessService.cs" />
+    <!-- ProcessService is defined in IProcessService.cs -->
+    <!-- FileSystem is defined in IFileSystem.cs -->
+    <Compile Include="Services\IConfigurationService.cs" />
+    <Compile Include="Services\ConfigurationService.cs" />
+    <Compile Include="Services\IProfileRegistry.cs" />
+    <Compile Include="Services\ProfileRegistry.cs" />
+    <Compile Include="Services\ISessionManager.cs" />
+    <Compile Include="Services\SessionManager.cs" />
+    <Compile Include="Services\IGitStatusService.cs" />
+    <Compile Include="Services\GitStatusService.cs" />
+    <Compile Include="Services\IGitHubService.cs" />
+    <Compile Include="Services\GitHubService.cs" />
+    <Compile Include="Services\IGitProcessRunner.cs" />
+    <Compile Include="Services\GitProcessRunner.cs" />
+    <Compile Include="Services\IFileExplorerService.cs" />
+    <Compile Include="Services\FileExplorerService.cs" />
+    <Compile Include="Services\IFilePreviewService.cs" />
+    <Compile Include="Services\FilePreviewService.cs" />
+    <Compile Include="Services\IFileEditService.cs" />
+    <Compile Include="Services\FileEditService.cs" />
+    <Compile Include="Services\ILinkDetectionService.cs" />
+    <Compile Include="Services\LinkDetectionService.cs" />
+    <Compile Include="Services\IProjectDetectionService.cs" />
+    <Compile Include="Services\ProjectDetectionService.cs" />
+    <Compile Include="Services\IRunUrlDetectionService.cs" />
+    <Compile Include="Services\RunUrlDetectionService.cs" />
+    <Compile Include="Services\IClaudeCommandService.cs" />
+    <Compile Include="Services\ClaudeCommandService.cs" />
+    <Compile Include="Services\ITaskService.cs" />
+    <Compile Include="Services\TaskService.cs" />
+    <Compile Include="Services\IAiAssistantService.cs" />
+    <Compile Include="Services\AiAssistantService.cs" />
+    <Compile Include="Services\IMarkdownService.cs" />
+    <Compile Include="Services\MarkdownService.cs" />
+    <Compile Include="Services\IToastService.cs" />
+    <Compile Include="Services\ToastService.cs" />
+    <Compile Include="Services\GitOperationResult.cs" />
+    <Compile Include="Services\IGitPrService.cs" />
+    <Compile Include="Services\GitPrService.cs" />
+    <Compile Include="Services\ITestRunnerService.cs" />
+    <Compile Include="Services\TestRunnerService.cs" />
+    <Compile Include="Services\DiffParserService.cs" />
+  </ItemGroup>
+
   <!--
     Note: .axaml files (MainWindow.axaml, App.axaml, Styles/*.axaml, Resources/*.axaml)
     are automatically included by the Avalonia SDK as AvaloniaResource.

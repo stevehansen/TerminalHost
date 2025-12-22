@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
@@ -15,6 +14,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IDispatcherService _dispatcherService;
+    private readonly IClipboardService _clipboardService;
     private IDisposable? _fileWatcher;
     private System.Timers.Timer? _refreshDebounceTimer;
     private string? _selectedPathBeforeRefresh;
@@ -47,13 +48,17 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IProcessService processService)
+        IProcessService processService,
+        IDispatcherService dispatcherService,
+        IClipboardService clipboardService)
     {
         _fileExplorerService = fileExplorerService;
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _dispatcherService = dispatcherService;
+        _clipboardService = clipboardService;
     }
 
     public async Task InitializeAsync(string workingDirectory)
@@ -145,10 +150,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             _refreshDebounceTimer?.Stop();
             if (_isDisposed) return;
 
-            var app = Application.Current;
-            if (app == null) return;
-
-            await app.Dispatcher.InvokeAsync(async () =>
+            await _dispatcherService.InvokeAsync(async () =>
             {
                 if (_isDisposed) return;
                 // Mark that file system has changed - user can manually refresh
@@ -564,13 +566,13 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
     public bool CanCopyPath => SelectedNode != null;
     [RelayCommand(CanExecute = nameof(CanCopyPath))]
-    private void CopyPath()
+    private async Task CopyPathAsync()
     {
         if (SelectedNode == null) return;
 
         try
         {
-            Clipboard.SetText(SelectedNode.FullPath);
+            await _clipboardService.SetTextAsync(SelectedNode.FullPath);
         }
         catch
         {
@@ -657,11 +659,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         {
             if (SelectedNode.IsDirectory)
             {
-                _processService.Start("explorer.exe", SelectedNode.FullPath);
+                _processService.OpenFolder(SelectedNode.FullPath);
             }
             else
             {
-                _processService.Start("explorer.exe", $"/select,\"{SelectedNode.FullPath}\"");
+                _processService.RevealInFinder(SelectedNode.FullPath);
             }
         }
         catch

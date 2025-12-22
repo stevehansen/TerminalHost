@@ -4,16 +4,22 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using TerminalHost.Domain;
+using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
 public partial class SetupViewModel : ObservableObject
 {
+    private readonly ISystemInfoService? _systemInfoService;
+    private readonly IProcessService? _processService;
+
     [ObservableProperty]
     private ObservableCollection<Dependency> _dependencies = [];
 
-    public SetupViewModel()
+    public SetupViewModel(ISystemInfoService? systemInfoService = null, IProcessService? processService = null)
     {
+        _systemInfoService = systemInfoService;
+        _processService = processService;
         LoadDependencies();
     }
 
@@ -108,11 +114,18 @@ public partial class SetupViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private static void OpenInstallLink(Dependency? dependency)
+    private void OpenInstallLink(Dependency? dependency)
     {
         if (dependency != null && !string.IsNullOrEmpty(dependency.InstallUrl))
         {
-            Process.Start(new ProcessStartInfo(dependency.InstallUrl) { UseShellExecute = true });
+            if (_processService != null)
+            {
+                _processService.OpenUrl(dependency.InstallUrl);
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo(dependency.InstallUrl) { UseShellExecute = true });
+            }
         }
     }
 
@@ -137,31 +150,29 @@ public partial class SetupViewModel : ObservableObject
             var nerdFontNames = AppConstants.NerdFontNames;
             string? foundFontName = null;
 
-            dependency.IsInstalled = System.Windows.Media.Fonts.SystemFontFamilies.Any(ff =>
+            // Use ISystemInfoService if available, otherwise skip
+            if (_systemInfoService != null)
             {
-                // Check against the known list of full font names
-                if (nerdFontNames.Any(name => ff.Source.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                var installedFonts = _systemInfoService.GetInstalledFontFamilies().ToList();
+                dependency.IsInstalled = installedFonts.Any(fontName =>
                 {
-                    foundFontName = ff.Source;
-                    return true;
-                }
-
-                // Also check the language-specific family names
-                foreach (var name in ff.FamilyNames.Values)
-                {
-                    if (nerdFontNames.Any(nfName => nfName.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                    if (nerdFontNames.Any(name => fontName.Equals(name, StringComparison.OrdinalIgnoreCase)))
                     {
-                        foundFontName = name;
+                        foundFontName = fontName;
                         return true;
                     }
-                }
-
-                return false;
-            });
+                    return false;
+                });
+            }
+            else
+            {
+                // Fallback: assume not detected if service unavailable
+                dependency.IsInstalled = false;
+            }
 
             dependency.DetectedVersion = dependency.IsInstalled ? $"Installed ({foundFontName})" : "Not Found";
-            dependency.FullOutput = dependency.IsInstalled 
-                ? $"An installed Nerd Font was found: {foundFontName}" 
+            dependency.FullOutput = dependency.IsInstalled
+                ? $"An installed Nerd Font was found: {foundFontName}"
                 : $"None of the recommended Nerd Fonts were found: {string.Join(", ", nerdFontNames)}";
             dependency.ExitCode = dependency.IsInstalled ? 0 : 1;
         }
@@ -229,12 +240,13 @@ public partial class SetupViewModel : ObservableObject
 
         try
         {
+            // Use /bin/sh on macOS, which can execute most commands directly
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -Command \"{command}\"",
+                    FileName = "/bin/sh",
+                    Arguments = $"-c \"{command.Replace("\"", "\\\"")}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -261,11 +273,13 @@ public partial class SetupViewModel : ObservableObject
                 return (true, output, process.ExitCode);
             }
 
-            if (output.Contains("is not recognized as the name of a cmdlet", StringComparison.OrdinalIgnoreCase))
+            // Check for common "command not found" patterns
+            if (output.Contains("command not found", StringComparison.OrdinalIgnoreCase) ||
+                output.Contains("not found", StringComparison.OrdinalIgnoreCase))
             {
                 return (false, output, process.ExitCode);
             }
-            
+
             return (true, output, process.ExitCode);
         }
         catch (Exception ex)

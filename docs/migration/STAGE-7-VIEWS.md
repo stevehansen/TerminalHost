@@ -185,7 +185,33 @@ After creating the style files, update `App.axaml` to include them:
 </Application.Resources>
 ```
 
-### 7.0.5 Tab Management Integration
+### 7.0.5 Keyboard Shortcut Implementation (Deferred from Stage 6)
+
+**File:** `src/TerminalHost/TerminalHost/MainWindow.axaml`
+
+Add proper keybindings once MainViewModel commands are integrated:
+
+```xml
+<Window.KeyBindings>
+    <!-- Tab Navigation -->
+    <KeyBinding Gesture="Ctrl+PageDown" Command="{Binding CycleTabCommand}" CommandParameter="True"/>
+    <KeyBinding Gesture="Ctrl+PageUp" Command="{Binding CycleTabCommand}" CommandParameter="False"/>
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseTabCommand}" CommandParameter="{Binding SelectedTab}"/>
+
+    <!-- Application -->
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding OpenNewProjectCommand}"/>
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}"/>
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProfilesCommand}"/>
+    <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenInExplorerCommand}"/>
+
+    <!-- Terminal -->
+    <KeyBinding Gesture="Ctrl+OemTilde" Command="{Binding SwitchActiveTerminalCommand}"/>
+</Window.KeyBindings>
+```
+
+---
+
+### 7.0.6 Tab Management Integration
 
 Once TabStrip.axaml is created (Phase 7A), integrate it with MainWindow:
 

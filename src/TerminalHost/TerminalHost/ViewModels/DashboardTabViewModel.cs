@@ -1,9 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Windows.Threading;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 
@@ -21,7 +19,9 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
-    private readonly DispatcherTimer _refreshTimer;
+    private readonly ITimerService _timerService;
+    private readonly IFolderPickerService _folderPickerService;
+    private readonly IPlatformTimer _refreshTimer;
 
     #region ITabViewModel Implementation
 
@@ -110,7 +110,9 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IDialogService dialogService,
         IFileSystem fileSystem,
         IProcessService processService,
-        IToastService toastService)
+        IToastService toastService,
+        ITimerService timerService,
+        IFolderPickerService folderPickerService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -119,13 +121,13 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _fileSystem = fileSystem;
         _processService = processService;
         _toastService = toastService;
+        _timerService = timerService;
+        _folderPickerService = folderPickerService;
 
         // Setup auto-refresh timer
-        _refreshTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMinutes(5)
-        };
-        _refreshTimer.Tick += async (_, _) => await RefreshAsync();
+        _refreshTimer = _timerService.CreateTimer(
+            TimeSpan.FromMinutes(5),
+            async () => await RefreshAsync());
 
         // Populate recent repos from open tabs
         PopulateRecentRepos();
@@ -294,15 +296,10 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         if (result)
         {
             // Browse for existing folder
-            var dialog = new OpenFolderDialog
+            var folderPath = await _folderPickerService.PickFolderAsync($"Select local folder for {repoName}");
+            if (!string.IsNullOrEmpty(folderPath))
             {
-                Title = $"Select local folder for {repoName}",
-                Multiselect = false
-            };
-
-            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.FolderName))
-            {
-                return dialog.FolderName;
+                return folderPath;
             }
 
             return null; // User cancelled
@@ -314,17 +311,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         if (string.IsNullOrEmpty(cloneDir))
         {
-            var cloneDirDialog = new OpenFolderDialog
-            {
-                Title = "Select directory to clone repositories into",
-                Multiselect = false
-            };
-
-            if (cloneDirDialog.ShowDialog() == true && !string.IsNullOrEmpty(cloneDirDialog.FolderName))
-            {
-                cloneDir = cloneDirDialog.FolderName;
-            }
-            else
+            cloneDir = await _folderPickerService.PickFolderAsync("Select directory to clone repositories into");
+            if (string.IsNullOrEmpty(cloneDir))
             {
                 return null; // User cancelled
             }
@@ -400,7 +388,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     [RelayCommand]
     private void Close()
     {
-        _refreshTimer.Stop();
+        _refreshTimer.Dispose();
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
