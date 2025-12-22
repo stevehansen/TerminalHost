@@ -1,0 +1,11 @@
+title: TerminalHost
+description: WPF desktop app that manages per-project terminal pairs (AI + PowerShell) with a dedicated Run terminal.
+theme: minima
+
+url: "https://stevehansen.github.io"
+baseurl: "/TerminalHost"
+
+minima:
+  skin: auto
+
+github_username: stevehansen
