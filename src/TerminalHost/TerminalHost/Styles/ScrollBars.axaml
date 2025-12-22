@@ -1,0 +1,33 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Scrollbar Thumb -->
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbBackgroundBrush}"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="ScrollBar /template/ Thumb:pointerover">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbMouseOverBrush}"/>
+    </Style>
+
+    <Style Selector="ScrollBar /template/ Thumb:pressed">
+        <Setter Property="Background" Value="{StaticResource ScrollBarThumbPressedBrush}"/>
+    </Style>
+
+    <!-- Scrollbar Track -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Background" Value="{StaticResource ScrollBarTrackBackgroundBrush}"/>
+    </Style>
+
+    <!-- Hide scroll buttons for minimal look -->
+    <Style Selector="ScrollBar /template/ RepeatButton">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+    <!-- ScrollViewer styling -->
+    <Style Selector="ScrollViewer">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+</Styles>

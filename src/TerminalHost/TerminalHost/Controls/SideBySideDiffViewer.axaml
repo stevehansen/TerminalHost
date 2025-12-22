@@ -1,0 +1,222 @@
+<UserControl x:Class="TerminalHost.Controls.SideBySideDiffViewer"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:converters="clr-namespace:TerminalHost.Converters"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+
+    <UserControl.Resources>
+        <!-- Converters -->
+        <converters:DiffLineTypeToBackgroundConverter x:Key="DiffLineTypeToBackgroundConverter"/>
+        <converters:DiffLineTypeToForegroundConverter x:Key="DiffLineTypeToForegroundConverter"/>
+        <converters:DiffLineNumberConverter x:Key="DiffLineNumberConverter"/>
+        <converters:DiffContentConverter x:Key="DiffContentConverter"/>
+
+        <!-- Line number column style -->
+        <Style x:Key="LineNumberStyle" Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="Padding" Value="8,2,8,2"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="MinWidth" Value="40"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundDarkBrush}"/>
+        </Style>
+
+        <!-- Content style -->
+        <Style x:Key="ContentStyle" Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+        </Style>
+
+        <!-- Addition background -->
+        <SolidColorBrush x:Key="AdditionBackgroundBrush" Color="#233623"/>
+        <SolidColorBrush x:Key="AdditionForegroundBrush" Color="#6A9955"/>
+
+        <!-- Deletion background -->
+        <SolidColorBrush x:Key="DeletionBackgroundBrush" Color="#3E1E1E"/>
+        <SolidColorBrush x:Key="DeletionForegroundBrush" Color="#F14C4C"/>
+
+        <!-- Hunk header style -->
+        <SolidColorBrush x:Key="HunkHeaderBackgroundBrush" Color="#2D2D30"/>
+        <SolidColorBrush x:Key="HunkHeaderForegroundBrush" Color="#569CD6"/>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource BackgroundDarkestBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="4"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left side (old file) -->
+        <Border Grid.Column="0" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+                    <TextBlock Text="Old"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"/>
+                </Border>
+
+                <!-- Content -->
+                <ScrollViewer x:Name="LeftScrollViewer"
+                              Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="LeftItemsControl" ItemsSource="{Binding}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Background="{Binding IsHunkHeader, Converter={StaticResource DiffLineTypeToBackgroundConverter}, FallbackValue=Transparent}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Line number -->
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Padding="8,2,8,2"
+                                               TextAlignment="Right"
+                                               MinWidth="40"
+                                               Background="{StaticResource BackgroundDarkBrush}">
+                                        <TextBlock.Text>
+                                            <MultiBinding Converter="{StaticResource DiffLineNumberConverter}">
+                                                <Binding Path="IsHunkHeader"/>
+                                                <Binding Path="LeftLineNumber"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <!-- Content -->
+                                    <TextBlock Grid.Column="1"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               Padding="4,2"
+                                               TextWrapping="NoWrap"
+                                               Foreground="{Binding LeftType, Converter={StaticResource DiffLineTypeToForegroundConverter}, FallbackValue=#CCCCCC}">
+                                        <TextBlock.Text>
+                                            <MultiBinding Converter="{StaticResource DiffContentConverter}">
+                                                <Binding Path="IsHunkHeader"/>
+                                                <Binding Path="HunkHeaderText"/>
+                                                <Binding Path="LeftContent"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <!-- Apply deletion background to entire Grid row -->
+                                    <Grid.Styles>
+                                        <Style Selector="Grid">
+                                            <Setter Property="Background" Value="{Binding LeftType, Converter={StaticResource DiffLineTypeToBackgroundConverter}, FallbackValue=Transparent}"/>
+                                        </Style>
+                                    </Grid.Styles>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Splitter -->
+        <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BorderSubtleBrush}"/>
+
+        <!-- Right side (new file) -->
+        <Border Grid.Column="2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+                    <TextBlock Text="New"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"/>
+                </Border>
+
+                <!-- Content -->
+                <ScrollViewer x:Name="RightScrollViewer"
+                              Grid.Row="1"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="RightItemsControl" ItemsSource="{Binding}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Background="{Binding IsHunkHeader, Converter={StaticResource DiffLineTypeToBackgroundConverter}, FallbackValue=Transparent}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Line number -->
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Padding="8,2,8,2"
+                                               TextAlignment="Right"
+                                               MinWidth="40"
+                                               Background="{StaticResource BackgroundDarkBrush}">
+                                        <TextBlock.Text>
+                                            <MultiBinding Converter="{StaticResource DiffLineNumberConverter}">
+                                                <Binding Path="IsHunkHeader"/>
+                                                <Binding Path="RightLineNumber"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <!-- Content -->
+                                    <TextBlock Grid.Column="1"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               Padding="4,2"
+                                               TextWrapping="NoWrap"
+                                               Foreground="{Binding RightType, Converter={StaticResource DiffLineTypeToForegroundConverter}, FallbackValue=#CCCCCC}">
+                                        <TextBlock.Text>
+                                            <MultiBinding Converter="{StaticResource DiffContentConverter}">
+                                                <Binding Path="IsHunkHeader"/>
+                                                <Binding Path="HunkHeaderText"/>
+                                                <Binding Path="RightContent"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <!-- Apply addition background to entire Grid row -->
+                                    <Grid.Styles>
+                                        <Style Selector="Grid">
+                                            <Setter Property="Background" Value="{Binding RightType, Converter={StaticResource DiffLineTypeToBackgroundConverter}, FallbackValue=Transparent}"/>
+                                        </Style>
+                                    </Grid.Styles>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Empty state -->
+        <TextBlock Grid.ColumnSpan="3"
+                   x:Name="EmptyStateText"
+                   Text="No changes to display."
+                   Foreground="{StaticResource TextMutedBrush}"
+                   FontSize="{StaticResource FontSizeCode}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="False"/>
+    </Grid>
+</UserControl>

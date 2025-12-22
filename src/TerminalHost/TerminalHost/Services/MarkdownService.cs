@@ -125,7 +125,7 @@ public class MarkdownService : IMarkdownService
         if (string.IsNullOrEmpty(markdown))
             return WrapHtml("");
 
-        var html = Markdown.ToHtml(markdown, _pipeline);
+        var html = Markdig.Markdown.ToHtml(markdown, _pipeline);
         return WrapHtml(html);
     }
 

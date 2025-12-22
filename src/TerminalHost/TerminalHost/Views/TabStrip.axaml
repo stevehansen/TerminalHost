@@ -1,0 +1,198 @@
+<UserControl x:Class="TerminalHost.Views.TabStrip"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="40" d:DesignWidth="800"
+             x:DataType="vm:MainViewModel">
+    <UserControl.Resources>
+        <!-- Shared Tab Header Template - used by all tab types via ITabViewModel interface -->
+        <DataTemplate x:Key="TabHeaderTemplate" DataType="vm:ITabViewModel">
+            <Border x:Name="TabBorder"
+                    Background="{StaticResource BackgroundLightBrush}"
+                    CornerRadius="4,4,0,0"
+                    Padding="8,4"
+                    Margin="0,0,2,0"
+                    MinWidth="100"
+                    DragDrop.AllowDrop="True"
+                    PointerPressed="Tab_PointerPressed"
+                    PointerMoved="Tab_PointerMoved">
+                <Border.Styles>
+                    <!-- Selected tab style -->
+                    <Style Selector="Border:pointerover">
+                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:selected Border">
+                        <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
+                    </Style>
+                </Border.Styles>
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="×"
+                            AutomationProperties.Name="Close tab"
+                            AutomationProperties.AutomationId="CloseTabButton"
+                            Classes="TabCloseButton"
+                            Command="{Binding $parent[Window].DataContext.CloseTabCommand}"
+                            CommandParameter="{Binding}"/>
+                    <!-- Activity spinner - rotates when terminal is active (hidden for selected tab) -->
+                    <Border x:Name="ActivitySpinnerContainer"
+                            DockPanel.Dock="Right"
+                            IsVisible="False"
+                            RenderTransformOrigin="0.5,0.5"
+                            Margin="0,0,6,0">
+                        <Border.RenderTransform>
+                            <RotateTransform Angle="0"/>
+                        </Border.RenderTransform>
+                        <TextBlock Text="◐"
+                                   AutomationProperties.HelpText="Terminal is active"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                        <Border.Styles>
+                            <!-- Show and animate spinner when active and not selected -->
+                            <Style Selector="Border.show-spinner">
+                                <Setter Property="IsVisible" Value="True"/>
+                                <Style.Animations>
+                                    <Animation Duration="0:0:0.8" IterationCount="INFINITE">
+                                        <KeyFrame Cue="0%">
+                                            <Setter Property="RotateTransform.Angle" Value="0"/>
+                                        </KeyFrame>
+                                        <KeyFrame Cue="100%">
+                                            <Setter Property="RotateTransform.Angle" Value="360"/>
+                                        </KeyFrame>
+                                    </Animation>
+                                </Style.Animations>
+                            </Style>
+                        </Border.Styles>
+                    </Border>
+                    <!-- Completed indicator - solid green dot when activity finished but tab not yet focused -->
+                    <TextBlock x:Name="CompletedIndicator"
+                               DockPanel.Dock="Right"
+                               Text="●"
+                               AutomationProperties.HelpText="Terminal activity completed"
+                               Foreground="{StaticResource SyntaxGreenBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               IsVisible="False"/>
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"
+                               Text="{Binding DisplayTitle, Mode=OneWay}"/>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4">
+        <DockPanel>
+            <!-- New Project Button -->
+            <Button DockPanel.Dock="Right"
+                    Content="+ New Project"
+                    AutomationProperties.AutomationId="NewProjectButton"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding OpenNewProjectCommand}"
+                    Margin="8,0,4,0"/>
+
+            <!-- Settings Button -->
+            <Button DockPanel.Dock="Right"
+                    Content="Settings"
+                    AutomationProperties.AutomationId="SettingsButton"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding OpenSettingsCommand}"
+                    ToolTip.Tip="Settings (Ctrl+,)"
+                    Margin="0,0,4,0"/>
+
+            <!-- Statistics Button -->
+            <Button DockPanel.Dock="Right"
+                    Content="Statistics"
+                    AutomationProperties.AutomationId="StatisticsButton"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding OpenStatisticsCommand}"
+                    ToolTip.Tip="View Usage Statistics"
+                    Margin="0,0,4,0"/>
+
+
+
+            <!-- Scroll Right Button -->
+            <Button x:Name="ScrollRightButton"
+                    DockPanel.Dock="Right"
+                    Content="›"
+                    AutomationProperties.Name="Scroll tabs right"
+                    Classes="TerminalSwitchButton"
+                    Click="ScrollRight_Click"
+                    ToolTip.Tip="Scroll right"
+                    IsVisible="False"
+                    Padding="6,4"
+                    Margin="0,0,2,0"/>
+
+            <!-- Scroll Left Button -->
+            <Button x:Name="ScrollLeftButton"
+                    DockPanel.Dock="Right"
+                    Content="‹"
+                    AutomationProperties.Name="Scroll tabs left"
+                    Classes="TerminalSwitchButton"
+                    Click="ScrollLeft_Click"
+                    ToolTip.Tip="Scroll left"
+                    IsVisible="False"
+                    Padding="6,4"
+                    Margin="0,0,2,0"/>
+
+            <!-- Tab Dropdown Button (shows all tabs when there's overflow) -->
+            <Button x:Name="TabDropdownButton"
+                    DockPanel.Dock="Right"
+                    Content="▼"
+                    AutomationProperties.Name="Show all tabs"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding $parent[Window].DataContext.OpenTabDropdownCommand}"
+                    ToolTip.Tip="All tabs (Ctrl+Shift+T)"
+                    IsVisible="False"
+                    Padding="6,4"
+                    Margin="0,0,2,0"/>
+
+            <!-- Tab List -->
+            <ListBox x:Name="TabList"
+                     ItemsSource="{Binding Tabs}"
+                     SelectedItem="{Binding SelectedTab}"
+                     AutomationProperties.AutomationId="TabList"
+                     ItemTemplate="{StaticResource TabHeaderTemplate}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     SizeChanged="TabList_SizeChanged">
+                <ListBox.Styles>
+                    <Style Selector="ListBox">
+                        <Setter Property="Template">
+                            <ControlTemplate TargetType="ListBox">
+                                <ScrollViewer x:Name="ScrollViewer"
+                                              Focusable="False"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled">
+                                    <ItemsPresenter/>
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="IsVisible" Value="{Binding IsVisibleInFocusMode}"/>
+                        <Setter Property="Template">
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter/>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
+        </DockPanel>
+    </Border>
+</UserControl>

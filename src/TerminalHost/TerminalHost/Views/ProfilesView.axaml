@@ -1,0 +1,295 @@
+<UserControl x:Class="TerminalHost.Views.ProfilesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:TerminalHost"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800"
+             Background="{StaticResource BackgroundDarkestBrush}">
+    <!-- Converters are already available globally from App.axaml -->
+    <!-- No need to redeclare them here -->
+
+    <UserControl.Styles>
+        <!-- Button Style -->
+        <Style Selector="Button.ProfileButton">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="Button.ProfileButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        </Style>
+        <Style Selector="Button.ProfileButton:disabled">
+            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        </Style>
+
+        <Style Selector="Button.DangerButton">
+            <Setter Property="Background" Value="{StaticResource DangerBackgroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="Button.DangerButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource DangerHoverBrush}"/>
+        </Style>
+
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+        </Style>
+
+        <!-- TextBox Style -->
+        <Style Selector="TextBox.FormTextBox">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+        </Style>
+
+        <!-- CheckBox Style -->
+        <Style Selector="CheckBox.FormCheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+        </Style>
+
+        <!-- ListBox Item Style -->
+        <Style Selector="ListBox.ProfileListBox ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.ProfileListBox ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+        </Style>
+        <Style Selector="ListBox.ProfileListBox ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+        </Style>
+        <Style Selector="ListBox.ProfileListBox ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Panel: Profile List -->
+        <Grid Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- List Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8">
+                <DockPanel>
+                    <Button Content="+ Add"
+                            DockPanel.Dock="Right"
+                            Command="{Binding AddNewCommand}"
+                            Classes="ProfileButton"/>
+                    <TextBlock Text="Custom Profiles"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Profile List -->
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding Profiles}"
+                     SelectedItem="{Binding SelectedProfile}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Classes="ProfileListBox"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="12,8" Margin="4,2" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="{Binding DisplayName}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeCode}"/>
+                                <TextBlock Text="{Binding DisplayInfo}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Empty State -->
+            <TextBlock Grid.Row="1"
+                       Text="No custom profiles yet.&#x0a;Click + Add to create one."
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="{StaticResource FontSizeCode}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"
+                       IsVisible="{Binding Profiles.Count, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+        </Grid>
+
+        <!-- Right Panel: Edit Form or Details -->
+        <Grid Grid.Column="1">
+            <!-- Edit Form (when editing) -->
+            <ScrollViewer IsVisible="{Binding IsEditing, Converter={StaticResource BoolToVisibilityConverter}}"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="24">
+                    <TextBlock Text="{Binding SelectedProfile, TargetNullValue='New Profile', StringFormat='Edit: {0}'}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeHeader}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,24"/>
+
+                    <!-- Name -->
+                    <TextBlock Text="Name" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditName}"
+                             Classes="FormTextBox"
+                             Margin="0,0,0,16"/>
+
+                    <!-- Command -->
+                    <TextBlock Text="Command" Foreground="#AAAAAA" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditCommand}"
+                             Classes="FormTextBox"
+                             Margin="0,0,0,16"/>
+
+                    <!-- Icon -->
+                    <TextBlock Text="Icon (emoji or symbol)" Foreground="#AAAAAA" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditIcon}"
+                             Classes="FormTextBox"
+                             Width="100"
+                             HorizontalAlignment="Left"
+                             Margin="0,0,0,16"/>
+
+                    <!-- Shortcut -->
+                    <TextBlock Text="Keyboard Shortcut (e.g., Ctrl+Shift+P)" Foreground="#AAAAAA" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditShortcut}"
+                             Classes="FormTextBox"
+                             Width="200"
+                             HorizontalAlignment="Left"
+                             Margin="0,0,0,16"/>
+
+                    <!-- Auto-start -->
+                    <CheckBox Content="Auto-start on application launch"
+                              IsChecked="{Binding EditAutoStart}"
+                              Classes="FormCheckBox"
+                              Margin="0,0,0,24"/>
+
+                    <!-- Error Message -->
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="{StaticResource StatusErrorBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Margin="0,0,0,16"
+                               IsVisible="{Binding ErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- Action Buttons -->
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Save"
+                                Command="{Binding SaveCommand}"
+                                Classes="PrimaryButton"
+                                Width="80"/>
+                        <Button Content="Cancel"
+                                Command="{Binding CancelCommand}"
+                                Classes="ProfileButton"
+                                Width="80"/>
+                        <Button Content="Delete"
+                                Command="{Binding DeleteCommand}"
+                                Classes="DangerButton"
+                                Width="80"
+                                IsVisible="{Binding SelectedProfile, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Margin="24,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Details View (when not editing) -->
+            <Grid IsVisible="{Binding IsEditing, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <!-- Profile Selected -->
+                <StackPanel Margin="24"
+                            IsVisible="{Binding SelectedProfile, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="{Binding SelectedProfile.DisplayName}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeTitle}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Command" Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding SelectedProfile.Command}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontFamily="{StaticResource FontFamilyMonospace}"
+                               Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Shortcut" Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,4"
+                               IsVisible="{Binding SelectedProfile.Shortcut, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding SelectedProfile.Shortcut}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               Margin="0,0,0,16"
+                               IsVisible="{Binding SelectedProfile.Shortcut, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <TextBlock Text="Auto-start enabled"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Margin="0,0,0,24"
+                               IsVisible="{Binding SelectedProfile.AutoStart, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="▶ Launch"
+                                ToolTip.Tip="Launch profile (use profile's working directory)"
+                                Command="{Binding LaunchCommand}"
+                                Classes="PrimaryButton"
+                                Width="100"/>
+                        <Button Content="📁 In Folder..."
+                                ToolTip.Tip="Launch with folder picker"
+                                Command="{Binding LaunchWithFolderCommand}"
+                                Classes="ProfileButton"
+                                Width="120"/>
+                        <Button Content="Edit"
+                                Command="{Binding StartEditCommand}"
+                                Classes="ProfileButton"
+                                Width="80"
+                                Margin="16,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- No Selection -->
+                <TextBlock Text="Select a profile to view details&#x0a;or click + Add to create a new one."
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeNormal}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           IsVisible="{Binding SelectedProfile, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

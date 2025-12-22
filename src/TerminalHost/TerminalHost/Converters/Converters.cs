@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using TerminalHost.Domain;
+using TerminalHost.ViewModels;
 
 namespace TerminalHost.Converters;
 
@@ -611,6 +612,274 @@ public class RelativeTimeConverter : IValueConverter
 
         var years = (int)(diff.TotalDays / 365);
         return years == 1 ? "1 year ago" : $"{years} years ago";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts DiffLineType to a background brush for diff rows.
+/// Parameter: "Left" or "Right" to specify which side.
+/// </summary>
+public class DiffLineTypeToBackgroundConverter : IValueConverter
+{
+    private static readonly SolidColorBrush HunkHeaderBrush = new(Color.Parse("#2D2D30"));
+    private static readonly SolidColorBrush AdditionBrush = new(Color.Parse("#233623"));
+    private static readonly SolidColorBrush DeletionBrush = new(Color.Parse("#3E1E1E"));
+    private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        // Check if this is a hunk header row first
+        if (value is bool isHunkHeader && isHunkHeader)
+        {
+            return HunkHeaderBrush;
+        }
+
+        // Otherwise check the diff line type
+        if (value is DiffLineType lineType)
+        {
+            return lineType switch
+            {
+                DiffLineType.Addition => AdditionBrush,
+                DiffLineType.Deletion => DeletionBrush,
+                _ => TransparentBrush
+            };
+        }
+
+        return TransparentBrush;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts DiffLineType to a foreground brush for diff content.
+/// </summary>
+public class DiffLineTypeToForegroundConverter : IValueConverter
+{
+    private static readonly SolidColorBrush HunkHeaderBrush = new(Color.Parse("#569CD6"));
+    private static readonly SolidColorBrush AdditionBrush = new(Color.Parse("#6A9955"));
+    private static readonly SolidColorBrush DeletionBrush = new(Color.Parse("#F14C4C"));
+    private static readonly SolidColorBrush DefaultBrush = new(Color.Parse("#CCCCCC"));
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        // Check if this is a hunk header row first
+        if (value is bool isHunkHeader && isHunkHeader)
+        {
+            return HunkHeaderBrush;
+        }
+
+        // Otherwise check the diff line type
+        if (value is DiffLineType lineType)
+        {
+            return lineType switch
+            {
+                DiffLineType.Addition => AdditionBrush,
+                DiffLineType.Deletion => DeletionBrush,
+                _ => DefaultBrush
+            };
+        }
+
+        return DefaultBrush;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Multi-value converter that returns line number text based on whether the row is a hunk header.
+/// Values: [0] = IsHunkHeader (bool), [1] = LineNumber (int?)
+/// Returns "..." for hunk headers, line number otherwise.
+/// </summary>
+public class DiffLineNumberConverter : IMultiValueConverter
+{
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values.Count < 2)
+            return "";
+
+        // First value is IsHunkHeader
+        if (values[0] is bool isHunkHeader && isHunkHeader)
+        {
+            return "...";
+        }
+
+        // Second value is the line number
+        if (values[1] is int lineNumber)
+        {
+            return lineNumber.ToString();
+        }
+
+        return "";
+    }
+}
+
+/// <summary>
+/// Multi-value converter that returns content text based on whether the row is a hunk header.
+/// Values: [0] = IsHunkHeader (bool), [1] = HunkHeaderText (string), [2] = Content (string)
+/// Returns HunkHeaderText for hunk headers, Content otherwise.
+/// </summary>
+public class DiffContentConverter : IMultiValueConverter
+{
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values.Count < 3)
+            return "";
+
+        // First value is IsHunkHeader
+        if (values[0] is bool isHunkHeader && isHunkHeader)
+        {
+            // Second value is HunkHeaderText
+            return values[1]?.ToString() ?? "";
+        }
+
+        // Third value is the regular content
+        return values[2]?.ToString() ?? "";
+    }
+}
+
+/// <summary>
+/// Converts SettingsViewMode enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target mode (Rich or Raw).
+/// </summary>
+public class ViewModeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is SettingsViewMode mode && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<SettingsViewMode>(targetModeStr, out var targetMode))
+            {
+                return mode == targetMode;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<SettingsViewMode>(targetModeStr, out var targetMode))
+            {
+                return targetMode;
+            }
+        }
+        return AvaloniaProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts SettingsViewMode to bool based on TargetMode property.
+/// </summary>
+public class ViewModeToVisibilityConverter : IValueConverter
+{
+    public SettingsViewMode TargetMode { get; set; }
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is SettingsViewMode mode)
+        {
+            return mode == TargetMode;
+        }
+        return false;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts TerminalLayoutMode enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target layout mode.
+/// </summary>
+public class LayoutModeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is TerminalLayoutMode mode && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<TerminalLayoutMode>(targetModeStr, out var targetMode))
+            {
+                return mode == targetMode;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetModeStr)
+        {
+            if (Enum.TryParse<TerminalLayoutMode>(targetModeStr, out var targetMode))
+            {
+                return targetMode;
+            }
+        }
+        return AvaloniaProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts SettingsSection enum to boolean for RadioButton binding.
+/// ConverterParameter specifies the target section.
+/// </summary>
+public class SectionConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is SettingsSection section && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return section == targetSection;
+            }
+        }
+        return false;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return targetSection;
+            }
+        }
+        return AvaloniaProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts SettingsSection to bool (for IsVisible).
+/// ConverterParameter specifies which section should be visible.
+/// </summary>
+public class SectionToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is SettingsSection section && parameter is string targetSectionStr)
+        {
+            if (Enum.TryParse<SettingsSection>(targetSectionStr, out var targetSection))
+            {
+                return section == targetSection;
+            }
+        }
+        return false;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

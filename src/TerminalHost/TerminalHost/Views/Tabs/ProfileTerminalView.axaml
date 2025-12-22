@@ -1,0 +1,76 @@
+<UserControl x:Class="TerminalHost.Views.Tabs.ProfileTerminalView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800"
+             x:DataType="vm:ProfileTerminalTabViewModel">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
+            <DockPanel>
+                <!-- Profile Info -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">
+                        <Run Text="{Binding TabIcon, Mode=OneWay}" FontSize="{StaticResource FontSizeNormal}"/>
+                        <Run Text=" "/>
+                        <Run Text="{Binding Profile.Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                    </TextBlock>
+
+                    <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding WorkingDirectory}"/>
+
+                    <TextBlock Foreground="{StaticResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding Profile.Command}"
+                               ToolTip.Tip="Command"/>
+
+                    <!-- Separator -->
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
+
+                    <!-- Quick Actions -->
+                    <Button Content="📁"
+                            ToolTip.Tip="Open Working Directory in Explorer"
+                            AutomationProperties.Name="Open in Explorer"
+                            Classes="TerminalSwitch"
+                            Click="OpenInExplorer_Click"
+                            Margin="0,0,4,0"/>
+                    <Button Content="❓"
+                            ToolTip.Tip="Help &amp; Shortcuts (F1)"
+                            AutomationProperties.Name="Help"
+                            Classes="TerminalSwitch"
+                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenHelpCommand}"
+                            Margin="0,0,4,0"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Terminal Content Area -->
+        <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Terminal Header -->
+            <Border Background="{StaticResource BackgroundLightBrush}" Padding="4,2">
+                <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeMicro}">
+                    <Run Text="{Binding TabIcon, Mode=OneWay}"/>
+                    <Run Text=" "/>
+                    <Run Text="{Binding Profile.Name, Mode=OneWay}"/>
+                </TextBlock>
+            </Border>
+
+            <!-- Terminal Control -->
+            <ContentPresenter Grid.Row="1" Content="{Binding TerminalContent}"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+        </Grid>
+    </Grid>
+</UserControl>

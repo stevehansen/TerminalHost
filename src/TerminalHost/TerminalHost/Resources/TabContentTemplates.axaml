@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="using:TerminalHost.ViewModels"
+                    xmlns:views="using:TerminalHost.Views"
+                    xmlns:tabs="using:TerminalHost.Views.Tabs">
+
+    <!-- Terminal Tab Content -->
+    <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}" x:Key="TerminalPairTabTemplate">
+        <tabs:TerminalPairView />
+    </DataTemplate>
+
+    <!-- Profile Terminal Tab Content -->
+    <DataTemplate DataType="{x:Type vm:ProfileTerminalTabViewModel}" x:Key="ProfileTerminalTabTemplate">
+        <tabs:ProfileTerminalView />
+    </DataTemplate>
+
+    <!-- Settings Tab Content -->
+    <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}" x:Key="SettingsTabTemplate">
+        <views:SettingsView/>
+    </DataTemplate>
+
+    <!-- Profiles Tab Content -->
+    <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}" x:Key="ProfilesTabTemplate">
+        <views:ProfilesView/>
+    </DataTemplate>
+
+    <!-- Statistics Tab Content -->
+    <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}" x:Key="StatisticsTabTemplate">
+        <views:StatisticsView/>
+    </DataTemplate>
+
+    <!-- Dashboard Tab Content -->
+    <DataTemplate DataType="{x:Type vm:DashboardTabViewModel}" x:Key="DashboardTabTemplate">
+        <views:DashboardView/>
+    </DataTemplate>
+
+</ResourceDictionary>

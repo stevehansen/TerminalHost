@@ -6,6 +6,9 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://host/Styles/Controls.axaml"/>
+        <StyleInclude Source="avares://host/Styles/Buttons.axaml"/>
+        <StyleInclude Source="avares://host/Styles/ScrollBars.axaml"/>
     </Application.Styles>
 
     <Application.Resources>

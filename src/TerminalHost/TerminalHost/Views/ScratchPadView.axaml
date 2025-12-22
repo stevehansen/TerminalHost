@@ -1,0 +1,124 @@
+<UserControl x:Class="TerminalHost.Views.ScratchPadView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:ScratchPadViewModel}"
+             mc:Ignorable="d">
+
+    <!-- Avalonia uses Window overlays instead of WPF Popup -->
+    <!-- This view will be hosted in a dedicated overlay window or popup -->
+    <Border x:Name="ScratchPadBorder"
+            Background="{StaticResource BackgroundDarkestBrush}"
+            BorderBrush="{StaticResource SyntaxBlueBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            MinWidth="400"
+            MinHeight="300"
+            Width="{Binding Width, Mode=TwoWay}"
+            Height="{Binding Height, Mode=TwoWay}"
+            IsVisible="{Binding IsOpen}"
+            BoxShadow="0 5 20 0 #80000000">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header (draggable) -->
+            <Border x:Name="ScratchPadHeader"
+                    Grid.Row="0"
+                    Background="{StaticResource BackgroundMediumBrush}"
+                    Padding="12,8"
+                    CornerRadius="6,6,0,0"
+                    Cursor="SizeAll"
+                    PointerPressed="ScratchPadHeader_PointerPressed"
+                    PointerMoved="ScratchPadHeader_PointerMoved"
+                    PointerReleased="ScratchPadHeader_PointerReleased">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="×"
+                            Classes="TabCloseButton"
+                            Command="{Binding CloseCommand}"
+                            FontSize="{StaticResource FontSizeLarge}"
+                            Padding="8,2"/>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,8,0">
+                        <!-- Project Scope Radio -->
+                        <RadioButton Content="Project"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     GroupName="ScratchPadScope"
+                                     IsChecked="{Binding IsGlobalScope, Converter={StaticResource InverseBoolConverter}, Mode=OneWay}"
+                                     IsEnabled="{Binding IsProjectScopeEnabled}"
+                                     Command="{Binding ToggleScopeCommand}"
+                                     Margin="0,0,8,0"
+                                     Classes="ScopeRadioButton">
+                            <!-- Note: Since we are binding IsChecked OneWay with a command to toggle,
+                                 we rely on the command to flip the ViewModel state.
+                                 Alternatively, we can bind IsGlobalScope with a converter for TwoWay binding.
+                                 For simplicity here, let's use the explicit IsGlobalScope binding. -->
+                        </RadioButton>
+
+                        <!-- Global Scope Radio -->
+                        <RadioButton Content="Global"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     GroupName="ScratchPadScope"
+                                     IsChecked="{Binding IsGlobalScope, Mode=TwoWay}"
+                                     Classes="ScopeRadioButton"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding WindowTitle}"
+                               Foreground="{StaticResource TextBrightBrush}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Content -->
+            <TextBox Grid.Row="1"
+                     x:Name="ScratchPadTextBox"
+                     Text="{Binding ContentText}"
+                     Background="Transparent"
+                     Foreground="{StaticResource TextLightBrush}"
+                     BorderThickness="0"
+                     Padding="12"
+                     FontFamily="{StaticResource FontFamilyMonospace}"
+                     FontSize="{StaticResource FontSizeNormal}"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+
+            <!-- Footer -->
+            <Border Grid.Row="2"
+                    Background="{StaticResource BackgroundMediumBrush}"
+                    Padding="12,6"
+                    CornerRadius="0,0,6,6">
+                <Grid>
+                    <TextBlock Text="{Binding InfoText}"
+                               Foreground="{StaticResource ResizeGripBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"/>
+                    <!-- Resize grip using Border with pointer events -->
+                    <Border HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Width="16"
+                            Height="16"
+                            Background="Transparent"
+                            Cursor="BottomRightCorner"
+                            PointerPressed="ResizeGrip_PointerPressed"
+                            PointerMoved="ResizeGrip_PointerMoved"
+                            PointerReleased="ResizeGrip_PointerReleased">
+                        <!-- Visual resize grip indicator -->
+                        <Path Data="{StaticResource ResizeGripGeometry}"
+                              Fill="{StaticResource ResizeGripBrush}"
+                              Stretch="Uniform"/>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+
+</UserControl>

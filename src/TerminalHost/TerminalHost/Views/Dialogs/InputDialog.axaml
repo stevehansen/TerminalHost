@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TerminalHost.Views.Dialogs.InputDialog"
+        Title="{Binding Title, RelativeSource={RelativeSource Self}}"
+        Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True">
+
+    <Border Background="{DynamicResource BackgroundDarkBrush}"
+            BorderBrush="{DynamicResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Margin="10"
+            BoxShadow="0 3 15 0 #80000000">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
+                    PointerPressed="TitleBar_PointerPressed"
+                    Cursor="SizeAll">
+                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                           FontSize="{StaticResource FontSizeNormal}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrightBrush}"
+                           FontFamily="{StaticResource FontFamilyStandard}"/>
+            </Border>
+
+            <!-- Prompt -->
+            <TextBlock Grid.Row="1"
+                       Text="{Binding Prompt, RelativeSource={RelativeSource AncestorType=Window}}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontFamily="{StaticResource FontFamilyStandard}"
+                       FontSize="{StaticResource FontSizeCode}"
+                       Margin="20,16,20,8"/>
+
+            <!-- Input TextBox -->
+            <TextBox x:Name="InputTextBox"
+                     Grid.Row="2"
+                     Text="{Binding InputText, RelativeSource={RelativeSource AncestorType=Window}}"
+                     FontFamily="{StaticResource FontFamilyMonospace}"
+                     FontSize="{StaticResource FontSizeCode}"
+                     Padding="8,6"
+                     Margin="20,0,20,16"
+                     Background="{DynamicResource BackgroundMediumBrush}"
+                     Foreground="{DynamicResource TextPrimaryBrush}"
+                     BorderBrush="{DynamicResource BorderMediumBrush}"
+                     BorderThickness="1"
+                     CaretBrush="{DynamicResource TextPrimaryBrush}"
+                     SelectionBrush="{DynamicResource AccentPrimaryBrush}"
+                     KeyDown="InputTextBox_KeyDown"/>
+
+            <!-- Footer with Buttons -->
+            <Border Grid.Row="3" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="0,0,6,6">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancel"
+                            Click="CancelButton_Click"
+                            Margin="0,0,8,0"
+                            Padding="16,6"
+                            MinWidth="80"
+                            Background="{DynamicResource BackgroundLightBrush}"
+                            Foreground="{DynamicResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pressed /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                    <Button Content="OK"
+                            Click="OKButton_Click"
+                            Padding="16,6"
+                            MinWidth="80"
+                            Background="{DynamicResource AccentPrimaryBrush}"
+                            Foreground="{DynamicResource TextBrightBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pressed /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource AccentDarkBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

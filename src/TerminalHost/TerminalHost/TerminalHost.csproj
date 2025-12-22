@@ -41,6 +41,9 @@
     <!-- Avalonia-compatible charts -->
     <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4" />
 
+    <!-- Avalonia message box dialogs -->
+    <PackageReference Include="MessageBox.Avalonia" Version="3.1.6" />
+
     <!-- Stage 4: Terminal PTY support -->
     <PackageReference Include="sch.pty.net" Version="0.3.36-pre" />
   </ItemGroup>
@@ -110,6 +113,9 @@
 
     <!-- Terminal control -->
     <Compile Include="Controls\MacTerminalControl.cs" />
+
+    <!-- Markdown viewer control -->
+    <Compile Include="Controls\MarkdownViewer.axaml.cs" />
   </ItemGroup>
 
   <!-- Stage 5: Core UI files -->
@@ -242,6 +248,60 @@
     <Compile Include="Services\ITestRunnerService.cs" />
     <Compile Include="Services\TestRunnerService.cs" />
     <Compile Include="Services\DiffParserService.cs" />
+  </ItemGroup>
+
+  <!-- Stage 7: Views code-behind files -->
+  <ItemGroup>
+    <!-- Tab Views -->
+    <Compile Include="Views\TabStrip.axaml.cs" />
+    <Compile Include="Views\Tabs\TerminalPairView.axaml.cs" />
+    <Compile Include="Views\Tabs\ProfileTerminalView.axaml.cs" />
+
+    <!-- Secondary Views -->
+    <Compile Include="Views\SettingsView.axaml.cs" />
+    <Compile Include="Views\ProfilesView.axaml.cs" />
+    <Compile Include="Views\StatisticsView.axaml.cs" />
+    <Compile Include="Views\FileExplorerView.axaml.cs" />
+    <Compile Include="Views\FileViewerView.axaml.cs" />
+    <Compile Include="Views\DashboardView.axaml.cs" />
+    <Compile Include="Views\ScratchPadView.axaml.cs" />
+
+    <!-- Popup Views -->
+    <Compile Include="Views\Popups\CommandPaletteView.axaml.cs" />
+    <Compile Include="Views\Popups\GitFilesView.axaml.cs" />
+    <Compile Include="Views\Popups\GitBranchView.axaml.cs" />
+    <Compile Include="Views\Popups\TabSwitcherView.axaml.cs" />
+    <Compile Include="Views\Popups\HelpView.axaml.cs" />
+    <Compile Include="Views\Popups\DetectedLinksView.axaml.cs" />
+    <Compile Include="Views\Popups\FileViewerPopup.axaml.cs" />
+    <Compile Include="Views\Popups\FilePreviewView.axaml.cs" />
+    <Compile Include="Views\Popups\PrReviewView.axaml.cs" />
+    <Compile Include="Views\Popups\QuickTaskView.axaml.cs" />
+    <Compile Include="Views\Popups\QuickNoteView.axaml.cs" />
+    <Compile Include="Views\Popups\TaskPanelView.axaml.cs" />
+    <Compile Include="Views\Popups\TestResultsView.axaml.cs" />
+    <Compile Include="Views\Popups\RepositorySwitcherView.axaml.cs" />
+    <Compile Include="Views\Popups\TabDropdownView.axaml.cs" />
+
+    <!-- Window Views -->
+    <Compile Include="Views\SetupWindow.axaml.cs" />
+    <Compile Include="Views\FileViewerWindow.axaml.cs" />
+    <Compile Include="Views\MarkdownPreviewWindow.axaml.cs" />
+    <Compile Include="Views\ToastContainerView.axaml.cs" />
+    <Compile Include="Views\ToastItemView.axaml.cs" />
+    <Compile Include="Views\ToastWindow.axaml.cs" />
+
+    <!-- Dialogs -->
+    <Compile Include="Views\Dialogs\InputDialog.axaml.cs" />
+    <Compile Include="Views\Dialogs\NotificationDialog.axaml.cs" />
+  </ItemGroup>
+
+  <!-- Stage 7: Controls code-behind files -->
+  <ItemGroup>
+    <Compile Include="Controls\DraggablePopup.axaml.cs" />
+    <Compile Include="Controls\DiffViewer.axaml.cs" />
+    <Compile Include="Controls\SideBySideDiffViewer.axaml.cs" />
+    <Compile Include="Controls\PrCommentThread.axaml.cs" />
   </ItemGroup>
 
   <!--

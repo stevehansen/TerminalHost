@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:views="clr-namespace:TerminalHost.Views"
+             mc:Ignorable="d"
+             x:Class="TerminalHost.Views.ToastContainerView"
+             IsHitTestVisible="True">
+    <!-- Container for toast notifications -->
+    <ItemsControl ItemsSource="{Binding Toasts}"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  IsHitTestVisible="True">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <!-- Stack toasts from bottom to top (newest on top) -->
+                <StackPanel VerticalAlignment="Bottom">
+                    <StackPanel.RenderTransform>
+                        <ScaleTransform ScaleY="-1"/>
+                    </StackPanel.RenderTransform>
+                </StackPanel>
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <views:ToastItemView>
+                    <views:ToastItemView.RenderTransform>
+                        <!-- Flip back so content is right-side up -->
+                        <ScaleTransform ScaleY="-1"/>
+                    </views:ToastItemView.RenderTransform>
+                </views:ToastItemView>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

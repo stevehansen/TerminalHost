@@ -1,0 +1,1985 @@
+<UserControl x:Class="TerminalHost.Views.SettingsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:conv="using:TerminalHost.Converters"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800"
+             Background="{StaticResource BackgroundDarkestBrush}">
+    <UserControl.Styles>
+        <!-- Note: WPF Style.Triggers have been removed. -->
+        <!-- In Avalonia, use separate Style elements with Selector="ControlType.ClassName:pseudoclass" -->
+        <!-- Example: <Style Selector="Button:pointerover"> for hover effects -->
+        <!-- Settings Toolbar Button Style -->
+        <Style Selector="Button.SettingsToolbarButton">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Mode Toggle Button Style (RadioButton look) -->
+        <Style Selector="RadioButton.ModeToggleButton">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sidebar Item Button Style -->
+        <Style Selector="RadioButton.SidebarItemButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Form TextBox Style -->
+        <Style Selector="TextBox.FormTextBox">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextPrimaryBrush}"/>
+        </Style>
+
+        <!-- Form CheckBox Style -->
+        <Style Selector="CheckBox.FormCheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Section Header Style -->
+        <Style Selector="TextBlock.SectionHeader">
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeHeader}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Section Description Style -->
+        <Style Selector="TextBlock.SectionDescription">
+            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+
+        <!-- Field Label Style -->
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <!-- Help Text Style -->
+        <Style Selector="TextBlock.HelpText">
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,4,0,16"/>
+        </Style>
+
+        <!-- Hyperlink Button Style -->
+        <Style Selector="Button.HyperlinkButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.HyperlinkButton:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource AccentHoverBrush}"/>
+        </Style>
+
+        <!-- Dark ComboBox Style -->
+        <Style Selector="ComboBox.DarkComboBox">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCode}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          Focusable="false"
+                                          IsChecked="{TemplateBinding IsDropDownOpen}"
+                                          ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0"/>
+                                                <Path Grid.Column="1"
+                                                      Data="M0,0 L4,4 L8,0"
+                                                      Fill="{StaticResource TextSecondaryBrush}"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                                      StrokeThickness="1"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding ItemTemplate}"
+                                              Margin="8,6,28,6"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"/>
+                            <Popup x:Name="PART_Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   IsLightDismissEnabled="True">
+                                <Border x:Name="DropDownBorder"
+                                        Background="{StaticResource BackgroundMediumBrush}"
+                                        BorderBrush="{StaticResource BorderDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        MinWidth="{Binding $parent[ComboBox].Bounds.Width}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer Margin="4,6">
+                                        <ItemsPresenter x:Name="PART_ItemsPresenter"
+                                                        ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ComboBoxItem Style -->
+        <Style Selector="ComboBoxItem.DarkComboBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="2">
+                            <ContentPresenter/>
+                        </Border>
+                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <!-- Bool to Visibility Converter -->
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <!-- View Mode to Visibility Converters -->
+        <conv:ViewModeToVisibilityConverter x:Key="RichModeVisibility" TargetMode="Rich"/>
+        <conv:ViewModeToVisibilityConverter x:Key="RawModeVisibility" TargetMode="Raw"/>
+
+        <!-- View Mode Converter -->
+        <conv:ViewModeConverter x:Key="ViewModeConverter"/>
+
+        <!-- Section Converter -->
+        <conv:SectionConverter x:Key="SectionConverter"/>
+
+        <!-- Section to Visibility Converter -->
+        <conv:SectionToVisibilityConverter x:Key="SectionVisibility"/>
+
+        <!-- Layout Mode Converter -->
+        <conv:LayoutModeConverter x:Key="LayoutModeConverter"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+            <DockPanel>
+                <!-- Mode Toggle (Left) -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <RadioButton Content="Rich"
+                                 GroupName="ViewMode"
+                                 Classes="ModeToggleButton"
+                                 IsChecked="{Binding ViewMode, Converter={StaticResource ViewModeConverter}, ConverterParameter=Rich}"
+                                 Name="RichModeButton"
+                                 Margin="0,0,2,0"/>
+                    <RadioButton Content="Raw"
+                                 GroupName="ViewMode"
+                                 Classes="ModeToggleButton"
+                                 IsChecked="{Binding ViewMode, Converter={StaticResource ViewModeConverter}, ConverterParameter=Raw}"
+                                 Name="RawModeButton"
+                                 Margin="0,0,12,0"/>
+
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,2,12,2"/>
+
+                    <Button Content="Save"
+                            Command="{Binding SaveCommand}"
+                            Name="SaveButton"
+                            Classes="SettingsToolbarButton"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Reload"
+                            Command="{Binding ReloadCommand}"
+                            Classes="SettingsToolbarButton"
+                            Margin="0,0,4,0"/>
+                </StackPanel>
+
+                <TextBlock Text="config.json"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeSmall}"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Rich Mode Content -->
+        <Grid Grid.Row="1" IsVisible="{Binding ViewMode, Converter={StaticResource RichModeVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Sidebar Navigation -->
+            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                <StackPanel Margin="0,8,0,0">
+                    <RadioButton Content="General"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=General}"/>
+                    <RadioButton Content="Terminals"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Terminals}"/>
+                    <RadioButton Content="AI Assistants"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=AiAssistants}"/>
+                    <RadioButton Content="Profiles"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Profiles}"/>
+                    <RadioButton Content="Quick Commands"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=QuickCommands}"/>
+                    <RadioButton Content="Link Patterns"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=LinkPatterns}"/>
+                    <RadioButton Content="Project Types"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ProjectTypes}"/>
+                    <RadioButton Content="Claude Commands"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ClaudeCommands}"/>
+                    <RadioButton Content="Directory Settings"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=DirectorySettings}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Content Area -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <!-- General Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=General}">
+                        <TextBlock Text="General Settings" Classes="SectionHeader"/>
+                        <TextBlock Text="Application behavior and appearance settings." Classes="SectionDescription"/>
+
+                        <CheckBox Content="Confirm before closing window"
+                                  IsChecked="{Binding ConfirmOnClose}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="When enabled, shows a confirmation dialog before closing the application."/>
+                        <TextBlock Text="Shows a confirmation dialog when closing the application with active terminals."
+                                   Classes="HelpText"/>
+
+                        <CheckBox Content="Show icon in system tray"
+                                  IsChecked="{Binding ShowInSystemTray}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Minimizes to system tray instead of taskbar."/>
+                        <TextBlock Text="When enabled, the application minimizes to the system tray instead of the taskbar."
+                                   Classes="HelpText"/>
+                    </StackPanel>
+
+                    <!-- Terminal Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Terminals}">
+                        <TextBlock Text="Terminal Settings" Classes="SectionHeader"/>
+                        <TextBlock Text="Configure the custom terminal and shell terminal commands." Classes="SectionDescription"/>
+
+                        <!-- Custom Terminal -->
+                        <TextBlock Text="CUSTOM TERMINAL"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Command" Classes="FieldLabel"/>
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding CustomCommand}"
+                                     Classes="FormTextBox"
+                                     FontFamily="{StaticResource FontFamilyMonospace}"/>
+                            <Button Grid.Column="1" Content="Browse..."
+                                    Classes="SettingsToolbarButton"
+                                    Margin="8,0,0,0"
+                                    Click="BrowseCustomCommand_Click"/>
+                        </Grid>
+                        <TextBlock Text="Path to the custom terminal executable. Environment variables like %USERPROFILE% are supported."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="Display Name" Classes="FieldLabel"/>
+                        <TextBox Text="{Binding CustomCommandName}"
+                                 Classes="FormTextBox"
+                                 Width="300"
+                                 HorizontalAlignment="Left"/>
+                        <TextBlock Text="The name shown in tabs and UI elements."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="Icon" Classes="FieldLabel"/>
+                        <TextBox Text="{Binding CustomCommandIcon}"
+                                 Classes="FormTextBox"
+                                 Width="60"
+                                 HorizontalAlignment="Left"
+                                 FontSize="{StaticResource FontSizeLarge}"/>
+                        <TextBlock Text="Single emoji character displayed in the tab."
+                                   Classes="HelpText"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,24"/>
+
+                        <!-- Shell Terminal -->
+                        <TextBlock Text="SHELL TERMINAL"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Command" Classes="FieldLabel"/>
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding ShellCommand}"
+                                     Classes="FormTextBox"
+                                     FontFamily="{StaticResource FontFamilyMonospace}"/>
+                            <Button Grid.Column="1" Content="Browse..."
+                                    Classes="SettingsToolbarButton"
+                                    Margin="8,0,0,0"
+                                    Click="BrowseShellCommand_Click"/>
+                        </Grid>
+                        <TextBlock Text="Path to the shell executable (e.g., pwsh.exe, cmd.exe)."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="Display Name" Classes="FieldLabel"/>
+                        <TextBox Text="{Binding ShellCommandName}"
+                                 Classes="FormTextBox"
+                                 Width="300"
+                                 HorizontalAlignment="Left"/>
+                        <TextBlock Text="The name shown in tabs and UI elements."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="Icon" Classes="FieldLabel"/>
+                        <TextBox Text="{Binding ShellCommandIcon}"
+                                 Classes="FormTextBox"
+                                 Width="60"
+                                 HorizontalAlignment="Left"
+                                 FontSize="{StaticResource FontSizeLarge}"/>
+                        <TextBlock Text="Single emoji character displayed in the tab."
+                                   Classes="HelpText"/>
+                    </StackPanel>
+
+                    <!-- AI Assistants Section -->
+                    <Grid Margin="24"
+                          IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=AiAssistants}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="AI Assistants" Classes="SectionHeader"/>
+                        <TextBlock Grid.Row="1" Text="Configure AI CLI assistants. Enabled assistants appear in the toolbar dropdown for per-project selection." Classes="SectionDescription"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: AI Assistant List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddAiAssistantCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Add a new AI assistant"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="Reset"
+                                                    Command="{Binding ResetAiAssistantsCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Reset to default AI assistants"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- AI Assistant List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding AiAssistants}"
+                                             SelectedItem="{Binding SelectedAiAssistant}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               Foreground="{StaticResource AccentPrimaryBrush}"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,8,0"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"/>
+                                                        <TextBlock Text="{Binding Command}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Border Background="{StaticResource StatusSuccessBrush}"
+                                                                CornerRadius="2"
+                                                                Padding="4,1"
+                                                                Margin="4,0,0,0"
+                                                                IsVisible="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Default"
+                                                                       Foreground="{StaticResource TextBrightBrush}"
+                                                                       FontSize="{StaticResource FontSizeTiny}"/>
+                                                        </Border>
+                                                        <Border Background="{StaticResource AccentPrimaryBrush}"
+                                                                CornerRadius="2"
+                                                                Padding="4,1"
+                                                                Margin="4,0,0,0"
+                                                                IsVisible="{Binding Enabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="Enabled"
+                                                                       Foreground="{StaticResource TextBrightBrush}"
+                                                                       FontSize="{StaticResource FontSizeTiny}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate>
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Styles>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Form -->
+                            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4" Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="Edit AI Assistant"
+                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                   FontSize="{StaticResource FontSizeLarge}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,16"/>
+
+                                    <StackPanel IsVisible="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <TextBlock Text="Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditAiName}"
+                                                 Classes="FormTextBox"/>
+
+                                        <TextBlock Text="Command" Classes="FieldLabel" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiCommand}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="The command to run (supports environment variables like %USERPROFILE%)"
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Icon" Classes="FieldLabel" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiIcon}"
+                                                 Classes="FormTextBox"
+                                                 Width="80"
+                                                 HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Short text or emoji shown in the UI"
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Detection Command" Classes="FieldLabel" Margin="0,12,0,0"/>
+                                        <TextBox Text="{Binding EditAiDetectionCommand}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="Command to check if this assistant is installed (e.g., 'claude --version')"
+                                                   Classes="HelpText"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Enabled"
+                                                      IsChecked="{Binding EditAiEnabled}"
+                                                      Foreground="{StaticResource TextPrimaryBrush}"
+                                                      VerticalContentAlignment="Center"/>
+                                            <CheckBox Content="Default"
+                                                      IsChecked="{Binding EditAiIsDefault}"
+                                                      Foreground="{StaticResource TextPrimaryBrush}"
+                                                      VerticalContentAlignment="Center"
+                                                      Margin="16,0,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyAiAssistantCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Padding="16,6"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteAiAssistantCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Padding="16,6"
+                                                    Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <TextBlock Text="Select an AI assistant to edit"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontStyle="Italic"
+                                               IsVisible="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Profiles Section -->
+                    <Grid Margin="24"
+                          IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Profiles}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Profiles" Classes="SectionHeader"/>
+                        <TextBlock Grid.Row="1" Text="Terminal profiles that can be launched from the + menu. Profiles with auto-start enabled will launch automatically when the application starts." Classes="SectionDescription"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Profile List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddProfileCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Add a new profile"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="↑"
+                                                    Command="{Binding MoveProfileUpCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move up"/>
+                                            <Button Content="↓"
+                                                    Command="{Binding MoveProfileDownCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move down"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Profile List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding Profiles}"
+                                             SelectedItem="{Binding SelectedProfile}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="24"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Icon}"
+                                                               FontSize="{StaticResource FontSizeNormal}"
+                                                               VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"/>
+                                                        <TextBlock Text="{Binding Command}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="2"
+                                                            Background="{StaticResource StatusSuccessBrush}"
+                                                            CornerRadius="2"
+                                                            Padding="4,1"
+                                                            Margin="4,0,0,0"
+                                                            IsVisible="{Binding AutoStart, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="Auto"
+                                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate>
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Styles>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Panel -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    Padding="16"
+                                    IsVisible="{Binding SelectedProfile, Converter={StaticResource NullToVisibilityConverter}}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="Edit Profile"
+                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                   FontSize="{StaticResource FontSizeLarge}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,16"/>
+
+                                        <TextBlock Text="Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditProfileName}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="Display name for the profile."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Command" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditProfileCommand}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="The command to execute (e.g., pwsh.exe, cmd.exe)."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Icon" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditProfileIcon}"
+                                                 Classes="FormTextBox"
+                                                 Width="60"
+                                                 HorizontalAlignment="Left"
+                                                 FontSize="{StaticResource FontSizeLarge}"/>
+                                        <TextBlock Text="Single emoji character shown in menus."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Keyboard Shortcut" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditProfileShortcut}"
+                                                 Classes="FormTextBox"
+                                                 Width="200"
+                                                 HorizontalAlignment="Left"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="e.g., Ctrl+Shift+P"
+                                                   Classes="HelpText"/>
+
+                                        <CheckBox Content="Auto-start on application launch"
+                                                  IsChecked="{Binding EditProfileAutoStart}"
+                                                  Classes="FormCheckBox"/>
+                                        <TextBlock Text="Automatically launch this profile when the app starts."
+                                                   Classes="HelpText"/>
+
+                                        <!-- Action Buttons -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyProfileCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Width="80"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteProfileCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Width="80"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- No Selection State -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    IsVisible="{Binding SelectedProfile, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                                <TextBlock Text="Select a profile to edit"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Quick Commands Section -->
+                    <Grid Margin="24"
+                          IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=QuickCommands}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Quick Commands" Classes="SectionHeader"/>
+                        <TextBlock Grid.Row="1" Text="Keyboard shortcuts to send commands to terminals." Classes="SectionDescription"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Command List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddQuickCommandCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Add a new quick command"/>
+                                            <Button Content="Reset"
+                                                    Command="{Binding ResetQuickCommandsCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Reset to default quick commands"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="↑"
+                                                    Command="{Binding MoveQuickCommandUpCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move up"/>
+                                            <Button Content="↓"
+                                                    Command="{Binding MoveQuickCommandDownCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move down"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Command List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding QuickCommands}"
+                                             SelectedItem="{Binding SelectedQuickCommand}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="24"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayText}"
+                                                               FontSize="{StaticResource FontSizeNormal}"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Label}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="4,0,0,0"/>
+                                                    <Border Grid.Column="2"
+                                                            Background="{StaticResource BackgroundLightBrush}"
+                                                            CornerRadius="2"
+                                                            Padding="4,1"
+                                                            Margin="4,0,0,0"
+                                                            IsVisible="{Binding Shortcut, Converter={StaticResource NullToCollapsedConverter}}">
+                                                        <TextBlock Text="{Binding Shortcut}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate>
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Styles>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Panel -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    Padding="16"
+                                    IsVisible="{Binding SelectedQuickCommand, Converter={StaticResource NullToVisibilityConverter}}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="Edit Command"
+                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                   FontSize="{StaticResource FontSizeLarge}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,16"/>
+
+                                        <TextBlock Text="Label" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditQcLabel}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="Display name for the command button."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Icon" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditQcIcon}"
+                                                 Classes="FormTextBox"
+                                                 Width="60"
+                                                 HorizontalAlignment="Left"
+                                                 FontSize="{StaticResource FontSizeLarge}"/>
+                                        <TextBlock Text="Single emoji or character shown on the button."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Command Text" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditQcText}"
+                                                 Classes="FormTextBox"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 Height="60"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="The text sent to the terminal when executed."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Target Terminal" Classes="FieldLabel"/>
+                                        <ComboBox SelectedIndex="{Binding EditQcTargetIndex}"
+                                                  Classes="DarkComboBox"
+                                                  Width="200"
+                                                  HorizontalAlignment="Left">
+                                            <ComboBoxItem Content="Custom (Claude Code)"/>
+                                            <ComboBoxItem Content="Shell (PowerShell)"/>
+                                        </ComboBox>
+                                        <TextBlock Text="Which terminal receives the command."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Keyboard Shortcut" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditQcShortcut}"
+                                                 Classes="FormTextBox"
+                                                 Width="200"
+                                                 HorizontalAlignment="Left"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="e.g., Ctrl+Shift+C or Ctrl+Alt+P"
+                                                   Classes="HelpText"/>
+
+                                        <CheckBox Content="Append newline after command"
+                                                  IsChecked="{Binding EditQcAppendNewline}"
+                                                  Classes="FormCheckBox"/>
+                                        <TextBlock Text="Automatically sends Enter after the command text."
+                                                   Classes="HelpText"/>
+
+                                        <CheckBox Content="Use user input mode"
+                                                  IsChecked="{Binding EditQcUseUserInput}"
+                                                  Classes="FormCheckBox"/>
+                                        <TextBlock Text="For apps like Claude Code that need key event handling."
+                                                   Classes="HelpText"/>
+
+                                        <!-- Action Buttons -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyQuickCommandCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Width="80"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteQuickCommandCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Width="80"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- No Selection State -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    IsVisible="{Binding SelectedQuickCommand, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                                <TextBlock Text="Select a command to edit"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Link Patterns Section -->
+                    <Grid Margin="24"
+                          IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=LinkPatterns}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Link Patterns" Classes="SectionHeader"/>
+                        <TextBlock Grid.Row="1" Text="Custom patterns to detect and linkify text in terminal output. Use regex capturing groups and URL templates with $1, $2, etc." Classes="SectionDescription"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Pattern List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddLinkPatternCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Add a new link pattern"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="↑"
+                                                    Command="{Binding MoveLinkPatternUpCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move up (higher priority)"/>
+                                            <Button Content="↓"
+                                                    Command="{Binding MoveLinkPatternDownCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move down"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Pattern List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding LinkPatterns}"
+                                             SelectedItem="{Binding SelectedLinkPattern}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"/>
+                                                        <TextBlock Text="{Binding Pattern}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <CheckBox Grid.Column="1"
+                                                              IsChecked="{Binding Enabled}"
+                                                              VerticalAlignment="Center"
+                                                              ToolTip.Tip="Enabled"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate>
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Styles>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Panel -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    Padding="16"
+                                    IsVisible="{Binding SelectedLinkPattern, Converter={StaticResource NullToVisibilityConverter}}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="Edit Pattern"
+                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                   FontSize="{StaticResource FontSizeLarge}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,16"/>
+
+                                        <TextBlock Text="Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditLpName}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="Display name for this pattern (e.g., 'JIRA Ticket')."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Regex Pattern" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditLpPattern}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="Regular expression with capturing groups. Example: ([A-Z]+-\d+) for JIRA tickets."
+                                                   Classes="HelpText"/>
+                                        <TextBlock Text="{Binding RegexTestError}"
+                                                   Foreground="{StaticResource StatusErrorBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   IsVisible="{Binding RegexTestIsValid, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                                                   Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="URL Template" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditLpUrlTemplate}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="URL with placeholders. Use $0 for full match, $1, $2, etc. for capture groups."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Priority" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditLpPriority}"
+                                                 Classes="FormTextBox"
+                                                 Width="80"
+                                                 HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Higher values are matched first (0-100)."
+                                                   Classes="HelpText"/>
+
+                                        <CheckBox Content="Enabled"
+                                                  IsChecked="{Binding EditLpEnabled}"
+                                                  Classes="FormCheckBox"/>
+                                        <TextBlock Text="Disable to temporarily turn off this pattern without deleting it."
+                                                   Classes="HelpText"/>
+
+                                        <!-- Regex Test Panel -->
+                                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                        <TextBlock Text="TEST PATTERN"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="Test Input" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding RegexTestInput}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="Enter sample text to test your pattern."
+                                                   Classes="HelpText"/>
+
+                                        <Grid Margin="0,0,0,16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                                       Text="Match:"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Margin="0,0,8,4"/>
+                                            <TextBlock Grid.Row="0" Grid.Column="1"
+                                                       Text="{Binding RegexTestMatch}"
+                                                       Foreground="{StaticResource SyntaxGreenBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"/>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0"
+                                                       Text="URL:"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Row="1" Grid.Column="1"
+                                                       Text="{Binding RegexTestUrl}"
+                                                       Foreground="{StaticResource SyntaxCyanBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+
+                                        <!-- Action Buttons -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyLinkPatternCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Width="80"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteLinkPatternCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Width="80"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- No Selection State -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    IsVisible="{Binding SelectedLinkPattern, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                                <TextBlock Text="Select a pattern to edit or click + Add to create one"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Project Types Section -->
+                    <Grid Margin="24"
+                          IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=ProjectTypes}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Project Types" Classes="SectionHeader"/>
+                        <TextBlock Grid.Row="1" Text="Auto-detection rules for project run configurations. Define file patterns to detect project types and their default run commands." Classes="SectionDescription"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" MinWidth="200"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" MinWidth="300"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Project Type List -->
+                            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- List Header -->
+                                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="4,4,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="+ Add"
+                                                    Command="{Binding AddProjectTypeCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Add a new project type"/>
+                                            <Button Content="Reset"
+                                                    Command="{Binding ResetProjectTypesCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    ToolTip.Tip="Reset to default project types"/>
+                                            <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
+                                            <Button Content="↑"
+                                                    Command="{Binding MoveProjectTypeUpCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move up"/>
+                                            <Button Content="↓"
+                                                    Command="{Binding MoveProjectTypeDownCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="28"
+                                                    ToolTip.Tip="Move down"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Project Type List -->
+                                    <ListBox Grid.Row="1"
+                                             ItemsSource="{Binding ProjectTypes}"
+                                             SelectedItem="{Binding SelectedProjectType}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="4,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"/>
+                                                        <TextBlock Text="{Binding DefaultCommand}"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Priority}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontSize="{StaticResource FontSizeTiny}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="4,0,0,0"
+                                                               ToolTip.Tip="Priority"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.Styles>
+                                            <Style Selector="ListBoxItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,6"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate>
+                                                            <Border x:Name="Border"
+                                                                    Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Styles>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Edit Panel -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    Padding="16"
+                                    IsVisible="{Binding SelectedProjectType, Converter={StaticResource NullToVisibilityConverter}}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="Edit Project Type"
+                                                   Foreground="{StaticResource TextBrightBrush}"
+                                                   FontSize="{StaticResource FontSizeLarge}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,16"/>
+
+                                        <TextBlock Text="ID" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtId}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                                 Width="200"
+                                                 HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Unique identifier (e.g., 'dotnet', 'nodejs', 'custom-react')."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Display Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtName}"
+                                                 Classes="FormTextBox"/>
+                                        <TextBlock Text="The name shown in the UI (e.g., '.NET', 'Node.js')."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Detection Files" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtDetectFiles}"
+                                                 Classes="FormTextBox"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 Height="80"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="File patterns to detect this project type (one per line). Supports wildcards like *.csproj, *.sln, package.json."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Default Run Command" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtDefaultCommand}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="Command to run the project (e.g., 'dotnet run', 'npm start')."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Watch Command (optional)" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtWatchCommand}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="Command for hot-reload development (e.g., 'dotnet watch run', 'npm run dev')."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="URL Pattern (optional)" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtUrlPattern}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                        <TextBlock Text="Regex to detect localhost URLs from output. Use capturing group for the URL."
+                                                   Classes="HelpText"/>
+
+                                        <TextBlock Text="Priority" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditPtPriority}"
+                                                 Classes="FormTextBox"
+                                                 Width="80"
+                                                 HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Higher priority types are checked first (0-100)."
+                                                   Classes="HelpText"/>
+
+                                        <!-- Action Buttons -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyProjectTypeCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Width="80"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteProjectTypeCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Width="80"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- No Selection State -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BackgroundDarkBrush}"
+                                    CornerRadius="4"
+                                    IsVisible="{Binding SelectedProjectType, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                                <TextBlock Text="Select a project type to edit or click + Add to create one"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Claude Commands Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=ClaudeCommands}">
+                        <TextBlock Text="Claude Commands" Classes="SectionHeader"/>
+                        <StackPanel Orientation="Horizontal" Classes="SectionDescription">
+                            <TextBlock Text="Keyboard shortcuts for Claude Code slash commands. "/>
+                            <Button Content="View documentation →"
+                                    Classes="HyperlinkButton"
+                                    Tag="https://code.claude.com/docs/en/slash-commands#custom-slash-commands"
+                                    Click="Hyperlink_Click"/>
+                        </StackPanel>
+
+                        <Border Background="{StaticResource BackgroundDarkBrush}" CornerRadius="4" Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="HOW IT WORKS"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,12">
+                                    <Run Text="Claude Code slash commands are " Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <Run Text="auto-detected" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="SemiBold"/>
+                                    <Run Text=" from .md files in:" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </TextBlock>
+
+                                <StackPanel Margin="16,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Button Content="~/.claude/commands/"
+                                                Classes="HyperlinkButton"
+                                                Foreground="{StaticResource SyntaxCyanBrush}"
+                                                FontFamily="{StaticResource FontFamilyMonospace}"
+                                                FontSize="{StaticResource FontSizeCode}"
+                                                Click="GlobalCommandsFolder_Click"/>
+                                        <TextBlock Text=" (global commands)" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content=".claude/commands/"
+                                                Classes="HyperlinkButton"
+                                                Foreground="{StaticResource SyntaxCyanBrush}"
+                                                FontFamily="{StaticResource FontFamilyMonospace}"
+                                                FontSize="{StaticResource FontSizeCode}"
+                                                Click="ProjectCommandsFolder_Click"/>
+                                        <TextBlock Text=" (project commands)" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <TextBlock Text="You can assign keyboard shortcuts to these commands. Detected commands appear in the Command Palette (Ctrl+Shift+P)."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12"/>
+
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,4,0,12"/>
+
+                                <TextBlock Text="ASSIGNING SHORTCUTS"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,12">
+                                    <Run Text="To assign shortcuts, edit " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <Run Text="settings.claudeCommandShortcuts" Foreground="{StaticResource SyntaxGreenBrush}" FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                    <Run Text=" in Raw mode:" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </TextBlock>
+
+                                <Border Background="{StaticResource BackgroundMediumBrush}" CornerRadius="3" Padding="12,8">
+                                    <TextBlock FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               Foreground="{StaticResource TextPrimaryBrush}">
+                                        <Run Text='"claudeCommandShortcuts": {' Foreground="{StaticResource SyntaxBlueBrush}"/>
+                                        <LineBreak/>
+                                        <Run Text='  "review-pr": "Ctrl+Alt+R",' Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <LineBreak/>
+                                        <Run Text='  "commit": "Ctrl+Alt+C"' Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <LineBreak/>
+                                        <Run Text="}" Foreground="{StaticResource SyntaxBlueBrush}"/>
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock TextWrapping="Wrap">
+                            <Run Text="💡 Tip:" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="SemiBold"/>
+                            <Run Text=" Create .md files in the commands folders to add your own slash commands. The filename becomes the command name." Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Directory Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=DirectorySettings}">
+                        <TextBlock Text="Directory Settings" Classes="SectionHeader"/>
+                        <TextBlock Text="Per-project configuration for layout, run configs, and file explorer. These settings are saved automatically when you adjust layouts." Classes="SectionDescription"/>
+
+                        <!-- Directory Selector -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="Directory:"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"/>
+
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding Directories}"
+                                      SelectedItem="{Binding SelectedDirectory}"
+                                      Classes="DarkComboBox"
+                                      MaxWidth="500"
+                                      HorizontalAlignment="Left"/>
+
+                            <Button Grid.Column="2"
+                                    Content="Delete"
+                                    Command="{Binding DeleteDirectorySettingsCommand}"
+                                    Classes="SettingsToolbarButton"
+                                    Background="{StaticResource DangerBackgroundBrush}"
+                                    Margin="8,0,0,0"
+                                    ToolTip.Tip="Remove settings for this directory"/>
+                        </Grid>
+
+                        <!-- No Directories Message -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="4"
+                                Padding="24"
+                                IsVisible="{Binding SelectedDirectory, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="No project directories with saved settings"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,8"/>
+                                <TextBlock Text="Open a project folder and adjust its layout to create settings."
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Directory Settings Editor -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="4"
+                                Padding="16"
+                                IsVisible="{Binding SelectedDirectory, Converter={StaticResource NullToVisibilityConverter}}">
+                            <StackPanel>
+                                <!-- Layout Settings -->
+                                <TextBlock Text="LAYOUT"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <TextBlock Text="Terminal Layout" Classes="FieldLabel"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <RadioButton Content="Custom Only"
+                                                 GroupName="LayoutMode"
+                                                 Classes="ModeToggleButton"
+                                                 IsChecked="{Binding EditDsLayoutMode, Converter={StaticResource LayoutModeConverter}, ConverterParameter=CustomFull}"
+                                                 Margin="0,0,4,0"/>
+                                    <RadioButton Content="Horizontal"
+                                                 GroupName="LayoutMode"
+                                                 Classes="ModeToggleButton"
+                                                 IsChecked="{Binding EditDsLayoutMode, Converter={StaticResource LayoutModeConverter}, ConverterParameter=HorizontalSplit}"
+                                                 Margin="0,0,4,0"/>
+                                    <RadioButton Content="Vertical"
+                                                 GroupName="LayoutMode"
+                                                 Classes="ModeToggleButton"
+                                                 IsChecked="{Binding EditDsLayoutMode, Converter={StaticResource LayoutModeConverter}, ConverterParameter=VerticalSplit}"/>
+                                </StackPanel>
+                                <TextBlock Text="How to arrange the Custom and Shell terminals."
+                                           Classes="HelpText"/>
+
+                                <TextBlock Text="Split Ratio" Classes="FieldLabel"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Grid.Column="0"
+                                            Minimum="0.2" Maximum="0.8"
+                                            Value="{Binding EditDsSplitRatio}"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding EditDsSplitRatio, StringFormat='{}{0:P0}'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Text="How much space the Custom terminal takes (in split mode)."
+                                           Classes="HelpText"/>
+
+                                <!-- Run Terminal Settings -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="RUN TERMINAL"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <CheckBox Content="Show run terminal"
+                                          IsChecked="{Binding EditDsShowRunTerminal}"
+                                          Classes="FormCheckBox"
+                                          Margin="0,0,0,0"/>
+                                <TextBlock Text="Show a third terminal for running development servers (F5)."
+                                           Classes="HelpText"/>
+
+                                <TextBlock Text="Run Terminal Size" Classes="FieldLabel"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Grid.Column="0"
+                                            Minimum="0.15" Maximum="0.5"
+                                            Value="{Binding EditDsRunSplitRatio}"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding EditDsRunSplitRatio, StringFormat='{}{0:P0}'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Text="How much horizontal space the run terminal takes."
+                                           Classes="HelpText"/>
+
+                                <!-- File Explorer Settings -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="FILE EXPLORER"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <CheckBox Content="Show file explorer"
+                                          IsChecked="{Binding EditDsShowExplorer}"
+                                          Classes="FormCheckBox"
+                                          Margin="0,0,0,0"/>
+                                <TextBlock Text="Show the file explorer panel on the left (Ctrl+Shift+F)."
+                                           Classes="HelpText"/>
+
+                                <TextBlock Text="Explorer Width" Classes="FieldLabel"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Grid.Column="0"
+                                            Minimum="0.1" Maximum="0.4"
+                                            Value="{Binding EditDsExplorerRatio}"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding EditDsExplorerRatio, StringFormat='{}{0:P0}'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Text="How much horizontal space the file explorer takes."
+                                           Classes="HelpText"/>
+
+                                <!-- AI Assistant -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="AI ASSISTANT"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <TextBlock Text="AI Assistant" Classes="FieldLabel"/>
+                                <ComboBox ItemsSource="{Binding AiAssistants}"
+                                          SelectedItem="{Binding EditDsAiAssistant}"
+                                          Classes="DarkComboBox"
+                                          MinWidth="150"
+                                          HorizontalAlignment="Left"
+                                          Margin="0,0,0,4">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayLabel}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Text="Which AI assistant to use for the Custom terminal in this project."
+                                           Classes="HelpText"/>
+
+                                <!-- Run Configurations -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="RUN CONFIGURATIONS"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+                                <TextBlock Text="Custom run configurations for this project. If empty, auto-detection is used."
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12"/>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Run Config List -->
+                                    <Border Grid.Column="0" Background="{StaticResource BackgroundMediumBrush}" CornerRadius="3">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*" MaxHeight="150"/>
+                                            </Grid.RowDefinitions>
+
+                                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4">
+                                                <Button Content="+"
+                                                        Command="{Binding AddRunConfigurationCommand}"
+                                                        Classes="SettingsToolbarButton"
+                                                        Width="24"
+                                                        Padding="0"
+                                                        ToolTip.Tip="Add configuration"/>
+                                            </StackPanel>
+
+                                            <ListBox Grid.Row="1"
+                                                     ItemsSource="{Binding RunConfigurations}"
+                                                     SelectedItem="{Binding SelectedRunConfiguration}"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0"
+                                                                       Text="●"
+                                                                       Foreground="{StaticResource StatusSuccessBrush}"
+                                                                       IsVisible="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                                       Margin="0,0,4,0"/>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Name}"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                                <ListBox.Styles>
+                                                    <Style Selector="ListBoxItem">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="Padding" Value="6,4"/>
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate>
+                                                                    <Border x:Name="Border"
+                                                                            Background="{TemplateBinding Background}"
+                                                                            Padding="{TemplateBinding Padding}">
+                                                                        <ContentPresenter/>
+                                                                    </Border>
+                                                                    <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </ListBox.Styles>
+                                            </ListBox>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Run Config Edit Panel -->
+                                    <StackPanel Grid.Column="2"
+                                                IsVisible="{Binding SelectedRunConfiguration, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <TextBlock Text="Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditRcName}"
+                                                 Classes="FormTextBox"/>
+
+                                        <TextBlock Text="Command" Classes="FieldLabel" Margin="0,8,0,0"/>
+                                        <TextBox Text="{Binding EditRcCommand}"
+                                                 Classes="FormTextBox"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
+
+                                        <CheckBox Content="Default configuration"
+                                                  IsChecked="{Binding EditRcIsDefault}"
+                                                  Classes="FormCheckBox"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                            <Button Content="Apply"
+                                                    Command="{Binding ApplyRunConfigurationCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource AccentDarkBrush}"
+                                                    Width="60"/>
+                                            <Button Content="Delete"
+                                                    Command="{Binding DeleteRunConfigurationCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Background="{StaticResource DangerBackgroundBrush}"
+                                                    Width="60"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Apply Button -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
+                                <Button Content="Apply Directory Settings"
+                                        Command="{Binding ApplyDirectorySettingsCommand}"
+                                        Classes="SettingsToolbarButton"
+                                        Background="{StaticResource AccentDarkBrush}"
+                                        HorizontalAlignment="Left"
+                                        Padding="16,8"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Raw Mode Content (JSON Editor) -->
+        <Grid Grid.Row="1" IsVisible="{Binding ViewMode, Converter={StaticResource RawModeVisibility}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Raw Mode Toolbar -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Format"
+                            Command="{Binding FormatCommand}"
+                            Classes="SettingsToolbarButton"/>
+                    <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="8,2"/>
+                    <Button Content="Reset Quick Commands"
+                            Command="{Binding ResetQuickCommandsCommand}"
+                            Classes="SettingsToolbarButton"
+                            ToolTip.Tip="Reset quick commands to defaults (preserves other settings)"/>
+                </StackPanel>
+            </Border>
+
+            <!-- JSON Editor -->
+            <TextBox x:Name="JsonEditor"
+                         Grid.Row="1"
+                         Background="{StaticResource BackgroundDarkestBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderThickness="0"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="{StaticResource FontSizeCode}"
+                         AcceptsReturn="True"
+                         AcceptsTab="True"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         Padding="8"
+                         TextChanged="JsonEditor_TextChanged"
+                         Loaded="JsonEditor_Loaded">
+                
+            </TextBox>
+        </Grid>
+
+        <!-- Error Bar -->
+        <Border Grid.Row="2"
+                Background="{StaticResource DangerBackgroundBrush}"
+                Padding="8,6"
+                IsVisible="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{StaticResource StatusErrorBrush}"
+                       FontFamily="{StaticResource FontFamilyMonospace}"
+                       FontSize="{StaticResource FontSizeSmall}"/>
+        </Border>
+    </Grid>
+</UserControl>

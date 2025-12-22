@@ -1,0 +1,20 @@
+<UserControl x:Class="TerminalHost.Controls.MarkdownViewer"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Border Background="#1E1E1E">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+            <TextBlock x:Name="ContentTextBlock"
+                       Foreground="#D4D4D4"
+                       FontFamily="Consolas,Menlo,Monaco,monospace"
+                       FontSize="14"
+                       TextWrapping="Wrap"
+                       Padding="20"
+                       LineHeight="24"/>
+        </ScrollViewer>
+    </Border>
+</UserControl>

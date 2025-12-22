@@ -1,0 +1,257 @@
+<UserControl x:Class="TerminalHost.Views.Popups.RepositorySwitcherView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             d:DataContext="{d:DesignInstance viewModels:RepositorySwitcherViewModel}"
+             mc:Ignorable="d">
+
+    <Panel x:Name="RepositorySwitcherPopup"
+           IsVisible="{Binding IsOpen, Mode=TwoWay}">
+        <Border x:Name="PopupBorder"
+                Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxPurpleBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                MinWidth="500"
+                MaxWidth="650"
+                MaxHeight="550"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" OffsetX="5" OffsetY="5" Opacity="0.5"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Classes="TabCloseButton"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="Refresh"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding RefreshRepositoriesCommand}"
+                                ToolTip.Tip="Refresh repository list"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Repos" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Open Repository"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text=" (Ctrl+Shift+O)"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Search Box -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                    <TextBox x:Name="RepoSearchBox"
+                             Text="{Binding SearchText}"
+                             Background="{StaticResource BackgroundMediumBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                             BorderThickness="1"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeCode}"
+                             Watermark="Search repositories..."/>
+                </Border>
+
+                <!-- Repository List -->
+                <ListBox x:Name="RepoList"
+                         Grid.Row="2"
+                         ItemsSource="{Binding Repositories}"
+                         SelectedItem="{Binding SelectedRepository}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         DoubleTapped="RepoList_DoubleTapped">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="domain:RepositoryItem">
+                            <Grid Margin="8,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Status indicator -->
+                                <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           FontSize="{StaticResource FontSizeSmall}">
+                                    <TextBlock.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                                            <Setter Property="Text" Value=""/>
+                                        </Style>
+                                        <Style Selector="TextBlock[Tag=favorite]">
+                                            <Setter Property="Text" Value="*"/>
+                                            <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                        </Style>
+                                        <Style Selector="TextBlock[Tag=open]">
+                                            <Setter Property="Text" Value=">"/>
+                                            <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                        </Style>
+                                        <Style Selector="TextBlock[Tag=recent]">
+                                            <Setter Property="Text" Value="r"/>
+                                            <Setter Property="Foreground" Value="{StaticResource SyntaxOrangeBrush}"/>
+                                        </Style>
+                                        <Style Selector="TextBlock[Tag=remote]">
+                                            <Setter Property="Text" Value="c"/>
+                                            <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>
+                                        </Style>
+                                    </TextBlock.Styles>
+                                    <TextBlock.Tag>
+                                        <MultiBinding Converter="{StaticResource RepositoryStatusTagConverter}">
+                                            <Binding Path="IsFavorite"/>
+                                            <Binding Path="IsOpen"/>
+                                            <Binding Path="IsRecent"/>
+                                            <Binding Path="IsLocal"/>
+                                        </MultiBinding>
+                                    </TextBlock.Tag>
+                                </TextBlock>
+
+                                <!-- Repository name -->
+                                <TextBlock Grid.Column="1" Grid.Row="0"
+                                           Text="{Binding DisplayLabel}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                        </Style>
+                                        <Style Selector="TextBlock[Tag=open]">
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </Style>
+                                    </TextBlock.Styles>
+                                    <TextBlock.Tag>
+                                        <Binding Path="IsOpen"/>
+                                    </TextBlock.Tag>
+                                </TextBlock>
+
+                                <!-- Local path or description -->
+                                <TextBlock Grid.Column="1" Grid.Row="1"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,0">
+                                    <TextBlock.Text>
+                                        <Binding Path="IsLocal" Converter="{StaticResource RepositoryPathOrDescriptionConverter}" ConverterParameter="{Binding}"/>
+                                    </TextBlock.Text>
+                                </TextBlock>
+
+                                <!-- Time since access -->
+                                <TextBlock Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
+                                           Text="{Binding TimeSinceLastAccess}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0"/>
+
+                                <!-- Clone indicator for remote repos -->
+                                <TextBlock Grid.Column="3" Grid.Row="0" Grid.RowSpan="2"
+                                           Text="[Clone]"
+                                           Foreground="{StaticResource SyntaxBlueBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0"
+                                           IsVisible="{Binding IsLocal, Converter={StaticResource InverseBoolConverter}}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+
+                <!-- Loading indicator -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource BackgroundDarkBrush}"
+                        IsVisible="{Binding IsLoading}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="Loading..."
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"
+                                   IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotEmptyConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Empty state -->
+                <TextBlock Grid.Row="2"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Padding="20"
+                           IsVisible="{Binding Repositories.Count, Converter={StaticResource ZeroToBoolConverter}}"/>
+
+                <!-- Footer with action buttons -->
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="* Favorite"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding ToggleFavoriteCommand}"
+                                    ToolTip.Tip="Toggle favorite status"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Open"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding OpenRepositoryCommand}"
+                                    ToolTip.Tip="Open selected repository"/>
+                        </StackPanel>
+                        <TextBlock Text="Enter to open, Esc to close"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

@@ -1,0 +1,192 @@
+<UserControl x:Class="TerminalHost.Views.Popups.GitFilesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             d:DataContext="{d:DesignInstance vm:GitFilesViewModel}"
+             mc:Ignorable="d">
+
+    <controls:DraggablePopup
+        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        PopupWidth="{Binding Width, Mode=TwoWay}"
+        PopupHeight="{Binding Height, Mode=TwoWay}"
+        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+        Title="{Binding Title}"
+        CloseCommand="{Binding CloseCommand}">
+
+        <controls:DraggablePopup.HeaderRightContent>
+            <Button Content="↻ Refresh"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding RefreshGitFilesCommand}"
+                    ToolTip.Tip="Refresh file list"
+                    Margin="0,0,8,0"/>
+        </controls:DraggablePopup.HeaderRightContent>
+
+        <controls:DraggablePopup.PopupContent>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Content - Split view: File list on left, diff/preview on right -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" MinWidth="200"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*" MinWidth="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- File List -->
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- File list header -->
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <TextBlock Text="{Binding GitFiles.Count, StringFormat='{}{0} files changed'}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"/>
+                            </Border>
+
+                            <!-- File list -->
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding GitFiles}"
+                                     SelectedItem="{Binding SelectedGitFile}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Status icon -->
+                                            <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                                       Text="{Binding StatusIcon}"
+                                                       Foreground="{Binding StatusColor}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="{Binding StatusDescription}"/>
+
+                                            <!-- File name -->
+                                            <TextBlock Grid.Column="1" Grid.Row="0"
+                                                       Text="{Binding FileName}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       TextTrimming="CharacterEllipsis"/>
+
+                                            <!-- Directory path -->
+                                            <TextBlock Grid.Column="1" Grid.Row="1"
+                                                       Text="{Binding Directory}"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="4,2"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="#333333"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+
+                            <!-- Empty state -->
+                            <TextBlock Grid.Row="1"
+                                       Text="No changes"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                    <!-- Diff/Preview Area -->
+                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Diff header with actions -->
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="👁 Preview"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding PreviewFileCommand}"
+                                                ToolTip.Tip="Open file preview"
+                                                Margin="0,0,4,0"/>
+                                        <Button Content="✏️ Edit"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding EditFileCommand}"
+                                                ToolTip.Tip="Open file in editor"
+                                                Margin="0,0,4,0"/>
+                                        <Button Content="📂 Explorer"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding ExploreFileCommand}"
+                                                ToolTip.Tip="Open containing folder"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SelectedGitFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Diff content -->
+                            <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Footer -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,20,0"
+                                   Text="Press Escape to close"/>
+                        <TextBlock Text="{Binding Info}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </controls:DraggablePopup.PopupContent>
+    </controls:DraggablePopup>
+</UserControl>

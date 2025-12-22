@@ -35,15 +35,51 @@ public partial class Dependency : ObservableObject
                 ? $"Open: {HomepageUrl}"
                 : "No installation method available.";
 
+    /// <summary>
+    /// Returns "Install" or "Homepage" based on install status and available commands.
+    /// Shows "Homepage" if installed OR if there's no InstallCommand.
+    /// </summary>
+    public string InstallButtonText =>
+        IsInstalled || string.IsNullOrEmpty(InstallCommand)
+            ? "Homepage"
+            : "Install";
+
+    /// <summary>
+    /// Returns the status icon based on detection state.
+    /// </summary>
+    public string StatusIcon =>
+        IsDetecting ? "◌" :
+        IsInstalled ? "●" : "●";
+
+    /// <summary>
+    /// Returns the status color based on detection state.
+    /// </summary>
+    public string StatusColor =>
+        IsDetecting ? "#9CDCFE" :  // SyntaxLightBlueBrush
+        IsInstalled ? "#B5CEA8" :  // SyntaxGreenBrush
+        "#F48771";                  // StatusErrorBrush
+
     // Properties for the UI to bind to
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InstallButtonText))]
+    [NotifyPropertyChangedFor(nameof(StatusIcon))]
+    [NotifyPropertyChangedFor(nameof(StatusColor))]
+    [NotifyPropertyChangedFor(nameof(IsNotInstalling))]
     private bool _isInstalled;
-    
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusIcon))]
+    [NotifyPropertyChangedFor(nameof(StatusColor))]
     private bool _isDetecting;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotInstalling))]
     private bool _isInstalling;
+
+    /// <summary>
+    /// Inverse of IsInstalling, for binding to IsEnabled.
+    /// </summary>
+    public bool IsNotInstalling => !IsInstalling;
 
     [ObservableProperty]
     private string? _detectedVersion;

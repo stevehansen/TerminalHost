@@ -1,0 +1,110 @@
+<UserControl x:Class="TerminalHost.Views.Popups.TabSwitcherView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             d:DesignHeight="500" d:DesignWidth="400">
+    <Border Background="{StaticResource BackgroundMediumBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="8"
+            MinWidth="400"
+            MaxWidth="600"
+            MaxHeight="500">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Search Box & Close Button -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="SwitcherSearchBox"
+                         Grid.Column="0"
+                         Background="{StaticResource BackgroundDarkestBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,6"
+                         FontSize="{StaticResource FontSizeNormal}"
+                         Text="{Binding SwitcherSearchText, Mode=TwoWay}"
+                         Watermark="Search tabs..."/>
+
+                <Button Grid.Column="1"
+                        Content="×"
+                        Click="CloseButton_Click"
+                        Classes="TabCloseButton"
+                        Padding="8,2"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Stretch"/>
+            </Grid>
+
+            <!-- Tab List -->
+            <ListBox x:Name="SwitcherTabList"
+                     Grid.Row="1"
+                     ItemsSource="{Binding FilteredSwitcherTabs}"
+                     SelectedItem="{Binding SelectedTab, Mode=OneWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     MaxHeight="400"
+                     DoubleTapped="SwitcherTabList_DoubleTapped">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="vm:ITabViewModel">
+                        <Grid Margin="4,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                       Text="{Binding TabIcon}"
+                                       FontSize="{StaticResource FontSizeHeader}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"/>
+
+                            <TextBlock Grid.Column="1" Grid.Row="0"
+                                       Text="{Binding Title}"
+                                       Foreground="{StaticResource TextBrightBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"/>
+
+                            <TextBlock Grid.Column="1" Grid.Row="1"
+                                       Text="{Binding WorkingDirectory}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                        <Setter Property="CornerRadius" Value="4"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                        <Setter Property="CornerRadius" Value="4"/>
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+        </Grid>
+    </Border>
+</UserControl>

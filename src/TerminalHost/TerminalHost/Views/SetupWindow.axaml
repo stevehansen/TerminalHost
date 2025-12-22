@@ -1,0 +1,206 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="using:TerminalHost.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=viewModels:SetupViewModel, IsDesignTimeCreatable=True}"
+        x:Class="TerminalHost.Views.SetupWindow"
+        Title="TerminalHost :: Setup"
+        Width="800" Height="1024"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundMediumBrush}">
+
+    <Window.Styles>
+        <!-- Local Button Style -->
+        <Style Selector="Button.setup">
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+
+        <Style Selector="Button.setup:pointerover">
+            <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+        </Style>
+
+        <Style Selector="Button.setup:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+
+        <!-- Link Button Style -->
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="15" RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="TerminalHost Setup"
+                       FontSize="{StaticResource FontSizeTitle}"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,5"/>
+            <TextBlock Text="Checking for recommended tools and dependencies."
+                       Foreground="{StaticResource TextDimmedBrush}"/>
+        </StackPanel>
+
+        <!-- Dependencies List -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Dependencies}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <!-- Dependency Item -->
+                            <Border BorderBrush="{StaticResource BorderSubtleBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="10"
+                                    Margin="0,5">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <!-- Left: Name and Description -->
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <Button Classes="link"
+                                                Command="{Binding $parent[ItemsControl].((viewModels:SetupViewModel)DataContext).ToggleDetailsCommand}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="Bold"
+                                                           FontSize="{StaticResource FontSizeLarge}"/>
+                                                <TextBlock Text="{Binding Description}"
+                                                           Foreground="{StaticResource TextLightBrush}"
+                                                           Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding DetectedVersion}"
+                                                           Foreground="{StaticResource TextDimmedBrush}"
+                                                           FontSize="{StaticResource FontSizeTiny}"
+                                                           Margin="0,5,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- Right: Status and Actions -->
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <!-- Status Indicator -->
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Margin="0,0,20,0"
+                                                   FontSize="{StaticResource FontSizeNormal}"
+                                                   ToolTip.Tip="Detection Status"
+                                                   Text="{Binding StatusIcon}"
+                                                   Foreground="{Binding StatusColor}"/>
+
+                                        <!-- Download Button -->
+                                        <Button Content="Download"
+                                                Classes="setup"
+                                                Command="{Binding $parent[ItemsControl].((viewModels:SetupViewModel)DataContext).OpenInstallLinkCommand}"
+                                                CommandParameter="{Binding}"
+                                                Margin="0,0,8,0"
+                                                IsVisible="{Binding InstallUrl, Converter={StaticResource NullToCollapsedConverter}}"
+                                                ToolTip.Tip="{Binding InstallUrl}"/>
+
+                                        <!-- Install/Homepage Button -->
+                                        <Button Content="{Binding InstallButtonText}"
+                                                Classes="setup"
+                                                Command="{Binding $parent[ItemsControl].((viewModels:SetupViewModel)DataContext).InstallDependencyCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding IsNotInstalling}"
+                                                ToolTip.Tip="{Binding InstallToolTipText}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Install Command Box -->
+                            <Border Background="{StaticResource BackgroundDarkestBrush}"
+                                    Margin="20,0,20,10"
+                                    Padding="8"
+                                    CornerRadius="4"
+                                    IsVisible="{Binding !IsInstalled}">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      IsVisible="{Binding InstallCommand, Converter={StaticResource NullToBoolConverter}}">
+                                    <TextBox Grid.Column="0"
+                                             Text="{Binding InstallCommand, Mode=OneWay}"
+                                             IsReadOnly="True"
+                                             Background="Transparent"
+                                             Foreground="{StaticResource SyntaxGreenBrush}"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Code, Consolas, monospace"
+                                             FontSize="12"
+                                             VerticalContentAlignment="Center"
+                                             Padding="4,0"/>
+                                    <Button Grid.Column="1"
+                                            Content="Copy"
+                                            Classes="setup"
+                                            Click="CopyInstallCommand_Click"
+                                            Tag="{Binding InstallCommand}"
+                                            Padding="12,4"
+                                            Margin="8,0,0,0"
+                                            Background="{StaticResource BackgroundMediumBrush}"
+                                            Foreground="{StaticResource TextLightBrush}"
+                                            ToolTip.Tip="Copy command to clipboard"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Debug Details Panel -->
+                            <Border Background="{StaticResource BackgroundDarkBrush}"
+                                    Margin="20,0,20,10"
+                                    Padding="10"
+                                    CornerRadius="3"
+                                    IsVisible="{Binding ShowDetails}">
+                                <StackPanel>
+                                    <TextBlock Text="Debug Info"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource TextDimmedBrush}"/>
+                                    <Grid Margin="0,5,0,0" ColumnDefinitions="Auto,*">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="Exit Code: "
+                                                   Foreground="{StaticResource TextDimmedBrush}"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding ExitCode}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"/>
+                                    </Grid>
+                                    <TextBlock Text="Output:"
+                                               Margin="0,5,0,2"
+                                               Foreground="{StaticResource TextDimmedBrush}"/>
+                                    <TextBox Text="{Binding FullOutput}"
+                                             IsReadOnly="True"
+                                             MaxHeight="150"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             Background="{StaticResource BackgroundDarkestBrush}"
+                                             Foreground="{StaticResource TextLightBrush}"
+                                             BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Footer Buttons -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button Content="Refresh All"
+                    Classes="setup"
+                    Command="{Binding CheckAllDependenciesCommand}"/>
+            <Button x:Name="ContinueButton"
+                    Content="Continue to App"
+                    Classes="setup"
+                    Click="ContinueButton_Click"
+                    Margin="10,0,0,0"
+                    FontWeight="Bold"
+                    Background="{StaticResource StatusSuccessBrush}"/>
+            <Button Content="Close"
+                    Classes="setup"
+                    Click="CloseButton_Click"
+                    Margin="10,0,0,0"/>
+        </StackPanel>
+    </Grid>
+</Window>
