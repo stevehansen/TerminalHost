@@ -2,7 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 using TerminalHost.Services.SyntaxHighlighting;
 

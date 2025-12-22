@@ -1,4 +1,6 @@
 using System.IO;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.Domain;

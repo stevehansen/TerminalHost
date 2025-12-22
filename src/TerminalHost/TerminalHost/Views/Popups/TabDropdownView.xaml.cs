@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;

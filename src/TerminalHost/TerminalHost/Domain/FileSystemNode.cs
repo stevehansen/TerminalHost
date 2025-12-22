@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Domain;
 

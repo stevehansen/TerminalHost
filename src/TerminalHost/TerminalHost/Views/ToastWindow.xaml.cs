@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Interop;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.Views;

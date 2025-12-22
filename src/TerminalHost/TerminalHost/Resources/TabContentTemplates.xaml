@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+                    xmlns:coreVm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
                     xmlns:views="clr-namespace:TerminalHost.Views"
                     xmlns:tabs="clr-namespace:TerminalHost.Views.Tabs">
 
@@ -15,17 +16,17 @@
     </DataTemplate>
 
     <!-- Settings Tab Content -->
-    <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+    <DataTemplate DataType="{x:Type coreVm:SettingsTabViewModel}">
         <views:SettingsView/>
     </DataTemplate>
 
     <!-- Profiles Tab Content -->
-    <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
+    <DataTemplate DataType="{x:Type coreVm:ProfilesTabViewModel}">
         <views:ProfilesView/>
     </DataTemplate>
 
     <!-- Statistics Tab Content -->
-    <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}">
+    <DataTemplate DataType="{x:Type coreVm:StatisticsTabViewModel}">
         <views:StatisticsView/>
     </DataTemplate>
 

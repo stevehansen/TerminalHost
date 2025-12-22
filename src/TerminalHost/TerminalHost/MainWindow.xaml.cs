@@ -5,8 +5,12 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using TerminalHost.Windows.Interfaces;
+using TerminalHost.Windows.Platform;
 
 namespace TerminalHost;
 

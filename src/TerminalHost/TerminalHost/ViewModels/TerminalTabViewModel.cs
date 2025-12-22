@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.ViewModels;
 

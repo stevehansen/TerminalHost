@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TerminalHost"
-        xmlns:domain="clr-namespace:TerminalHost.Domain"
+        xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
         xmlns:views="clr-namespace:TerminalHost.Views"
         xmlns:popups="clr-namespace:TerminalHost.Views.Popups"
         xmlns:vm="clr-namespace:TerminalHost.ViewModels"

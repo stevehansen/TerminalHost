@@ -1,6 +1,8 @@
 using Moq;
 using Shouldly;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Services;
 using Xunit;
 

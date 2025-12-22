@@ -1,5 +1,7 @@
 using Moq;
 using Shouldly;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;

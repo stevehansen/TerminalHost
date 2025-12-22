@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;

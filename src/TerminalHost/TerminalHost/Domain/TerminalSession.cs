@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using EasyWindowsTerminalControl;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Domain;
 
@@ -31,7 +33,7 @@ public class TerminalSession : IDisposable
     private readonly StringBuilder _outputBuffer = new();
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
 
-    private readonly Services.IStatisticsService _statisticsService;
+    private readonly IStatisticsService _statisticsService;
     private readonly string _workingDirectory;
     private readonly string _terminalType;
 
@@ -69,7 +71,7 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
-    public TerminalSession(Profile profile, Services.IStatisticsService statisticsService, string terminalType)
+    public TerminalSession(Profile profile, IStatisticsService statisticsService, string terminalType)
     {
         Id = Guid.NewGuid();
         Profile = profile;

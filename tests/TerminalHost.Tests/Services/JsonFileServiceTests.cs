@@ -3,7 +3,9 @@ using Shouldly;
 using System.IO;
 using System.Text.Json;
 using Xunit;
-using TerminalHost.Domain; // Assuming IFileSystem is here
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Services;
 
 namespace TerminalHost.Tests.Services;

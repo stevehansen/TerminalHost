@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
-using TerminalHost.Domain; // For PaletteCommand
+using TerminalHost.Core.Domain; // For PaletteCommand
 using TerminalHost.ViewModels; // For MainViewModel
 
 namespace TerminalHost.Views.Popups;

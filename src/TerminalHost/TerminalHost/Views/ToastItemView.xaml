@@ -3,8 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:vm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
              xmlns:services="clr-namespace:TerminalHost.Services"
+             xmlns:core="clr-namespace:TerminalHost.Core.Interfaces;assembly=TerminalHost.Core"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance vm:ToastViewModel}">
     <Border Background="#E0202020"
@@ -36,16 +37,16 @@
                     <Style TargetType="TextBlock">
                         <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Type}" Value="{x:Static services:ToastType.Success}">
+                            <DataTrigger Binding="{Binding Type}" Value="{x:Static core:ToastType.Success}">
                                 <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Type}" Value="{x:Static services:ToastType.Warning}">
+                            <DataTrigger Binding="{Binding Type}" Value="{x:Static core:ToastType.Warning}">
                                 <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Type}" Value="{x:Static services:ToastType.Error}">
+                            <DataTrigger Binding="{Binding Type}" Value="{x:Static core:ToastType.Error}">
                                 <Setter Property="Foreground" Value="{StaticResource SyntaxRedBrush}"/>
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding Type}" Value="{x:Static services:ToastType.Progress}">
+                            <DataTrigger Binding="{Binding Type}" Value="{x:Static core:ToastType.Progress}">
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                             </DataTrigger>
                         </Style.Triggers>

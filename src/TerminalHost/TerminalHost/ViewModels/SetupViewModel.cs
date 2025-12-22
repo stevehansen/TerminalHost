@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.ViewModels;
 

@@ -1,4 +1,5 @@
 using System.Windows;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Views.Dialogs;
 
 namespace TerminalHost.Services;

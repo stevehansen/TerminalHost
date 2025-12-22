@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;

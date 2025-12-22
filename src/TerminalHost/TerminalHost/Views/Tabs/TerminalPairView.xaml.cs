@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Tabs;

@@ -1,7 +1,8 @@
 using Shouldly;
 using Moq;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
-using TerminalHost.ViewModels;
 
 namespace TerminalHost.Tests.ViewModels;
 

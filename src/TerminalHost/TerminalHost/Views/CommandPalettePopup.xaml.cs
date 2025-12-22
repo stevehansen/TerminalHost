@@ -1,6 +1,6 @@
 using System.Windows.Controls;
 using System.Windows.Input;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Views;
 

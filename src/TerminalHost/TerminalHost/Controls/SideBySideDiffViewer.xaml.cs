@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.Controls;

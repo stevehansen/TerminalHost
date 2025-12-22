@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;

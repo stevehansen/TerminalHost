@@ -5,6 +5,9 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;

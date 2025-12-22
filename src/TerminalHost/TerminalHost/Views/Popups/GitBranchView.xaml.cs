@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;
@@ -78,7 +79,7 @@ public partial class GitBranchView : UserControl
         var viewModel = DataContext as GitBranchViewModel;
         if (viewModel == null) return;
 
-        if (GitBranchList.SelectedItem is Domain.GitBranch)
+        if (GitBranchList.SelectedItem is GitBranch)
         {
             viewModel.CheckoutBranchCommand.Execute(null);
         }

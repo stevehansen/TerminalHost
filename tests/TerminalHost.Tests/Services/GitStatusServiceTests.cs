@@ -3,7 +3,9 @@ using Moq;
 using Shouldly;
 using System.Threading.Tasks;
 using TerminalHost.Services;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using System.Collections.Generic;
 using System.Linq;
 

@@ -4,7 +4,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;

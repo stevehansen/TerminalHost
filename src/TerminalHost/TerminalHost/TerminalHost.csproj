@@ -88,6 +88,10 @@
       <Link>conpty.dll</Link>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\TerminalHost.Core\TerminalHost.Core.csproj" />
+    <ProjectReference Include="..\..\TerminalHost.Windows\TerminalHost.Windows.csproj" />
+  </ItemGroup>
 
   <!-- Remove PDB files after publish -->
   <Target Name="RemovePdbFiles" AfterTargets="Publish">

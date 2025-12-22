@@ -5,9 +5,14 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
+using TerminalHost.Windows.Interfaces;
+using TerminalHost.Windows.Services;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 

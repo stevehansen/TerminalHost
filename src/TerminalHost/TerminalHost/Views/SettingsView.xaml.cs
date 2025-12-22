@@ -4,6 +4,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Navigation;
+using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 

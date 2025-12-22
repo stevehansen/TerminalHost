@@ -1,13 +1,7 @@
 using System.Diagnostics;
+using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Services;
-
-public interface IProcessService
-{
-    void Start(string fileName);
-    void Start(string fileName, string arguments) => Start(new ProcessStartInfo(fileName, arguments));
-    void Start(ProcessStartInfo startInfo);
-}
 
 internal sealed class ProcessService : IProcessService
 {

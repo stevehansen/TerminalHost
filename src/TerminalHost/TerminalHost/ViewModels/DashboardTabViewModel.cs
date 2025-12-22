@@ -5,6 +5,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Threading;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;

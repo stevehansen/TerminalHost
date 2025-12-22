@@ -1,18 +1,22 @@
+using System.Windows;
+using System.Windows.Media;
 using EasyWindowsTerminalControl;
 using Microsoft.Terminal.Wpf;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
 
-internal sealed class TerminalControlFactory : ITerminalControlFactory
+public sealed class TerminalControlFactory : ITerminalControlFactory
 {
     private readonly IFileSystem _fileSystem;
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly IDialogService _dialogService;
 
-    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService) // Added IDialogService
+    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService)
     {
         _fileSystem = fileSystem;
-        _dialogService = dialogService; // Initialize IDialogService
+        _dialogService = dialogService;
     }
 
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
@@ -35,7 +39,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             // Show warning on UI thread since this runs during terminal creation
             Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                _dialogService.ShowWarning( // Use injected IDialogService
+                _dialogService.ShowWarning(
                     $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
                     "Terminal Warning");
             });

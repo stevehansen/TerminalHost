@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Windows; // For Application.Current resource access (optional, but used in other parts if any)
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;

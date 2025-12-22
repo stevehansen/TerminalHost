@@ -1,3 +1,5 @@
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;
