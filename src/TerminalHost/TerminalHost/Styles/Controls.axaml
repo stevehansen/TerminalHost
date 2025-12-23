@@ -3,16 +3,16 @@
 
     <!-- TextBox Styles -->
     <Style Selector="TextBox">
-        <Setter Property="Background" Value="{StaticResource BackgroundDarkBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundDarkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="8,6"/>
     </Style>
 
     <Style Selector="TextBox:focus">
-        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}"/>
     </Style>
 
     <!-- ListBox Styles -->
@@ -26,18 +26,18 @@
     </Style>
 
     <Style Selector="ListBoxItem:pointerover">
-        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
     </Style>
 
     <Style Selector="ListBoxItem:selected">
-        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
     </Style>
 
     <!-- ComboBox Styles -->
     <Style Selector="ComboBox">
-        <Setter Property="Background" Value="{StaticResource BackgroundDarkBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundDarkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="8,6"/>
@@ -45,12 +45,12 @@
 
     <!-- CheckBox Styles -->
     <Style Selector="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <!-- ToggleSwitch Styles -->
     <Style Selector="ToggleSwitch">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
 </Styles>

@@ -129,6 +129,9 @@ public partial class MainWindow : Window
                 container?.Children.Remove(_currentTerminal);
                 _currentTerminal.Dispose();
                 _currentTerminal = null;
+
+                // Wait for cleanup to complete before creating new terminal
+                await Task.Delay(200);
             }
 
             // Hide welcome panel
@@ -138,38 +141,34 @@ public partial class MainWindow : Window
                 welcomePanel.IsVisible = false;
             }
 
-            // Create default profile for the terminal
-            var profile = new Profile
+            // Create the terminal control first
+            var macTerminal = new MacTerminalControl();
+            _currentTerminal = macTerminal;
+
+            // Add to container FIRST so it gets a size
+            var containerGrid = this.FindControl<Grid>("TerminalContainer");
+            if (containerGrid != null)
             {
-                Name = "Default Shell",
-                WorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                Command = string.Empty // Will use default shell
-            };
-
-            // Create a session for the terminal
-            _currentSession = new TerminalSession(profile, _statisticsService, _clipboardService, "Shell");
-
-            // Create terminal using factory
-            var terminalControl = await _terminalFactory.CreateTerminalControlAsync(_currentSession);
-
-            if (terminalControl is MacTerminalControl macTerminal)
-            {
-                _currentTerminal = macTerminal;
-
-                // Add to container
-                var container = this.FindControl<Grid>("TerminalContainer");
-                if (container != null)
-                {
-                    container.Children.Add(macTerminal);
-                }
-
-                // Focus the terminal
-                macTerminal.Focus();
+                containerGrid.Children.Add(macTerminal);
             }
+
+            // Wait for layout to complete so the terminal has its actual size
+            await Task.Delay(50);
+
+            // Get working directory
+            var workingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            // Get default shell
+            var shell = Environment.GetEnvironmentVariable("SHELL") ?? "/bin/zsh";
+
+            // Now initialize the terminal (it has its actual size now)
+            await macTerminal.InitializeAsync(shell, workingDir);
+
+            // Focus the terminal
+            macTerminal.Focus();
         }
         catch (Exception ex)
         {
-            // Show error
             var dialog = App.Current.Services.GetService<IDialogService>();
             dialog?.ShowError($"Failed to create terminal: {ex.Message}", "Error");
         }

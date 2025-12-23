@@ -19,8 +19,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Include only image resources, not WPF XAML files -->
-    <AvaloniaResource Include="Resources\**\*" Exclude="Resources\**\*.xaml" />
+    <!-- Include only image resources, not WPF XAML files or Python scripts -->
+    <AvaloniaResource Include="Resources\**\*" Exclude="Resources\**\*.xaml;Resources\**\*.py" />
+    <!-- Embedded Nerd Font for terminal icons -->
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,13 +46,14 @@
     <!-- Avalonia message box dialogs -->
     <PackageReference Include="MessageBox.Avalonia" Version="3.1.6" />
 
-    <!-- Stage 4: Terminal PTY support -->
-    <PackageReference Include="sch.pty.net" Version="0.3.36-pre" />
   </ItemGroup>
 
-  <!-- Stage 4: XtermSharp terminal emulation -->
+  <!-- Python helper script for PTY management -->
   <ItemGroup>
-    <ProjectReference Include="..\..\..\external\XtermSharp\XtermSharp\XtermSharp.csproj" />
+    <Content Include="Resources\pty_helper.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Resources\pty_helper.py</Link>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -100,6 +103,8 @@
     <!-- Service interfaces and implementations for Stage 4 -->
     <Compile Include="Services\ITerminalControlFactory.cs" />
     <Compile Include="Services\TerminalControlFactory.cs" />
+    <Compile Include="Services\IPtyService.cs" />
+    <Compile Include="Services\MacPtyService.cs" />
     <Compile Include="Services\ISystemInfoService.cs" />
     <Compile Include="Services\SystemInfoService.cs" />
     <Compile Include="Services\IFileSystem.cs" />

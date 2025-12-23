@@ -1,54 +1,105 @@
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Fonts;
 using Avalonia.Threading;
-using Pty.Net;
 using TerminalHost.Domain;
-using XtermSharp;
+using TerminalHost.Services;
+using VtNetCore.VirtualTerminal;
+using VtNetCore.VirtualTerminal.Layout;
+using VtNetCore.XTermParser;
 
 namespace TerminalHost.Controls;
 
 /// <summary>
-/// Avalonia control that hosts a terminal emulator using XtermSharp and Pty.Net.
+/// Avalonia control that hosts a terminal emulator using VtNetCore and MacPtyService.
 /// </summary>
 public class MacTerminalControl : Control, ITerminalControl, IDisposable
 {
-    private IPtyConnection? _pty;
-    private Terminal? _terminal;
+    private IPtyService? _ptyService;
+    private VirtualTerminalController? _terminalController;
+    private DataConsumer? _dataConsumer;
+    private VirtualTerminalViewPort? _viewPort;
     private CancellationTokenSource? _readCts;
-    private bool _isDisposed;
-    private bool _processExited;
+    private bool _disposed;
 
     // Terminal dimensions
-    private int _columns = 120;
-    private int _rows = 30;
+    private int _columns = 80;
+    private int _rows = 24;
 
     // Font settings
-    private FontFamily _fontFamily = new("SF Mono, Menlo, Monaco, monospace");
-    private double _fontSize = 13;
-    private double _cellWidth;
-    private double _cellHeight;
+    private double _charWidth = 8;
+    private double _charHeight = 16;
+    private Typeface _typeface;
+    private Typeface _fallbackTypeface;
+    private double _fontSize = 14;
 
-    // Theme
-    private TerminalTheme _theme = TerminalTheme.Campbell;
+    // Cursor blinking
+    private bool _cursorVisible = true;
+    private DispatcherTimer? _cursorTimer;
 
     // Selection state
     private bool _isSelecting;
-    private int _selectionStartX, _selectionStartY;
-    private int _selectionEndX, _selectionEndY;
+    private TextPosition? _selectionStart;
+    private TextRange? _selection;
 
-    // Restart info (stored for RestartAsync)
+    // Scroll state
+    private int _scrollOffset;
+
+    // Restart info
     private string? _command;
     private string? _workingDirectory;
+
+    // Terminal color palette
+    private static readonly Dictionary<string, Color> ColorPalette = new()
+    {
+        { "Black", Color.Parse("#000000") },
+        { "Red", Color.Parse("#CD0000") },
+        { "Green", Color.Parse("#00CD00") },
+        { "Yellow", Color.Parse("#CDCD00") },
+        { "Blue", Color.Parse("#0000EE") },
+        { "Magenta", Color.Parse("#CD00CD") },
+        { "Cyan", Color.Parse("#00CDCD") },
+        { "White", Color.Parse("#E5E5E5") },
+        { "BrightBlack", Color.Parse("#7F7F7F") },
+        { "BrightRed", Color.Parse("#FF0000") },
+        { "BrightGreen", Color.Parse("#00FF00") },
+        { "BrightYellow", Color.Parse("#FFFF00") },
+        { "BrightBlue", Color.Parse("#5C5CFF") },
+        { "BrightMagenta", Color.Parse("#FF00FF") },
+        { "BrightCyan", Color.Parse("#00FFFF") },
+        { "BrightWhite", Color.Parse("#FFFFFF") },
+    };
+
+    private static readonly Color DefaultForeground = Color.Parse("#E5E5E5");
+    private static readonly Color DefaultBackground = Color.Parse("#1E1E1E");
+
+    // Cached brushes
+    private static readonly SolidColorBrush DefaultForegroundBrush = new(DefaultForeground);
+    private static readonly SolidColorBrush DefaultBackgroundBrush = new(DefaultBackground);
+    private static readonly SolidColorBrush ScrollIndicatorTextBrush = new(Color.Parse("#888888"));
+    private static readonly SolidColorBrush ScrollIndicatorBackgroundBrush = new(Color.Parse("#333333"));
+    private static readonly Dictionary<Color, SolidColorBrush> BrushCache = new();
+
+    // Render throttling
+    private bool _renderPending;
+    private DateTime _lastRenderRequest;
+    private static readonly TimeSpan RenderThrottleInterval = TimeSpan.FromMilliseconds(16);
 
     #region ITerminalControl Properties
 
     public object NativeControl => this;
     public new bool IsFocused => base.IsFocused;
-    public bool IsProcessRunning => _pty != null && !_processExited;
-    public int? ExitCode => _pty?.ExitCode;
+    public bool IsProcessRunning => _ptyService?.IsRunning ?? false;
+    public int? ExitCode { get; private set; }
 
     #endregion
 
@@ -63,67 +114,80 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public MacTerminalControl()
     {
+        // Use Menlo on macOS
+        _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
+        _fallbackTypeface = new Typeface(new FontFamily("STIX Two Math, Arial, Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+
         Focusable = true;
         ClipToBounds = true;
 
-        CalculateCellSize();
+        CalculateCharacterSize();
     }
 
-    /// <summary>
-    /// Gets or sets the terminal color theme.
-    /// </summary>
-    public new TerminalTheme Theme
+    private static SolidColorBrush GetCachedBrush(Color color)
     {
-        get => _theme;
-        set
+        if (color == DefaultForeground) return DefaultForegroundBrush;
+        if (color == DefaultBackground) return DefaultBackgroundBrush;
+
+        if (!BrushCache.TryGetValue(color, out var brush))
         {
-            _theme = value;
-            InvalidateVisual();
+            brush = new SolidColorBrush(color);
+            BrushCache[color] = brush;
         }
+        return brush;
     }
 
-    /// <summary>
-    /// Gets or sets the font family.
-    /// </summary>
-    public FontFamily TerminalFontFamily
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        get => _fontFamily;
-        set
+        base.OnAttachedToVisualTree(e);
+        Focus();
+        StartCursorBlink();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        StopCursorBlink();
+    }
+
+    private void StartCursorBlink()
+    {
+        _cursorTimer = new DispatcherTimer
         {
-            _fontFamily = value;
-            CalculateCellSize();
-            InvalidateVisual();
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the font size.
-    /// </summary>
-    public double TerminalFontSize
-    {
-        get => _fontSize;
-        set
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _cursorTimer.Tick += (_, _) =>
         {
-            _fontSize = value;
-            CalculateCellSize();
-            InvalidateVisual();
-        }
+            _cursorVisible = !_cursorVisible;
+            if (_terminalController != null && !IsScrolledBack && CursorVisible)
+            {
+                InvalidateVisual();
+            }
+        };
+        _cursorTimer.Start();
     }
 
-    private void CalculateCellSize()
+    private void StopCursorBlink()
     {
-        // Calculate cell dimensions based on font
-        var typeface = new Typeface(_fontFamily);
+        _cursorTimer?.Stop();
+        _cursorTimer = null;
+    }
+
+    private void CalculateCharacterSize()
+    {
         var formattedText = new FormattedText(
             "M",
-            System.Globalization.CultureInfo.CurrentCulture,
+            CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
-            typeface,
+            _typeface,
             _fontSize,
             Brushes.White);
 
-        _cellWidth = formattedText.Width;
-        _cellHeight = formattedText.Height;
+        _charWidth = formattedText.Width;
+        _charHeight = formattedText.Height;
+
+        if (_charWidth <= 0) _charWidth = 8;
+        if (_charHeight <= 0) _charHeight = 16;
     }
 
     /// <summary>
@@ -134,119 +198,123 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _command = command;
         _workingDirectory = workingDirectory;
 
-        var options = new PtyOptions
+        // Calculate size from bounds if available
+        if (_charWidth > 0 && _charHeight > 0 && Bounds.Width > 0 && Bounds.Height > 0)
         {
-            Name = "xterm-256color",
-            Cols = _columns,
+            _columns = Math.Max(1, (int)(Bounds.Width / _charWidth));
+            _rows = Math.Max(1, (int)(Bounds.Height / _charHeight));
+        }
+
+        // Create VtNetCore terminal controller
+        _terminalController = new VirtualTerminalController
+        {
+            Columns = _columns,
             Rows = _rows,
-            Cwd = workingDirectory,
-            App = command,
-            Environment = GetEnvironmentVariables()
+            VisibleColumns = _columns,
+            VisibleRows = _rows
         };
+        _dataConsumer = new DataConsumer(_terminalController);
+        _viewPort = new VirtualTerminalViewPort(_terminalController);
 
-        _pty = await PtyProvider.SpawnAsync(options, CancellationToken.None);
+        // Create PTY service
+        _ptyService = new MacPtyService();
+        _ptyService.ProcessExited += OnProcessExited;
 
-        // Subscribe to ProcessExited event
-        _pty.ProcessExited += OnPtyProcessExited;
-        _processExited = false;
+        await _ptyService.StartAsync(_columns, _rows, workingDirectory, command);
 
-        _terminal = new Terminal(null, new TerminalOptions
-        {
-            Cols = _columns,
-            Rows = _rows,
-        });
-
-        StartReadingOutput();
+        // Start reading from PTY
+        _readCts = new CancellationTokenSource();
+        _ = ReadOutputAsync(_readCts.Token);
 
         Loaded?.Invoke(this, EventArgs.Empty);
         InvalidateVisual();
     }
 
-    private Dictionary<string, string> GetEnvironmentVariables()
+    private async Task ReadOutputAsync(CancellationToken cancellationToken)
     {
-        var env = new Dictionary<string, string>();
+        var buffer = ArrayPool<byte>.Shared.Rent(4096);
 
-        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        try
         {
-            if (entry.Key is string key && entry.Value is string value)
+            while (!cancellationToken.IsCancellationRequested && _ptyService?.ReaderStream != null)
             {
-                env[key] = value;
+                var bytesRead = await _ptyService.ReaderStream.ReadAsync(buffer.AsMemory(0, 4096), cancellationToken);
+                if (bytesRead == 0)
+                    break;
+
+                // Process through VtNetCore
+                _dataConsumer?.Push(buffer.AsSpan(0, bytesRead).ToArray());
+
+                // Notify listeners
+                var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                OutputReceived?.Invoke(text);
+
+                // Request redraw
+                RequestRender();
             }
         }
-
-        // Terminal-specific settings
-        env["TERM"] = "xterm-256color";
-        env["COLORTERM"] = "truecolor";
-        env["LANG"] = "en_US.UTF-8";
-
-        return env;
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
-    private void OnPtyProcessExited(object? sender, PtyExitedEventArgs e)
+    private void RequestRender()
     {
-        _processExited = true;
+        if (_renderPending)
+            return;
+
+        var now = DateTime.UtcNow;
+        var elapsed = now - _lastRenderRequest;
+
+        if (elapsed >= RenderThrottleInterval)
+        {
+            _lastRenderRequest = now;
+            Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+        }
+        else
+        {
+            _renderPending = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _renderPending = false;
+                _lastRenderRequest = DateTime.UtcNow;
+                InvalidateVisual();
+            }, DispatcherPriority.Background);
+        }
+    }
+
+    private void OnProcessExited(object? sender, int exitCode)
+    {
+        ExitCode = exitCode;
         Dispatcher.UIThread.Post(() =>
         {
-            ProcessExited?.Invoke(this, e.ExitCode);
+            ProcessExited?.Invoke(this, exitCode);
         });
     }
 
-    private void StartReadingOutput()
-    {
-        _readCts = new CancellationTokenSource();
+    #region Properties
 
-        Task.Run(async () =>
-        {
-            var buffer = new byte[4096];
+    private int TopRow => _viewPort?.TopRow ?? 0;
+    private bool CursorVisible => _terminalController?.CursorState.ShowCursor ?? false;
+    private int MaxScrollBack => TopRow;
+    private bool IsScrolledBack => _scrollOffset > 0;
 
-            while (!_readCts.Token.IsCancellationRequested && _pty != null && !_processExited)
-            {
-                try
-                {
-                    var bytesRead = await _pty.ReaderStream.ReadAsync(
-                        buffer, 0, buffer.Length, _readCts.Token);
-
-                    if (bytesRead > 0)
-                    {
-                        var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                        // Feed to terminal emulator
-                        _terminal?.Feed(text);
-
-                        // Notify listeners
-                        OutputReceived?.Invoke(text);
-
-                        // Request redraw on UI thread
-                        await Dispatcher.UIThread.InvokeAsync(InvalidateVisual);
-                    }
-                    else if (bytesRead == 0)
-                    {
-                        // Stream closed, process likely exited
-                        break;
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Terminal read error: {ex}");
-                    break;
-                }
-            }
-        });
-    }
+    #endregion
 
     #region ITerminalControl Methods
 
     public void WriteToTerminal(string text)
     {
-        if (_pty != null && !_processExited)
+        if (_ptyService != null && _ptyService.IsRunning)
         {
-            var bytes = Encoding.UTF8.GetBytes(text);
-            _pty.WriterStream.Write(bytes, 0, bytes.Length);
-            _pty.WriterStream.Flush();
+            _ = _ptyService.WriteAsync(text);
         }
     }
 
@@ -257,15 +325,69 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public string GetSelectedText()
     {
-        if (_terminal == null || !HasSelection())
+        if (_selection == null || _viewPort == null)
             return string.Empty;
 
-        // Extract text from selection range
+        var topLeft = _selection.TopLeft;
+        var bottomRight = _selection.BottomRight;
+
         var sb = new StringBuilder();
-        // TODO: Implement proper selection extraction from XtermSharp buffer
-        // This requires accessing the buffer lines and extracting characters
-        // between _selectionStart and _selectionEnd positions
-        return sb.ToString();
+
+        for (int row = topLeft.Row; row <= bottomRight.Row; row++)
+        {
+            var spans = _viewPort.GetPageSpans(row, 1, _columns);
+            if (spans.Count == 0 || spans[0]?.Spans == null)
+            {
+                if (row < bottomRight.Row)
+                    sb.AppendLine();
+                continue;
+            }
+
+            var rowSpans = spans[0].Spans;
+            int col = 0;
+
+            foreach (var span in rowSpans)
+            {
+                if (string.IsNullOrEmpty(span.Text))
+                    continue;
+
+                foreach (var c in span.Text)
+                {
+                    bool inSelection;
+                    if (row == topLeft.Row && row == bottomRight.Row)
+                    {
+                        inSelection = col >= topLeft.Column && col <= bottomRight.Column;
+                    }
+                    else if (row == topLeft.Row)
+                    {
+                        inSelection = col >= topLeft.Column;
+                    }
+                    else if (row == bottomRight.Row)
+                    {
+                        inSelection = col <= bottomRight.Column;
+                    }
+                    else
+                    {
+                        inSelection = true;
+                    }
+
+                    if (inSelection)
+                        sb.Append(c);
+
+                    col++;
+                }
+            }
+
+            if (row < bottomRight.Row)
+                sb.AppendLine();
+        }
+
+        var lines = sb.ToString().Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            lines[i] = lines[i].TrimEnd();
+        }
+        return string.Join("\n", lines).TrimEnd();
     }
 
     void ITerminalControl.Focus()
@@ -276,11 +398,8 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     public async Task RestartAsync()
     {
         Kill();
-
-        // Wait a moment for cleanup
         await Task.Delay(100);
 
-        // Reinitialize with stored command/working directory
         if (!string.IsNullOrEmpty(_command) && !string.IsNullOrEmpty(_workingDirectory))
         {
             await InitializeAsync(_command, _workingDirectory);
@@ -290,144 +409,351 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     public void Kill()
     {
         _readCts?.Cancel();
+        _ptyService?.Kill();
+    }
 
-        if (_pty != null && !_processExited)
+    #endregion
+
+    #region Scrolling
+
+    public void ScrollUp(int lines = 1)
+    {
+        var newOffset = Math.Min(_scrollOffset + lines, MaxScrollBack);
+        if (newOffset != _scrollOffset)
         {
-            _pty.Kill();
-            _processExited = true;
+            _scrollOffset = newOffset;
+            InvalidateVisual();
+        }
+    }
+
+    public void ScrollDown(int lines = 1)
+    {
+        var newOffset = Math.Max(_scrollOffset - lines, 0);
+        if (newOffset != _scrollOffset)
+        {
+            _scrollOffset = newOffset;
+            InvalidateVisual();
+        }
+    }
+
+    public void ScrollToBottom()
+    {
+        if (_scrollOffset != 0)
+        {
+            _scrollOffset = 0;
+            InvalidateVisual();
         }
     }
 
     #endregion
 
-    private bool HasSelection()
+    #region Rendering
+
+    private List<LayoutRow> GetVisibleRows()
     {
-        return _selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY;
+        if (_viewPort == null)
+            return new List<LayoutRow>();
+
+        var startRow = Math.Max(0, TopRow - _scrollOffset);
+        return _viewPort.GetPageSpans(startRow, _rows, _columns, _selection);
     }
 
-    #region Rendering
+    private TextPosition GetCursorPosition()
+    {
+        return _viewPort?.CursorPosition ?? new TextPosition { Column = 0, Row = 0 };
+    }
 
     public override void Render(DrawingContext context)
     {
-        base.Render(context);
+        context.FillRectangle(DefaultBackgroundBrush, new Rect(Bounds.Size));
 
-        // Draw background
-        context.FillRectangle(
-            new SolidColorBrush(_theme.Background),
-            new Rect(0, 0, Bounds.Width, Bounds.Height));
-
-        if (_terminal == null)
+        if (_terminalController == null || _viewPort == null)
             return;
 
-        var typeface = new Typeface(_fontFamily);
+        var rows = GetVisibleRows();
+        var cursorPos = GetCursorPosition();
+        var cursorScreenRow = cursorPos.Row;
 
-        // Render each cell
-        for (int row = 0; row < _rows && row < _terminal.Rows; row++)
+        double y = 0;
+
+        for (int rowIndex = 0; rowIndex < _rows && rowIndex < rows.Count; rowIndex++)
         {
-            RenderLine(context, typeface, row);
+            var row = rows[rowIndex];
+            double x = 0;
+
+            if (row?.Spans != null)
+            {
+                foreach (var span in row.Spans)
+                {
+                    if (string.IsNullOrEmpty(span.Text))
+                        continue;
+
+                    var foreground = ParseColor(span.ForgroundColor, DefaultForeground);
+                    var background = ParseColor(span.BackgroundColor, DefaultBackground);
+
+                    if (background != DefaultBackground)
+                    {
+                        var spanWidth = span.Text.Length * _charWidth;
+                        context.FillRectangle(
+                            GetCachedBrush(background),
+                            new Rect(x, y, spanWidth, _charHeight));
+                    }
+
+                    var fontStyle = span.Italic ? FontStyle.Italic : FontStyle.Normal;
+                    var fontWeight = span.Bold ? FontWeight.Bold : FontWeight.Normal;
+                    var typeface = new Typeface(_typeface.FontFamily, fontStyle, fontWeight);
+                    var foregroundBrush = GetCachedBrush(foreground);
+
+                    RenderTextWithFallback(context, span.Text, x, y, typeface, foregroundBrush);
+
+                    if (span.Underline)
+                    {
+                        var underlineY = y + _charHeight - 2;
+                        context.DrawLine(
+                            new Pen(GetCachedBrush(foreground), 1),
+                            new Point(x, underlineY),
+                            new Point(x + span.Text.Length * _charWidth, underlineY));
+                    }
+
+                    x += span.Text.Length * _charWidth;
+                }
+            }
+
+            // Draw cursor
+            var shouldShowCursor = _cursorVisible && CursorVisible && !IsScrolledBack;
+            if (shouldShowCursor && rowIndex == cursorScreenRow && IsProcessRunning)
+            {
+                var cursorX = cursorPos.Column * _charWidth;
+                context.FillRectangle(
+                    DefaultForegroundBrush,
+                    new Rect(cursorX, y, Math.Max(_charWidth, 2), _charHeight));
+            }
+
+            y += _charHeight;
         }
 
-        // Render cursor
-        RenderCursor(context);
-    }
-
-    private void RenderLine(DrawingContext context, Typeface typeface, int row)
-    {
-        var buffer = _terminal?.Buffer;
-        if (buffer == null) return;
-
-        var y = row * _cellHeight;
-
-        // Get the line from the buffer
-        var line = buffer.Lines[row + buffer.YDisp];
-        if (line == null) return;
-
-        // Build text for the entire line
-        var sb = new StringBuilder();
-        for (int col = 0; col < Math.Min(_columns, line.Length); col++)
+        // Draw scroll indicator
+        if (IsScrolledBack)
         {
-            var charData = line[col];
-
-            // Get the character to render using the Code property
-            // Code 0 is null, Code 32 is space
-            if (charData.Code == 0 || charData.Code == 32)
-            {
-                sb.Append(' ');
-            }
-            else
-            {
-                sb.Append(charData.Rune.ToString());
-            }
-        }
-
-        // Render the line text
-        var lineText = sb.ToString().TrimEnd();
-        if (!string.IsNullOrEmpty(lineText))
-        {
-            var formattedText = new FormattedText(
-                lineText,
-                System.Globalization.CultureInfo.CurrentCulture,
+            var indicatorText = $"↑ {_scrollOffset} lines";
+            var formattedIndicator = new FormattedText(
+                indicatorText,
+                CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
-                typeface,
-                _fontSize,
-                new SolidColorBrush(_theme.Foreground));
+                _typeface,
+                _fontSize * 0.9,
+                ScrollIndicatorTextBrush);
 
-            context.DrawText(formattedText, new Point(0, y));
-        }
+            var indicatorX = Bounds.Width - formattedIndicator.Width - 10;
+            var indicatorY = 5;
 
-        // Render selection highlight if applicable
-        if (HasSelection() && IsLineInSelection(row))
-        {
-            RenderSelectionForLine(context, row, y);
-        }
-    }
-
-    private bool IsLineInSelection(int row)
-    {
-        var minY = Math.Min(_selectionStartY, _selectionEndY);
-        var maxY = Math.Max(_selectionStartY, _selectionEndY);
-        return row >= minY && row <= maxY;
-    }
-
-    private void RenderSelectionForLine(DrawingContext context, int row, double y)
-    {
-        var minY = Math.Min(_selectionStartY, _selectionEndY);
-        var maxY = Math.Max(_selectionStartY, _selectionEndY);
-        var startX = _selectionStartY < _selectionEndY ? _selectionStartX : _selectionEndX;
-        var endX = _selectionStartY < _selectionEndY ? _selectionEndX : _selectionStartX;
-
-        double selStartX = 0;
-        double selEndX = _columns * _cellWidth;
-
-        if (row == minY)
-        {
-            selStartX = (_selectionStartY <= _selectionEndY ? _selectionStartX : _selectionEndX) * _cellWidth;
-        }
-        if (row == maxY)
-        {
-            selEndX = (_selectionStartY <= _selectionEndY ? _selectionEndX : _selectionStartX) * _cellWidth;
-        }
-
-        context.FillRectangle(
-            new SolidColorBrush(_theme.SelectionBackground),
-            new Rect(selStartX, y, selEndX - selStartX, _cellHeight));
-    }
-
-    private void RenderCursor(DrawingContext context)
-    {
-        if (_terminal == null) return;
-
-        var buffer = _terminal.Buffer;
-        var cursorX = buffer.X * _cellWidth;
-        var cursorY = (buffer.Y - buffer.YDisp + buffer.YBase) * _cellHeight;
-
-        // Ensure cursor is visible
-        if (cursorY >= 0 && cursorY < Bounds.Height)
-        {
-            // Blinking bar cursor
             context.FillRectangle(
-                new SolidColorBrush(_theme.CursorColor),
-                new Rect(cursorX, cursorY, 2, _cellHeight));
+                ScrollIndicatorBackgroundBrush,
+                new Rect(indicatorX - 5, indicatorY - 2, formattedIndicator.Width + 10, formattedIndicator.Height + 4));
+
+            context.DrawText(formattedIndicator, new Point(indicatorX, indicatorY));
+        }
+    }
+
+    private Color ParseColor(string? colorString, Color defaultColor)
+    {
+        if (string.IsNullOrEmpty(colorString))
+            return defaultColor;
+
+        if (ColorPalette.TryGetValue(colorString, out var paletteColor))
+            return paletteColor;
+
+        if (colorString.StartsWith("#"))
+        {
+            try
+            {
+                return Color.Parse(colorString);
+            }
+            catch
+            {
+            }
+        }
+
+        return defaultColor;
+    }
+
+    // Fallback font names in order of preference
+    private static readonly string[] FallbackFontNames =
+    {
+        // Embedded Nerd Font (bundled with app) - for Powerline and icon glyphs
+        "avares://host/Assets/Fonts#Symbols Nerd Font Mono",
+        // Nerd Fonts (if installed) - have Powerline and icon glyphs used by Claude CLI
+        "JetBrainsMono Nerd Font",
+        "JetBrainsMono NF",
+        "FiraCode Nerd Font",
+        "Hack Nerd Font",
+        "MesloLGS NF",
+        "Symbols Nerd Font Mono",
+        "Symbols Nerd Font",
+        // Standard fonts
+        "Apple Color Emoji",  // Emoji support
+        "STIX Two Math",      // Mathematical symbols
+        "Arial",              // Good for block elements
+        "Arial Unicode MS",   // Wide Unicode coverage
+        "Apple Symbols",      // macOS symbols
+        "Menlo",              // Primary terminal font (retry in case it has the glyph)
+        "Helvetica Neue",     // Common macOS font
+        "LastResort",         // Ultimate fallback
+    };
+
+    // Cache for typeface/glyphTypeface pairs
+    private static readonly Lazy<List<(Typeface typeface, IGlyphTypeface glyphTypeface)>> FallbackFonts = new(() =>
+    {
+        var result = new List<(Typeface, IGlyphTypeface)>();
+        var fontManager = FontManager.Current;
+
+        foreach (var fontName in FallbackFontNames)
+        {
+            try
+            {
+                var typeface = new Typeface(new FontFamily(fontName), FontStyle.Normal, FontWeight.Normal);
+                if (fontManager.TryGetGlyphTypeface(typeface, out var glyphTypeface))
+                {
+                    result.Add((typeface, glyphTypeface!));
+                }
+            }
+            catch
+            {
+                // Font not available, skip
+            }
+        }
+        return result;
+    });
+
+    // Cache for character -> typeface mapping to avoid repeated lookups
+    private static readonly Dictionary<char, Typeface?> CharacterTypefaceCache = new();
+
+    private static bool NeedsFallbackFont(char c)
+    {
+        // Unicode blocks that Menlo doesn't support well
+        if (c >= '\u2300' && c <= '\u23FF') return true; // Miscellaneous Technical
+        if (c >= '\u25A0' && c <= '\u25FF') return true; // Geometric Shapes
+        if (c >= '\u2600' && c <= '\u26FF') return true; // Miscellaneous Symbols
+        if (c >= '\u2700' && c <= '\u27BF') return true; // Dingbats
+        if (c >= '\u2800' && c <= '\u28FF') return true; // Braille Patterns
+        if (c >= '\u2B00' && c <= '\u2BFF') return true; // Miscellaneous Symbols and Arrows
+        if (c >= '\u2580' && c <= '\u259F') return true; // Block Elements
+        if (c >= '\u2500' && c <= '\u257F') return true; // Box Drawing
+        if (c >= '\u27F0' && c <= '\u27FF') return true; // Supplemental Arrows-A
+        if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts, etc.)
+        if (char.IsHighSurrogate(c)) return true; // Surrogate pairs (emoji and other non-BMP characters)
+        if (char.IsLowSurrogate(c)) return true; // Low surrogates are part of emoji pairs
+        return false;
+    }
+
+    private static bool ContainsFallbackCharacters(string text)
+    {
+        foreach (var c in text)
+        {
+            if (NeedsFallbackFont(c)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the best typeface for rendering a specific character by checking actual glyph availability.
+    /// </summary>
+    private Typeface GetTypefaceForCharacter(char c)
+    {
+        // Check cache first
+        if (CharacterTypefaceCache.TryGetValue(c, out var cachedTypeface))
+        {
+            return cachedTypeface ?? _fallbackTypeface;
+        }
+
+        uint codepoint = c;
+
+        // Try each fallback font to find one that has the glyph
+        foreach (var (typeface, glyphTypeface) in FallbackFonts.Value)
+        {
+            try
+            {
+                if (glyphTypeface.TryGetGlyph(codepoint, out var glyphIndex) && glyphIndex != 0)
+                {
+                    CharacterTypefaceCache[c] = typeface;
+                    return typeface;
+                }
+            }
+            catch
+            {
+                // Skip this font if there's an error
+            }
+        }
+
+        // No font found - cache null and return default fallback
+        CharacterTypefaceCache[c] = null;
+        return _fallbackTypeface;
+    }
+
+    private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
+        Typeface primaryTypeface, IBrush foregroundBrush)
+    {
+        if (!ContainsFallbackCharacters(text))
+        {
+            // Fast path: no fallback needed, render entire string at once
+            var formattedText = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                primaryTypeface,
+                _fontSize,
+                foregroundBrush);
+            context.DrawText(formattedText, new Point(x, y));
+            return;
+        }
+
+        // Slow path: render with font fallback support
+        double currentX = x;
+        int runStart = 0;
+        bool currentRunNeedsFallback = NeedsFallbackFont(text[0]);
+
+        for (int i = 1; i <= text.Length; i++)
+        {
+            bool needsFallback = i < text.Length && NeedsFallbackFont(text[i]);
+
+            if (i == text.Length || needsFallback != currentRunNeedsFallback)
+            {
+                string run = text.Substring(runStart, i - runStart);
+
+                if (currentRunNeedsFallback)
+                {
+                    // Render fallback characters one at a time with the best available font
+                    foreach (char c in run)
+                    {
+                        var charTypeface = GetTypefaceForCharacter(c);
+                        var formattedText = new FormattedText(
+                            c.ToString(),
+                            CultureInfo.CurrentCulture,
+                            FlowDirection.LeftToRight,
+                            charTypeface,
+                            _fontSize,
+                            foregroundBrush);
+                        context.DrawText(formattedText, new Point(currentX, y));
+                        currentX += _charWidth;
+                    }
+                }
+                else
+                {
+                    // Render normal text run
+                    var formattedText = new FormattedText(
+                        run,
+                        CultureInfo.CurrentCulture,
+                        FlowDirection.LeftToRight,
+                        primaryTypeface,
+                        _fontSize,
+                        foregroundBrush);
+                    context.DrawText(formattedText, new Point(currentX, y));
+                    currentX += run.Length * _charWidth;
+                }
+
+                runStart = i;
+                currentRunNeedsFallback = needsFallback;
+            }
         }
     }
 
@@ -441,100 +767,59 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         if (!string.IsNullOrEmpty(e.Text))
         {
+            ClearSelection();
+            if (IsScrolledBack)
+            {
+                ScrollToBottom();
+            }
             WriteToTerminal(e.Text);
-        }
-    }
-
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-
-        var sequence = GetKeySequence(e);
-        if (!string.IsNullOrEmpty(sequence))
-        {
-            WriteToTerminal(sequence);
             e.Handled = true;
         }
     }
 
-    private string? GetKeySequence(KeyEventArgs e)
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
-        // Handle Ctrl+key combinations first
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        base.OnPointerWheelChanged(e);
+
+        var lines = (int)(e.Delta.Y * 3);
+        if (lines > 0)
         {
-            var ctrlSeq = GetCtrlKeySequence(e.Key);
-            if (ctrlSeq != null)
-                return ctrlSeq;
+            ScrollUp(lines);
+        }
+        else if (lines < 0)
+        {
+            ScrollDown(-lines);
         }
 
-        // Map Avalonia keys to terminal escape sequences
-        return e.Key switch
-        {
-            Key.Enter => "\r",
-            Key.Escape => "\x1b",
-            Key.Tab => "\t",
-            Key.Back => "\x7f",
-            Key.Delete => "\x1b[3~",
-            Key.Up => _terminal?.ApplicationCursor == true ? "\x1bOA" : "\x1b[A",
-            Key.Down => _terminal?.ApplicationCursor == true ? "\x1bOB" : "\x1b[B",
-            Key.Right => _terminal?.ApplicationCursor == true ? "\x1bOC" : "\x1b[C",
-            Key.Left => _terminal?.ApplicationCursor == true ? "\x1bOD" : "\x1b[D",
-            Key.Home => "\x1b[H",
-            Key.End => "\x1b[F",
-            Key.PageUp => "\x1b[5~",
-            Key.PageDown => "\x1b[6~",
-            Key.Insert => "\x1b[2~",
-            Key.F1 => "\x1bOP",
-            Key.F2 => "\x1bOQ",
-            Key.F3 => "\x1bOR",
-            Key.F4 => "\x1bOS",
-            Key.F5 => "\x1b[15~",
-            Key.F6 => "\x1b[17~",
-            Key.F7 => "\x1b[18~",
-            Key.F8 => "\x1b[19~",
-            Key.F9 => "\x1b[20~",
-            Key.F10 => "\x1b[21~",
-            Key.F11 => "\x1b[23~",
-            Key.F12 => "\x1b[24~",
-            _ => null
-        };
+        e.Handled = true;
     }
 
-    private string? GetCtrlKeySequence(Key key)
+    private TextPosition? ScreenToBufferPosition(Point screenPos)
     {
-        // Ctrl+A through Ctrl+Z
-        if (key >= Key.A && key <= Key.Z)
-        {
-            return ((char)(key - Key.A + 1)).ToString();
-        }
+        var column = Math.Max(0, (int)(screenPos.X / _charWidth));
+        var row = Math.Max(0, (int)(screenPos.Y / _charHeight));
 
-        return key switch
-        {
-            Key.OemOpenBrackets => "\x1b", // Ctrl+[
-            Key.OemCloseBrackets => "\x1d", // Ctrl+]
-            Key.OemBackslash => "\x1c", // Ctrl+\
-            Key.Space => "\x00", // Ctrl+Space (NUL)
-            _ => null
-        };
+        column = Math.Min(column, _columns - 1);
+        row = Math.Min(row, _rows - 1);
+
+        var bufferRow = row + TopRow - _scrollOffset;
+
+        return new TextPosition { Column = column, Row = bufferRow };
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-
         Focus();
 
         var point = e.GetCurrentPoint(this);
-        var position = point.Position;
-
-        var col = (int)(position.X / _cellWidth);
-        var row = (int)(position.Y / _cellHeight);
-
         if (point.Properties.IsLeftButtonPressed)
         {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
             {
                 // Ctrl+Click for link detection
+                var col = (int)(point.Position.X / _charWidth);
+                var row = (int)(point.Position.Y / _charHeight);
                 MouseClicked?.Invoke(this, new TerminalMouseEventArgs
                 {
                     X = col,
@@ -545,14 +830,21 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             }
             else
             {
-                // Start selection
-                _isSelecting = true;
-                _selectionStartX = _selectionEndX = col;
-                _selectionStartY = _selectionEndY = row;
+                var bufferPos = ScreenToBufferPosition(point.Position);
+                if (bufferPos != null)
+                {
+                    _isSelecting = true;
+                    _selectionStart = bufferPos;
+                    ClearSelection();
+                    e.Pointer.Capture(this);
+                    e.Handled = true;
+                }
             }
         }
         else if (point.Properties.IsRightButtonPressed)
         {
+            var col = (int)(point.Position.X / _charWidth);
+            var row = (int)(point.Position.Y / _charHeight);
             MouseClicked?.Invoke(this, new TerminalMouseEventArgs
             {
                 X = col,
@@ -568,19 +860,209 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     {
         base.OnPointerMoved(e);
 
-        if (_isSelecting)
+        if (!_isSelecting || _selectionStart == null)
+            return;
+
+        var bufferPos = ScreenToBufferPosition(e.GetPosition(this));
+        if (bufferPos != null)
         {
-            var position = e.GetPosition(this);
-            _selectionEndX = Math.Max(0, Math.Min(_columns - 1, (int)(position.X / _cellWidth)));
-            _selectionEndY = Math.Max(0, Math.Min(_rows - 1, (int)(position.Y / _cellHeight)));
-            InvalidateVisual();
+            SetSelection(_selectionStart, bufferPos);
+            e.Handled = true;
         }
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        _isSelecting = false;
+
+        if (_isSelecting)
+        {
+            _isSelecting = false;
+            e.Pointer.Capture(null);
+
+            if (_selectionStart != null)
+            {
+                var bufferPos = ScreenToBufferPosition(e.GetPosition(this));
+                if (bufferPos != null)
+                {
+                    if (_selectionStart.Column == bufferPos.Column && _selectionStart.Row == bufferPos.Row)
+                    {
+                        ClearSelection();
+                    }
+                    else
+                    {
+                        SetSelection(_selectionStart, bufferPos);
+                    }
+                }
+            }
+
+            _selectionStart = null;
+            e.Handled = true;
+        }
+    }
+
+    private void SetSelection(TextPosition start, TextPosition end)
+    {
+        _selection = new TextRange { Start = start, End = end };
+        InvalidateVisual();
+    }
+
+    private void ClearSelection()
+    {
+        if (_selection != null)
+        {
+            _selection = null;
+            InvalidateVisual();
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        var meta = e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+
+        // Cmd+C (macOS) or Ctrl+Shift+C to copy
+        if ((meta && e.Key == Key.C) || (control && shift && e.Key == Key.C))
+        {
+            if (_selection != null)
+            {
+                _ = CopySelectionToClipboardAsync();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Cmd+V (macOS) or Ctrl+Shift+V to paste
+        if ((meta && e.Key == Key.V) || (control && shift && e.Key == Key.V))
+        {
+            _ = PasteFromClipboardAsync();
+            e.Handled = true;
+            return;
+        }
+
+        // Shift+PageUp/PageDown for scrollback
+        if (shift && e.Key == Key.PageUp)
+        {
+            ScrollUp(_rows - 1);
+            e.Handled = true;
+            return;
+        }
+        if (shift && e.Key == Key.PageDown)
+        {
+            ScrollDown(_rows - 1);
+            e.Handled = true;
+            return;
+        }
+        if (shift && e.Key == Key.Home)
+        {
+            ScrollUp(MaxScrollBack);
+            e.Handled = true;
+            return;
+        }
+        if (shift && e.Key == Key.End)
+        {
+            ScrollToBottom();
+            e.Handled = true;
+            return;
+        }
+
+        string? sequence = GetKeySequence(e.Key, control, shift);
+        if (sequence != null)
+        {
+            ClearSelection();
+            if (IsScrolledBack)
+            {
+                ScrollToBottom();
+            }
+            WriteToTerminal(sequence);
+            e.Handled = true;
+            return;
+        }
+
+        if (control && e.Key >= Key.A && e.Key <= Key.Z)
+        {
+            ClearSelection();
+            if (IsScrolledBack)
+            {
+                ScrollToBottom();
+            }
+            var ctrlChar = (char)(e.Key - Key.A + 1);
+            WriteToTerminal(ctrlChar.ToString());
+            e.Handled = true;
+        }
+    }
+
+    private string? GetKeySequence(Key key, bool control, bool shift)
+    {
+        var appMode = _terminalController?.CursorState.ApplicationCursorKeysMode ?? false;
+
+        return key switch
+        {
+            Key.Up => appMode ? "\x1bOA" : "\x1b[A",
+            Key.Down => appMode ? "\x1bOB" : "\x1b[B",
+            Key.Right => appMode ? "\x1bOC" : "\x1b[C",
+            Key.Left => appMode ? "\x1bOD" : "\x1b[D",
+            Key.Home => "\x1b[H",
+            Key.End => "\x1b[F",
+            Key.PageUp => "\x1b[5~",
+            Key.PageDown => "\x1b[6~",
+            Key.Insert => "\x1b[2~",
+            Key.Delete => "\x1b[3~",
+            Key.F1 => "\x1bOP",
+            Key.F2 => "\x1bOQ",
+            Key.F3 => "\x1bOR",
+            Key.F4 => "\x1bOS",
+            Key.F5 => "\x1b[15~",
+            Key.F6 => "\x1b[17~",
+            Key.F7 => "\x1b[18~",
+            Key.F8 => "\x1b[19~",
+            Key.F9 => "\x1b[20~",
+            Key.F10 => "\x1b[21~",
+            Key.F11 => "\x1b[23~",
+            Key.F12 => "\x1b[24~",
+            Key.Back => "\x7f",
+            Key.Tab => shift ? "\x1b[Z" : "\t",
+            Key.Escape => "\x1b",
+            Key.Enter => "\r",
+            _ => null
+        };
+    }
+
+    private async Task CopySelectionToClipboardAsync()
+    {
+        if (_selection == null)
+            return;
+
+        var selectedText = GetSelectedText();
+        if (string.IsNullOrEmpty(selectedText))
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard != null)
+        {
+            await topLevel.Clipboard.SetTextAsync(selectedText);
+        }
+    }
+
+    private async Task PasteFromClipboardAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        var text = await topLevel.Clipboard.GetTextAsync();
+        if (!string.IsNullOrEmpty(text))
+        {
+            ClearSelection();
+            if (IsScrolledBack)
+            {
+                ScrollToBottom();
+            }
+            WriteToTerminal(text);
+        }
     }
 
     #endregion
@@ -592,23 +1074,34 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return availableSize;
     }
 
-    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    protected override Size ArrangeOverride(Size finalSize)
     {
-        base.OnSizeChanged(e);
+        UpdateTerminalSize();
+        return finalSize;
+    }
 
-        if (_cellWidth > 0 && _cellHeight > 0)
+    private void UpdateTerminalSize()
+    {
+        if (_charWidth <= 0 || _charHeight <= 0)
+            return;
+
+        var columns = Math.Max(1, (int)(Bounds.Width / _charWidth));
+        var rows = Math.Max(1, (int)(Bounds.Height / _charHeight));
+
+        if (columns != _columns || rows != _rows)
         {
-            var newCols = (int)(e.NewSize.Width / _cellWidth);
-            var newRows = (int)(e.NewSize.Height / _cellHeight);
+            _columns = columns;
+            _rows = rows;
 
-            if (newCols != _columns || newRows != _rows)
+            if (_terminalController != null)
             {
-                _columns = Math.Max(1, newCols);
-                _rows = Math.Max(1, newRows);
-
-                _terminal?.Resize(_columns, _rows);
-                _pty?.Resize(_columns, _rows);
+                _terminalController.Columns = columns;
+                _terminalController.Rows = rows;
+                _terminalController.VisibleColumns = columns;
+                _terminalController.VisibleRows = rows;
             }
+
+            _ptyService?.Resize(columns, rows);
         }
     }
 
@@ -618,13 +1111,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed)
+        if (_disposed)
             return;
 
-        _isDisposed = true;
+        _disposed = true;
+        StopCursorBlink();
         _readCts?.Cancel();
-        _pty?.Kill();
-        _pty?.Dispose();
+        _readCts?.Dispose();
+        _ptyService?.Dispose();
     }
 
     #endregion

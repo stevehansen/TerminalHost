@@ -5,7 +5,7 @@ using TerminalHost.Domain;
 namespace TerminalHost.Services;
 
 /// <summary>
-/// Factory for creating terminal controls using Pty.Net and XtermSharp.
+/// Factory for creating terminal controls using VtNetCore and MacPtyService.
 /// </summary>
 internal sealed class TerminalControlFactory : ITerminalControlFactory
 {
@@ -43,9 +43,6 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         }
 
         var control = new MacTerminalControl();
-
-        // Set theme
-        control.Theme = TerminalTheme.Campbell;
 
         await control.InitializeAsync(command, workingDir);
 

@@ -3,8 +3,8 @@
 
     <!-- Default Button Style -->
     <Style Selector="Button">
-        <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="12,6"/>
@@ -12,31 +12,31 @@
     </Style>
 
     <Style Selector="Button:pointerover">
-        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
     </Style>
 
     <Style Selector="Button:pressed">
-        <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
     </Style>
 
     <!-- Primary/Accent Button -->
     <Style Selector="Button.primary">
-        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
     </Style>
 
     <Style Selector="Button.primary:pointerover">
-        <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
     </Style>
 
     <!-- Danger Button -->
     <Style Selector="Button.danger">
-        <Setter Property="Background" Value="{StaticResource DangerBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
     </Style>
 
     <Style Selector="Button.danger:pointerover">
-        <Setter Property="Background" Value="{StaticResource DangerHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerHoverBrush}"/>
     </Style>
 
     <!-- Icon Button (transparent background) -->
@@ -48,13 +48,13 @@
     </Style>
 
     <Style Selector="Button.icon:pointerover">
-        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
     </Style>
 
     <!-- ToggleButton styles -->
     <Style Selector="ToggleButton">
-        <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="12,6"/>
@@ -62,16 +62,16 @@
     </Style>
 
     <Style Selector="ToggleButton:checked">
-        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
     </Style>
 
     <Style Selector="ToggleButton:pointerover">
-        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
     </Style>
 
     <Style Selector="ToggleButton:checked:pointerover">
-        <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
     </Style>
 
 </Styles>

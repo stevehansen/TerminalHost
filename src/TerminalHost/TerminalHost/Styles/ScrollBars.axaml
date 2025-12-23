@@ -3,21 +3,21 @@
 
     <!-- Scrollbar Thumb -->
     <Style Selector="ScrollBar /template/ Thumb">
-        <Setter Property="Background" Value="{StaticResource ScrollBarThumbBackgroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBackgroundBrush}"/>
         <Setter Property="CornerRadius" Value="4"/>
     </Style>
 
     <Style Selector="ScrollBar /template/ Thumb:pointerover">
-        <Setter Property="Background" Value="{StaticResource ScrollBarThumbMouseOverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbMouseOverBrush}"/>
     </Style>
 
     <Style Selector="ScrollBar /template/ Thumb:pressed">
-        <Setter Property="Background" Value="{StaticResource ScrollBarThumbPressedBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbPressedBrush}"/>
     </Style>
 
     <!-- Scrollbar Track -->
     <Style Selector="ScrollBar">
-        <Setter Property="Background" Value="{StaticResource ScrollBarTrackBackgroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ScrollBarTrackBackgroundBrush}"/>
     </Style>
 
     <!-- Hide scroll buttons for minimal look -->
