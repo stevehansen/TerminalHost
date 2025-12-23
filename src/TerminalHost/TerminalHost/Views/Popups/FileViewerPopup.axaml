@@ -277,19 +277,13 @@
                             </TextBlock.IsVisible>
                         </TextBlock>
 
-                        <!-- Shortcuts hint (different for edit/side-by-side vs preview mode) -->
+                        <!-- Shortcuts hint -->
                         <TextBlock Grid.Column="3"
                                    Name="ShortcutsText"
+                                   Text="Ctrl+O preview • Ctrl+Shift+E edit • Esc close"
                                    Foreground="#CCFFFFFF"
                                    FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center">
-                            <TextBlock.Text>
-                                <MultiBinding Converter="{StaticResource EditModeShortcutsConverter}">
-                                    <Binding Path="IsEditMode"/>
-                                    <Binding Path="IsSideBySideMode"/>
-                                </MultiBinding>
-                            </TextBlock.Text>
-                        </TextBlock>
+                                   VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
             </Grid>

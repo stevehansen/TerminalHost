@@ -140,8 +140,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        Focus();
         StartCursorBlink();
+
+        // Schedule a render after the control is fully attached and sized
+        Dispatcher.UIThread.Post(() =>
+        {
+            InvalidateVisual();
+            Focus();
+        }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -227,7 +233,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _ = ReadOutputAsync(_readCts.Token);
 
         Loaded?.Invoke(this, EventArgs.Empty);
+
+        // Trigger initial render - schedule it for when the control might be in the visual tree
         InvalidateVisual();
+        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
     }
 
     private async Task ReadOutputAsync(CancellationToken cancellationToken)
@@ -1076,17 +1085,20 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        UpdateTerminalSize();
+        UpdateTerminalSize(finalSize);
         return finalSize;
     }
 
-    private void UpdateTerminalSize()
+    private void UpdateTerminalSize(Size size)
     {
         if (_charWidth <= 0 || _charHeight <= 0)
             return;
 
-        var columns = Math.Max(1, (int)(Bounds.Width / _charWidth));
-        var rows = Math.Max(1, (int)(Bounds.Height / _charHeight));
+        if (size.Width <= 0 || size.Height <= 0)
+            return;
+
+        var columns = Math.Max(1, (int)(size.Width / _charWidth));
+        var rows = Math.Max(1, (int)(size.Height / _charHeight));
 
         if (columns != _columns || rows != _rows)
         {
@@ -1102,6 +1114,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             }
 
             _ptyService?.Resize(columns, rows);
+
+            // Force a redraw after resize
+            InvalidateVisual();
         }
     }
 

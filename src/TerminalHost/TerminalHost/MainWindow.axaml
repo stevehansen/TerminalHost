@@ -16,7 +16,7 @@
     <!-- Main Layout -->
     <Grid RowDefinitions="Auto,*">
         <!-- Row 0: Tab Strip -->
-        <views:TabStrip Grid.Row="0" DataContext="{Binding}" />
+        <views:TabStrip Grid.Row="0" />
 
         <!-- Row 1: Tab Content Area -->
         <Grid Grid.Row="1">
@@ -98,6 +98,42 @@
                 <popups:QuickNoteView
                     IsVisible="{Binding IsQuickNoteOpen}"
                     IsHitTestVisible="{Binding IsQuickNoteOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Git Branch Switcher - Center -->
+                <popups:GitBranchView
+                    x:Name="GitBranchPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Git Files/Changes - Center (uses DraggablePopup internally) -->
+                <popups:GitFilesView
+                    x:Name="GitFilesPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- Scratch Pad - Center -->
+                <views:ScratchPadView
+                    x:Name="ScratchPadPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- File Viewer Popup - Center (uses DraggablePopup internally) -->
+                <popups:FileViewerPopup
+                    x:Name="FileViewerPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- Detected Links - Center -->
+                <popups:DetectedLinksView
+                    x:Name="DetectedLinksPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Task Panel - Center -->
+                <popups:TaskPanelView
+                    x:Name="TaskPanelPopup"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
             </Panel>

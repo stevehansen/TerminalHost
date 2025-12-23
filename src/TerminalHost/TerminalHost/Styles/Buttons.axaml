@@ -74,4 +74,44 @@
         <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
     </Style>
 
+    <!-- Terminal Switch Button Style -->
+    <Style Selector="Button.TerminalSwitchButton">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.TerminalSwitchButton:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <Style Selector="Button.TerminalSwitchButton:pressed">
+        <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+    </Style>
+
+    <!-- Tab Close Button -->
+    <Style Selector="Button.TabCloseButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextDimmedBrush}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="Margin" Value="4,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="MinHeight" Value="20"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="Button.TabCloseButton:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+    </Style>
+
 </Styles>

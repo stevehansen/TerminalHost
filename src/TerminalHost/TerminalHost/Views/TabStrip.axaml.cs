@@ -249,4 +249,32 @@ public partial class TabStrip : UserControl
     }
 
     #endregion
+
+    #region Button Click Handlers
+
+    private void NewProject_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel mainViewModel)
+        {
+            mainViewModel.OpenNewProjectCommand.Execute(null);
+        }
+    }
+
+    private void Settings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel mainViewModel)
+        {
+            mainViewModel.OpenSettingsCommand.Execute(null);
+        }
+    }
+
+    private void Statistics_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel mainViewModel)
+        {
+            mainViewModel.OpenStatisticsCommand.Execute(null);
+        }
+    }
+
+    #endregion
 }

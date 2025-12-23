@@ -23,7 +23,7 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     public string DisplayTitle => Title;
 
     [ObservableProperty]
-    private ContentControl? _terminalContent;
+    private Control? _terminalContent;
 
     [ObservableProperty]
     private bool _isActive;
@@ -103,7 +103,7 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     /// </summary>
     public void SetTerminalControl(ITerminalControl control)
     {
-        TerminalContent = control.NativeControl as ContentControl;
+        TerminalContent = control.NativeControl as Control;
         Session.SetTerminalControl(control);
 
         // Subscribe to activity changes for UI updates

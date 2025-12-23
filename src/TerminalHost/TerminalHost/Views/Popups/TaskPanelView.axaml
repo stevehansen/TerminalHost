@@ -7,7 +7,9 @@
              xmlns:domain="clr-namespace:TerminalHost.Domain"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance vm:TaskPanelViewModel}"
-             d:DesignHeight="600" d:DesignWidth="550">
+             d:DesignHeight="600" d:DesignWidth="550"
+             IsVisible="{Binding IsOpen}"
+             IsHitTestVisible="{Binding IsOpen}">
     <Border Background="{StaticResource BackgroundDarkBrush}"
             BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"

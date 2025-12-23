@@ -7,7 +7,8 @@
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="40" d:DesignWidth="800"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="False">
     <UserControl.Resources>
         <!-- Shared Tab Header Template - used by all tab types via ITabViewModel interface -->
         <DataTemplate x:Key="TabHeaderTemplate" DataType="vm:ITabViewModel">
@@ -94,7 +95,7 @@
                     Content="+ New Project"
                     AutomationProperties.AutomationId="NewProjectButton"
                     Classes="TerminalSwitchButton"
-                    Command="{Binding OpenNewProjectCommand}"
+                    Click="NewProject_Click"
                     Margin="8,0,4,0"/>
 
             <!-- Settings Button -->
@@ -102,7 +103,7 @@
                     Content="Settings"
                     AutomationProperties.AutomationId="SettingsButton"
                     Classes="TerminalSwitchButton"
-                    Command="{Binding OpenSettingsCommand}"
+                    Click="Settings_Click"
                     ToolTip.Tip="Settings (Ctrl+,)"
                     Margin="0,0,4,0"/>
 
@@ -111,7 +112,7 @@
                     Content="Statistics"
                     AutomationProperties.AutomationId="StatisticsButton"
                     Classes="TerminalSwitchButton"
-                    Command="{Binding OpenStatisticsCommand}"
+                    Click="Statistics_Click"
                     ToolTip.Tip="View Usage Statistics"
                     Margin="0,0,4,0"/>
 
@@ -163,28 +164,31 @@
                      BorderThickness="0"
                      SizeChanged="TabList_SizeChanged">
                 <ListBox.Styles>
-                    <Style Selector="ListBox">
-                        <Setter Property="Template">
-                            <ControlTemplate TargetType="ListBox">
-                                <ScrollViewer x:Name="ScrollViewer"
-                                              Focusable="False"
-                                              HorizontalScrollBarVisibility="Hidden"
-                                              VerticalScrollBarVisibility="Disabled">
-                                    <ItemsPresenter/>
-                                </ScrollViewer>
-                            </ControlTemplate>
-                        </Setter>
-                    </Style>
+                    <!-- ListBoxItem styling -->
                     <Style Selector="ListBoxItem">
                         <Setter Property="Padding" Value="0"/>
-                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Margin" Value="0,0,2,0"/>
                         <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="IsVisible" Value="{Binding IsVisibleInFocusMode}"/>
-                        <Setter Property="Template">
-                            <ControlTemplate TargetType="ListBoxItem">
-                                <ContentPresenter/>
-                            </ControlTemplate>
-                        </Setter>
+                        <Setter Property="BorderThickness" Value="0"/>
+                    </Style>
+                    <!-- Remove default selection highlighting -->
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                    <!-- Style the tab Border based on selection state -->
+                    <Style Selector="ListBoxItem:selected Border#TabBorder">
+                        <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                        <Setter Property="BorderThickness" Value="0,2,0,0"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:not(:selected) Border#TabBorder">
+                        <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover:not(:selected) Border#TabBorder">
+                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                     </Style>
                 </ListBox.Styles>
                 <ListBox.ItemsPanel>

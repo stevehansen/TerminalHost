@@ -60,10 +60,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private ActiveTerminal _activeTerminal = ActiveTerminal.Custom;
 
     [ObservableProperty]
-    private ContentControl? _customTerminalContent;
+    private Control? _customTerminalContent;
 
     [ObservableProperty]
-    private ContentControl? _shellTerminalContent;
+    private Control? _shellTerminalContent;
 
     [ObservableProperty]
     private TerminalLayoutMode _layoutMode = TerminalLayoutMode.HorizontalSplit;
@@ -89,7 +89,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     // Run terminal properties
     [ObservableProperty]
-    private ContentControl? _runTerminalContent;
+    private Control? _runTerminalContent;
 
     [ObservableProperty]
     private bool _isRunTerminalVisible;
@@ -302,7 +302,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
-    public ContentControl? CurrentTerminalContent => ActiveTerminal == ActiveTerminal.Custom
+    public Control? CurrentTerminalContent => ActiveTerminal == ActiveTerminal.Custom
         ? CustomTerminalContent
         : ShellTerminalContent;
 
@@ -352,8 +352,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public void SetTerminalControls(ITerminalControl customControl, ITerminalControl shellControl)
     {
-        CustomTerminalContent = customControl.NativeControl as ContentControl;
-        ShellTerminalContent = shellControl.NativeControl as ContentControl;
+        CustomTerminalContent = customControl.NativeControl as Control;
+        ShellTerminalContent = shellControl.NativeControl as Control;
 
         Pair.CustomTerminal.SetTerminalControl(customControl);
         Pair.ShellTerminal.SetTerminalControl(shellControl);
@@ -390,7 +390,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public void SetCustomTerminalControl(ITerminalControl newControl)
     {
-        CustomTerminalContent = newControl.NativeControl as ContentControl;
+        CustomTerminalContent = newControl.NativeControl as Control;
         Pair.CustomTerminal.SetTerminalControl(newControl);
 
         // Subscribe to activity changes
@@ -880,7 +880,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public void SetRunTerminalControl(ITerminalControl runControl)
     {
-        RunTerminalContent = runControl.NativeControl as ContentControl;
+        RunTerminalContent = runControl.NativeControl as Control;
 
         if (Pair.RunTerminal != null)
         {

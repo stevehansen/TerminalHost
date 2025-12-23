@@ -34,16 +34,24 @@ public class MacPtyService : IPtyService
         _columns = columns;
         _rows = rows;
 
-        var shell = GetShellCommand(command);
+        var (executable, args) = GetCommandAndArgs(command);
         var helperPath = GetPtyHelperPath();
         var workDir = !string.IsNullOrEmpty(workingDirectory) && Directory.Exists(workingDirectory)
             ? workingDirectory
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
+        // Build the arguments for pty_helper.py
+        // Format: pty_helper.py <cols> <rows> <command> [args...]
+        var helperArgs = $"\"{helperPath}\" {columns} {rows} \"{executable}\"";
+        if (!string.IsNullOrEmpty(args))
+        {
+            helperArgs += $" {args}";
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "/usr/bin/python3",
-            Arguments = $"\"{helperPath}\" {columns} {rows} \"{shell}\" -i -l",
+            Arguments = helperArgs,
             UseShellExecute = false,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -106,31 +114,36 @@ public class MacPtyService : IPtyService
         throw new FileNotFoundException($"pty_helper.py not found. Searched in: {string.Join(", ", paths.Select(Path.GetFullPath))}");
     }
 
-    private static string GetShellCommand(string? command)
+    private static (string executable, string? args) GetCommandAndArgs(string? command)
     {
-        // If command is specified and exists, use it
+        // If command is specified, parse it
         if (!string.IsNullOrEmpty(command))
         {
-            // Extract the executable from the command
-            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Extract the executable and arguments from the command
+            var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
             var executable = parts[0];
+            var args = parts.Length > 1 ? parts[1] : null;
 
+            // Try to resolve the executable path
             if (File.Exists(executable))
-                return executable;
+                return (executable, args);
 
             // Try to find in PATH
-            var shellPath = FindInPath(executable);
-            if (shellPath != null)
-                return shellPath;
+            var resolvedPath = FindInPath(executable);
+            if (resolvedPath != null)
+                return (resolvedPath, args);
+
+            // If we can't find it, return as-is and let the system try
+            return (executable, args);
         }
 
-        // Default to user's shell
+        // Default to user's shell with interactive/login flags
         var shell = Environment.GetEnvironmentVariable("SHELL");
         if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
         {
-            return shell;
+            return (shell, "-i -l");
         }
-        return "/bin/zsh";
+        return ("/bin/zsh", "-i -l");
     }
 
     private static string? FindInPath(string command)

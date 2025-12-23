@@ -7,7 +7,9 @@
              xmlns:domain="clr-namespace:TerminalHost.Domain"
              xmlns:local="clr-namespace:TerminalHost"
              d:DataContext="{d:DesignInstance viewModels:DetectedLinksViewModel}"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}"
+             IsHitTestVisible="{Binding IsOpen}">
     <Border Background="{StaticResource BackgroundDarkBrush}"
             BorderBrush="{StaticResource AccentPrimaryBrush}"
             BorderThickness="1"
@@ -115,7 +117,7 @@
                             <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                         </Style>
                         <Style Selector="^:selected /template/ Border#Root">
-                            <Setter Property="Background" Value="{StaticResource AccentSecondaryBrush}"/>
+                            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
                             <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
                             <Setter Property="BorderThickness" Value="1"/>
                         </Style>

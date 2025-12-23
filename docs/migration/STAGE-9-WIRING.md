@@ -15,7 +15,7 @@ The Avalonia migration (Stages 1-8) has created all necessary Views, ViewModels,
 | App.axaml | ✅ Phase 3 complete - Implicit DataTemplates added |
 | TabContentTemplates.axaml | Has explicit keyed DataTemplates (fallback) |
 | Popup Views (6 hosted) | ✅ CommandPalette, Help, TabSwitcher, TabDropdown, QuickTask, QuickNote |
-| Popup Views (remaining) | GitBranch, GitFiles, ScratchPad, FileViewer - Phase 4 |
+| Popup Views (remaining) | ✅ GitBranch, GitFiles, ScratchPad, FileViewer, DetectedLinks, TaskPanel |
 | All ViewModels (23 files) | Registered in DI, ready to use |
 
 ## Expected Outcome
@@ -135,9 +135,17 @@ This enables implicit DataTemplate selection:
 
 ---
 
-### Phase 4: Popup Hosting
+### Phase 4: Popup Hosting ✅ COMPLETED
 
 **Complexity:** Medium-High | **Dependencies:** Phase 2
+
+**Implementation Notes:**
+- Added popup views to MainWindow.axaml: GitBranchView, GitFilesView, ScratchPadView, FileViewerPopup, DetectedLinksView, TaskPanelView
+- Injected popup ViewModels via constructor: GitBranchViewModel, GitFilesViewModel, ScratchPadViewModel, FileViewerViewModel, DetectedLinksViewModel, TaskPanelViewModel
+- Wired MainViewModel events: GitChangesRequested, FilePreviewRequested, FilePopOutRequested, SetupRequested
+- Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
+- Added keyboard shortcuts: Ctrl+B (Git Branch), Ctrl+G (Git Changes), Ctrl+Shift+N (Scratch Pad), Ctrl+T (Task Panel), Ctrl+O (File Preview), Ctrl+Shift+E (File Edit), Ctrl+Shift+F (File Explorer toggle)
+- Updated CloseAllPopups to close all popup ViewModels on Escape
 
 #### 4.1 MainWindow.axaml - Add popup views
 
@@ -173,9 +181,11 @@ Get popup ViewModels from DI:
 
 ---
 
-### Phase 5: Keyboard Shortcuts
+### Phase 5: Keyboard Shortcuts ✅ COMPLETED
 
 **Complexity:** Medium | **Dependencies:** Phase 1, Phase 4
+
+**Status:** Implemented in Phase 1 and Phase 4
 
 #### 5.1 MainWindow.axaml - KeyBindings
 
@@ -233,9 +243,11 @@ protected override void OnKeyDown(KeyEventArgs e)
 
 ---
 
-### Phase 6: Event Handlers & Window State
+### Phase 6: Event Handlers & Window State ✅ COMPLETED
 
 **Complexity:** Low | **Dependencies:** Phase 1
+
+**Status:** Window state persistence done in Phase 1, popup event handlers done in Phase 4
 
 #### 6.1 Event handlers in MainWindow.axaml.cs
 
@@ -339,16 +351,16 @@ Phase 1 (Foundation) ✅ DONE
 Phase 2 (Layout) ✅ ───► Phase 3 (Templates) ✅
     │
     ▼
-Phase 4 (Popups) ← NEXT
+Phase 4 (Popups) ✅ DONE
     │
     ▼
-Phase 5 (Shortcuts) - partially done in Phase 1
+Phase 5 (Shortcuts) ✅ - mostly done in Phase 1 & 4
     │
     ▼
-Phase 6 (Events) - window state done in Phase 1
+Phase 6 (Events) ✅ - window state done in Phase 1, popup events in Phase 4
     │
     ▼
-Phase 7 (macOS Menu)
+Phase 7 (macOS Menu) ← NEXT
 ```
 
 ---
@@ -377,15 +389,68 @@ Phase 7 (macOS Menu)
 - [x] Tab content displays correctly for each tab type (via DataTemplates)
 - [x] Popup overlay panel in place with visibility bindings
 
-### Remaining Phases
+### Phase 4 (Popup Hosting)
+- [x] Git branch switcher added (Ctrl+B)
+- [x] Git changes panel added (Ctrl+G)
+- [x] Scratch pad added (Ctrl+Shift+N)
+- [x] File viewer popup added (Ctrl+O for preview, Ctrl+Shift+E for edit)
+- [x] Detected links popup added
+- [x] Task panel added (Ctrl+T)
+- [x] File explorer toggle works (Ctrl+Shift+F)
+- [x] Escape closes all popups
+
+### Runtime Fixes (Phase 4)
+- [x] Added `TaskPanelViewModel` to DI registration in App.axaml.cs
+- [x] Fixed cursor type `SizeNorthwestSoutheast` → `BottomRightCorner` in DraggablePopup.axaml
+- [x] Replaced missing `EditModeShortcutsConverter` with static text in FileViewerPopup.axaml
+- [x] Replaced missing `AccentSecondaryBrush` with `AccentDarkBrush` in DetectedLinksView.axaml
+- [x] Changed `FileViewerViewModel` from `AddTransient` to `AddSingleton` for MainWindow injection
+
+### Runtime Fixes (Tab Display) ✅
+- [x] Fixed TabStrip DataContext inheritance in MainWindow.axaml:
+  - Removed explicit `DataContext="{Binding}"` from TabStrip - in Avalonia, child controls automatically inherit DataContext
+  - The explicit `{Binding}` syntax was breaking the DataContext inheritance chain
+- [x] Simplified ListBox in TabStrip.axaml:
+  - Removed custom ListBox template that was causing items to not render
+  - Removed custom ListBoxItem template - using default Avalonia template with minimal style overrides
+  - Kept only ItemsPanel (horizontal StackPanel) and basic ListBoxItem styling (padding, margin, background)
+
+### Runtime Fixes (Terminal Display) ✅
+- [x] Fixed terminal content type: `ContentControl?` → `Control?` in ViewModels
+  - `TerminalPairTabViewModel`: CustomTerminalContent, ShellTerminalContent, RunTerminalContent, CurrentTerminalContent
+  - `ProfileTerminalTabViewModel`: TerminalContent
+  - `TerminalTabViewModel`: TerminalContent
+  - Cast changed from `as ContentControl` to `as Control` in SetTerminalControls methods
+- [x] Fixed terminal rendering in `MacTerminalControl.cs`:
+  - `OnAttachedToVisualTree`: Added deferred InvalidateVisual and Focus using DispatcherPriority.Loaded
+  - `ArrangeOverride`: Now passes `finalSize` to UpdateTerminalSize (was using stale `Bounds`)
+  - `UpdateTerminalSize`: Takes Size parameter, validates non-zero, calls InvalidateVisual after resize
+  - `InitializeAsync`: Added deferred InvalidateVisual for controls not yet in visual tree
+- [x] Fixed Claude CLI launch error (`unknown option '-i'`) in `MacPtyService.cs`:
+  - Removed hardcoded `-i -l` shell flags from all commands
+  - New `GetCommandAndArgs()` method properly parses command and arguments
+  - Shell flags only added for default shell (when no command specified)
+- [x] Fixed TabStrip buttons disabled issue:
+  - Added missing `TerminalSwitchButton` and `TabCloseButton` styles to `Buttons.axaml`
+  - Changed buttons to use Click handlers instead of Command bindings (workaround for compiled binding issue with source-generated commands)
+  - Added `x:CompileBindings="False"` to TabStrip.axaml
+
+### Phase 7 (macOS Menu) - REMAINING
+- [ ] Update SetupMacOSMenu() with proper menu actions
+- [ ] Wire File menu items (New Project, Close Tab)
+- [ ] Wire View menu items (Settings, Command Palette, Statistics)
+- [ ] Wire Help menu items (Keyboard Shortcuts)
+
+### Functional Testing - IN PROGRESS
+- [x] Settings button works (opens Settings tab)
+- [x] Statistics button works (opens Statistics tab)
+- [x] New Project button works (opens folder picker)
+- [x] Shell terminal displays and works
+- [x] Claude pane displays (command configurable in Settings)
+- [x] Tab strip displays project tabs correctly
+- [x] Tab selection changes content view
 - [ ] Ctrl+N opens folder picker, creates terminal pair tab
 - [ ] Command palette opens (Ctrl+Shift+P), filters commands
 - [ ] Help popup shows (F1)
-- [ ] Git branch switcher works (Ctrl+B)
-- [ ] Git changes panel works (Ctrl+G)
-- [ ] Scratch pad works (Ctrl+Shift+N)
-- [ ] File explorer toggles (Ctrl+Shift+F)
 - [ ] Tab switching works (Ctrl+PageDown/Up, Ctrl+1-9)
-- [ ] Escape closes all popups
-- [ ] macOS menu items functional
 - [ ] Window position/size persists across restarts

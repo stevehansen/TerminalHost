@@ -17,7 +17,7 @@ public partial class TerminalTabViewModel : ObservableObject
     private SessionState _state = SessionState.Running;
 
     [ObservableProperty]
-    private ContentControl? _terminalContent;
+    private Control? _terminalContent;
 
     public TerminalSession Session { get; }
 

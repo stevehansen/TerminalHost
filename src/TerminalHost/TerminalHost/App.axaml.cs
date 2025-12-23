@@ -88,12 +88,13 @@ public partial class App : Application
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<MainViewModel>();
-        services.AddTransient<FileViewerViewModel>();
+        services.AddSingleton<FileViewerViewModel>();
         services.AddTransient<FilePreviewViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<GitBranchViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
+        services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
 
         // Windows
