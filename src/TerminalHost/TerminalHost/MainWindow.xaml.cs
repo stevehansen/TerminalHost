@@ -37,9 +37,7 @@ public partial class MainWindow : Window
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
     private bool _isExiting;
-    private Views.PanelWindow? _markdownPreviewWindow;
-    private Views.PanelWindow? _gitFilesWindow;
-    private Views.PanelWindow? _scratchPadWindow;
+    private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
     public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
@@ -73,10 +71,10 @@ public partial class MainWindow : Window
 
         // Git Files and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
 
-        // Subscribe to panel show events
-        _markdownPreviewViewModel.ShowRequested += OnMarkdownPreviewShowRequested;
-        _gitFilesViewModel.ShowRequested += OnGitFilesShowRequested;
-        _scratchPadViewModel.ShowRequested += OnScratchPadShowRequested;
+        // Subscribe to panel show events (single handler for all panels)
+        _markdownPreviewViewModel.ShowRequested += OnPanelShowRequested;
+        _gitFilesViewModel.ShowRequested += OnPanelShowRequested;
+        _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
 
         RestoreWindowState();
 
@@ -340,6 +338,9 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _viewModel.Initialize();
+
+        // Initialize panel window manager
+        _panelWindowManager = new Services.PanelWindowManager(this);
 
         // Create and show toast window (must be after main window is shown for Owner to work)
         _toastWindow = new Views.ToastWindow();
@@ -860,6 +861,71 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Generic Panel Handlers
+
+    /// <summary>
+    /// Generic handler for all panel ShowRequested events.
+    /// Routes to appropriate display mode based on panel's DisplayState.
+    /// </summary>
+    private void OnPanelShowRequested(object? sender, EventArgs e)
+    {
+        if (sender is not IPanelableViewModel panel) return;
+
+        switch (panel.DisplayState)
+        {
+            case PanelDisplayState.Panel:
+                // Show in docked panel
+                ShowPanelInTab(panel);
+                break;
+
+            case PanelDisplayState.Popup:
+                // Show as floating popup
+                ShowPanelAsPopup(panel);
+                break;
+
+            case PanelDisplayState.Window:
+                // Show in window
+                _panelWindowManager?.ShowWindow(panel, OnPanelWindowDockRequested);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Shows a panel in the current tab's docked panel area.
+    /// </summary>
+    private void ShowPanelInTab(IPanelableViewModel panel)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+        {
+            currentTab.SetPanel(panel);
+            currentTab.ShowPanel(panel);
+        }
+    }
+
+    /// <summary>
+    /// Shows a panel as a floating popup.
+    /// </summary>
+    private void ShowPanelAsPopup(IPanelableViewModel panel)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+        {
+            currentTab.SetPanel(panel);
+            currentTab.ShowPanelAsPopup(panel);
+        }
+    }
+
+    /// <summary>
+    /// Generic handler for panel dock requests from windows.
+    /// </summary>
+    private void OnPanelWindowDockRequested(IPanelableViewModel panel)
+    {
+        _panelWindowManager?.CloseWindow(panel.PanelId);
+        panel.DisplayState = PanelDisplayState.Panel;
+        ShowPanelInTab(panel);
+    }
+
+    #endregion
+
     #region Git Files Panel
 
     private async void OnGitChangesRequested(object? sender, EventArgs e)
@@ -871,115 +937,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Ensure the tab has the git files panel reference
-        if (currentTab.GitFilesPanel == null)
-        {
-            currentTab.SetGitFilesPanel(_gitFilesViewModel);
-        }
+        // Ensure the tab has the panel reference
+        currentTab.SetPanel(_gitFilesViewModel);
 
         // If already open, use toggle behavior
         if (_gitFilesViewModel.IsOpen)
         {
             // If in window state, close the window
-            if (_gitFilesViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            if (_gitFilesViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _gitFilesWindow?.Close();
+                _panelWindowManager?.CloseWindow(_gitFilesViewModel.PanelId);
                 _gitFilesViewModel.IsOpen = false;
                 return;
             }
 
             // If in popup state, close the popup
-            if (_gitFilesViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Popup)
+            if (_gitFilesViewModel.DisplayState == PanelDisplayState.Popup)
             {
                 _gitFilesViewModel.IsOpen = false;
                 return;
             }
 
             // Otherwise, toggle the docked panel (handles focus/visibility)
-            currentTab.ToggleGitFilesPanel();
+            currentTab.TogglePanel(_gitFilesViewModel);
             return;
         }
 
         // Not open yet - use default DisplayState (Popup)
         await _gitFilesViewModel.OpenAsync(currentTab);
-    }
-
-    private void OnGitFilesShowRequested(object? sender, EventArgs e)
-    {
-        // This is called by GitFilesViewModel when it wants to be shown
-        // Respect the DisplayState to determine how to show it
-        switch (_gitFilesViewModel.DisplayState)
-        {
-            case Core.Interfaces.PanelDisplayState.Panel:
-                // Show in docked panel
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-                {
-                    if (currentTab.GitFilesPanel == null)
-                    {
-                        currentTab.SetGitFilesPanel(_gitFilesViewModel);
-                    }
-                    currentTab.ShowGitFilesPanel();
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Popup:
-                // Show as floating popup
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
-                {
-                    if (popupTab.GitFilesPanel == null)
-                    {
-                        popupTab.SetGitFilesPanel(_gitFilesViewModel);
-                    }
-                    popupTab.ShowPanelAsPopup(_gitFilesViewModel);
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Window:
-            default:
-                // Create or show the git files window
-                if (_gitFilesWindow == null || !_gitFilesWindow.IsLoaded)
-                {
-                    _gitFilesWindow = new Views.PanelWindow
-                    {
-                        DataContext = _gitFilesViewModel,
-                        Owner = this,
-                        Width = _gitFilesViewModel.Width,
-                        Height = _gitFilesViewModel.Height
-                    };
-                    _gitFilesWindow.DockRequested += OnGitFilesWindowDockRequested;
-                    _gitFilesWindow.Closed += (s, args) =>
-                    {
-                        _gitFilesWindow = null;
-                        // Reset display state for next toggle
-                        _gitFilesViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-                    };
-                    _gitFilesWindow.Show();
-                }
-                else
-                {
-                    // Bring to front
-                    _gitFilesWindow.Activate();
-                }
-                break;
-        }
-    }
-
-    private void OnGitFilesWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
-    {
-        // Close the window
-        _gitFilesWindow?.Close();
-        _gitFilesWindow = null;
-
-        // Dock back to panel
-        _gitFilesViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-        {
-            if (currentTab.GitFilesPanel == null)
-            {
-                currentTab.SetGitFilesPanel(_gitFilesViewModel);
-            }
-            currentTab.ShowGitFilesPanel();
-        }
     }
 
     #endregion
@@ -990,109 +975,31 @@ public partial class MainWindow : Window
     {
         var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
 
-        // Ensure the tab has the scratch pad panel reference
-        if (currentTab != null && currentTab.ScratchPadPanel == null)
+        // Ensure the tab has the panel reference
+        if (currentTab != null)
         {
-            currentTab.SetScratchPadPanel(_scratchPadViewModel);
+            currentTab.SetPanel(_scratchPadViewModel);
         }
 
         // If already open, use toggle behavior
         if (_scratchPadViewModel.IsOpen)
         {
             // If in window state, close the window
-            if (_scratchPadViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            if (_scratchPadViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _scratchPadWindow?.Close();
+                _panelWindowManager?.CloseWindow(_scratchPadViewModel.PanelId);
                 _scratchPadViewModel.IsOpen = false;
                 return;
             }
 
             // Otherwise, toggle the panel (handles focus/visibility)
-            currentTab?.ToggleScratchPadPanel();
+            currentTab?.TogglePanel(_scratchPadViewModel);
             return;
         }
 
         // Not open yet - set display state to Panel for docked display
-        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+        _scratchPadViewModel.DisplayState = PanelDisplayState.Panel;
         _scratchPadViewModel.Open();
-    }
-
-    private void OnScratchPadShowRequested(object? sender, EventArgs e)
-    {
-        // This is called by ScratchPadViewModel when it wants to be shown
-        // Respect the DisplayState to determine how to show it
-        switch (_scratchPadViewModel.DisplayState)
-        {
-            case Core.Interfaces.PanelDisplayState.Panel:
-                // Show in docked panel
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-                {
-                    if (currentTab.ScratchPadPanel == null)
-                    {
-                        currentTab.SetScratchPadPanel(_scratchPadViewModel);
-                    }
-                    currentTab.ShowScratchPadPanel();
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Popup:
-                // For popup mode, show as panel (like Markdown Preview)
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
-                {
-                    if (popupTab.ScratchPadPanel == null)
-                    {
-                        popupTab.SetScratchPadPanel(_scratchPadViewModel);
-                    }
-                    popupTab.ShowScratchPadPanel();
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Window:
-            default:
-                // Create or show the scratch pad window
-                if (_scratchPadWindow == null || !_scratchPadWindow.IsLoaded)
-                {
-                    _scratchPadWindow = new Views.PanelWindow
-                    {
-                        DataContext = _scratchPadViewModel,
-                        Owner = this,
-                        Width = _scratchPadViewModel.Width,
-                        Height = _scratchPadViewModel.Height
-                    };
-                    _scratchPadWindow.DockRequested += OnScratchPadWindowDockRequested;
-                    _scratchPadWindow.Closed += (s, args) =>
-                    {
-                        _scratchPadWindow = null;
-                        // Reset display state for next toggle
-                        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-                    };
-                    _scratchPadWindow.Show();
-                }
-                else
-                {
-                    // Bring to front
-                    _scratchPadWindow.Activate();
-                }
-                break;
-        }
-    }
-
-    private void OnScratchPadWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
-    {
-        // Close the window
-        _scratchPadWindow?.Close();
-        _scratchPadWindow = null;
-
-        // Dock back to panel
-        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-        {
-            if (currentTab.ScratchPadPanel == null)
-            {
-                currentTab.SetScratchPadPanel(_scratchPadViewModel);
-            }
-            currentTab.ShowScratchPadPanel();
-        }
     }
 
     #endregion
@@ -1129,83 +1036,28 @@ public partial class MainWindow : Window
         await OpenMarkdownPreviewAsync();
     }
 
-    private void OnMarkdownPreviewShowRequested(object? sender, EventArgs e)
-    {
-        // This is called by MarkdownPreviewViewModel when it wants to be shown
-        // Respect the DisplayState to determine how to show it
-        switch (_markdownPreviewViewModel.DisplayState)
-        {
-            case Core.Interfaces.PanelDisplayState.Panel:
-                // Show in panel - the tab should handle this
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-                {
-                    currentTab.ShowMarkdownPreviewPanel();
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Popup:
-                // For popup mode, we'd use PanelPopup - but for now default to panel
-                if (_viewModel.SelectedTab is TerminalPairTabViewModel panelTab)
-                {
-                    panelTab.ShowMarkdownPreviewPanel();
-                }
-                break;
-
-            case Core.Interfaces.PanelDisplayState.Window:
-            default:
-                // Create or show the markdown preview window using generic PanelWindow
-                if (_markdownPreviewWindow == null || !_markdownPreviewWindow.IsLoaded)
-                {
-                    _markdownPreviewWindow = new Views.PanelWindow
-                    {
-                        DataContext = _markdownPreviewViewModel,
-                        Owner = this,
-                        Width = _markdownPreviewViewModel.Width,
-                        Height = _markdownPreviewViewModel.Height
-                    };
-                    _markdownPreviewWindow.DockRequested += OnMarkdownPreviewWindowDockRequested;
-                    _markdownPreviewWindow.Closed += (s, args) =>
-                    {
-                        _markdownPreviewWindow = null;
-                        // Reset display state for next toggle
-                        _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-                    };
-                    _markdownPreviewWindow.Show();
-                }
-                else
-                {
-                    // Bring to front
-                    _markdownPreviewWindow.Activate();
-                }
-                break;
-        }
-    }
-
     private async Task OpenMarkdownPreviewAsync()
     {
         // Get current tab
         var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
         if (currentTab == null) return;
 
-        // Ensure the tab has the markdown preview panel reference
-        if (currentTab.MarkdownPreviewPanel == null)
-        {
-            currentTab.SetMarkdownPreviewPanel(_markdownPreviewViewModel);
-        }
+        // Ensure the tab has the panel reference
+        currentTab.SetPanel(_markdownPreviewViewModel);
 
         // If preview is already open, use toggle behavior
         if (_markdownPreviewViewModel.IsOpen)
         {
             // If in window state, close the window
-            if (_markdownPreviewViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            if (_markdownPreviewViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _markdownPreviewWindow?.Close();
+                _panelWindowManager?.CloseWindow(_markdownPreviewViewModel.PanelId);
                 _markdownPreviewViewModel.OnWindowClosed();
                 return;
             }
 
             // Otherwise, toggle the panel (handles focus/visibility)
-            currentTab.ToggleMarkdownPreviewPanel();
+            currentTab.TogglePanel(_markdownPreviewViewModel);
             return;
         }
 
@@ -1230,9 +1082,9 @@ public partial class MainWindow : Window
         if (filePath != null)
         {
             // Set display state to Panel for docked display
-            _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+            _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(filePath);
-            currentTab.ShowMarkdownPreviewPanel();
+            currentTab.ShowPanel(_markdownPreviewViewModel);
         }
         else
         {
@@ -1246,24 +1098,10 @@ public partial class MainWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 // Set display state to Panel for docked display
-                _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+                _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
                 await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
-                currentTab.ShowMarkdownPreviewPanel();
+                currentTab.ShowPanel(_markdownPreviewViewModel);
             }
-        }
-    }
-
-    private void OnMarkdownPreviewWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
-    {
-        // Close the window
-        _markdownPreviewWindow?.Close();
-        _markdownPreviewWindow = null;
-
-        // Dock back to panel
-        _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-        {
-            currentTab.ShowMarkdownPreviewPanel();
         }
     }
 

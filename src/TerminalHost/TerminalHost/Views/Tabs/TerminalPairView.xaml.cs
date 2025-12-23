@@ -213,7 +213,7 @@ public partial class TerminalPairView : UserControl
         {
             _currentViewModel.PanelStateChangeRequested -= OnPanelStateChangeRequested;
             _currentViewModel.ExplorerToggleRequested -= OnExplorerToggleRequested;
-            _currentViewModel.MarkdownPreviewToggleRequested -= OnMarkdownPreviewToggleRequested;
+            _currentViewModel.PanelToggleRequested -= OnPanelToggleRequested;
             _currentViewModel.PopupShowRequested -= OnPopupShowRequested;
         }
 
@@ -223,7 +223,7 @@ public partial class TerminalPairView : UserControl
             _currentViewModel = vm;
             vm.PanelStateChangeRequested += OnPanelStateChangeRequested;
             vm.ExplorerToggleRequested += OnExplorerToggleRequested;
-            vm.MarkdownPreviewToggleRequested += OnMarkdownPreviewToggleRequested;
+            vm.PanelToggleRequested += OnPanelToggleRequested;
             vm.PopupShowRequested += OnPopupShowRequested;
         }
         else
@@ -266,14 +266,15 @@ public partial class TerminalPairView : UserControl
         // Otherwise, let the default toggle behavior happen
     }
 
-    private void OnMarkdownPreviewToggleRequested(object? sender, PanelToggleEventArgs e)
+    private void OnPanelToggleRequested(object? sender, PanelToggleEventArgs e)
     {
         if (_currentViewModel == null || e.Panel == null) return;
 
         var panel = e.Panel;
 
-        // Check if markdown preview is in popup state
-        if (PanelPopupHost.DataContext is MarkdownPreviewViewModel popupPanel && popupPanel.IsOpen)
+        // Check if panel is in popup state
+        if (PanelPopupHost.DataContext is IPanelableViewModel popupPanel &&
+            popupPanel.PanelId == panel.PanelId && popupPanel.IsOpen)
         {
             // Popup is open - close it and dock back
             popupPanel.IsOpen = false;
@@ -285,14 +286,16 @@ public partial class TerminalPairView : UserControl
         }
 
         // Clean up stale popup reference
-        if (PanelPopupHost.DataContext is MarkdownPreviewViewModel stalePopup && !stalePopup.IsOpen)
+        if (PanelPopupHost.DataContext is IPanelableViewModel stalePopup &&
+            stalePopup.PanelId == panel.PanelId && !stalePopup.IsOpen)
         {
             stalePopup.DisplayState = PanelDisplayState.Panel;
             PanelPopupHost.DataContext = null;
         }
 
-        // Check if markdown preview is in window state
-        if (_panelWindow != null && _panelWindow.DataContext is MarkdownPreviewViewModel)
+        // Check if panel is in window state
+        if (_panelWindow != null && _panelWindow.DataContext is IPanelableViewModel windowPanel &&
+            windowPanel.PanelId == panel.PanelId)
         {
             // Focus the window
             _panelWindow.Activate();

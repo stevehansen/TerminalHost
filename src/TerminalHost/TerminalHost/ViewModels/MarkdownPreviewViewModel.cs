@@ -1,9 +1,8 @@
 using System.IO;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
-using TerminalHost.Services;
+using TerminalHost.Core.ViewModels;
 
 namespace TerminalHost.ViewModels;
 
@@ -11,7 +10,7 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for the Markdown Preview (Ctrl+M).
 /// Supports Panel, Popup, and Window display states.
 /// </summary>
-public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableViewModel
+public partial class MarkdownPreviewViewModel : BasePanelViewModel
 {
     private readonly IMarkdownService _markdownService;
     private readonly IFileSystem _fileSystem;
@@ -20,11 +19,12 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
 
     #region IPanelableViewModel Implementation
 
-    public string PanelId => "markdownPreview";
-    public string PanelTitle => string.IsNullOrEmpty(FilePath) ? "Markdown" : FileName;
-    public string PanelIcon => "MD";
+    public override string PanelId => "markdownPreview";
+    public override string PanelTitle => string.IsNullOrEmpty(FilePath) ? "Markdown" : FileName;
+    public override string PanelIcon => "MD";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
-    public IEnumerable<PanelHeaderCommand>? HeaderCommands => new[]
+    public override IEnumerable<PanelHeaderCommand>? HeaderCommands => new[]
     {
         new PanelHeaderCommand
         {
@@ -40,33 +40,11 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
         }
     };
 
-    public string? StatusText => StatusMessage;
-
-    [ObservableProperty]
-    private PanelDisplayState _displayState = PanelDisplayState.Window;
-
-    [ObservableProperty]
-    private PanelSide _preferredSide = PanelSide.Right;
-
-    [ObservableProperty]
-    private double _width = 800;
-
-    [ObservableProperty]
-    private double _height = 600;
-
-    public PanelSizePreset SizePreset => PanelSizePreset.Large;
-
-    public ICommand DockCommand { get; }
-    public ICommand UndockCommand { get; }
-    public ICommand DetachCommand { get; }
-    ICommand IPanelableViewModel.CloseCommand => CloseCommand;
-
-    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+    public override string? StatusText => StatusMessage;
 
     #endregion
 
-    [ObservableProperty]
-    private bool _isOpen;
+    #region Markdown Properties
 
     [ObservableProperty]
     private string _filePath = "";
@@ -88,68 +66,42 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
     /// </summary>
     public string FileName => string.IsNullOrEmpty(FilePath)
         ? "Markdown Preview"
-        : System.IO.Path.GetFileName(FilePath);
+        : Path.GetFileName(FilePath);
 
     /// <summary>
     /// Gets the window title.
     /// </summary>
     public string WindowTitle => string.IsNullOrEmpty(FilePath)
         ? "Markdown Preview"
-        : $"{System.IO.Path.GetFileName(FilePath)} - Markdown Preview";
+        : $"{Path.GetFileName(FilePath)} - Markdown Preview";
+
+    #endregion
+
+    #region Events
 
     /// <summary>
     /// Event raised when the window should close.
     /// </summary>
     public event EventHandler? CloseRequested;
 
-    /// <summary>
-    /// Event raised when the window needs to be shown.
-    /// </summary>
-    public event EventHandler? ShowRequested;
+    #endregion
 
-    public MarkdownPreviewViewModel(IMarkdownService markdownService, IFileSystem fileSystem, IDispatcherService dispatcherService)
+    public MarkdownPreviewViewModel(
+        IMarkdownService markdownService,
+        IFileSystem fileSystem,
+        IDispatcherService dispatcherService)
     {
         _markdownService = markdownService;
         _fileSystem = fileSystem;
         _dispatcherService = dispatcherService;
 
-        // Initialize panel commands
-        DockCommand = new RelayCommand<PanelSide?>(OnDock);
-        UndockCommand = new RelayCommand(OnUndock);
-        DetachCommand = new RelayCommand(OnDetach);
+        // Set defaults for markdown preview - defaults to Window
+        DisplayState = PanelDisplayState.Window;
+        Width = 800;
+        Height = 600;
     }
 
-    #region Panel Command Handlers
-
-    private void OnDock(PanelSide? side)
-    {
-        var dockSide = side ?? PreferredSide;
-        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
-    }
-
-    private void OnUndock()
-    {
-        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
-    }
-
-    private void OnDetach()
-    {
-        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
-    }
-
-    /// <summary>
-    /// Sets the display state directly (called by panel host when state changes are applied).
-    /// </summary>
-    public void SetDisplayState(PanelDisplayState state, PanelSide? side = null)
-    {
-        DisplayState = state;
-        if (side.HasValue)
-        {
-            PreferredSide = side.Value;
-        }
-    }
-
-    #endregion
+    #region Public Methods
 
     /// <summary>
     /// Opens the preview for a specific file.
@@ -166,7 +118,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
         SetupFileWatcher();
 
         // Request window to be shown
-        ShowRequested?.Invoke(this, EventArgs.Empty);
+        RequestShow();
     }
 
     /// <summary>
@@ -190,45 +142,9 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
         }
     }
 
-    private void SetupFileWatcher()
-    {
-        _fileWatcher?.Dispose();
+    #endregion
 
-        if (string.IsNullOrEmpty(FilePath) || !_fileSystem.FileExists(FilePath))
-            return;
-
-        var directory = System.IO.Path.GetDirectoryName(FilePath);
-        var filename = System.IO.Path.GetFileName(FilePath);
-
-        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(filename))
-            return;
-
-        try
-        {
-            _fileWatcher = new FileSystemWatcher(directory, filename)
-            {
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
-                EnableRaisingEvents = true
-            };
-
-            _fileWatcher.Changed += async (_, _) =>
-            {
-                if (AutoReload && IsOpen)
-                {
-                    // Add a small delay to avoid reading while file is still being written
-                    await Task.Delay(100);
-                    await _dispatcherService.InvokeAsync(async () =>
-                    {
-                        await RefreshAsync();
-                    });
-                }
-            };
-        }
-        catch
-        {
-            // Ignore file watcher setup errors
-        }
-    }
+    #region Commands
 
     [RelayCommand]
     private async Task RefreshAsync()
@@ -272,4 +188,50 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
         StatusMessage = AutoReload ? "Auto-reload enabled" : "Auto-reload disabled";
         OnPropertyChanged(nameof(HeaderCommands));
     }
+
+    #endregion
+
+    #region Private Methods
+
+    private void SetupFileWatcher()
+    {
+        _fileWatcher?.Dispose();
+
+        if (string.IsNullOrEmpty(FilePath) || !_fileSystem.FileExists(FilePath))
+            return;
+
+        var directory = Path.GetDirectoryName(FilePath);
+        var filename = Path.GetFileName(FilePath);
+
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(filename))
+            return;
+
+        try
+        {
+            _fileWatcher = new FileSystemWatcher(directory, filename)
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                EnableRaisingEvents = true
+            };
+
+            _fileWatcher.Changed += async (_, _) =>
+            {
+                if (AutoReload && IsOpen)
+                {
+                    // Add a small delay to avoid reading while file is still being written
+                    await Task.Delay(100);
+                    await _dispatcherService.InvokeAsync(async () =>
+                    {
+                        await RefreshAsync();
+                    });
+                }
+            };
+        }
+        catch
+        {
+            // Ignore file watcher setup errors
+        }
+    }
+
+    #endregion
 }

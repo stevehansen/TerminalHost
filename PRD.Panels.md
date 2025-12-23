@@ -489,57 +489,46 @@ Views/MyPanelContentView.xaml      - Content only, suitable for Panel/Popup/Wind
 Views/MyPanelContentView.xaml.cs   - Code-behind (usually empty)
 ```
 
-If the panel needs popup functionality, keep the existing popup view:
+### Step 2: Inherit from BasePanelViewModel
 
-```
-Views/Popups/MyPanelView.xaml      - Wraps DraggablePopup, binds IsOpen to ViewModel
-```
-
-### Step 2: Implement IPanelableViewModel
+All panel ViewModels should inherit from `BasePanelViewModel` which provides:
+- Common state properties (DisplayState, PreferredSide, Width, Height, IsOpen)
+- Commands (DockCommand, UndockCommand, DetachCommand, CloseCommand)
+- Events (StateChangeRequested, ShowRequested)
+- Standard command handler implementations
 
 ```csharp
-public partial class MyPanelViewModel : ObservableObject, IPanelableViewModel
+public partial class MyPanelViewModel : BasePanelViewModel
 {
-    // Required properties
-    public string PanelId => "myPanel";
-    public string PanelTitle => "My Panel";
-    public string PanelIcon => "📄";
+    // Required abstract implementations
+    public override string PanelId => "myPanel";
+    public override string PanelTitle => "My Panel";
+    public override string PanelIcon => "📄";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Medium;
 
-    [ObservableProperty]
-    private PanelDisplayState _displayState = PanelDisplayState.Panel; // Default state
-    // Use PanelDisplayState.Popup for panels that are opened/closed frequently (e.g., Git Changes)
-    // Use PanelDisplayState.Panel for panels that should persist (e.g., File Explorer, Scratch Pad)
+    // Optional overrides for custom toolbar buttons or status text
+    public override IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
+    public override string? StatusText => null;
 
-    [ObservableProperty]
-    private PanelSide _preferredSide = PanelSide.Right;
+    public MyPanelViewModel(/* dependencies */) : base()
+    {
+        // Set defaults different from base class if needed
+        DisplayState = PanelDisplayState.Panel;  // or Popup for transient panels
+        Width = 600;
+        Height = 500;
+    }
 
-    [ObservableProperty]
-    private bool _isOpen;
+    // Override close behavior if needed (e.g., save state)
+    protected override void OnClose()
+    {
+        // Custom cleanup...
+        base.OnClose();
+    }
 
-    [ObservableProperty]
-    private double _width = 600;
-
-    [ObservableProperty]
-    private double _height = 500;
-
-    public PanelSizePreset SizePreset => PanelSizePreset.Medium;
-
-    // Panel commands
-    public ICommand DockCommand { get; private set; }
-    public ICommand UndockCommand { get; private set; }
-    public ICommand DetachCommand { get; private set; }
-
-    // Event for state changes
-    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
-    public event EventHandler? ShowRequested;  // Notify MainWindow to show panel
-
-    // In Open() method, invoke ShowRequested but DON'T set IsOpen:
     public void Open()
     {
-        // ... setup ...
-        // NOTE: Do NOT set IsOpen = true here!
-        // Let the ShowRequested handler control IsOpen based on DisplayState
-        ShowRequested?.Invoke(this, EventArgs.Empty);
+        // Setup logic...
+        RequestShow();  // Inherited from BasePanelViewModel
     }
 }
 ```
@@ -554,37 +543,14 @@ In `Resources/PanelContentTemplates.xaml` and `Controls/PanelHost.xaml`:
 </DataTemplate>
 ```
 
-### Step 4: Add to TerminalPairTabViewModel
+### Step 4: Wire up in MainWindow
 
-```csharp
-// Property
-public MyPanelViewModel? MyPanel { get; private set; }
-
-// Event
-public event EventHandler<PanelToggleEventArgs>? MyPanelToggleRequested;
-
-// Methods
-public void SetMyPanel(MyPanelViewModel panel) => MyPanel = panel;
-public void ToggleMyPanel() { /* Similar to ToggleGitFilesPanel */ }
-public void ShowMyPanel() { /* Similar to ShowGitFilesPanel */ }
-public void HideMyPanel() { /* Similar to HideGitFilesPanel */ }
-```
-
-### Step 5: Wire up in MainWindow
-
-**IMPORTANT: Do NOT add popup views to MainWindow.xaml.** The panel system handles all display modes through:
-- **Panel mode**: Content shown via PanelHost using DataTemplates
-- **Popup mode**: Currently falls back to Panel mode (popup support can be added later)
-- **Window mode**: PanelWindow created dynamically
+The panel system uses generic methods - no panel-specific code is needed in TerminalPairTabViewModel.
 
 **In MainWindow.xaml.cs:**
 ```csharp
-// Field for window mode
-private Views.PanelWindow? _myPanelWindow;
-
-// In constructor:
-_myPanelViewModel.ShowRequested += OnMyPanelShowRequested;
-_viewModel.MyPanelRequested += OnMyPanelRequested;
+// In constructor - subscribe to generic ShowRequested:
+_myPanelViewModel.ShowRequested += OnPanelShowRequested;
 
 // Request handler (called from keyboard shortcut):
 private void OnMyPanelRequested(object? sender, EventArgs e)
@@ -592,18 +558,18 @@ private void OnMyPanelRequested(object? sender, EventArgs e)
     var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
     if (currentTab == null) return;
 
-    if (currentTab.MyPanel == null)
-        currentTab.SetMyPanel(_myPanelViewModel);
+    // Register panel with tab
+    currentTab.SetPanel(_myPanelViewModel);
 
     // If already open, toggle
     if (_myPanelViewModel.IsOpen)
     {
         if (_myPanelViewModel.DisplayState == PanelDisplayState.Window)
         {
-            _myPanelWindow?.Close();
+            _panelWindowManager?.CloseWindow(_myPanelViewModel.PanelId);
             return;
         }
-        currentTab.ToggleMyPanel();
+        currentTab.TogglePanel(_myPanelViewModel);
         return;
     }
 
@@ -612,92 +578,85 @@ private void OnMyPanelRequested(object? sender, EventArgs e)
     _myPanelViewModel.Open();
 }
 
-// Show handler (called from ViewModel.ShowRequested):
-private void OnMyPanelShowRequested(object? sender, EventArgs e)
+// Generic ShowRequested handler (shared by all panels):
+private void OnPanelShowRequested(object? sender, EventArgs e)
 {
-    switch (_myPanelViewModel.DisplayState)
+    if (sender is not IPanelableViewModel panel) return;
+
+    switch (panel.DisplayState)
     {
         case PanelDisplayState.Panel:
-            // Show in docked panel
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-            {
-                if (currentTab.MyPanel == null)
-                    currentTab.SetMyPanel(_myPanelViewModel);
-                currentTab.ShowMyPanel();
-            }
+            ShowPanelInTab(panel);
             break;
-
         case PanelDisplayState.Popup:
-            // Show as floating popup
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
-            {
-                if (popupTab.MyPanel == null)
-                    popupTab.SetMyPanel(_myPanelViewModel);
-                popupTab.ShowPanelAsPopup(_myPanelViewModel);
-            }
+            ShowPanelAsPopup(panel);
             break;
-
         case PanelDisplayState.Window:
-            // Create PanelWindow dynamically
-            if (_myPanelWindow == null || !_myPanelWindow.IsLoaded)
-            {
-                _myPanelWindow = new Views.PanelWindow
-                {
-                    DataContext = _myPanelViewModel,
-                    Owner = this,
-                    Width = _myPanelViewModel.Width,
-                    Height = _myPanelViewModel.Height
-                };
-                _myPanelWindow.DockRequested += OnMyPanelWindowDockRequested;
-                _myPanelWindow.Closed += (s, args) =>
-                {
-                    _myPanelWindow = null;
-                    _myPanelViewModel.DisplayState = PanelDisplayState.Panel;
-                };
-                _myPanelWindow.Show();
-            }
-            else
-            {
-                _myPanelWindow.Activate();
-            }
+            _panelWindowManager?.ShowWindow(panel, OnPanelWindowDockRequested);
             break;
+    }
+}
+
+private void ShowPanelInTab(IPanelableViewModel panel)
+{
+    if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+    {
+        currentTab.SetPanel(panel);
+        currentTab.ShowPanel(panel);
+    }
+}
+
+private void ShowPanelAsPopup(IPanelableViewModel panel)
+{
+    if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+    {
+        currentTab.SetPanel(panel);
+        currentTab.ShowPanelAsPopup(panel);
     }
 }
 ```
 
 ### Key Points
 
-1. **No popup views in MainWindow.xaml**: Unlike the old approach, panels don't have popup views in XAML. This prevents `IsOpen` binding conflicts.
+1. **Inherit from BasePanelViewModel**: All panel ViewModels inherit from `BasePanelViewModel` which provides common properties, commands, and handlers.
 
-2. **Content views are mode-agnostic**: The content view (e.g., `MyPanelContentView.xaml`) is used by:
-   - PanelHost (docked mode) via DataTemplates
-   - PanelPopup (popup mode) via DataTemplates
-   - PanelWindow (window mode) via DataTemplates
+2. **Generic panel methods in TerminalPairTabViewModel**: Use `SetPanel()`, `TogglePanel()`, `ShowPanel()`, `HidePanel()` - no panel-specific methods needed.
 
-3. **DisplayState controls which mode**: The ViewModel's default `DisplayState` determines the initial mode. Set `DisplayState` before calling the open method.
+3. **Single ShowRequested handler**: All panels use `OnPanelShowRequested` which routes to the appropriate display mode.
 
-4. **ShowRequested event**: The ViewModel fires this after setup. MainWindow handles it to show in the correct mode.
+4. **PanelWindowManager**: Manages all panel windows with a dictionary - no individual window fields needed.
 
-5. **ShowPanelAsPopup method**: For popup mode, call `currentTab.ShowPanelAsPopup(viewModel)` which triggers `ShowPanelPopup` in the view via the `PopupShowRequested` event.
+5. **Content views are mode-agnostic**: The content view is used by PanelHost, PanelPopup, and PanelWindow via DataTemplates.
 
-6. **IsOpen is optional**: Since there's no popup view binding to `IsOpen`, you can use it for internal state tracking or omit it entirely.
-
-7. **Default display states vary by panel type**: Use `PanelDisplayState.Popup` for transient panels (Git Changes) and `PanelDisplayState.Panel` for persistent panels (File Explorer, Scratch Pad).
+6. **Default display states vary by panel type**: Use `PanelDisplayState.Popup` for transient panels (Git Changes) and `PanelDisplayState.Panel` for persistent panels (File Explorer, Scratch Pad).
 
 ---
 
 ## References
 
+### Core Panel Infrastructure
 - Panel interface: `src/TerminalHost.Core/Interfaces/IPanelableViewModel.cs`
+- **Base panel ViewModel**: `src/TerminalHost.Core/ViewModels/BasePanelViewModel.cs`
 - Panel host control: `src/TerminalHost/TerminalHost/Controls/PanelHost.xaml`
 - Panel templates: `src/TerminalHost/TerminalHost/Resources/PanelContentTemplates.xaml`
+- **Panel window manager**: `src/TerminalHost/TerminalHost/Services/PanelWindowManager.cs`
 - Panel configuration: `src/TerminalHost.Core/Domain/AppConfiguration.cs` (`DirectorySettings`, `PanelStateConfig`)
-- Existing file viewer pop-out: `FileViewerWindow.xaml`
-- Existing popup system: `Views/Popups/`
-- File explorer service: `FileExplorerService.cs`
-- Single instance: `SingleInstanceService.cs`
+
+### Panel ViewModels (all inherit BasePanelViewModel)
+- File Explorer: `src/TerminalHost/TerminalHost/ViewModels/FileExplorerPanelViewModel.cs`
+- Git Changes: `src/TerminalHost/TerminalHost/ViewModels/GitFilesViewModel.cs`
+- Scratch Pad: `src/TerminalHost/TerminalHost/ViewModels/ScratchPadViewModel.cs`
+- Markdown Preview: `src/TerminalHost/TerminalHost/ViewModels/MarkdownPreviewViewModel.cs`
+
+### Panel Content Views
 - Git Changes content view: `src/TerminalHost/TerminalHost/Views/GitFilesContentView.xaml`
 - Scratch Pad content view: `src/TerminalHost/TerminalHost/Views/ScratchPadContentView.xaml`
+- File explorer view: `src/TerminalHost/TerminalHost/Views/FileExplorerView.xaml`
+- Markdown preview view: `src/TerminalHost/TerminalHost/Views/MarkdownPreviewView.xaml`
+
+### Other
+- Panel window: `Views/PanelWindow.xaml`
+- Existing popup system: `Views/Popups/`
 
 ---
 
@@ -751,7 +710,7 @@ See `docs/PANEL_BEHAVIOR.md` for detailed keyboard shortcut specifications.
 
 ---
 
-*Document Version: 1.8*
+*Document Version: 1.9*
 *Created: 2025-12-22*
 *Updated: 2025-12-23 - Phase 4.1 Panel System Refinements completed*
 *Updated: 2025-12-23 - Markdown Preview fully integrated into panel system*
@@ -759,3 +718,4 @@ See `docs/PANEL_BEHAVIOR.md` for detailed keyboard shortcut specifications.
 *Updated: 2025-12-23 - Git Changes and Scratch Pad fully integrated into panel system (Panel/Window states, Popup falls back to Panel)*
 *Updated: 2025-12-23 - Rewrote implementation guide: no popup views in XAML, matching Markdown Preview pattern*
 *Updated: 2025-12-23 - Git Changes defaults to Popup, Scratch Pad defaults to Panel; added ShowPanelAsPopup support*
+*Updated: 2025-12-23 - DRY refactoring: Added BasePanelViewModel, PanelWindowManager, generic panel methods in TerminalPairTabViewModel*

@@ -155,19 +155,32 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public FileExplorerPanelViewModel? ExplorerPanelViewModel { get; private set; }
 
     /// <summary>
+    /// Dictionary of registered panels by PanelId.
+    /// </summary>
+    private readonly Dictionary<string, IPanelableViewModel> _registeredPanels = new();
+
+    /// <summary>
+    /// Gets a registered panel by ID.
+    /// </summary>
+    public T? GetPanel<T>(string panelId) where T : class, IPanelableViewModel
+    {
+        return _registeredPanels.TryGetValue(panelId, out var panel) ? panel as T : null;
+    }
+
+    /// <summary>
     /// The markdown preview panel (shared across all tabs, managed by MainWindow).
     /// </summary>
-    public MarkdownPreviewViewModel? MarkdownPreviewPanel { get; private set; }
+    public MarkdownPreviewViewModel? MarkdownPreviewPanel => GetPanel<MarkdownPreviewViewModel>("markdownPreview");
 
     /// <summary>
     /// The git changes panel (shared across all tabs, managed by MainWindow).
     /// </summary>
-    public GitFilesViewModel? GitFilesPanel { get; private set; }
+    public GitFilesViewModel? GitFilesPanel => GetPanel<GitFilesViewModel>("gitChanges");
 
     /// <summary>
     /// The scratch pad panel (shared across all tabs, managed by MainWindow).
     /// </summary>
-    public ScratchPadViewModel? ScratchPadPanel { get; private set; }
+    public ScratchPadViewModel? ScratchPadPanel => GetPanel<ScratchPadViewModel>("scratchPad");
 
     [ObservableProperty]
     private RunState _runState = RunState.Stopped;
@@ -829,22 +842,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler<ExplorerToggleEventArgs>? ExplorerToggleRequested;
 
     /// <summary>
-    /// Event raised when the markdown preview toggle is requested.
+    /// Event raised when any panel toggle is requested.
     /// The View should handle this to manage popup/window focus.
     /// </summary>
-    public event EventHandler<PanelToggleEventArgs>? MarkdownPreviewToggleRequested;
-
-    /// <summary>
-    /// Event raised when the git changes toggle is requested.
-    /// The View should handle this to manage popup/window focus.
-    /// </summary>
-    public event EventHandler<PanelToggleEventArgs>? GitFilesToggleRequested;
-
-    /// <summary>
-    /// Event raised when the scratch pad toggle is requested.
-    /// The View should handle this to manage popup/window focus.
-    /// </summary>
-    public event EventHandler<PanelToggleEventArgs>? ScratchPadToggleRequested;
+    public event EventHandler<PanelToggleEventArgs>? PanelToggleRequested;
 
     /// <summary>
     /// Event raised when a panel should be shown as a popup.
@@ -1185,29 +1186,29 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
+    #region Generic Panel Methods
+
     /// <summary>
-    /// Sets the markdown preview panel reference.
-    /// Called from MainWindow when the markdown preview is initialized.
+    /// Registers a panel with this tab.
+    /// Called from MainWindow when panels are initialized.
     /// </summary>
-    public void SetMarkdownPreviewPanel(MarkdownPreviewViewModel markdownPreview)
+    public void SetPanel(IPanelableViewModel panel)
     {
-        MarkdownPreviewPanel = markdownPreview;
+        _registeredPanels[panel.PanelId] = panel;
     }
 
     /// <summary>
-    /// Toggles the markdown preview panel.
-    /// - If in popup/window → focus it
+    /// Toggles a panel.
+    /// - If in popup/window → focus it (handled by view via event)
     /// - If docked and active → hide panel area (toggle off)
     /// - If docked but not active → make it the active tab
     /// - If not docked → add and make active
     /// </summary>
-    public void ToggleMarkdownPreviewPanel()
+    public void TogglePanel(IPanelableViewModel panel)
     {
-        if (MarkdownPreviewPanel == null) return;
-
         // Check if it's in popup/window state first
-        var args = new PanelToggleEventArgs { Panel = MarkdownPreviewPanel };
-        MarkdownPreviewToggleRequested?.Invoke(this, args);
+        var args = new PanelToggleEventArgs { Panel = panel };
+        PanelToggleRequested?.Invoke(this, args);
 
         if (args.Handled)
         {
@@ -1215,14 +1216,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             return;
         }
 
-        // If panel area is visible and markdown is docked...
-        if (IsExplorerVisible && RightPanels.Contains(MarkdownPreviewPanel))
+        // If panel area is visible and panel is docked...
+        if (IsExplorerVisible && RightPanels.Contains(panel))
         {
-            if (ActiveRightPanel == MarkdownPreviewPanel)
+            if (ActiveRightPanel == panel)
             {
-                // Markdown is active - remove it and select next panel
-                RemovePanel(MarkdownPreviewPanel);
-                MarkdownPreviewPanel.IsOpen = false;
+                // Panel is active - remove it and select next panel
+                RemovePanel(panel);
+                panel.IsOpen = false;
                 if (RightPanels.Count == 0)
                 {
                     IsExplorerVisible = false;
@@ -1230,240 +1231,46 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             }
             else
             {
-                // Markdown is docked but not active - make it active
-                ActiveRightPanel = MarkdownPreviewPanel;
+                // Panel is docked but not active - make it active
+                ActiveRightPanel = panel;
             }
         }
         else
         {
-            // Panel area is hidden or markdown not docked - show it
-            ShowMarkdownPreviewPanel();
+            // Panel area is hidden or panel not docked - show it
+            ShowPanel(panel);
         }
     }
 
     /// <summary>
-    /// Shows the markdown preview in the right panel area (always shows, no toggle).
+    /// Shows a panel in the right panel area (always shows, no toggle).
     /// If already docked, makes it the active tab.
     /// </summary>
-    public void ShowMarkdownPreviewPanel()
+    public void ShowPanel(IPanelableViewModel panel)
     {
-        if (MarkdownPreviewPanel == null) return;
-
         // Add to panels if not already there
-        if (!RightPanels.Contains(MarkdownPreviewPanel))
+        if (!RightPanels.Contains(panel))
         {
-            AddPanel(MarkdownPreviewPanel, PanelSide.Right);
+            AddPanel(panel, PanelSide.Right);
         }
         else
         {
             // Already docked - make it active and ensure visible
-            ActiveRightPanel = MarkdownPreviewPanel;
+            ActiveRightPanel = panel;
             IsExplorerVisible = true;
         }
 
-        MarkdownPreviewPanel.DisplayState = PanelDisplayState.Panel;
+        panel.DisplayState = PanelDisplayState.Panel;
     }
 
     /// <summary>
-    /// Hides the markdown preview panel (removes from docked panels).
+    /// Hides a panel (removes from docked panels).
     /// </summary>
-    public void HideMarkdownPreviewPanel()
+    public void HidePanel(IPanelableViewModel panel)
     {
-        if (MarkdownPreviewPanel == null) return;
-
-        if (RightPanels.Contains(MarkdownPreviewPanel))
+        if (RightPanels.Contains(panel))
         {
-            RemovePanel(MarkdownPreviewPanel);
-        }
-    }
-
-    #region Git Files Panel Methods
-
-    /// <summary>
-    /// Sets the git files panel reference.
-    /// Called from MainWindow when the git files panel is initialized.
-    /// </summary>
-    public void SetGitFilesPanel(GitFilesViewModel gitFilesPanel)
-    {
-        GitFilesPanel = gitFilesPanel;
-    }
-
-    /// <summary>
-    /// Toggles the git files panel.
-    /// - If in popup/window → focus it
-    /// - If docked and active → hide panel area (toggle off)
-    /// - If docked but not active → make it the active tab
-    /// - If not docked → add and make active
-    /// </summary>
-    public void ToggleGitFilesPanel()
-    {
-        if (GitFilesPanel == null) return;
-
-        // Check if it's in popup/window state first
-        var args = new PanelToggleEventArgs { Panel = GitFilesPanel };
-        GitFilesToggleRequested?.Invoke(this, args);
-
-        if (args.Handled)
-        {
-            // View handled it (focused popup/window)
-            return;
-        }
-
-        // If panel area is visible and git files is docked...
-        if (IsExplorerVisible && RightPanels.Contains(GitFilesPanel))
-        {
-            if (ActiveRightPanel == GitFilesPanel)
-            {
-                // Git files is active - remove it and select next panel
-                RemovePanel(GitFilesPanel);
-                GitFilesPanel.IsOpen = false;
-                if (RightPanels.Count == 0)
-                {
-                    IsExplorerVisible = false;
-                }
-            }
-            else
-            {
-                // Git files is docked but not active - make it active
-                ActiveRightPanel = GitFilesPanel;
-            }
-        }
-        else
-        {
-            // Panel area is hidden or git files not docked - show it
-            ShowGitFilesPanel();
-        }
-    }
-
-    /// <summary>
-    /// Shows the git files panel in the right panel area (always shows, no toggle).
-    /// If already docked, makes it the active tab.
-    /// </summary>
-    public void ShowGitFilesPanel()
-    {
-        if (GitFilesPanel == null) return;
-
-        // Add to panels if not already there
-        if (!RightPanels.Contains(GitFilesPanel))
-        {
-            AddPanel(GitFilesPanel, PanelSide.Right);
-        }
-        else
-        {
-            // Already docked - make it active and ensure visible
-            ActiveRightPanel = GitFilesPanel;
-            IsExplorerVisible = true;
-        }
-
-        GitFilesPanel.DisplayState = PanelDisplayState.Panel;
-    }
-
-    /// <summary>
-    /// Hides the git files panel (removes from docked panels).
-    /// </summary>
-    public void HideGitFilesPanel()
-    {
-        if (GitFilesPanel == null) return;
-
-        if (RightPanels.Contains(GitFilesPanel))
-        {
-            RemovePanel(GitFilesPanel);
-        }
-    }
-
-    #endregion
-
-    #region Scratch Pad Panel Methods
-
-    /// <summary>
-    /// Sets the scratch pad panel reference.
-    /// Called from MainWindow when the scratch pad is initialized.
-    /// </summary>
-    public void SetScratchPadPanel(ScratchPadViewModel scratchPadPanel)
-    {
-        ScratchPadPanel = scratchPadPanel;
-    }
-
-    /// <summary>
-    /// Toggles the scratch pad panel.
-    /// - If in popup/window → focus it
-    /// - If docked and active → hide panel area (toggle off)
-    /// - If docked but not active → make it the active tab
-    /// - If not docked → add and make active
-    /// </summary>
-    public void ToggleScratchPadPanel()
-    {
-        if (ScratchPadPanel == null) return;
-
-        // Check if it's in popup/window state first
-        var args = new PanelToggleEventArgs { Panel = ScratchPadPanel };
-        ScratchPadToggleRequested?.Invoke(this, args);
-
-        if (args.Handled)
-        {
-            // View handled it (focused popup/window)
-            return;
-        }
-
-        // If panel area is visible and scratch pad is docked...
-        if (IsExplorerVisible && RightPanels.Contains(ScratchPadPanel))
-        {
-            if (ActiveRightPanel == ScratchPadPanel)
-            {
-                // Scratch pad is active - remove it and select next panel
-                RemovePanel(ScratchPadPanel);
-                ScratchPadPanel.IsOpen = false;
-                if (RightPanels.Count == 0)
-                {
-                    IsExplorerVisible = false;
-                }
-            }
-            else
-            {
-                // Scratch pad is docked but not active - make it active
-                ActiveRightPanel = ScratchPadPanel;
-            }
-        }
-        else
-        {
-            // Panel area is hidden or scratch pad not docked - show it
-            ShowScratchPadPanel();
-        }
-    }
-
-    /// <summary>
-    /// Shows the scratch pad panel in the right panel area (always shows, no toggle).
-    /// If already docked, makes it the active tab.
-    /// </summary>
-    public void ShowScratchPadPanel()
-    {
-        if (ScratchPadPanel == null) return;
-
-        // Add to panels if not already there
-        if (!RightPanels.Contains(ScratchPadPanel))
-        {
-            AddPanel(ScratchPadPanel, PanelSide.Right);
-        }
-        else
-        {
-            // Already docked - make it active and ensure visible
-            ActiveRightPanel = ScratchPadPanel;
-            IsExplorerVisible = true;
-        }
-
-        ScratchPadPanel.DisplayState = PanelDisplayState.Panel;
-    }
-
-    /// <summary>
-    /// Hides the scratch pad panel (removes from docked panels).
-    /// </summary>
-    public void HideScratchPadPanel()
-    {
-        if (ScratchPadPanel == null) return;
-
-        if (RightPanels.Contains(ScratchPadPanel))
-        {
-            RemovePanel(ScratchPadPanel);
+            RemovePanel(panel);
         }
     }
 
