@@ -66,6 +66,7 @@ public partial class App : Application
         services.AddSingleton<IGitStatusService, GitStatusService>();
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
+        services.AddSingleton<IGitPrService, GitPrService>();
 
         // File Services
         services.AddSingleton<IFileExplorerService, FileExplorerService>();

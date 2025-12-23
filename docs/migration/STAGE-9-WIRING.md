@@ -8,8 +8,9 @@ The Avalonia migration (Stages 1-8) has created all necessary Views, ViewModels,
 
 | Component | Status |
 |-----------|--------|
-| MainWindow.axaml | Placeholder UI only |
-| MainViewModel | Fully implemented (40+ properties, commands, events) - NOT connected |
+| MainWindow.axaml | Placeholder UI with command bindings |
+| MainWindow.axaml.cs | ✅ Phase 1 complete - MainViewModel connected |
+| MainViewModel | ✅ Connected via DI, DataContext set |
 | TabStrip.axaml | Complete, expects MainViewModel as DataContext |
 | TabContentTemplates.axaml | Has DataTemplates for all tab types |
 | Popup Views (14 files) | All exist in Views/Popups/ - NOT hosted |
@@ -29,20 +30,27 @@ After this stage:
 
 ## Implementation Phases
 
-### Phase 1: MainViewModel Integration (Foundation)
+### Phase 1: MainViewModel Integration (Foundation) ✅ COMPLETED
 
 **Complexity:** Low | **Dependencies:** None
 
 **File:** `src/TerminalHost/TerminalHost/MainWindow.axaml.cs`
 
-| Change | Description |
-|--------|-------------|
-| Add constructor parameter | `MainViewModel mainViewModel` from DI |
-| Set DataContext | `DataContext = _mainViewModel` after InitializeComponent |
-| Initialize lifecycle | Call `_mainViewModel.Initialize()` in `OnOpened` |
-| Shutdown lifecycle | Call `_mainViewModel.Shutdown()` in `OnClosing` |
-| Remove placeholders | Delete `_currentTerminal`, `_currentSession` fields |
-| Remove handlers | Delete `NewTerminalButton_Click`, `ClearButton_Click` |
+| Change | Description | Status |
+|--------|-------------|--------|
+| Add constructor parameter | `MainViewModel mainViewModel` from DI | ✅ Done |
+| Set DataContext | `DataContext = _mainViewModel` after InitializeComponent | ✅ Done |
+| Initialize lifecycle | Call `_mainViewModel.Initialize()` in `OnOpened` | ✅ Done |
+| Shutdown lifecycle | Call `_mainViewModel.Shutdown()` in `OnClosing` | ✅ Done |
+| Remove placeholders | Delete `_currentTerminal`, `_currentSession` fields | ✅ Done |
+| Remove handlers | Delete `NewTerminalButton_Click`, `ClearButton_Click` | ✅ Done |
+| Window state persistence | Save position/size in `OnClosing` | ✅ Done |
+| Basic keyboard shortcuts | F1, Escape, Ctrl+N, Ctrl+W, Ctrl+,, Ctrl+Shift+P, etc. | ✅ Done |
+
+**Additional fixes during Phase 1:**
+- Added missing `IGitPrService` registration in `App.axaml.cs`
+- Updated `MainWindow.axaml` buttons to use Command bindings instead of Click handlers
+- Added `CloseAllPopups()` helper method
 
 ---
 
@@ -322,19 +330,19 @@ Update `SetupMacOSMenu()` method:
 ## Implementation Order
 
 ```
-Phase 1 (Foundation)
+Phase 1 (Foundation) ✅ DONE
     │
     ▼
-Phase 2 (Layout) ───► Phase 3 (Templates)
+Phase 2 (Layout) ───► Phase 3 (Templates)  ← NEXT
     │
     ▼
 Phase 4 (Popups)
     │
     ▼
-Phase 5 (Shortcuts)
+Phase 5 (Shortcuts) - partially done in Phase 1
     │
     ▼
-Phase 6 (Events)
+Phase 6 (Events) - window state done in Phase 1
     │
     ▼
 Phase 7 (macOS Menu)
@@ -355,11 +363,16 @@ Phase 7 (macOS Menu)
 
 ## Verification Checklist
 
-- [ ] Application launches without errors
+### Phase 1 (Foundation)
+- [x] Application launches without errors
+- [x] MainViewModel connected as DataContext
+- [x] Window state persistence implemented (saves on close)
+- [x] Basic keyboard shortcuts wired (F1, Escape, Ctrl+N, Ctrl+W, etc.)
+
+### Remaining Phases
 - [ ] Tab strip visible with buttons (New Project, Settings, Statistics)
 - [ ] Ctrl+N opens folder picker, creates terminal pair tab
 - [ ] Tab content displays correctly for each tab type
-- [ ] Keyboard shortcuts work (test all in Phase 5 table)
 - [ ] Command palette opens (Ctrl+Shift+P), filters commands
 - [ ] Help popup shows (F1)
 - [ ] Git branch switcher works (Ctrl+B)

@@ -47,23 +47,21 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Toolbar placeholder -->
+            <!-- Toolbar placeholder - buttons connected via Command binding -->
             <Border Grid.Row="0"
                     Background="{StaticResource BackgroundMediumBrush}"
                     CornerRadius="4"
                     Padding="8,4"
                     Margin="0,0,0,4">
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="NewTerminalButton"
-                            Content="New Terminal"
-                            Click="NewTerminalButton_Click"
+                    <Button Content="Open Folder (Ctrl+N)"
+                            Command="{Binding OpenNewProjectCommand}"
                             Background="{StaticResource AccentPrimaryBrush}"
                             Foreground="{StaticResource TextBrightBrush}"
                             Padding="12,6"
                             CornerRadius="4"/>
-                    <Button x:Name="ClearButton"
-                            Content="Clear"
-                            Click="ClearButton_Click"
+                    <Button Content="Settings (Ctrl+,)"
+                            Command="{Binding OpenSettingsCommand}"
                             Background="{StaticResource BackgroundLightBrush}"
                             Foreground="{StaticResource TextPrimaryBrush}"
                             Padding="12,6"

@@ -2,30 +2,23 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Microsoft.Extensions.DependencyInjection;
-using TerminalHost.Controls;
-using TerminalHost.Domain;
 using TerminalHost.Services;
+using TerminalHost.ViewModels;
 
 namespace TerminalHost;
 
 public partial class MainWindow : Window
 {
-    private readonly ITerminalControlFactory _terminalFactory;
-    private readonly IClipboardService _clipboardService;
-    private readonly IStatisticsService _statisticsService;
-    private MacTerminalControl? _currentTerminal;
-    private TerminalSession? _currentSession;
+    private readonly MainViewModel _mainViewModel;
+    private readonly IConfigurationService _configService;
 
-    public MainWindow()
+    public MainWindow(MainViewModel mainViewModel, IConfigurationService configService)
     {
         InitializeComponent();
 
-        // Get services from DI
-        _terminalFactory = App.Current.Services.GetRequiredService<ITerminalControlFactory>();
-        _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
-        _statisticsService = App.Current.Services.GetRequiredService<IStatisticsService>();
+        _mainViewModel = mainViewModel;
+        _configService = configService;
+        DataContext = _mainViewModel;
 
         // Event handlers
         Opened += OnOpened;
@@ -109,75 +102,25 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        // Window opened - initialization can happen here
+        _mainViewModel.Initialize();
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        // Clean up terminal on close
-        _currentTerminal?.Dispose();
-    }
-
-    private async void NewTerminalButton_Click(object? sender, RoutedEventArgs e)
-    {
-        try
+        // Save window state
+        var config = _configService.Load();
+        config.WindowState = new Domain.WindowStateInfo
         {
-            // Clean up existing terminal if any
-            if (_currentTerminal != null)
-            {
-                var container = this.FindControl<Grid>("TerminalContainer");
-                container?.Children.Remove(_currentTerminal);
-                _currentTerminal.Dispose();
-                _currentTerminal = null;
+            Left = Position.X,
+            Top = Position.Y,
+            Width = (int)Width,
+            Height = (int)Height,
+            IsMaximized = WindowState == WindowState.Maximized
+        };
+        _configService.Save(config);
 
-                // Wait for cleanup to complete before creating new terminal
-                await Task.Delay(200);
-            }
-
-            // Hide welcome panel
-            var welcomePanel = this.FindControl<StackPanel>("WelcomePanel");
-            if (welcomePanel != null)
-            {
-                welcomePanel.IsVisible = false;
-            }
-
-            // Create the terminal control first
-            var macTerminal = new MacTerminalControl();
-            _currentTerminal = macTerminal;
-
-            // Add to container FIRST so it gets a size
-            var containerGrid = this.FindControl<Grid>("TerminalContainer");
-            if (containerGrid != null)
-            {
-                containerGrid.Children.Add(macTerminal);
-            }
-
-            // Wait for layout to complete so the terminal has its actual size
-            await Task.Delay(50);
-
-            // Get working directory
-            var workingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-            // Get default shell
-            var shell = Environment.GetEnvironmentVariable("SHELL") ?? "/bin/zsh";
-
-            // Now initialize the terminal (it has its actual size now)
-            await macTerminal.InitializeAsync(shell, workingDir);
-
-            // Focus the terminal
-            macTerminal.Focus();
-        }
-        catch (Exception ex)
-        {
-            var dialog = App.Current.Services.GetService<IDialogService>();
-            dialog?.ShowError($"Failed to create terminal: {ex.Message}", "Error");
-        }
-    }
-
-    private void ClearButton_Click(object? sender, RoutedEventArgs e)
-    {
-        // Send clear command to terminal (Ctrl+L equivalent)
-        _currentTerminal?.WriteToTerminal("\x0C"); // Form feed / clear
+        // Shutdown view model
+        _mainViewModel.Shutdown();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -192,37 +135,101 @@ public partial class MainWindow : Window
         // Handle F1 for help
         if (e.Key == Key.F1)
         {
-            // TODO: Show help when implemented
+            _mainViewModel.IsHelpOpen = !_mainViewModel.IsHelpOpen;
             e.Handled = true;
+            return;
         }
 
-        // Handle Escape
+        // Handle Escape - close popups
         if (e.Key == Key.Escape)
         {
-            // TODO: Close popups when implemented
+            CloseAllPopups();
             e.Handled = true;
+            return;
         }
 
-        // Handle Cmd/Ctrl+N for new terminal
+        // Handle Cmd/Ctrl+N for new project
         if (e.Key == Key.N && e.KeyModifiers == primaryModifier)
         {
-            NewTerminalButton_Click(this, new RoutedEventArgs());
+            if (_mainViewModel.OpenNewProjectCommand.CanExecute(null))
+                _mainViewModel.OpenNewProjectCommand.Execute(null);
             e.Handled = true;
+            return;
         }
 
-        // Handle Cmd/Ctrl+W for close
+        // Handle Cmd/Ctrl+W for close tab
         if (e.Key == Key.W && e.KeyModifiers == primaryModifier)
         {
-            Close();
+            if (_mainViewModel.SelectedTab != null && _mainViewModel.CloseTabCommand.CanExecute(_mainViewModel.SelectedTab))
+                _mainViewModel.CloseTabCommand.Execute(_mainViewModel.SelectedTab);
             e.Handled = true;
+            return;
         }
 
-        // Handle Cmd/Ctrl+L for clear
-        if (e.Key == Key.L && e.KeyModifiers == primaryModifier)
+        // Handle Cmd/Ctrl+, for settings
+        if (e.Key == Key.OemComma && e.KeyModifiers == primaryModifier)
         {
-            ClearButton_Click(this, new RoutedEventArgs());
+            if (_mainViewModel.OpenSettingsCommand.CanExecute(null))
+                _mainViewModel.OpenSettingsCommand.Execute(null);
             e.Handled = true;
+            return;
         }
+
+        // Handle Cmd/Ctrl+Shift+P for command palette
+        if (e.Key == Key.P && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _mainViewModel.IsCommandPaletteOpen = !_mainViewModel.IsCommandPaletteOpen;
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+T for tab switcher
+        if (e.Key == Key.T && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _mainViewModel.IsTabSwitcherOpen = !_mainViewModel.IsTabSwitcherOpen;
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+1-9 for tab jumping
+        if (e.KeyModifiers == primaryModifier && e.Key >= Key.D1 && e.Key <= Key.D9)
+        {
+            var index = e.Key - Key.D1;
+            if (index < _mainViewModel.Tabs.Count)
+            {
+                _mainViewModel.SelectedTab = _mainViewModel.Tabs[index];
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+PageDown for next tab
+        if (e.Key == Key.PageDown && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.CycleTabCommand.CanExecute(true))
+                _mainViewModel.CycleTabCommand.Execute(true);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+PageUp for previous tab
+        if (e.Key == Key.PageUp && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.CycleTabCommand.CanExecute(false))
+                _mainViewModel.CycleTabCommand.Execute(false);
+            e.Handled = true;
+            return;
+        }
+    }
+
+    private void CloseAllPopups()
+    {
+        _mainViewModel.IsHelpOpen = false;
+        _mainViewModel.IsCommandPaletteOpen = false;
+        _mainViewModel.IsTabSwitcherOpen = false;
+        _mainViewModel.IsTabDropdownOpen = false;
+        _mainViewModel.IsQuickTaskOpen = false;
+        _mainViewModel.IsQuickNoteOpen = false;
     }
 
     public void BringToFront()
