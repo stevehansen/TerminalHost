@@ -2,7 +2,7 @@ namespace TerminalHost.Domain;
 
 /// <summary>
 /// Abstraction for terminal control implementations.
-/// Allows different terminal backends (XtermSharp for macOS, EasyTerminalControl for Windows, etc.)
+/// Allows different terminal backends (VtNetCore for macOS, EasyTerminalControl for Windows, etc.)
 /// </summary>
 public interface ITerminalControl
 {
