@@ -4,6 +4,11 @@
                     xmlns:views="using:TerminalHost.Views"
                     xmlns:tabs="using:TerminalHost.Views.Tabs">
 
+    <!--
+        NOTE: These templates are kept with explicit keys for reference/fallback.
+        The actual implicit DataTemplates are defined in App.axaml's DataTemplates collection.
+    -->
+
     <!-- Terminal Tab Content -->
     <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}" x:Key="TerminalPairTabTemplate">
         <tabs:TerminalPairView />

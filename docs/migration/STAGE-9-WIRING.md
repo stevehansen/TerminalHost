@@ -8,12 +8,14 @@ The Avalonia migration (Stages 1-8) has created all necessary Views, ViewModels,
 
 | Component | Status |
 |-----------|--------|
-| MainWindow.axaml | Placeholder UI with command bindings |
+| MainWindow.axaml | ✅ Phase 2 complete - TabStrip, ContentControl, PopupHost |
 | MainWindow.axaml.cs | ✅ Phase 1 complete - MainViewModel connected |
 | MainViewModel | ✅ Connected via DI, DataContext set |
-| TabStrip.axaml | Complete, expects MainViewModel as DataContext |
-| TabContentTemplates.axaml | Has DataTemplates for all tab types |
-| Popup Views (14 files) | All exist in Views/Popups/ - NOT hosted |
+| TabStrip.axaml | ✅ Wired to MainViewModel |
+| App.axaml | ✅ Phase 3 complete - Implicit DataTemplates added |
+| TabContentTemplates.axaml | Has explicit keyed DataTemplates (fallback) |
+| Popup Views (6 hosted) | ✅ CommandPalette, Help, TabSwitcher, TabDropdown, QuickTask, QuickNote |
+| Popup Views (remaining) | GitBranch, GitFiles, ScratchPad, FileViewer - Phase 4 |
 | All ViewModels (23 files) | Registered in DI, ready to use |
 
 ## Expected Outcome
@@ -54,7 +56,7 @@ After this stage:
 
 ---
 
-### Phase 2: MainWindow Layout Structure
+### Phase 2: MainWindow Layout Structure ✅ COMPLETED
 
 **Complexity:** Medium | **Dependencies:** Phase 1
 
@@ -101,22 +103,23 @@ Replace placeholder content with proper structure:
 
 ---
 
-### Phase 3: Tab Content Templates
+### Phase 3: Tab Content Templates ✅ COMPLETED
 
 **Complexity:** Low | **Dependencies:** Phase 2
 
 **File:** `src/TerminalHost/TerminalHost/App.axaml`
 
-Add TabContentTemplates as application resource:
+Add implicit DataTemplates to `Application.DataTemplates` (not ResourceDictionary - Avalonia requires DataTemplates in this collection for implicit matching):
 ```xml
-<Application.Resources>
-    <ResourceDictionary>
-        <ResourceDictionary.MergedDictionaries>
-            <!-- existing resources -->
-            <ResourceInclude Source="avares://host/Resources/TabContentTemplates.axaml"/>
-        </ResourceDictionary.MergedDictionaries>
-    </ResourceDictionary>
-</Application.Resources>
+<Application.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}">
+        <tabs:TerminalPairView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+        <views:SettingsView/>
+    </DataTemplate>
+    <!-- etc. -->
+</Application.DataTemplates>
 ```
 
 This enables implicit DataTemplate selection:
@@ -333,10 +336,10 @@ Update `SetupMacOSMenu()` method:
 Phase 1 (Foundation) ✅ DONE
     │
     ▼
-Phase 2 (Layout) ───► Phase 3 (Templates)  ← NEXT
+Phase 2 (Layout) ✅ ───► Phase 3 (Templates) ✅
     │
     ▼
-Phase 4 (Popups)
+Phase 4 (Popups) ← NEXT
     │
     ▼
 Phase 5 (Shortcuts) - partially done in Phase 1
@@ -369,10 +372,13 @@ Phase 7 (macOS Menu)
 - [x] Window state persistence implemented (saves on close)
 - [x] Basic keyboard shortcuts wired (F1, Escape, Ctrl+N, Ctrl+W, etc.)
 
+### Phase 2 & 3 (Layout & Templates)
+- [x] Tab strip visible with buttons (New Project, Settings, Statistics)
+- [x] Tab content displays correctly for each tab type (via DataTemplates)
+- [x] Popup overlay panel in place with visibility bindings
+
 ### Remaining Phases
-- [ ] Tab strip visible with buttons (New Project, Settings, Statistics)
 - [ ] Ctrl+N opens folder picker, creates terminal pair tab
-- [ ] Tab content displays correctly for each tab type
 - [ ] Command palette opens (Ctrl+Shift+P), filters commands
 - [ ] Help popup shows (F1)
 - [ ] Git branch switcher works (Ctrl+B)

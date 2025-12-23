@@ -2,107 +2,105 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:controls="using:TerminalHost.Controls"
+        xmlns:vm="using:TerminalHost.ViewModels"
+        xmlns:views="using:TerminalHost.Views"
+        xmlns:popups="using:TerminalHost.Views.Popups"
         mc:Ignorable="d"
         x:Class="TerminalHost.MainWindow"
-        Title="TerminalHost"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
         Width="1200" Height="800"
         MinWidth="800" MinHeight="600"
         Background="{StaticResource BackgroundDarkestBrush}">
 
-    <Window.KeyBindings>
-        <!-- Tab Navigation - Placeholder commands for future Stage 6/7 -->
-        <!-- Ctrl+PageDown / Ctrl+PageUp: Cycle tabs -->
-        <!-- Ctrl+1-9: Jump to specific tab -->
-        <!-- Ctrl+W: Close current tab -->
-
-        <!-- Application shortcuts will be added when ViewModels are migrated -->
-    </Window.KeyBindings>
-
+    <!-- Main Layout -->
     <Grid RowDefinitions="Auto,*">
-        <!-- Tab Strip (placeholder until Stage 7) -->
-        <Border Grid.Row="0"
-                Background="{StaticResource BackgroundDarkBrush}"
-                Padding="8,4"
-                Height="40">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="TerminalHost"
-                           FontFamily="{StaticResource FontFamilyStandard}"
-                           FontSize="{StaticResource FontSizeNormal}"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           VerticalAlignment="Center"/>
-                <TextBlock Text=" - Stage 5 Core UI"
-                           FontFamily="{StaticResource FontFamilyStandard}"
-                           FontSize="{StaticResource FontSizeSmall}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           VerticalAlignment="Center"
-                           Margin="8,0,0,0"/>
-            </StackPanel>
-        </Border>
+        <!-- Row 0: Tab Strip -->
+        <views:TabStrip Grid.Row="0" DataContext="{Binding}" />
 
-        <!-- Content Area -->
-        <Grid Grid.Row="1" Margin="4">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <!-- Row 1: Tab Content Area -->
+        <Grid Grid.Row="1">
+            <!-- Tab Content - rendered via DataTemplates -->
+            <ContentControl Content="{Binding SelectedTab}">
+                <!-- Placeholder when no tab selected -->
+                <ContentControl.Styles>
+                    <Style Selector="ContentControl:empty">
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Background="{StaticResource TerminalBackgroundBrush}">
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="Welcome to TerminalHost"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeHeader}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Press Ctrl+N to open a project folder"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeNormal}"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,8,0,0"/>
+                                        <TextBlock Text="or click '+ New Project' in the tab bar"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,16,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </ContentControl.Styles>
+            </ContentControl>
 
-            <!-- Toolbar placeholder - buttons connected via Command binding -->
-            <Border Grid.Row="0"
-                    Background="{StaticResource BackgroundMediumBrush}"
-                    CornerRadius="4"
-                    Padding="8,4"
-                    Margin="0,0,0,4">
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="Open Folder (Ctrl+N)"
-                            Command="{Binding OpenNewProjectCommand}"
-                            Background="{StaticResource AccentPrimaryBrush}"
-                            Foreground="{StaticResource TextBrightBrush}"
-                            Padding="12,6"
-                            CornerRadius="4"/>
-                    <Button Content="Settings (Ctrl+,)"
-                            Command="{Binding OpenSettingsCommand}"
-                            Background="{StaticResource BackgroundLightBrush}"
-                            Foreground="{StaticResource TextPrimaryBrush}"
-                            Padding="12,6"
-                            Margin="8,0,0,0"
-                            CornerRadius="4"/>
-                </StackPanel>
-            </Border>
+            <!-- Popup Overlay Layer -->
+            <Panel x:Name="PopupHost" IsHitTestVisible="False">
+                <!-- Command Palette - Top Center -->
+                <popups:CommandPaletteView
+                    IsVisible="{Binding IsCommandPaletteOpen}"
+                    IsHitTestVisible="{Binding IsCommandPaletteOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Margin="0,80,0,0" />
 
-            <!-- Terminal Content Area -->
-            <Border Grid.Row="1"
-                    Background="{StaticResource TerminalBackgroundBrush}"
-                    CornerRadius="4"
-                    ClipToBounds="True">
-                <Grid x:Name="TerminalContainer">
-                    <!-- Terminal control will be added here programmatically -->
+                <!-- Help View - Center -->
+                <popups:HelpView
+                    IsVisible="{Binding IsHelpOpen}"
+                    IsHitTestVisible="{Binding IsHelpOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
 
-                    <!-- Placeholder when no terminal -->
-                    <StackPanel x:Name="WelcomePanel"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                IsVisible="True">
-                        <TextBlock Text="Welcome to TerminalHost"
-                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                   FontSize="{StaticResource FontSizeHeader}"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock Text="Stage 5: Core UI Migration Complete"
-                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                   FontSize="{StaticResource FontSizeNormal}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,8,0,0"/>
-                        <TextBlock Text="Click 'New Terminal' to create a terminal session"
-                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,16,0,0"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
+                <!-- Tab Switcher - Center -->
+                <popups:TabSwitcherView
+                    IsVisible="{Binding IsTabSwitcherOpen}"
+                    IsHitTestVisible="{Binding IsTabSwitcherOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Tab Dropdown - Top Left -->
+                <popups:TabDropdownView
+                    IsVisible="{Binding IsTabDropdownOpen}"
+                    IsHitTestVisible="{Binding IsTabDropdownOpen}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="4,0,0,0" />
+
+                <!-- Quick Task - Center -->
+                <popups:QuickTaskView
+                    IsVisible="{Binding IsQuickTaskOpen}"
+                    IsHitTestVisible="{Binding IsQuickTaskOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Quick Note - Center -->
+                <popups:QuickNoteView
+                    IsVisible="{Binding IsQuickNoteOpen}"
+                    IsHitTestVisible="{Binding IsQuickNoteOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+            </Panel>
         </Grid>
     </Grid>
 </Window>
