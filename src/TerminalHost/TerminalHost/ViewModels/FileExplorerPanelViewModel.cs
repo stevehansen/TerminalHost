@@ -53,6 +53,8 @@ public partial class FileExplorerPanelViewModel : ObservableObject, IPanelableVi
     [ObservableProperty]
     private bool _isOpen = true;
 
+    public PanelSizePreset SizePreset => PanelSizePreset.Compact;
+
     [ObservableProperty]
     private double _width = 350;
 

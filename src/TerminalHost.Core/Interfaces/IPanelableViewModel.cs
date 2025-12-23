@@ -55,6 +55,42 @@ public enum PanelSide
 }
 
 /// <summary>
+/// Defines size presets for popup/window mode.
+/// Responsive sizes scale with the main window dimensions.
+/// </summary>
+public enum PanelSizePreset
+{
+    /// <summary>
+    /// Compact size for narrow panels (file explorer, tree views).
+    /// Fixed: 350x500, max width 400.
+    /// </summary>
+    Compact,
+
+    /// <summary>
+    /// Medium size for general content.
+    /// Fixed: 600x500.
+    /// </summary>
+    Medium,
+
+    /// <summary>
+    /// Large size for content viewers (markdown, code preview).
+    /// Scales with window: ~60% width, ~70% height.
+    /// </summary>
+    Large,
+
+    /// <summary>
+    /// Full size for immersive content.
+    /// Scales with window: ~80% width, ~80% height.
+    /// </summary>
+    Full,
+
+    /// <summary>
+    /// Custom dimensions specified by Width/Height properties.
+    /// </summary>
+    Custom
+}
+
+/// <summary>
 /// Interface for ViewModels that support transitioning between Panel, Popup, and Window states.
 /// Implementing this interface allows content to be docked as a tab, shown as a floating popup,
 /// or detached to a separate window.
@@ -101,6 +137,12 @@ public interface IPanelableViewModel : INotifyPropertyChanged
     /// Height of the panel content (used for popup sizing).
     /// </summary>
     double Height { get; set; }
+
+    /// <summary>
+    /// Size preset for popup/window mode.
+    /// Determines how the panel is sized when shown as popup or window.
+    /// </summary>
+    PanelSizePreset SizePreset { get; }
 
     /// <summary>
     /// Command to dock the panel (from Popup or Window state to Panel state).

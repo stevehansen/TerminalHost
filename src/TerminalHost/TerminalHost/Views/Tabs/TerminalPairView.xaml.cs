@@ -71,17 +71,32 @@ public partial class TerminalPairView : UserControl
 
     private void HideDockPanel(IPanelableViewModel panel)
     {
-        if (panel.PanelId == "fileExplorer")
+        if (_currentViewModel == null) return;
+
+        // Remove panel from the docked collection
+        _currentViewModel.RemovePanel(panel);
+
+        // Only hide the panel area if no panels remain
+        if (_currentViewModel.RightPanels.Count == 0)
         {
-            _currentViewModel!.IsExplorerVisible = false;
+            _currentViewModel.IsExplorerVisible = false;
         }
     }
 
     private void ShowDockPanel(IPanelableViewModel panel)
     {
-        if (panel.PanelId == "fileExplorer")
+        if (_currentViewModel == null) return;
+
+        switch (panel.PanelId)
         {
-            _currentViewModel!.IsExplorerVisible = true;
+            case "fileExplorer":
+            case "markdownPreview":
+            case "gitChanges":
+            case "scratchPad":
+                // Show the right panel and make this panel active
+                _currentViewModel.IsExplorerVisible = true;
+                _currentViewModel.ActiveRightPanel = panel;
+                break;
         }
     }
 
@@ -190,6 +205,7 @@ public partial class TerminalPairView : UserControl
         {
             _currentViewModel.PanelStateChangeRequested -= OnPanelStateChangeRequested;
             _currentViewModel.ExplorerToggleRequested -= OnExplorerToggleRequested;
+            _currentViewModel.MarkdownPreviewToggleRequested -= OnMarkdownPreviewToggleRequested;
         }
 
         // Subscribe to new view model
@@ -198,6 +214,7 @@ public partial class TerminalPairView : UserControl
             _currentViewModel = vm;
             vm.PanelStateChangeRequested += OnPanelStateChangeRequested;
             vm.ExplorerToggleRequested += OnExplorerToggleRequested;
+            vm.MarkdownPreviewToggleRequested += OnMarkdownPreviewToggleRequested;
         }
         else
         {
@@ -237,6 +254,44 @@ public partial class TerminalPairView : UserControl
         }
 
         // Otherwise, let the default toggle behavior happen
+    }
+
+    private void OnMarkdownPreviewToggleRequested(object? sender, PanelToggleEventArgs e)
+    {
+        if (_currentViewModel == null || e.Panel == null) return;
+
+        var panel = e.Panel;
+
+        // Check if markdown preview is in popup state
+        if (PanelPopupHost.DataContext is MarkdownPreviewViewModel popupPanel && popupPanel.IsOpen)
+        {
+            // Popup is open - close it and dock back
+            popupPanel.IsOpen = false;
+            popupPanel.DisplayState = PanelDisplayState.Panel;
+            PanelPopupHost.DataContext = null;
+            ShowDockPanel(popupPanel);
+            e.Handled = true;
+            return;
+        }
+
+        // Clean up stale popup reference
+        if (PanelPopupHost.DataContext is MarkdownPreviewViewModel stalePopup && !stalePopup.IsOpen)
+        {
+            stalePopup.DisplayState = PanelDisplayState.Panel;
+            PanelPopupHost.DataContext = null;
+        }
+
+        // Check if markdown preview is in window state
+        if (_panelWindow != null && _panelWindow.DataContext is MarkdownPreviewViewModel)
+        {
+            // Focus the window
+            _panelWindow.Activate();
+            _panelWindow.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        // Not in popup or window state - default behavior will toggle the docked panel
     }
 
     private void OnPanelStateChangeRequested(object? sender, PanelStateChangeRequestedEventArgs e)

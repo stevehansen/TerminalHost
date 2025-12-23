@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Controls;
 
@@ -12,10 +13,28 @@ public partial class DraggablePopup : UserControl
     private bool _isDragging;
     private Point _dragStartPoint;
     private bool _hasBeenPositioned;
+    private object? _lastDataContext;
 
     public DraggablePopup()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        // Reset positioning when we get a new/different DataContext
+        // This ensures each panel gets centered properly
+        if (e.NewValue != _lastDataContext)
+        {
+            _hasBeenPositioned = false;
+            _lastDataContext = e.NewValue;
+
+            // Reset offsets to trigger re-centering
+            // (bindings may fail if new DataContext doesn't have these properties)
+            HorizontalOffset = 0;
+            VerticalOffset = 0;
+        }
     }
 
     #region Dependency Properties
@@ -77,6 +96,14 @@ public partial class DraggablePopup : UserControl
                 windowHeight = mainWindow.ActualHeight * dpiY;
             }
 
+            // Calculate responsive size based on SizePreset if available
+            var (targetWidth, targetHeight) = CalculateResponsiveSize(
+                mainWindow.ActualWidth, mainWindow.ActualHeight, dpiX, dpiY);
+
+            // Update popup size
+            PopupWidth = targetWidth;
+            PopupHeight = targetHeight;
+
             // Calculate popup size in screen pixels
             var popupWidth = PopupWidth * dpiX;
             var popupHeight = PopupHeight * dpiY;
@@ -104,6 +131,44 @@ public partial class DraggablePopup : UserControl
         }
 
         _hasBeenPositioned = true;
+    }
+
+    /// <summary>
+    /// Calculates responsive popup size based on the SizePreset from the DataContext.
+    /// </summary>
+    private (double width, double height) CalculateResponsiveSize(
+        double windowWidth, double windowHeight, double dpiX, double dpiY)
+    {
+        // Check if DataContext implements IPanelableViewModel
+        var sizePreset = (DataContext as IPanelableViewModel)?.SizePreset ?? PanelSizePreset.Custom;
+
+        switch (sizePreset)
+        {
+            case PanelSizePreset.Compact:
+                // Fixed compact size for narrow panels
+                return (Math.Clamp(350, 300, 400), Math.Clamp(500, 400, 800));
+
+            case PanelSizePreset.Medium:
+                // Fixed medium size
+                return (Math.Clamp(600, 500, 800), Math.Clamp(500, 400, 700));
+
+            case PanelSizePreset.Large:
+                // Responsive: ~60% width, ~70% height with constraints
+                var largeWidth = Math.Clamp(windowWidth * 0.6, 600, 1200);
+                var largeHeight = Math.Clamp(windowHeight * 0.7, 500, 900);
+                return (largeWidth, largeHeight);
+
+            case PanelSizePreset.Full:
+                // Responsive: ~80% width, ~80% height with constraints
+                var fullWidth = Math.Clamp(windowWidth * 0.8, 800, 1600);
+                var fullHeight = Math.Clamp(windowHeight * 0.8, 600, 1000);
+                return (fullWidth, fullHeight);
+
+            case PanelSizePreset.Custom:
+            default:
+                // Use the existing PopupWidth/PopupHeight values
+                return (PopupWidth, PopupHeight);
+        }
     }
 
     public static readonly DependencyProperty PopupWidthProperty =

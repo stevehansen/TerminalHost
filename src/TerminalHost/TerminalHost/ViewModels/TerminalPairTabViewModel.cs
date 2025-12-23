@@ -154,6 +154,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public FileExplorerPanelViewModel? ExplorerPanelViewModel { get; private set; }
 
+    /// <summary>
+    /// The markdown preview panel (shared across all tabs, managed by MainWindow).
+    /// </summary>
+    public MarkdownPreviewViewModel? MarkdownPreviewPanel { get; private set; }
+
     [ObservableProperty]
     private RunState _runState = RunState.Stopped;
 
@@ -813,16 +818,50 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public event EventHandler<ExplorerToggleEventArgs>? ExplorerToggleRequested;
 
+    /// <summary>
+    /// Event raised when the markdown preview toggle is requested.
+    /// The View should handle this to manage popup/window focus.
+    /// </summary>
+    public event EventHandler<PanelToggleEventArgs>? MarkdownPreviewToggleRequested;
+
     [RelayCommand]
     private void ToggleExplorer()
     {
+        if (ExplorerPanelViewModel == null) return;
+
+        // First check if it's in popup/window state
         var args = new ExplorerToggleEventArgs();
         ExplorerToggleRequested?.Invoke(this, args);
 
-        // If the View handled it (e.g., focused a popup/window), don't toggle
-        if (!args.Handled)
+        if (args.Handled)
         {
-            IsExplorerVisible = !IsExplorerVisible;
+            // View handled it (e.g., focused a popup/window)
+            return;
+        }
+
+        // If panel area is visible and file explorer is docked...
+        if (IsExplorerVisible && RightPanels.Contains(ExplorerPanelViewModel))
+        {
+            if (ActiveRightPanel == ExplorerPanelViewModel)
+            {
+                // Explorer is active - toggle visibility
+                IsExplorerVisible = false;
+            }
+            else
+            {
+                // Explorer is docked but not active - make it active
+                ActiveRightPanel = ExplorerPanelViewModel;
+            }
+        }
+        else
+        {
+            // Panel area is hidden or explorer not docked - show it
+            if (!RightPanels.Contains(ExplorerPanelViewModel))
+            {
+                RightPanels.Add(ExplorerPanelViewModel);
+            }
+            ActiveRightPanel = ExplorerPanelViewModel;
+            IsExplorerVisible = true;
         }
     }
 
@@ -1111,6 +1150,98 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     /// <summary>
+    /// Sets the markdown preview panel reference.
+    /// Called from MainWindow when the markdown preview is initialized.
+    /// </summary>
+    public void SetMarkdownPreviewPanel(MarkdownPreviewViewModel markdownPreview)
+    {
+        MarkdownPreviewPanel = markdownPreview;
+    }
+
+    /// <summary>
+    /// Toggles the markdown preview panel.
+    /// - If in popup/window → focus it
+    /// - If docked and active → hide panel area (toggle off)
+    /// - If docked but not active → make it the active tab
+    /// - If not docked → add and make active
+    /// </summary>
+    public void ToggleMarkdownPreviewPanel()
+    {
+        if (MarkdownPreviewPanel == null) return;
+
+        // Check if it's in popup/window state first
+        var args = new PanelToggleEventArgs { Panel = MarkdownPreviewPanel };
+        MarkdownPreviewToggleRequested?.Invoke(this, args);
+
+        if (args.Handled)
+        {
+            // View handled it (focused popup/window)
+            return;
+        }
+
+        // If panel area is visible and markdown is docked...
+        if (IsExplorerVisible && RightPanels.Contains(MarkdownPreviewPanel))
+        {
+            if (ActiveRightPanel == MarkdownPreviewPanel)
+            {
+                // Markdown is active - remove it and select next panel
+                RemovePanel(MarkdownPreviewPanel);
+                MarkdownPreviewPanel.IsOpen = false;
+                if (RightPanels.Count == 0)
+                {
+                    IsExplorerVisible = false;
+                }
+            }
+            else
+            {
+                // Markdown is docked but not active - make it active
+                ActiveRightPanel = MarkdownPreviewPanel;
+            }
+        }
+        else
+        {
+            // Panel area is hidden or markdown not docked - show it
+            ShowMarkdownPreviewPanel();
+        }
+    }
+
+    /// <summary>
+    /// Shows the markdown preview in the right panel area (always shows, no toggle).
+    /// If already docked, makes it the active tab.
+    /// </summary>
+    public void ShowMarkdownPreviewPanel()
+    {
+        if (MarkdownPreviewPanel == null) return;
+
+        // Add to panels if not already there
+        if (!RightPanels.Contains(MarkdownPreviewPanel))
+        {
+            AddPanel(MarkdownPreviewPanel, PanelSide.Right);
+        }
+        else
+        {
+            // Already docked - make it active and ensure visible
+            ActiveRightPanel = MarkdownPreviewPanel;
+            IsExplorerVisible = true;
+        }
+
+        MarkdownPreviewPanel.DisplayState = PanelDisplayState.Panel;
+    }
+
+    /// <summary>
+    /// Hides the markdown preview panel (removes from docked panels).
+    /// </summary>
+    public void HideMarkdownPreviewPanel()
+    {
+        if (MarkdownPreviewPanel == null) return;
+
+        if (RightPanels.Contains(MarkdownPreviewPanel))
+        {
+            RemovePanel(MarkdownPreviewPanel);
+        }
+    }
+
+    /// <summary>
     /// Event raised when a panel requests a state change.
     /// The view handles creating popups/windows as needed.
     /// </summary>
@@ -1143,6 +1274,23 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 /// </summary>
 public class ExplorerToggleEventArgs : EventArgs
 {
+    /// <summary>
+    /// Set to true if the event was handled (e.g., focused a popup/window).
+    /// If false, the default toggle behavior will occur.
+    /// </summary>
+    public bool Handled { get; set; }
+}
+
+/// <summary>
+/// Event arguments for generic panel toggle requests.
+/// </summary>
+public class PanelToggleEventArgs : EventArgs
+{
+    /// <summary>
+    /// The panel being toggled.
+    /// </summary>
+    public IPanelableViewModel? Panel { get; init; }
+
     /// <summary>
     /// Set to true if the event was handled (e.g., focused a popup/window).
     /// If false, the default toggle behavior will occur.

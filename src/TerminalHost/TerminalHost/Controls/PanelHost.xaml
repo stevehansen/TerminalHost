@@ -11,9 +11,12 @@
              d:Background="#1E1E1E">
 
     <UserControl.Resources>
-        <!-- Local DataTemplate for FileExplorerPanelViewModel to avoid lookup issues -->
-        <DataTemplate x:Key="FileExplorerPanelTemplate" DataType="{x:Type vm:FileExplorerPanelViewModel}">
+        <!-- Local DataTemplates for all panel types -->
+        <DataTemplate DataType="{x:Type vm:FileExplorerPanelViewModel}">
             <views:FileExplorerView DataContext="{Binding ExplorerViewModel}"/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MarkdownPreviewViewModel}">
+            <views:MarkdownPreviewView/>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -131,15 +134,9 @@
             </DockPanel>
         </Border>
 
-        <!-- Active Panel Content - use ContentControl with explicit template for FileExplorerPanel -->
+        <!-- Active Panel Content - uses implicit DataTemplates from Resources -->
         <ContentControl Grid.Row="1"
-                        Content="{Binding ActivePanel, RelativeSource={RelativeSource AncestorType=UserControl}}">
-            <ContentControl.Style>
-                <Style TargetType="ContentControl">
-                    <Setter Property="ContentTemplate" Value="{StaticResource FileExplorerPanelTemplate}"/>
-                </Style>
-            </ContentControl.Style>
-        </ContentControl>
+                        Content="{Binding ActivePanel, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
 
         <!-- Empty state when no panels -->
         <TextBlock Grid.Row="1"

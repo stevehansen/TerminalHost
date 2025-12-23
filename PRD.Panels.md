@@ -84,7 +84,7 @@ Each panel-capable view should have consistent controls:
 | Content | Panel | Popup | Window | Priority |
 |---------|-------|-------|--------|----------|
 | File Viewer | ✓ (existing) | ✓ (existing) | ✓ (existing) | Done |
-| Markdown Preview | New | New | ✓ (existing) | High |
+| Markdown Preview | ✓ | ✓ | ✓ | Done |
 | Git Changes | New | ✓ (existing) | New | Medium |
 | Scratch Pad | New | ✓ (existing) | New | Medium |
 | Task Panel | New | ✓ (existing) | New | Low |
@@ -355,7 +355,7 @@ bool IsFirstRun()
 2. ~~Add `PanelHost` control~~ - Created `PanelHost` tabbed container control with panel tabs and content area
 3. ~~Add panel state to configuration~~ - Added `PanelStateConfig` class and panel-related properties to `DirectorySettings`
 4. ~~Create FileExplorerPanelViewModel wrapper~~ - Wraps existing `FileExplorerViewModel` for panel system
-5. ~~Add Markdown Preview panel support~~ - `MarkdownPreviewViewModel` implements `IPanelableViewModel`, created `MarkdownPreviewView` UserControl
+5. ~~Add Markdown Preview panel support~~ - `MarkdownPreviewViewModel` implements `IPanelableViewModel`, created `MarkdownPreviewView` UserControl, full panel/popup/window state transitions
 6. ~~Add Git Changes panel support~~ - `GitFilesViewModel` implements `IPanelableViewModel`
 7. ~~Add Scratch Pad panel support~~ - `ScratchPadViewModel` implements `IPanelableViewModel`
 8. ~~Integrate PanelHost into TerminalPairView~~ - File Explorer now uses PanelHost for docking
@@ -478,6 +478,56 @@ public string? StatusText => _explorerViewModel.LastChangedFile != null
 
 ---
 
-*Document Version: 1.2*
+## 6. Popup/Window Sizing
+
+### PanelSizePreset Enum
+
+Each panel specifies a `SizePreset` that determines how it's sized when shown as popup or window:
+
+```csharp
+public enum PanelSizePreset
+{
+    Compact,  // 350x500, max 400 width - for narrow panels (file explorer)
+    Medium,   // 600x500 - general content (scratch pad)
+    Large,    // 60%x70% of window - content viewers (markdown, git changes)
+    Full,     // 80%x80% of window - immersive content
+    Custom    // Use Width/Height properties directly
+}
+```
+
+### Panel Default Sizes
+
+| Panel | SizePreset | Notes |
+|-------|------------|-------|
+| File Explorer | Compact | Fixed narrow width for tree views |
+| Markdown Preview | Large | Scales with window for readability |
+| Git Changes | Large | Needs room for diff view |
+| Scratch Pad | Medium | Moderate size for notes |
+
+### Responsive Sizing Constraints
+
+| Preset | Width | Height | Min W | Max W | Min H | Max H |
+|--------|-------|--------|-------|-------|-------|-------|
+| Compact | fixed | fixed | 300 | 400 | 400 | 800 |
+| Medium | fixed | fixed | 500 | 800 | 400 | 700 |
+| Large | 60% window | 70% window | 600 | 1200 | 500 | 900 |
+| Full | 80% window | 80% window | 800 | 1600 | 600 | 1000 |
+
+---
+
+## 7. Keyboard Shortcut Behavior
+
+See `docs/PANEL_BEHAVIOR.md` for detailed keyboard shortcut specifications.
+
+| Shortcut | Behavior |
+|----------|----------|
+| Ctrl+Shift+F | Toggle file explorer: if active→hide, if docked but not active→focus, if popup/window→focus |
+| Ctrl+M | Toggle markdown: if active→remove, if docked but not active→focus, if not open→open README.md |
+
+---
+
+*Document Version: 1.4*
 *Created: 2025-12-22*
 *Updated: 2025-12-23 - Phase 4.1 Panel System Refinements completed*
+*Updated: 2025-12-23 - Markdown Preview fully integrated into panel system*
+*Updated: 2025-12-23 - Added PanelSizePreset, fixed undock behavior, keyboard shortcuts*

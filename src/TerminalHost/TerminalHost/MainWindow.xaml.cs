@@ -37,7 +37,7 @@ public partial class MainWindow : Window
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
     private bool _isExiting;
-    private Views.MarkdownPreviewWindow? _markdownPreviewWindow;
+    private Views.PanelWindow? _markdownPreviewWindow;
     private Views.ToastWindow? _toastWindow;
 
     public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
@@ -908,40 +908,85 @@ public partial class MainWindow : Window
 
     private void OnMarkdownPreviewShowRequested(object? sender, EventArgs e)
     {
-        // Create or show the markdown preview window
-        if (_markdownPreviewWindow == null || !_markdownPreviewWindow.IsLoaded)
+        // This is called by MarkdownPreviewViewModel when it wants to be shown
+        // Respect the DisplayState to determine how to show it
+        switch (_markdownPreviewViewModel.DisplayState)
         {
-            _markdownPreviewWindow = new Views.MarkdownPreviewWindow
-            {
-                DataContext = _markdownPreviewViewModel,
-                Owner = this
-            };
-            _markdownPreviewWindow.Closed += (s, args) =>
-            {
-                _markdownPreviewWindow = null;
-            };
-            _markdownPreviewWindow.Show();
-        }
-        else
-        {
-            // Bring to front
-            _markdownPreviewWindow.Activate();
+            case Core.Interfaces.PanelDisplayState.Panel:
+                // Show in panel - the tab should handle this
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+                {
+                    currentTab.ShowMarkdownPreviewPanel();
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Popup:
+                // For popup mode, we'd use PanelPopup - but for now default to panel
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel panelTab)
+                {
+                    panelTab.ShowMarkdownPreviewPanel();
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Window:
+            default:
+                // Create or show the markdown preview window using generic PanelWindow
+                if (_markdownPreviewWindow == null || !_markdownPreviewWindow.IsLoaded)
+                {
+                    _markdownPreviewWindow = new Views.PanelWindow
+                    {
+                        DataContext = _markdownPreviewViewModel,
+                        Owner = this,
+                        Width = _markdownPreviewViewModel.Width,
+                        Height = _markdownPreviewViewModel.Height
+                    };
+                    _markdownPreviewWindow.DockRequested += OnMarkdownPreviewWindowDockRequested;
+                    _markdownPreviewWindow.Closed += (s, args) =>
+                    {
+                        _markdownPreviewWindow = null;
+                        // Reset display state for next toggle
+                        _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+                    };
+                    _markdownPreviewWindow.Show();
+                }
+                else
+                {
+                    // Bring to front
+                    _markdownPreviewWindow.Activate();
+                }
+                break;
         }
     }
 
     private async Task OpenMarkdownPreviewAsync()
     {
-        // If preview is open, close it
-        if (_markdownPreviewViewModel.IsOpen)
-        {
-            _markdownPreviewWindow?.Close();
-            return;
-        }
-
-        // Get current tab's working directory to find README or similar
+        // Get current tab
         var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
         if (currentTab == null) return;
 
+        // Ensure the tab has the markdown preview panel reference
+        if (currentTab.MarkdownPreviewPanel == null)
+        {
+            currentTab.SetMarkdownPreviewPanel(_markdownPreviewViewModel);
+        }
+
+        // If preview is already open, use toggle behavior
+        if (_markdownPreviewViewModel.IsOpen)
+        {
+            // If in window state, close the window
+            if (_markdownPreviewViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            {
+                _markdownPreviewWindow?.Close();
+                _markdownPreviewViewModel.OnWindowClosed();
+                return;
+            }
+
+            // Otherwise, toggle the panel (handles focus/visibility)
+            currentTab.ToggleMarkdownPreviewPanel();
+            return;
+        }
+
+        // Not open yet - need to find a markdown file to open
         var workingDir = currentTab.WorkingDirectory;
         if (string.IsNullOrEmpty(workingDir)) return;
 
@@ -961,7 +1006,10 @@ public partial class MainWindow : Window
 
         if (filePath != null)
         {
+            // Set display state to Panel for docked display
+            _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(filePath);
+            currentTab.ShowMarkdownPreviewPanel();
         }
         else
         {
@@ -974,8 +1022,25 @@ public partial class MainWindow : Window
 
             if (dialog.ShowDialog() == true)
             {
+                // Set display state to Panel for docked display
+                _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
                 await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
+                currentTab.ShowMarkdownPreviewPanel();
             }
+        }
+    }
+
+    private void OnMarkdownPreviewWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
+    {
+        // Close the window
+        _markdownPreviewWindow?.Close();
+        _markdownPreviewWindow = null;
+
+        // Dock back to panel
+        _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+        {
+            currentTab.ShowMarkdownPreviewPanel();
         }
     }
 

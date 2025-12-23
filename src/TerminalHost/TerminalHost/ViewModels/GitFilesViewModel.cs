@@ -72,10 +72,12 @@ public partial class GitFilesViewModel : ObservableObject, IPanelableViewModel
     
     [ObservableProperty]
     private double _width = 1100;
-    
+
     [ObservableProperty]
     private double _height = 700;
-    
+
+    public PanelSizePreset SizePreset => PanelSizePreset.Large;
+
     [ObservableProperty]
     private double _horizontalOffset;
     

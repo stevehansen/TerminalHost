@@ -21,11 +21,26 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
     #region IPanelableViewModel Implementation
 
     public string PanelId => "markdownPreview";
-    public string PanelTitle => "Markdown Preview";
-    public string PanelIcon => "\uD83D\uDCDD"; // 📝
+    public string PanelTitle => string.IsNullOrEmpty(FilePath) ? "Markdown" : FileName;
+    public string PanelIcon => "MD";
 
-    public IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
-    public string? StatusText => null;
+    public IEnumerable<PanelHeaderCommand>? HeaderCommands => new[]
+    {
+        new PanelHeaderCommand
+        {
+            Icon = "↻",
+            Tooltip = "Refresh (F5)",
+            Command = RefreshCommand
+        },
+        new PanelHeaderCommand
+        {
+            Icon = AutoReload ? "●" : "○",
+            Tooltip = AutoReload ? "Auto-reload: ON (click to disable)" : "Auto-reload: OFF (click to enable)",
+            Command = ToggleAutoReloadCommand
+        }
+    };
+
+    public string? StatusText => StatusMessage;
 
     [ObservableProperty]
     private PanelDisplayState _displayState = PanelDisplayState.Window;
@@ -38,6 +53,8 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
 
     [ObservableProperty]
     private double _height = 600;
+
+    public PanelSizePreset SizePreset => PanelSizePreset.Large;
 
     public ICommand DockCommand { get; }
     public ICommand UndockCommand { get; }
@@ -143,6 +160,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
         IsOpen = true;
         OnPropertyChanged(nameof(FileName));
         OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(PanelTitle));
 
         await RefreshAsync();
         SetupFileWatcher();
@@ -243,6 +261,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
     [RelayCommand]
     private void Close()
     {
+        IsOpen = false;
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -251,5 +270,6 @@ public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableView
     {
         AutoReload = !AutoReload;
         StatusMessage = AutoReload ? "Auto-reload enabled" : "Auto-reload disabled";
+        OnPropertyChanged(nameof(HeaderCommands));
     }
 }

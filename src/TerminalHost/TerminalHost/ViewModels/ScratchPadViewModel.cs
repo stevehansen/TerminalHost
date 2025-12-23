@@ -61,10 +61,12 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
     // View properties needed for bindings
     [ObservableProperty]
     private double _width = 600;
-    
+
     [ObservableProperty]
     private double _height = 450;
-    
+
+    public PanelSizePreset SizePreset => PanelSizePreset.Medium;
+
     // Position properties for manual popup placement
     [ObservableProperty]
     private double _horizontalOffset;
