@@ -692,6 +692,24 @@ public class IntToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
+/// Compares two objects for equality. Returns true if they are equal.
+/// Used for highlighting the active panel tab.
+/// </summary>
+public class EqualityConverter : IMultiValueConverter
+{
+    public object Convert(object?[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return false;
+        return Equals(values[0], values[1]);
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Converts a DateTime to a relative time string (e.g., "2 hours ago", "3 days ago").
 /// </summary>
 public class RelativeTimeConverter : IValueConverter

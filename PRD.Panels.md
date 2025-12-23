@@ -350,18 +350,127 @@ bool IsFirstRun()
 3. ~~Show setup window before MainWindow on first run~~ - Uses existing SetupWindow with `isStartupMode: true`
 4. ~~Add `firstRunCompleted` flag to config~~ - Added `FirstRunCompleted` and `FirstRunDate` to AppSettings
 
-### Phase 4: Unified Panel System
-1. Design `IPanelableViewModel` interface
-2. Add `PanelHost` to MainWindow
-3. Migrate File Viewer to new system
-4. Add Markdown Preview panel support
-5. Add Git Changes panel support
-6. Add Scratch Pad panel support
+### Phase 4: Unified Panel System [COMPLETED]
+1. ~~Design `IPanelableViewModel` interface~~ - Created `IPanelableViewModel` with `PanelDisplayState`, `PanelSide` enums and state transition commands
+2. ~~Add `PanelHost` control~~ - Created `PanelHost` tabbed container control with panel tabs and content area
+3. ~~Add panel state to configuration~~ - Added `PanelStateConfig` class and panel-related properties to `DirectorySettings`
+4. ~~Create FileExplorerPanelViewModel wrapper~~ - Wraps existing `FileExplorerViewModel` for panel system
+5. ~~Add Markdown Preview panel support~~ - `MarkdownPreviewViewModel` implements `IPanelableViewModel`, created `MarkdownPreviewView` UserControl
+6. ~~Add Git Changes panel support~~ - `GitFilesViewModel` implements `IPanelableViewModel`
+7. ~~Add Scratch Pad panel support~~ - `ScratchPadViewModel` implements `IPanelableViewModel`
+8. ~~Integrate PanelHost into TerminalPairView~~ - File Explorer now uses PanelHost for docking
+9. ~~Create generic PanelPopup control~~ - Uses DraggablePopup for floating panels
+10. ~~Create generic PanelWindow~~ - Independent window for detached panels
+11. ~~Implement state transitions~~ - Panel↔Popup↔Window with proper cleanup
+
+**Current Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ TerminalPairView                                                │
+│ ┌─────────────────────────────────┬───────────────────────────┐ │
+│ │ Terminals (Custom/Shell/Run)    │ PanelHost (Right side)    │ │
+│ │                                 │ ┌───────────────────────┐ │ │
+│ │                                 │ │ [📁 Explorer] [tabs]  │ │ │
+│ │                                 │ │ [⊞] [⧉] [×]          │ │ │
+│ │                                 │ ├───────────────────────┤ │ │
+│ │                                 │ │                       │ │ │
+│ │                                 │ │   Active Panel View   │ │ │
+│ │                                 │ │   (FileExplorerView)  │ │ │
+│ │                                 │ │                       │ │ │
+│ │                                 │ └───────────────────────┘ │ │
+│ └─────────────────────────────────┴───────────────────────────┘ │
+│                                                                 │
+│ PanelPopup (floating, hidden until undocked)                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**State Transitions:**
+
+| From | To | Trigger | Behavior |
+|------|-----|---------|----------|
+| Panel | Popup | Undock (⊞) | Hide docked panel, show floating popup |
+| Panel | Window | Pop-out (⧉) | Hide docked panel, show independent window |
+| Popup | Panel | Dock (◧) | Close popup, show docked panel |
+| Popup | Window | Pop-out (⧉) | Close popup, show independent window |
+| Window | Panel | Dock (◧) | Close window, show docked panel |
+
+**Key Files:**
+- `Controls/PanelHost.xaml` - Tabbed container for docked panels
+- `Controls/PanelPopup.xaml` - DraggablePopup wrapper for floating panels
+- `Views/PanelWindow.xaml` - Generic window for detached panels
+- `Resources/PanelContentTemplates.xaml` - DataTemplates mapping ViewModels to Views
+
+### Phase 4.1: Panel System Refinements [COMPLETED]
+
+**Design Decisions:**
+
+1. **Single Popup, Multiple Windows**
+   - Only one panel can be in popup state at a time (singleton)
+   - Multiple windows allowed for different panels
+   - If new popup requested when one exists: dock existing popup back, show new popup
+
+2. **Panel-Specific Header Buttons**
+   - Each panel type can define custom toolbar buttons (e.g., Refresh for FileExplorer)
+   - `HeaderCommands` collection added to `IPanelableViewModel`
+   - Standard buttons (Undock/PopOut/Close) always present; custom buttons prepended with separator
+
+3. **Footer/Status Bar by Mode**
+   - **Panel (docked)**: No footer - resizing via GridSplitter
+   - **Popup (floating)**: Resize grip (bottom-right) + optional status text bar
+   - **Window (detached)**: Native window chrome handles resizing; optional status bar
+
+**Implemented:**
+
+| Item | Status | Description |
+|------|--------|-------------|
+| Custom header buttons | ✅ Done | `HeaderCommands` property for panel-specific actions |
+| Status text support | ✅ Done | `StatusText` property in popup/window footers |
+| Edge case handling | ✅ Done | Proper cleanup when transitioning with existing popup |
+| Keyboard shortcut handling | ✅ Done | Ctrl+Shift+F focuses popup/window, or docks back to panel |
+| Window close state sync | ✅ Done | Closing window via X resets state for next toggle |
+| Redundant UI cleanup | ✅ Done | Removed duplicate title from FileExplorerView header |
+
+**API:**
+
+```csharp
+// IPanelableViewModel additions
+IEnumerable<PanelHeaderCommand>? HeaderCommands { get; }
+string? StatusText { get; }
+
+public class PanelHeaderCommand
+{
+    public required string Icon { get; init; }
+    public required string Tooltip { get; init; }
+    public required ICommand Command { get; init; }
+}
+```
+
+**Example - FileExplorerPanelViewModel:**
+```csharp
+public IEnumerable<PanelHeaderCommand>? HeaderCommands => new[]
+{
+    new PanelHeaderCommand
+    {
+        Icon = "🔄",
+        Tooltip = "Refresh",
+        Command = _explorerViewModel.RefreshCommand
+    }
+};
+
+public string? StatusText => _explorerViewModel.LastChangedFile != null
+    ? $"Changed: {Path.GetFileName(_explorerViewModel.LastChangedFile)}"
+    : null;
+```
 
 ---
 
 ## References
 
+- Panel interface: `src/TerminalHost.Core/Interfaces/IPanelableViewModel.cs`
+- Panel host control: `src/TerminalHost/TerminalHost/Controls/PanelHost.xaml`
+- Panel templates: `src/TerminalHost/TerminalHost/Resources/PanelContentTemplates.xaml`
+- Panel configuration: `src/TerminalHost.Core/Domain/AppConfiguration.cs` (`DirectorySettings`, `PanelStateConfig`)
 - Existing file viewer pop-out: `FileViewerWindow.xaml`
 - Existing popup system: `Views/Popups/`
 - File explorer service: `FileExplorerService.cs`
@@ -369,5 +478,6 @@ bool IsFirstRun()
 
 ---
 
-*Document Version: 1.0*
+*Document Version: 1.2*
 *Created: 2025-12-22*
+*Updated: 2025-12-23 - Phase 4.1 Panel System Refinements completed*

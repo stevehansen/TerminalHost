@@ -1,21 +1,50 @@
+using System.Collections.ObjectModel;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Collections.ObjectModel;
-using System.Windows; // For Application.Current resource access (optional, but used in other parts if any)
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class GitFilesViewModel : ObservableObject
+/// <summary>
+/// ViewModel for Git Changes panel (Ctrl+G).
+/// Supports Panel, Popup, and Window display states.
+/// </summary>
+public partial class GitFilesViewModel : ObservableObject, IPanelableViewModel
 {
     private readonly IGitStatusService _gitStatusService;
     private readonly IFilePreviewService _filePreviewService;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
-    private TerminalPairTabViewModel? _currentTerminalTab; 
+    private TerminalPairTabViewModel? _currentTerminalTab;
+
+    #region IPanelableViewModel Implementation
+
+    public string PanelId => "gitChanges";
+    public string PanelTitle => "Git Changes";
+    public string PanelIcon => "\u0394"; // Δ (Delta symbol)
+
+    public IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
+    public string? StatusText => null;
+
+    [ObservableProperty]
+    private PanelDisplayState _displayState = PanelDisplayState.Popup;
+
+    [ObservableProperty]
+    private PanelSide _preferredSide = PanelSide.Right;
+
+    public ICommand DockCommand { get; private set; } = null!;
+    public ICommand UndockCommand { get; private set; } = null!;
+    public ICommand DetachCommand { get; private set; } = null!;
+    ICommand IPanelableViewModel.CloseCommand => CloseCommand;
+
+    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+
+    #endregion
 
     [ObservableProperty]
     private ObservableCollection<GitFileStatus> _gitFiles = [];
@@ -61,7 +90,44 @@ public partial class GitFilesViewModel : ObservableObject
         _fileSystem = fileSystem;
         _processService = processService;
         _diffText = "";
+
+        // Initialize panel commands
+        DockCommand = new RelayCommand<PanelSide?>(OnDock);
+        UndockCommand = new RelayCommand(OnUndock);
+        DetachCommand = new RelayCommand(OnDetach);
     }
+
+    #region Panel Command Handlers
+
+    private void OnDock(PanelSide? side)
+    {
+        var dockSide = side ?? PreferredSide;
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
+    }
+
+    private void OnUndock()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
+    }
+
+    private void OnDetach()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
+    }
+
+    /// <summary>
+    /// Sets the display state directly (called by panel host when state changes are applied).
+    /// </summary>
+    public void SetDisplayState(PanelDisplayState state, PanelSide? side = null)
+    {
+        DisplayState = state;
+        if (side.HasValue)
+        {
+            PreferredSide = side.Value;
+        }
+    }
+
+    #endregion
 
     [RelayCommand]
     public async Task OpenAsync(TerminalPairTabViewModel terminalTab)

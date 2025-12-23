@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EasyWindowsTerminalControl;
+using TerminalHost.Controls;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -110,6 +111,48 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private FileExplorerViewModel? _explorerViewModel;
+
+    // Panel system properties
+    /// <summary>
+    /// Panels docked on the right side.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<IPanelableViewModel> _rightPanels = [];
+
+    /// <summary>
+    /// Panels docked on the left side.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<IPanelableViewModel> _leftPanels = [];
+
+    /// <summary>
+    /// The currently active panel on the right side.
+    /// </summary>
+    [ObservableProperty]
+    private IPanelableViewModel? _activeRightPanel;
+
+    /// <summary>
+    /// The currently active panel on the left side.
+    /// </summary>
+    [ObservableProperty]
+    private IPanelableViewModel? _activeLeftPanel;
+
+    /// <summary>
+    /// Whether the left panel host is visible.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isLeftPanelVisible;
+
+    /// <summary>
+    /// Split ratio for the left panel (0-1).
+    /// </summary>
+    [ObservableProperty]
+    private double _leftPanelSplitRatio = 0.25;
+
+    /// <summary>
+    /// The file explorer wrapped as a panel.
+    /// </summary>
+    public FileExplorerPanelViewModel? ExplorerPanelViewModel { get; private set; }
 
     [ObservableProperty]
     private RunState _runState = RunState.Stopped;
@@ -291,12 +334,21 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool HasMultipleRunConfigs => RunConfigurations.Count(c => !string.IsNullOrWhiteSpace(c.Command)) > 1;
     public bool HasAnyRunConfiguration => RunConfigurations.Any(c => !string.IsNullOrWhiteSpace(c.Command));
 
-    // Explorer column widths - use Pixel unit with 0 when hidden
+    // Explorer/Right panel column widths - use Pixel unit with 0 when hidden
     public GridLength ExplorerColumnWidth => IsExplorerVisible
         ? new GridLength(ExplorerSplitRatio, GridUnitType.Star)
         : new GridLength(0, GridUnitType.Pixel);
 
     public GridLength ExplorerSplitterWidth => IsExplorerVisible
+        ? new GridLength(4, GridUnitType.Pixel)
+        : new GridLength(0, GridUnitType.Pixel);
+
+    // Left panel column widths - use Pixel unit with 0 when hidden
+    public GridLength LeftPanelColumnWidth => IsLeftPanelVisible
+        ? new GridLength(LeftPanelSplitRatio, GridUnitType.Star)
+        : new GridLength(0, GridUnitType.Pixel);
+
+    public GridLength LeftPanelSplitterWidth => IsLeftPanelVisible
         ? new GridLength(4, GridUnitType.Pixel)
         : new GridLength(0, GridUnitType.Pixel);
 
@@ -654,6 +706,19 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    partial void OnIsLeftPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(LeftPanelColumnWidth));
+        OnPropertyChanged(nameof(LeftPanelSplitterWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    partial void OnLeftPanelSplitRatioChanged(double value)
+    {
+        OnPropertyChanged(nameof(LeftPanelColumnWidth));
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>
     /// Updates activity state from the terminal sessions.
     /// </summary>
@@ -741,10 +806,24 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     // Explorer commands
 
+    /// <summary>
+    /// Event raised when the explorer toggle is requested.
+    /// The View should handle this to manage popup/window focus.
+    /// If not handled, falls back to toggling IsExplorerVisible.
+    /// </summary>
+    public event EventHandler<ExplorerToggleEventArgs>? ExplorerToggleRequested;
+
     [RelayCommand]
     private void ToggleExplorer()
     {
-        IsExplorerVisible = !IsExplorerVisible;
+        var args = new ExplorerToggleEventArgs();
+        ExplorerToggleRequested?.Invoke(this, args);
+
+        // If the View handled it (e.g., focused a popup/window), don't toggle
+        if (!args.Handled)
+        {
+            IsExplorerVisible = !IsExplorerVisible;
+        }
     }
 
     [RelayCommand]
@@ -962,4 +1041,111 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             IsRunTerminalActive = Pair.RunTerminal.IsActive;
         }
     }
+
+    /// <summary>
+    /// Initializes the panel system with the file explorer as the first panel.
+    /// </summary>
+    public void InitializePanelSystem(FileExplorerViewModel explorerViewModel)
+    {
+        ExplorerViewModel = explorerViewModel;
+
+        // Create the panel wrapper for the explorer
+        ExplorerPanelViewModel = new FileExplorerPanelViewModel(explorerViewModel);
+
+        // Add to right panels collection
+        RightPanels.Clear();
+        RightPanels.Add(ExplorerPanelViewModel);
+        ActiveRightPanel = ExplorerPanelViewModel;
+
+        // Subscribe to panel state change requests
+        ExplorerPanelViewModel.StateChangeRequested += OnPanelStateChangeRequested;
+    }
+
+    /// <summary>
+    /// Adds a panel to the appropriate side.
+    /// </summary>
+    public void AddPanel(IPanelableViewModel panel, PanelSide side = PanelSide.Right)
+    {
+        var collection = side == PanelSide.Right ? RightPanels : LeftPanels;
+
+        if (!collection.Contains(panel))
+        {
+            collection.Add(panel);
+            panel.StateChangeRequested += OnPanelStateChangeRequested;
+        }
+
+        // Make it active
+        if (side == PanelSide.Right)
+        {
+            ActiveRightPanel = panel;
+            IsExplorerVisible = true;
+        }
+        else
+        {
+            ActiveLeftPanel = panel;
+            IsLeftPanelVisible = true;
+        }
+    }
+
+    /// <summary>
+    /// Removes a panel from the collections.
+    /// </summary>
+    public void RemovePanel(IPanelableViewModel panel)
+    {
+        panel.StateChangeRequested -= OnPanelStateChangeRequested;
+
+        if (RightPanels.Remove(panel))
+        {
+            if (ActiveRightPanel == panel)
+            {
+                ActiveRightPanel = RightPanels.FirstOrDefault();
+            }
+        }
+        else if (LeftPanels.Remove(panel))
+        {
+            if (ActiveLeftPanel == panel)
+            {
+                ActiveLeftPanel = LeftPanels.FirstOrDefault();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Event raised when a panel requests a state change.
+    /// The view handles creating popups/windows as needed.
+    /// </summary>
+    public event EventHandler<PanelStateChangeRequestedEventArgs>? PanelStateChangeRequested;
+
+    private void OnPanelStateChangeRequested(object? sender, PanelStateChangeRequestedEventArgs e)
+    {
+        if (sender is IPanelableViewModel panel)
+        {
+            // Forward the event to the view for handling
+            PanelStateChangeRequested?.Invoke(panel, e);
+        }
+    }
+
+    /// <summary>
+    /// Updates the left panel split ratio from actual column widths.
+    /// </summary>
+    public void UpdateLeftPanelSplitRatioFromColumnWidths(double leftWidth, double mainWidth)
+    {
+        var total = leftWidth + mainWidth;
+        if (total > 0)
+        {
+            LeftPanelSplitRatio = leftWidth / total;
+        }
+    }
+}
+
+/// <summary>
+/// Event arguments for explorer toggle requests.
+/// </summary>
+public class ExplorerToggleEventArgs : EventArgs
+{
+    /// <summary>
+    /// Set to true if the event was handled (e.g., focused a popup/window).
+    /// If false, the default toggle behavior will occur.
+    /// </summary>
+    public bool Handled { get; set; }
 }

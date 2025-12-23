@@ -274,6 +274,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private double _editDsExplorerRatio = 0.25;
 
+    [ObservableProperty]
+    private bool _editDsShowLeftPanel = false;
+
+    [ObservableProperty]
+    private double _editDsLeftPanelRatio = 0.25;
+
     // AI Assistant selection for the directory
     [ObservableProperty]
     private AiAssistant? _editDsAiAssistant;
@@ -1357,6 +1363,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsRunSplitRatio = CurrentDirectorySettings.RunSplitRatio;
             EditDsShowExplorer = CurrentDirectorySettings.IsExplorerVisible;
             EditDsExplorerRatio = CurrentDirectorySettings.ExplorerSplitRatio;
+            EditDsShowLeftPanel = CurrentDirectorySettings.IsLeftPanelVisible;
+            EditDsLeftPanelRatio = CurrentDirectorySettings.LeftPanelSplitRatio;
             RunConfigurations = new ObservableCollection<RunConfiguration>(CurrentDirectorySettings.RunConfigurations);
 
             // Load AI assistant selection
@@ -1373,6 +1381,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsRunSplitRatio = 0.3;
             EditDsShowExplorer = false;
             EditDsExplorerRatio = 0.25;
+            EditDsShowLeftPanel = false;
+            EditDsLeftPanelRatio = 0.25;
             RunConfigurations = [];
             EditDsAiAssistant = AiAssistants.FirstOrDefault(a => a.IsDefault) ?? AiAssistants.FirstOrDefault();
         }
@@ -1408,6 +1418,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         CurrentDirectorySettings.RunSplitRatio = EditDsRunSplitRatio;
         CurrentDirectorySettings.IsExplorerVisible = EditDsShowExplorer;
         CurrentDirectorySettings.ExplorerSplitRatio = EditDsExplorerRatio;
+        CurrentDirectorySettings.IsLeftPanelVisible = EditDsShowLeftPanel;
+        CurrentDirectorySettings.LeftPanelSplitRatio = EditDsLeftPanelRatio;
         CurrentDirectorySettings.RunConfigurations = RunConfigurations.ToList();
         CurrentDirectorySettings.ActiveAiAssistantId = EditDsAiAssistant?.Id;
 

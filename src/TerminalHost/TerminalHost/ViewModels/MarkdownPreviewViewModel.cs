@@ -1,20 +1,52 @@
+using System.IO;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.IO;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
 /// <summary>
-/// ViewModel for the Markdown Preview Window (Ctrl+M).
+/// ViewModel for the Markdown Preview (Ctrl+M).
+/// Supports Panel, Popup, and Window display states.
 /// </summary>
-public partial class MarkdownPreviewViewModel : ObservableObject
+public partial class MarkdownPreviewViewModel : ObservableObject, IPanelableViewModel
 {
     private readonly IMarkdownService _markdownService;
     private readonly IFileSystem _fileSystem;
     private readonly IDispatcherService _dispatcherService;
     private FileSystemWatcher? _fileWatcher;
+
+    #region IPanelableViewModel Implementation
+
+    public string PanelId => "markdownPreview";
+    public string PanelTitle => "Markdown Preview";
+    public string PanelIcon => "\uD83D\uDCDD"; // 📝
+
+    public IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
+    public string? StatusText => null;
+
+    [ObservableProperty]
+    private PanelDisplayState _displayState = PanelDisplayState.Window;
+
+    [ObservableProperty]
+    private PanelSide _preferredSide = PanelSide.Right;
+
+    [ObservableProperty]
+    private double _width = 800;
+
+    [ObservableProperty]
+    private double _height = 600;
+
+    public ICommand DockCommand { get; }
+    public ICommand UndockCommand { get; }
+    public ICommand DetachCommand { get; }
+    ICommand IPanelableViewModel.CloseCommand => CloseCommand;
+
+    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+
+    #endregion
 
     [ObservableProperty]
     private bool _isOpen;
@@ -63,7 +95,44 @@ public partial class MarkdownPreviewViewModel : ObservableObject
         _markdownService = markdownService;
         _fileSystem = fileSystem;
         _dispatcherService = dispatcherService;
+
+        // Initialize panel commands
+        DockCommand = new RelayCommand<PanelSide?>(OnDock);
+        UndockCommand = new RelayCommand(OnUndock);
+        DetachCommand = new RelayCommand(OnDetach);
     }
+
+    #region Panel Command Handlers
+
+    private void OnDock(PanelSide? side)
+    {
+        var dockSide = side ?? PreferredSide;
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
+    }
+
+    private void OnUndock()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
+    }
+
+    private void OnDetach()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
+    }
+
+    /// <summary>
+    /// Sets the display state directly (called by panel host when state changes are applied).
+    /// </summary>
+    public void SetDisplayState(PanelDisplayState state, PanelSide? side = null)
+    {
+        DisplayState = state;
+        if (side.HasValue)
+        {
+            PreferredSide = side.Value;
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// Opens the preview for a specific file.

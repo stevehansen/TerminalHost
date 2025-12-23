@@ -1875,6 +1875,41 @@
                                 <TextBlock Text="How much horizontal space the file explorer takes."
                                            Style="{StaticResource HelpText}"/>
 
+                                <!-- Left Panel Settings -->
+                                <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                                <TextBlock Text="LEFT PANEL"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,12"/>
+
+                                <CheckBox Content="Show left panel"
+                                          IsChecked="{Binding EditDsShowLeftPanel}"
+                                          Style="{StaticResource FormCheckBox}"
+                                          Margin="0,0,0,0"/>
+                                <TextBlock Text="Show an additional panel dock on the left side."
+                                           Style="{StaticResource HelpText}"/>
+
+                                <TextBlock Text="Left Panel Width" Style="{StaticResource FieldLabel}"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider Grid.Column="0"
+                                            Minimum="0.1" Maximum="0.4"
+                                            Value="{Binding EditDsLeftPanelRatio}"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding EditDsLeftPanelRatio, StringFormat='{}{0:P0}'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock Text="How much horizontal space the left panel takes."
+                                           Style="{StaticResource HelpText}"/>
+
                                 <!-- AI Assistant -->
                                 <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
 

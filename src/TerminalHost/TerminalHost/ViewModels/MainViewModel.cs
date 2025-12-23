@@ -552,9 +552,11 @@ public partial class MainViewModel : ObservableObject
         settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
         settings.RunConfigurations = [.. tab.RunConfigurations];
 
-        // Update explorer settings
+        // Update explorer/panel settings
         settings.IsExplorerVisible = tab.IsExplorerVisible;
         settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
+        settings.IsLeftPanelVisible = tab.IsLeftPanelVisible;
+        settings.LeftPanelSplitRatio = tab.LeftPanelSplitRatio;
 
         config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
@@ -719,15 +721,17 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStartRequested += OnRunStartRequested;
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
-            // Initialize file explorer
+            // Initialize file explorer and panel system
             var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _gitIgnoreService, _dialogService, _fileSystem, _processService);
-            tabViewModel.ExplorerViewModel = explorerViewModel;
+            tabViewModel.InitializePanelSystem(explorerViewModel);
 
-            // Restore explorer settings
+            // Restore explorer/panel settings
             if (dirSettings != null)
             {
                 tabViewModel.IsExplorerVisible = dirSettings.IsExplorerVisible;
                 tabViewModel.ExplorerSplitRatio = dirSettings.ExplorerSplitRatio;
+                tabViewModel.IsLeftPanelVisible = dirSettings.IsLeftPanelVisible;
+                tabViewModel.LeftPanelSplitRatio = dirSettings.LeftPanelSplitRatio;
             }
 
             // Wire up explorer events

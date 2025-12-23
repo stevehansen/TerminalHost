@@ -281,20 +281,6 @@
                                  IsHitTestVisible="True"/>
                     </Grid>
                 </StackPanel>
-
-                <!-- Title -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="📁"
-                               Foreground="{StaticResource SyntaxCyanBrush}"
-                               FontSize="{StaticResource FontSizeCode}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0"/>
-                    <TextBlock Text="Explorer"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
             </DockPanel>
         </Border>
 

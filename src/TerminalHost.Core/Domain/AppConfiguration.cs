@@ -312,6 +312,55 @@ public class DirectorySettings
     /// </summary>
     [JsonPropertyName("activeAiAssistantId")]
     public string? ActiveAiAssistantId { get; set; }
+
+    // Panel system settings
+    /// <summary>
+    /// Per-panel state configuration (keyed by panel ID).
+    /// </summary>
+    [JsonPropertyName("panelStates")]
+    public Dictionary<string, PanelStateConfig> PanelStates { get; set; } = [];
+
+    /// <summary>
+    /// ID of the active panel tab in the right panel host.
+    /// </summary>
+    [JsonPropertyName("activeRightPanel")]
+    public string? ActiveRightPanel { get; set; }
+
+    /// <summary>
+    /// ID of the active panel tab in the left panel host.
+    /// </summary>
+    [JsonPropertyName("activeLeftPanel")]
+    public string? ActiveLeftPanel { get; set; }
+
+    /// <summary>
+    /// Width of the left panel host (as a ratio of total width).
+    /// </summary>
+    [JsonPropertyName("leftPanelSplitRatio")]
+    public double LeftPanelSplitRatio { get; set; } = 0.25;
+
+    /// <summary>
+    /// Whether the left panel host is visible.
+    /// </summary>
+    [JsonPropertyName("isLeftPanelVisible")]
+    public bool IsLeftPanelVisible { get; set; } = false;
+}
+
+/// <summary>
+/// Configuration for a single panel's state within a directory.
+/// </summary>
+public class PanelStateConfig
+{
+    /// <summary>
+    /// Whether this panel is currently docked (true) or in popup/window state (false).
+    /// </summary>
+    [JsonPropertyName("isDocked")]
+    public bool IsDocked { get; set; }
+
+    /// <summary>
+    /// Which side the panel is docked to when in Panel state.
+    /// </summary>
+    [JsonPropertyName("side")]
+    public string Side { get; set; } = "Right";
 }
 
 public class WindowStateInfo

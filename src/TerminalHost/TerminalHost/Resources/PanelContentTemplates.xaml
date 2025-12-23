@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+                    xmlns:views="clr-namespace:TerminalHost.Views">
+
+    <!-- DataTemplate for FileExplorerPanelViewModel - uses the inner ExplorerViewModel -->
+    <DataTemplate DataType="{x:Type vm:FileExplorerPanelViewModel}">
+        <views:FileExplorerView DataContext="{Binding ExplorerViewModel}"/>
+    </DataTemplate>
+
+    <!-- DataTemplate for MarkdownPreviewViewModel -->
+    <DataTemplate DataType="{x:Type vm:MarkdownPreviewViewModel}">
+        <views:MarkdownPreviewView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for GitFilesViewModel (Git Changes panel) -->
+    <!-- Note: GitFilesView is in Views/Popups/ and is already a full view -->
+
+    <!-- Future panel templates:
+    <DataTemplate DataType="{x:Type vm:ScratchPadViewModel}">
+        <views:ScratchPadView/>
+    </DataTemplate>
+    -->
+
+</ResourceDictionary>

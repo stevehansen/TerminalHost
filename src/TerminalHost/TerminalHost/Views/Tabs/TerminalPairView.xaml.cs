@@ -1,17 +1,269 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using TerminalHost.Controls;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Tabs;
 
 public partial class TerminalPairView : UserControl
 {
+    private TerminalPairTabViewModel? _currentViewModel;
+    private PanelWindow? _panelWindow;
+
     public TerminalPairView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // Subscribe to PanelHost events
+        if (RightPanelHost != null)
+        {
+            RightPanelHost.PanelCloseRequested += OnPanelCloseRequested;
+            RightPanelHost.PanelUndockRequested += OnPanelUndockRequested;
+            RightPanelHost.PanelDetachRequested += OnPanelDetachRequested;
+        }
+
+        // Subscribe to PanelPopup events
+        if (PanelPopupHost != null)
+        {
+            PanelPopupHost.DockRequested += OnPopupDockRequested;
+            PanelPopupHost.PopOutRequested += OnPopupPopOutRequested;
+        }
+    }
+
+    private void OnPanelCloseRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Hide the docked panel based on panel type
+        HideDockPanel(panel);
+    }
+
+    private void OnPanelUndockRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Hide the docked panel
+        HideDockPanel(panel);
+
+        // Show as floating popup
+        ShowPanelPopup(panel);
+    }
+
+    private void OnPanelDetachRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Hide the docked panel
+        HideDockPanel(panel);
+
+        // Show as detached window
+        ShowPanelWindow(panel);
+    }
+
+    private void HideDockPanel(IPanelableViewModel panel)
+    {
+        if (panel.PanelId == "fileExplorer")
+        {
+            _currentViewModel!.IsExplorerVisible = false;
+        }
+    }
+
+    private void ShowDockPanel(IPanelableViewModel panel)
+    {
+        if (panel.PanelId == "fileExplorer")
+        {
+            _currentViewModel!.IsExplorerVisible = true;
+        }
+    }
+
+    private void ShowPanelPopup(IPanelableViewModel panel)
+    {
+        // If there's already a different popup showing, dock it back first
+        if (PanelPopupHost.DataContext is IPanelableViewModel currentPopupPanel && currentPopupPanel != panel)
+        {
+            currentPopupPanel.IsOpen = false;
+            currentPopupPanel.DisplayState = PanelDisplayState.Panel;
+            ShowDockPanel(currentPopupPanel);
+        }
+
+        // Set up popup and open it
+        panel.DisplayState = PanelDisplayState.Popup;
+        panel.IsOpen = true;
+        PanelPopupHost.DataContext = panel;
+    }
+
+    private void ShowPanelWindow(IPanelableViewModel panel)
+    {
+        // If there's a popup showing for a different panel, dock it back first
+        if (PanelPopupHost.DataContext is IPanelableViewModel currentPopupPanel && currentPopupPanel != panel)
+        {
+            currentPopupPanel.IsOpen = false;
+            currentPopupPanel.DisplayState = PanelDisplayState.Panel;
+            ShowDockPanel(currentPopupPanel);
+        }
+        else if (PanelPopupHost.DataContext is IPanelableViewModel samePopupPanel)
+        {
+            // Same panel transitioning from popup to window - just close popup
+            samePopupPanel.IsOpen = false;
+        }
+        PanelPopupHost.DataContext = null;
+
+        // Close existing window if any (different panel)
+        if (_panelWindow != null && _panelWindow.DataContext != panel)
+        {
+            _panelWindow.DockRequested -= OnPanelWindowDockRequested;
+            _panelWindow.Close();
+        }
+
+        // Create new generic panel window
+        panel.DisplayState = PanelDisplayState.Window;
+        _panelWindow = new PanelWindow
+        {
+            DataContext = panel,
+            Owner = Window.GetWindow(this),
+            Width = panel.Width,
+            Height = panel.Height
+        };
+
+        _panelWindow.DockRequested += OnPanelWindowDockRequested;
+        _panelWindow.Closed += (s, e) =>
+        {
+            // When window is closed via X button (not dock), reset state
+            // so the next toggle shows the docked panel
+            if (_panelWindow?.DataContext is IPanelableViewModel closedPanel)
+            {
+                closedPanel.DisplayState = PanelDisplayState.Panel;
+            }
+            _panelWindow = null;
+        };
+
+        _panelWindow.Show();
+    }
+
+    private void OnPopupDockRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Clear popup
+        PanelPopupHost.DataContext = null;
+
+        // Show the docked panel again
+        panel.DisplayState = PanelDisplayState.Panel;
+        ShowDockPanel(panel);
+    }
+
+    private void OnPopupPopOutRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Clear popup
+        PanelPopupHost.DataContext = null;
+
+        // Show as window instead
+        ShowPanelWindow(panel);
+    }
+
+    private void OnPanelWindowDockRequested(object? sender, IPanelableViewModel panel)
+    {
+        if (_currentViewModel == null) return;
+
+        // Show the docked panel again
+        panel.DisplayState = PanelDisplayState.Panel;
+        ShowDockPanel(panel);
+
+        _panelWindow = null;
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        // Unsubscribe from old view model
+        if (_currentViewModel != null)
+        {
+            _currentViewModel.PanelStateChangeRequested -= OnPanelStateChangeRequested;
+            _currentViewModel.ExplorerToggleRequested -= OnExplorerToggleRequested;
+        }
+
+        // Subscribe to new view model
+        if (e.NewValue is TerminalPairTabViewModel vm)
+        {
+            _currentViewModel = vm;
+            vm.PanelStateChangeRequested += OnPanelStateChangeRequested;
+            vm.ExplorerToggleRequested += OnExplorerToggleRequested;
+        }
+        else
+        {
+            _currentViewModel = null;
+        }
+    }
+
+    private void OnExplorerToggleRequested(object? sender, ExplorerToggleEventArgs e)
+    {
+        // Check if explorer is in popup state and actually open
+        if (PanelPopupHost.DataContext is FileExplorerPanelViewModel popupPanel && popupPanel.IsOpen)
+        {
+            // Popup is open - close it and dock back
+            popupPanel.IsOpen = false;
+            popupPanel.DisplayState = PanelDisplayState.Panel;
+            PanelPopupHost.DataContext = null;
+            ShowDockPanel(popupPanel);
+            e.Handled = true;
+            return;
+        }
+
+        // Clean up stale popup reference
+        if (PanelPopupHost.DataContext is FileExplorerPanelViewModel stalePopup && !stalePopup.IsOpen)
+        {
+            stalePopup.DisplayState = PanelDisplayState.Panel;
+            PanelPopupHost.DataContext = null;
+        }
+
+        // Check if explorer is in window state
+        if (_panelWindow != null && _panelWindow.DataContext is FileExplorerPanelViewModel)
+        {
+            // Focus the window
+            _panelWindow.Activate();
+            _panelWindow.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        // Otherwise, let the default toggle behavior happen
+    }
+
+    private void OnPanelStateChangeRequested(object? sender, PanelStateChangeRequestedEventArgs e)
+    {
+        if (_currentViewModel == null || sender is not IPanelableViewModel panel)
+            return;
+
+        switch (e.RequestedState)
+        {
+            case PanelDisplayState.Panel:
+                // Dock back to panel - already docked, just update side if needed
+                if (e.DockSide.HasValue)
+                {
+                    panel.PreferredSide = e.DockSide.Value;
+                }
+                break;
+
+            case PanelDisplayState.Popup:
+                // TODO: Transition to popup mode - for now just close the panel
+                // This would require creating a popup window
+                break;
+
+            case PanelDisplayState.Window:
+                // TODO: Transition to window mode - for now just close the panel
+                // This would require creating a detached window
+                break;
+        }
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)

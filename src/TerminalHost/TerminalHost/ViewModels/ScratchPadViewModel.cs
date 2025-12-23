@@ -1,6 +1,7 @@
+using System.IO;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.IO;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -8,13 +9,41 @@ using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class ScratchPadViewModel : ObservableObject
+/// <summary>
+/// ViewModel for Scratch Pad (Ctrl+Shift+N).
+/// Supports Panel, Popup, and Window display states.
+/// </summary>
+public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
 {
     private readonly IConfigurationService _configService;
     private readonly MainViewModel _mainViewModel; // Needed to get the current project
     private readonly ITimerService _timerService;
     private IAppTimer? _saveTimer;
-    
+
+    #region IPanelableViewModel Implementation
+
+    public string PanelId => "scratchPad";
+    public string PanelTitle => "Scratch Pad";
+    public string PanelIcon => "\uD83D\uDCDD"; // 📝
+
+    public IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
+    public string? StatusText => null;
+
+    [ObservableProperty]
+    private PanelDisplayState _displayState = PanelDisplayState.Popup;
+
+    [ObservableProperty]
+    private PanelSide _preferredSide = PanelSide.Right;
+
+    public ICommand DockCommand { get; private set; } = null!;
+    public ICommand UndockCommand { get; private set; } = null!;
+    public ICommand DetachCommand { get; private set; } = null!;
+    ICommand IPanelableViewModel.CloseCommand => CloseCommand;
+
+    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+
+    #endregion
+
     [ObservableProperty]
     private string _contentText = string.Empty;
 
@@ -57,10 +86,47 @@ public partial class ScratchPadViewModel : ObservableObject
         _mainViewModel = mainViewModel;
         _timerService = timerService;
 
+        // Initialize panel commands
+        DockCommand = new RelayCommand<PanelSide?>(OnDock);
+        UndockCommand = new RelayCommand(OnUndock);
+        DetachCommand = new RelayCommand(OnDetach);
+
         // Subscribe to MainViewModel events to handle opening requests
         _mainViewModel.ScratchPadRequested += (s, e) => Open();
         _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
     }
+
+    #region Panel Command Handlers
+
+    private void OnDock(PanelSide? side)
+    {
+        var dockSide = side ?? PreferredSide;
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
+    }
+
+    private void OnUndock()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
+    }
+
+    private void OnDetach()
+    {
+        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
+    }
+
+    /// <summary>
+    /// Sets the display state directly (called by panel host when state changes are applied).
+    /// </summary>
+    public void SetDisplayState(PanelDisplayState state, PanelSide? side = null)
+    {
+        DisplayState = state;
+        if (side.HasValue)
+        {
+            PreferredSide = side.Value;
+        }
+    }
+
+    #endregion
 
     private void MainViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {

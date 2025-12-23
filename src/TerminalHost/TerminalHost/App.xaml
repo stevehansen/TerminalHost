@@ -9,6 +9,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/TabContentTemplates.xaml"/>
+                <ResourceDictionary Source="Resources/PanelContentTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Converters -->
@@ -40,6 +41,7 @@
         <local:TruncateConverter x:Key="TruncateConverter"/>
         <local:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
         <local:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
+        <local:EqualityConverter x:Key="EqualityConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->
