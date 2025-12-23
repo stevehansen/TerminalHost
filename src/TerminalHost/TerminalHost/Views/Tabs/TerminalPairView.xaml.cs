@@ -93,9 +93,17 @@ public partial class TerminalPairView : UserControl
             case "markdownPreview":
             case "gitChanges":
             case "scratchPad":
-                // Show the right panel and make this panel active
-                _currentViewModel.IsExplorerVisible = true;
-                _currentViewModel.ActiveRightPanel = panel;
+                // Re-add to panels if not already there (panel was removed when undocking/detaching)
+                if (!_currentViewModel.RightPanels.Contains(panel))
+                {
+                    _currentViewModel.AddPanel(panel, Core.Interfaces.PanelSide.Right);
+                }
+                else
+                {
+                    // Already in collection - just make it active and visible
+                    _currentViewModel.IsExplorerVisible = true;
+                    _currentViewModel.ActiveRightPanel = panel;
+                }
                 break;
         }
     }
@@ -206,6 +214,7 @@ public partial class TerminalPairView : UserControl
             _currentViewModel.PanelStateChangeRequested -= OnPanelStateChangeRequested;
             _currentViewModel.ExplorerToggleRequested -= OnExplorerToggleRequested;
             _currentViewModel.MarkdownPreviewToggleRequested -= OnMarkdownPreviewToggleRequested;
+            _currentViewModel.PopupShowRequested -= OnPopupShowRequested;
         }
 
         // Subscribe to new view model
@@ -215,6 +224,7 @@ public partial class TerminalPairView : UserControl
             vm.PanelStateChangeRequested += OnPanelStateChangeRequested;
             vm.ExplorerToggleRequested += OnExplorerToggleRequested;
             vm.MarkdownPreviewToggleRequested += OnMarkdownPreviewToggleRequested;
+            vm.PopupShowRequested += OnPopupShowRequested;
         }
         else
         {
@@ -302,23 +312,31 @@ public partial class TerminalPairView : UserControl
         switch (e.RequestedState)
         {
             case PanelDisplayState.Panel:
-                // Dock back to panel - already docked, just update side if needed
+                // Dock back to panel - update side if needed
                 if (e.DockSide.HasValue)
                 {
                     panel.PreferredSide = e.DockSide.Value;
                 }
+                // Re-add to panels if not already there (coming back from popup/window)
+                if (!_currentViewModel.RightPanels.Contains(panel) && !_currentViewModel.LeftPanels.Contains(panel))
+                {
+                    _currentViewModel.AddPanel(panel, panel.PreferredSide);
+                }
+                panel.DisplayState = PanelDisplayState.Panel;
                 break;
 
             case PanelDisplayState.Popup:
-                // TODO: Transition to popup mode - for now just close the panel
-                // This would require creating a popup window
-                break;
-
             case PanelDisplayState.Window:
-                // TODO: Transition to window mode - for now just close the panel
-                // This would require creating a detached window
+                // Remove from docked panels when transitioning to popup/window
+                _currentViewModel.RemovePanel(panel);
+                panel.DisplayState = e.RequestedState;
                 break;
         }
+    }
+
+    private void OnPopupShowRequested(object? sender, IPanelableViewModel panel)
+    {
+        ShowPanelPopup(panel);
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)

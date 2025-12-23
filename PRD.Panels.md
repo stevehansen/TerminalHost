@@ -79,14 +79,25 @@ Each panel-capable view should have consistent controls:
 }
 ```
 
+### Default Display States
+
+Each panel has a default display state that determines how it opens when not already visible:
+
+| Panel | Default State | Rationale |
+|-------|---------------|-----------|
+| File Explorer | Panel | Tree navigation is best docked for continuous use |
+| Markdown Preview | Panel | Reading docs benefits from persistent side-by-side view |
+| Git Changes | Popup | Quick diff review, typically opened/closed frequently |
+| Scratch Pad | Panel | Notes should persist and be easily accessible |
+
 ### Priority for Panel Support
 
 | Content | Panel | Popup | Window | Priority |
 |---------|-------|-------|--------|----------|
 | File Viewer | ✓ (existing) | ✓ (existing) | ✓ (existing) | Done |
 | Markdown Preview | ✓ | ✓ | ✓ | Done |
-| Git Changes | New | ✓ (existing) | New | Medium |
-| Scratch Pad | New | ✓ (existing) | New | Medium |
+| Git Changes | ✓ | ✓ | ✓ | Done |
+| Scratch Pad | ✓ | ✓ | ✓ | Done |
 | Task Panel | New | ✓ (existing) | New | Low |
 | Git Branch | - | ✓ (existing) | - | N/A (small) |
 
@@ -465,6 +476,216 @@ public string? StatusText => _explorerViewModel.LastChangedFile != null
 
 ---
 
+## 8. Adding a New Panel (Implementation Guide)
+
+When adding a new panel to the system, follow these steps:
+
+### Step 1: Create the Content View
+
+Create a content-only UserControl (no popup/window chrome):
+
+```
+Views/MyPanelContentView.xaml      - Content only, suitable for Panel/Popup/Window modes
+Views/MyPanelContentView.xaml.cs   - Code-behind (usually empty)
+```
+
+If the panel needs popup functionality, keep the existing popup view:
+
+```
+Views/Popups/MyPanelView.xaml      - Wraps DraggablePopup, binds IsOpen to ViewModel
+```
+
+### Step 2: Implement IPanelableViewModel
+
+```csharp
+public partial class MyPanelViewModel : ObservableObject, IPanelableViewModel
+{
+    // Required properties
+    public string PanelId => "myPanel";
+    public string PanelTitle => "My Panel";
+    public string PanelIcon => "📄";
+
+    [ObservableProperty]
+    private PanelDisplayState _displayState = PanelDisplayState.Panel; // Default state
+    // Use PanelDisplayState.Popup for panels that are opened/closed frequently (e.g., Git Changes)
+    // Use PanelDisplayState.Panel for panels that should persist (e.g., File Explorer, Scratch Pad)
+
+    [ObservableProperty]
+    private PanelSide _preferredSide = PanelSide.Right;
+
+    [ObservableProperty]
+    private bool _isOpen;
+
+    [ObservableProperty]
+    private double _width = 600;
+
+    [ObservableProperty]
+    private double _height = 500;
+
+    public PanelSizePreset SizePreset => PanelSizePreset.Medium;
+
+    // Panel commands
+    public ICommand DockCommand { get; private set; }
+    public ICommand UndockCommand { get; private set; }
+    public ICommand DetachCommand { get; private set; }
+
+    // Event for state changes
+    public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+    public event EventHandler? ShowRequested;  // Notify MainWindow to show panel
+
+    // In Open() method, invoke ShowRequested but DON'T set IsOpen:
+    public void Open()
+    {
+        // ... setup ...
+        // NOTE: Do NOT set IsOpen = true here!
+        // Let the ShowRequested handler control IsOpen based on DisplayState
+        ShowRequested?.Invoke(this, EventArgs.Empty);
+    }
+}
+```
+
+### Step 3: Register DataTemplates
+
+In `Resources/PanelContentTemplates.xaml` and `Controls/PanelHost.xaml`:
+
+```xml
+<DataTemplate DataType="{x:Type vm:MyPanelViewModel}">
+    <views:MyPanelContentView/>
+</DataTemplate>
+```
+
+### Step 4: Add to TerminalPairTabViewModel
+
+```csharp
+// Property
+public MyPanelViewModel? MyPanel { get; private set; }
+
+// Event
+public event EventHandler<PanelToggleEventArgs>? MyPanelToggleRequested;
+
+// Methods
+public void SetMyPanel(MyPanelViewModel panel) => MyPanel = panel;
+public void ToggleMyPanel() { /* Similar to ToggleGitFilesPanel */ }
+public void ShowMyPanel() { /* Similar to ShowGitFilesPanel */ }
+public void HideMyPanel() { /* Similar to HideGitFilesPanel */ }
+```
+
+### Step 5: Wire up in MainWindow
+
+**IMPORTANT: Do NOT add popup views to MainWindow.xaml.** The panel system handles all display modes through:
+- **Panel mode**: Content shown via PanelHost using DataTemplates
+- **Popup mode**: Currently falls back to Panel mode (popup support can be added later)
+- **Window mode**: PanelWindow created dynamically
+
+**In MainWindow.xaml.cs:**
+```csharp
+// Field for window mode
+private Views.PanelWindow? _myPanelWindow;
+
+// In constructor:
+_myPanelViewModel.ShowRequested += OnMyPanelShowRequested;
+_viewModel.MyPanelRequested += OnMyPanelRequested;
+
+// Request handler (called from keyboard shortcut):
+private void OnMyPanelRequested(object? sender, EventArgs e)
+{
+    var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+    if (currentTab == null) return;
+
+    if (currentTab.MyPanel == null)
+        currentTab.SetMyPanel(_myPanelViewModel);
+
+    // If already open, toggle
+    if (_myPanelViewModel.IsOpen)
+    {
+        if (_myPanelViewModel.DisplayState == PanelDisplayState.Window)
+        {
+            _myPanelWindow?.Close();
+            return;
+        }
+        currentTab.ToggleMyPanel();
+        return;
+    }
+
+    // Set display state and open
+    _myPanelViewModel.DisplayState = PanelDisplayState.Panel;
+    _myPanelViewModel.Open();
+}
+
+// Show handler (called from ViewModel.ShowRequested):
+private void OnMyPanelShowRequested(object? sender, EventArgs e)
+{
+    switch (_myPanelViewModel.DisplayState)
+    {
+        case PanelDisplayState.Panel:
+            // Show in docked panel
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+            {
+                if (currentTab.MyPanel == null)
+                    currentTab.SetMyPanel(_myPanelViewModel);
+                currentTab.ShowMyPanel();
+            }
+            break;
+
+        case PanelDisplayState.Popup:
+            // Show as floating popup
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
+            {
+                if (popupTab.MyPanel == null)
+                    popupTab.SetMyPanel(_myPanelViewModel);
+                popupTab.ShowPanelAsPopup(_myPanelViewModel);
+            }
+            break;
+
+        case PanelDisplayState.Window:
+            // Create PanelWindow dynamically
+            if (_myPanelWindow == null || !_myPanelWindow.IsLoaded)
+            {
+                _myPanelWindow = new Views.PanelWindow
+                {
+                    DataContext = _myPanelViewModel,
+                    Owner = this,
+                    Width = _myPanelViewModel.Width,
+                    Height = _myPanelViewModel.Height
+                };
+                _myPanelWindow.DockRequested += OnMyPanelWindowDockRequested;
+                _myPanelWindow.Closed += (s, args) =>
+                {
+                    _myPanelWindow = null;
+                    _myPanelViewModel.DisplayState = PanelDisplayState.Panel;
+                };
+                _myPanelWindow.Show();
+            }
+            else
+            {
+                _myPanelWindow.Activate();
+            }
+            break;
+    }
+}
+```
+
+### Key Points
+
+1. **No popup views in MainWindow.xaml**: Unlike the old approach, panels don't have popup views in XAML. This prevents `IsOpen` binding conflicts.
+
+2. **Content views are mode-agnostic**: The content view (e.g., `MyPanelContentView.xaml`) is used by:
+   - PanelHost (docked mode) via DataTemplates
+   - PanelPopup (popup mode) via DataTemplates
+   - PanelWindow (window mode) via DataTemplates
+
+3. **DisplayState controls which mode**: The ViewModel's default `DisplayState` determines the initial mode. Set `DisplayState` before calling the open method.
+
+4. **ShowRequested event**: The ViewModel fires this after setup. MainWindow handles it to show in the correct mode.
+
+5. **ShowPanelAsPopup method**: For popup mode, call `currentTab.ShowPanelAsPopup(viewModel)` which triggers `ShowPanelPopup` in the view via the `PopupShowRequested` event.
+
+6. **IsOpen is optional**: Since there's no popup view binding to `IsOpen`, you can use it for internal state tracking or omit it entirely.
+
+7. **Default display states vary by panel type**: Use `PanelDisplayState.Popup` for transient panels (Git Changes) and `PanelDisplayState.Panel` for persistent panels (File Explorer, Scratch Pad).
+
+---
+
 ## References
 
 - Panel interface: `src/TerminalHost.Core/Interfaces/IPanelableViewModel.cs`
@@ -475,6 +696,8 @@ public string? StatusText => _explorerViewModel.LastChangedFile != null
 - Existing popup system: `Views/Popups/`
 - File explorer service: `FileExplorerService.cs`
 - Single instance: `SingleInstanceService.cs`
+- Git Changes content view: `src/TerminalHost/TerminalHost/Views/GitFilesContentView.xaml`
+- Scratch Pad content view: `src/TerminalHost/TerminalHost/Views/ScratchPadContentView.xaml`
 
 ---
 
@@ -523,11 +746,16 @@ See `docs/PANEL_BEHAVIOR.md` for detailed keyboard shortcut specifications.
 |----------|----------|
 | Ctrl+Shift+F | Toggle file explorer: if active→hide, if docked but not active→focus, if popup/window→focus |
 | Ctrl+M | Toggle markdown: if active→remove, if docked but not active→focus, if not open→open README.md |
+| Ctrl+G | Toggle git changes: if active→remove, if docked but not active→focus, if popup/window→focus |
+| Ctrl+Shift+N | Toggle scratch pad: if active→remove, if docked but not active→focus, if popup/window→focus |
 
 ---
 
-*Document Version: 1.4*
+*Document Version: 1.8*
 *Created: 2025-12-22*
 *Updated: 2025-12-23 - Phase 4.1 Panel System Refinements completed*
 *Updated: 2025-12-23 - Markdown Preview fully integrated into panel system*
 *Updated: 2025-12-23 - Added PanelSizePreset, fixed undock behavior, keyboard shortcuts*
+*Updated: 2025-12-23 - Git Changes and Scratch Pad fully integrated into panel system (Panel/Window states, Popup falls back to Panel)*
+*Updated: 2025-12-23 - Rewrote implementation guide: no popup views in XAML, matching Markdown Preview pattern*
+*Updated: 2025-12-23 - Git Changes defaults to Popup, Scratch Pad defaults to Panel; added ShowPanelAsPopup support*

@@ -38,6 +38,8 @@ public partial class MainWindow : Window
     private readonly IToastService _toastService;
     private bool _isExiting;
     private Views.PanelWindow? _markdownPreviewWindow;
+    private Views.PanelWindow? _gitFilesWindow;
+    private Views.PanelWindow? _scratchPadWindow;
     private Views.ToastWindow? _toastWindow;
 
     public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
@@ -62,17 +64,19 @@ public partial class MainWindow : Window
         _toastService = toastService;
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
-        ScratchPadViewControl.DataContext = scratchPadViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
-        GitFilesViewControl.DataContext = gitFilesViewModel;
         FileViewerPopupControl.DataContext = fileViewerViewModel;
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
         TestResultsViewControl.DataContext = testResultsViewModel;
         PrReviewViewControl.DataContext = prReviewViewModel;
 
-        // Subscribe to markdown preview events
+        // Git Files and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
+
+        // Subscribe to panel show events
         _markdownPreviewViewModel.ShowRequested += OnMarkdownPreviewShowRequested;
+        _gitFilesViewModel.ShowRequested += OnGitFilesShowRequested;
+        _scratchPadViewModel.ShowRequested += OnScratchPadShowRequested;
 
         RestoreWindowState();
 
@@ -97,6 +101,7 @@ public partial class MainWindow : Window
 
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;
+        _viewModel.ScratchPadRequested += OnScratchPadRequested;
         _viewModel.SetupRequested += OnSetupRequested;
         _viewModel.PrReviewRequested += OnPrReviewRequested;
         _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
@@ -855,20 +860,238 @@ public partial class MainWindow : Window
 
     #endregion
 
-    #region Git Files Popup
+    #region Git Files Panel
 
     private async void OnGitChangesRequested(object? sender, EventArgs e)
     {
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null)
         {
-            var windowPos = PointToScreen(new Point(0, 0));
-            _gitFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _gitFilesViewModel.Width) / 2;
-            _gitFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _gitFilesViewModel.Height) / 2;
-            await _gitFilesViewModel.OpenAsync(terminalTab);
+            _dialogService.ShowInfo("Please select a project tab first.", "Git Changes");
+            return;
         }
-        else
+
+        // Ensure the tab has the git files panel reference
+        if (currentTab.GitFilesPanel == null)
         {
-            _dialogService.ShowInfo("Please select a project tab first.", "Git Changes"); // Use injected IDialogService
+            currentTab.SetGitFilesPanel(_gitFilesViewModel);
+        }
+
+        // If already open, use toggle behavior
+        if (_gitFilesViewModel.IsOpen)
+        {
+            // If in window state, close the window
+            if (_gitFilesViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            {
+                _gitFilesWindow?.Close();
+                _gitFilesViewModel.IsOpen = false;
+                return;
+            }
+
+            // If in popup state, close the popup
+            if (_gitFilesViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Popup)
+            {
+                _gitFilesViewModel.IsOpen = false;
+                return;
+            }
+
+            // Otherwise, toggle the docked panel (handles focus/visibility)
+            currentTab.ToggleGitFilesPanel();
+            return;
+        }
+
+        // Not open yet - use default DisplayState (Popup)
+        await _gitFilesViewModel.OpenAsync(currentTab);
+    }
+
+    private void OnGitFilesShowRequested(object? sender, EventArgs e)
+    {
+        // This is called by GitFilesViewModel when it wants to be shown
+        // Respect the DisplayState to determine how to show it
+        switch (_gitFilesViewModel.DisplayState)
+        {
+            case Core.Interfaces.PanelDisplayState.Panel:
+                // Show in docked panel
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+                {
+                    if (currentTab.GitFilesPanel == null)
+                    {
+                        currentTab.SetGitFilesPanel(_gitFilesViewModel);
+                    }
+                    currentTab.ShowGitFilesPanel();
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Popup:
+                // Show as floating popup
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
+                {
+                    if (popupTab.GitFilesPanel == null)
+                    {
+                        popupTab.SetGitFilesPanel(_gitFilesViewModel);
+                    }
+                    popupTab.ShowPanelAsPopup(_gitFilesViewModel);
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Window:
+            default:
+                // Create or show the git files window
+                if (_gitFilesWindow == null || !_gitFilesWindow.IsLoaded)
+                {
+                    _gitFilesWindow = new Views.PanelWindow
+                    {
+                        DataContext = _gitFilesViewModel,
+                        Owner = this,
+                        Width = _gitFilesViewModel.Width,
+                        Height = _gitFilesViewModel.Height
+                    };
+                    _gitFilesWindow.DockRequested += OnGitFilesWindowDockRequested;
+                    _gitFilesWindow.Closed += (s, args) =>
+                    {
+                        _gitFilesWindow = null;
+                        // Reset display state for next toggle
+                        _gitFilesViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+                    };
+                    _gitFilesWindow.Show();
+                }
+                else
+                {
+                    // Bring to front
+                    _gitFilesWindow.Activate();
+                }
+                break;
+        }
+    }
+
+    private void OnGitFilesWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
+    {
+        // Close the window
+        _gitFilesWindow?.Close();
+        _gitFilesWindow = null;
+
+        // Dock back to panel
+        _gitFilesViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+        {
+            if (currentTab.GitFilesPanel == null)
+            {
+                currentTab.SetGitFilesPanel(_gitFilesViewModel);
+            }
+            currentTab.ShowGitFilesPanel();
+        }
+    }
+
+    #endregion
+
+    #region Scratch Pad Panel
+
+    private void OnScratchPadRequested(object? sender, EventArgs e)
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+
+        // Ensure the tab has the scratch pad panel reference
+        if (currentTab != null && currentTab.ScratchPadPanel == null)
+        {
+            currentTab.SetScratchPadPanel(_scratchPadViewModel);
+        }
+
+        // If already open, use toggle behavior
+        if (_scratchPadViewModel.IsOpen)
+        {
+            // If in window state, close the window
+            if (_scratchPadViewModel.DisplayState == Core.Interfaces.PanelDisplayState.Window)
+            {
+                _scratchPadWindow?.Close();
+                _scratchPadViewModel.IsOpen = false;
+                return;
+            }
+
+            // Otherwise, toggle the panel (handles focus/visibility)
+            currentTab?.ToggleScratchPadPanel();
+            return;
+        }
+
+        // Not open yet - set display state to Panel for docked display
+        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+        _scratchPadViewModel.Open();
+    }
+
+    private void OnScratchPadShowRequested(object? sender, EventArgs e)
+    {
+        // This is called by ScratchPadViewModel when it wants to be shown
+        // Respect the DisplayState to determine how to show it
+        switch (_scratchPadViewModel.DisplayState)
+        {
+            case Core.Interfaces.PanelDisplayState.Panel:
+                // Show in docked panel
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+                {
+                    if (currentTab.ScratchPadPanel == null)
+                    {
+                        currentTab.SetScratchPadPanel(_scratchPadViewModel);
+                    }
+                    currentTab.ShowScratchPadPanel();
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Popup:
+                // For popup mode, show as panel (like Markdown Preview)
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel popupTab)
+                {
+                    if (popupTab.ScratchPadPanel == null)
+                    {
+                        popupTab.SetScratchPadPanel(_scratchPadViewModel);
+                    }
+                    popupTab.ShowScratchPadPanel();
+                }
+                break;
+
+            case Core.Interfaces.PanelDisplayState.Window:
+            default:
+                // Create or show the scratch pad window
+                if (_scratchPadWindow == null || !_scratchPadWindow.IsLoaded)
+                {
+                    _scratchPadWindow = new Views.PanelWindow
+                    {
+                        DataContext = _scratchPadViewModel,
+                        Owner = this,
+                        Width = _scratchPadViewModel.Width,
+                        Height = _scratchPadViewModel.Height
+                    };
+                    _scratchPadWindow.DockRequested += OnScratchPadWindowDockRequested;
+                    _scratchPadWindow.Closed += (s, args) =>
+                    {
+                        _scratchPadWindow = null;
+                        // Reset display state for next toggle
+                        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+                    };
+                    _scratchPadWindow.Show();
+                }
+                else
+                {
+                    // Bring to front
+                    _scratchPadWindow.Activate();
+                }
+                break;
+        }
+    }
+
+    private void OnScratchPadWindowDockRequested(object? sender, Core.Interfaces.IPanelableViewModel panel)
+    {
+        // Close the window
+        _scratchPadWindow?.Close();
+        _scratchPadWindow = null;
+
+        // Dock back to panel
+        _scratchPadViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
+        {
+            if (currentTab.ScratchPadPanel == null)
+            {
+                currentTab.SetScratchPadPanel(_scratchPadViewModel);
+            }
+            currentTab.ShowScratchPadPanel();
         }
     }
 

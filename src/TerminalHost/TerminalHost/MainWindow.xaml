@@ -7,6 +7,7 @@
         xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
         xmlns:views="clr-namespace:TerminalHost.Views"
         xmlns:popups="clr-namespace:TerminalHost.Views.Popups"
+        xmlns:controls="clr-namespace:TerminalHost.Controls"
         xmlns:vm="clr-namespace:TerminalHost.ViewModels"
         xmlns:term="clr-namespace:EasyWindowsTerminalControl;assembly=EasyWindowsTerminalControl"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
@@ -109,8 +110,7 @@
             <popups:CommandPaletteView DataContext="{Binding}" />
         </Popup>
 
-        <!-- Scratch Pad View (Ctrl+Shift+N) -->
-        <views:ScratchPadView x:Name="ScratchPadViewControl" />
+        <!-- Scratch Pad - no popup view here, handled via panel system like Markdown Preview -->
 
         <!-- Task Panel View (Ctrl+T) -->
         <Popup x:Name="TaskPanelPopup"
@@ -142,8 +142,7 @@
             <popups:QuickNoteView DataContext="{Binding}" />
         </Popup>
 
-        <!-- Git Files View (Ctrl+G) -->
-        <popups:GitFilesView x:Name="GitFilesViewControl" />
+        <!-- Git Files - no popup view here, handled via panel system like Markdown Preview -->
 
         <!-- Git Branch View (Ctrl+B) -->
         <popups:GitBranchView x:Name="GitBranchViewControl" />

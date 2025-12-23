@@ -30,7 +30,7 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
     public string? StatusText => null;
 
     [ObservableProperty]
-    private PanelDisplayState _displayState = PanelDisplayState.Popup;
+    private PanelDisplayState _displayState = PanelDisplayState.Panel;
 
     [ObservableProperty]
     private PanelSide _preferredSide = PanelSide.Right;
@@ -41,6 +41,11 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
     ICommand IPanelableViewModel.CloseCommand => CloseCommand;
 
     public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
+
+    /// <summary>
+    /// Event raised when the panel needs to be shown.
+    /// </summary>
+    public event EventHandler? ShowRequested;
 
     #endregion
 
@@ -57,7 +62,7 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
 
     [ObservableProperty]
     private bool _isOpen;
-    
+
     // View properties needed for bindings
     [ObservableProperty]
     private double _width = 600;
@@ -93,8 +98,8 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
         UndockCommand = new RelayCommand(OnUndock);
         DetachCommand = new RelayCommand(OnDetach);
 
-        // Subscribe to MainViewModel events to handle opening requests
-        _mainViewModel.ScratchPadRequested += (s, e) => Open();
+        // Note: MainWindow handles ScratchPadRequested to control DisplayState
+        // We only subscribe to PropertyChanged for scope updates
         _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
     }
 
@@ -109,11 +114,15 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
     private void OnUndock()
     {
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
+        // After state change removes from docked panels, request to show as popup
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnDetach()
     {
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
+        // After state change removes from docked panels, request to show as window
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -161,12 +170,11 @@ public partial class ScratchPadViewModel : ObservableObject, IPanelableViewModel
 
         LoadContent();
         NotifyStateChanged();
-        
-        // Calculate center position (approximate, since we don't have direct window access here easily)
-        // Ideally the view code-behind handles centering relative to parent window
-        // For now, we'll let the view handle initial placement or use default
-        
-        IsOpen = true;
+
+        // Request to be shown in the appropriate mode
+        // NOTE: Don't set IsOpen here - let the ShowRequested handler set it based on DisplayState
+        // This prevents the popup from showing when we want Panel or Window mode
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]

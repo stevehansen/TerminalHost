@@ -44,6 +44,11 @@ public partial class GitFilesViewModel : ObservableObject, IPanelableViewModel
 
     public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
 
+    /// <summary>
+    /// Event raised when the panel needs to be shown.
+    /// </summary>
+    public event EventHandler? ShowRequested;
+
     #endregion
 
     [ObservableProperty]
@@ -110,11 +115,15 @@ public partial class GitFilesViewModel : ObservableObject, IPanelableViewModel
     private void OnUndock()
     {
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
+        // After state change removes from docked panels, request to show as popup
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnDetach()
     {
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Window));
+        // After state change removes from docked panels, request to show as window
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -148,8 +157,11 @@ public partial class GitFilesViewModel : ObservableObject, IPanelableViewModel
         Info = terminalTab.Pair.WorkingDirectory;
 
         await RefreshGitFilesAsync();
-        
-        IsOpen = true;
+
+        // Request to be shown in the appropriate mode
+        // NOTE: Don't set IsOpen here - let the ShowRequested handler set it based on DisplayState
+        // This prevents the popup from showing when we want Panel or Window mode
+        ShowRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]

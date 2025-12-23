@@ -18,6 +18,12 @@
         <DataTemplate DataType="{x:Type vm:MarkdownPreviewViewModel}">
             <views:MarkdownPreviewView/>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GitFilesViewModel}">
+            <views:GitFilesContentView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ScratchPadViewModel}">
+            <views:ScratchPadContentView/>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>

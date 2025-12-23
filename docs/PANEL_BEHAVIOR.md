@@ -25,6 +25,16 @@ The panel system allows content views to exist in three states:
 - Multiple windows CAN exist simultaneously
 - Each panel can have its own window
 
+### 4. Default Display States
+Different panels have different default display states based on their usage pattern:
+
+| Panel | Default State | Rationale |
+|-------|---------------|-----------|
+| File Explorer | Panel | Tree navigation is best docked for continuous use |
+| Markdown Preview | Panel | Reading docs benefits from persistent side-by-side view |
+| Git Changes | **Popup** | Quick diff review, typically opened/closed frequently |
+| Scratch Pad | Panel | Notes should persist and be easily accessible |
+
 ## Keyboard Shortcut Behavior
 
 | Shortcut | Panel State | Expected Behavior |
@@ -39,6 +49,16 @@ The panel system allows content views to exist in three states:
 | Ctrl+M | Docked (not active) | Make markdown the active tab |
 | Ctrl+M | Popup | Focus popup |
 | Ctrl+M | Window | Focus window |
+| Ctrl+G | Not open | Open git changes as **popup** (default state) |
+| Ctrl+G | Docked (active) | Remove from panels (toggle off) |
+| Ctrl+G | Docked (not active) | Make git changes the active tab |
+| Ctrl+G | Popup | Close popup (toggle off) |
+| Ctrl+G | Window | Close window (toggle off) |
+| Ctrl+Shift+N | Not open | Open scratch pad, add to panels, make active |
+| Ctrl+Shift+N | Docked (active) | Remove from panels (toggle off) |
+| Ctrl+Shift+N | Docked (not active) | Make scratch pad the active tab |
+| Ctrl+Shift+N | Popup | Focus popup |
+| Ctrl+Shift+N | Window | Focus window |
 
 ## Panel Operations
 

@@ -14,12 +14,13 @@
     </DataTemplate>
 
     <!-- DataTemplate for GitFilesViewModel (Git Changes panel) -->
-    <!-- Note: GitFilesView is in Views/Popups/ and is already a full view -->
-
-    <!-- Future panel templates:
-    <DataTemplate DataType="{x:Type vm:ScratchPadViewModel}">
-        <views:ScratchPadView/>
+    <DataTemplate DataType="{x:Type vm:GitFilesViewModel}">
+        <views:GitFilesContentView/>
     </DataTemplate>
-    -->
+
+    <!-- DataTemplate for ScratchPadViewModel -->
+    <DataTemplate DataType="{x:Type vm:ScratchPadViewModel}">
+        <views:ScratchPadContentView/>
+    </DataTemplate>
 
 </ResourceDictionary>
