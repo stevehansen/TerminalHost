@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -13,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _mainViewModel;
     private readonly IConfigurationService _configService;
+    private readonly IDialogService _dialogService;
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly ScratchPadViewModel _scratchPadViewModel;
@@ -24,6 +26,7 @@ public partial class MainWindow : Window
     public MainWindow(
         MainViewModel mainViewModel,
         IConfigurationService configService,
+        IDialogService dialogService,
         GitBranchViewModel gitBranchViewModel,
         GitFilesViewModel gitFilesViewModel,
         ScratchPadViewModel scratchPadViewModel,
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
 
         _mainViewModel = mainViewModel;
         _configService = configService;
+        _dialogService = dialogService;
         _gitBranchViewModel = gitBranchViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _scratchPadViewModel = scratchPadViewModel;
@@ -263,8 +267,34 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        // Save window state
         var config = _configService.Load();
+
+        // Check if we need to confirm close
+        if (config.Settings.ConfirmOnClose)
+        {
+            // Check if any terminals are still running
+            var hasRunningTerminals = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>()
+                .Any(t => t.Pair.CustomTerminal.IsProcessRunning() || t.Pair.ShellTerminal.IsProcessRunning());
+
+            if (!hasRunningTerminals)
+            {
+                hasRunningTerminals = _mainViewModel.Tabs.OfType<ProfileTerminalTabViewModel>()
+                    .Any(t => t.Session.IsProcessRunning());
+            }
+
+            if (hasRunningTerminals)
+            {
+                if (!_dialogService.ShowConfirmation(
+                    "There are still terminals running. Are you sure you want to close?",
+                    "Confirm Close"))
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+        }
+
+        // Save window state
         config.WindowState = new Domain.WindowStateInfo
         {
             Left = Position.X,
