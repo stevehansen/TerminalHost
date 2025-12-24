@@ -36,9 +36,8 @@ public class MacPtyService : IPtyService
 
         var (executable, args) = GetCommandAndArgs(command);
         var helperPath = GetPtyHelperPath();
-        var workDir = !string.IsNullOrEmpty(workingDirectory) && Directory.Exists(workingDirectory)
-            ? workingDirectory
-            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var workDir = GetValidWorkingDirectory(workingDirectory, homeDir);
 
         // Build the arguments for pty_helper.py
         // Format: pty_helper.py <cols> <rows> <command> [args...]
@@ -71,11 +70,85 @@ public class MacPtyService : IPtyService
             }
         }
 
+        // Ensure PATH includes common macOS locations (app bundles have minimal PATH)
+        var currentPath = startInfo.Environment.TryGetValue("PATH", out var existingPath) ? existingPath : "";
+        var additionalPaths = new List<string>
+        {
+            $"{homeDir}/.local/bin",           // Claude CLI, user-installed tools
+            "/opt/homebrew/bin",               // Homebrew on Apple Silicon
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",                  // Homebrew on Intel, user tools
+            "/usr/local/sbin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+            $"{homeDir}/.cargo/bin",           // Rust tools
+            $"{homeDir}/.npm-global/bin",      // npm global packages
+            "/opt/local/bin",                  // MacPorts
+        };
+
+        // Add NVM node paths if available (find latest version using semantic versioning)
+        var nvmVersionsDir = Path.Combine(homeDir, ".nvm", "versions", "node");
+        if (Directory.Exists(nvmVersionsDir))
+        {
+            try
+            {
+                var versions = Directory.GetDirectories(nvmVersionsDir)
+                    .Select(Path.GetFileName)
+                    .Where(v => v != null)
+                    .OrderByDescending(v => ParseNodeVersion(v!))
+                    .ToList();
+
+                foreach (var version in versions)
+                {
+                    var nodeBin = Path.Combine(nvmVersionsDir, version!, "bin");
+                    if (Directory.Exists(nodeBin))
+                    {
+                        additionalPaths.Insert(0, nodeBin);
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors in NVM detection
+            }
+        }
+
+        // Build comprehensive PATH, avoiding duplicates
+        // Iterate in reverse so first items in additionalPaths end up first in PATH
+        var pathParts = currentPath.Split(':', StringSplitOptions.RemoveEmptyEntries).ToList();
+        for (int i = additionalPaths.Count - 1; i >= 0; i--)
+        {
+            var path = additionalPaths[i];
+            if (!pathParts.Contains(path) && Directory.Exists(path))
+            {
+                pathParts.Insert(0, path); // Prepend to give priority
+            }
+        }
+        startInfo.Environment["PATH"] = string.Join(":", pathParts);
+
         // Override terminal-specific environment variables
         startInfo.Environment["TERM"] = "xterm-256color";
         startInfo.Environment["COLORTERM"] = "truecolor";
         startInfo.Environment["COLUMNS"] = columns.ToString();
         startInfo.Environment["LINES"] = rows.ToString();
+        startInfo.Environment["HOME"] = homeDir;
+
+        // Set up NVM environment so it initializes correctly in the shell
+        var nvmDir = Path.Combine(homeDir, ".nvm");
+        if (Directory.Exists(nvmDir))
+        {
+            startInfo.Environment["NVM_DIR"] = nvmDir;
+        }
+
+        // Ensure SHELL is set (needed for some tools)
+        if (!startInfo.Environment.ContainsKey("SHELL") || string.IsNullOrEmpty(startInfo.Environment["SHELL"]))
+        {
+            var defaultShell = File.Exists("/bin/zsh") ? "/bin/zsh" : "/bin/bash";
+            startInfo.Environment["SHELL"] = defaultShell;
+        }
 
         _process = new Process { StartInfo = startInfo };
         _process.EnableRaisingEvents = true;
@@ -159,6 +232,61 @@ public class MacPtyService : IPtyService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Gets a valid working directory, avoiding app bundles and DMG mounts.
+    /// </summary>
+    private static string GetValidWorkingDirectory(string? requestedDir, string homeDir)
+    {
+        // List of path patterns that indicate invalid locations
+        var invalidPatterns = new[]
+        {
+            "/Volumes/",              // DMG mount points
+            ".app/Contents/",         // Inside app bundles
+        };
+
+        // Check if requested directory is valid
+        if (!string.IsNullOrEmpty(requestedDir) && Directory.Exists(requestedDir))
+        {
+            var fullPath = Path.GetFullPath(requestedDir);
+            var isInvalid = invalidPatterns.Any(pattern =>
+                fullPath.Contains(pattern, StringComparison.OrdinalIgnoreCase));
+
+            if (!isInvalid)
+            {
+                return fullPath;
+            }
+        }
+
+        // Fall back to home directory
+        if (Directory.Exists(homeDir))
+        {
+            return homeDir;
+        }
+
+        // Last resort fallback
+        return "/tmp";
+    }
+
+    /// <summary>
+    /// Parses a node version string like "v24.6.0" into a comparable tuple.
+    /// </summary>
+    private static (int major, int minor, int patch) ParseNodeVersion(string version)
+    {
+        try
+        {
+            var clean = version.TrimStart('v');
+            var parts = clean.Split('.');
+            var major = parts.Length > 0 && int.TryParse(parts[0], out var m) ? m : 0;
+            var minor = parts.Length > 1 && int.TryParse(parts[1], out var n) ? n : 0;
+            var patch = parts.Length > 2 && int.TryParse(parts[2], out var p) ? p : 0;
+            return (major, minor, patch);
+        }
+        catch
+        {
+            return (0, 0, 0);
+        }
     }
 
     public void Resize(int columns, int rows)
