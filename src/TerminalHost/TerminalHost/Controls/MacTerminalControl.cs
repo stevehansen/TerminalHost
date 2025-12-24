@@ -2,6 +2,8 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -219,6 +221,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             VisibleColumns = _columns,
             VisibleRows = _rows
         };
+
+        // Subscribe to SendData event to handle terminal responses (e.g., cursor position reports)
+        _terminalController.SendData += OnTerminalSendData;
+
         _dataConsumer = new DataConsumer(_terminalController);
         _viewPort = new VirtualTerminalViewPort(_terminalController);
 
@@ -306,6 +312,24 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         {
             ProcessExited?.Invoke(this, exitCode);
         });
+    }
+
+    private void OnTerminalSendData(object? sender, SendDataEventArgs e)
+    {
+        // Forward terminal responses (like cursor position reports) back to the PTY
+        // Write synchronously to ensure immediate response for CLI tools like codex
+        if (_ptyService != null && _ptyService.IsRunning && e.Data != null && _ptyService.WriterStream != null)
+        {
+            try
+            {
+                _ptyService.WriterStream.Write(e.Data, 0, e.Data.Length);
+                _ptyService.WriterStream.Flush();
+            }
+            catch
+            {
+                // Ignore write errors - PTY may have closed
+            }
+        }
     }
 
     #region Properties

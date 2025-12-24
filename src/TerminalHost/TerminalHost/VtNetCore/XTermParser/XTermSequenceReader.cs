@@ -122,6 +122,7 @@
             bool isSend = false;
             bool isBang = false;
             char? modifier = null;
+            char previousChar = '\0';
 
             int currentParameter = -1;
             List<int> Parameters = new List<int>();
@@ -130,7 +131,34 @@
             {
                 var next = stream.Read();
 
-                if (readingCommand || next == 0x07 || next == 0x9C) // BEL or ST
+                // Check for ST terminator: ESC \ (0x1B 0x5C)
+                // If previous char was ESC and current is \, this is ST
+                if (previousChar == '\x1B' && next == '\\')
+                {
+                    // Remove the ESC we already added to command
+                    if (command.Length > 0 && command[command.Length - 1] == '\x1B')
+                    {
+                        command = command.Substring(0, command.Length - 1);
+                    }
+
+                    if (currentParameter != -1)
+                    {
+                        Parameters.Add(currentParameter);
+                    }
+                    var osc = new OscSequence
+                    {
+                        Parameters = Parameters,
+                        IsQuery = isQuery,
+                        IsSend = isSend,
+                        IsBang = isBang,
+                        Command = command
+                    };
+
+                    stream.Commit();
+                    return osc;
+                }
+
+                if (readingCommand || next == 0x07 || next == 0x9C) // BEL or ST (single byte)
                 {
                     if (next == 0x07 || next == 0x9C) // BEL or ST
                     {
@@ -208,6 +236,8 @@
                         readingCommand = true;
                     }
                 }
+
+                previousChar = next;
             }
         }
 

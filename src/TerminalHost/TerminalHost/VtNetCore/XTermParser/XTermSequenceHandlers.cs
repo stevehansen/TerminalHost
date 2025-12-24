@@ -1704,7 +1704,7 @@
                         x.Bang == sequence.IsBang &&
                         (
                             (
-                                x.Param0.Length == 0 && 
+                                x.Param0.Length == 0 &&
                                 x.ValidParams.Length == 0
                             )
                             ||
