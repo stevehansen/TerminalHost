@@ -97,6 +97,23 @@
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
+                    <!-- Layout -->
+                    <TextBlock Text="Layout" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+L" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Toggle layout mode (Tabs/Sidebar)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+L" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle sidebar visibility" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
+                    </Grid>
+
                     <!-- File Operations -->
                     <TextBlock Text="File Operations" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,16">

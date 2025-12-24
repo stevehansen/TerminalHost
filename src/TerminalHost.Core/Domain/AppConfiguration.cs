@@ -107,6 +107,12 @@ public class AppConfiguration
     public List<QuickNote> QuickNotes { get; set; } = [];
 
     /// <summary>
+    /// Workspace entries for the sidebar layout mode.
+    /// </summary>
+    [JsonPropertyName("workspaces")]
+    public List<Workspace> Workspaces { get; set; } = [];
+
+    /// <summary>
     /// Configured AI assistants (Claude, Gemini, Codex, Copilot, custom).
     /// </summary>
     [JsonPropertyName("aiAssistants")]
@@ -462,6 +468,25 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("firstRunDate")]
     public DateTime? FirstRunDate { get; set; } = null;
+
+    /// <summary>
+    /// Application-wide layout mode for displaying projects.
+    /// </summary>
+    [JsonPropertyName("layoutMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AppLayoutMode LayoutMode { get; set; } = AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Width of the workspace sidebar in pixels.
+    /// </summary>
+    [JsonPropertyName("sidebarWidth")]
+    public double SidebarWidth { get; set; } = 250;
+
+    /// <summary>
+    /// Whether the workspace sidebar is collapsed.
+    /// </summary>
+    [JsonPropertyName("sidebarCollapsed")]
+    public bool SidebarCollapsed { get; set; } = false;
 }
 
 /// <summary>

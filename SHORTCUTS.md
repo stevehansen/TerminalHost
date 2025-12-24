@@ -64,6 +64,13 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+Q` | Quick add task | Global | |
 | `Ctrl+Shift+M` | Quick add note | Global | |
 
+### Layout Shortcuts
+
+| Shortcut | Action | Scope | Notes |
+|----------|--------|-------|-------|
+| `Ctrl+L` | Toggle layout mode | Global | Switch between Tabs and Sidebar |
+| `Ctrl+Shift+L` | Toggle sidebar | Sidebar mode | Collapse/expand sidebar |
+
 ### Configurable Quick Commands (Default)
 
 These are user-configurable in settings. Default shortcuts:

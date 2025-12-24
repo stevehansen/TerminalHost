@@ -22,16 +22,35 @@
     <!-- All styles and converters are now in App.xaml for reuse across views -->
 
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding SidebarColumnWidth}"/>
+            <ColumnDefinition Width="{Binding SidebarSplitterWidth}"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Tab Bar -->
-        <views:TabStrip Grid.Row="0" DataContext="{Binding}" />
+        <!-- Workspace Sidebar (Column 0, spans both rows) - visible in WorkspaceSidebar mode -->
+        <views:WorkspaceSidebarView Grid.Column="0" Grid.RowSpan="2"
+                                     DataContext="{Binding WorkspaceSidebar}"
+                                     Visibility="{Binding DataContext.IsWorkspaceSidebarVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-        <!-- Tab Content Area -->
-        <Grid Grid.Row="1">
+        <!-- Sidebar Splitter (Column 1) -->
+        <GridSplitter Grid.Column="1" Grid.RowSpan="2"
+                      Width="4"
+                      HorizontalAlignment="Stretch"
+                      Background="{StaticResource BackgroundDarkBrush}"
+                      Visibility="{Binding IsWorkspaceSidebarVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+        <!-- Tab Bar (Column 2, Row 0) - visible in Tabs mode only -->
+        <views:TabStrip Grid.Row="0" Grid.Column="2"
+                        DataContext="{Binding}"
+                        Visibility="{Binding IsTabStripVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+        <!-- Tab Content Area (Column 2, Row 1) -->
+        <Grid Grid.Row="1" Grid.Column="2">
             <!-- Show when there's a selected tab -->
             <ContentControl Content="{Binding SelectedTab}"
                             AutomationProperties.AutomationId="MainContentControl"

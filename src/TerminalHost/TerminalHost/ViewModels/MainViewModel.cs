@@ -39,6 +39,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
     private readonly IFolderPickerService _folderPickerService;
+    private readonly IGitWorktreeService _gitWorktreeService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _activityTimer;
@@ -69,6 +70,55 @@ public partial class MainViewModel : ObservableObject
     /// The session manager for tracking terminal sessions.
     /// </summary>
     public ISessionManager SessionManager => _sessionManager;
+
+    /// <summary>
+    /// The workspace sidebar view model for the sidebar layout mode.
+    /// </summary>
+    public WorkspaceSidebarViewModel? WorkspaceSidebar { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWorkspaceSidebarVisible))]
+    [NotifyPropertyChangedFor(nameof(IsTabStripVisible))]
+    [NotifyPropertyChangedFor(nameof(SidebarColumnWidth))]
+    [NotifyPropertyChangedFor(nameof(SidebarSplitterWidth))]
+    private AppLayoutMode _layoutMode = AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Width of the sidebar column for binding.
+    /// </summary>
+    public double SidebarWidth => WorkspaceSidebar?.Width ?? 250;
+
+    /// <summary>
+    /// Whether the workspace sidebar should be visible.
+    /// </summary>
+    public bool IsWorkspaceSidebarVisible => LayoutMode == AppLayoutMode.WorkspaceSidebar && !(WorkspaceSidebar?.IsCollapsed ?? false);
+
+    /// <summary>
+    /// Whether the tab strip should be visible.
+    /// </summary>
+    public bool IsTabStripVisible => LayoutMode == AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Non-project tabs (Settings, Statistics, Dashboard, etc.) for display in sidebar mode.
+    /// </summary>
+    public IEnumerable<ITabViewModel> NonProjectTabs => Tabs.Where(t => t is not TerminalPairTabViewModel);
+
+    /// <summary>
+    /// Whether there are non-project tabs open.
+    /// </summary>
+    public bool HasNonProjectTabs => NonProjectTabs.Any();
+
+    /// <summary>
+    /// Width of the sidebar column for Grid binding.
+    /// </summary>
+    public System.Windows.GridLength SidebarColumnWidth =>
+        IsWorkspaceSidebarVisible ? new System.Windows.GridLength(SidebarWidth) : new System.Windows.GridLength(0);
+
+    /// <summary>
+    /// Width of the sidebar splitter for Grid binding.
+    /// </summary>
+    public System.Windows.GridLength SidebarSplitterWidth =>
+        IsWorkspaceSidebarVisible ? new System.Windows.GridLength(4) : new System.Windows.GridLength(0);
 
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = [];
@@ -180,7 +230,8 @@ public partial class MainViewModel : ObservableObject
         IToastService toastService,
         ITimerService timerService,
         IDispatcherService dispatcherService,
-        IFolderPickerService folderPickerService)
+        IFolderPickerService folderPickerService,
+        IGitWorktreeService gitWorktreeService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -208,6 +259,23 @@ public partial class MainViewModel : ObservableObject
         _timerService = timerService;
         _dispatcherService = dispatcherService;
         _folderPickerService = folderPickerService;
+        _gitWorktreeService = gitWorktreeService;
+
+        // Initialize workspace sidebar
+        WorkspaceSidebar = new WorkspaceSidebarViewModel(
+            configService,
+            gitWorktreeService,
+            gitStatusService,
+            dialogService,
+            fileSystem);
+        WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
+
+        // Subscribe to Tabs collection changes for NonProjectTabs updates
+        _tabs.CollectionChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(NonProjectTabs));
+            OnPropertyChanged(nameof(HasNonProjectTabs));
+        };
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -252,6 +320,15 @@ public partial class MainViewModel : ObservableObject
     {
         UpdateFilteredDropdownTabs();
         UpdateFilteredSwitcherTabs();
+        OnPropertyChanged(nameof(NonProjectTabs));
+        OnPropertyChanged(nameof(HasNonProjectTabs));
+
+        // Subscribe to collection changes for non-project tabs updates
+        value.CollectionChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(NonProjectTabs));
+            OnPropertyChanged(nameof(HasNonProjectTabs));
+        };
     }
 
     partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
@@ -370,6 +447,9 @@ public partial class MainViewModel : ObservableObject
     {
         // Load quick commands from config
         LoadQuickCommands();
+
+        // Load layout mode and initialize workspace sidebar
+        _ = InitializeWorkspaceSidebarAsync();
 
         // Restore previously open folders
         RestoreOpenFolders();
@@ -751,6 +831,9 @@ public partial class MainViewModel : ObservableObject
 
             // Fetch git status for the new tab
             _ = RefreshTabGitStatusAsync(tabViewModel);
+
+            // Sync with workspace sidebar
+            _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
         }
         catch (Exception ex)
         {
@@ -1868,6 +1951,45 @@ public partial class MainViewModel : ObservableObject
                 Category = "Run",
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
+            },
+
+            // Layout commands
+            new() {
+                Id = "toggle-layout-mode",
+                Name = "Toggle Layout Mode",
+                Description = "Switch between Tabs and Workspace Sidebar layout",
+                Shortcut = "Ctrl+L",
+                Icon = "📐",
+                Category = "Layout",
+                Execute = () => ToggleLayoutModeCommand.Execute(null)
+            },
+            new() {
+                Id = "toggle-sidebar",
+                Name = "Toggle Sidebar",
+                Description = "Collapse/expand the workspace sidebar",
+                Shortcut = "Ctrl+Shift+L",
+                Icon = "📎",
+                Category = "Layout",
+                Execute = () => ToggleSidebarCommand.Execute(null),
+                CanExecute = () => LayoutMode == AppLayoutMode.WorkspaceSidebar
+            },
+            new() {
+                Id = "switch-to-tabs",
+                Name = "Switch to Tabs Layout",
+                Description = "Use traditional tab bar layout",
+                Icon = "🗂",
+                Category = "Layout",
+                Execute = () => { LayoutMode = AppLayoutMode.Tabs; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
+                CanExecute = () => LayoutMode != AppLayoutMode.Tabs
+            },
+            new() {
+                Id = "switch-to-sidebar",
+                Name = "Switch to Sidebar Layout",
+                Description = "Use workspace sidebar layout",
+                Icon = "📂",
+                Category = "Layout",
+                Execute = () => { LayoutMode = AppLayoutMode.WorkspaceSidebar; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
+                CanExecute = () => LayoutMode != AppLayoutMode.WorkspaceSidebar
             }
         ];
     }
@@ -2031,6 +2153,60 @@ public partial class MainViewModel : ObservableObject
     {
         var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
         return _claudeCommandService.GetAllCommands(currentWorkingDir);
+    }
+
+    /// <summary>
+    /// Handles the OpenTabRequested event from the workspace sidebar.
+    /// </summary>
+    private void OnWorkspaceSidebarOpenTabRequested(object? sender, string path)
+    {
+        OpenProjectTab(path);
+    }
+
+    /// <summary>
+    /// Toggles between Tabs and WorkspaceSidebar layout modes.
+    /// </summary>
+    [RelayCommand]
+    public void ToggleLayoutMode()
+    {
+        LayoutMode = LayoutMode == AppLayoutMode.Tabs
+            ? AppLayoutMode.WorkspaceSidebar
+            : AppLayoutMode.Tabs;
+
+        // Save the setting
+        var config = _configService.Load();
+        config.Settings.LayoutMode = LayoutMode;
+        _configService.Save(config);
+    }
+
+    /// <summary>
+    /// Toggles the workspace sidebar visibility (collapse/expand).
+    /// </summary>
+    [RelayCommand]
+    public void ToggleSidebar()
+    {
+        if (WorkspaceSidebar != null)
+        {
+            WorkspaceSidebar.IsCollapsed = !WorkspaceSidebar.IsCollapsed;
+            OnPropertyChanged(nameof(IsWorkspaceSidebarVisible));
+            OnPropertyChanged(nameof(SidebarColumnWidth));
+            OnPropertyChanged(nameof(SidebarSplitterWidth));
+        }
+    }
+
+    /// <summary>
+    /// Initializes the workspace sidebar with saved workspaces.
+    /// Call this during application startup.
+    /// </summary>
+    public async Task InitializeWorkspaceSidebarAsync()
+    {
+        var config = _configService.Load();
+        LayoutMode = config.Settings.LayoutMode;
+
+        if (WorkspaceSidebar != null)
+        {
+            await WorkspaceSidebar.LoadAsync();
+        }
     }
 
     public void Shutdown()

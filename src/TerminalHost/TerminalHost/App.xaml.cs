@@ -183,6 +183,7 @@ public partial class App : Application
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton<IProcessService, ProcessService>();
         services.AddSingleton<IGitStatusService, GitStatusService>();
+        services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
         services.AddSingleton<IGitIgnoreService, GitIgnoreService>();
         services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
         services.AddSingleton<IRunUrlDetectionService, RunUrlDetectionService>();

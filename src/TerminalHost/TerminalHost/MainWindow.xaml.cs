@@ -776,6 +776,18 @@ public partial class MainWindow : Window
             await OpenMarkdownPreviewAsync();
             e.Handled = true;
         }
+        // Ctrl+L: Toggle layout mode (Tabs/WorkspaceSidebar)
+        else if (e.Key == Key.L && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.ToggleLayoutModeCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+Shift+L: Toggle sidebar visibility (collapse/expand)
+        else if (e.Key == Key.L && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _viewModel.ToggleSidebarCommand.Execute(null);
+            e.Handled = true;
+        }
         // Check quick command shortcuts
         else if (TryExecuteQuickCommandShortcut(e.Key, Keyboard.Modifiers))
         {

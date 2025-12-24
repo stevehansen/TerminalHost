@@ -73,6 +73,8 @@
         <SolidColorBrush x:Key="AccentHoverBrush" Color="#1084D8"/>
         <SolidColorBrush x:Key="AccentDarkBrush" Color="#0E639C"/>
         <SolidColorBrush x:Key="AccentBlueBrush" Color="#264F78"/>
+        <SolidColorBrush x:Key="AccentOrangeBrush" Color="#FFA500"/>
+        <SolidColorBrush x:Key="AccentGreenBrush" Color="#32CD32"/>
 
         <!-- Syntax/Semantic Colors (VS Code theme) -->
         <SolidColorBrush x:Key="SyntaxBlueBrush" Color="#569CD6"/>

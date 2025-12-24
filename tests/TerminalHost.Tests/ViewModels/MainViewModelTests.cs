@@ -36,6 +36,7 @@ public class MainViewModelTests
     private readonly Mock<ITimerService> _mockTimerService;
     private readonly Mock<IDispatcherService> _mockDispatcherService;
     private readonly Mock<IFolderPickerService> _mockFolderPickerService;
+    private readonly Mock<IGitWorktreeService> _mockGitWorktreeService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -66,6 +67,7 @@ public class MainViewModelTests
         _mockTimerService = new Mock<ITimerService>();
         _mockDispatcherService = new Mock<IDispatcherService>();
         _mockFolderPickerService = new Mock<IFolderPickerService>();
+        _mockGitWorktreeService = new Mock<IGitWorktreeService>();
 
         // Setup timer service to return a mock timer
         _mockTimerService.Setup(ts => ts.CreateTimer(It.IsAny<TimeSpan>(), It.IsAny<Action>()))
@@ -151,7 +153,8 @@ public class MainViewModelTests
             _mockToastService.Object,
             _mockTimerService.Object,
             _mockDispatcherService.Object,
-            _mockFolderPickerService.Object);
+            _mockFolderPickerService.Object,
+            _mockGitWorktreeService.Object);
     }
 
     // Helper to run tests in STA thread
@@ -198,7 +201,7 @@ public class MainViewModelTests
 
             _mockTerminalFactory.Verify(tf => tf.CreateTerminalControl(It.IsAny<TerminalSession>()), Times.Exactly(2));
             _mockSessionManager.Verify(sm => sm.TrackSession(It.IsAny<TerminalSession>()), Times.Exactly(2));
-            _mockGitStatusService.Verify(gs => gs.GetGitStatusAsync(workingDirectory), Times.Once);
+            _mockGitStatusService.Verify(gs => gs.GetGitStatusAsync(workingDirectory), Times.AtLeastOnce);  // May be called by workspace sidebar too
             _mockProjectDetectionService.Verify(pd => pd.GetOrCreateConfigurations(
                 workingDirectory, It.IsAny<DirectorySettings>()), Times.Once);
             _mockDialogService.Verify(ds => ds.ShowError(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
@@ -284,9 +287,9 @@ public class MainViewModelTests
             _mainViewModel.Tabs.Count.ShouldBe(2);
             _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().ShouldContain(t => t.Pair.WorkingDirectory == folder1);
             _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().ShouldContain(t => t.Pair.WorkingDirectory == folder2);
-            // Called twice: once in RestoreOpenFolders loop, once inside OpenProjectTab
-            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder1), Times.Exactly(2));
-            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder2), Times.Exactly(2));
+            // Called multiple times: RestoreOpenFolders, OpenProjectTab, and workspace sidebar sync
+            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder1), Times.AtLeast(2));
+            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder2), Times.AtLeast(2));
         });
     }
 
@@ -314,10 +317,10 @@ public class MainViewModelTests
             // Assert
             _mainViewModel.Tabs.Count.ShouldBe(1); // Only folder1 should be opened
             _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().ShouldContain(t => t.Pair.WorkingDirectory == folder1);
-            // Folder1 called twice (Restore check + Open check)
-            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder1), Times.Exactly(2));
+            // Folder1 called multiple times (Restore check + Open check + workspace sidebar sync)
+            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder1), Times.AtLeast(2));
             // Folder2 called once (Restore check) - fails so OpenProjectTab is not called
-            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder2), Times.Once);
+            _mockFileSystem.Verify(fs => fs.DirectoryExists(folder2), Times.AtLeastOnce);
             _mockDialogService.Verify(ds => ds.ShowError(It.IsAny<string>(), It.IsAny<string>()), Times.Never); // No error for non-existent
         });
     }
