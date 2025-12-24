@@ -1,0 +1,269 @@
+<UserControl x:Class="TerminalHost.Views.Popups.GitStashView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:GitStashViewModel}"
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
+
+    <Popup x:Name="GitStashPopup"
+           Placement="Center"
+           PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+           StaysOpen="True"
+           AllowsTransparency="True"
+           IsOpen="{Binding IsOpen, Mode=TwoWay}">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxPurpleBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="×"
+                                Style="{StaticResource TabCloseButton}"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="↻ Refresh"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding RefreshStashListCommand}"
+                                ToolTip="Refresh stash list"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📦" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Create Stash Section -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox x:Name="StashMessageBox"
+                                 Grid.Column="0"
+                                 Text="{Binding StashMessage, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{StaticResource BackgroundMediumBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 BorderThickness="1"
+                                 Padding="8,6"
+                                 FontSize="{StaticResource FontSizeCode}"
+                                 ToolTip="Optional stash message (leave empty for default)">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+
+                        <CheckBox Grid.Column="1"
+                                  IsChecked="{Binding IncludeUntracked}"
+                                  Content="Include untracked"
+                                  Foreground="{StaticResource TextSecondaryBrush}"
+                                  FontSize="{StaticResource FontSizeSmall}"
+                                  VerticalAlignment="Center"
+                                  Margin="8,0,0,0"
+                                  ToolTip="Include untracked files in the stash"/>
+
+                        <Button Grid.Column="2"
+                                Content="+ Stash"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding CreateStashCommand}"
+                                ToolTip="Stash current changes"
+                                Margin="8,0,0,0"
+                                Padding="12,6"/>
+                    </Grid>
+                </Border>
+
+                <!-- Stash List -->
+                <ListBox x:Name="StashList"
+                         Grid.Row="2"
+                         ItemsSource="{Binding StashEntries}"
+                         SelectedItem="{Binding SelectedStash}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         MouseDoubleClick="StashList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="8,6">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Stash reference and short message -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding StashRef}"
+                                               Foreground="{StaticResource SyntaxPurpleBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text=": "
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ShortMessage}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="400"/>
+                                </StackPanel>
+
+                                <!-- Branch and relative date -->
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding Branch}"
+                                               Foreground="{StaticResource SyntaxCyanBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding Branch, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <TextBlock Text=" • "
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding Branch, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <TextBlock Text="{Binding RelativeDate}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Action buttons -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button Content="Apply"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.ApplyStashCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Padding="6,2"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Apply stash (keep in list)"/>
+                                    <Button Content="Pop"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.PopStashCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Padding="6,2"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Apply and remove from list"/>
+                                    <Button Content="Drop"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Padding="6,2"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Delete stash"
+                                            Command="{Binding DataContext.DropStashCommand, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                                <Setter Property="Foreground" Value="#F14C4C"/>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="Branch..."
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.CreateBranchFromStashCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Padding="6,2"
+                                            ToolTip="Create branch from stash"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="ItemBorder"
+                                                Background="{TemplateBinding Background}"
+                                                Padding="{TemplateBinding Padding}"
+                                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                BorderThickness="0,0,0,1">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Empty state -->
+                <TextBlock Grid.Row="2"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Padding="20"
+                           Visibility="{Binding StashEntries.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+
+                <!-- Loading overlay -->
+                <Border Grid.Row="2"
+                        Background="#80000000"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="Loading..."
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Footer with hints -->
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               HorizontalAlignment="Center">
+                        <Run Text="Enter"/>
+                        <Run Text=" to pop • "/>
+                        <Run Text="Escape"/>
+                        <Run Text=" to close"/>
+                    </TextBlock>
+                </Border>
+            </Grid>
+        </Border>
+    </Popup>
+</UserControl>

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly ISystemTrayService? _systemTrayService;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
+    private readonly GitStashViewModel _gitStashViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
@@ -42,7 +43,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
         _systemTrayService = systemTrayService;
         _scratchPadViewModel = scratchPadViewModel;
         _gitBranchViewModel = gitBranchViewModel;
+        _gitStashViewModel = gitStashViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
@@ -67,6 +69,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         viewModel.TaskPanelViewModel = taskPanelViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
+        GitStashViewControl.DataContext = gitStashViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         FileViewerPopupControl.DataContext = fileViewerViewModel;
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
@@ -401,6 +404,12 @@ public partial class MainWindow : Window
             if (_gitBranchViewModel.IsOpen)
             {
                 _gitBranchViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_gitStashViewModel.IsOpen)
+            {
+                _gitStashViewModel.IsOpen = false;
                 e.Handled = true;
                 return;
             }
@@ -746,6 +755,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
         {
             await _gitBranchViewModel.OpenAsync();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+S: Open git stash manager
+        else if (e.Key == Key.S && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            await _gitStashViewModel.OpenAsync();
             e.Handled = true;
         }
         // Ctrl+Shift+O: Open repository switcher

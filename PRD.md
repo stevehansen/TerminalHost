@@ -60,6 +60,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
 - [x] Git changes panel with file list and diff viewer (Ctrl+G)
 - [x] Git branch management popup (Ctrl+B) - switch, create, delete branches
+- [x] Git stash manager popup (Ctrl+Shift+S) - create, apply, pop, drop stashes with quick stash button in Git Changes panel
 - [x] Project Runner - Run and manage development servers with F5, dedicated run terminal, URL detection
 - [x] Setup Mode - A startup window to detect and guide installation of recommended dependencies.
 - [x] Modular UI Architecture - MainWindow refactored into reusable components (TabStrip, TerminalPairView, popup views) with dedicated ViewModels for improved maintainability
@@ -276,6 +277,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+N     | Open scratch pad (notes)            |
 | Ctrl+G           | Open git changes panel              |
 | Ctrl+B           | Open git branch switcher            |
+| Ctrl+Shift+S     | Open git stash manager              |
 | Ctrl+T           | Open task panel (focus mode)        |
 | Ctrl+Shift+H     | Open GitHub Dashboard               |
 | Ctrl+Shift+O     | Open Repository Quick Access        |

@@ -43,6 +43,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+H` | Open commit history | Project tab | |
 | `Ctrl+F3` | Search across files | Project tab | Full-text search with replace |
 | `Ctrl+B` | Open git branch switcher | Project tab | |
+| `Ctrl+Shift+S` | Open git stash manager | Project tab | |
 | `Ctrl+T` | Open task panel (focus mode) | Project tab | |
 | `Ctrl+M` | Open Markdown preview | Project tab | |
 | `Ctrl+Shift+H` | Open GitHub Dashboard | Project tab | |
@@ -122,7 +123,6 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+K` - Available
 - `Ctrl+Shift+L` - Available
-- `Ctrl+Shift+S` - Available
 - `Ctrl+Shift+V` - Available
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available

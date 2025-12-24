@@ -575,7 +575,7 @@ Manage git submodules within projects.
 | **High** | Commit History Viewer | Medium | GitStatusService | **DONE** (Ctrl+H) |
 | **High** | Interactive Staging | Low | Git Changes panel | **DONE** |
 | **High** | Commit Creation UI | Low | Interactive Staging | **DONE** |
-| **Medium** | Stash Operations | Low | GitStatusService | |
+| **Medium** | Stash Operations | Low | GitStatusService | **DONE** (Ctrl+Shift+S) |
 | **Medium** | File History & Blame | Medium | Commit History | |
 | **Medium** | Commit/Branch Comparison | Medium | Commit History | |
 | **Low** | Tags Management | Low | GitStatusService | |

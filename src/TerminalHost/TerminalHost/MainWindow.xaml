@@ -166,6 +166,9 @@
         <!-- Git Branch View (Ctrl+B) -->
         <popups:GitBranchView x:Name="GitBranchViewControl" />
 
+        <!-- Git Stash View (Ctrl+Shift+S) -->
+        <popups:GitStashView x:Name="GitStashViewControl" />
+
         <!-- Detected Links View -->
         <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
 

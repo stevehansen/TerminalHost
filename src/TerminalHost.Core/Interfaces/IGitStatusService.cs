@@ -31,4 +31,12 @@ public interface IGitStatusService
     Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null, string? filePath = null);
     Task<GitCommitDetails?> GetCommitDetailsAsync(string workingDirectory, string hash);
     Task<string?> GetCommitDiffAsync(string workingDirectory, string hash, string? filePath = null);
+
+    // Stash operations
+    Task<List<GitStashEntry>> GetStashListAsync(string workingDirectory);
+    Task<GitOperationResult> CreateStashAsync(string workingDirectory, string? message = null, bool includeUntracked = false);
+    Task<GitOperationResult> ApplyStashAsync(string workingDirectory, int index);
+    Task<GitOperationResult> PopStashAsync(string workingDirectory, int index);
+    Task<GitOperationResult> DropStashAsync(string workingDirectory, int index);
+    Task<GitOperationResult> CreateBranchFromStashAsync(string workingDirectory, string branchName, int index);
 }

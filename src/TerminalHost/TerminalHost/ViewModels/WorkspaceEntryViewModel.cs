@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
@@ -150,10 +151,10 @@ public partial class WorkspaceEntryViewModel : ObservableObject
             // Load git status
             GitStatus = await _gitStatusService.GetGitStatusAsync(Path);
 
-            // Load worktrees
+            // Load worktrees (only linked worktrees, not the main one which is the workspace itself)
             var worktreeInfos = await _gitWorktreeService.ListWorktreesAsync(Path);
             Worktrees.Clear();
-            foreach (var info in worktreeInfos)
+            foreach (var info in worktreeInfos.Where(w => !w.IsMain))
             {
                 var vm = new WorktreeEntryViewModel(info);
                 Worktrees.Add(vm);

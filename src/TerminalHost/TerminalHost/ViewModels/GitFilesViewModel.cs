@@ -30,6 +30,22 @@ public partial class GitFilesViewModel : BasePanelViewModel
     public override string PanelIcon => "\u0394"; // Δ (Delta symbol)
     public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
+    public override IEnumerable<PanelHeaderCommand>? HeaderCommands =>
+    [
+        new PanelHeaderCommand
+        {
+            Icon = "📦",
+            Tooltip = "Stash changes (Ctrl+Shift+S for stash manager)",
+            Command = QuickStashCommand
+        },
+        new PanelHeaderCommand
+        {
+            Icon = "↻",
+            Tooltip = "Refresh file list",
+            Command = RefreshGitFilesCommand
+        }
+    ];
+
     #endregion
 
     #region Git Properties
@@ -190,6 +206,46 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
         OnPropertyChanged(nameof(HasStagedFiles));
         UpdateStagingButtonsState();
+    }
+
+    [RelayCommand]
+    private async Task QuickStashAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null)
+            return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+        try
+        {
+            var result = await _gitStatusService.CreateStashAsync(workingDirectory);
+
+            if (result.Success)
+            {
+                _toastService.Show("Changes stashed", ToastType.Success);
+                await RefreshGitFilesAsync();
+
+                // Also refresh the terminal tab's git status
+                var status = await _gitStatusService.GetGitStatusAsync(workingDirectory);
+                _currentTerminalTab.GitStatus = status;
+            }
+            else
+            {
+                var error = result.Error ?? "Unknown error";
+                if (error.Contains("No local changes to save"))
+                {
+                    _toastService.Show("No changes to stash", ToastType.Warning);
+                }
+                else
+                {
+                    _dialogService.ShowWarning($"Failed to stash changes:\n{error}", "Git Stash");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to stash changes: {ex.Message}", "Git Stash");
+        }
     }
 
     public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;

@@ -210,6 +210,7 @@ public partial class App : Application
         services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<GitBranchViewModel>();
+        services.AddSingleton<GitStashViewModel>();
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<CommitHistoryViewModel>();
