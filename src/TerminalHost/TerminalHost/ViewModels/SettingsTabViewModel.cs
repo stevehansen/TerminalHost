@@ -120,6 +120,23 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private QuickCommandTarget _editQcTarget = QuickCommandTarget.Custom;
 
+    /// <summary>
+    /// Index-based property for ComboBox binding (Avalonia doesn't support SelectedValuePath).
+    /// Maps: 0 = Custom, 1 = Shell
+    /// </summary>
+    public int EditQcTargetIndex
+    {
+        get => (int)EditQcTarget;
+        set
+        {
+            if (EditQcTarget != (QuickCommandTarget)value)
+            {
+                EditQcTarget = (QuickCommandTarget)value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     [ObservableProperty]
     private string _editQcShortcut = "";
 
@@ -502,6 +519,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnShellCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandIconChanged(string value) => MarkDirtyFromRichMode();
 
+    // Notify EditQcTargetIndex when EditQcTarget changes (for ComboBox binding)
+    partial void OnEditQcTargetChanged(QuickCommandTarget value) => OnPropertyChanged(nameof(EditQcTargetIndex));
+
     partial void OnViewModeChanged(SettingsViewMode value)
     {
         if (value == SettingsViewMode.Rich)
@@ -773,6 +793,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         }
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -888,6 +909,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         }
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -1029,6 +1051,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         }
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -1189,6 +1212,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         }
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -1310,6 +1334,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         }
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -1416,6 +1441,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         CurrentDirectorySettings.ActiveAiAssistantId = EditDsAiAssistant?.Id;
 
         SyncRichModeToJson();
+        Save();
     }
 
     [RelayCommand]
@@ -1516,6 +1542,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             RunConfigurations.Insert(index, config);
             SelectedRunConfiguration = config;
         }
+
+        // Update the directory settings with the run configurations
+        if (CurrentDirectorySettings != null)
+        {
+            CurrentDirectorySettings.RunConfigurations = RunConfigurations.ToList();
+        }
+
+        SyncRichModeToJson();
+        Save();
     }
 
     private static string GetDefaultShell()

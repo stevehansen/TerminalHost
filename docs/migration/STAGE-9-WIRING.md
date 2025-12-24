@@ -304,21 +304,30 @@ private void OnClosing(object? sender, WindowClosingEventArgs e)
 
 ---
 
-### Phase 7: macOS Menu Updates
+### Phase 7: macOS Menu Updates ✅ COMPLETED
 
 **Complexity:** Low | **Dependencies:** Phase 1, Phase 5
 
 **File:** `src/TerminalHost/TerminalHost/MainWindow.axaml.cs`
 
-Update `SetupMacOSMenu()` method:
+Updated `SetupMacOSMenu()` method with full Click event handlers:
 
 | Menu | Item | Action |
 |------|------|--------|
-| File | New Project | `_mainViewModel.OpenNewProjectCommand.Execute(null)` |
+| File | New Project... | `_mainViewModel.OpenNewProjectCommand.Execute(null)` |
 | File | Close Tab | `_mainViewModel.CloseTabCommand.Execute(_mainViewModel.SelectedTab)` |
-| View | Settings | `_mainViewModel.OpenSettingsCommand.Execute(null)` |
-| View | Command Palette | `_mainViewModel.IsCommandPaletteOpen = true` |
+| View | Settings... | `_mainViewModel.OpenSettingsCommand.Execute(null)` |
 | View | Statistics | `_mainViewModel.OpenStatisticsCommand.Execute(null)` |
+| View | Command Palette... | `_mainViewModel.IsCommandPaletteOpen = true` |
+| View | Tab Switcher... | `_mainViewModel.IsTabSwitcherOpen = true` |
+| View | Git Branches... | `_gitBranchViewModel.OpenCommand.ExecuteAsync(null)` |
+| View | Git Changes... | `_gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab)` |
+| View | Scratch Pad | `_scratchPadViewModel.Open()` |
+| View | Task Panel | `_taskPanelViewModel.Open()` |
+| View | Toggle Full Screen | Toggle `WindowState.FullScreen` |
+| Window | Minimize | `WindowState = WindowState.Minimized` |
+| Window | Next Tab | `_mainViewModel.CycleTabCommand.Execute(true)` |
+| Window | Previous Tab | `_mainViewModel.CycleTabCommand.Execute(false)` |
 | Help | Keyboard Shortcuts | `_mainViewModel.IsHelpOpen = true` |
 
 ---
@@ -360,8 +369,10 @@ Phase 5 (Shortcuts) ✅ - mostly done in Phase 1 & 4
 Phase 6 (Events) ✅ - window state done in Phase 1, popup events in Phase 4
     │
     ▼
-Phase 7 (macOS Menu) ← NEXT
+Phase 7 (macOS Menu) ✅ DONE
 ```
+
+**All phases complete! Stage 9 wiring is functionally complete.**
 
 ---
 
@@ -456,11 +467,12 @@ Phase 7 (macOS Menu) ← NEXT
 - [x] Removed IsHitTestVisible="False" from PopupHost panel
 - [x] TerminalPairView shows folder name instead of full path in toolbar
 
-### Phase 7 (macOS Menu) - REMAINING
-- [ ] Update SetupMacOSMenu() with proper menu actions
-- [ ] Wire File menu items (New Project, Close Tab)
-- [ ] Wire View menu items (Settings, Command Palette, Statistics)
-- [ ] Wire Help menu items (Keyboard Shortcuts)
+### Phase 7 (macOS Menu) ✅ COMPLETED
+- [x] Update SetupMacOSMenu() with proper menu actions
+- [x] Wire File menu items (New Project, Close Tab)
+- [x] Wire View menu items (Settings, Command Palette, Statistics, Tab Switcher, Git Branches, Git Changes, Scratch Pad, Task Panel, Toggle Full Screen)
+- [x] Wire Window menu items (Minimize, Next Tab, Previous Tab)
+- [x] Wire Help menu items (Keyboard Shortcuts)
 
 ### Functional Testing - IN PROGRESS
 - [x] Settings button works (opens Settings tab)

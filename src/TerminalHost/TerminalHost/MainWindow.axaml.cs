@@ -61,6 +61,10 @@ public partial class MainWindow : Window
         _mainViewModel.FilePopOutRequested += OnFilePopOutRequested;
         _mainViewModel.SetupRequested += OnSetupRequested;
 
+        // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
+        _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
+        _gitFilesViewModel.FileEditRequested += OnGitFilesFileEditRequested;
+
         // Wire up file viewer detach event
         _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
 
@@ -91,15 +95,27 @@ public partial class MainWindow : Window
 
         // File menu
         var fileMenu = new NativeMenuItem("File") { Menu = new NativeMenu() };
-        fileMenu.Menu.Add(new NativeMenuItem("New Terminal")
+
+        var newProjectItem = new NativeMenuItem("New Project...")
         {
             Gesture = new KeyGesture(Key.N, KeyModifiers.Meta)
-        });
+        };
+        newProjectItem.Click += (_, _) => _mainViewModel.OpenNewProjectCommand.Execute(null);
+        fileMenu.Menu.Add(newProjectItem);
+
         fileMenu.Menu.Add(new NativeMenuItemSeparator());
-        fileMenu.Menu.Add(new NativeMenuItem("Close")
+
+        var closeTabItem = new NativeMenuItem("Close Tab")
         {
             Gesture = new KeyGesture(Key.W, KeyModifiers.Meta)
-        });
+        };
+        closeTabItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab != null)
+                _mainViewModel.CloseTabCommand.Execute(_mainViewModel.SelectedTab);
+        };
+        fileMenu.Menu.Add(closeTabItem);
+
         menu.Add(fileMenu);
 
         // Edit menu
@@ -121,26 +137,122 @@ public partial class MainWindow : Window
 
         // View menu
         var viewMenu = new NativeMenuItem("View") { Menu = new NativeMenu() };
-        viewMenu.Menu.Add(new NativeMenuItem("Toggle Full Screen")
+
+        var settingsItem = new NativeMenuItem("Settings...")
+        {
+            Gesture = new KeyGesture(Key.OemComma, KeyModifiers.Meta)
+        };
+        settingsItem.Click += (_, _) => _mainViewModel.OpenSettingsCommand.Execute(null);
+        viewMenu.Menu.Add(settingsItem);
+
+        var statisticsItem = new NativeMenuItem("Statistics");
+        statisticsItem.Click += (_, _) => _mainViewModel.OpenStatisticsCommand.Execute(null);
+        viewMenu.Menu.Add(statisticsItem);
+
+        viewMenu.Menu.Add(new NativeMenuItemSeparator());
+
+        var commandPaletteItem = new NativeMenuItem("Command Palette...")
+        {
+            Gesture = new KeyGesture(Key.P, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        commandPaletteItem.Click += (_, _) => _mainViewModel.IsCommandPaletteOpen = true;
+        viewMenu.Menu.Add(commandPaletteItem);
+
+        var tabSwitcherItem = new NativeMenuItem("Tab Switcher...")
+        {
+            Gesture = new KeyGesture(Key.T, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        tabSwitcherItem.Click += (_, _) => _mainViewModel.IsTabSwitcherOpen = true;
+        viewMenu.Menu.Add(tabSwitcherItem);
+
+        viewMenu.Menu.Add(new NativeMenuItemSeparator());
+
+        var gitBranchItem = new NativeMenuItem("Git Branches...")
+        {
+            Gesture = new KeyGesture(Key.B, KeyModifiers.Meta)
+        };
+        gitBranchItem.Click += (_, _) => _ = _gitBranchViewModel.OpenCommand.ExecuteAsync(null);
+        viewMenu.Menu.Add(gitBranchItem);
+
+        var gitChangesItem = new NativeMenuItem("Git Changes...")
+        {
+            Gesture = new KeyGesture(Key.G, KeyModifiers.Meta)
+        };
+        gitChangesItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+                _ = _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
+        };
+        viewMenu.Menu.Add(gitChangesItem);
+
+        viewMenu.Menu.Add(new NativeMenuItemSeparator());
+
+        var scratchPadItem = new NativeMenuItem("Scratch Pad")
+        {
+            Gesture = new KeyGesture(Key.N, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        scratchPadItem.Click += (_, _) => _scratchPadViewModel.Open();
+        viewMenu.Menu.Add(scratchPadItem);
+
+        var taskPanelItem = new NativeMenuItem("Task Panel")
+        {
+            Gesture = new KeyGesture(Key.T, KeyModifiers.Meta)
+        };
+        taskPanelItem.Click += (_, _) => _taskPanelViewModel.Open();
+        viewMenu.Menu.Add(taskPanelItem);
+
+        viewMenu.Menu.Add(new NativeMenuItemSeparator());
+
+        var toggleFullScreenItem = new NativeMenuItem("Toggle Full Screen")
         {
             Gesture = new KeyGesture(Key.F, KeyModifiers.Meta | KeyModifiers.Control)
-        });
+        };
+        toggleFullScreenItem.Click += (_, _) =>
+        {
+            WindowState = WindowState == WindowState.FullScreen
+                ? WindowState.Normal
+                : WindowState.FullScreen;
+        };
+        viewMenu.Menu.Add(toggleFullScreenItem);
+
         menu.Add(viewMenu);
 
         // Window menu
         var windowMenu = new NativeMenuItem("Window") { Menu = new NativeMenu() };
-        windowMenu.Menu.Add(new NativeMenuItem("Minimize")
+
+        var minimizeItem = new NativeMenuItem("Minimize")
         {
             Gesture = new KeyGesture(Key.M, KeyModifiers.Meta)
-        });
+        };
+        minimizeItem.Click += (_, _) => WindowState = WindowState.Minimized;
+        windowMenu.Menu.Add(minimizeItem);
+
+        var nextTabItem = new NativeMenuItem("Next Tab")
+        {
+            Gesture = new KeyGesture(Key.PageDown, KeyModifiers.Meta)
+        };
+        nextTabItem.Click += (_, _) => _mainViewModel.CycleTabCommand.Execute(true);
+        windowMenu.Menu.Add(nextTabItem);
+
+        var prevTabItem = new NativeMenuItem("Previous Tab")
+        {
+            Gesture = new KeyGesture(Key.PageUp, KeyModifiers.Meta)
+        };
+        prevTabItem.Click += (_, _) => _mainViewModel.CycleTabCommand.Execute(false);
+        windowMenu.Menu.Add(prevTabItem);
+
         menu.Add(windowMenu);
 
         // Help menu
         var helpMenu = new NativeMenuItem("Help") { Menu = new NativeMenu() };
-        helpMenu.Menu.Add(new NativeMenuItem("Keyboard Shortcuts")
+
+        var keyboardShortcutsItem = new NativeMenuItem("Keyboard Shortcuts")
         {
             Gesture = new KeyGesture(Key.F1)
-        });
+        };
+        keyboardShortcutsItem.Click += (_, _) => _mainViewModel.IsHelpOpen = true;
+        helpMenu.Menu.Add(keyboardShortcutsItem);
+
         menu.Add(helpMenu);
     }
 
@@ -174,6 +286,22 @@ public partial class MainWindow : Window
         if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
         {
             await _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
+        }
+    }
+
+    private void OnGitFilesFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.FilePath))
+        {
+            _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Preview);
+        }
+    }
+
+    private void OnGitFilesFileEditRequested(object? sender, FileEditRequestedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.FilePath))
+        {
+            _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Edit);
         }
     }
 

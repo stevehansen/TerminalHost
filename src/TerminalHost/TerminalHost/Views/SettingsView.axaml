@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:system="using:System"
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:conv="using:TerminalHost.Converters"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
@@ -1054,11 +1055,14 @@
 
                                         <TextBlock Text="Target Terminal" Classes="FieldLabel"/>
                                         <ComboBox SelectedIndex="{Binding EditQcTargetIndex}"
-                                                  Classes="DarkComboBox"
                                                   Width="200"
-                                                  HorizontalAlignment="Left">
-                                            <ComboBoxItem Content="Custom (Claude Code)"/>
-                                            <ComboBoxItem Content="Shell (PowerShell)"/>
+                                                  HorizontalAlignment="Left"
+                                                  Background="{DynamicResource BackgroundLightBrush}"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <ComboBox.Items>
+                                                <system:String>Custom (Claude Code)</system:String>
+                                                <system:String>Shell</system:String>
+                                            </ComboBox.Items>
                                         </ComboBox>
                                         <TextBlock Text="Which terminal receives the command."
                                                    Classes="HelpText"/>
@@ -1680,7 +1684,8 @@
                             <ComboBox Grid.Column="1"
                                       ItemsSource="{Binding Directories}"
                                       SelectedItem="{Binding SelectedDirectory}"
-                                      Classes="DarkComboBox"
+                                      Background="{DynamicResource BackgroundLightBrush}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}"
                                       MaxWidth="500"
                                       HorizontalAlignment="Left"/>
 
@@ -1844,7 +1849,8 @@
                                 <TextBlock Text="AI Assistant" Classes="FieldLabel"/>
                                 <ComboBox ItemsSource="{Binding AiAssistants}"
                                           SelectedItem="{Binding EditDsAiAssistant}"
-                                          Classes="DarkComboBox"
+                                          Background="{DynamicResource BackgroundLightBrush}"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"
                                           MinWidth="150"
                                           HorizontalAlignment="Left"
                                           Margin="0,0,0,4">

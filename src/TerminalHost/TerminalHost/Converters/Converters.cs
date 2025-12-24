@@ -541,17 +541,21 @@ public class TruncateConverter : IValueConverter
 }
 
 /// <summary>
-/// Converts int > 0 to visible (true).
+/// Converts numeric values > 0 to visible (true).
+/// Supports int, long, double, and float.
 /// </summary>
 public class IntToVisibilityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is int intValue)
+        return value switch
         {
-            return intValue > 0;
-        }
-        return false;
+            int intValue => intValue > 0,
+            long longValue => longValue > 0,
+            double doubleValue => doubleValue > 0,
+            float floatValue => floatValue > 0,
+            _ => false
+        };
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
