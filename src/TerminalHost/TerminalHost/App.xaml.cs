@@ -210,6 +210,7 @@ public partial class App : Application
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
+        services.AddSingleton<CommitHistoryViewModel>();
         services.AddSingleton<FileViewerViewModel>();
         services.AddSingleton<RepositorySwitcherViewModel>();
         services.AddSingleton<TestResultsViewModel>();

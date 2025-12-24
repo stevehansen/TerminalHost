@@ -11,6 +11,7 @@ namespace TerminalHost.ViewModels;
 /// <summary>
 /// ViewModel for Git Changes panel (Ctrl+G).
 /// Supports Panel, Popup, and Window display states.
+/// Provides interactive staging, unstaging, and commit functionality.
 /// </summary>
 public partial class GitFilesViewModel : BasePanelViewModel
 {
@@ -19,6 +20,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IToastService _toastService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -34,6 +36,12 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     [ObservableProperty]
     private ObservableCollection<GitFileStatus> _gitFiles = [];
+
+    [ObservableProperty]
+    private ObservableCollection<GitFileStatus> _stagedFiles = [];
+
+    [ObservableProperty]
+    private ObservableCollection<GitFileStatus> _unstagedFiles = [];
 
     [ObservableProperty]
     private GitFileStatus? _selectedGitFile;
@@ -53,6 +61,27 @@ public partial class GitFilesViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _isDragging;
 
+    [ObservableProperty]
+    private bool _isLoading;
+
+    #endregion
+
+    #region Commit Properties
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubjectLength))]
+    [NotifyPropertyChangedFor(nameof(IsSubjectTooLong))]
+    [NotifyCanExecuteChangedFor(nameof(CreateCommitCommand))]
+    private string _commitMessage = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CreateCommitCommand))]
+    private bool _amendCommit;
+
+    public int SubjectLength => CommitMessage.Split('\n').FirstOrDefault()?.Length ?? 0;
+    public bool IsSubjectTooLong => SubjectLength > 72;
+    public bool HasStagedFiles => StagedFiles.Count > 0;
+
     #endregion
 
     #region Events
@@ -67,13 +96,15 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IFilePreviewService filePreviewService,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IProcessService processService)
+        IProcessService processService,
+        IToastService toastService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _toastService = toastService;
 
         // Set defaults for git changes - defaults to Popup
         DisplayState = PanelDisplayState.Popup;
@@ -87,6 +118,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
     {
         SelectedGitFile = null;
         DiffText = "";
+        CommitMessage = "";
+        AmendCommit = false;
         _currentTerminalTab = null;
         base.OnClose();
     }
@@ -129,9 +162,12 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (_currentTerminalTab?.Pair.WorkingDirectory == null)
         {
             GitFiles.Clear();
+            StagedFiles.Clear();
+            UnstagedFiles.Clear();
             IsEmptyStateVisible = true;
             SelectedGitFile = null;
             DiffText = "";
+            OnPropertyChanged(nameof(HasStagedFiles));
             return;
         }
 
@@ -139,15 +175,21 @@ public partial class GitFilesViewModel : BasePanelViewModel
         var files = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
 
         GitFiles = new ObservableCollection<GitFileStatus>(files);
+        StagedFiles = new ObservableCollection<GitFileStatus>(files.Where(f => f.IsStaged));
+        UnstagedFiles = new ObservableCollection<GitFileStatus>(files.Where(f => !f.IsStaged));
         IsEmptyStateVisible = !GitFiles.Any();
 
         SelectedGitFile = null;
         DiffText = "";
 
+        // Preserve selection if possible, otherwise select first file
         if (GitFiles.Any())
         {
-            SelectedGitFile = GitFiles.First();
+            SelectedGitFile = UnstagedFiles.FirstOrDefault() ?? StagedFiles.FirstOrDefault();
         }
+
+        OnPropertyChanged(nameof(HasStagedFiles));
+        UpdateStagingButtonsState();
     }
 
     public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
@@ -199,6 +241,221 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     #endregion
 
+    #region Staging Commands
+
+    public bool CanStageFile => SelectedGitFile != null && !SelectedGitFile.IsStaged;
+
+    [RelayCommand(CanExecute = nameof(CanStageFile))]
+    private async Task StageFileAsync()
+    {
+        if (SelectedGitFile == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.StageFileAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Staged: {SelectedGitFile.FileName}", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to stage: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public bool CanUnstageFile => SelectedGitFile != null && SelectedGitFile.IsStaged;
+
+    [RelayCommand(CanExecute = nameof(CanUnstageFile))]
+    private async Task UnstageFileAsync()
+    {
+        if (SelectedGitFile == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UnstageFileAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Unstaged: {SelectedGitFile.FileName}", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to unstage: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public bool CanStageAll => UnstagedFiles.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanStageAll))]
+    private async Task StageAllAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.StageAllAsync(_currentTerminalTab.Pair.WorkingDirectory);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Staged all {UnstagedFiles.Count} files", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to stage all: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public bool CanUnstageAll => StagedFiles.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanUnstageAll))]
+    private async Task UnstageAllAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UnstageAllAsync(_currentTerminalTab.Pair.WorkingDirectory);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Unstaged all {StagedFiles.Count} files", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to unstage all: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public bool CanDiscardChanges => SelectedGitFile != null && !SelectedGitFile.IsStaged;
+
+    [RelayCommand(CanExecute = nameof(CanDiscardChanges))]
+    private async Task DiscardChangesAsync()
+    {
+        if (SelectedGitFile == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var confirmed = _dialogService.ShowConfirmation(
+            $"Are you sure you want to discard changes to '{SelectedGitFile.FileName}'?\n\nThis cannot be undone.",
+            "Discard Changes");
+
+        if (!confirmed) return;
+
+        IsLoading = true;
+        try
+        {
+            var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+            var filePath = SelectedGitFile.FilePath;
+
+            // For untracked files, delete the file
+            if (SelectedGitFile.Status == GitFileStatusType.Untracked)
+            {
+                var fullPath = System.IO.Path.Combine(workingDirectory, filePath);
+                if (_fileSystem.FileExists(fullPath))
+                {
+                    _fileSystem.DeleteFile(fullPath);
+                    _toastService.Show($"Deleted: {SelectedGitFile.FileName}", ToastType.Success);
+                }
+            }
+            else
+            {
+                var result = await _gitStatusService.DiscardChangesAsync(workingDirectory, filePath);
+
+                if (result.Success)
+                {
+                    _toastService.Show($"Discarded changes: {SelectedGitFile.FileName}", ToastType.Success);
+                }
+                else
+                {
+                    _toastService.Show($"Failed to discard: {result.Error}", ToastType.Error);
+                }
+            }
+
+            await RefreshGitFilesAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    #endregion
+
+    #region Commit Commands
+
+    public bool CanCreateCommit => HasStagedFiles && !string.IsNullOrWhiteSpace(CommitMessage);
+
+    [RelayCommand(CanExecute = nameof(CanCreateCommit))]
+    private async Task CreateCommitAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.CreateCommitAsync(
+                _currentTerminalTab.Pair.WorkingDirectory,
+                CommitMessage,
+                AmendCommit);
+
+            if (result.Success)
+            {
+                _toastService.Show(AmendCommit ? "Commit amended" : "Commit created", ToastType.Success);
+                CommitMessage = "";
+                AmendCommit = false;
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Commit failed: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void InsertConventionalPrefix(string prefix)
+    {
+        if (string.IsNullOrEmpty(CommitMessage) || !CommitMessage.Contains(':'))
+        {
+            CommitMessage = $"{prefix}: {CommitMessage}";
+        }
+    }
+
+    #endregion
+
     #region Event Handlers
 
     partial void OnSelectedGitFileChanged(GitFileStatus? value)
@@ -237,6 +494,17 @@ public partial class GitFilesViewModel : BasePanelViewModel
         PreviewFileCommand.NotifyCanExecuteChanged();
         EditFileCommand.NotifyCanExecuteChanged();
         ExploreFileCommand.NotifyCanExecuteChanged();
+        UpdateStagingButtonsState();
+    }
+
+    private void UpdateStagingButtonsState()
+    {
+        StageFileCommand.NotifyCanExecuteChanged();
+        UnstageFileCommand.NotifyCanExecuteChanged();
+        StageAllCommand.NotifyCanExecuteChanged();
+        UnstageAllCommand.NotifyCanExecuteChanged();
+        DiscardChangesCommand.NotifyCanExecuteChanged();
+        CreateCommitCommand.NotifyCanExecuteChanged();
     }
 
     #endregion

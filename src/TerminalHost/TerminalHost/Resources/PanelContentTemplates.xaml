@@ -18,6 +18,11 @@
         <views:GitFilesContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for CommitHistoryViewModel (Commit History panel) -->
+    <DataTemplate DataType="{x:Type vm:CommitHistoryViewModel}">
+        <views:CommitHistoryContentView/>
+    </DataTemplate>
+
     <!-- DataTemplate for ScratchPadViewModel -->
     <DataTemplate DataType="{x:Type vm:ScratchPadViewModel}">
         <views:ScratchPadContentView/>

@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
+    private readonly CommitHistoryViewModel _commitHistoryViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly RepositorySwitcherViewModel _repositorySwitcherViewModel;
@@ -40,7 +41,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
         _gitBranchViewModel = gitBranchViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
+        _commitHistoryViewModel = commitHistoryViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _taskPanelViewModel = taskPanelViewModel;
         _repositorySwitcherViewModel = repositorySwitcherViewModel;
@@ -69,11 +71,12 @@ public partial class MainWindow : Window
         TestResultsViewControl.DataContext = testResultsViewModel;
         PrReviewViewControl.DataContext = prReviewViewModel;
 
-        // Git Files and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
+        // Git Files, Commit History, and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
 
         // Subscribe to panel show events (single handler for all panels)
         _markdownPreviewViewModel.ShowRequested += OnPanelShowRequested;
         _gitFilesViewModel.ShowRequested += OnPanelShowRequested;
+        _commitHistoryViewModel.ShowRequested += OnPanelShowRequested;
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
 
         RestoreWindowState();
@@ -702,6 +705,22 @@ public partial class MainWindow : Window
             else
             {
                 _dialogService.ShowInfo("Please select a project tab first.", "Git Changes"); // Use injected IDialogService
+            }
+        }
+        // Ctrl+H: Open commit history
+        else if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var windowPos = PointToScreen(new Point(0, 0));
+                _commitHistoryViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _commitHistoryViewModel.Width) / 2;
+                _commitHistoryViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _commitHistoryViewModel.Height) / 2;
+                await _commitHistoryViewModel.OpenAsync(terminalTab);
+            }
+            else
+            {
+                _dialogService.ShowInfo("Please select a project tab first.", "Commit History");
             }
         }
         // Ctrl+B: Open git branch switcher

@@ -570,20 +570,20 @@ Manage git submodules within projects.
 
 ## Implementation Priority
 
-| Priority | Feature | Effort | Dependencies |
-|----------|---------|--------|--------------|
-| **High** | Commit History Viewer | Medium | GitStatusService |
-| **High** | Interactive Staging | Low | Git Changes panel |
-| **High** | Commit Creation UI | Low | Interactive Staging |
-| **Medium** | Stash Operations | Low | GitStatusService |
-| **Medium** | File History & Blame | Medium | Commit History |
-| **Medium** | Commit/Branch Comparison | Medium | Commit History |
-| **Low** | Tags Management | Low | GitStatusService |
-| **Low** | Cherry-pick UI | Low | Commit History |
-| **Low** | Revert Commit UI | Low | Commit History |
-| **Low** | Merge Conflict Resolution | High | Git operations |
-| **Low** | Reflog Access | Low | GitStatusService |
-| **Low** | Submodule Support | Medium | GitStatusService |
+| Priority | Feature | Effort | Dependencies | Status |
+|----------|---------|--------|--------------|--------|
+| **High** | Commit History Viewer | Medium | GitStatusService | **DONE** (Ctrl+H) |
+| **High** | Interactive Staging | Low | Git Changes panel | **DONE** |
+| **High** | Commit Creation UI | Low | Interactive Staging | **DONE** |
+| **Medium** | Stash Operations | Low | GitStatusService | |
+| **Medium** | File History & Blame | Medium | Commit History | |
+| **Medium** | Commit/Branch Comparison | Medium | Commit History | |
+| **Low** | Tags Management | Low | GitStatusService | |
+| **Low** | Cherry-pick UI | Low | Commit History | |
+| **Low** | Revert Commit UI | Low | Commit History | |
+| **Low** | Merge Conflict Resolution | High | Git operations | |
+| **Low** | Reflog Access | Low | GitStatusService | |
+| **Low** | Submodule Support | Medium | GitStatusService | |
 
 ## Service Extensions Required
 

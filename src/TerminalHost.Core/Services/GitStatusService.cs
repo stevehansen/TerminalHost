@@ -435,4 +435,237 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Staging Operations
+
+    public async Task<GitOperationResult> StageFileAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"add -- \"{filePath}\"");
+    }
+
+    public async Task<GitOperationResult> UnstageFileAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // Use restore --staged for unstaging (works for both tracked and newly added files)
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"restore --staged -- \"{filePath}\"");
+    }
+
+    public async Task<GitOperationResult> StageAllAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "add -A");
+    }
+
+    public async Task<GitOperationResult> UnstageAllAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "restore --staged .");
+    }
+
+    public async Task<GitOperationResult> DiscardChangesAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // For tracked files: restore to HEAD version
+        // For untracked files: we'd need to delete, but that's handled in the ViewModel with confirmation
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"restore -- \"{filePath}\"");
+    }
+
+    public async Task<GitOperationResult> DiscardAllChangesAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // Restore all tracked files to HEAD version
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "restore .");
+    }
+
+    #endregion
+
+    #region Commit Operations
+
+    public async Task<GitOperationResult> CreateCommitAsync(string workingDirectory, string message, bool amend = false)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        if (string.IsNullOrWhiteSpace(message))
+            return new GitOperationResult { Success = false, Error = "Commit message cannot be empty" };
+
+        // Escape the message for command line
+        var escapedMessage = message.Replace("\"", "\\\"");
+        var amendFlag = amend ? "--amend " : "";
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"commit {amendFlag}-m \"{escapedMessage}\"");
+    }
+
+    #endregion
+
+    #region Commit History
+
+    public async Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null, string? filePath = null)
+    {
+        var commits = new List<GitCommit>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return commits;
+
+        // Build command with optional filters
+        // Format: hash|short_hash|author_name|author_email|relative_date|ISO_date|subject|decorations|parent_hashes
+        var format = "%H|%h|%an|%ae|%ar|%aI|%s|%d|%P";
+        var args = $"log --format=\"{format}\" -n {count}";
+
+        if (!string.IsNullOrEmpty(author))
+            args += $" --author=\"{author}\"";
+
+        if (!string.IsNullOrEmpty(filePath))
+            args += $" --follow -- \"{filePath}\"";
+
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, args);
+        if (string.IsNullOrEmpty(output))
+            return commits;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|');
+            if (parts.Length < 7) continue;
+
+            var commit = new GitCommit
+            {
+                Hash = parts[0],
+                ShortHash = parts[1],
+                AuthorName = parts[2],
+                AuthorEmail = parts[3],
+                RelativeDate = parts[4],
+                CommitDate = DateTimeOffset.TryParse(parts[5], out var date) ? date : DateTimeOffset.MinValue,
+                Subject = parts[6],
+                Decorations = parts.Length > 7 ? parts[7].Trim() : null,
+                ParentHashes = parts.Length > 8 && !string.IsNullOrWhiteSpace(parts[8])
+                    ? parts[8].Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList()
+                    : []
+            };
+
+            // Clean up decorations (remove surrounding parentheses)
+            if (!string.IsNullOrEmpty(commit.Decorations))
+            {
+                commit.Decorations = commit.Decorations.Trim('(', ')', ' ');
+                if (string.IsNullOrWhiteSpace(commit.Decorations))
+                    commit.Decorations = null;
+            }
+
+            commits.Add(commit);
+        }
+
+        return commits;
+    }
+
+    public async Task<GitCommitDetails?> GetCommitDetailsAsync(string workingDirectory, string hash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // Get commit info with stats
+        var format = "%H|%h|%an|%ae|%cn|%ce|%ar|%aI|%s|%b|%P";
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"show --stat --format=\"{format}\" {hash}");
+
+        if (string.IsNullOrEmpty(output))
+            return null;
+
+        var lines = output.Split('\n');
+        if (lines.Length == 0) return null;
+
+        // First line is the formatted commit info
+        var firstLine = lines[0];
+        var parts = firstLine.Split('|');
+        if (parts.Length < 9) return null;
+
+        var details = new GitCommitDetails
+        {
+            Hash = parts[0],
+            ShortHash = parts[1],
+            AuthorName = parts[2],
+            AuthorEmail = parts[3],
+            CommitterName = parts[4],
+            CommitterEmail = parts[5],
+            RelativeDate = parts[6],
+            CommitDate = DateTimeOffset.TryParse(parts[7], out var date) ? date : DateTimeOffset.MinValue,
+            Subject = parts[8],
+            Body = parts.Length > 9 ? parts[9].Trim() : null,
+            ParentHashes = parts.Length > 10 && !string.IsNullOrWhiteSpace(parts[10])
+                ? parts[10].Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList()
+                : []
+        };
+
+        // Parse file stats from remaining lines
+        // Format: " filename | N +"/ "-" or "insertions(+)" / "deletions(-)" summary line
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (string.IsNullOrEmpty(line)) continue;
+
+            // Skip the summary line like "3 files changed, 10 insertions(+), 5 deletions(-)"
+            if (line.Contains("files changed") || line.Contains("file changed"))
+            {
+                // Parse the summary
+                var insertionsMatch = Regex.Match(line, @"(\d+) insertion");
+                var deletionsMatch = Regex.Match(line, @"(\d+) deletion");
+                if (insertionsMatch.Success) details.TotalInsertions = int.Parse(insertionsMatch.Groups[1].Value);
+                if (deletionsMatch.Success) details.TotalDeletions = int.Parse(deletionsMatch.Groups[1].Value);
+                continue;
+            }
+
+            // Parse file line: " filename | N ++--" or " filename | Bin X -> Y bytes"
+            var pipeIndex = line.IndexOf('|');
+            if (pipeIndex > 0)
+            {
+                var filePath = line.Substring(0, pipeIndex).Trim();
+                var statsStr = line.Substring(pipeIndex + 1).Trim();
+
+                var file = new GitCommitFile { FilePath = filePath };
+
+                // Parse stats: count of + and - or "N ++" style
+                var plusCount = statsStr.Count(c => c == '+');
+                var minusCount = statsStr.Count(c => c == '-');
+                file.Insertions = plusCount;
+                file.Deletions = minusCount;
+
+                // Determine status from the stats
+                if (minusCount == 0 && plusCount > 0)
+                    file.Status = GitFileStatusType.Added;
+                else if (plusCount == 0 && minusCount > 0)
+                    file.Status = GitFileStatusType.Deleted;
+                else
+                    file.Status = GitFileStatusType.Modified;
+
+                details.Files.Add(file);
+            }
+        }
+
+        return details;
+    }
+
+    public async Task<string?> GetCommitDiffAsync(string workingDirectory, string hash, string? filePath = null)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        var args = filePath != null
+            ? $"show {hash} -- \"{filePath}\""
+            : $"show {hash}";
+
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, args);
+    }
+
+    #endregion
 }

@@ -322,7 +322,8 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+P`: Open settings (Profiles section)
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
-- `Ctrl+G`: Open git changes panel (modified files + diffs)
+- `Ctrl+G`: Open git changes panel (modified files + diffs + staging + commit UI)
+- `Ctrl+H`: Open commit history viewer
 - `Ctrl+B`: Open git branch switcher
 - `Ctrl+T`: Open task panel (focus mode)
 - `F1`: Show help window
