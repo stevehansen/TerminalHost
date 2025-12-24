@@ -435,6 +435,27 @@ Phase 7 (macOS Menu) ← NEXT
   - Changed buttons to use Click handlers instead of Command bindings (workaround for compiled binding issue with source-generated commands)
   - Added `x:CompileBindings="False"` to TabStrip.axaml
 
+### Lazy Terminal Initialization ✅ COMPLETED
+- [x] Added `IsTerminalInitialized` and `InitializeTerminalsAsync()` to `ITabViewModel`
+- [x] `TerminalPairTabViewModel` and `ProfileTerminalTabViewModel` now create terminals lazily
+- [x] `OpenProjectTab` accepts `selectTab` parameter (default true)
+- [x] `RestoreOpenFolders` passes `selectTab: false` - only last selected tab initializes on startup
+- [x] Terminals are created when user first clicks on a tab
+- [x] Resources saved: only 1 terminal pair starts on launch instead of all saved tabs
+
+### Tab Activity Indicators ✅ COMPLETED
+- [x] Added `ShowActivitySpinner` and `ShowCompletedIndicator` to `ITabViewModel`
+- [x] Yellow pulsing dot (●): terminal is actively producing output
+- [x] Green solid dot (●): activity finished but tab not yet viewed
+- [x] Indicators hidden when tab is selected
+- [x] Pulsing animation (opacity 1.0 → 0.3 → 1.0) instead of rotation
+
+### UI Fixes ✅ COMPLETED
+- [x] Fixed DraggablePopup for macOS - replaced Popup control with inline Border
+- [x] Fixed SettingsView pseudoclass selectors (:checked, :pointerover)
+- [x] Removed IsHitTestVisible="False" from PopupHost panel
+- [x] TerminalPairView shows folder name instead of full path in toolbar
+
 ### Phase 7 (macOS Menu) - REMAINING
 - [ ] Update SetupMacOSMenu() with proper menu actions
 - [ ] Wire File menu items (New Project, Close Tab)
@@ -449,6 +470,8 @@ Phase 7 (macOS Menu) ← NEXT
 - [x] Claude pane displays (command configurable in Settings)
 - [x] Tab strip displays project tabs correctly
 - [x] Tab selection changes content view
+- [x] Lazy initialization works (terminals only start when tab clicked)
+- [x] Activity indicators work (yellow pulse for active, green for completed)
 - [ ] Ctrl+N opens folder picker, creates terminal pair tab
 - [ ] Command palette opens (Ctrl+Shift+P), filters commands
 - [ ] Help popup shows (F1)
