@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important: Documentation Maintenance
 
-**Always keep PRD.md updated** when making changes to the codebase:
-- When adding new features, document them in PRD.md
+**Always keep documentation updated** when making changes to the codebase:
+- When adding new features, document them in the relevant PRD file
 - When changing existing behavior, update the relevant sections
 - When adding new configuration options, update the schema documentation
-- When adding new keyboard shortcuts, update the shortcuts list
-- Keep both CLAUDE.md and PRD.md in sync with the actual implementation
+- **When adding new keyboard shortcuts, update [SHORTCUTS.md](SHORTCUTS.md)** - this is the authoritative registry
+- Keep CLAUDE.md, PRD files, and SHORTCUTS.md in sync with the actual implementation
 
 ## Important: Testing Requirements
 
@@ -298,6 +298,8 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ## Keyboard Shortcuts
 
+> **Note**: For a complete registry of all shortcuts including available slots, see [SHORTCUTS.md](SHORTCUTS.md). Keep that file updated when adding new shortcuts.
+
 ### Tab Navigation
 - `Ctrl+PageDown` / `Ctrl+PageUp`: Cycle through project tabs
 - `Ctrl+1-9`: Jump to specific tab
@@ -324,6 +326,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+N`: Open scratch pad (notes)
 - `Ctrl+G`: Open git changes panel (modified files + diffs + staging + commit UI)
 - `Ctrl+H`: Open commit history viewer
+- `Ctrl+F3`: Search across files (full-text search with replace)
 - `Ctrl+B`: Open git branch switcher
 - `Ctrl+T`: Open task panel (focus mode)
 - `F1`: Show help window

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly TestResultsViewModel _testResultsViewModel;
     private readonly PrReviewViewModel _prReviewViewModel;
     private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
+    private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -41,7 +42,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -59,6 +60,7 @@ public partial class MainWindow : Window
         _testResultsViewModel = testResultsViewModel;
         _prReviewViewModel = prReviewViewModel;
         _markdownPreviewViewModel = markdownPreviewViewModel;
+        _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -78,6 +80,7 @@ public partial class MainWindow : Window
         _gitFilesViewModel.ShowRequested += OnPanelShowRequested;
         _commitHistoryViewModel.ShowRequested += OnPanelShowRequested;
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
+        _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
 
         RestoreWindowState();
 
@@ -721,6 +724,22 @@ public partial class MainWindow : Window
             else
             {
                 _dialogService.ShowInfo("Please select a project tab first.", "Commit History");
+            }
+        }
+        // Ctrl+F3: Open search across files
+        else if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var windowPos = PointToScreen(new Point(0, 0));
+                _searchAcrossFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _searchAcrossFilesViewModel.Width) / 2;
+                _searchAcrossFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _searchAcrossFilesViewModel.Height) / 2;
+                await _searchAcrossFilesViewModel.OpenAsync(terminalTab);
+            }
+            else
+            {
+                _dialogService.ShowInfo("Please select a project tab first.", "Search");
             }
         }
         // Ctrl+B: Open git branch switcher

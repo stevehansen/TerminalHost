@@ -1,0 +1,397 @@
+<UserControl x:Class="TerminalHost.Views.SearchAcrossFilesContentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:SearchAcrossFilesViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkBrush}">
+
+    <UserControl.Resources>
+        <!-- Toggle button style for search options -->
+        <Style x:Key="SearchOptionToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2"
+                                Padding="4,2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#444444"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ListBoxItem style for file results -->
+        <Style x:Key="FileResultItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Match line item style -->
+        <Style x:Key="MatchLineItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Padding="{TemplateBinding Padding}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="#333333"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Search Input Row -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Search input with toggle buttons -->
+                <Border Grid.Column="0" Background="{StaticResource BackgroundDarkestBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="4,0">
+                            <ToggleButton Content="Aa"
+                                          IsChecked="{Binding CaseSensitive}"
+                                          ToolTip="Case Sensitive (Aa)"
+                                          Style="{StaticResource SearchOptionToggle}"
+                                          Margin="0,0,2,0"/>
+                            <ToggleButton Content="W"
+                                          IsChecked="{Binding WholeWord}"
+                                          ToolTip="Match Whole Word (W)"
+                                          Style="{StaticResource SearchOptionToggle}"
+                                          Margin="0,0,2,0"/>
+                            <ToggleButton Content=".*"
+                                          IsChecked="{Binding UseRegex}"
+                                          ToolTip="Use Regular Expression (.*)"
+                                          Style="{StaticResource SearchOptionToggle}"/>
+                        </StackPanel>
+                        <TextBox x:Name="SearchBox"
+                                 Text="{Binding SearchPattern, UpdateSourceTrigger=PropertyChanged, Delay=100}"
+                                 Background="Transparent"
+                                 Foreground="{StaticResource TextLightBrush}"
+                                 BorderThickness="0"
+                                 Padding="8,6"
+                                 FontSize="{StaticResource FontSizeNormal}"
+                                 VerticalContentAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+
+                <!-- Toggle replace button -->
+                <Button Grid.Column="1"
+                        Content="{Binding ShowReplaceSection, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Hide Replace|Replace'}"
+                        Command="{Binding ToggleReplaceSectionCommand}"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Margin="8,0,0,0"
+                        ToolTip="Toggle replace section"/>
+            </Grid>
+        </Border>
+
+        <!-- Replace Row (collapsible) -->
+        <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8"
+                Visibility="{Binding ShowReplaceSection, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="{StaticResource BackgroundDarkestBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
+                    <TextBox Text="{Binding ReplaceText, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             Foreground="{StaticResource TextLightBrush}"
+                             BorderThickness="0"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeNormal}"
+                             VerticalContentAlignment="Center"/>
+                </Border>
+
+                <Button Grid.Column="1"
+                        Content="Replace All"
+                        Command="{Binding ReplaceAllCommand}"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Margin="8,0,0,0"
+                        ToolTip="Replace all matches"/>
+            </Grid>
+        </Border>
+
+        <!-- Filter Row -->
+        <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Include pattern -->
+                <DockPanel Grid.Column="0">
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="Include:"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"/>
+                    <Border Background="{StaticResource BackgroundDarkestBrush}"
+                            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
+                        <TextBox Text="{Binding IncludePattern, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                 Background="Transparent"
+                                 Foreground="{StaticResource TextLightBrush}"
+                                 BorderThickness="0"
+                                 Padding="6,4"
+                                 FontSize="{StaticResource FontSizeTiny}"
+                                 ToolTip="Include patterns (e.g., *.cs, src/**)"/>
+                    </Border>
+                </DockPanel>
+
+                <!-- Exclude pattern -->
+                <DockPanel Grid.Column="2">
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="Exclude:"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"/>
+                    <Border Background="{StaticResource BackgroundDarkestBrush}"
+                            BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
+                        <TextBox Text="{Binding ExcludePattern, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                 Background="Transparent"
+                                 Foreground="{StaticResource TextLightBrush}"
+                                 BorderThickness="0"
+                                 Padding="6,4"
+                                 FontSize="{StaticResource FontSizeTiny}"
+                                 ToolTip="Exclude patterns (e.g., bin, obj, node_modules)"/>
+                    </Border>
+                </DockPanel>
+
+                <!-- Gitignore toggle -->
+                <CheckBox Grid.Column="3"
+                          Content=".gitignore"
+                          IsChecked="{Binding UseGitignore}"
+                          Foreground="{StaticResource TextDimmedBrush}"
+                          FontSize="{StaticResource FontSizeTiny}"
+                          VerticalAlignment="Center"
+                          Margin="12,0,0,0"
+                          ToolTip="Respect .gitignore patterns"/>
+            </Grid>
+        </Border>
+
+        <!-- Status Row -->
+        <Border Grid.Row="3" Background="{StaticResource BackgroundDarkBrush}" Padding="8,6">
+            <DockPanel>
+                <!-- Cancel/Clear buttons -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Cancel"
+                            Command="{Binding CancelSearchCommand}"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Clear"
+                            Command="{Binding ClearResultsCommand}"
+                            Style="{StaticResource TerminalSwitchButton}"/>
+                </StackPanel>
+
+                <!-- Status message -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Searching indicator -->
+                    <TextBlock Text=" (searching...)"
+                               Foreground="{StaticResource AccentBlueBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Results -->
+        <Border Grid.Row="4" Background="{StaticResource BackgroundDarkestBrush}">
+            <Grid>
+                <ListBox ItemsSource="{Binding Results}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemContainerStyle="{StaticResource FileResultItemStyle}"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <!-- File header (clickable to expand/collapse) -->
+                                <Border Background="#2D2D2D" Padding="8,4" Cursor="Hand"
+                                        MouseLeftButtonDown="FileHeader_MouseLeftButtonDown">
+                                    <DockPanel>
+                                        <!-- Expand/collapse indicator -->
+                                        <TextBlock DockPanel.Dock="Left"
+                                                   Text="{Binding IsExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   FontSize="10"
+                                                   Width="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+
+                                        <!-- Match count -->
+                                        <TextBlock DockPanel.Dock="Right"
+                                                   Text="{Binding MatchCount, StringFormat='({0})'}"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0,0,0"/>
+
+                                        <!-- Replace in file button -->
+                                        <Button DockPanel.Dock="Right"
+                                                Content="Replace"
+                                                Command="{Binding DataContext.ReplaceInFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                FontSize="10"
+                                                Padding="4,1"
+                                                Visibility="{Binding DataContext.ShowReplaceSection, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Margin="4,0,0,0"/>
+
+                                        <!-- Open in explorer button -->
+                                        <Button DockPanel.Dock="Right"
+                                                Content="&#128194;"
+                                                Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                FontSize="10"
+                                                Padding="4,1"
+                                                ToolTip="Open in Explorer"/>
+
+                                        <!-- File path -->
+                                        <TextBlock Text="{Binding RelativePath}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </Border>
+
+                                <!-- Match lines (when expanded) -->
+                                <ItemsControl ItemsSource="{Binding Matches}"
+                                              Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="24,2,8,2" Cursor="Hand"
+                                                    MouseLeftButtonDown="MatchLine_MouseLeftButtonDown"
+                                                    Background="Transparent">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="#333333"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <DockPanel>
+                                                    <!-- Line number -->
+                                                    <TextBlock DockPanel.Dock="Left"
+                                                               Text="{Binding LineNumber}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeMicro}"
+                                                               Width="40"
+                                                               TextAlignment="Right"
+                                                               Margin="0,0,8,0"/>
+
+                                                    <!-- Match line with highlighting -->
+                                                    <TextBlock FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeMicro}"
+                                                               TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{Binding TextBefore, Mode=OneWay}" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                        <Run Text="{Binding MatchedText, Mode=OneWay}"
+                                                             Foreground="#FFFF88"
+                                                             Background="#664400"
+                                                             FontWeight="SemiBold"/>
+                                                        <Run Text="{Binding TextAfter, Mode=OneWay}" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                    </TextBlock>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Empty state -->
+                <TextBlock Text="Enter a search term to find matches across files"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

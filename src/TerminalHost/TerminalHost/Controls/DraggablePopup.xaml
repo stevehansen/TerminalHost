@@ -33,6 +33,7 @@
         <!-- Runtime popup -->
         <Popup x:Name="MainPopup"
            Placement="Absolute"
+           PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=UserControl}}"
            StaysOpen="True"
            AllowsTransparency="True"
            IsOpen="{Binding IsOpen, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"

@@ -202,6 +202,7 @@ public partial class App : Application
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
+        services.AddSingleton<ISearchService, SearchService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
@@ -216,6 +217,7 @@ public partial class App : Application
         services.AddSingleton<TestResultsViewModel>();
         services.AddSingleton<PrReviewViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
+        services.AddSingleton<SearchAcrossFilesViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

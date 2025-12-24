@@ -28,4 +28,9 @@
         <views:ScratchPadContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for SearchAcrossFilesViewModel (Search panel) -->
+    <DataTemplate DataType="{x:Type vm:SearchAcrossFilesViewModel}">
+        <views:SearchAcrossFilesContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

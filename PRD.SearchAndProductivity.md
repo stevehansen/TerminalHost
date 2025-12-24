@@ -5,6 +5,7 @@ This document outlines planned search and productivity features for TerminalHost
 ## Current State
 
 TerminalHost currently includes:
+- **Search Across Files** (Ctrl+F3) - Full-text search with replace functionality
 - File Explorer panel with file search by name
 - Detected Links feature for scanning terminal output
 - Scratch Pad for per-project notes
@@ -21,9 +22,11 @@ TerminalHost currently includes:
 
 ---
 
-## Search Across Files (High Priority)
+## Search Across Files (High Priority) - IMPLEMENTED
 
-**Shortcut**: `Ctrl+Shift+F`
+**Status**: Implemented in commit after ad768e7
+
+**Shortcut**: `Ctrl+F3`
 
 Full-text search across all files in the project, similar to VS Code's search functionality.
 
@@ -104,7 +107,7 @@ Full-text search across all files in the project, similar to VS Code's search fu
 
 | Command | Description |
 |---------|-------------|
-| Search: Find in Files | Open search panel (Ctrl+Shift+F) |
+| Search: Find in Files | Open search panel (Ctrl+F3) |
 | Search: Replace in Files | Open search panel with replace |
 | Search: Clear Results | Clear current search results |
 
@@ -509,14 +512,14 @@ PRIVATE_KEY="-----BEGIN RSA-----
 
 ## Implementation Priority
 
-| Priority | Feature | Effort | Dependencies |
-|----------|---------|--------|--------------|
-| **High** | Search Across Files | Medium | File system access |
-| **Medium** | Terminal Output Search | Medium | Terminal control API |
-| **Low** | Snippet Manager | Medium | Configuration system |
-| **Low** | Session Snapshots | Medium | Configuration system |
-| **Low** | External Tool Integration | Low | Configuration system |
-| **Low** | Environment Variable Manager | Medium | Run configurations |
+| Priority | Feature | Effort | Status |
+|----------|---------|--------|--------|
+| ~~**High**~~ | ~~Search Across Files~~ | ~~Medium~~ | **DONE** |
+| **Medium** | Terminal Output Search | Medium | Pending |
+| **Low** | Snippet Manager | Medium | Pending |
+| **Low** | Session Snapshots | Medium | Pending |
+| **Low** | External Tool Integration | Low | Pending |
+| **Low** | Environment Variable Manager | Medium | Pending |
 
 ## Service Interfaces Required
 

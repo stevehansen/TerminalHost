@@ -118,10 +118,15 @@ public partial class TerminalPairView : UserControl
             ShowDockPanel(currentPopupPanel);
         }
 
-        // Set up popup and open it
+        // Set up popup - set DataContext first, then delay opening to avoid WPF popup timing issues
         panel.DisplayState = PanelDisplayState.Popup;
-        panel.IsOpen = true;
         PanelPopupHost.DataContext = panel;
+
+        // Delay opening to next render frame to ensure visual tree is ready
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            panel.IsOpen = true;
+        });
     }
 
     private void ShowPanelWindow(IPanelableViewModel panel)

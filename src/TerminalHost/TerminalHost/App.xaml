@@ -42,6 +42,7 @@
         <local:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
         <local:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
         <local:EqualityConverter x:Key="EqualityConverter"/>
+        <local:BoolToStringConverter x:Key="BoolToStringConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

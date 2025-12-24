@@ -710,6 +710,31 @@ public class EqualityConverter : IMultiValueConverter
 }
 
 /// <summary>
+/// Converts bool to one of two strings specified in ConverterParameter.
+/// Format: "TrueValue|FalseValue"
+/// Example: ConverterParameter="Yes|No" returns "Yes" for true, "No" for false.
+/// </summary>
+public class BoolToStringConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not bool boolValue || parameter is not string paramString)
+            return "";
+
+        var parts = paramString.Split('|');
+        if (parts.Length != 2)
+            return "";
+
+        return boolValue ? parts[0] : parts[1];
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Converts a DateTime to a relative time string (e.g., "2 hours ago", "3 days ago").
 /// </summary>
 public class RelativeTimeConverter : IValueConverter
