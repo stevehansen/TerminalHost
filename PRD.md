@@ -1388,6 +1388,61 @@ A dedicated tab provides insights into terminal usage across different projects.
 
 This provides both a high-level overview of which projects are most active and a detailed, day-by-day breakdown for any specific project.
 
+## Planned Features
+
+Detailed specifications for planned features are documented in separate PRD files:
+
+### Advanced Git Features
+
+See **[PRD.GitAdvanced.md](PRD.GitAdvanced.md)** for detailed specifications.
+
+**High Priority:**
+- Commit History Viewer (Ctrl+H) - Browse and inspect past commits
+- Interactive Staging - Stage/unstage files and hunks in Git Changes panel
+- Commit Creation UI - Create commits with conventional commit support
+
+**Medium Priority:**
+- Stash Operations (Ctrl+Shift+S) - Manage git stash entries
+- File History & Blame - View file history and line-by-line annotations
+- Commit/Branch Comparison - Compare any two refs
+
+**Low Priority:**
+- Tags Management - Create, delete, push tags
+- Cherry-pick UI - Visual cherry-pick with conflict handling
+- Revert Commit UI - Visual revert with preview
+- Merge Conflict Resolution - Three-way merge view
+- Reflog Access - Browse and recover from reflog
+- Submodule Support - Manage git submodules
+
+### Search and Productivity Features
+
+See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detailed specifications.
+
+**High Priority:**
+- Search Across Files (Ctrl+Shift+F) - Full-text search with regex and replace
+
+**Medium Priority:**
+- Terminal Output Search - Search within terminal scrollback
+
+**Low Priority:**
+- Snippet Manager - Save and insert code snippets
+- Session Snapshots - Save and restore workspace states
+- External Tool Integration - Configure external diff/merge/editor tools
+- Environment Variable Manager - Manage env vars for run configurations
+
+### Implementation Priority Summary
+
+| Priority | Feature | PRD Document |
+|----------|---------|--------------|
+| **High** | Commit History, Interactive Staging, Commit UI | PRD.GitAdvanced.md |
+| **High** | Search Across Files | PRD.SearchAndProductivity.md |
+| **Medium** | Stash, File History, Comparison | PRD.GitAdvanced.md |
+| **Medium** | Terminal Search | PRD.SearchAndProductivity.md |
+| **Low** | Tags, Cherry-pick, Revert, Merge, Reflog, Submodules | PRD.GitAdvanced.md |
+| **Low** | Snippets, Sessions, External Tools, Env Vars | PRD.SearchAndProductivity.md |
+
+---
+
 ## Future Considerations
 
 Items for future development:
@@ -1437,5 +1492,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.13*
-*Last Updated: 2025-12-22*
+*Document Version: 2.15*
+*Last Updated: 2025-12-24*
