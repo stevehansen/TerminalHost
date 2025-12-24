@@ -22,6 +22,10 @@ namespace TerminalHost.ViewModels
         public bool HasUnreadActivity => false;
         public bool IsSelected { get; set; }
         public bool IsVisibleInFocusMode => true; // Statistics always visible
+        public bool ShowActivitySpinner => false; // No terminal activity
+        public bool ShowCompletedIndicator => false; // No terminal activity
+        public bool IsTerminalInitialized => true; // No terminal to initialize
+        public Task InitializeTerminalsAsync() => Task.CompletedTask; // No-op
         public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { }
         public void ClearUnreadActivity() { }
         public string DisplayTitle => Title;

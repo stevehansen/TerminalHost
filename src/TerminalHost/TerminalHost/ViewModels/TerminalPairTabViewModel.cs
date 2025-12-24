@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -122,10 +123,34 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     // Track previous activity state to detect transitions
     private bool _wasAnyTerminalActive;
 
+    // Terminal factory for lazy initialization
+    private readonly ITerminalControlFactory _terminalFactory;
+
+    /// <summary>
+    /// Whether the terminal controls have been created (lazy initialization).
+    /// </summary>
+    public bool IsTerminalInitialized { get; private set; }
+
+    // Backing field for IsSelected
+    private bool _isSelected;
+
     /// <summary>
     /// Whether this tab is currently selected. Set by MainViewModel.
     /// </summary>
-    public bool IsSelected { get; set; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged(nameof(IsSelected));
+                OnPropertyChanged(nameof(ShowActivitySpinner));
+                OnPropertyChanged(nameof(ShowCompletedIndicator));
+            }
+        }
+    }
 
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
@@ -177,6 +202,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// True if either terminal is currently producing output.
     /// </summary>
     public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive || IsRunTerminalActive;
+
+    /// <summary>
+    /// Whether to show the activity spinner on the tab.
+    /// True when terminal is active AND tab is NOT selected.
+    /// </summary>
+    public bool ShowActivitySpinner => IsAnyTerminalActive && !IsSelected;
+
+    /// <summary>
+    /// Whether to show the completed indicator (green dot) on the tab.
+    /// True when activity finished AND has unread activity AND tab is NOT selected.
+    /// </summary>
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected;
 
     /// <summary>
     /// Collection of detected links from terminal output.
@@ -310,17 +347,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory)
     {
         Pair = pair;
         Title = pair.DirectoryName;
         CustomIcon = customIcon;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _terminalFactory = terminalFactory;
         ActiveTerminal = pair.ActiveTerminal;
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -329,6 +367,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         CustomIcon = activeAiAssistant.DisplayLabel;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _terminalFactory = terminalFactory;
         ActiveTerminal = pair.ActiveTerminal;
 
         // Populate available assistants
@@ -348,6 +387,23 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             AiAssistantSwitchRequested?.Invoke(this, new AiAssistantSwitchEventArgs { NewAssistant = newValue });
         }
+    }
+
+    /// <summary>
+    /// Initializes the terminal controls. Called when the tab is first selected (lazy initialization).
+    /// </summary>
+    public async Task InitializeTerminalsAsync()
+    {
+        if (IsTerminalInitialized)
+            return;
+
+        // Create terminal controls
+        var customControl = await _terminalFactory.CreateTerminalControlAsync(Pair.CustomTerminal);
+        var shellControl = await _terminalFactory.CreateTerminalControlAsync(Pair.ShellTerminal);
+
+        // Set up the controls
+        SetTerminalControls(customControl, shellControl);
+        IsTerminalInitialized = true;
     }
 
     public void SetTerminalControls(ITerminalControl customControl, ITerminalControl shellControl)
@@ -547,19 +603,30 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     partial void OnIsCustomTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
         CheckActivityTransition();
     }
 
     partial void OnIsShellTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
         CheckActivityTransition();
     }
 
     partial void OnIsRunTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
         CheckActivityTransition();
+    }
+
+    partial void OnHasUnreadActivityChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
     }
 
     /// <summary>
@@ -590,6 +657,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         HasUnreadActivity = false;
         // Sync tracking state to current state to avoid false transition detection
         _wasAnyTerminalActive = IsAnyTerminalActive;
+        // Update activity indicators since IsSelected state changed
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
     }
 
     partial void OnIsRunTerminalVisibleChanged(bool value)

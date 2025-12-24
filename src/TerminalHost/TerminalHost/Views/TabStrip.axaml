@@ -38,38 +38,36 @@
                             Classes="TabCloseButton"
                             Command="{Binding $parent[Window].DataContext.CloseTabCommand}"
                             CommandParameter="{Binding}"/>
-                    <!-- Activity spinner - rotates when terminal is active (hidden for selected tab) -->
-                    <Border x:Name="ActivitySpinnerContainer"
-                            DockPanel.Dock="Right"
-                            IsVisible="False"
-                            RenderTransformOrigin="0.5,0.5"
-                            Margin="0,0,6,0">
-                        <Border.RenderTransform>
-                            <RotateTransform Angle="0"/>
-                        </Border.RenderTransform>
-                        <TextBlock Text="◐"
-                                   AutomationProperties.HelpText="Terminal is active"
-                                   Foreground="{StaticResource SyntaxYellowBrush}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   FontWeight="Bold"
-                                   VerticalAlignment="Center"/>
-                        <Border.Styles>
-                            <!-- Show and animate spinner when active and not selected -->
-                            <Style Selector="Border.show-spinner">
-                                <Setter Property="IsVisible" Value="True"/>
+                    <!-- Activity indicator - pulses when terminal is active (hidden for selected tab) -->
+                    <TextBlock x:Name="ActivitySpinner"
+                               DockPanel.Dock="Right"
+                               Text="●"
+                               AutomationProperties.HelpText="Terminal is active"
+                               Foreground="{StaticResource SyntaxYellowBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               IsVisible="{Binding ShowActivitySpinner}">
+                        <TextBlock.Styles>
+                            <!-- Pulse animation when visible -->
+                            <Style Selector="TextBlock#ActivitySpinner[IsVisible=True]">
                                 <Style.Animations>
                                     <Animation Duration="0:0:0.8" IterationCount="INFINITE">
                                         <KeyFrame Cue="0%">
-                                            <Setter Property="RotateTransform.Angle" Value="0"/>
+                                            <Setter Property="Opacity" Value="1.0"/>
+                                        </KeyFrame>
+                                        <KeyFrame Cue="50%">
+                                            <Setter Property="Opacity" Value="0.3"/>
                                         </KeyFrame>
                                         <KeyFrame Cue="100%">
-                                            <Setter Property="RotateTransform.Angle" Value="360"/>
+                                            <Setter Property="Opacity" Value="1.0"/>
                                         </KeyFrame>
                                     </Animation>
                                 </Style.Animations>
                             </Style>
-                        </Border.Styles>
-                    </Border>
+                        </TextBlock.Styles>
+                    </TextBlock>
                     <!-- Completed indicator - solid green dot when activity finished but tab not yet focused -->
                     <TextBlock x:Name="CompletedIndicator"
                                DockPanel.Dock="Right"
@@ -80,7 +78,7 @@
                                FontWeight="Bold"
                                VerticalAlignment="Center"
                                Margin="0,0,6,0"
-                               IsVisible="False"/>
+                               IsVisible="{Binding ShowCompletedIndicator}"/>
                     <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"
                                Text="{Binding DisplayTitle, Mode=OneWay}"/>

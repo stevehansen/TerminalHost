@@ -56,7 +56,7 @@
             </ContentControl>
 
             <!-- Popup Overlay Layer -->
-            <Panel x:Name="PopupHost" IsHitTestVisible="False">
+            <Panel x:Name="PopupHost">
                 <!-- Command Palette - Top Center -->
                 <popups:CommandPaletteView
                     IsVisible="{Binding IsCommandPaletteOpen}"

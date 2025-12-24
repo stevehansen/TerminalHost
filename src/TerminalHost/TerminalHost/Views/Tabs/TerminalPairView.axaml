@@ -112,7 +112,8 @@
                               DisplayMemberBinding="{Binding DisplayLabel}"/>
 
                     <TextBlock Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
-                               Text="{Binding Pair.WorkingDirectory}"/>
+                               Text="{Binding Pair.DirectoryName}"
+                               ToolTip.Tip="{Binding Pair.WorkingDirectory}"/>
 
                     <!-- Git Status Display -->
                     <TextBlock Foreground="{DynamicResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"

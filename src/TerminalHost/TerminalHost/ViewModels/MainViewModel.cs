@@ -285,6 +285,31 @@ public partial class MainViewModel : ObservableObject
             newValue.IsSelected = true;
             // Clear unread activity indicator when tab is selected/focused
             newValue.ClearUnreadActivity();
+
+            // Lazy initialization: create terminal controls when tab is first selected
+            if (!newValue.IsTerminalInitialized)
+            {
+                _ = InitializeTabTerminalsAsync(newValue);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Initializes terminal controls for a tab. Called on first selection (lazy initialization).
+    /// </summary>
+    private async Task InitializeTabTerminalsAsync(ITabViewModel tab)
+    {
+        await tab.InitializeTerminalsAsync();
+
+        // Track sessions after initialization (for terminal tabs)
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            _sessionManager.TrackSession(terminalTab.Pair.CustomTerminal);
+            _sessionManager.TrackSession(terminalTab.Pair.ShellTerminal);
+        }
+        else if (tab is ProfileTerminalTabViewModel profileTab)
+        {
+            _sessionManager.TrackSession(profileTab.Session);
         }
     }
 
@@ -502,11 +527,12 @@ public partial class MainViewModel : ObservableObject
         {
             if (_fileSystem.DirectoryExists(folder))
             {
-                OpenProjectTab(folder);
+                // Don't select tabs during restore - lazy initialization will happen when user clicks
+                OpenProjectTab(folder, selectTab: false);
             }
         }
 
-        // Restore the last selected tab
+        // Restore the last selected tab (this is the only one that will be initialized on startup)
         if (!string.IsNullOrEmpty(config.LastSelectedFolder))
         {
             var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
@@ -515,6 +541,11 @@ public partial class MainViewModel : ObservableObject
             {
                 SelectedTab = tabToSelect;
             }
+        }
+        else if (Tabs.Count > 0)
+        {
+            // If no last selected folder, select the first tab
+            SelectedTab = Tabs[0];
         }
     }
 
@@ -624,7 +655,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public async void OpenProjectTab(string workingDirectory)
+    public async void OpenProjectTab(string workingDirectory, bool selectTab = true)
     {
         try
         {
@@ -679,14 +710,9 @@ public partial class MainViewModel : ObservableObject
             // Create the terminal pair
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
-            // Create terminal controls for both
-            var customControl = await _terminalFactory.CreateTerminalControlAsync(pair.CustomTerminal);
-            var shellControl = await _terminalFactory.CreateTerminalControlAsync(pair.ShellTerminal);
-
-            // Create view model with AI assistant info
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService);
+            // Create view model with AI assistant info (terminals created lazily on first selection)
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
-            tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
 
@@ -710,9 +736,7 @@ public partial class MainViewModel : ObservableObject
             // Initialize run configurations (from settings or auto-detect)
             InitializeRunConfigurations(tabViewModel, workingDirectory, dirSettings);
 
-            // Track sessions
-            _sessionManager.TrackSession(pair.CustomTerminal);
-            _sessionManager.TrackSession(pair.ShellTerminal);
+            // Note: Sessions are tracked in InitializeTabTerminalsAsync when terminals are created
 
             // Subscribe to link click events
             pair.CustomTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
@@ -743,7 +767,12 @@ public partial class MainViewModel : ObservableObject
             _ = explorerViewModel.InitializeAsync(workingDirectory);
 
             Tabs.Add(tabViewModel);
-            SelectedTab = tabViewModel;
+
+            // Only select the tab if requested (false during startup restore for lazy init)
+            if (selectTab)
+            {
+                SelectedTab = tabViewModel;
+            }
 
             // Track in recent folders
             UpdateRecentFolders(workingDirectory);
@@ -800,18 +829,13 @@ public partial class MainViewModel : ObservableObject
                 AutoStart = profile.AutoStart
             };
 
-            // Create view model
-            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService, _clipboardService);
-
-            // Create terminal control
-            var terminalControl = await _terminalFactory.CreateTerminalControlAsync(tabViewModel.Session);
-            tabViewModel.SetTerminalControl(terminalControl);
+            // Create view model (terminal created lazily on first selection)
+            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService, _clipboardService, _terminalFactory);
 
             // Subscribe to events
             tabViewModel.CloseRequested += OnTabCloseRequested;
 
-            // Track session
-            _sessionManager.TrackSession(tabViewModel.Session);
+            // Note: Session is tracked in InitializeTabTerminalsAsync when terminal is created
 
             // Add tab and select it
             Tabs.Add(tabViewModel);

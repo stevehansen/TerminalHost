@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -34,10 +35,34 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     // Track previous activity state to detect transitions
     private bool _wasActive;
 
+    // Terminal factory for lazy initialization
+    private readonly ITerminalControlFactory _terminalFactory;
+
+    /// <summary>
+    /// Whether the terminal control has been created (lazy initialization).
+    /// </summary>
+    public bool IsTerminalInitialized { get; private set; }
+
+    // Backing field for IsSelected
+    private bool _isSelected;
+
     /// <summary>
     /// Whether this tab is currently selected. Set by MainViewModel.
     /// </summary>
-    public bool IsSelected { get; set; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged(nameof(IsSelected));
+                OnPropertyChanged(nameof(ShowActivitySpinner));
+                OnPropertyChanged(nameof(ShowCompletedIndicator));
+            }
+        }
+    }
 
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
@@ -63,6 +88,18 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
 
     public bool IsAnyTerminalActive => IsActive;
 
+    /// <summary>
+    /// Whether to show the activity spinner on the tab.
+    /// True when terminal is active AND tab is NOT selected.
+    /// </summary>
+    public bool ShowActivitySpinner => IsAnyTerminalActive && !IsSelected;
+
+    /// <summary>
+    /// Whether to show the completed indicator (green dot) on the tab.
+    /// True when activity finished AND has unread activity AND tab is NOT selected.
+    /// </summary>
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected;
+
     public Profile Profile { get; }
     public TerminalSession Session { get; }
 
@@ -75,12 +112,14 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
         Profile profile,
         string workingDirectory,
         IStatisticsService statisticsService,
-        IClipboardService clipboardService)
+        IClipboardService clipboardService,
+        ITerminalControlFactory terminalFactory)
     {
         Profile = profile;
         WorkingDirectory = workingDirectory;
         _statisticsService = statisticsService;
         _clipboardService = clipboardService;
+        _terminalFactory = terminalFactory;
 
         // Set title: "ProfileName - DirectoryName" or just "ProfileName" if no working dir
         var dirName = string.IsNullOrWhiteSpace(workingDirectory)
@@ -96,6 +135,22 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
 
         // Create the terminal session
         Session = new TerminalSession(profile, statisticsService, clipboardService, "Profile");
+    }
+
+    /// <summary>
+    /// Initializes the terminal control. Called when the tab is first selected (lazy initialization).
+    /// </summary>
+    public async Task InitializeTerminalsAsync()
+    {
+        if (IsTerminalInitialized)
+            return;
+
+        // Create terminal control
+        var control = await _terminalFactory.CreateTerminalControlAsync(Session);
+
+        // Set up the control
+        SetTerminalControl(control);
+        IsTerminalInitialized = true;
     }
 
     /// <summary>
@@ -116,6 +171,8 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     partial void OnIsActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
 
         // Transition from active to idle: mark as unread, but only if tab is NOT selected
         // This prevents false positives from terminal focus/blur rendering events
@@ -125,6 +182,11 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
         }
 
         _wasActive = value;
+    }
+
+    partial void OnHasUnreadActivityChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
     }
 
     /// <summary>
@@ -137,6 +199,9 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
         HasUnreadActivity = false;
         // Sync tracking state to current state to avoid false transition detection
         _wasActive = IsActive;
+        // Update activity indicators since IsSelected state changed
+        OnPropertyChanged(nameof(ShowActivitySpinner));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
     }
 
     /// <summary>

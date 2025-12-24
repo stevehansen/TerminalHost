@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Threading.Tasks;
 
 namespace TerminalHost.ViewModels;
 
@@ -37,6 +38,30 @@ public interface ITabViewModel : INotifyPropertyChanged
     /// Returns true if focus mode is disabled or if the tab's project is in the current task.
     /// </summary>
     bool IsVisibleInFocusMode { get; }
+
+    /// <summary>
+    /// Whether to show the activity spinner on the tab.
+    /// True when terminal is active AND tab is NOT selected.
+    /// </summary>
+    bool ShowActivitySpinner { get; }
+
+    /// <summary>
+    /// Whether to show the completed indicator (green dot) on the tab.
+    /// True when activity finished AND has unread activity AND tab is NOT selected.
+    /// </summary>
+    bool ShowCompletedIndicator { get; }
+
+    /// <summary>
+    /// Whether the terminal(s) for this tab have been initialized.
+    /// Used for lazy initialization - terminals are only created when the tab is first selected.
+    /// </summary>
+    bool IsTerminalInitialized { get; }
+
+    /// <summary>
+    /// Initializes the terminal(s) for this tab. Called when the tab is first selected.
+    /// For non-terminal tabs, this is a no-op.
+    /// </summary>
+    Task InitializeTerminalsAsync();
 
     /// <summary>
     /// Updates the IsVisibleInFocusMode property based on current focus mode state.

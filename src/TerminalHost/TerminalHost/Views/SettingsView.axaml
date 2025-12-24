@@ -25,15 +25,21 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate>
+                    <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="Button.SettingsToolbarButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
         </Style>
 
         <!-- Mode Toggle Button Style (RadioButton look) -->
@@ -45,17 +51,24 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate>
+                    <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="Border"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                         </Border>
-                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="RadioButton.ModeToggleButton:checked">
+            <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.ModeToggleButton:pointerover:not(:checked)">
+            <Setter Property="Background" Value="{StaticResource BackgroundActiveBrush}"/>
         </Style>
 
         <!-- Sidebar Item Button Style -->
@@ -69,17 +82,25 @@
             <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate>
+                    <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="Border"
                                 Background="{TemplateBinding Background}"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="Center"/>
                         </Border>
-                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="RadioButton.SidebarItemButton:checked">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.SidebarItemButton:pointerover:not(:checked)">
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- Form TextBox Style -->
@@ -225,17 +246,23 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate>
+                    <ControlTemplate TargetType="ComboBoxItem">
                         <Border x:Name="Border"
                                 Background="{TemplateBinding Background}"
                                 Padding="{TemplateBinding Padding}"
                                 CornerRadius="2">
-                            <ContentPresenter/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                         </Border>
-                        <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="ComboBoxItem.DarkComboBoxItem:selected">
+            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+        </Style>
+        <Style Selector="ComboBoxItem.DarkComboBoxItem:pointerover:not(:selected)">
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
         </Style>
     </UserControl.Styles>
 
@@ -258,6 +285,9 @@
 
         <!-- Layout Mode Converter -->
         <conv:LayoutModeConverter x:Key="LayoutModeConverter"/>
+
+        <!-- Null to Visibility Converter -->
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
     </UserControl.Resources>
 
     <Grid>
@@ -574,16 +604,22 @@
                                                 <Setter Property="Cursor" Value="Hand"/>
                                                 <Setter Property="Template">
                                                     <Setter.Value>
-                                                        <ControlTemplate>
+                                                        <ControlTemplate TargetType="ListBoxItem">
                                                             <Border x:Name="Border"
                                                                     Background="{TemplateBinding Background}"
                                                                     Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter/>
+                                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                             </Border>
-                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:selected">
+                                                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Style>
                                         </ListBox.Styles>
                                     </ListBox>
@@ -755,16 +791,22 @@
                                                 <Setter Property="Cursor" Value="Hand"/>
                                                 <Setter Property="Template">
                                                     <Setter.Value>
-                                                        <ControlTemplate>
+                                                        <ControlTemplate TargetType="ListBoxItem">
                                                             <Border x:Name="Border"
                                                                     Background="{TemplateBinding Background}"
                                                                     Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter/>
+                                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                             </Border>
-                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:selected">
+                                                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Style>
                                         </ListBox.Styles>
                                     </ListBox>
@@ -948,16 +990,22 @@
                                                 <Setter Property="Cursor" Value="Hand"/>
                                                 <Setter Property="Template">
                                                     <Setter.Value>
-                                                        <ControlTemplate>
+                                                        <ControlTemplate TargetType="ListBoxItem">
                                                             <Border x:Name="Border"
                                                                     Background="{TemplateBinding Background}"
                                                                     Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter/>
+                                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                             </Border>
-                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:selected">
+                                                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Style>
                                         </ListBox.Styles>
                                     </ListBox>
@@ -1152,16 +1200,22 @@
                                                 <Setter Property="Cursor" Value="Hand"/>
                                                 <Setter Property="Template">
                                                     <Setter.Value>
-                                                        <ControlTemplate>
+                                                        <ControlTemplate TargetType="ListBoxItem">
                                                             <Border x:Name="Border"
                                                                     Background="{TemplateBinding Background}"
                                                                     Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter/>
+                                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                             </Border>
-                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:selected">
+                                                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Style>
                                         </ListBox.Styles>
                                     </ListBox>
@@ -1394,16 +1448,22 @@
                                                 <Setter Property="Cursor" Value="Hand"/>
                                                 <Setter Property="Template">
                                                     <Setter.Value>
-                                                        <ControlTemplate>
+                                                        <ControlTemplate TargetType="ListBoxItem">
                                                             <Border x:Name="Border"
                                                                     Background="{TemplateBinding Background}"
                                                                     Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter/>
+                                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                             </Border>
-                                                            <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:selected">
+                                                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                            </Style>
+                                            <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                             </Style>
                                         </ListBox.Styles>
                                     </ListBox>
@@ -1868,16 +1928,22 @@
                                                         <Setter Property="Cursor" Value="Hand"/>
                                                         <Setter Property="Template">
                                                             <Setter.Value>
-                                                                <ControlTemplate>
+                                                                <ControlTemplate TargetType="ListBoxItem">
                                                                     <Border x:Name="Border"
                                                                             Background="{TemplateBinding Background}"
                                                                             Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter/>
+                                                                        <ContentPresenter Content="{TemplateBinding Content}"
+                                                                ContentTemplate="{TemplateBinding ContentTemplate}"/>
                                                                     </Border>
-                                                                    <!-- ControlTemplate.Triggers removed - use Avalonia style selectors or template binding -->
                                                                 </ControlTemplate>
                                                             </Setter.Value>
                                                         </Setter>
+                                                    </Style>
+                                                    <Style Selector="ListBoxItem:selected">
+                                                        <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                                                    </Style>
+                                                    <Style Selector="ListBoxItem:pointerover:not(:selected)">
+                                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
                                                     </Style>
                                                 </ListBox.Styles>
                                             </ListBox>
