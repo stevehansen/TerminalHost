@@ -374,6 +374,14 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("markdown")]
     public MarkdownSettings Markdown { get; set; } = new();
+
+    /// <summary>
+    /// Custom paths to add to the terminal PATH environment variable.
+    /// These are added before the default paths.
+    /// Example: "/usr/local/share/dotnet" for .NET SDK
+    /// </summary>
+    [JsonPropertyName("customPaths")]
+    public List<string> CustomPaths { get; set; } = [];
 }
 
 /// <summary>

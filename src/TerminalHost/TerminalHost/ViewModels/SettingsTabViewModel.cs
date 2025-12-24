@@ -100,6 +100,16 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _shellCommandIcon = "";
 
+    // Custom paths for terminal PATH environment
+    [ObservableProperty]
+    private ObservableCollection<string> _customPaths = [];
+
+    [ObservableProperty]
+    private string? _selectedCustomPath;
+
+    [ObservableProperty]
+    private string _newCustomPath = "";
+
     // Quick commands collection
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = [];
@@ -387,6 +397,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ShellCommandName = config.Settings.ShellCommandName;
             ShellCommandIcon = config.Settings.ShellCommandIcon;
 
+            // Custom paths
+            CustomPaths = new ObservableCollection<string>(config.Settings.CustomPaths);
+
             // Profiles
             Profiles = new ObservableCollection<Profile>(config.Profiles);
 
@@ -436,6 +449,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.ShellCommand = ShellCommand;
             config.Settings.ShellCommandName = ShellCommandName;
             config.Settings.ShellCommandIcon = ShellCommandIcon;
+
+            // Custom paths
+            config.Settings.CustomPaths = CustomPaths.ToList();
 
             // Profiles
             config.Profiles = Profiles.ToList();
@@ -826,6 +842,47 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             SelectedQuickCommand = cmd;
             SyncRichModeToJson();
         }
+    }
+
+    // Custom paths management
+    [RelayCommand]
+    private void AddCustomPath()
+    {
+        if (string.IsNullOrWhiteSpace(NewCustomPath)) return;
+
+        var path = NewCustomPath.Trim();
+        if (!CustomPaths.Contains(path))
+        {
+            CustomPaths.Add(path);
+            NewCustomPath = "";
+            SyncRichModeToJson();
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveCustomPath()
+    {
+        if (SelectedCustomPath == null) return;
+
+        var index = CustomPaths.IndexOf(SelectedCustomPath);
+        CustomPaths.Remove(SelectedCustomPath);
+
+        if (CustomPaths.Count > 0)
+        {
+            SelectedCustomPath = CustomPaths[Math.Min(index, CustomPaths.Count - 1)];
+        }
+        else
+        {
+            SelectedCustomPath = null;
+        }
+
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void BrowseCustomPath()
+    {
+        // This would be called from the view's code-behind for folder picking
     }
 
     // Profile management

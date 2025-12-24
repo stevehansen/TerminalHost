@@ -134,6 +134,27 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private async void BrowseCustomPath_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel viewModel)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel != null)
+            {
+                var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = "Select Directory to Add to PATH",
+                    AllowMultiple = false
+                });
+
+                if (folders.Count > 0)
+                {
+                    viewModel.NewCustomPath = folders[0].Path.LocalPath;
+                }
+            }
+        }
+    }
+
     private async void BrowseShellCommand_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsTabViewModel viewModel)

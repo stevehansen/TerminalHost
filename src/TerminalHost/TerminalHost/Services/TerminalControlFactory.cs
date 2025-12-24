@@ -12,15 +12,18 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
     private readonly ISystemInfoService _systemInfoService;
+    private readonly IConfigurationService _configurationService;
 
     public TerminalControlFactory(
         IFileSystem fileSystem,
         IDialogService dialogService,
-        ISystemInfoService systemInfoService)
+        ISystemInfoService systemInfoService,
+        IConfigurationService configurationService)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _systemInfoService = systemInfoService;
+        _configurationService = configurationService;
     }
 
     public async Task<ITerminalControl> CreateTerminalControlAsync(TerminalSession session)
@@ -42,9 +45,12 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             workingDir = _systemInfoService.GetUserHomePath();
         }
 
+        // Get custom paths from configuration
+        var customPaths = _configurationService.Load().Settings.CustomPaths;
+
         var control = new MacTerminalControl();
 
-        await control.InitializeAsync(command, workingDir);
+        await control.InitializeAsync(command, workingDir, customPaths);
 
         return control;
     }

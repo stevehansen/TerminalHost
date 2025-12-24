@@ -409,6 +409,75 @@
                                   ToolTip.Tip="Minimizes to system tray instead of taskbar."/>
                         <TextBlock Text="When enabled, the application minimizes to the system tray instead of the taskbar."
                                    Classes="HelpText"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
+                        <!-- Custom Paths -->
+                        <TextBlock Text="CUSTOM PATH ENTRIES"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Additional directories to add to the terminal PATH environment variable. Useful for tools like .NET SDK, Python, etc."
+                                   Classes="SectionDescription"
+                                   Margin="0,0,0,12"/>
+
+                        <!-- Path list -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="0"
+                                Height="120">
+                            <ListBox ItemsSource="{Binding CustomPaths}"
+                                     SelectedItem="{Binding SelectedCustomPath}"
+                                     Background="Transparent"
+                                     BorderThickness="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontSize="{StaticResource FontSizeCode}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   Padding="8,4"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <!-- Add new path -->
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding NewCustomPath}"
+                                     Classes="FormTextBox"
+                                     FontFamily="{StaticResource FontFamilyMonospace}"
+                                     Watermark="Enter path (e.g., /usr/local/share/dotnet)"/>
+                            <Button Grid.Column="1"
+                                    Content="Browse..."
+                                    Classes="SettingsToolbarButton"
+                                    Margin="8,0,0,0"
+                                    Click="BrowseCustomPath_Click"/>
+                            <Button Grid.Column="2"
+                                    Content="+ Add"
+                                    Classes="SettingsToolbarButton"
+                                    Command="{Binding AddCustomPathCommand}"
+                                    Margin="8,0,0,0"/>
+                            <Button Grid.Column="3"
+                                    Content="- Remove"
+                                    Classes="SettingsToolbarButton"
+                                    Command="{Binding RemoveCustomPathCommand}"
+                                    IsEnabled="{Binding SelectedCustomPath, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    Margin="8,0,0,0"/>
+                        </Grid>
+                        <TextBlock Text="Paths are added in order, with earlier entries taking priority. Changes take effect for new terminals."
+                                   Classes="HelpText"/>
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->

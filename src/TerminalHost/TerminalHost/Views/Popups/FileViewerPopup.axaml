@@ -81,7 +81,7 @@
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Auto">
                     <SelectableTextBlock
-                        Text="{Binding PreviewText}"
+                        Text="{Binding PreviewContent}"
                         Foreground="#CCCCCC"
                         FontFamily="{StaticResource FontFamilyMonospace}"
                         FontSize="{StaticResource FontSizeCode}"

@@ -89,7 +89,15 @@ def main():
                     pass
 
         # Ensure PATH includes common macOS locations (app bundles have minimal PATH)
-        additional_paths = [
+        additional_paths = []
+
+        # Add user-configured custom paths first (highest priority)
+        custom_paths_env = os.environ.get('TERMINALHOST_CUSTOM_PATHS', '')
+        if custom_paths_env:
+            additional_paths.extend(p for p in custom_paths_env.split(':') if p)
+
+        # Add default paths
+        additional_paths.extend([
             f'{home}/.local/bin',           # Claude CLI, user-installed tools
             '/opt/homebrew/bin',            # Homebrew on Apple Silicon
             '/opt/homebrew/sbin',
@@ -102,7 +110,7 @@ def main():
             f'{home}/.cargo/bin',           # Rust tools
             f'{home}/.npm-global/bin',      # npm global packages
             '/opt/local/bin',               # MacPorts
-        ]
+        ])
 
         # Add NVM node paths if available (find latest version using semantic versioning)
         nvm_versions_dir = f'{home}/.nvm/versions/node'

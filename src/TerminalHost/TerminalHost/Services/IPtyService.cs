@@ -14,7 +14,7 @@ public interface IPtyService : IDisposable
     bool IsRunning { get; }
     int? ProcessId { get; }
 
-    Task StartAsync(int columns, int rows, string? workingDirectory = null, string? command = null, CancellationToken cancellationToken = default);
+    Task StartAsync(int columns, int rows, string? workingDirectory = null, string? command = null, IEnumerable<string>? customPaths = null, CancellationToken cancellationToken = default);
     void Resize(int columns, int rows);
     void Kill();
     Task WriteAsync(byte[] data, CancellationToken cancellationToken = default);

@@ -29,7 +29,7 @@ public class MacPtyService : IPtyService
     public bool IsRunning => _process != null && !_process.HasExited;
     public int? ProcessId => _process?.Id;
 
-    public Task StartAsync(int columns, int rows, string? workingDirectory = null, string? command = null, CancellationToken cancellationToken = default)
+    public Task StartAsync(int columns, int rows, string? workingDirectory = null, string? command = null, IEnumerable<string>? customPaths = null, CancellationToken cancellationToken = default)
     {
         _columns = columns;
         _rows = rows;
@@ -72,7 +72,16 @@ public class MacPtyService : IPtyService
 
         // Ensure PATH includes common macOS locations (app bundles have minimal PATH)
         var currentPath = startInfo.Environment.TryGetValue("PATH", out var existingPath) ? existingPath : "";
-        var additionalPaths = new List<string>
+        var additionalPaths = new List<string>();
+
+        // Add user-configured custom paths first (highest priority)
+        if (customPaths != null)
+        {
+            additionalPaths.AddRange(customPaths.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+
+        // Add default paths
+        additionalPaths.AddRange(new[]
         {
             $"{homeDir}/.local/bin",           // Claude CLI, user-installed tools
             "/opt/homebrew/bin",               // Homebrew on Apple Silicon
@@ -86,7 +95,13 @@ public class MacPtyService : IPtyService
             $"{homeDir}/.cargo/bin",           // Rust tools
             $"{homeDir}/.npm-global/bin",      // npm global packages
             "/opt/local/bin",                  // MacPorts
-        };
+        });
+
+        // Pass custom paths to pty_helper via environment variable
+        if (customPaths != null && customPaths.Any())
+        {
+            startInfo.Environment["TERMINALHOST_CUSTOM_PATHS"] = string.Join(":", customPaths.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
 
         // Add NVM node paths if available (find latest version using semantic versioning)
         var nvmVersionsDir = Path.Combine(homeDir, ".nvm", "versions", "node");

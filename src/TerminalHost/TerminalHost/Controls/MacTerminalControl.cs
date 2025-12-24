@@ -59,6 +59,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Restart info
     private string? _command;
     private string? _workingDirectory;
+    private IEnumerable<string>? _customPaths;
 
     // Terminal color palette
     private static readonly Dictionary<string, Color> ColorPalette = new()
@@ -201,10 +202,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     /// <summary>
     /// Initialize the terminal with a PTY process.
     /// </summary>
-    public async Task InitializeAsync(string command, string workingDirectory)
+    public async Task InitializeAsync(string command, string workingDirectory, IEnumerable<string>? customPaths = null)
     {
         _command = command;
         _workingDirectory = workingDirectory;
+        _customPaths = customPaths;
 
         // Calculate size from bounds if available
         if (_charWidth > 0 && _charHeight > 0 && Bounds.Width > 0 && Bounds.Height > 0)
@@ -232,7 +234,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _ptyService = new MacPtyService();
         _ptyService.ProcessExited += OnProcessExited;
 
-        await _ptyService.StartAsync(_columns, _rows, workingDirectory, command);
+        await _ptyService.StartAsync(_columns, _rows, workingDirectory, command, customPaths);
 
         // Start reading from PTY
         _readCts = new CancellationTokenSource();
@@ -435,7 +437,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         if (!string.IsNullOrEmpty(_command) && !string.IsNullOrEmpty(_workingDirectory))
         {
-            await InitializeAsync(_command, _workingDirectory);
+            await InitializeAsync(_command, _workingDirectory, _customPaths);
         }
     }
 
