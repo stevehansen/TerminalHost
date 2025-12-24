@@ -1259,6 +1259,9 @@ public partial class MainViewModel : ObservableObject
 
     private void OnConfigSaved(object? sender, EventArgs e)
     {
+        // Reload settings from profile registry
+        _profileRegistry.Reload();
+
         // Reload quick commands when config is saved
         LoadQuickCommands();
 

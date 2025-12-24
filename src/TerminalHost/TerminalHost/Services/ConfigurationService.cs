@@ -144,7 +144,8 @@ internal sealed class ConfigurationService : IConfigurationService
             var commandExe = config.Settings.CustomCommand.Split(' ')[0];
             var commandExists = _fileSystem.FileExists(commandExe) ||
                                _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe)) ||
-                               IsBuiltInCommand(commandExe);
+                               IsBuiltInCommand(commandExe) ||
+                               IsCommandInPath(commandExe);
 
             if (!commandExists)
             {
@@ -172,6 +173,39 @@ internal sealed class ConfigurationService : IConfigurationService
         return builtIns.Any(b =>
             commandName.Equals(b, StringComparison.OrdinalIgnoreCase) ||
             command.Equals(b, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsCommandInPath(string command)
+    {
+        // If it's already a path (contains directory separator), don't search PATH
+        if (command.Contains(Path.DirectorySeparatorChar) || command.Contains('/'))
+            return false;
+
+        var pathEnv = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrEmpty(pathEnv))
+            return false;
+
+        var pathSeparator = OperatingSystem.IsWindows() ? ';' : ':';
+        var paths = pathEnv.Split(pathSeparator);
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+
+            var fullPath = Path.Combine(path, command);
+            if (File.Exists(fullPath))
+                return true;
+
+            // On Windows, also check with common extensions
+            if (OperatingSystem.IsWindows())
+            {
+                if (File.Exists(fullPath + ".exe") || File.Exists(fullPath + ".cmd") || File.Exists(fullPath + ".bat"))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static AppConfiguration CreateDefaultConfiguration()
