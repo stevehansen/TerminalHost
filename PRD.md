@@ -1430,6 +1430,19 @@ See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detaile
 - External Tool Integration - Configure external diff/merge/editor tools
 - Environment Variable Manager - Manage env vars for run configurations
 
+### Workspace Sidebar Layout
+
+See **[PRD.WorkspaceLayout.md](PRD.WorkspaceLayout.md)** for detailed specifications.
+
+**Summary**: Alternative layout mode with projects organized in a left sidebar tree instead of tabs, with integrated git worktree management.
+
+**Key Features:**
+- Workspace sidebar with collapsible project tree
+- Git worktree integration (create, switch, manage worktrees per project)
+- Active ports detection in status bar
+- Playground section for temporary/experimental projects
+- Quick terminal/worktree creation dropdown
+
 ### Implementation Priority Summary
 
 | Priority | Feature | PRD Document |
@@ -1438,6 +1451,7 @@ See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detaile
 | **High** | Search Across Files | PRD.SearchAndProductivity.md |
 | **Medium** | Stash, File History, Comparison | PRD.GitAdvanced.md |
 | **Medium** | Terminal Search | PRD.SearchAndProductivity.md |
+| **Medium** | Workspace Sidebar, Git Worktrees, Active Ports | PRD.WorkspaceLayout.md |
 | **Low** | Tags, Cherry-pick, Revert, Merge, Reflog, Submodules | PRD.GitAdvanced.md |
 | **Low** | Snippets, Sessions, External Tools, Env Vars | PRD.SearchAndProductivity.md |
 
@@ -1492,5 +1506,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.15*
+*Document Version: 2.16*
 *Last Updated: 2025-12-24*
