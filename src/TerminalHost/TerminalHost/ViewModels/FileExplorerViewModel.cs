@@ -707,6 +707,28 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         });
     }
 
+    public bool CanViewHistory => SelectedNode != null && !SelectedNode.IsDirectory;
+    [RelayCommand(CanExecute = nameof(CanViewHistory))]
+    private void ViewHistory()
+    {
+        if (SelectedNode?.IsDirectory != false) return;
+        FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
+        {
+            FilePath = SelectedNode.FullPath
+        });
+    }
+
+    public bool CanViewBlame => SelectedNode != null && !SelectedNode.IsDirectory;
+    [RelayCommand(CanExecute = nameof(CanViewBlame))]
+    private void ViewBlame()
+    {
+        if (SelectedNode?.IsDirectory != false) return;
+        FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
+        {
+            FilePath = SelectedNode.FullPath
+        });
+    }
+
     public bool CanExploreInExplorer => SelectedNode != null;
     [RelayCommand(CanExecute = nameof(CanExploreInExplorer))]
     private void ExploreInExplorer()
@@ -769,6 +791,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         EditInViewerCommand.NotifyCanExecuteChanged();
         PopOutViewerCommand.NotifyCanExecuteChanged();
         ExploreInExplorerCommand.NotifyCanExecuteChanged();
+        ViewHistoryCommand.NotifyCanExecuteChanged();
+        ViewBlameCommand.NotifyCanExecuteChanged();
     }
 
     // Events
@@ -776,6 +800,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     public event EventHandler<FileViewerRequestedEventArgs>? PopOutRequested;
     public event EventHandler<string>? CdToShellRequested;
     public event EventHandler<FileSystemNode>? RenameRequested;
+    public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
+    public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
 
     public void Dispose()
     {
@@ -796,4 +822,14 @@ public enum FileViewerMode
     Preview,
     Edit,
     SideBySide
+}
+
+public class FileHistoryRequestedEventArgs : EventArgs
+{
+    public required string FilePath { get; init; }
+}
+
+public class FileBlameRequestedEventArgs : EventArgs
+{
+    public required string FilePath { get; init; }
 }

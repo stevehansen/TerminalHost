@@ -184,6 +184,8 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
+    public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
+    public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
 
     public string WindowTitle
     {
@@ -819,6 +821,8 @@ public partial class MainViewModel : ObservableObject
             explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
+            explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
+            explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
 
             // Initialize explorer async (don't await - let it load in background)
             _ = explorerViewModel.InitializeAsync(workingDirectory);
@@ -1281,6 +1285,16 @@ public partial class MainViewModel : ObservableObject
         {
             await explorerVm.PerformRenameAsync(node, newName);
         }
+    }
+
+    private void OnExplorerFileHistoryRequested(object? sender, FileHistoryRequestedEventArgs e)
+    {
+        FileHistoryRequested?.Invoke(this, e);
+    }
+
+    private void OnExplorerFileBlameRequested(object? sender, FileBlameRequestedEventArgs e)
+    {
+        FileBlameRequested?.Invoke(this, e);
     }
 
     private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)

@@ -125,6 +125,16 @@
                             Style="{StaticResource ViewerToolbarButton}"
                             Command="{Binding ReloadCommand}"
                             ToolTip="Reload"/>
+                    <Button Content="📜"
+                            Style="{StaticResource ViewerToolbarButton}"
+                            Command="{Binding ViewHistoryCommand}"
+                            ToolTip="View History"
+                            Visibility="{Binding CanViewHistory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="👤"
+                            Style="{StaticResource ViewerToolbarButton}"
+                            Command="{Binding ViewBlameCommand}"
+                            ToolTip="View Blame (Ctrl+Shift+B)"
+                            Visibility="{Binding CanViewBlame, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <Button Content="⧉"
                             Style="{StaticResource ViewerToolbarButton}"
                             Command="{Binding DetachCommand}"

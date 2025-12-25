@@ -129,6 +129,18 @@ public partial class FileViewerViewModel : ObservableObject
     public event EventHandler<int>? ScrollToLineRequested;
     public event EventHandler<int>? SetCaretIndexRequested;
     public event EventHandler? DetachRequested;
+    public event EventHandler<string>? FileHistoryRequested;
+    public event EventHandler<string>? FileBlameRequested;
+
+    /// <summary>
+    /// Can view history if we have a file loaded and it's not an image.
+    /// </summary>
+    public bool CanViewHistory => !string.IsNullOrEmpty(_currentFilePath) && !IsImageMode;
+
+    /// <summary>
+    /// Can view blame if we have a file loaded and it's not an image.
+    /// </summary>
+    public bool CanViewBlame => !string.IsNullOrEmpty(_currentFilePath) && !IsImageMode;
 
     public FileViewerViewModel(
         IFilePreviewService filePreviewService,
@@ -404,6 +416,8 @@ public partial class FileViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEditMode));
         OnPropertyChanged(nameof(IsPreviewModeSelected));
         OnPropertyChanged(nameof(IsEditModeSelected));
+        OnPropertyChanged(nameof(CanViewHistory));
+        OnPropertyChanged(nameof(CanViewBlame));
     }
 
     partial void OnIsMarkdownModeChanged(bool value)
@@ -541,6 +555,20 @@ public partial class FileViewerViewModel : ObservableObject
     private void Detach()
     {
         DetachRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ViewHistory()
+    {
+        if (string.IsNullOrEmpty(_currentFilePath) || IsImageMode) return;
+        FileHistoryRequested?.Invoke(this, _currentFilePath);
+    }
+
+    [RelayCommand]
+    private void ViewBlame()
+    {
+        if (string.IsNullOrEmpty(_currentFilePath) || IsImageMode) return;
+        FileBlameRequested?.Invoke(this, _currentFilePath);
     }
 
     [RelayCommand]

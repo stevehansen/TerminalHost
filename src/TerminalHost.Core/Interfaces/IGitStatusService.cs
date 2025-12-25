@@ -39,4 +39,9 @@ public interface IGitStatusService
     Task<GitOperationResult> PopStashAsync(string workingDirectory, int index);
     Task<GitOperationResult> DropStashAsync(string workingDirectory, int index);
     Task<GitOperationResult> CreateBranchFromStashAsync(string workingDirectory, string branchName, int index);
+
+    // File history and blame
+    Task<GitBlameResult?> GetFileBlameAsync(string workingDirectory, string filePath);
+    Task<string?> GetFileContentAtCommitAsync(string workingDirectory, string filePath, string commitHash);
+    Task<string?> GetFileDiffBetweenCommitsAsync(string workingDirectory, string filePath, string fromHash, string toHash);
 }

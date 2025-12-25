@@ -771,4 +771,189 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region File History and Blame
+
+    public async Task<GitBlameResult?> GetFileBlameAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // Use --line-porcelain for machine-readable output
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"blame --line-porcelain -- \"{filePath}\"");
+
+        if (string.IsNullOrEmpty(output))
+            return null;
+
+        return ParseBlameOutput(output, filePath);
+    }
+
+    private GitBlameResult ParseBlameOutput(string output, string filePath)
+    {
+        var result = new GitBlameResult { FilePath = filePath };
+        var lines = output.Split('\n');
+
+        int lineNumber = 0;
+        string? currentHash = null;
+        string? author = null;
+        string? authorEmail = null;
+        long authorTime = 0;
+        string? summary = null;
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrEmpty(line)) continue;
+
+            // Line starting with 40-char hex is a new commit header
+            // Format: <40-char hash> <orig-line> <final-line> [<num-lines>]
+            if (line.Length >= 40 && IsHexString(line.AsSpan(0, 40)))
+            {
+                currentHash = line.Substring(0, 40);
+                continue;
+            }
+
+            if (line.StartsWith("author "))
+                author = line.Substring(7);
+            else if (line.StartsWith("author-mail "))
+                authorEmail = line.Substring(12).Trim('<', '>');
+            else if (line.StartsWith("author-time "))
+                long.TryParse(line.Substring(12), out authorTime);
+            else if (line.StartsWith("summary "))
+                summary = line.Substring(8);
+            else if (line.StartsWith("\t"))
+            {
+                // This is the actual line content (prefixed with tab)
+                lineNumber++;
+                var blameLine = new GitBlameLine
+                {
+                    LineNumber = lineNumber,
+                    CommitHash = currentHash ?? "",
+                    ShortHash = currentHash?.Substring(0, 7) ?? "",
+                    Author = author ?? "",
+                    AuthorEmail = authorEmail ?? "",
+                    CommitDate = DateTimeOffset.FromUnixTimeSeconds(authorTime),
+                    RelativeDate = GetRelativeDate(authorTime),
+                    Summary = summary ?? "",
+                    LineContent = line.Length > 1 ? line.Substring(1) : "" // Remove the tab prefix
+                };
+                result.Lines.Add(blameLine);
+            }
+        }
+
+        // Collect unique authors and assign colors
+        result.UniqueAuthors = result.Lines.Select(l => l.Author).Distinct().ToList();
+        result.AuthorColors = AssignAuthorColors(result.UniqueAuthors);
+
+        // Mark first line in each commit group
+        MarkBlameGroups(result.Lines);
+
+        return result;
+    }
+
+    private static bool IsHexString(ReadOnlySpan<char> span)
+    {
+        foreach (var c in span)
+        {
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                return false;
+        }
+        return true;
+    }
+
+    private static string GetRelativeDate(long unixTimestamp)
+    {
+        if (unixTimestamp == 0) return "";
+
+        var date = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp);
+        var diff = DateTimeOffset.Now - date;
+
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        if (diff.TotalDays < 30) return $"{(int)(diff.TotalDays / 7)}w ago";
+        if (diff.TotalDays < 365) return $"{(int)(diff.TotalDays / 30)}mo ago";
+        return $"{(int)(diff.TotalDays / 365)}y ago";
+    }
+
+    private static Dictionary<string, string> AssignAuthorColors(List<string> authors)
+    {
+        // Predefined colors for blame display (high contrast on dark background)
+        var colors = new[]
+        {
+            "#9CDCFE", // Light blue
+            "#DCDCAA", // Yellow
+            "#4EC9B0", // Teal
+            "#CE9178", // Orange
+            "#C586C0", // Purple
+            "#B5CEA8", // Light green
+            "#D7BA7D", // Gold
+            "#D16969", // Red
+            "#6A9955", // Green
+            "#569CD6"  // Blue
+        };
+
+        var result = new Dictionary<string, string>();
+        for (int i = 0; i < authors.Count; i++)
+        {
+            result[authors[i]] = colors[i % colors.Length];
+        }
+        return result;
+    }
+
+    private static void MarkBlameGroups(List<GitBlameLine> lines)
+    {
+        if (lines.Count == 0) return;
+
+        string? lastHash = null;
+        int groupStart = 0;
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var currentHash = lines[i].CommitHash;
+
+            if (currentHash != lastHash)
+            {
+                // Mark the first line of the new group
+                lines[i].IsFirstInGroup = true;
+
+                // Update previous group size
+                if (i > 0 && groupStart < i)
+                {
+                    lines[groupStart].GroupSize = i - groupStart;
+                }
+
+                groupStart = i;
+                lastHash = currentHash;
+            }
+        }
+
+        // Set size for the last group
+        if (groupStart < lines.Count)
+        {
+            lines[groupStart].GroupSize = lines.Count - groupStart;
+        }
+    }
+
+    public async Task<string?> GetFileContentAtCommitAsync(string workingDirectory, string filePath, string commitHash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // git show <hash>:<file> returns the file content at that commit
+        // Need to use forward slashes for git path
+        var gitPath = filePath.Replace('\\', '/');
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, $"show {commitHash}:\"{gitPath}\"");
+    }
+
+    public async Task<string?> GetFileDiffBetweenCommitsAsync(string workingDirectory, string filePath, string fromHash, string toHash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // git diff <hash1> <hash2> -- <file>
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff {fromHash} {toHash} -- \"{filePath}\"");
+    }
+
+    #endregion
 }

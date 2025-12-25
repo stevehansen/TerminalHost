@@ -43,6 +43,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+H` | Open commit history | Project tab | |
 | `Ctrl+F3` | Search across files | Project tab | Full-text search with replace |
 | `Ctrl+B` | Open git branch switcher | Project tab | |
+| `Ctrl+Shift+B` | View file blame | Project tab | Requires file selected in explorer |
 | `Ctrl+Shift+S` | Open git stash manager | Project tab | |
 | `Ctrl+T` | Open task panel (focus mode) | Project tab | |
 | `Ctrl+M` | Open Markdown preview | Project tab | |

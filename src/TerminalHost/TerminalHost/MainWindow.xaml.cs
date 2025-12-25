@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
+    private readonly FileHistoryViewModel _fileHistoryViewModel;
+    private readonly FileBlameViewModel _fileBlameViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly RepositorySwitcherViewModel _repositorySwitcherViewModel;
@@ -43,7 +45,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -56,6 +58,8 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
+        _fileHistoryViewModel = fileHistoryViewModel;
+        _fileBlameViewModel = fileBlameViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _taskPanelViewModel = taskPanelViewModel;
         _repositorySwitcherViewModel = repositorySwitcherViewModel;
@@ -82,6 +86,8 @@ public partial class MainWindow : Window
         _markdownPreviewViewModel.ShowRequested += OnPanelShowRequested;
         _gitFilesViewModel.ShowRequested += OnPanelShowRequested;
         _commitHistoryViewModel.ShowRequested += OnPanelShowRequested;
+        _fileHistoryViewModel.ShowRequested += OnPanelShowRequested;
+        _fileBlameViewModel.ShowRequested += OnPanelShowRequested;
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
 
@@ -105,6 +111,10 @@ public partial class MainWindow : Window
         _gitFilesViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _gitFilesViewModel.FileEditRequested += OnFileEditRequested;
         _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
+        _fileViewerViewModel.FileHistoryRequested += OnFileHistoryRequested;
+        _fileViewerViewModel.FileBlameRequested += OnFileBlameRequested;
+        _viewModel.FileHistoryRequested += OnFileHistoryRequestedFromExplorer;
+        _viewModel.FileBlameRequested += OnFileBlameRequestedFromExplorer;
 
         // Subscribe to help events
         _viewModel.GitChangesRequested += OnGitChangesRequested;
@@ -757,6 +767,19 @@ public partial class MainWindow : Window
             await _gitBranchViewModel.OpenAsync();
             e.Handled = true;
         }
+        // Ctrl+Shift+B: Open file blame (if file selected in explorer)
+        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var explorerVm = terminalTab.ExplorerViewModel;
+                if (explorerVm?.SelectedNode != null && !explorerVm.SelectedNode.IsDirectory)
+                {
+                    OpenFileBlame(terminalTab.Pair.WorkingDirectory, explorerVm.SelectedNode.FullPath);
+                }
+            }
+            e.Handled = true;
+        }
         // Ctrl+Shift+S: Open git stash manager
         else if (e.Key == Key.S && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
@@ -1218,6 +1241,54 @@ public partial class MainWindow : Window
             var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
             window.Show();
         }
+    }
+
+    private void OnFileHistoryRequested(object? sender, string filePath)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenFileHistory(terminalTab.Pair.WorkingDirectory, filePath);
+        }
+    }
+
+    private void OnFileHistoryRequestedFromExplorer(object? sender, FileHistoryRequestedEventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenFileHistory(terminalTab.Pair.WorkingDirectory, e.FilePath);
+        }
+    }
+
+    private void OnFileBlameRequested(object? sender, string filePath)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenFileBlame(terminalTab.Pair.WorkingDirectory, filePath);
+        }
+    }
+
+    private void OnFileBlameRequestedFromExplorer(object? sender, FileBlameRequestedEventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenFileBlame(terminalTab.Pair.WorkingDirectory, e.FilePath);
+        }
+    }
+
+    private async void OpenFileHistory(string workingDirectory, string filePath)
+    {
+        var windowPos = PointToScreen(new Point(0, 0));
+        _fileHistoryViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileHistoryViewModel.Width) / 2;
+        _fileHistoryViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileHistoryViewModel.Height) / 2;
+        await _fileHistoryViewModel.OpenAsync(workingDirectory, filePath);
+    }
+
+    private async void OpenFileBlame(string workingDirectory, string filePath)
+    {
+        var windowPos = PointToScreen(new Point(0, 0));
+        _fileBlameViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileBlameViewModel.Width) / 2;
+        _fileBlameViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileBlameViewModel.Height) / 2;
+        await _fileBlameViewModel.OpenAsync(workingDirectory, filePath);
     }
 
     #endregion

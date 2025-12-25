@@ -214,6 +214,8 @@ public partial class App : Application
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<CommitHistoryViewModel>();
+        services.AddSingleton<FileHistoryViewModel>();
+        services.AddSingleton<FileBlameViewModel>();
         services.AddSingleton<FileViewerViewModel>();
         services.AddSingleton<RepositorySwitcherViewModel>();
         services.AddSingleton<TestResultsViewModel>();
