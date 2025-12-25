@@ -107,7 +107,6 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+I` - Available
 - `Ctrl+J` - Available
 - `Ctrl+K` - Available
-- `Ctrl+L` - Available
 - `Ctrl+Q` - Available
 - `Ctrl+R` - Available
 - `Ctrl+S` - Available (save - may want to reserve)
@@ -118,12 +117,10 @@ These shortcuts are reserved by the system or have special meaning:
 
 ### Unused Ctrl+Shift+Key combinations:
 - `Ctrl+Shift+A` - Available
-- `Ctrl+Shift+B` - Available
 - `Ctrl+Shift+G` - Available
 - `Ctrl+Shift+I` - Available
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+K` - Available
-- `Ctrl+Shift+L` - Available
 - `Ctrl+Shift+V` - Available
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available
@@ -173,4 +170,4 @@ When adding a new shortcut:
 
 ---
 
-*Last updated: 2024-12-24*
+*Last updated: 2025-12-25*

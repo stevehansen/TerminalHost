@@ -173,6 +173,12 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Live preview updates with 300ms debounce during editing
   - Available in File Viewer (Ctrl+O), popup, and detached window
   - Side-by-Side tab only visible for .md files
+- [x] **Search Across Files (Ctrl+F3):** Full-text search with regex and replace:
+  - Search panel with query input and options (case-sensitive, whole word, regex)
+  - Results grouped by file with match preview and line numbers
+  - Click to open file at match location
+  - Find and replace with preview of changes
+  - Exclude patterns for filtering results
 
 ### Deferred Features
 
@@ -1398,14 +1404,16 @@ Detailed specifications for planned features are documented in separate PRD file
 
 See **[PRD.GitAdvanced.md](PRD.GitAdvanced.md)** for detailed specifications.
 
-**High Priority:**
+**Already Implemented:**
 - Commit History Viewer (Ctrl+H) - Browse and inspect past commits
+- Stash Operations (Ctrl+Shift+S) - Manage git stash entries
+- File History & Blame (Ctrl+Shift+B) - View file history and line-by-line annotations
+
+**High Priority:**
 - Interactive Staging - Stage/unstage files and hunks in Git Changes panel
 - Commit Creation UI - Create commits with conventional commit support
 
 **Medium Priority:**
-- Stash Operations (Ctrl+Shift+S) - Manage git stash entries
-- File History & Blame - View file history and line-by-line annotations
 - Commit/Branch Comparison - Compare any two refs
 
 **Low Priority:**
@@ -1419,9 +1427,6 @@ See **[PRD.GitAdvanced.md](PRD.GitAdvanced.md)** for detailed specifications.
 ### Search and Productivity Features
 
 See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detailed specifications.
-
-**High Priority:**
-- Search Across Files (Ctrl+Shift+F) - Full-text search with regex and replace
 
 **Medium Priority:**
 - Terminal Output Search - Search within terminal scrollback
@@ -1449,9 +1454,8 @@ See **[PRD.WorkspaceLayout.md](PRD.WorkspaceLayout.md)** for detailed specificat
 
 | Priority | Feature | PRD Document |
 |----------|---------|--------------|
-| **High** | Commit History, Interactive Staging, Commit UI | PRD.GitAdvanced.md |
-| **High** | Search Across Files | PRD.SearchAndProductivity.md |
-| **Medium** | Stash, File History, Comparison | PRD.GitAdvanced.md |
+| **High** | Interactive Staging, Commit UI | PRD.GitAdvanced.md |
+| **Medium** | Comparison | PRD.GitAdvanced.md |
 | **Medium** | Terminal Search | PRD.SearchAndProductivity.md |
 | **Medium** | Workspace Sidebar, Git Worktrees, Active Ports | PRD.WorkspaceLayout.md |
 | **Low** | Tags, Cherry-pick, Revert, Merge, Reflog, Submodules | PRD.GitAdvanced.md |
@@ -1508,5 +1512,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.16*
-*Last Updated: 2025-12-24*
+*Document Version: 2.17*
+*Last Updated: 2025-12-25*

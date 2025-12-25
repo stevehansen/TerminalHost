@@ -173,6 +173,9 @@ public partial class MainViewModel : ObservableObject
     // Task Panel
     public TaskPanelViewModel? TaskPanelViewModel { get; set; }
 
+    // Help
+    public HelpViewModel HelpViewModel { get; }
+
     // Quick Capture
     [ObservableProperty]
     private bool _isQuickTaskOpen;
@@ -279,6 +282,9 @@ public partial class MainViewModel : ObservableObject
         WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
         WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
         WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
+
+        // Initialize help view model
+        HelpViewModel = new HelpViewModel(this);
 
         // Subscribe to Tabs collection changes for NonProjectTabs updates
         _tabs.CollectionChanged += (s, e) =>

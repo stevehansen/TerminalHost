@@ -1,12 +1,11 @@
 <UserControl x:Class="TerminalHost.Views.Popups.HelpView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
-             mc:Ignorable="d" 
-             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:HelpViewModel}"
              d:DesignHeight="500" d:DesignWidth="700"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundDarkBrush}"
@@ -31,10 +30,10 @@
             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="8,8,0,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                        Content="×"
+                        Content="x"
                         AutomationProperties.Name="Close Help"
                         Style="{StaticResource TabCloseButton}"
-                        Command="{Binding CloseHelpCommand}"
+                        Command="{Binding CloseCommand}"
                         FontSize="{StaticResource FontSizeHeader}"
                         Padding="8,2"/>
                     <TextBlock Text="TerminalHost Help"
@@ -48,230 +47,152 @@
             <!-- Content -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,16">
                 <StackPanel Margin="10">
-                    <!-- Keyboard Shortcuts Section -->
-                    <TextBlock Text="Keyboard Shortcuts" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <!-- Keyboard Shortcuts Header -->
+                    <TextBlock Text="Keyboard Shortcuts"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,12"/>
 
-                    <!-- Tab Navigation -->
-                    <TextBlock Text="Tab Navigation" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+PageDown" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Next tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+PageUp" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+1-9" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+T" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+W" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close current tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Middle-click tab" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Close tab" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Terminal -->
-                    <TextBlock Text="Terminal" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+`" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Links button" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Layout -->
-                    <TextBlock Text="Layout" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+L" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Toggle layout mode (Tabs/Sidebar)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+L" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Toggle sidebar visibility" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- File Operations -->
-                    <TextBlock Text="File Operations" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open new project (folder picker)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+E" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open current folder in Explorer" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+O" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open file preview dialog" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+E" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open file editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Application -->
-                    <TextBlock Text="Application" Foreground="{StaticResource SyntaxLightBlueBrush}" FontSize="{StaticResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+," Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open settings (Profiles)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+P" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Shift+N" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+T" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open task panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+Shift+Q" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Quick add task" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Ctrl+Shift+M" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Quick add note" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Ctrl+G" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Open git changes panel" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Ctrl+B" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git branch switcher" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="0" Text="F1" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Show this help window" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="0" Text="Ctrl+Shift+O" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="1" Text="Repository quick access" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Ctrl+Shift+H" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="1" Text="GitHub Dashboard" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="0" Text="Ctrl+Shift+R" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="1" Text="PR Review Mode" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="0" Text="F6" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="1" Text="Run tests" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="0" Text="Ctrl+M" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="1" Text="Markdown preview" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
+                    <!-- Shortcut Sections -->
+                    <ItemsControl ItemsSource="{Binding ShortcutSections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,16">
+                                    <!-- Section Header -->
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{StaticResource SyntaxLightBlueBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               Margin="0,0,0,6"/>
+                                    <!-- Shortcut Items -->
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Shortcut}"
+                                                               Foreground="{StaticResource SyntaxOrangeBrush}"
+                                                               Margin="0,2"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Description}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               Margin="0,2"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Quick Commands Section -->
-                    <TextBlock Text="Default Quick Commands" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+Shift+C" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Send 'commit' to Claude Code" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+D" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Run 'git pull --rebase' in Shell" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Shift+U" Foreground="{StaticResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Run 'git push' in Shell" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
+                    <ItemsControl ItemsSource="{Binding QuickCommandSections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,8,0,16">
+                                    <!-- Section Header -->
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{StaticResource SyntaxCyanBrush}"
+                                               FontSize="{StaticResource FontSizeNormal}"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,12"/>
+                                    <!-- Shortcut Items -->
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Shortcut}"
+                                                               Foreground="{StaticResource SyntaxOrangeBrush}"
+                                                               Margin="0,2"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Description}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               Margin="0,2"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Tips Section -->
-                    <TextBlock Text="Tips" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Drag tabs to reorder them"/>
-                    </TextBlock>
-                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Use the splitter between terminals to adjust the split ratio (saved per directory)"/>
-                    </TextBlock>
-                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="File preview supports syntax highlighting for: JSON, C#, JavaScript/TypeScript, Python, XML, Markdown, CSV/TSV"/>
-                    </TextBlock>
-                    <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="Configure custom link patterns in Settings to make ticket IDs clickable"/>
-                    </TextBlock>
+                    <TextBlock Text="Tips"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               Margin="0,8,0,12"/>
+                    <ItemsControl ItemsSource="{Binding Tips}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
+                                    <Run Text="* " Foreground="{StaticResource SyntaxBlueBrush}"/><Run Text="{Binding Mode=OneWay}"/>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Command Line Section -->
-                    <TextBlock Text="Command Line Usage" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
+                    <TextBlock Text="Command Line Usage"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               Margin="0,8,0,12"/>
                     <Border Background="{StaticResource BackgroundDarkestBrush}" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host" Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="                  # Open/focus app"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host ." Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="                # Open project from current directory"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host P:\MyProject" Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="   # Open specific project"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -w P:\Path" Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="     # Using named argument"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -multi" Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="         # Allow multiple instances"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -data path" Foreground="{StaticResource SyntaxCyanBrush}"/>
-                            <Run Text="     # Override config path"/>
-                            </TextBlock>
-                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding CommandLineExamples}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontFamily="{StaticResource FontFamilyMonospace}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               Margin="0,2">
+                                        <Run Text="{Binding Command, Mode=OneWay}" Foreground="{StaticResource SyntaxCyanBrush}"/>
+                                        <Run Text="  # "/>
+                                        <Run Text="{Binding Description, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Border>
 
                     <!-- Paths Section -->
-                    <TextBlock Text="Important Paths" Foreground="{StaticResource SyntaxCyanBrush}" FontSize="{StaticResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Config file:" Foreground="{StaticResource SyntaxLightBlueBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="%APPDATA%\TerminalHost\config.json" Foreground="{StaticResource SyntaxOrangeBrush}" FontFamily="{StaticResource FontFamilyMonospace}" FontSize="{StaticResource FontSizeSmall}" Margin="0,2"/>
-                    </Grid>
+                    <TextBlock Text="Important Paths"
+                               Foreground="{StaticResource SyntaxCyanBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               Margin="0,8,0,12"/>
+                    <ItemsControl ItemsSource="{Binding ImportantPaths}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Label}"
+                                               Foreground="{StaticResource SyntaxLightBlueBrush}"
+                                               Margin="0,2"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Path}"
+                                               Foreground="{StaticResource SyntaxOrangeBrush}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               Margin="0,2"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </ScrollViewer>
 

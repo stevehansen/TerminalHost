@@ -116,7 +116,7 @@
                StaysOpen="False"
                AllowsTransparency="True"
                IsOpen="{Binding IsHelpOpen, Mode=TwoWay}">
-            <popups:HelpView x:Name="HelpViewControl" DataContext="{Binding}" />
+            <popups:HelpView x:Name="HelpViewControl" DataContext="{Binding HelpViewModel}" />
         </Popup>
 
         <!-- Command Palette Popup (Ctrl+Shift+P) -->
