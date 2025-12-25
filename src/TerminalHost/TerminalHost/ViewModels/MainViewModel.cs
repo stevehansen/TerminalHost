@@ -271,6 +271,8 @@ public partial class MainViewModel : ObservableObject
             dialogService,
             fileSystem);
         WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
+        WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
+        WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
 
         // Subscribe to Tabs collection changes for NonProjectTabs updates
         _tabs.CollectionChanged += (s, e) =>
@@ -2175,6 +2177,28 @@ public partial class MainViewModel : ObservableObject
     private void OnWorkspaceSidebarOpenTabRequested(object? sender, string path)
     {
         OpenProjectTab(path);
+    }
+
+    /// <summary>
+    /// Handles the DuplicateTabRequested event from the workspace sidebar.
+    /// </summary>
+    private void OnWorkspaceSidebarDuplicateTabRequested(object? sender, string path)
+    {
+        OpenProjectTab(path, forceNew: true);
+    }
+
+    /// <summary>
+    /// Handles the CloseTabRequested event from the workspace sidebar.
+    /// </summary>
+    private void OnWorkspaceSidebarCloseTabRequested(object? sender, string path)
+    {
+        var tab = Tabs.OfType<TerminalPairTabViewModel>()
+            .FirstOrDefault(t => string.Equals(t.Pair.WorkingDirectory, path, StringComparison.OrdinalIgnoreCase));
+
+        if (tab != null)
+        {
+            CloseTabCommand.Execute(tab);
+        }
     }
 
     /// <summary>

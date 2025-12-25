@@ -280,6 +280,15 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void RemoveWorkspaceFromSidebar(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace != null)
+        {
+            RemoveWorkspace(workspace);
+        }
+    }
+
+    [RelayCommand]
     private async Task Refresh()
     {
         await LoadAsync();
@@ -289,5 +298,214 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private void ToggleCollapse()
     {
         IsCollapsed = !IsCollapsed;
+    }
+
+    /// <summary>
+    /// Moves a workspace up in the list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveWorkspaceUp(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var index = collection.IndexOf(workspace);
+        if (index > 0)
+        {
+            collection.Move(index, index - 1);
+            SaveWorkspaces();
+        }
+    }
+
+    /// <summary>
+    /// Moves a workspace down in the list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveWorkspaceDown(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var index = collection.IndexOf(workspace);
+        if (index >= 0 && index < collection.Count - 1)
+        {
+            collection.Move(index, index + 1);
+            SaveWorkspaces();
+        }
+    }
+
+    /// <summary>
+    /// Moves a workspace to the top of its section.
+    /// </summary>
+    [RelayCommand]
+    private void MoveWorkspaceToTop(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var index = collection.IndexOf(workspace);
+        if (index > 0)
+        {
+            collection.Move(index, 0);
+            SaveWorkspaces();
+        }
+    }
+
+    /// <summary>
+    /// Moves a workspace to the bottom of its section.
+    /// </summary>
+    [RelayCommand]
+    private void MoveWorkspaceToBottom(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var index = collection.IndexOf(workspace);
+        if (index >= 0 && index < collection.Count - 1)
+        {
+            collection.Move(index, collection.Count - 1);
+            SaveWorkspaces();
+        }
+    }
+
+    /// <summary>
+    /// Moves a workspace to the other section (main to playground or vice versa).
+    /// </summary>
+    [RelayCommand]
+    private void MoveWorkspaceToOtherSection(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var fromCollection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var toCollection = workspace.Section == "playground" ? Workspaces : Playgrounds;
+        var newSection = workspace.Section == "playground" ? "main" : "playground";
+
+        fromCollection.Remove(workspace);
+        workspace.Workspace.Section = newSection;
+        toCollection.Add(workspace);
+        SaveWorkspaces();
+    }
+
+    /// <summary>
+    /// Creates a new worktree for the workspace.
+    /// </summary>
+    [RelayCommand]
+    private async Task CreateWorktree(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        // Prompt for branch name
+        var branchName = _dialogService.ShowInput(
+            "Enter branch name for the new worktree:",
+            "Create Worktree",
+            "");
+
+        if (string.IsNullOrWhiteSpace(branchName))
+            return;
+
+        // Determine worktree path (sibling directory with branch name)
+        var parentDir = Path.GetDirectoryName(workspace.Path);
+        if (string.IsNullOrEmpty(parentDir))
+        {
+            _dialogService.ShowError("Cannot determine parent directory.");
+            return;
+        }
+
+        var worktreePath = Path.Combine(parentDir, $"{Path.GetFileName(workspace.Path)}.{branchName}");
+
+        // Check if directory already exists
+        if (_fileSystem.DirectoryExists(worktreePath))
+        {
+            _dialogService.ShowError($"Directory already exists: {worktreePath}");
+            return;
+        }
+
+        var result = await _gitWorktreeService.CreateWorktreeAsync(workspace.Path, branchName, worktreePath, createBranch: true);
+        if (result.Success)
+        {
+            // Refresh the workspace to show new worktree
+            await workspace.LoadAsync();
+
+            // Open the new worktree as a tab
+            OpenTabRequested?.Invoke(this, worktreePath);
+        }
+        else
+        {
+            _dialogService.ShowError($"Failed to create worktree: {result.Error}");
+        }
+    }
+
+    /// <summary>
+    /// Removes a worktree.
+    /// </summary>
+    [RelayCommand]
+    private async Task RemoveWorktree(WorktreeEntryViewModel? worktree)
+    {
+        if (worktree == null) return;
+
+        var confirmed = _dialogService.ShowConfirmation(
+            $"Remove worktree '{worktree.DisplayName}'?\n\nThis will delete the worktree directory:\n{worktree.Path}",
+            "Remove Worktree");
+
+        if (!confirmed)
+            return;
+
+        var result = await _gitWorktreeService.RemoveWorktreeAsync(worktree.Path, force: false);
+        if (result.Success)
+        {
+            // Refresh all workspaces to update worktree lists
+            await RefreshAllGitStatusAsync();
+            await LoadAsync();
+        }
+        else
+        {
+            // Try with force if there are uncommitted changes
+            var forceConfirmed = _dialogService.ShowConfirmation(
+                $"Worktree has uncommitted changes.\n\nForce remove anyway?\n\nError: {result.Error}",
+                "Force Remove Worktree");
+
+            if (forceConfirmed)
+            {
+                result = await _gitWorktreeService.RemoveWorktreeAsync(worktree.Path, force: true);
+                if (result.Success)
+                {
+                    await LoadAsync();
+                }
+                else
+                {
+                    _dialogService.ShowError($"Failed to remove worktree: {result.Error}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Event raised when a workspace should be duplicated (new tab for same directory).
+    /// </summary>
+    public event EventHandler<string>? DuplicateTabRequested;
+
+    /// <summary>
+    /// Event raised when a workspace tab should be closed.
+    /// </summary>
+    public event EventHandler<string>? CloseTabRequested;
+
+    /// <summary>
+    /// Duplicates a workspace (opens new tab for the same directory).
+    /// </summary>
+    [RelayCommand]
+    private void DuplicateWorkspace(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+        DuplicateTabRequested?.Invoke(this, workspace.Path);
+    }
+
+    /// <summary>
+    /// Closes the tab for a workspace (if open).
+    /// </summary>
+    [RelayCommand]
+    private void CloseWorkspaceTab(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+        CloseTabRequested?.Invoke(this, workspace.Path);
     }
 }

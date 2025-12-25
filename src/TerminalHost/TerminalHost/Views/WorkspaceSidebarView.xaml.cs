@@ -118,4 +118,36 @@ public partial class WorkspaceSidebarView : UserControl
             }
         }
     }
+
+    private void OpenWorktree_Click(object sender, RoutedEventArgs e)
+    {
+        // Get the worktree from the context menu's data context
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            // Find the parent workspace to trigger open
+            var workspace = FindParentWorkspaceFromContextMenu(contextMenu);
+            if (workspace != null)
+            {
+                workspace.OpenWorktreeCommand.Execute(worktree);
+            }
+        }
+    }
+
+    private WorkspaceEntryViewModel? FindParentWorkspaceFromContextMenu(ContextMenu contextMenu)
+    {
+        // Walk up the visual tree from the context menu's placement target
+        var current = contextMenu.PlacementTarget as FrameworkElement;
+        while (current != null)
+        {
+            if (current.DataContext is WorkspaceEntryViewModel workspace)
+            {
+                return workspace;
+            }
+            current = current.Parent as FrameworkElement;
+        }
+        return null;
+    }
 }

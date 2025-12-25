@@ -102,6 +102,11 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     public Workspace Workspace => _workspace;
 
     /// <summary>
+    /// Text for context menu to move workspace to other section.
+    /// </summary>
+    public string MoveToSectionHeader => Section == "playground" ? "Move to Workspaces" : "Move to Playground";
+
+    /// <summary>
     /// Current branch name from git status.
     /// </summary>
     public string? CurrentBranch => GitStatus?.BranchName;
