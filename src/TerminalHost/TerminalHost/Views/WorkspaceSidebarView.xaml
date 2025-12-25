@@ -70,11 +70,23 @@
                                   Command="{Binding DataContext.MoveWorkspaceToOtherSectionCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
                         <Separator/>
-                        <MenuItem Header="Remove from Sidebar"
-                                  Command="{Binding DataContext.RemoveWorkspaceFromSidebarCommand, Source={x:Reference SidebarRoot}}"
+                        <MenuItem Header="Git Fetch"
+                                  Command="{Binding DataContext.GitFetchCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
-                        <MenuItem Header="Close Tab"
-                                  Command="{Binding DataContext.CloseWorkspaceTabCommand, Source={x:Reference SidebarRoot}}"
+                        <MenuItem Header="Git Pull (Rebase)"
+                                  Command="{Binding DataContext.GitPullRebaseCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="Git Push"
+                                  Command="{Binding DataContext.GitPushCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"
+                                  IsEnabled="{Binding CanPush}"/>
+                        <Separator/>
+                        <MenuItem Header="Open in Explorer"
+                                  Command="{Binding DataContext.OpenInExplorerCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"/>
+                        <Separator/>
+                        <MenuItem Header="Close"
+                                  Command="{Binding DataContext.CloseWorkspaceCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -103,8 +115,9 @@
                     </StackPanel>
 
                     <!-- Branch Info -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,0">
-                        <TextBlock Text="{Binding CurrentBranch}"
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,0"
+                                ToolTip="{Binding CurrentBranch}">
+                        <TextBlock Text="{Binding BranchNameShort}"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    FontSize="10"
                                    VerticalAlignment="Center"/>
@@ -116,12 +129,50 @@
                                    Visibility="{Binding AheadBehindDisplay, Converter={StaticResource NullToCollapsedConverter}}"/>
                     </StackPanel>
 
-                    <!-- Activity Indicator -->
-                    <Ellipse Grid.Column="3"
-                             Width="6" Height="6"
-                             Fill="{StaticResource AccentGreenBrush}"
-                             Margin="4,0"
-                             Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <!-- Activity Indicators -->
+                    <StackPanel Grid.Column="3" Orientation="Horizontal">
+                        <!-- Spinning indicator when terminal is active -->
+                        <TextBlock x:Name="ActivitySpinner"
+                                   Text="◐"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"
+                                   RenderTransformOrigin="0.5,0.5"
+                                   Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform x:Name="SpinnerRotation" Angle="0"/>
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="SpinStoryboard">
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                         From="0" To="360" Duration="0:0:0.8"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="SpinStoryboard"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- Completed indicator (green dot) when activity finished but not viewed -->
+                        <TextBlock Text="●"
+                                   Foreground="{StaticResource SyntaxGreenBrush}"
+                                   FontSize="8"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"
+                                   Visibility="{Binding HasUnreadActivity, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </DataTemplate>

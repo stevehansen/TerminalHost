@@ -487,6 +487,18 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("sidebarCollapsed")]
     public bool SidebarCollapsed { get; set; } = false;
+
+    /// <summary>
+    /// Whether to automatically fetch from git remotes periodically.
+    /// </summary>
+    [JsonPropertyName("gitAutoFetch")]
+    public bool GitAutoFetch { get; set; } = true;
+
+    /// <summary>
+    /// Interval in seconds between automatic git fetches (default: 60 seconds).
+    /// </summary>
+    [JsonPropertyName("gitAutoFetchIntervalSeconds")]
+    public int GitAutoFetchIntervalSeconds { get; set; } = 60;
 }
 
 /// <summary>

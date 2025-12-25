@@ -23,7 +23,10 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _isSelected;
 
     [ObservableProperty]
-    private bool _hasActivity;
+    private bool _isActive;
+
+    [ObservableProperty]
+    private bool _hasUnreadActivity;
 
     [ObservableProperty]
     private GitStatus? _gitStatus;
@@ -107,14 +110,29 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     public string MoveToSectionHeader => Section == "playground" ? "Move to Workspaces" : "Move to Playground";
 
     /// <summary>
-    /// Current branch name from git status.
+    /// Current branch name from git status (full name).
     /// </summary>
     public string? CurrentBranch => GitStatus?.BranchName;
+
+    /// <summary>
+    /// Short branch name for display (e.g., "#123" for "issues/123").
+    /// </summary>
+    public string? BranchNameShort => GitStatus?.BranchNameShort;
 
     /// <summary>
     /// Whether the repository has uncommitted changes.
     /// </summary>
     public bool IsDirty => GitStatus?.IsDirty ?? false;
+
+    /// <summary>
+    /// Number of commits ahead of remote.
+    /// </summary>
+    public int AheadCount => GitStatus?.AheadCount ?? 0;
+
+    /// <summary>
+    /// Whether there are commits that can be pushed.
+    /// </summary>
+    public bool CanPush => AheadCount > 0;
 
     /// <summary>
     /// Ahead/behind display string.
@@ -139,7 +157,10 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     partial void OnGitStatusChanged(GitStatus? value)
     {
         OnPropertyChanged(nameof(CurrentBranch));
+        OnPropertyChanged(nameof(BranchNameShort));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(AheadCount));
+        OnPropertyChanged(nameof(CanPush));
         OnPropertyChanged(nameof(AheadBehindDisplay));
     }
 

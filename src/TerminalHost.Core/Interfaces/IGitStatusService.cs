@@ -15,6 +15,8 @@ public interface IGitStatusService
     Task<GitOperationResult> DeleteRemoteBranchAsync(string workingDirectory, string remoteName, string branchName);
     Task<GitOperationResult> FetchAllAsync(string workingDirectory);
     Task<GitOperationResult> PullAsync(string workingDirectory);
+    Task<GitOperationResult> PullRebaseAsync(string workingDirectory);
+    Task<GitOperationResult> PushAsync(string workingDirectory);
 
     // Staging operations
     Task<GitOperationResult> StageFileAsync(string workingDirectory, string filePath);

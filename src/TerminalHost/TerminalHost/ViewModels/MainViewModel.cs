@@ -42,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IGitWorktreeService _gitWorktreeService;
 
     private readonly IAppTimer _gitStatusTimer;
+    private readonly IAppTimer _gitAutoFetchTimer;
     private readonly IAppTimer _activityTimer;
     private readonly IAppTimer _linkDetectionTimer;
     private readonly IAppTimer _runUrlDetectionTimer;
@@ -300,6 +301,10 @@ public partial class MainViewModel : ObservableObject
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(5), async () => await RefreshSelectedTabGitStatusAsync());
 
+        // Set up timer for git auto-fetch (configurable interval, default 60 seconds)
+        var fetchInterval = Math.Max(30, configService.Load().Settings.GitAutoFetchIntervalSeconds);
+        _gitAutoFetchTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(fetchInterval), async () => await AutoFetchAllAsync());
+
         // Set up timer for activity state refresh (every 1 second to detect idle transitions)
         _activityTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(1), RefreshActivityState);
 
@@ -357,6 +362,12 @@ public partial class MainViewModel : ObservableObject
             newValue.IsSelected = true;
             // Clear unread activity indicator when tab is selected/focused
             newValue.ClearUnreadActivity();
+
+            // Also clear unread activity in workspace sidebar
+            if (newValue is TerminalPairTabViewModel terminalTab)
+            {
+                WorkspaceSidebar?.ClearUnreadActivity(terminalTab.Pair.WorkingDirectory);
+            }
         }
     }
 
@@ -461,6 +472,12 @@ public partial class MainViewModel : ObservableObject
         // Start git status refresh timer
         _gitStatusTimer.Start();
 
+        // Start git auto-fetch timer (if enabled)
+        if (_configService.Load().Settings.GitAutoFetch)
+        {
+            _gitAutoFetchTimer.Start();
+        }
+
         // Start activity refresh timer
         _activityTimer.Start();
 
@@ -513,12 +530,49 @@ public partial class MainViewModel : ObservableObject
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.UpdateActivityState();
+
+            // Sync activity state to workspace sidebar
+            WorkspaceSidebar?.UpdateActivity(
+                tab.Pair.WorkingDirectory,
+                tab.IsAnyTerminalActive,
+                tab.HasUnreadActivity);
         }
 
         // Also update profile terminal tabs
         foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
         {
             tab.UpdateActivityState();
+        }
+    }
+
+    /// <summary>
+    /// Automatically fetches from git remotes for all open projects.
+    /// This runs periodically to keep behind counts up to date.
+    /// </summary>
+    private async Task AutoFetchAllAsync()
+    {
+        // Fetch for all open terminal pair tabs
+        var fetchTasks = Tabs.OfType<TerminalPairTabViewModel>()
+            .Select(async tab =>
+            {
+                try
+                {
+                    await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
+                    // Refresh git status after fetch to update behind count
+                    await RefreshTabGitStatusAsync(tab);
+                }
+                catch
+                {
+                    // Silently ignore fetch errors (network issues, etc.)
+                }
+            });
+
+        await Task.WhenAll(fetchTasks);
+
+        // Also refresh workspace sidebar git status
+        if (WorkspaceSidebar != null)
+        {
+            await WorkspaceSidebar.RefreshAllGitStatusAsync();
         }
     }
 
@@ -2251,6 +2305,7 @@ public partial class MainViewModel : ObservableObject
     {
         // Stop timers
         _gitStatusTimer.Stop();
+        _gitAutoFetchTimer.Stop();
         _activityTimer.Stop();
         _linkDetectionTimer.Stop();
         _runUrlDetectionTimer.Stop();

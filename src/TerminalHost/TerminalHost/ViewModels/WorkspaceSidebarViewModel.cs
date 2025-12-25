@@ -169,12 +169,25 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// <summary>
     /// Updates activity state for a workspace based on terminal activity.
     /// </summary>
-    public void UpdateActivity(string path, bool hasActivity)
+    public void UpdateActivity(string path, bool isActive, bool hasUnreadActivity)
     {
         var workspace = FindWorkspaceByPath(path);
         if (workspace != null)
         {
-            workspace.HasActivity = hasActivity;
+            workspace.IsActive = isActive;
+            workspace.HasUnreadActivity = hasUnreadActivity;
+        }
+    }
+
+    /// <summary>
+    /// Clears unread activity for a workspace when its tab is selected.
+    /// </summary>
+    public void ClearUnreadActivity(string path)
+    {
+        var workspace = FindWorkspaceByPath(path);
+        if (workspace != null)
+        {
+            workspace.HasUnreadActivity = false;
         }
     }
 
@@ -500,12 +513,92 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Closes the tab for a workspace (if open).
+    /// Closes a workspace - closes the tab if open and removes from sidebar.
     /// </summary>
     [RelayCommand]
-    private void CloseWorkspaceTab(WorkspaceEntryViewModel? workspace)
+    private void CloseWorkspace(WorkspaceEntryViewModel? workspace)
     {
         if (workspace == null) return;
+
+        // Close the tab first (if open)
         CloseTabRequested?.Invoke(this, workspace.Path);
+
+        // Then remove from sidebar
+        RemoveWorkspace(workspace);
+    }
+
+    /// <summary>
+    /// Runs git fetch for the workspace.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitFetch(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var result = await _gitStatusService.FetchAllAsync(workspace.Path);
+        if (result.Success)
+        {
+            await workspace.RefreshGitStatusAsync();
+        }
+        else
+        {
+            _dialogService.ShowWarning($"Git fetch failed:\n{result.Error}", "Git Fetch");
+        }
+    }
+
+    /// <summary>
+    /// Runs git pull --rebase for the workspace.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitPullRebase(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var result = await _gitStatusService.PullRebaseAsync(workspace.Path);
+        if (result.Success)
+        {
+            await workspace.RefreshGitStatusAsync();
+        }
+        else
+        {
+            _dialogService.ShowWarning($"Git pull failed:\n{result.Error}", "Git Pull");
+        }
+    }
+
+    /// <summary>
+    /// Runs git push for the workspace.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitPush(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        var result = await _gitStatusService.PushAsync(workspace.Path);
+        if (result.Success)
+        {
+            await workspace.RefreshGitStatusAsync();
+        }
+        else
+        {
+            _dialogService.ShowWarning($"Git push failed:\n{result.Error}", "Git Push");
+        }
+    }
+
+    /// <summary>
+    /// Opens the workspace folder in Windows Explorer.
+    /// </summary>
+    [RelayCommand]
+    private void OpenInExplorer(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", workspace.Path);
+        }
+        catch
+        {
+            // Silently ignore if explorer fails to open
+        }
     }
 }
