@@ -31,4 +31,27 @@ public sealed class FolderPickerService : IFolderPickerService
 
         return null;
     }
+
+    /// <inheritdoc />
+    public string[]? PickFolders(string? title = null, string? initialPath = null)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = title ?? "Select Folders",
+            Multiselect = true
+        };
+
+        // Set initial directory if provided and exists
+        if (!string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath))
+        {
+            dialog.InitialDirectory = initialPath;
+        }
+
+        if (dialog.ShowDialog() == true && dialog.FolderNames.Length > 0)
+        {
+            return dialog.FolderNames;
+        }
+
+        return null;
+    }
 }

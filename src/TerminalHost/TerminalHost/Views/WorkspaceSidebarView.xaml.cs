@@ -71,19 +71,25 @@ public partial class WorkspaceSidebarView : UserControl
 
     private async void AddWorkspace_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new OpenFolderDialog
         {
-            Description = "Select a project folder to add to workspaces",
-            ShowNewFolderButton = true,
-            UseDescriptionForTitle = true
+            Title = "Select project folders to add to workspaces",
+            Multiselect = true
         };
 
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        if (dialog.ShowDialog() == true && dialog.FolderNames.Length > 0)
         {
-            var path = dialog.SelectedPath;
-            if (ViewModel != null && !string.IsNullOrEmpty(path))
+            if (ViewModel == null) return;
+
+            if (dialog.FolderNames.Length == 1)
             {
-                await ViewModel.AddWorkspaceAsync(path);
+                // Single folder - use existing method
+                await ViewModel.AddWorkspaceAsync(dialog.FolderNames[0]);
+            }
+            else
+            {
+                // Multiple folders - use batch method
+                await ViewModel.AddWorkspacesAsync(dialog.FolderNames);
             }
         }
     }

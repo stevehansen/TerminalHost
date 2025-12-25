@@ -499,6 +499,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("gitAutoFetchIntervalSeconds")]
     public int GitAutoFetchIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Whether to auto-sort workspaces in the sidebar by recent usage.
+    /// </summary>
+    [JsonPropertyName("workspaceAutoSort")]
+    public bool WorkspaceAutoSort { get; set; } = false;
 }
 
 /// <summary>

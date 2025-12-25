@@ -47,6 +47,10 @@ public partial class MainViewModel : ObservableObject
     private readonly IAppTimer _linkDetectionTimer;
     private readonly IAppTimer _runUrlDetectionTimer;
 
+    // Focus time tracking for workspace auto-sort
+    private DateTime? _tabFocusStartTime;
+    private string? _focusedTabDirectory;
+
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
     /// </summary>
@@ -270,7 +274,8 @@ public partial class MainViewModel : ObservableObject
             gitWorktreeService,
             gitStatusService,
             dialogService,
-            fileSystem);
+            fileSystem,
+            statisticsService);
         WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
         WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
         WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
@@ -342,6 +347,28 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
     {
+        // Record focus time for the previous tab
+        if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
+        {
+            var elapsed = (int)(DateTime.Now - _tabFocusStartTime.Value).TotalSeconds;
+            if (elapsed > 0)
+            {
+                _statisticsService.RecordFocusTime(_focusedTabDirectory, elapsed);
+            }
+        }
+
+        // Start tracking focus time for the new tab
+        if (newValue is TerminalPairTabViewModel newTerminalTab)
+        {
+            _tabFocusStartTime = DateTime.Now;
+            _focusedTabDirectory = newTerminalTab.Pair.WorkingDirectory;
+        }
+        else
+        {
+            _tabFocusStartTime = null;
+            _focusedTabDirectory = null;
+        }
+
         // If the selected tab changes, and the dropdown is open, close it.
         if (IsTabDropdownOpen && newValue != null)
         {
@@ -2309,6 +2336,16 @@ public partial class MainViewModel : ObservableObject
         _activityTimer.Stop();
         _linkDetectionTimer.Stop();
         _runUrlDetectionTimer.Stop();
+
+        // Save final focus time for the currently active tab
+        if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
+        {
+            var elapsed = (int)(DateTime.Now - _tabFocusStartTime.Value).TotalSeconds;
+            if (elapsed > 0)
+            {
+                _statisticsService.RecordFocusTime(_focusedTabDirectory, elapsed);
+            }
+        }
 
         // Save open folders before closing
         SaveOpenFolders();

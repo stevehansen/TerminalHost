@@ -17,6 +17,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
+    private readonly IStatisticsService _statisticsService;
 
     [ObservableProperty]
     private ObservableCollection<WorkspaceEntryViewModel> _workspaces = [];
@@ -39,6 +40,23 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCollapsed;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SortToggleIcon))]
+    [NotifyPropertyChangedFor(nameof(SortToggleToolTip))]
+    private bool _isAutoSortEnabled;
+
+    /// <summary>
+    /// Icon for the sort toggle button.
+    /// </summary>
+    public string SortToggleIcon => IsAutoSortEnabled ? "⇅" : "↕";
+
+    /// <summary>
+    /// Tooltip for the sort toggle button.
+    /// </summary>
+    public string SortToggleToolTip => IsAutoSortEnabled
+        ? "Auto-sorted by usage (click for manual)"
+        : "Manual order (click for auto-sort)";
+
     /// <summary>
     /// Event raised when a workspace or worktree should be opened as a terminal tab.
     /// </summary>
@@ -54,13 +72,15 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         IGitWorktreeService gitWorktreeService,
         IGitStatusService gitStatusService,
         IDialogService dialogService,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IStatisticsService statisticsService)
     {
         _configurationService = configurationService;
         _gitWorktreeService = gitWorktreeService;
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
+        _statisticsService = statisticsService;
     }
 
     /// <summary>
@@ -90,6 +110,9 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 // Load worktrees in background
                 _ = vm.LoadAsync();
             }
+
+            // Set auto-sort after workspaces are loaded so the change handler can sort them
+            IsAutoSortEnabled = config.Settings.WorkspaceAutoSort;
         }
         finally
         {
@@ -135,6 +158,31 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         SaveWorkspaces();
 
         return vm;
+    }
+
+    /// <summary>
+    /// Adds multiple workspaces at once.
+    /// </summary>
+    /// <returns>Tuple with count of added workspaces and list of skipped folder names.</returns>
+    public async Task<(int added, List<string> skipped)> AddWorkspacesAsync(IEnumerable<string> paths, string section = "main")
+    {
+        int added = 0;
+        var skipped = new List<string>();
+
+        foreach (var path in paths)
+        {
+            var workspace = await AddWorkspaceAsync(path, section);
+            if (workspace != null)
+            {
+                added++;
+            }
+            else
+            {
+                skipped.Add(Path.GetFileName(path) ?? path);
+            }
+        }
+
+        return (added, skipped);
     }
 
     /// <summary>
@@ -600,5 +648,94 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         {
             // Silently ignore if explorer fails to open
         }
+    }
+
+    /// <summary>
+    /// Toggles the auto-sort by usage feature.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleAutoSort()
+    {
+        IsAutoSortEnabled = !IsAutoSortEnabled;
+    }
+
+    partial void OnIsAutoSortEnabledChanged(bool value)
+    {
+        // Don't save during initial load
+        if (!IsLoading)
+        {
+            var config = _configurationService.Load();
+            config.Settings.WorkspaceAutoSort = value;
+            _configurationService.Save(config);
+        }
+
+        // Apply appropriate sort
+        if (value)
+        {
+            ApplyUsageSort();
+        }
+        else
+        {
+            ApplyManualSort();
+        }
+    }
+
+    /// <summary>
+    /// Sorts workspaces by usage score (focus time + char count).
+    /// </summary>
+    private void ApplyUsageSort()
+    {
+        // Sort main workspaces
+        var sortedWorkspaces = Workspaces
+            .OrderByDescending(w => CalculateUsageScore(w.Path))
+            .ToList();
+
+        Workspaces.Clear();
+        foreach (var w in sortedWorkspaces)
+            Workspaces.Add(w);
+
+        // Sort playgrounds
+        var sortedPlaygrounds = Playgrounds
+            .OrderByDescending(w => CalculateUsageScore(w.Path))
+            .ToList();
+
+        Playgrounds.Clear();
+        foreach (var w in sortedPlaygrounds)
+            Playgrounds.Add(w);
+    }
+
+    /// <summary>
+    /// Sorts workspaces by manual order.
+    /// </summary>
+    private void ApplyManualSort()
+    {
+        var sortedWorkspaces = Workspaces.OrderBy(w => w.Order).ToList();
+        Workspaces.Clear();
+        foreach (var w in sortedWorkspaces)
+            Workspaces.Add(w);
+
+        var sortedPlaygrounds = Playgrounds.OrderBy(w => w.Order).ToList();
+        Playgrounds.Clear();
+        foreach (var w in sortedPlaygrounds)
+            Playgrounds.Add(w);
+    }
+
+    /// <summary>
+    /// Calculates a usage score for a workspace based on recent focus time and output activity.
+    /// </summary>
+    private double CalculateUsageScore(string path)
+    {
+        const int DAYS = 7;
+        const double FOCUS_WEIGHT = 0.6;
+        const double CHAR_WEIGHT = 0.4;
+
+        var focusSeconds = _statisticsService.GetFocusTimeForPeriod(path, DAYS);
+        var charCount = _statisticsService.GetCharCountForPeriod(path, DAYS);
+
+        // Normalize: convert to minutes for focus, thousands for chars
+        var focusMinutes = focusSeconds / 60.0;
+        var charThousands = charCount / 1000.0;
+
+        return (focusMinutes * FOCUS_WEIGHT) + (charThousands * CHAR_WEIGHT);
     }
 }

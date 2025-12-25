@@ -258,8 +258,24 @@
                             Style="{StaticResource TerminalSwitchButton}"
                             Padding="6,2"
                             FontSize="14"
-                            ToolTip="Add Workspace"
+                            ToolTip="Add Workspaces (multi-select)"
                             Click="AddWorkspace_Click"/>
+                    <Button Content="{Binding SortToggleIcon}"
+                            Padding="6,2"
+                            FontSize="12"
+                            ToolTip="{Binding SortToggleToolTip}"
+                            Command="{Binding ToggleAutoSortCommand}"
+                            Margin="4,0,0,0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAutoSortEnabled}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                     <Button Content="&#8635;"
                             Style="{StaticResource TerminalSwitchButton}"
                             Padding="6,2"

@@ -12,4 +12,12 @@ public interface IFolderPickerService
     /// <param name="initialPath">Optional initial directory to display.</param>
     /// <returns>The selected folder path, or null if cancelled.</returns>
     string? PickFolder(string? title = null, string? initialPath = null);
+
+    /// <summary>
+    /// Shows a multi-select folder picker dialog and returns the selected paths.
+    /// </summary>
+    /// <param name="title">The dialog title/description.</param>
+    /// <param name="initialPath">Optional initial directory to display.</param>
+    /// <returns>Array of selected folder paths, or null if cancelled.</returns>
+    string[]? PickFolders(string? title = null, string? initialPath = null);
 }

@@ -122,6 +122,72 @@ namespace TerminalHost.Core.Services
             }
         }
 
+        public void RecordFocusTime(string directory, int seconds)
+        {
+            if (string.IsNullOrEmpty(directory) || seconds <= 0) return;
+
+            lock (_lock)
+            {
+                if (!_stats.DirectoryStats.TryGetValue(directory, out DirectoryUsageStats? dirStats))
+                {
+                    dirStats = new DirectoryUsageStats();
+                    _stats.DirectoryStats[directory] = dirStats;
+                }
+
+                var today = DateTime.Now.ToString("yyyy-MM-dd");
+
+                if (dirStats.FocusTimeSecondsByDay.ContainsKey(today))
+                {
+                    dirStats.FocusTimeSecondsByDay[today] += seconds;
+                }
+                else
+                {
+                    dirStats.FocusTimeSecondsByDay[today] = seconds;
+                }
+
+                _isDirty = true;
+            }
+        }
+
+        public long GetFocusTimeForPeriod(string directory, int days)
+        {
+            lock (_lock)
+            {
+                if (!_stats.DirectoryStats.TryGetValue(directory, out DirectoryUsageStats? dirStats))
+                    return 0;
+
+                var cutoff = DateTime.Now.AddDays(-days).ToString("yyyy-MM-dd");
+                return dirStats.FocusTimeSecondsByDay
+                    .Where(kv => string.Compare(kv.Key, cutoff, StringComparison.Ordinal) >= 0)
+                    .Sum(kv => kv.Value);
+            }
+        }
+
+        public long GetCharCountForPeriod(string directory, int days)
+        {
+            lock (_lock)
+            {
+                if (!_stats.DirectoryStats.TryGetValue(directory, out DirectoryUsageStats? dirStats))
+                    return 0;
+
+                var cutoff = DateTime.Now.AddDays(-days).ToString("yyyy-MM-dd");
+
+                var custom = dirStats.CustomTerminalCharCountsByDay
+                    .Where(kv => string.Compare(kv.Key, cutoff, StringComparison.Ordinal) >= 0)
+                    .Sum(kv => kv.Value);
+
+                var shell = dirStats.ShellTerminalCharCountsByDay
+                    .Where(kv => string.Compare(kv.Key, cutoff, StringComparison.Ordinal) >= 0)
+                    .Sum(kv => kv.Value);
+
+                var run = dirStats.RunTerminalCharCountsByDay
+                    .Where(kv => string.Compare(kv.Key, cutoff, StringComparison.Ordinal) >= 0)
+                    .Sum(kv => kv.Value);
+
+                return custom + shell + run;
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed) return;

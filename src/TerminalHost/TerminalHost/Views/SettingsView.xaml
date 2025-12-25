@@ -402,6 +402,13 @@
                                   ToolTip="Minimizes to system tray instead of taskbar."/>
                         <TextBlock Text="When enabled, the application minimizes to the system tray instead of the taskbar."
                                    Style="{StaticResource HelpText}"/>
+
+                        <CheckBox Content="Auto-sort workspaces by usage"
+                                  IsChecked="{Binding WorkspaceAutoSort}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  ToolTip="Automatically sort workspaces in sidebar by recent usage."/>
+                        <TextBlock Text="When enabled, workspaces in the sidebar are sorted by combined focus time and activity from the last 7 days."
+                                   Style="{StaticResource HelpText}"/>
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->
