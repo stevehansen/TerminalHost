@@ -258,6 +258,27 @@ public partial class DraggablePopup : UserControl
 
     private void DragHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // Don't start drag if clicking on an interactive element (button, etc.)
+        if (e.OriginalSource is System.Windows.DependencyObject source)
+        {
+            // Walk up the visual tree to check if we clicked on a Button
+            var element = source;
+            while (element != null)
+            {
+                if (element is System.Windows.Controls.Button)
+                {
+                    // Let the button handle the click, don't start dragging
+                    return;
+                }
+                if (element is Border border && border.Name == "DragHeader")
+                {
+                    // Reached the drag header itself, safe to start drag
+                    break;
+                }
+                element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+            }
+        }
+
         _isDragging = true;
         _dragStartPoint = PointToScreen(e.GetPosition(this));
         Mouse.Capture((IInputElement)sender);

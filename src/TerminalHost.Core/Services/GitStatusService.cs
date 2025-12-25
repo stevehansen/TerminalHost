@@ -65,7 +65,8 @@ public sealed class GitStatusService : IGitStatusService
             return files;
 
         // Get status in porcelain v1 format: XY PATH or XY ORIG -> PATH for renames
-        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain");
+        // Use -u (--untracked-files=all) to show individual files in new directories
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain -u");
         if (string.IsNullOrEmpty(output))
             return files;
 
