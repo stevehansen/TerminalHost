@@ -19,27 +19,24 @@ public partial class MainViewModel : ObservableObject
     private readonly IConfigurationService _configService;
     private readonly IStatisticsService _statisticsService;
     private readonly IGitStatusService _gitStatusService;
-    private readonly IGitIgnoreService _gitIgnoreService;
+
     private readonly ILinkDetectionService _linkDetectionService;
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly IRunUrlDetectionService _runUrlDetectionService;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
-    private readonly IFileExplorerService _fileExplorerService;
+
     private readonly IFilePreviewService _filePreviewService;
-    private readonly IFileEditService _fileEditService;
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly ITaskService _taskService;
     private readonly IAiAssistantService _aiAssistantService;
-    private readonly IGitHubService _gitHubService;
-    private readonly IMarkdownService _markdownService;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
     private readonly IFolderPickerService _folderPickerService;
-    private readonly IGitWorktreeService _gitWorktreeService;
+    private readonly IViewModelFactory _viewModelFactory;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -221,27 +218,22 @@ public partial class MainViewModel : ObservableObject
         IConfigurationService configService,
         IStatisticsService statisticsService,
         IGitStatusService gitStatusService,
-        IGitIgnoreService gitIgnoreService,
         ILinkDetectionService linkDetectionService,
         IProjectDetectionService projectDetectionService,
         IRunUrlDetectionService runUrlDetectionService,
         DetectedLinksViewModel detectedLinksViewModel,
         IFileSystem fileSystem,
         IDialogService dialogService,
-        IFileExplorerService fileExplorerService,
         IFilePreviewService filePreviewService,
-        IFileEditService fileEditService,
         IClaudeCommandService claudeCommandService,
         ITaskService taskService,
         IAiAssistantService aiAssistantService,
-        IGitHubService gitHubService,
-        IMarkdownService markdownService,
         IProcessService processService,
         IToastService toastService,
         ITimerService timerService,
         IDispatcherService dispatcherService,
         IFolderPickerService folderPickerService,
-        IGitWorktreeService gitWorktreeService)
+        IViewModelFactory viewModelFactory)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -249,36 +241,25 @@ public partial class MainViewModel : ObservableObject
         _configService = configService;
         _statisticsService = statisticsService;
         _gitStatusService = gitStatusService;
-        _gitIgnoreService = gitIgnoreService;
         _linkDetectionService = linkDetectionService;
         _projectDetectionService = projectDetectionService;
         _runUrlDetectionService = runUrlDetectionService;
         _detectedLinksViewModel = detectedLinksViewModel;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
-        _fileExplorerService = fileExplorerService;
         _filePreviewService = filePreviewService;
-        _fileEditService = fileEditService;
         _claudeCommandService = claudeCommandService;
         _taskService = taskService;
         _aiAssistantService = aiAssistantService;
-        _gitHubService = gitHubService;
-        _markdownService = markdownService;
         _processService = processService;
         _toastService = toastService;
         _timerService = timerService;
         _dispatcherService = dispatcherService;
         _folderPickerService = folderPickerService;
-        _gitWorktreeService = gitWorktreeService;
+        _viewModelFactory = viewModelFactory;
 
         // Initialize workspace sidebar
-        WorkspaceSidebar = new WorkspaceSidebarViewModel(
-            configService,
-            gitWorktreeService,
-            gitStatusService,
-            dialogService,
-            fileSystem,
-            statisticsService);
+        WorkspaceSidebar = _viewModelFactory.CreateWorkspaceSidebar();
         WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
         WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
         WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
@@ -893,7 +874,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer and panel system
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _gitIgnoreService, _dialogService, _fileSystem, _processService);
+            var explorerViewModel = _viewModelFactory.CreateFileExplorer(workingDirectory);
             tabViewModel.InitializePanelSystem(explorerViewModel);
 
             // Restore explorer/panel settings
@@ -1348,8 +1329,7 @@ public partial class MainViewModel : ObservableObject
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Create a detached file viewer window
-        var viewer = new FileViewerViewModel(_filePreviewService, _fileEditService, _fileSystem, _dialogService, _markdownService, _timerService);
-        viewer.IsDetached = true;
+        var viewer = _viewModelFactory.CreateFileViewer(isDetached: true);
         viewer.Open(e.FilePath, e.Mode);
 
         // Create and show the window
@@ -1418,7 +1398,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        var settingsTab = _viewModelFactory.CreateSettings();
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -1438,7 +1418,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab with Profiles section selected
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        var settingsTab = _viewModelFactory.CreateSettings();
         settingsTab.SelectedSection = SettingsSection.Profiles;
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
@@ -1458,7 +1438,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService);
+        var dashboardTab = _viewModelFactory.CreateDashboard(this);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);
@@ -1511,7 +1491,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             // Create new statistics tab
-            var statsTab = new StatisticsTabViewModel(_statisticsService);
+            var statsTab = _viewModelFactory.CreateStatistics();
             statsTab.CloseRequested += OnTabCloseRequested;
             Tabs.Add(statsTab);
             SelectedTab = statsTab;

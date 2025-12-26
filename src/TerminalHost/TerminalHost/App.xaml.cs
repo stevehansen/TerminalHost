@@ -194,6 +194,7 @@ public partial class App : Application
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
+        services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
@@ -204,6 +205,7 @@ public partial class App : Application
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
         services.AddSingleton<ISearchService, SearchService>();
+        services.AddSingleton<IViewModelFactory, ViewModelFactory>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
