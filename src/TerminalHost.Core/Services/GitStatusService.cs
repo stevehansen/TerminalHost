@@ -973,4 +973,129 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Reflog
+
+    public async Task<List<GitReflogEntry>> GetReflogAsync(string workingDirectory, int count = 50)
+    {
+        var entries = new List<GitReflogEntry>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return entries;
+
+        // Format: hash|short_hash|selector|action|subject|relative_time
+        // %H = full hash, %h = short hash, %gd = selector (HEAD@{0}), %gs = subject (action: description), %ar = relative time
+        var output = await _gitRunner.RunGitCommandAsync(
+            workingDirectory,
+            $"reflog --format=\"%H|%h|%gd|%gs|%ar\" -n {count}");
+
+        if (string.IsNullOrEmpty(output))
+            return entries;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|');
+            if (parts.Length < 5) continue;
+
+            var subject = parts[3].Trim();
+            var action = subject;
+            var description = "";
+
+            // Parse "action: description" format (e.g., "checkout: moving from main to feature")
+            var colonIndex = subject.IndexOf(':');
+            if (colonIndex > 0)
+            {
+                action = subject.Substring(0, colonIndex).Trim();
+                description = subject.Length > colonIndex + 1
+                    ? subject.Substring(colonIndex + 1).Trim()
+                    : "";
+            }
+
+            entries.Add(new GitReflogEntry
+            {
+                Hash = parts[0].Trim(),
+                ShortHash = parts[1].Trim(),
+                Selector = parts[2].Trim(),
+                Action = action,
+                Description = description,
+                RelativeTime = parts[4].Trim()
+            });
+        }
+
+        return entries;
+    }
+
+    #endregion
+
+    #region Cherry-pick and Revert
+
+    public async Task<GitOperationResult> CherryPickAsync(string workingDirectory, string commitHash, bool noCommit = false)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        var args = noCommit
+            ? $"cherry-pick --no-commit {commitHash}"
+            : $"cherry-pick {commitHash}";
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, args);
+    }
+
+    public async Task<GitOperationResult> CherryPickContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "cherry-pick --continue");
+    }
+
+    public async Task<GitOperationResult> CherryPickAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "cherry-pick --abort");
+    }
+
+    public async Task<GitOperationResult> RevertAsync(string workingDirectory, string commitHash, bool noCommit = false)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        var args = noCommit
+            ? $"revert --no-commit {commitHash}"
+            : $"revert {commitHash}";
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, args);
+    }
+
+    public async Task<GitOperationResult> RevertContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "revert --continue");
+    }
+
+    public async Task<GitOperationResult> RevertAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "revert --abort");
+    }
+
+    public async Task<GitOperationResult> CreateBranchFromRefAsync(string workingDirectory, string branchName, string refSpec)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        if (string.IsNullOrWhiteSpace(branchName))
+            return new GitOperationResult { Success = false, Error = "Branch name cannot be empty" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"branch \"{branchName}\" {refSpec}");
+    }
+
+    #endregion
 }

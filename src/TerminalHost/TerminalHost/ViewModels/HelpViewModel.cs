@@ -66,6 +66,7 @@ public partial class HelpViewModel : ObservableObject
             new("Ctrl+H", "Open commit history"),
             new("Ctrl+B", "Open git branch switcher"),
             new("Ctrl+Shift+S", "Open git stash manager"),
+            new("Ctrl+Shift+G", "Open git reflog"),
             new("Ctrl+Shift+B", "View file blame"),
             new("Ctrl+Shift+O", "Repository quick access"),
             new("Ctrl+Shift+H", "GitHub Dashboard"),

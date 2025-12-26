@@ -45,6 +45,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+B` | Open git branch switcher | Project tab | |
 | `Ctrl+Shift+B` | View file blame | Project tab | Requires file selected in explorer |
 | `Ctrl+Shift+S` | Open git stash manager | Project tab | |
+| `Ctrl+Shift+G` | Open git reflog | Project tab | Recovery tool for lost commits |
 | `Ctrl+T` | Open task panel (focus mode) | Project tab | |
 | `Ctrl+M` | Open Markdown preview | Project tab | |
 | `Ctrl+Shift+H` | Open GitHub Dashboard | Project tab | |
@@ -117,7 +118,6 @@ These shortcuts are reserved by the system or have special meaning:
 
 ### Unused Ctrl+Shift+Key combinations:
 - `Ctrl+Shift+A` - Available
-- `Ctrl+Shift+G` - Available
 - `Ctrl+Shift+I` - Available
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+K` - Available

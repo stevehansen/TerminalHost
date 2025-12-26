@@ -169,6 +169,9 @@
         <!-- Git Stash View (Ctrl+Shift+S) -->
         <popups:GitStashView x:Name="GitStashViewControl" />
 
+        <!-- Git Reflog View (Ctrl+Shift+G) -->
+        <popups:ReflogView x:Name="ReflogViewControl" />
+
         <!-- Detected Links View -->
         <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
 

@@ -218,6 +218,55 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         await RefreshCommitsAsync();
     }
 
+    [RelayCommand(CanExecute = nameof(CanCopyHash))]
+    private async Task CherryPickAsync()
+    {
+        if (SelectedCommit == null || _currentTerminalTab == null) return;
+
+        var confirm = _dialogService.ShowConfirmation(
+            $"Cherry-pick commit {SelectedCommit.ShortHash}?\n\n{SelectedCommit.Subject}",
+            "Cherry-pick Commit");
+
+        if (!confirm) return;
+
+        var workDir = _currentTerminalTab.Pair.WorkingDirectory;
+        var result = await _gitStatusService.CherryPickAsync(workDir, SelectedCommit.Hash);
+
+        if (result.Success)
+        {
+            _toastService.Show($"Cherry-picked {SelectedCommit.ShortHash}", ToastType.Success);
+        }
+        else
+        {
+            _toastService.Show($"Cherry-pick failed: {result.Error}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyHash))]
+    private async Task RevertCommitAsync()
+    {
+        if (SelectedCommit == null || _currentTerminalTab == null) return;
+
+        var confirm = _dialogService.ShowConfirmation(
+            $"Revert commit {SelectedCommit.ShortHash}?\n\n{SelectedCommit.Subject}\n\nThis will create a new commit that undoes the changes.",
+            "Revert Commit");
+
+        if (!confirm) return;
+
+        var workDir = _currentTerminalTab.Pair.WorkingDirectory;
+        var result = await _gitStatusService.RevertAsync(workDir, SelectedCommit.Hash);
+
+        if (result.Success)
+        {
+            _toastService.Show($"Reverted {SelectedCommit.ShortHash}", ToastType.Success);
+            await RefreshCommitsAsync();
+        }
+        else
+        {
+            _toastService.Show($"Revert failed: {result.Error}", ToastType.Error);
+        }
+    }
+
     #endregion
 
     #region Event Handlers

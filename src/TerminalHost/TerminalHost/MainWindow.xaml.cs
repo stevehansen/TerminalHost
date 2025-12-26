@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly GitStashViewModel _gitStashViewModel;
+    private readonly ReflogViewModel _reflogViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
@@ -45,7 +46,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -55,6 +56,7 @@ public partial class MainWindow : Window
         _scratchPadViewModel = scratchPadViewModel;
         _gitBranchViewModel = gitBranchViewModel;
         _gitStashViewModel = gitStashViewModel;
+        _reflogViewModel = reflogViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
@@ -74,6 +76,7 @@ public partial class MainWindow : Window
         viewModel.TaskPanelViewModel = taskPanelViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         GitStashViewControl.DataContext = gitStashViewModel;
+        ReflogViewControl.DataContext = reflogViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         FileViewerPopupControl.DataContext = fileViewerViewModel;
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
@@ -420,6 +423,12 @@ public partial class MainWindow : Window
             if (_gitStashViewModel.IsOpen)
             {
                 _gitStashViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_reflogViewModel.IsOpen)
+            {
+                _reflogViewModel.IsOpen = false;
                 e.Handled = true;
                 return;
             }
@@ -784,6 +793,17 @@ public partial class MainWindow : Window
         else if (e.Key == Key.S && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             await _gitStashViewModel.OpenAsync();
+            e.Handled = true;
+        }
+        // Ctrl+Shift+G: Open git reflog
+        else if (e.Key == Key.G && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                _reflogViewModel.SetTerminalTab(terminalTab);
+                await _reflogViewModel.LoadAsync();
+                _reflogViewModel.IsOpen = true;
+            }
             e.Handled = true;
         }
         // Ctrl+Shift+O: Open repository switcher

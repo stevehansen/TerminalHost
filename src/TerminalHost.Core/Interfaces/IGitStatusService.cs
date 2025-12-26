@@ -46,4 +46,18 @@ public interface IGitStatusService
     Task<GitBlameResult?> GetFileBlameAsync(string workingDirectory, string filePath);
     Task<string?> GetFileContentAtCommitAsync(string workingDirectory, string filePath, string commitHash);
     Task<string?> GetFileDiffBetweenCommitsAsync(string workingDirectory, string filePath, string fromHash, string toHash);
+
+    // Reflog
+    Task<List<GitReflogEntry>> GetReflogAsync(string workingDirectory, int count = 50);
+
+    // Cherry-pick and Revert
+    Task<GitOperationResult> CherryPickAsync(string workingDirectory, string commitHash, bool noCommit = false);
+    Task<GitOperationResult> CherryPickContinueAsync(string workingDirectory);
+    Task<GitOperationResult> CherryPickAbortAsync(string workingDirectory);
+    Task<GitOperationResult> RevertAsync(string workingDirectory, string commitHash, bool noCommit = false);
+    Task<GitOperationResult> RevertContinueAsync(string workingDirectory);
+    Task<GitOperationResult> RevertAbortAsync(string workingDirectory);
+
+    // Branch from reflog
+    Task<GitOperationResult> CreateBranchFromRefAsync(string workingDirectory, string branchName, string refSpec);
 }
