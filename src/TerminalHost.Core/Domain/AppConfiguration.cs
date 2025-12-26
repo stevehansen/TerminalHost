@@ -188,7 +188,7 @@ public class AppConfiguration
             Target = QuickCommandTarget.Custom,
             AppendNewline = true,
             UseUserInput = true,
-            Shortcut = "Ctrl+Shift+R"
+            Shortcut = ""  // No default shortcut (Ctrl+Shift+R used by PR Review Mode)
         },
         new QuickCommand
         {
@@ -241,7 +241,7 @@ public class AppConfiguration
             Text = "dev b",
             Target = QuickCommandTarget.Shell,
             AppendNewline = true,
-            Shortcut = "Ctrl+Shift+B"
+            Shortcut = ""  // No default shortcut (Ctrl+Shift+B used by File Blame)
         },
         new QuickCommand
         {

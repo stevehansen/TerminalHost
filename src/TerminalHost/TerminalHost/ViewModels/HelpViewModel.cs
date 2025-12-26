@@ -40,7 +40,6 @@ public partial class HelpViewModel : ObservableObject
         new("Layout",
         [
             new("Ctrl+L", "Toggle layout mode (Tabs/Sidebar)"),
-            new("Ctrl+Shift+L", "Toggle sidebar visibility"),
         ]),
 
         new("File Operations",
@@ -85,11 +84,13 @@ public partial class HelpViewModel : ObservableObject
 
     public List<ShortcutSection> QuickCommandSections { get; } =
     [
-        new("Default Quick Commands",
+        new("Default Quick Commands (configurable in Settings)",
         [
-            new("Ctrl+Shift+C", "Send 'commit' to Claude Code"),
-            new("Ctrl+Shift+D", "Run 'git pull --rebase' in Shell"),
-            new("Ctrl+Shift+U", "Run 'git push' in Shell"),
+            new("Ctrl+Shift+C", "Commit - send 'commit' to Claude Code"),
+            new("Ctrl+Shift+D", "Pull - run 'git pull --rebase' in Shell"),
+            new("Ctrl+Shift+U", "Push - run 'git push' in Shell"),
+            new("Ctrl+Shift+L", "Launch IDE - run 'dev' in Shell"),
+            new("Ctrl+Shift+V", "Review PR - Claude Code prompt"),
         ]),
     ];
 

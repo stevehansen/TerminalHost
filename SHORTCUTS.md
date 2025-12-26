@@ -72,7 +72,6 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
 | `Ctrl+L` | Toggle layout mode | Global | Switch between Tabs and Sidebar |
-| `Ctrl+Shift+L` | Toggle sidebar | Sidebar mode | Collapse/expand sidebar |
 
 ### Configurable Quick Commands (Default)
 
@@ -81,8 +80,12 @@ These are user-configurable in settings. Default shortcuts:
 | Shortcut | Action | Target | Notes |
 |----------|--------|--------|-------|
 | `Ctrl+Shift+C` | Commit | Custom terminal | Sends "commit" |
-| `Ctrl+Shift+D` | Git Pull | Shell terminal | Sends "git pull" |
+| `Ctrl+Shift+D` | Git Pull | Shell terminal | Sends "git pull --rebase" |
 | `Ctrl+Shift+U` | Git Push | Shell terminal | Sends "git push" |
+| `Ctrl+Shift+L` | Launch IDE | Shell terminal | Sends "dev" |
+| `Ctrl+Shift+V` | Review PR | Custom terminal | Claude Code prompt |
+
+**Note:** Additional quick commands (Rate Code, Build, etc.) are available via Command Palette. Users can assign custom shortcuts in Settings.
 
 ---
 
