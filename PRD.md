@@ -1452,13 +1452,17 @@ See **[PRD.WorkspaceLayout.md](PRD.WorkspaceLayout.md)** for detailed specificat
 
 ### Implementation Priority Summary
 
+See **[PRD.RemainingFeatures.md](PRD.RemainingFeatures.md)** for consolidated remaining features.
+
 | Priority | Feature | PRD Document |
 |----------|---------|--------------|
-| **High** | Interactive Staging, Commit UI | PRD.GitAdvanced.md |
-| **Medium** | Comparison | PRD.GitAdvanced.md |
+| **Medium** | Active Ports Detection | PRD.RemainingFeatures.md |
+| **Medium** | Create/Manage Worktree UI | PRD.RemainingFeatures.md |
 | **Medium** | Terminal Search | PRD.SearchAndProductivity.md |
-| **Medium** | Workspace Sidebar, Git Worktrees, Active Ports | PRD.WorkspaceLayout.md |
-| **Low** | Tags, Cherry-pick, Revert, Merge, Reflog, Submodules | PRD.GitAdvanced.md |
+| **Low** | Reflog Access | PRD.RemainingFeatures.md |
+| **Low** | Cherry-pick, Revert UI | PRD.RemainingFeatures.md |
+| **Low** | Submodule Support | PRD.RemainingFeatures.md |
+| **Low** | Merge Conflict Resolution | PRD.RemainingFeatures.md |
 | **Low** | Snippets, Sessions, External Tools, Env Vars | PRD.SearchAndProductivity.md |
 
 ---
@@ -1512,5 +1516,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.17*
-*Last Updated: 2025-12-25*
+*Document Version: 2.18*
+*Last Updated: 2025-12-26*
