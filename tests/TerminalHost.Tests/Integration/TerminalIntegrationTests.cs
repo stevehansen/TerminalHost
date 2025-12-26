@@ -17,8 +17,10 @@ public class TerminalIntegrationTests
         var fileSystem = new FileSystem();
         var dialogService = new Mock<IDialogService>().Object;
         var systemInfo = new SystemInfoService();
+        var configurationService = new Mock<IConfigurationService>();
+        configurationService.Setup(c => c.Load()).Returns(new AppConfiguration());
 
-        var factory = new TerminalControlFactory(fileSystem, dialogService, systemInfo);
+        var factory = new TerminalControlFactory(fileSystem, dialogService, systemInfo, configurationService.Object);
 
         var statisticsService = new Mock<IStatisticsService>().Object;
         var clipboardService = new Mock<IClipboardService>().Object;

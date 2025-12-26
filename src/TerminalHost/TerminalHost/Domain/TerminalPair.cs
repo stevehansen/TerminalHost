@@ -66,6 +66,7 @@ public class TerminalPair : IDisposable
             Id = profile.Id,
             Name = profile.Name,
             Command = profile.Command,
+            StartupCommand = profile.StartupCommand,
             WorkingDir = workingDir,
             Icon = profile.Icon,
             Shortcut = profile.Shortcut,

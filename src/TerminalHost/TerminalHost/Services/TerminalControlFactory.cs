@@ -31,6 +31,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         var profile = session.Profile;
         var workingDir = profile.GetExpandedWorkingDir();
         var command = GetCommand(profile);
+        var startupCommand = profile.StartupCommand;
 
         // Verify command exists
         if (!IsValidCommand(command))
@@ -52,7 +53,28 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
 
         await control.InitializeAsync(command, workingDir, customPaths);
 
+        // If there's a startup command, send it after the shell has initialized
+        if (!string.IsNullOrEmpty(startupCommand))
+        {
+            // Schedule the startup command to be sent after a short delay
+            // This gives the shell time to initialize and print its prompt
+            _ = SendStartupCommandAsync(control, startupCommand);
+        }
+
         return control;
+    }
+
+    /// <summary>
+    /// Sends a startup command to the terminal after a short delay.
+    /// This allows the shell to initialize before the command is sent.
+    /// </summary>
+    private static async Task SendStartupCommandAsync(ITerminalControl control, string command)
+    {
+        // Wait for shell to initialize and print prompt
+        await Task.Delay(500);
+
+        // Send the command with a newline to execute it
+        control.WriteToTerminal(command + "\r");
     }
 
     private string GetCommand(Profile profile)

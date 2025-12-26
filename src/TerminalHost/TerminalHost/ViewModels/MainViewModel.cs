@@ -689,11 +689,14 @@ public partial class MainViewModel : ObservableObject
             var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
 
             // Create profiles for custom command and shell
+            // The custom terminal runs the shell first, then starts the AI CLI as a startup command.
+            // This allows the user to exit and restart the AI CLI without losing the terminal.
             var customProfile = new Profile
             {
                 Id = "custom",
                 Name = aiAssistant.Name,
-                Command = aiAssistant.Command,
+                Command = settings.ShellCommand,  // Start with the shell
+                StartupCommand = aiAssistant.Command,  // Then launch the AI CLI
                 WorkingDir = workingDirectory,
                 Icon = aiAssistant.Icon
             };
@@ -1018,11 +1021,14 @@ public partial class MainViewModel : ObservableObject
             _aiAssistantService.SetAssistantForDirectory(tab.WorkingDirectory, e.NewAssistant.Id);
 
             // Create new profile for the new AI assistant
+            // Uses shell with startup command so user can exit and restart the AI CLI
+            var settings = _profileRegistry.Settings;
             var newProfile = new Profile
             {
                 Id = "custom",
                 Name = e.NewAssistant.Name,
-                Command = e.NewAssistant.Command,
+                Command = settings.ShellCommand,  // Start with the shell
+                StartupCommand = e.NewAssistant.Command,  // Then launch the AI CLI
                 WorkingDir = tab.WorkingDirectory,
                 Icon = e.NewAssistant.Icon
             };

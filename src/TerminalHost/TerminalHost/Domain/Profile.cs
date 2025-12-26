@@ -25,6 +25,13 @@ public class Profile
     [JsonPropertyName("autoStart")]
     public bool AutoStart { get; set; }
 
+    /// <summary>
+    /// Optional command to send to the terminal after it starts.
+    /// Used to launch AI CLI tools inside a shell, allowing the user to restart the CLI after it exits.
+    /// </summary>
+    [JsonPropertyName("startupCommand")]
+    public string? StartupCommand { get; set; }
+
     public string GetExpandedWorkingDir()
     {
         return Environment.ExpandEnvironmentVariables(WorkingDir);
