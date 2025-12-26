@@ -1,4 +1,5 @@
 using System.Windows;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Views.Dialogs;
 
@@ -135,6 +136,33 @@ public class DialogService : IDialogService
 
         dialog.ShowDialog();
         return dialog.SelectedButtonIndex;
+    }
+
+    /// <summary>
+    /// Shows a dialog for creating a new git worktree.
+    /// </summary>
+    public CreateWorktreeDialogResult? ShowCreateWorktreeDialog(string repoPath, IEnumerable<GitBranch> branches, string suggestedBasePath)
+    {
+        var owner = GetActiveWindow();
+        var dialog = new CreateWorktreeDialog(repoPath, branches, suggestedBasePath)
+        {
+            Owner = owner,
+            WindowStartupLocation = owner != null
+                ? WindowStartupLocation.CenterOwner
+                : WindowStartupLocation.CenterScreen
+        };
+
+        var result = dialog.ShowDialog();
+        if (result == true && dialog.Confirmed)
+        {
+            return new CreateWorktreeDialogResult(
+                dialog.BranchName,
+                dialog.WorktreePath,
+                dialog.CreateNewBranch,
+                dialog.OpenAfterCreation);
+        }
+
+        return null;
     }
 
     /// <summary>

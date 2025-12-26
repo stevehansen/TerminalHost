@@ -210,6 +210,24 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         if (!exists)
         {
+            // Check if this path is a worktree of an existing workspace
+            var isWorktree = await _gitWorktreeService.IsWorktreeAsync(path);
+            if (isWorktree)
+            {
+                // Get the main worktree path and check if we already have it as a workspace
+                var mainPath = await _gitWorktreeService.GetMainWorktreePathAsync(path);
+                if (mainPath != null)
+                {
+                    var mainWorkspace = FindWorkspaceByPath(mainPath);
+                    if (mainWorkspace != null)
+                    {
+                        // Refresh the main workspace to ensure worktrees list is up to date
+                        await mainWorkspace.LoadAsync();
+                        return; // Don't add worktree as separate workspace
+                    }
+                }
+            }
+
             await AddWorkspaceAsync(path, "main");
         }
     }
@@ -455,16 +473,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        // Prompt for branch name
-        var branchName = _dialogService.ShowInput(
-            "Enter branch name for the new worktree:",
-            "Create Worktree",
-            "");
-
-        if (string.IsNullOrWhiteSpace(branchName))
-            return;
-
-        // Determine worktree path (sibling directory with branch name)
+        // Determine base path for suggestions
         var parentDir = Path.GetDirectoryName(workspace.Path);
         if (string.IsNullOrEmpty(parentDir))
         {
@@ -472,23 +481,41 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             return;
         }
 
-        var worktreePath = Path.Combine(parentDir, $"{Path.GetFileName(workspace.Path)}.{branchName}");
+        // Load branches for the dialog
+        var branches = await _gitStatusService.GetBranchesAsync(workspace.Path);
 
-        // Check if directory already exists
-        if (_fileSystem.DirectoryExists(worktreePath))
+        // Show the Create Worktree dialog
+        var dialogResult = _dialogService.ShowCreateWorktreeDialog(
+            workspace.Path,
+            branches,
+            workspace.Path);
+
+        if (dialogResult == null)
+            return;
+
+        // Check if directory already exists (double-check, dialog also validates)
+        if (_fileSystem.DirectoryExists(dialogResult.WorktreePath))
         {
-            _dialogService.ShowError($"Directory already exists: {worktreePath}");
+            _dialogService.ShowError($"Directory already exists: {dialogResult.WorktreePath}");
             return;
         }
 
-        var result = await _gitWorktreeService.CreateWorktreeAsync(workspace.Path, branchName, worktreePath, createBranch: true);
+        var result = await _gitWorktreeService.CreateWorktreeAsync(
+            workspace.Path,
+            dialogResult.BranchName,
+            dialogResult.WorktreePath,
+            createBranch: dialogResult.CreateNewBranch);
+
         if (result.Success)
         {
             // Refresh the workspace to show new worktree
             await workspace.LoadAsync();
 
-            // Open the new worktree as a tab
-            OpenTabRequested?.Invoke(this, worktreePath);
+            // Open the new worktree as a tab if requested
+            if (dialogResult.OpenAfterCreation)
+            {
+                OpenTabRequested?.Invoke(this, dialogResult.WorktreePath);
+            }
         }
         else
         {

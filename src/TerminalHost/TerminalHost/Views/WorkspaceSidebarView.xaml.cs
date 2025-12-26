@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
 using TerminalHost.ViewModels;
 
@@ -42,8 +43,8 @@ public partial class WorkspaceSidebarView : UserControl
 
     private void Worktree_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Double-click to open worktree
-        if (e.ClickCount == 2 && sender is FrameworkElement element && element.DataContext is WorktreeEntryViewModel worktree)
+        // Single-click to open worktree
+        if (sender is FrameworkElement element && element.DataContext is WorktreeEntryViewModel worktree)
         {
             // Find parent workspace and trigger open
             var parent = FindParentWorkspace(element);
@@ -55,16 +56,16 @@ public partial class WorkspaceSidebarView : UserControl
         }
     }
 
-    private WorkspaceEntryViewModel? FindParentWorkspace(FrameworkElement element)
+    private WorkspaceEntryViewModel? FindParentWorkspace(DependencyObject element)
     {
         var current = element;
         while (current != null)
         {
-            if (current.DataContext is WorkspaceEntryViewModel workspace)
+            if (current is FrameworkElement fe && fe.DataContext is WorkspaceEntryViewModel workspace)
             {
                 return workspace;
             }
-            current = current.Parent as FrameworkElement;
+            current = VisualTreeHelper.GetParent(current);
         }
         return null;
     }
@@ -145,14 +146,9 @@ public partial class WorkspaceSidebarView : UserControl
     private WorkspaceEntryViewModel? FindParentWorkspaceFromContextMenu(ContextMenu contextMenu)
     {
         // Walk up the visual tree from the context menu's placement target
-        var current = contextMenu.PlacementTarget as FrameworkElement;
-        while (current != null)
+        if (contextMenu.PlacementTarget is DependencyObject target)
         {
-            if (current.DataContext is WorkspaceEntryViewModel workspace)
-            {
-                return workspace;
-            }
-            current = current.Parent as FrameworkElement;
+            return FindParentWorkspace(target);
         }
         return null;
     }

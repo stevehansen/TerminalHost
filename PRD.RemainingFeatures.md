@@ -20,7 +20,7 @@ This document consolidates remaining features from various PRDs into a single tr
 
 **Remaining:**
 1. Active Ports Detection
-2. Create Worktree Dialog
+2. ~~Create Worktree Dialog~~ ✅ Implemented
 3. Manage Worktrees Panel
 4. Playground Templates
 5. Auto-cleanup for old playgrounds
@@ -411,7 +411,7 @@ Visual three-way merge for resolving conflicts.
 | Priority | Feature | Effort | Notes |
 |----------|---------|--------|-------|
 | **Medium** | Active Ports Detection | Medium | Most useful for dev workflow |
-| **Medium** | Create Worktree Dialog | Low | Improves existing worktree support |
+| ~~Medium~~ | ~~Create Worktree Dialog~~ | ~~Low~~ | ✅ Implemented |
 | **Medium** | Manage Worktrees Panel | Low | Complement to Create dialog |
 | ~~Low~~ | ~~Reflog Access~~ | ~~Low~~ | ✅ Implemented |
 | **Low** | Submodule Support | Medium | Only needed for repos with submodules |
@@ -429,9 +429,9 @@ Visual three-way merge for resolving conflicts.
 - ~~**Reflog View** - Just need new panel + git command parsing~~ ✅ Done
 - ~~**Cherry-pick from History** - Add context menu + git command~~ ✅ Done
 - ~~**Revert from History** - Add context menu + git command~~ ✅ Done
+- ~~**Create Worktree Dialog** - Service exists, just needs UI~~ ✅ Done
 
-Remaining quick wins:
-1. **Create Worktree Dialog** - Service exists, just needs UI
+No remaining quick wins identified.
 
 ---
 

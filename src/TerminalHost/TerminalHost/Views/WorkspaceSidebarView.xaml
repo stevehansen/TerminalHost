@@ -92,20 +92,13 @@
                 </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Expand/Collapse Toggle -->
-                    <ToggleButton Grid.Column="0"
-                                  IsChecked="{Binding IsExpanded, Mode=TwoWay}"
-                                  Style="{StaticResource ExpandCollapseToggleStyle}"
-                                  Visibility="{Binding Worktrees.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
-
                     <!-- Icon and Name -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="4,0,0,0">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="4,0,0,0">
                         <TextBlock Text="{Binding Icon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
                         <TextBlock Text="{Binding Name}"
                                    Foreground="{StaticResource TextPrimaryBrush}"
@@ -115,7 +108,7 @@
                     </StackPanel>
 
                     <!-- Branch Info -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,0"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="4,0"
                                 ToolTip="{Binding CurrentBranch}">
                         <TextBlock Text="{Binding BranchNameShort}"
                                    Foreground="{StaticResource TextMutedBrush}"
@@ -130,7 +123,7 @@
                     </StackPanel>
 
                     <!-- Activity Indicators -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
                         <!-- Spinning indicator when terminal is active -->
                         <TextBlock x:Name="ActivitySpinner"
                                    Text="◐"
@@ -301,10 +294,9 @@
                                 <ContentControl Content="{Binding}"
                                                 ContentTemplate="{StaticResource WorkspaceItemTemplate}"/>
 
-                                <!-- Worktrees (when expanded) -->
+                                <!-- Worktrees (always visible) -->
                                 <ItemsControl ItemsSource="{Binding Worktrees}"
-                                              ItemTemplate="{StaticResource WorktreeItemTemplate}"
-                                              Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                              ItemTemplate="{StaticResource WorktreeItemTemplate}"/>
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

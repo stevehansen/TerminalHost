@@ -1,4 +1,15 @@
+using TerminalHost.Core.Domain;
+
 namespace TerminalHost.Core.Interfaces;
+
+/// <summary>
+/// Result from the CreateWorktreeDialog.
+/// </summary>
+public record CreateWorktreeDialogResult(
+    string BranchName,
+    string WorktreePath,
+    bool CreateNewBranch,
+    bool OpenAfterCreation);
 
 public interface IDialogService
 {
@@ -21,4 +32,13 @@ public interface IDialogService
     /// <param name="buttons">Button labels (first is primary/accent color).</param>
     /// <returns>Index of clicked button (0-based), or -1 if dialog was closed without selection.</returns>
     int ShowCustomButtons(string message, string title, params string[] buttons);
+
+    /// <summary>
+    /// Shows a dialog for creating a new git worktree.
+    /// </summary>
+    /// <param name="repoPath">Path to the repository.</param>
+    /// <param name="branches">Available branches for selection.</param>
+    /// <param name="suggestedBasePath">Base path for auto-generated worktree location.</param>
+    /// <returns>The dialog result, or null if cancelled.</returns>
+    CreateWorktreeDialogResult? ShowCreateWorktreeDialog(string repoPath, IEnumerable<GitBranch> branches, string suggestedBasePath);
 }
