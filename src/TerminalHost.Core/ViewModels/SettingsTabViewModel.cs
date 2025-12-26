@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Core.ViewModels;
 
@@ -131,6 +132,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _editQcUseUserInput = false;
 
+    // Quick command shortcut conflict detection
+    [ObservableProperty]
+    private bool _hasQcShortcutConflict;
+
+    [ObservableProperty]
+    private string _qcShortcutConflictMessage = "";
+
     // AI Assistants collection
     [ObservableProperty]
     private ObservableCollection<AiAssistant> _aiAssistants = [];
@@ -179,6 +187,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private bool _editProfileAutoStart;
+
+    // Profile shortcut conflict detection
+    [ObservableProperty]
+    private bool _hasProfileShortcutConflict;
+
+    [ObservableProperty]
+    private string _profileShortcutConflictMessage = "";
 
     // Link patterns collection
     [ObservableProperty]
@@ -509,6 +524,104 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnShellCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandIconChanged(string value) => MarkDirtyFromRichMode();
+
+    // Shortcut conflict detection
+    partial void OnEditQcShortcutChanged(string value) => CheckQuickCommandShortcutConflict();
+    partial void OnEditProfileShortcutChanged(string value) => CheckProfileShortcutConflict();
+
+    private void CheckQuickCommandShortcutConflict()
+    {
+        var shortcut = EditQcShortcut;
+
+        // Check format validity
+        var formatError = ShortcutConflictService.ValidateShortcutFormat(shortcut);
+        if (formatError != null)
+        {
+            HasQcShortcutConflict = true;
+            QcShortcutConflictMessage = formatError;
+            return;
+        }
+
+        // Check against built-in shortcuts
+        var builtInConflict = ShortcutConflictService.GetBuiltInConflict(shortcut);
+        if (builtInConflict != null)
+        {
+            HasQcShortcutConflict = true;
+            QcShortcutConflictMessage = $"Conflicts with built-in: {builtInConflict}";
+            return;
+        }
+
+        // Check against other quick commands
+        var otherQcShortcuts = QuickCommands.Select(qc => (qc.Shortcut, qc.Label));
+        var qcConflict = ShortcutConflictService.GetUserShortcutConflict(shortcut, otherQcShortcuts, SelectedQuickCommand?.Label);
+        if (qcConflict != null)
+        {
+            HasQcShortcutConflict = true;
+            QcShortcutConflictMessage = $"Conflicts with quick command: {qcConflict}";
+            return;
+        }
+
+        // Check against profile shortcuts
+        var profileShortcuts = Profiles.Select(p => (p.Shortcut, p.Name));
+        var profileConflict = ShortcutConflictService.GetUserShortcutConflict(shortcut, profileShortcuts);
+        if (profileConflict != null)
+        {
+            HasQcShortcutConflict = true;
+            QcShortcutConflictMessage = $"Conflicts with profile: {profileConflict}";
+            return;
+        }
+
+        // No conflict
+        HasQcShortcutConflict = false;
+        QcShortcutConflictMessage = "";
+    }
+
+    private void CheckProfileShortcutConflict()
+    {
+        var shortcut = EditProfileShortcut;
+
+        // Check format validity
+        var formatError = ShortcutConflictService.ValidateShortcutFormat(shortcut);
+        if (formatError != null)
+        {
+            HasProfileShortcutConflict = true;
+            ProfileShortcutConflictMessage = formatError;
+            return;
+        }
+
+        // Check against built-in shortcuts
+        var builtInConflict = ShortcutConflictService.GetBuiltInConflict(shortcut);
+        if (builtInConflict != null)
+        {
+            HasProfileShortcutConflict = true;
+            ProfileShortcutConflictMessage = $"Conflicts with built-in: {builtInConflict}";
+            return;
+        }
+
+        // Check against other profiles
+        var otherProfileShortcuts = Profiles.Select(p => (p.Shortcut, p.Name));
+        var profileConflict = ShortcutConflictService.GetUserShortcutConflict(shortcut, otherProfileShortcuts, SelectedProfile?.Name);
+        if (profileConflict != null)
+        {
+            HasProfileShortcutConflict = true;
+            ProfileShortcutConflictMessage = $"Conflicts with profile: {profileConflict}";
+            return;
+        }
+
+        // Check against quick command shortcuts
+        var qcShortcuts = QuickCommands.Select(qc => (qc.Shortcut, qc.Label));
+        var qcConflict = ShortcutConflictService.GetUserShortcutConflict(shortcut, qcShortcuts);
+        if (qcConflict != null)
+        {
+            HasProfileShortcutConflict = true;
+            ProfileShortcutConflictMessage = $"Conflicts with quick command: {qcConflict}";
+            return;
+        }
+
+        // No conflict
+        HasProfileShortcutConflict = false;
+        ProfileShortcutConflictMessage = "";
+    }
 
     partial void OnViewModeChanged(SettingsViewMode value)
     {

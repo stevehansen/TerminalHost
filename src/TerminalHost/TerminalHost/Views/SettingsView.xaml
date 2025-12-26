@@ -868,6 +868,22 @@
                                                  FontFamily="{StaticResource FontFamilyMonospace}"/>
                                         <TextBlock Text="e.g., Ctrl+Shift+P"
                                                    Style="{StaticResource HelpText}"/>
+                                        <!-- Shortcut Conflict Warning -->
+                                        <Border Background="#442d1b"
+                                                BorderBrush="#F9A825"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="8,4"
+                                                Margin="0,4,0,0"
+                                                Visibility="{Binding HasProfileShortcutConflict, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="⚠" Foreground="#F9A825" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBlock Text="{Binding ProfileShortcutConflictMessage}"
+                                                           Foreground="#F9A825"
+                                                           FontSize="{StaticResource FontSizeTiny}"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
 
                                         <CheckBox Content="Auto-start on application launch"
                                                   IsChecked="{Binding EditProfileAutoStart}"
@@ -1089,6 +1105,22 @@
                                                  FontFamily="{StaticResource FontFamilyMonospace}"/>
                                         <TextBlock Text="e.g., Ctrl+Shift+C or Ctrl+Alt+P"
                                                    Style="{StaticResource HelpText}"/>
+                                        <!-- Shortcut Conflict Warning -->
+                                        <Border Background="#442d1b"
+                                                BorderBrush="#F9A825"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="8,4"
+                                                Margin="0,4,0,0"
+                                                Visibility="{Binding HasQcShortcutConflict, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="⚠" Foreground="#F9A825" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBlock Text="{Binding QcShortcutConflictMessage}"
+                                                           Foreground="#F9A825"
+                                                           FontSize="{StaticResource FontSizeTiny}"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
 
                                         <CheckBox Content="Append newline after command"
                                                   IsChecked="{Binding EditQcAppendNewline}"
