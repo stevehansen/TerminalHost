@@ -420,8 +420,35 @@ Visual three-way merge for resolving conflicts.
 | **Low** | Merge Conflict Resolution | High | Complex UI, can use external tools |
 | **Low** | Playground Templates | Low | Nice to have |
 | **Low** | Playground Auto-cleanup | Low | Nice to have |
+| **Future** | Timeline IDE | Very High | Advanced mode - see TimelineIDE.md |
 
 ---
 
-*Document Version: 1.0*
+### 8. Timeline IDE (Future)
+
+Advanced mode for visual timeline-based AI development. See full specification: [TimelineIDE.md](TimelineIDE.md)
+
+#### Core Concepts
+- **1 swimlane = 1 worktree = 1 intent**: Each feature/task gets isolated git worktree
+- **Claude Code sessions as timeline blocks**: Visual representation of AI work sessions
+- **Forking**: Branch from any session point to try alternative approaches
+- **Intent context**: Custom context files loaded into every Claude Code session
+
+#### Key Features
+- Timeline view with Minutes/Hours/Days scale
+- Intent sidebar with status, branch, activity indicators
+- Session tracking: duration, files changed, commands, agent notes
+- Fork from any session, cherry-pick between intents
+- Focus time accumulator
+
+#### Implementation Phases
+1. Core Infrastructure (Intent/Session models, TimelineService, persistence)
+2. Timeline UI (swimlanes, session blocks, time scale)
+3. Session Tracking (monitor Claude Code, capture metadata, link to commits)
+4. Advanced Features (fork, cherry-pick, context files, focus time)
+5. Polish (keyboard nav, drag reorder, export/import)
+
+---
+
+*Document Version: 1.1*
 *Created: 2025-12-26*
