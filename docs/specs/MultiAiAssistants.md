@@ -1,8 +1,4 @@
-# PRD: Multiple AI Assistant Support
-
-This document details the implementation of multiple AI CLI assistant support in TerminalHost.
-
-## Overview
+# Multiple AI Assistant Support
 
 TerminalHost supports multiple AI CLI tools (Claude Code, Gemini CLI, OpenAI Codex, GitHub Copilot) with per-project selection and full customization.
 
@@ -51,15 +47,6 @@ TerminalHost supports multiple AI CLI tools (Claude Code, Gemini CLI, OpenAI Cod
       "detectionCommand": "claude --version",
       "enabled": true,
       "isDefault": true
-    },
-    {
-      "id": "gemini",
-      "name": "Gemini CLI",
-      "command": "gemini",
-      "icon": "Gemini",
-      "detectionCommand": "gemini --version",
-      "enabled": false,
-      "isDefault": false
     }
   ]
 }
@@ -71,94 +58,15 @@ TerminalHost supports multiple AI CLI tools (Claude Code, Gemini CLI, OpenAI Cod
 {
   "directorySettings": {
     "p:\\myproject": {
-      "activeAiAssistantId": "claude",
-      // ... other settings
+      "activeAiAssistantId": "claude"
     }
   }
 }
 ```
 
-## Implementation
+## Domain Model
 
-### Domain Model
-
-**AiAssistant.cs**
-```csharp
-public class AiAssistant
-{
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public string Command { get; set; }
-    public string Icon { get; set; }
-    public string? DetectionCommand { get; set; }
-    public bool Enabled { get; set; }
-    public bool IsDefault { get; set; }
-}
-```
-
-### Service Layer
-
-**IAiAssistantService**
-- `GetAllAssistants()` - All configured assistants
-- `GetEnabledAssistants()` - Only enabled assistants
-- `GetDefaultAssistant()` - The default assistant
-- `GetAssistantForDirectory(path)` - Active assistant for a project
-- `SetAssistantForDirectory(path, id)` - Set project's active assistant
-- `SaveAssistant(assistant)` - Add/update assistant
-- `DeleteAssistant(id)` - Remove assistant
-
-### Migration
-
-On config load, if `aiAssistants` is empty:
-1. Initialize with default assistants
-2. Migrate legacy `CustomCommand`/`CustomCommandName`/`CustomCommandIcon` to claude assistant if different from defaults
-
-## UI Components
-
-### Toolbar AI Selector
-
-Location: Terminal pair toolbar (after layout buttons)
+- `AiAssistant`: Represents an AI tool with its command, icon, and status.
+- `IAiAssistantService`: Manages configured assistants and project-level selections.
 
 ```
-[Custom Full] [H-Split] [V-Split] | [Claude Code v] | [Links] [Explorer]
-```
-
-Dropdown shows:
-- Icon + Name for each enabled assistant
-- Current selection highlighted
-
-### Settings > AI Assistants
-
-List view with:
-- Drag handles for reordering
-- Enable/disable checkbox
-- Default indicator
-- Edit/Delete buttons
-
-Edit form:
-- Name (text)
-- Command (text with file picker)
-- Icon (emoji/text picker)
-- Detection Command (optional)
-
-## Files Modified
-
-| File | Changes |
-|------|---------|
-| `Domain/AiAssistant.cs` | New - AI assistant model |
-| `Domain/AppConfiguration.cs` | Add `AiAssistants` list, `DirectorySettings.ActiveAiAssistantId` |
-| `Domain/TerminalPair.cs` | Add `ReplaceCustomTerminal()` method |
-| `Services/AiAssistantService.cs` | New - AI management service |
-| `Services/ConfigurationService.cs` | Migration logic |
-| `ViewModels/MainViewModel.cs` | Use IAiAssistantService, handle AI switching |
-| `ViewModels/TerminalPairTabViewModel.cs` | AI selector properties |
-| `ViewModels/SettingsTabViewModel.cs` | AI Assistants section |
-| `ViewModels/SetupViewModel.cs` | Detect AI CLIs |
-| `Views/Tabs/TerminalPairView.xaml` | AI dropdown in toolbar |
-| `Views/SettingsView.xaml` | AI Assistants UI |
-| `App.xaml.cs` | Register IAiAssistantService |
-
----
-
-*Document Version: 1.0*
-*Created: 2025-12-17*

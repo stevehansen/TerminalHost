@@ -17,13 +17,13 @@ This document consolidates remaining features from various PRDs into a single tr
 - Multi-folder opening
 - Git status display (branch, ahead/behind)
 - Activity indicators
+- Create Worktree Dialog (Ctrl+Alt+N)
 
 **Remaining:**
 1. Active Ports Detection
-2. ~~Create Worktree Dialog~~ ✅ Implemented
-3. Manage Worktrees Panel
-4. Playground Templates
-5. Auto-cleanup for old playgrounds
+2. Manage Worktrees Panel
+3. Playground Templates
+4. Auto-cleanup for old playgrounds
 
 ### Git Advanced (GitAdvanced.md)
 
@@ -420,18 +420,6 @@ Visual three-way merge for resolving conflicts.
 | **Low** | Merge Conflict Resolution | High | Complex UI, can use external tools |
 | **Low** | Playground Templates | Low | Nice to have |
 | **Low** | Playground Auto-cleanup | Low | Nice to have |
-
----
-
-## Quick Implementation Wins
-
-~~Completed:~~
-- ~~**Reflog View** - Just need new panel + git command parsing~~ ✅ Done
-- ~~**Cherry-pick from History** - Add context menu + git command~~ ✅ Done
-- ~~**Revert from History** - Add context menu + git command~~ ✅ Done
-- ~~**Create Worktree Dialog** - Service exists, just needs UI~~ ✅ Done
-
-No remaining quick wins identified.
 
 ---
 
