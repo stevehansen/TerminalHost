@@ -33,15 +33,15 @@ This document consolidates remaining features from various PRDs into a single tr
 - Commit Creation UI
 - Stash Operations (Ctrl+Shift+S)
 - File History & Blame (Ctrl+Shift+B)
+- Reflog Access (Ctrl+Shift+G) - View reflog, checkout, create branch from ref
+- Cherry-pick from Commit History - Right-click commit → Cherry-pick
+- Revert from Commit History - Right-click commit → Revert
 
 **Remaining:**
-1. Cherry-pick UI
-2. Revert Commit UI
-3. Reflog Access
-4. Submodule Support
-5. Merge Conflict Resolution
-6. Tags Management
-7. Commit/Branch Comparison
+1. Submodule Support
+2. Merge Conflict Resolution
+3. Tags Management
+4. Commit/Branch Comparison
 
 ---
 
@@ -413,10 +413,10 @@ Visual three-way merge for resolving conflicts.
 | **Medium** | Active Ports Detection | Medium | Most useful for dev workflow |
 | **Medium** | Create Worktree Dialog | Low | Improves existing worktree support |
 | **Medium** | Manage Worktrees Panel | Low | Complement to Create dialog |
-| **Low** | Reflog Access | Low | Recovery tool, nice to have |
+| ~~Low~~ | ~~Reflog Access~~ | ~~Low~~ | ✅ Implemented |
 | **Low** | Submodule Support | Medium | Only needed for repos with submodules |
-| **Low** | Cherry-pick UI | Low | Can use terminal for now |
-| **Low** | Revert Commit UI | Low | Can use terminal for now |
+| ~~Low~~ | ~~Cherry-pick UI~~ | ~~Low~~ | ✅ Implemented |
+| ~~Low~~ | ~~Revert Commit UI~~ | ~~Low~~ | ✅ Implemented |
 | **Low** | Merge Conflict Resolution | High | Complex UI, can use external tools |
 | **Low** | Playground Templates | Low | Nice to have |
 | **Low** | Playground Auto-cleanup | Low | Nice to have |
@@ -425,12 +425,13 @@ Visual three-way merge for resolving conflicts.
 
 ## Quick Implementation Wins
 
-These can be done quickly with existing infrastructure:
+~~Completed:~~
+- ~~**Reflog View** - Just need new panel + git command parsing~~ ✅ Done
+- ~~**Cherry-pick from History** - Add context menu + git command~~ ✅ Done
+- ~~**Revert from History** - Add context menu + git command~~ ✅ Done
 
-1. **Reflog View** - Just need new panel + git command parsing
-2. **Create Worktree Dialog** - Service exists, just needs UI
-3. **Cherry-pick from History** - Add context menu + git command
-4. **Revert from History** - Add context menu + git command
+Remaining quick wins:
+1. **Create Worktree Dialog** - Service exists, just needs UI
 
 ---
 
