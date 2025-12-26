@@ -1185,7 +1185,7 @@ File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting f
 
 ### Project Structure
 
-The codebase follows a modular architecture with reusable components extracted into dedicated views and view models. See `PRD.MainWindowRefactor.md` for the detailed refactoring history.
+The codebase follows a modular architecture with reusable components extracted into dedicated views and view models. See `docs/specs/MainWindowRefactor.md` for the detailed refactoring history.
 
 ```
 TerminalHost/
@@ -1402,7 +1402,7 @@ Detailed specifications for planned features are documented in separate PRD file
 
 ### Advanced Git Features
 
-See **[PRD.GitAdvanced.md](PRD.GitAdvanced.md)** for detailed specifications.
+See **[docs/specs/GitAdvanced.md](docs/specs/GitAdvanced.md)** for detailed specifications.
 
 **Already Implemented:**
 - Commit History Viewer (Ctrl+H) - Browse and inspect past commits
@@ -1426,7 +1426,7 @@ See **[PRD.GitAdvanced.md](PRD.GitAdvanced.md)** for detailed specifications.
 
 ### Search and Productivity Features
 
-See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detailed specifications.
+See **[docs/specs/SearchAndProductivity.md](docs/specs/SearchAndProductivity.md)** for detailed specifications.
 
 **Medium Priority:**
 - Terminal Output Search - Search within terminal scrollback
@@ -1439,7 +1439,7 @@ See **[PRD.SearchAndProductivity.md](PRD.SearchAndProductivity.md)** for detaile
 
 ### Workspace Sidebar Layout
 
-See **[PRD.WorkspaceLayout.md](PRD.WorkspaceLayout.md)** for detailed specifications.
+See **[docs/specs/WorkspaceLayout.md](docs/specs/WorkspaceLayout.md)** for detailed specifications.
 
 **Summary**: Alternative layout mode with projects organized in a left sidebar tree instead of tabs, with integrated git worktree management.
 
@@ -1452,18 +1452,18 @@ See **[PRD.WorkspaceLayout.md](PRD.WorkspaceLayout.md)** for detailed specificat
 
 ### Implementation Priority Summary
 
-See **[PRD.RemainingFeatures.md](PRD.RemainingFeatures.md)** for consolidated remaining features.
+See **[docs/specs/RemainingFeatures.md](docs/specs/RemainingFeatures.md)** for consolidated remaining features.
 
 | Priority | Feature | PRD Document |
 |----------|---------|--------------|
-| **Medium** | Active Ports Detection | PRD.RemainingFeatures.md |
-| **Medium** | Create/Manage Worktree UI | PRD.RemainingFeatures.md |
-| **Medium** | Terminal Search | PRD.SearchAndProductivity.md |
-| **Low** | Reflog Access | PRD.RemainingFeatures.md |
-| **Low** | Cherry-pick, Revert UI | PRD.RemainingFeatures.md |
-| **Low** | Submodule Support | PRD.RemainingFeatures.md |
-| **Low** | Merge Conflict Resolution | PRD.RemainingFeatures.md |
-| **Low** | Snippets, Sessions, External Tools, Env Vars | PRD.SearchAndProductivity.md |
+| **Medium** | Active Ports Detection | docs/specs/RemainingFeatures.md |
+| **Medium** | Create/Manage Worktree UI | docs/specs/RemainingFeatures.md |
+| **Medium** | Terminal Search | docs/specs/SearchAndProductivity.md |
+| **Low** | Reflog Access | docs/specs/RemainingFeatures.md |
+| **Low** | Cherry-pick, Revert UI | docs/specs/RemainingFeatures.md |
+| **Low** | Submodule Support | docs/specs/RemainingFeatures.md |
+| **Low** | Merge Conflict Resolution | docs/specs/RemainingFeatures.md |
+| **Low** | Snippets, Sessions, External Tools, Env Vars | docs/specs/SearchAndProductivity.md |
 
 ---
 
@@ -1473,13 +1473,13 @@ Items for future development:
 
 ### Versioning and Auto-Updates
 
-See **[PRD.Versioning.md](PRD.Versioning.md)** for detailed implementation plan.
+See **[docs/specs/Versioning.md](docs/specs/Versioning.md)** for detailed implementation plan.
 
 **Summary**: Implement application versioning using MinVer (git tag-based) and automatic updates using Updatum (GitHub Releases integration). This enables tracking feature releases, displaying version in UI, and notifying users of available updates with optional auto-install.
 
 ### Unified Panel System and UX Improvements
 
-See **[PRD.Panels.md](PRD.Panels.md)** for detailed implementation plan.
+See **[docs/specs/Panels.md](docs/specs/Panels.md)** for detailed implementation plan.
 
 **Summary**: Comprehensive UX improvements including:
 - **Unified Panel System**: Content can transition between Panel (docked), Popup (floating), and Window (detached) states

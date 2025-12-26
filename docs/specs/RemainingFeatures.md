@@ -4,7 +4,7 @@ This document consolidates remaining features from various PRDs into a single tr
 
 ## Current Implementation Status
 
-### Workspace Sidebar (PRD.WorkspaceLayout.md)
+### Workspace Sidebar (WorkspaceLayout.md)
 
 **Already Implemented:**
 - `WorkspaceSidebarView` and `WorkspaceSidebarViewModel`
@@ -25,7 +25,7 @@ This document consolidates remaining features from various PRDs into a single tr
 4. Playground Templates
 5. Auto-cleanup for old playgrounds
 
-### Git Advanced (PRD.GitAdvanced.md)
+### Git Advanced (GitAdvanced.md)
 
 **Already Implemented:**
 - Commit History Viewer (Ctrl+H)
