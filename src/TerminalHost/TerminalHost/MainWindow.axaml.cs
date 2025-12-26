@@ -233,14 +233,14 @@ public partial class MainWindow : Window
 
         var nextTabItem = new NativeMenuItem("Next Tab")
         {
-            Gesture = new KeyGesture(Key.PageDown, KeyModifiers.Meta)
+            Gesture = new KeyGesture(Key.Tab, KeyModifiers.Control)
         };
         nextTabItem.Click += (_, _) => _mainViewModel.CycleTabCommand.Execute(true);
         windowMenu.Menu.Add(nextTabItem);
 
         var prevTabItem = new NativeMenuItem("Previous Tab")
         {
-            Gesture = new KeyGesture(Key.PageUp, KeyModifiers.Meta)
+            Gesture = new KeyGesture(Key.Tab, KeyModifiers.Control | KeyModifiers.Shift)
         };
         prevTabItem.Click += (_, _) => _mainViewModel.CycleTabCommand.Execute(false);
         windowMenu.Menu.Add(prevTabItem);
@@ -560,8 +560,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Cmd/Ctrl+PageDown for next tab
-        if (e.Key == Key.PageDown && e.KeyModifiers == primaryModifier)
+        // Handle Ctrl+Tab for next tab
+        if (e.Key == Key.Tab && e.KeyModifiers == KeyModifiers.Control)
         {
             if (_mainViewModel.CycleTabCommand.CanExecute(true))
                 _mainViewModel.CycleTabCommand.Execute(true);
@@ -569,8 +569,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Cmd/Ctrl+PageUp for previous tab
-        if (e.Key == Key.PageUp && e.KeyModifiers == primaryModifier)
+        // Handle Ctrl+Shift+Tab for previous tab
+        if (e.Key == Key.Tab && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
         {
             if (_mainViewModel.CycleTabCommand.CanExecute(false))
                 _mainViewModel.CycleTabCommand.Execute(false);

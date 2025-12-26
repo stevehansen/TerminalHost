@@ -127,4 +127,14 @@ public partial class FileExplorerView : UserControl
                 break;
         }
     }
+
+    private void ContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Set the context menu's DataContext to the ViewModel so commands work
+        // Context menus don't inherit DataContext from the visual tree
+        if (sender is ContextMenu contextMenu)
+        {
+            contextMenu.DataContext = ViewModel;
+        }
+    }
 }

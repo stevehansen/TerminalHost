@@ -128,7 +128,9 @@ public partial class TabStrip : UserControl
         e.DragEffects = DragDropEffects.Move;
         e.Handled = true;
 
-        if (sender is Border border)
+        // Find the Border from the event source (e.Source is the actual element being dragged over)
+        var border = FindParentBorder(e.Source as Control);
+        if (border != null)
         {
             border.BorderBrush = new SolidColorBrush(Color.Parse("#0078D4"));
             border.BorderThickness = new Thickness(2, 2, 2, 0);
@@ -137,7 +139,8 @@ public partial class TabStrip : UserControl
 
     private void Tab_DragLeave(object? sender, DragEventArgs e)
     {
-        if (sender is Border border)
+        var border = FindParentBorder(e.Source as Control);
+        if (border != null)
         {
             border.BorderBrush = null;
             border.BorderThickness = new Thickness(0);
@@ -146,7 +149,8 @@ public partial class TabStrip : UserControl
 
     private void Tab_Drop(object? sender, DragEventArgs e)
     {
-        if (sender is Border border)
+        var border = FindParentBorder(e.Source as Control);
+        if (border != null)
         {
             border.BorderBrush = null;
             border.BorderThickness = new Thickness(0);
@@ -163,26 +167,48 @@ public partial class TabStrip : UserControl
             return;
         }
 
-        if (sender is Control element && element.DataContext is ITabViewModel targetTab)
+        // Find the target tab from the drop location
+        var targetTab = border?.DataContext as ITabViewModel;
+        if (targetTab == null)
         {
-            if (droppedTab == targetTab)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel mainViewModel)
-            {
-                var oldIndex = mainViewModel.Tabs.IndexOf(droppedTab);
-                var newIndex = mainViewModel.Tabs.IndexOf(targetTab);
+        if (droppedTab == targetTab)
+        {
+            return;
+        }
 
-                if (oldIndex >= 0 && newIndex >= 0)
-                {
-                    mainViewModel.Tabs.Move(oldIndex, newIndex);
-                }
+        if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel mainViewModel)
+        {
+            var oldIndex = mainViewModel.Tabs.IndexOf(droppedTab);
+            var newIndex = mainViewModel.Tabs.IndexOf(targetTab);
+
+            if (oldIndex >= 0 && newIndex >= 0)
+            {
+                mainViewModel.Tabs.Move(oldIndex, newIndex);
+                // Ensure the dragged tab stays selected after move
+                mainViewModel.SelectedTab = droppedTab;
             }
         }
 
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Finds the parent Border element (the tab container) from any child element.
+    /// </summary>
+    private static Border? FindParentBorder(Control? element)
+    {
+        while (element != null)
+        {
+            if (element is Border border && border.Name == "TabBorder")
+            {
+                return border;
+            }
+            element = element.Parent as Control;
+        }
+        return null;
     }
 
     #endregion

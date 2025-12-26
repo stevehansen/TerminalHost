@@ -14,7 +14,7 @@
 
     <UserControl.Resources>
         <!-- Context Menu -->
-        <ContextMenu x:Key="FileContextMenu">
+        <ContextMenu x:Key="FileContextMenu" Opening="ContextMenu_Opening">
             <MenuItem Header="Open" Command="{Binding OpenInViewerCommand}"
                       InputGesture="Enter">
                 <MenuItem.Icon>

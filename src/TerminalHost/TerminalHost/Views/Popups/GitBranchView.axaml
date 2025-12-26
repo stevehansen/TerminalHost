@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
              d:DataContext="{d:DesignInstance viewModels:GitBranchViewModel}"
              mc:Ignorable="d"
              IsVisible="{Binding IsOpen}">
@@ -85,7 +86,7 @@
                          MaxHeight="350"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
-                        <DataTemplate DataType="viewModels:GitBranchViewModel">
+                        <DataTemplate DataType="domain:GitBranch">
                             <Grid Margin="8,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="20"/>

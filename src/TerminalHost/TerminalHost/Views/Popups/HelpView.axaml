@@ -63,9 +63,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ PageDown" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+Tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Next tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ PageUp" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+Tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘ 1-9" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
