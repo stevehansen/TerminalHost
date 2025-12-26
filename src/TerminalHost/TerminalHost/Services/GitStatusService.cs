@@ -118,6 +118,75 @@ internal sealed class GitStatusService : IGitStatusService
         return files;
     }
 
+    public async Task<(List<GitFileStatus> Staged, List<GitFileStatus> Unstaged)> GetStagedAndUnstagedFilesAsync(string workingDirectory)
+    {
+        var staged = new List<GitFileStatus>();
+        var unstaged = new List<GitFileStatus>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (staged, unstaged);
+
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain");
+        if (string.IsNullOrEmpty(output))
+            return (staged, unstaged);
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            if (line.Length < 3) continue;
+
+            var indexStatus = line[0];  // Staged status (X)
+            var workTreeStatus = line[1]; // Unstaged status (Y)
+            var rawPath = line.Substring(3);
+
+            string? originalPath = null;
+            string path = rawPath;
+
+            if (rawPath.Contains(" -> "))
+            {
+                var separatorIndex = rawPath.IndexOf(" -> ");
+                if (separatorIndex > 0)
+                {
+                    var oldPart = rawPath.Substring(0, separatorIndex);
+                    var newPart = rawPath.Substring(separatorIndex + 4);
+                    originalPath = UnquoteGitPath(oldPart.Trim());
+                    path = UnquoteGitPath(newPart.Trim());
+                }
+            }
+            else
+            {
+                path = UnquoteGitPath(rawPath);
+            }
+
+            // If file has staged changes (X is not ' ' and not '?')
+            if (indexStatus != ' ' && indexStatus != '?')
+            {
+                staged.Add(new GitFileStatus
+                {
+                    FilePath = path,
+                    Status = ParseStatusChar(indexStatus),
+                    IsStaged = true,
+                    OriginalPath = originalPath
+                });
+            }
+
+            // If file has unstaged changes (Y is not ' ') OR is untracked (??)
+            if (workTreeStatus != ' ' || indexStatus == '?')
+            {
+                var statusChar = indexStatus == '?' ? '?' : workTreeStatus;
+                unstaged.Add(new GitFileStatus
+                {
+                    FilePath = path,
+                    Status = ParseStatusChar(statusChar),
+                    IsStaged = false,
+                    OriginalPath = originalPath
+                });
+            }
+        }
+
+        return (staged, unstaged);
+    }
+
     private static GitFileStatusType ParseStatusChar(char status) => status switch
     {
         'M' => GitFileStatusType.Modified,
@@ -431,6 +500,105 @@ internal sealed class GitStatusService : IGitStatusService
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
 
         return await _gitRunner.RunGitOperationAsync(workingDirectory, "pull");
+    }
+
+    #endregion
+
+    #region Staging Operations
+
+    public async Task<bool> StageFileAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"add -- \"{filePath}\"");
+        return result.Success;
+    }
+
+    public async Task<bool> UnstageFileAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"reset HEAD -- \"{filePath}\"");
+        return result.Success;
+    }
+
+    public async Task<bool> StageAllAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "add -A");
+        return result.Success;
+    }
+
+    public async Task<bool> UnstageAllAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "reset HEAD");
+        return result.Success;
+    }
+
+    public async Task<bool> DiscardChangesAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        // For untracked files, we need to use git clean
+        // For tracked files, use git checkout
+        var status = await _gitRunner.RunGitCommandAsync(workingDirectory, $"status --porcelain -- \"{filePath}\"");
+        if (string.IsNullOrEmpty(status))
+            return false;
+
+        // Check if file is untracked (starts with ??)
+        if (status.TrimStart().StartsWith("??"))
+        {
+            // Delete untracked file
+            var fullPath = Path.Combine(workingDirectory, filePath);
+            if (_fileSystem.FileExists(fullPath))
+            {
+                try
+                {
+                    _fileSystem.DeleteFile(fullPath);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // For tracked files, use checkout to discard changes
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout -- \"{filePath}\"");
+        return result.Success;
+    }
+
+    #endregion
+
+    #region Commit Operations
+
+    public async Task<(bool Success, string? Error)> CommitAsync(string workingDirectory, string message, bool amend = false)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        if (string.IsNullOrWhiteSpace(message) && !amend)
+            return (false, "Commit message cannot be empty");
+
+        // Escape the message for shell
+        var escapedMessage = message.Replace("\"", "\\\"");
+
+        var args = amend
+            ? $"commit --amend -m \"{escapedMessage}\""
+            : $"commit -m \"{escapedMessage}\"";
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, args);
+        return (result.Success, result.Error);
     }
 
     #endregion

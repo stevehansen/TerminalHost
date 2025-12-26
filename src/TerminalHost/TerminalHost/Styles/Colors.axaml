@@ -21,10 +21,14 @@
     <SolidColorBrush x:Key="BackgroundActiveBrush" Color="{StaticResource BackgroundActiveColor}"/>
 
     <!-- Border Colors -->
+    <Color x:Key="BorderDarkColor">#333333</Color>
     <Color x:Key="BorderSubtleColor">#444444</Color>
+    <Color x:Key="BorderMediumColor">#4A4A4A</Color>
     <Color x:Key="BorderDefaultColor">#555555</Color>
 
+    <SolidColorBrush x:Key="BorderDarkBrush" Color="{StaticResource BorderDarkColor}"/>
     <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}"/>
+    <SolidColorBrush x:Key="BorderMediumBrush" Color="{StaticResource BorderMediumColor}"/>
     <SolidColorBrush x:Key="BorderDefaultBrush" Color="{StaticResource BorderDefaultColor}"/>
 
     <!-- Text Colors -->
@@ -76,12 +80,16 @@
     <Color x:Key="StatusErrorColor">#F48771</Color>
     <Color x:Key="StatusWarningColor">#FFCC00</Color>
     <Color x:Key="StatusSuccessColor">#4F8A10</Color>
+    <Color x:Key="SuccessGreenColor">#4EC9B0</Color>
+    <Color x:Key="WarningOrangeColor">#E2C08D</Color>
     <Color x:Key="DangerBackgroundColor">#5A2D2D</Color>
     <Color x:Key="DangerHoverColor">#8B3A3A</Color>
 
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusErrorColor}"/>
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarningColor}"/>
     <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccessColor}"/>
+    <SolidColorBrush x:Key="SuccessGreenBrush" Color="{StaticResource SuccessGreenColor}"/>
+    <SolidColorBrush x:Key="WarningOrangeBrush" Color="{StaticResource WarningOrangeColor}"/>
     <SolidColorBrush x:Key="DangerBackgroundBrush" Color="{StaticResource DangerBackgroundColor}"/>
     <SolidColorBrush x:Key="DangerHoverBrush" Color="{StaticResource DangerHoverColor}"/>
 

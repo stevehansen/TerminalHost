@@ -1,8 +1,8 @@
-# Product Requirements Document: TerminalHost
+# Product Requirements Document: TerminalHost (macOS - Avalonia)
 
 ## Overview
 
-**TerminalHost** (executable: `host.exe`) is a WPF desktop application that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
+**TerminalHost** (executable: `host`) is a macOS desktop application built with Avalonia UI that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (zsh), allowing easy switching between them without termination.
 
 ## Problem Statement
 
@@ -25,48 +25,48 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 
 ### Completed Features
 
-- [x] WPF application with tabbed interface
+- [x] macOS application with tabbed interface (Avalonia UI)
 - [x] Terminal pairs (custom command + shell) per directory
 - [x] Always-on split view with 60/40 default layout (adjustable via splitter)
-- [x] Terminal switching via buttons or Ctrl+`
-- [x] Tab management (Ctrl+Tab, Ctrl+1-9, Ctrl+W)
-- [x] New project via folder picker (Ctrl+N)
-- [x] Single-instance with named pipe IPC
-- [x] CLI support: `host .`, `host P:\Path`, `host --workdir P:\Path`
+- [x] Terminal switching via buttons or Cmd+`
+- [x] Tab management (Cmd+Tab, Cmd+1-9, Cmd+W)
+- [x] New project via folder picker (Cmd+N)
+- [x] Single-instance with Unix domain socket IPC
+- [x] CLI support: `host .`, `host /path/to/project`, `host --workdir /path/to/project`
 - [x] Duplicate detection (focuses existing tab for same directory)
 - [x] Cascadia Code NF font with Campbell color scheme
 - [x] Close confirmation for running terminals
-- [x] JSON configuration in `%APPDATA%\TerminalHost\config.json`
+- [x] JSON configuration in `~/Library/Application Support/TerminalHost/config.json`
 - [x] Window state persistence (position, size, maximized)
 - [x] Session persistence (open folders restored on startup)
 - [x] Per-directory settings persistence (split ratio, active terminal)
 - [x] Git repository status display (branch, dirty status, ahead/behind)
 - [x] Quick commands with keyboard shortcuts
 - [x] Terminal activity indicators (animated spinner in tabs)
-- [x] Settings editor tab with Rich mode (form-based) and Raw mode (JSON) (Ctrl+,)
-- [x] System tray support (minimize to tray, restore on click)
-- [x] Profile management integrated into Settings (Ctrl+P)
+- [x] Settings editor tab with Rich mode (form-based) and Raw mode (JSON) (Cmd+,)
+- [x] Menu bar support (minimize to Dock, restore on click)
+- [x] Profile management integrated into Settings (Cmd+P)
 - [x] Detected links button (scans terminal output for URLs, file paths, custom patterns)
 - [x] File preview popup with syntax highlighting
 - [x] Tab reordering via drag-and-drop
 - [x] Middle-click to close tabs
 - [x] Tab overflow handling (scroll arrows + dropdown when many tabs)
-- [x] Tab switcher popup with search (Ctrl+Shift+T)
+- [x] Tab switcher popup with search (Cmd+Shift+T)
 - [x] Help window with shortcuts and commands (F1)
-- [x] Built-in quick commands (Explorer, Scratch Pad, Git Changes, Help) in status bar
+- [x] Built-in quick commands (Finder, Scratch Pad, Git Changes, Help) in status bar
 - [x] CSV/TSV file preview with column colorization
-- [x] File editor popup with save/reload (Ctrl+Shift+E)
-- [x] Command palette for quick actions (Ctrl+Shift+P)
-- [x] Scratch pad for per-project or global notes (Ctrl+Shift+N)
-- [x] Git changes panel with file list and diff viewer (Ctrl+G)
-- [x] Git branch management popup (Ctrl+B) - switch, create, delete branches
+- [x] File editor popup with save/reload (Cmd+Shift+E)
+- [x] Command palette for quick actions (Cmd+Shift+P)
+- [x] Scratch pad for per-project or global notes (Cmd+Shift+N)
+- [x] Git changes panel with file list and diff viewer (Cmd+G)
+- [x] Git branch management popup (Cmd+B) - switch, create, delete branches
 - [x] Project Runner - Run and manage development servers with F5, dedicated run terminal, URL detection
 - [x] Setup Mode - A startup window to detect and guide installation of recommended dependencies.
 - [x] Modular UI Architecture - MainWindow refactored into reusable components (TabStrip, TerminalPairView, popup views) with dedicated ViewModels for improved maintainability
 - [x] Profile Launching - Launch custom profiles as standalone single-terminal tabs from Profiles UI, Command Palette, or keyboard shortcuts
 - [x] **Robust JSON File Persistence with Backup:** Implemented a generic service (`JsonFileService`) for `.json` files (e.g., `config.json`, `stats.json`) that automatically creates a `.bak` file before overwriting and attempts to recover from the backup if the primary file is corrupted.
 - [x] **Thread-Safe Configuration/Statistics Writes:** Ensured concurrent write access to `config.json` and `stats.json` is protected by `lock` primitives in `ConfigurationService` and `StatisticsService`, preventing data corruption from simultaneous save operations.
-- [x] **File Explorer Panel (Ctrl+Shift+F):** Integrated file explorer as a toggleable right panel in terminal tabs with:
+- [x] **File Explorer Panel (Cmd+Shift+F):** Integrated file explorer as a toggleable right panel in terminal tabs with:
   - Tree view with lazy loading and file icons
   - Git status integration (badges M/A/D/? and row background tints)
   - File operations (create, rename, delete, copy path)
@@ -93,7 +93,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Tracks command usage when executed
   - Persists MRU list in config.json (up to 30 commands)
   - Commands not in MRU sorted alphabetically after MRU items
-- [x] **Task/Focus Mode (Ctrl+T):** Task management system for organizing daily work:
+- [x] **Task/Focus Mode (Cmd+T):** Task management system for organizing daily work:
   - Hierarchical task tree with parent/child relationships
   - Task statuses: NotStarted, InProgress, Completed, Deferred
   - Focus mode filters tabs to show only task-related projects
@@ -112,7 +112,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Configuration:
     - Global: `aiAssistants[]` array in config.json with id, name, command, icon, detectionCommand, enabled, isDefault
     - Per-project: `directorySettings[path].activeAiAssistantId`
-- [x] **GitHub Dashboard (Ctrl+Shift+H):** Centralized view of GitHub activity:
+- [x] **GitHub Dashboard (Cmd+Shift+H):** Centralized view of GitHub activity:
   - Review Requests: PRs where you're requested as reviewer (excludes drafts)
   - My PRs: Your open pull requests across all repositories
   - Issues: Issues assigned to you
@@ -120,14 +120,14 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Open in browser and Checkout actions for PRs
   - Uses GitHub API via `gh api` for reliable data fetching (up to 100 items per section)
   - Auto-refresh capability with configurable interval
-- [x] **Repository Quick Access (Ctrl+Shift+O):** Quick repository switcher popup:
+- [x] **Repository Quick Access (Cmd+Shift+O):** Quick repository switcher popup:
   - Search/filter repositories by name
   - Shows open tabs, favorites, recent folders, and GitHub repositories
   - **Recent Folders section**: Tracks last 20 opened project directories
   - Favorite toggle for quick access
   - Clone button for remote repositories
   - Status indicators (open, local, favorite, recent)
-- [x] **PR Review Mode (Ctrl+Shift+R):** Review PRs for the current branch:
+- [x] **PR Review Mode (Cmd+Shift+R):** Review PRs for the current branch:
   - File list with additions/deletions per file
   - Diff viewer for selected files (unified or side-by-side)
   - Review actions: Approve, Request Changes, Comment, Merge
@@ -143,7 +143,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Test tree view with status icons
   - Error details and stack traces for failed tests
   - Re-run failed tests option
-- [x] **Markdown Preview (Ctrl+M):** Preview markdown files in a dedicated window:
+- [x] **Markdown Preview (Cmd+M):** Preview markdown files in a dedicated window:
   - Auto-finds README.md or prompts for file selection
   - Live preview with dark theme styling
   - Auto-reload on file changes (toggleable)
@@ -162,13 +162,13 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Color-coded additions (green) and deletions (red)
   - Line numbers on both sides
   - Empty placeholders for unmatched additions/deletions
-  - Available in Git Changes panel (Ctrl+G) and PR Review Mode
+  - Available in Git Changes panel (Cmd+G) and PR Review Mode
 - [x] **Markdown Side-by-Side Editor:** Tri-state viewing mode for markdown files:
   - **Preview mode**: Rendered markdown (existing)
   - **Edit mode**: Plain text editor with line numbers (existing)
   - **Side-by-Side mode**: Editor on left, live preview on right
   - Live preview updates with 300ms debounce during editing
-  - Available in File Viewer (Ctrl+O), popup, and detached window
+  - Available in File Viewer (Cmd+O), popup, and detached window
   - Side-by-Side tab only visible for .md files
 - [x] **Search Across Files (Cmd+F):** Full-text search across project files:
   - Search with options: case sensitive, whole word, regex
@@ -219,7 +219,7 @@ A paired set of terminals for a project directory.
 |-----------------|-----------------|------------------------------------------|
 | WorkingDirectory| string          | Project directory path                   |
 | CustomTerminal  | TerminalSession | Custom command terminal (e.g., Claude)   |
-| ShellTerminal   | TerminalSession | Shell terminal (e.g., PowerShell)        |
+| ShellTerminal   | TerminalSession | Shell terminal (e.g., zsh)               |
 | ActiveTerminal  | enum            | Which terminal is currently active       |
 | DirectoryName   | string          | Display name (directory name only)       |
 
@@ -230,7 +230,7 @@ A running terminal instance.
 | Property        | Type                | Description                         |
 |-----------------|---------------------|-------------------------------------|
 | Profile         | Profile             | Configuration for this terminal     |
-| TerminalControl | EasyTerminalControl | The WPF terminal control instance   |
+| TerminalControl | TerminalControl     | The Avalonia terminal control instance |
 | State           | SessionState        | Running or Exited                   |
 | IsActive        | bool                | True if producing output (last 2s)  |
 | LastOutputTime  | DateTime?           | When output was last received       |
@@ -245,18 +245,18 @@ host
 host .
 
 # Open project from specific path
-host P:\MyProject
+host /Users/username/Projects/MyProject
 
 # Using named argument
-host --workdir P:\MyProject
-host -w P:\MyProject
+host --workdir /Users/username/Projects/MyProject
+host -w /Users/username/Projects/MyProject
 
 # Launch the setup and dependency checker window
-host /setup
+host --setup
 
 # Advanced/Testing arguments
 host --disable-single-instance  # Allow multiple instances (or -multi)
-host --user-data-dir "C:\Path"  # Override configuration path (or -data)
+host --user-data-dir "/path/to/config"  # Override configuration path (or -data)
 ```
 
 If a project tab for the specified directory already exists, it will be focused instead of creating a new tab.
@@ -265,44 +265,44 @@ If a project tab for the specified directory already exists, it will be focused 
 
 | Shortcut         | Action                              |
 |------------------|-------------------------------------|
-| Ctrl+N           | Open new project (folder picker)    |
-| Ctrl+,           | Open settings editor                |
-| Ctrl+P           | Open settings (Profiles section)    |
-| Ctrl+E           | Open current folder in Explorer     |
-| Ctrl+O           | Open file preview dialog            |
+| Cmd+N            | Open new project (folder picker)    |
+| Cmd+,            | Open settings editor                |
+| Cmd+P            | Open settings (Profiles section)    |
+| Cmd+E            | Open current folder in Finder       |
+| Cmd+O            | Open file preview dialog            |
 | F1               | Show help window                    |
-| Ctrl+Shift+T     | Open tab switcher (search tabs)     |
-| Ctrl+PageDown    | Next tab                            |
-| Ctrl+PageUp      | Previous tab                        |
-| Ctrl+1-9         | Jump to specific tab                |
-| Ctrl+W           | Close current tab                   |
+| Cmd+Shift+T      | Open tab switcher (search tabs)     |
+| Cmd+Option+Right | Next tab                            |
+| Cmd+Option+Left  | Previous tab                        |
+| Cmd+1-9          | Jump to specific tab                |
+| Cmd+W            | Close current tab                   |
 | Middle-click     | Close tab under cursor              |
 | Drag tab         | Reorder tabs                        |
-| Ctrl+`           | Switch between Custom/Shell terminal|
-| Ctrl+Shift+E     | Open file editor                    |
-| Ctrl+Shift+P     | Open command palette                |
-| Ctrl+Shift+N     | Open scratch pad (notes)            |
-| Ctrl+G           | Open git changes panel              |
-| Ctrl+B           | Open git branch switcher            |
-| Ctrl+T           | Open task panel (focus mode)        |
-| Ctrl+Shift+H     | Open GitHub Dashboard               |
-| Ctrl+Shift+O     | Open Repository Quick Access        |
-| Ctrl+Shift+R     | Open PR Review Mode                 |
+| Cmd+`            | Switch between Custom/Shell terminal|
+| Cmd+Shift+E      | Open file editor                    |
+| Cmd+Shift+P      | Open command palette                |
+| Cmd+Shift+N      | Open scratch pad (notes)            |
+| Cmd+G            | Open git changes panel              |
+| Cmd+B            | Open git branch switcher            |
+| Cmd+T            | Open task panel (focus mode)        |
+| Cmd+Shift+H      | Open GitHub Dashboard               |
+| Cmd+Shift+O      | Open Repository Quick Access        |
+| Cmd+Shift+R      | Open PR Review Mode                 |
 | F6               | Run tests (Quick Test Runner)       |
-| Ctrl+M           | Open Markdown Preview               |
-| Cmd+F / Ctrl+F   | Open Search Across Files            |
-| Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
-| Ctrl+Shift+V     | Quick command: Review (Claude Code) |
-| Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
-| Ctrl+Shift+U     | Quick command: Git Push (Shell)     |
-| Ctrl+Shift+B     | Quick command: Dev Build (Shell)    |
+| Cmd+M            | Open Markdown Preview               |
+| Cmd+F            | Open Search Across Files            |
+| Cmd+Shift+C      | Quick command: Commit (Claude Code) |
+| Cmd+Shift+V      | Quick command: Review (Claude Code) |
+| Cmd+Shift+D      | Quick command: Git Pull (Shell)     |
+| Cmd+Shift+U      | Quick command: Git Push (Shell)     |
+| Cmd+Shift+B      | Quick command: Dev Build (Shell)    |
 | F5               | Start/Stop project run              |
 | Shift+F5         | Force stop project run              |
 | Links button     | View detected URLs and file paths from terminal output |
 
 ## Configuration
 
-Config file: `%APPDATA%\TerminalHost\config.json`
+Config file: `~/Library/Application Support/TerminalHost/config.json`
 (A backup file `config.json.bak` is automatically created and used for recovery in case of primary file corruption.)
 
 ```json
@@ -310,12 +310,12 @@ Config file: `%APPDATA%\TerminalHost\config.json`
   "profiles": [],
   "settings": {
     "confirmOnClose": true,
-    "showInSystemTray": false,
-    "customCommand": "C:\\Users\\Administrator\\.local\\bin\\claude.exe",
+    "showInMenuBar": false,
+    "customCommand": "/usr/local/bin/claude",
     "customCommandName": "Claude Code",
     "customCommandIcon": "🤖",
-    "shellCommand": "pwsh.exe",
-    "shellCommandName": "PowerShell",
+    "shellCommand": "/bin/zsh",
+    "shellCommandName": "zsh",
     "shellCommandIcon": "💻"
   },
   "windowState": {
@@ -326,15 +326,15 @@ Config file: `%APPDATA%\TerminalHost\config.json`
     "isMaximized": false
   },
   "openFolders": [
-    "P:\\Project1",
-    "P:\\Project2"
+    "/Users/username/Projects/Project1",
+    "/Users/username/Projects/Project2"
   ],
   "recentFolders": [
-    "P:\\Project3",
-    "P:\\Project4"
+    "/Users/username/Projects/Project3",
+    "/Users/username/Projects/Project4"
   ],
   "directorySettings": {
-    "p:\\project1": {
+    "/users/username/projects/project1": {
       "isSplitView": true,
       "splitRatio": 0.6,
       "activeTerminal": "Custom"
@@ -349,7 +349,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "target": "Custom",
       "appendNewline": true,
       "useUserInput": true,
-      "shortcut": "Ctrl+Shift+C"
+      "shortcut": "Cmd+Shift+C"
     },
     {
       "id": "git-pull",
@@ -358,7 +358,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "text": "git pull --rebase",
       "target": "Shell",
       "appendNewline": true,
-      "shortcut": "Ctrl+Shift+D"
+      "shortcut": "Cmd+Shift+D"
     },
     {
       "id": "git-push",
@@ -367,7 +367,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
       "text": "git push",
       "target": "Shell",
       "appendNewline": true,
-      "shortcut": "Ctrl+Shift+U"
+      "shortcut": "Cmd+Shift+U"
     }
   ],
   "linkPatterns": [
@@ -381,7 +381,7 @@ Config file: `%APPDATA%\TerminalHost\config.json`
     }
   ],
   "scratchPads": {
-    "p:\\project1": "Project-specific notes here..."
+    "/users/username/projects/project1": "Project-specific notes here..."
   },
   "globalScratchPad": "Global notes shared across all projects..."
 }
@@ -391,17 +391,17 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 
 ### Technology Stack
 
-- **Framework**: WPF on .NET 8
-- **Terminal Control**: EasyWindowsTerminalControl (NuGet)
+- **Framework**: Avalonia UI on .NET 8
+- **Terminal Control**: Avalonia.Terminal or custom PTY-based terminal
 - **MVVM**: CommunityToolkit.Mvvm
-- **Configuration**: JSON in `%APPDATA%\TerminalHost\` (managed by `JsonFileService` for resilience and thread-safety)
-- **Single Instance**: Mutex + named pipe IPC
+- **Configuration**: JSON in `~/Library/Application Support/TerminalHost/` (managed by `JsonFileService` for resilience and thread-safety)
+- **Single Instance**: Unix domain socket IPC
 
 ### Terminal Control Configuration
 
 - **Font**: Cascadia Code NF (for nerd font glyph support)
-- **Theme**: Campbell color scheme (Windows Terminal default)
-- **Process startup**: RestartTerm() called after control loads into visual tree
+- **Theme**: Campbell color scheme (Terminal.app-inspired)
+- **Process startup**: Terminal session created after view loads into window hierarchy
 
 ### Git Status Display
 
@@ -452,9 +452,9 @@ When many tabs are open and they overflow the tab bar:
 - **Dropdown button**: `▼` button shows a searchable list of all tabs
 - Clicking a tab in the dropdown switches to that tab
 
-**Tab Switcher (Ctrl+Shift+T):**
+**Tab Switcher (Cmd+Shift+T):**
 A centered popup for quickly finding and switching tabs:
-- Opens with `Ctrl+Shift+T`
+- Opens with `Cmd+Shift+T`
 - Type to filter tabs by name or working directory
 - Arrow keys to navigate, Enter to select
 - Escape to cancel
@@ -469,20 +469,20 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 *Claude Code Commands:*
 | Button | Shortcut       | Action                                              |
 |--------|----------------|-----------------------------------------------------|
-| 💾     | Ctrl+Shift+C   | Send "commit" to Claude Code                        |
-| ⭐     | Ctrl+Shift+R   | Send "rate my code" to Claude Code                  |
-| 🔍     | Ctrl+Shift+V   | Send "review the current PR" to Claude Code         |
+| 💾     | Cmd+Shift+C    | Send "commit" to Claude Code                        |
+| ⭐     | Cmd+Shift+R    | Send "rate my code" to Claude Code                  |
+| 🔍     | Cmd+Shift+V    | Send "review the current PR" to Claude Code         |
 
 *Git Commands:*
 | Button | Shortcut       | Action                           |
 |--------|----------------|----------------------------------|
-| ↓      | Ctrl+Shift+D   | Run `git pull --rebase` in Shell |
-| ↑      | Ctrl+Shift+U   | Run `git push` in Shell          |
+| ↓      | Cmd+Shift+D    | Run `git pull --rebase` in Shell |
+| ↑      | Cmd+Shift+U    | Run `git push` in Shell          |
 
 *Dev Tool Commands:*
 | Button | Shortcut       | Action                           |
 |--------|----------------|----------------------------------|
-| b      | Ctrl+Shift+B   | Run `dev b` (build) in Shell     |
+| b      | Cmd+Shift+B    | Run `dev b` (build) in Shell     |
 | vc     | (none)         | Run `dev vc` (version+commit) in Shell |
 | c      | (none)         | Run `dev c` (clean) in Shell     |
 | f      | (none)         | Run `dev f` (frontend) in Shell  |
@@ -497,16 +497,16 @@ Quick commands provide one-click buttons and keyboard shortcuts for common termi
 | target        | enum   | "Custom" or "Shell"                              |
 | appendNewline | bool   | Whether to append newline after text             |
 | useUserInput  | bool   | Use internal key events (for raw mode apps)      |
-| shortcut      | string | Keyboard shortcut (e.g., "Ctrl+Shift+C")         |
+| shortcut      | string | Keyboard shortcut (e.g., "Cmd+Shift+C")          |
 
 **Notes:**
 - `useUserInput: true` is required for Claude Code to properly receive Enter key
 - Shell commands work with standard `appendNewline: true`
-- Shortcuts support Ctrl, Alt, Shift modifiers with any letter/number key
+- Shortcuts support Cmd, Option, Shift modifiers with any letter/number key
 
 ### Detected Links Button
 
-The toolbar displays a links button that scans terminal output for clickable content. This provides an alternative to Ctrl+Click which doesn't work reliably with the terminal control.
+The toolbar displays a links button that scans terminal output for clickable content. This provides an alternative to Cmd+Click which doesn't work reliably with the terminal control.
 
 **Button Display:**
 - Shows a link icon (🔗) with a count badge (e.g., "🔗 5")
@@ -589,7 +589,7 @@ The Settings tab provides both a rich form-based editor and a raw JSON editor fo
 **Rich Mode Sections:**
 | Section            | Description                                          |
 |--------------------|------------------------------------------------------|
-| General            | App behavior (confirm on close, system tray)         |
+| General            | App behavior (confirm on close, menu bar)            |
 | Terminals          | Custom/Shell command paths, names, icons             |
 | Profiles           | Terminal profiles with add/edit/delete/reorder       |
 | Quick Commands     | Command shortcuts with add/edit/delete/reorder       |
@@ -619,7 +619,7 @@ The Settings tab provides both a rich form-based editor and a raw JSON editor fo
 
 **Claude Commands Section:**
 - Informational view explaining auto-detection from `.claude/commands/` folders
-- **Clickable folder paths**: Opens folder in Explorer, prompts to create if missing
+- **Clickable folder paths**: Opens folder in Finder, prompts to create if missing
   - `~/.claude/commands/` (global commands)
   - `.claude/commands/` (project commands, relative to current project)
 - **Documentation link**: Opens official Claude Code slash commands documentation
@@ -656,7 +656,7 @@ The Settings tab provides both a rich form-based editor and a raw JSON editor fo
 
 ### Profile Management
 
-Profile management is integrated into the Settings editor (Ctrl+P navigates directly to the Profiles section).
+Profile management is integrated into the Settings editor (Cmd+P navigates directly to the Profiles section).
 
 **Features:**
 - Create, edit, and delete custom profiles
@@ -670,9 +670,9 @@ Profile management is integrated into the Settings editor (Ctrl+P navigates dire
 |------------|-------------------------------------------------|
 | id         | Unique identifier (auto-generated)              |
 | name       | Display name for the profile                    |
-| command    | Command to execute (e.g., `pwsh.exe`, `ssh user@host`) |
+| command    | Command to execute (e.g., `/bin/zsh`, `ssh user@host`) |
 | icon       | Emoji or symbol for display                     |
-| shortcut   | Keyboard shortcut to launch (e.g., `Ctrl+Shift+P`) |
+| shortcut   | Keyboard shortcut to launch (e.g., `Cmd+Shift+P`) |
 | autoStart  | Whether to launch on app startup                |
 
 **Configuration:**
@@ -684,7 +684,7 @@ Profile management is integrated into the Settings editor (Ctrl+P navigates dire
       "name": "SSH Server",
       "command": "ssh user@server.example.com",
       "icon": "\uD83D\uDD12",
-      "shortcut": "Ctrl+Shift+S",
+      "shortcut": "Cmd+Shift+S",
       "autoStart": false
     }
   ]
@@ -713,7 +713,7 @@ Custom profiles can be launched as standalone single-terminal tabs (unlike proje
 - Title shows profile name and directory
 - Icon from profile configuration
 - Activity indicator when terminal producing output
-- Open in Explorer button in toolbar
+- Open in Finder button in toolbar
 
 **Command Palette Integration:**
 Profile launch commands appear dynamically based on configured profiles:
@@ -749,20 +749,20 @@ When `showInSystemTray` is enabled in settings, the application supports system 
 
 ### File Editor
 
-The File Editor (`Ctrl+Shift+E`) provides a built-in text editor for quick file edits without leaving the application.
+The File Editor (`Cmd+Shift+E`) provides a built-in text editor for quick file edits without leaving the application.
 
 **Features:**
 - Line numbers with scroll synchronization
 - Cursor position display (Line/Column)
 - Modified indicator (*) in title bar
-- Save (`Ctrl+S`), Reload, and Close buttons
-- Go to line (`Ctrl+G`)
+- Save (`Cmd+S`), Reload, and Close buttons
+- Go to line (`Cmd+G`)
 - Prompts for unsaved changes on close
 - Draggable and resizable popup
 - Preserves original file encoding on save
 
 **Access Methods:**
-- `Ctrl+Shift+E` to open file picker
+- `Cmd+Shift+E` to open file picker
 - Click "Edit" button in file preview popup
 - From command palette
 
@@ -772,7 +772,7 @@ The File Editor (`Ctrl+Shift+E`) provides a built-in text editor for quick file 
 
 ### Command Palette
 
-The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all application commands.
+The Command Palette (`Cmd+Shift+P`) provides VS Code-style quick access to all application commands.
 
 **Features:**
 - Searchable list of all available commands
@@ -789,7 +789,7 @@ The Command Palette (`Ctrl+Shift+P`) provides VS Code-style quick access to all 
 | Switch Tab       | Open tab switcher                |
 | Preview File     | Open file preview dialog         |
 | Edit File        | Open file editor                 |
-| Open in Explorer | Open folder in file explorer     |
+| Open in Finder   | Open folder in Finder            |
 | Switch Terminal  | Toggle custom/shell terminal     |
 | Settings         | Open settings editor             |
 | Profiles         | Manage terminal profiles         |
@@ -828,8 +828,8 @@ Configure shortcuts in `config.json` under `settings.claudeCommandShortcuts`:
 {
   "settings": {
     "claudeCommandShortcuts": {
-      "review-pr": "Ctrl+Alt+R",
-      "test-coverage": "Ctrl+Alt+T"
+      "review-pr": "Cmd+Option+R",
+      "test-coverage": "Cmd+Option+T"
     }
   }
 }
@@ -849,7 +849,7 @@ Review the current pull request. Check the git diff and provide:
 
 ### Scratch Pad
 
-The Scratch Pad (`Ctrl+Shift+N`) provides a notes panel for jotting down TODOs, commands, or other information while working.
+The Scratch Pad (`Cmd+Shift+N`) provides a notes panel for jotting down TODOs, commands, or other information while working.
 
 **Features:**
 - **Per-project notes**: Each project directory has its own scratch pad
@@ -865,14 +865,20 @@ The Scratch Pad (`Ctrl+Shift+N`) provides a notes panel for jotting down TODOs, 
 
 ### Git Changes Panel
 
-The Git Changes Panel (`Ctrl+G`) provides a visual interface to view modified files and their diffs without leaving the application.
+The Git Changes Panel (`Cmd+G`) provides a visual interface to view modified files, stage/unstage changes, and create commits without leaving the application.
 
 **Features:**
-- **File list**: Shows all modified, added, deleted, and untracked files
+- **Staged/Unstaged sections**: Files organized by staging status
+- **Individual file staging**: Stage or unstage files one at a time with + and - buttons
+- **Bulk operations**: Stage All and Unstage All buttons for quick operations
+- **Discard changes**: Revert unstaged changes with confirmation
+- **Commit creation**: Create commits directly from the panel with message input
+- **Conventional commit prefixes**: Quick-insert buttons for feat, fix, docs, refactor, chore
+- **Amend commits**: Option to amend the last commit
+- **Character counter**: Shows first line length (recommended max 72 chars)
 - **Status icons**: Color-coded status indicators (M=Modified, A=Added, D=Deleted, ?=Untracked)
 - **Diff viewer**: Syntax-highlighted diff view with additions (green) and deletions (red)
-- **File actions**: Preview, Edit, or open in Explorer for each file
-- **Refresh**: Manual refresh button to update file list
+- **File actions**: Preview, Edit, or open in Finder for each file
 - Draggable and resizable popup
 - Split-pane layout with adjustable divider
 
@@ -888,20 +894,33 @@ The Git Changes Panel (`Ctrl+G`) provides a visual interface to view modified fi
 | U    | Red    | Conflicted  |
 | T    | Purple | Type changed|
 
-**Actions:**
+**Staging Actions:**
+- **Stage file (+)**: Add a single file to the staging area
+- **Unstage file (-)**: Remove a single file from the staging area
+- **Stage All**: Stage all unstaged files at once
+- **Unstage All**: Unstage all staged files
+- **Discard Changes**: Revert unstaged changes (with confirmation dialog)
+
+**Commit Actions:**
+- **Commit**: Create a new commit with the entered message
+- **Amend**: Modify the last commit (when checkbox is enabled)
+- **Prefix buttons**: Insert conventional commit type prefixes (feat, fix, docs, refactor, chore)
+
+**File Actions:**
 - **Preview**: Open file in syntax-highlighted preview popup
 - **Edit**: Open file in built-in editor
-- **Explorer**: Open containing folder in Windows Explorer
+- **Reveal**: Open containing folder in Finder
 
 **Notes:**
 - Only available when a project tab is selected
 - Shows changes in the project's working directory
 - For untracked files, shows entire file content as additions
-- Deleted files cannot be previewed or edited (only shown in Explorer)
+- Deleted files cannot be previewed or edited (only shown in Finder)
+- Files with both staged and unstaged changes appear in both sections
 
 ### Search Across Files
 
-The Search Across Files popup (`Cmd+F` on macOS, `Ctrl+F` on other platforms) provides full-text search and replace across project files.
+The Search Across Files popup (`Cmd+F`) provides full-text search and replace across project files.
 
 **Features:**
 - **Search options**: Case sensitive, whole word, and regex support
@@ -947,7 +966,7 @@ The Search Across Files popup (`Cmd+F` on macOS, `Ctrl+F` on other platforms) pr
 
 ### Git Branch Management
 
-The Git Branch popup (`Ctrl+B`) provides quick branch operations without using the terminal.
+The Git Branch popup (`Cmd+B`) provides quick branch operations without using the terminal.
 
 **Features:**
 - **Branch list**: Shows all local and remote branches grouped by type
@@ -977,7 +996,7 @@ The Git Branch popup (`Ctrl+B`) provides quick branch operations without using t
 
 ### Task/Focus Mode
 
-The Task Panel (`Ctrl+T`) provides a task management system for organizing daily work with focus mode to filter visible project tabs.
+The Task Panel (`Cmd+T`) provides a task management system for organizing daily work with focus mode to filter visible project tabs.
 
 **Core Concepts:**
 - **Task tree**: Hierarchical task structure (supports parent/child for subtasks or deferred work)
@@ -1064,7 +1083,7 @@ Tasks and focus mode state are stored in `config.json`:
       "description": null,
       "notes": null,
       "parentTaskId": null,
-      "projectPaths": ["P:\\MyProject"],
+      "projectPaths": ["/Users/username/Projects/MyProject"],
       "status": "InProgress",
       "priority": 0,
       "tags": [],
@@ -1083,7 +1102,7 @@ Tasks and focus mode state are stored in `config.json`:
       "text": "Quick note text",
       "createdAt": "2025-12-17T16:48:14Z",
       "convertedToTaskId": null,
-      "projectPath": "P:\\MyProject"
+      "projectPath": "/Users/username/Projects/MyProject"
     }
   ]
 }
@@ -1092,7 +1111,7 @@ Tasks and focus mode state are stored in `config.json`:
 **Command Palette Commands:**
 | Command          | Description                      |
 |------------------|----------------------------------|
-| Tasks            | Open task panel (Ctrl+T)         |
+| Tasks            | Open task panel (Cmd+T)          |
 | Task: New        | Create a new task                |
 | Task: Complete   | Complete current task            |
 | Task: Focus Mode | Toggle focus mode                |
@@ -1102,11 +1121,11 @@ Tasks and focus mode state are stored in `config.json`:
 Press `F1` to open the Help window, which displays:
 
 **Keyboard Shortcuts:**
-- Tab navigation (Ctrl+PageDown/Up, Ctrl+1-9, Ctrl+Shift+T, Ctrl+W)
-- Terminal switching (Ctrl+`), detected links button
-- File operations (Ctrl+N, Ctrl+E, Ctrl+O)
-- Application (Ctrl+,, Ctrl+P, F1)
-- Default quick commands (Ctrl+Shift+C/D/U)
+- Tab navigation (Cmd+Option+Left/Right, Cmd+1-9, Cmd+Shift+T, Cmd+W)
+- Terminal switching (Cmd+`), detected links button
+- File operations (Cmd+N, Cmd+E, Cmd+O)
+- Application (Cmd+,, Cmd+P, F1)
+- Default quick commands (Cmd+Shift+C/D/U)
 
 **Tips:**
 - Drag tabs to reorder
@@ -1124,7 +1143,7 @@ Press `F1` to open the Help window, which displays:
 
 ### Themed Dialogs
 
-The application uses custom themed dialogs (`DialogService`) instead of standard Windows MessageBox for a consistent dark-theme experience.
+The application uses custom themed dialogs (`DialogService`) instead of standard system alerts for a consistent dark-theme experience.
 
 **Dialog Types:**
 | Type        | Icon   | Color  | Usage                           |
@@ -1178,7 +1197,7 @@ Toast notifications provide non-intrusive feedback for operations without interr
 - **Max visible**: 5 toasts maximum, additional toasts queued
 - **Queue**: When a toast closes, next queued toast appears
 - **Dismissal**: Click X button to close immediately
-- **Overlay window**: Uses separate transparent window to render above terminal controls (WPF airspace workaround)
+- **Overlay window**: Uses separate transparent window to render above terminal controls
 
 **Usage in Code:**
 ```csharp
@@ -1210,7 +1229,7 @@ toast.Complete("Merge completed successfully");
 
 ### File Preview Syntax Highlighting
 
-File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting for:
+File preview (Cmd+O or Cmd+Click on file paths) supports syntax highlighting for:
 
 | Extension(s)           | Description                                |
 |------------------------|--------------------------------------------|
@@ -1232,18 +1251,18 @@ File preview (Ctrl+O or Ctrl+Click on file paths) supports syntax highlighting f
 
 ### Project Structure
 
-The codebase follows a modular architecture with reusable components extracted into dedicated views and view models. See `PRD.MainWindowRefactor.md` for the detailed refactoring history.
+The codebase follows a modular architecture with reusable components extracted into dedicated views and view models.
 
 ```
 TerminalHost/
 ├── TerminalHost.sln
 └── src/TerminalHost/TerminalHost/
-        ├── App.xaml(.cs)                 # Application entry, single instance handling, shared styles, global exception handling
-        ├── MainWindow.xaml               # Main window layout (tab strip + content + popup hosts)
-        ├── MainWindow.xaml.cs            # Core window logic, keyboard shortcuts, popup coordination
-        ├── Converters.cs                 # XAML value converters
+        ├── App.axaml(.cs)                # Application entry, single instance handling, shared styles, global exception handling
+        ├── MainWindow.axaml              # Main window layout (tab strip + content + popup hosts)
+        ├── MainWindow.axaml.cs           # Core window logic, keyboard shortcuts, popup coordination
+        ├── Converters.cs                 # Avalonia value converters
         ├── Resources/
-        │   └── TabContentTemplates.xaml  # DataTemplates for tab content (terminal, settings, etc.)
+        │   └── TabContentTemplates.axaml # DataTemplates for tab content (terminal, settings, etc.)
         ├── Domain/
         │   ├── Profile.cs          # Configuration template for terminal sessions
         │   ├── TerminalSession.cs  # Running terminal instance
@@ -1271,11 +1290,11 @@ TerminalHost/
         │   ├── ConfigurationService.cs   # JSON config load/save (+ raw JSON methods)
         │   ├── JsonFileService.cs        # Generic service for robust JSON file persistence with backup
         │   ├── IDialogService.cs         # Interface for themed dialogs
-        │   ├── DialogService.cs          # Themed dialog service (replaces MessageBox)
+        │   ├── DialogService.cs          # Themed dialog service
         │   ├── ProfileRegistry.cs        # Profile and settings management
         │   ├── SessionManager.cs         # Session lifecycle tracking
-        │   ├── SingleInstanceService.cs  # Mutex + named pipe IPC
-        │   ├── SystemTrayService.cs      # System tray icon and menu
+        │   ├── SingleInstanceService.cs  # Unix domain socket IPC
+        │   ├── MenuBarService.cs         # Menu bar icon and menu
         │   ├── TerminalControlFactory.cs # Creates configured terminal controls
         │   ├── GitStatusService.cs       # Git command execution and parsing
         │   ├── FilePreviewService.cs     # File preview loading with syntax highlighting
@@ -1308,31 +1327,31 @@ TerminalHost/
     │   ├── TaskPanelViewModel.cs         # Task panel for focus mode
     │   └── ToastViewModel.cs             # Individual toast notification state
     └── Views/
-        ├── TabStrip.xaml(.cs)            # Tab bar with drag-drop, overflow, buttons
-        ├── SettingsView.xaml(.cs)        # Settings editor UI
-        ├── ProfilesView.xaml(.cs)        # Profile management UI
-        ├── StatisticsView.xaml(.cs)      # Usage statistics UI
-        ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
-        ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
-        ├── ToastContainerView.xaml(.cs)  # Toast notification container
-        ├── ToastItemView.xaml(.cs)       # Individual toast UI
-        ├── ToastWindow.xaml(.cs)         # Overlay window for toasts (airspace fix)
+        ├── TabStrip.axaml(.cs)           # Tab bar with drag-drop, overflow, buttons
+        ├── SettingsView.axaml(.cs)       # Settings editor UI
+        ├── ProfilesView.axaml(.cs)       # Profile management UI
+        ├── StatisticsView.axaml(.cs)     # Usage statistics UI
+        ├── SetupWindow.axaml(.cs)        # Setup/dependency checker window
+        ├── ScratchPadView.axaml(.cs)     # Scratch pad popup content
+        ├── ToastContainerView.axaml(.cs) # Toast notification container
+        ├── ToastItemView.axaml(.cs)      # Individual toast UI
+        ├── ToastWindow.axaml(.cs)        # Overlay window for toasts
         ├── Dialogs/
-        │   └── NotificationDialog.xaml(.cs)  # Themed dialog window
+        │   └── NotificationDialog.axaml(.cs)  # Themed dialog window
         ├── Tabs/
-        │   ├── TerminalPairView.xaml(.cs)    # Terminal pair layout (custom + shell + run)
-        │   └── ProfileTerminalView.xaml(.cs) # Single profile terminal layout
+        │   ├── TerminalPairView.axaml(.cs)    # Terminal pair layout (custom + shell + run)
+        │   └── ProfileTerminalView.axaml(.cs) # Single profile terminal layout
         └── Popups/
-            ├── TabDropdownView.xaml(.cs)     # Tab overflow dropdown
-            ├── TabSwitcherView.xaml(.cs)     # Tab search/switcher (Ctrl+Shift+T)
-            ├── CommandPaletteView.xaml(.cs)  # Command palette (Ctrl+Shift+P)
-            ├── HelpView.xaml(.cs)            # Help/shortcuts popup (F1)
-            ├── GitBranchView.xaml(.cs)       # Git branch switcher (Ctrl+B)
-            ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
-            ├── DetectedLinksView.xaml(.cs)   # Detected links popup
-            ├── FilePreviewView.xaml(.cs)     # File preview popup (Ctrl+O)
-            ├── TaskPanelView.xaml(.cs)       # Task panel popup (Ctrl+T)
-            └── QuickTaskView.xaml(.cs)       # Quick task input popup
+            ├── TabDropdownView.axaml(.cs)     # Tab overflow dropdown
+            ├── TabSwitcherView.axaml(.cs)     # Tab search/switcher (Cmd+Shift+T)
+            ├── CommandPaletteView.axaml(.cs)  # Command palette (Cmd+Shift+P)
+            ├── HelpView.axaml(.cs)            # Help/shortcuts popup (F1)
+            ├── GitBranchView.axaml(.cs)       # Git branch switcher (Cmd+B)
+            ├── GitFilesView.axaml(.cs)        # Git changes panel (Cmd+G)
+            ├── DetectedLinksView.axaml(.cs)   # Detected links popup
+            ├── FilePreviewView.axaml(.cs)     # File preview popup (Cmd+O)
+            ├── TaskPanelView.axaml(.cs)       # Task panel popup (Cmd+T)
+            └── QuickTaskView.axaml(.cs)       # Quick task input popup
 ```
 
 ### Setup Mode
@@ -1340,7 +1359,7 @@ TerminalHost/
 To help users configure their environment correctly, the application includes a setup mode for checking dependencies and configuration.
 
 **Access Methods:**
-- Command line: `host /setup` (shows setup before main window)
+- Command line: `host --setup` (shows setup before main window)
 - Command palette: Search for "Setup" (opens setup from within the app)
 
 **Features:**
@@ -1355,7 +1374,7 @@ To help users configure their environment correctly, the application includes a 
 - **Debug Information**: For troubleshooting, users can view the detailed output and exit code of each detection command.
 
 **Button Behavior:**
-- **From CLI (`/setup`)**: "Continue to App" proceeds to main app, "Close" exits
+- **From CLI (`--setup`)**: "Continue to App" proceeds to main app, "Close" exits
 - **From Command Palette**: Both buttons just close the window (app continues running)
 
 ### Project Runner
@@ -1392,7 +1411,7 @@ Run configurations are stored per-directory in `directorySettings`:
 ```json
 {
   "directorySettings": {
-    "p:\\myproject": {
+    "/users/username/projects/myproject": {
       "runConfigurations": [
         {
           "id": "dev",
@@ -1464,14 +1483,14 @@ The current activity indicator implementation sometimes shows false positives du
 This would help identify the source of false triggers and tune the detection logic.
 
 ### Tab Management
-- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Ctrl+Shift+N)
+- **Multiple Tabs for Same Folder**: An option to allow opening multiple tabs for the same directory (opt-in setting or forced shortcut like Cmd+Shift+N)
 
 ### First-Run Setup Experience
 - **Auto-Launch Setup on First Run**: When config file is empty/missing, show setup dialog before main window
 - **Detect Missing Dependencies**: Run dependency checks automatically
 - **Command Line Skip**: Add `--no-setup` flag to disable for unit tests and automation
 - **Implementation Notes**:
-  - `App.xaml.cs`: Check if config exists/is empty before showing main window
+  - `App.axaml.cs`: Check if config exists/is empty before showing main window
   - `ConfigurationService.cs`: Add `IsFirstRun()` method to check for empty/default config
   - `CommandLineArgs`: Add `SkipSetupCheck` flag (`--no-setup`, `-nosetup`)
   - Consider: Auto-skip if `DisableSingleInstance` is set (likely testing scenario)
@@ -1481,8 +1500,8 @@ This would help identify the source of false triggers and tune the detection log
   - Instead of silently closing, show a themed dialog explaining the situation
   - Message: "TerminalHost is already running. Use `host <path>` to open a project or `host -multi` to allow multiple instances."
 - **Implementation Notes**:
-  - `App.xaml.cs` lines 58-67: When `!startupArgs.HasValidRequest()` but another instance exists
-  - Use `DialogService.ShowInfo()` or a simple `MessageBox` (since services not yet configured)
+  - `App.axaml.cs`: When `!startupArgs.HasValidRequest()` but another instance exists
+  - Use `DialogService.ShowInfo()` or a simple message dialog (since services not yet configured)
   - Include hint about `-multi` flag for developers who want multiple instances
 
 ### Advanced Panel Management
