@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - When adding new features, document them in the relevant PRD file
 - When changing existing behavior, update the relevant sections
 - When adding new configuration options, update the schema documentation
-- **When adding new keyboard shortcuts, update [SHORTCUTS.md](SHORTCUTS.md)** - this is the authoritative registry
+- **When adding new keyboard shortcuts:**
+  - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
+  - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - Keep CLAUDE.md, PRD files, and SHORTCUTS.md in sync with the actual implementation
 
 ## Important: Testing Requirements

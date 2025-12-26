@@ -158,9 +158,22 @@ When adding a new shortcut:
 1. Check this document for conflicts
 2. Consider the scope (global vs project tab vs terminal)
 3. Update this file with the new shortcut
-4. Update `CLAUDE.md` keyboard shortcuts section
-5. Update relevant PRD files if applicable
-6. Implement in `MainWindow.xaml.cs` `OnPreviewKeyDown` method
+4. **Update `ShortcutConflictService.cs`** - This is the **single source of truth** for built-in shortcuts in code
+5. Implement in `MainWindow.xaml.cs` `OnPreviewKeyDown` method
+6. Update `CLAUDE.md` keyboard shortcuts section if it's a major feature
+
+### Code Architecture (Single Source of Truth)
+
+```
+src/TerminalHost.Core/Services/ShortcutConflictService.cs
+├── BuiltInShortcutSections  ← Add new shortcuts here (authoritative list)
+└── BuiltInShortcuts         ← Auto-generated flat dictionary for conflict detection
+
+src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
+└── ShortcutSections         ← References ShortcutConflictService (no duplication)
+```
+
+**Important:** Only update `ShortcutConflictService.BuiltInShortcutSections`. The Help view (F1) and Settings conflict warnings both derive their data from this single source.
 
 ## Shortcut Naming Conventions
 
@@ -173,4 +186,4 @@ When adding a new shortcut:
 
 ---
 
-*Last updated: 2025-12-25*
+*Last updated: 2025-12-26*
