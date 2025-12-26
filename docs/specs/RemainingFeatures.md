@@ -10,7 +10,6 @@ This document consolidates remaining features from various PRDs into a single tr
 - `WorkspaceSidebarView` and `WorkspaceSidebarViewModel`
 - `GitWorktreeService` with full API (list, create, remove, prune, lock, unlock)
 - Layout mode toggle (Ctrl+L) between Tabs and Sidebar
-- Sidebar visibility toggle (Ctrl+Shift+L)
 - Workspaces and Playgrounds sections
 - Context menu (Open, Duplicate, Close, Move Up/Down, Git actions)
 - Auto-sort by usage with toggle

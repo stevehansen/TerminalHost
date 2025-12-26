@@ -210,7 +210,7 @@ Save and quickly insert code snippets for common patterns.
 | +-----------------------------------------------------------+
 | | Name: [Console.WriteLine___________]                      |
 | | Description: [C# console output____]                      |
-| | Shortcut: [Ctrl+Shift+L____________]                      |
+| | Shortcut: [Ctrl+Shift+K____________]                      |
 | | Target: [Terminal v]                                      |
 | | Content:                                                  |
 | | +-------------------------------------------------------+ |
@@ -232,7 +232,7 @@ Save and quickly insert code snippets for common patterns.
         "name": "Console.WriteLine",
         "description": "C# console output",
         "content": "Console.WriteLine($\"${1:message}\");",
-        "shortcut": "Ctrl+Shift+L",
+        "shortcut": "Ctrl+Shift+K",
         "target": "Terminal",
         "language": "csharp"
       }

@@ -6,7 +6,7 @@ TerminalHost supports an alternative **Workspace Sidebar** layout mode (Ctrl+L) 
 
 - **Project Tree**: All open projects listed in a collapsible sidebar with activity indicators and git status.
 - **Git Worktree Support**: Worktrees are displayed as children of their parent project. Create, switch, and manage worktrees directly from the UI.
-- **Layout Toggle**: Seamlessly switch between Tabs and Sidebar modes (Ctrl+L). Sidebar can be toggled independently (Ctrl+Shift+L).
+- **Layout Toggle**: Seamlessly switch between Tabs and Sidebar modes (Ctrl+L).
 - **Playground Section**: Dedicated area for temporary projects and quick experiments with auto-cleanup support.
 - **Active Ports Bar**: Real-time detection of listening ports from run terminals with one-click access to localhost URLs.
 
