@@ -13,6 +13,22 @@ public partial class FileExplorerView : UserControl
     public FileExplorerView()
     {
         InitializeComponent();
+
+        // Subscribe to TreeViewItem expansion events for lazy loading
+        TreeViewItem.IsExpandedProperty.Changed.AddClassHandler<TreeViewItem>(OnTreeViewItemExpandedChanged);
+    }
+
+    private async void OnTreeViewItemExpandedChanged(TreeViewItem item, AvaloniaPropertyChangedEventArgs e)
+    {
+        // Only handle when expanding (not collapsing)
+        if (e.NewValue is true && item.DataContext is FileSystemNode node && ViewModel != null)
+        {
+            // Load children if not already loaded
+            if (!node.ChildrenLoaded && node.IsDirectory)
+            {
+                await ViewModel.LoadChildrenAsync(node);
+            }
+        }
     }
 
     private FileExplorerViewModel? ViewModel => DataContext as FileExplorerViewModel;

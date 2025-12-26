@@ -336,12 +336,11 @@ public class PathToFolderNameConverter : IValueConverter
 
 /// <summary>
 /// Converts a hex color string to a SolidColorBrush for UI binding.
+/// Returns null (transparent) for null/empty values.
 /// </summary>
 public class HexToBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush DefaultBrush = new(Colors.Gray);
-
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is string colorHex && !string.IsNullOrEmpty(colorHex))
         {
@@ -352,10 +351,10 @@ public class HexToBrushConverter : IValueConverter
             }
             catch
             {
-                return DefaultBrush;
+                return null; // Return transparent for invalid colors
             }
         }
-        return DefaultBrush;
+        return null; // Return transparent (null brush) for null/empty values
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
