@@ -119,6 +119,12 @@ public class AppConfiguration
     public List<AiAssistant> AiAssistants { get; set; } = [];
 
     /// <summary>
+    /// Timeline IDE state (intents, sessions, focus time).
+    /// </summary>
+    [JsonPropertyName("timelineState")]
+    public TimelineState? TimelineState { get; set; }
+
+    /// <summary>
     /// Determines if this configuration is in its default/untouched state.
     /// Used for first-run detection.
     /// </summary>
