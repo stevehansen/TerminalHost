@@ -472,9 +472,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private async Task CreateWorktree(WorkspaceEntryViewModel? workspace)
     {
         if (workspace == null) return;
+        await CreateWorktreeForPathAsync(workspace.Path, workspace);
+    }
 
+    /// <summary>
+    /// Helper to create a worktree, used by both CreateWorktree command and ManageWorktrees dialog.
+    /// </summary>
+    private async Task CreateWorktreeForPathAsync(string repoPath, WorkspaceEntryViewModel? workspace)
+    {
         // Determine base path for suggestions
-        var parentDir = Path.GetDirectoryName(workspace.Path);
+        var parentDir = Path.GetDirectoryName(repoPath);
         if (string.IsNullOrEmpty(parentDir))
         {
             _dialogService.ShowError("Cannot determine parent directory.");
@@ -482,13 +489,13 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         }
 
         // Load branches for the dialog
-        var branches = await _gitStatusService.GetBranchesAsync(workspace.Path);
+        var branches = await _gitStatusService.GetBranchesAsync(repoPath);
 
         // Show the Create Worktree dialog
         var dialogResult = _dialogService.ShowCreateWorktreeDialog(
-            workspace.Path,
+            repoPath,
             branches,
-            workspace.Path);
+            repoPath);
 
         if (dialogResult == null)
             return;
@@ -501,7 +508,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         }
 
         var result = await _gitWorktreeService.CreateWorktreeAsync(
-            workspace.Path,
+            repoPath,
             dialogResult.BranchName,
             dialogResult.WorktreePath,
             createBranch: dialogResult.CreateNewBranch);
@@ -509,7 +516,10 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (result.Success)
         {
             // Refresh the workspace to show new worktree
-            await workspace.LoadAsync();
+            if (workspace != null)
+            {
+                await workspace.LoadAsync();
+            }
 
             // Open the new worktree as a tab if requested
             if (dialogResult.OpenAfterCreation)
@@ -521,6 +531,21 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         {
             _dialogService.ShowError($"Failed to create worktree: {result.Error}");
         }
+    }
+
+    /// <summary>
+    /// Event raised when user wants to open the Manage Worktrees popup.
+    /// </summary>
+    public event EventHandler<(string RepoPath, string RepoName)>? ManageWorktreesRequested;
+
+    /// <summary>
+    /// Opens the Manage Worktrees popup for a workspace.
+    /// </summary>
+    [RelayCommand]
+    private void ManageWorktrees(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+        ManageWorktreesRequested?.Invoke(this, (workspace.Path, workspace.Name));
     }
 
     /// <summary>

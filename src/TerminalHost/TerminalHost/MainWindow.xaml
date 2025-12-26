@@ -172,6 +172,9 @@
         <!-- Git Reflog View (Ctrl+Shift+G) -->
         <popups:ReflogView x:Name="ReflogViewControl" />
 
+        <!-- Manage Worktrees View -->
+        <popups:ManageWorktreesView x:Name="ManageWorktreesViewControl" />
+
         <!-- Detected Links View -->
         <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
 

@@ -152,4 +152,86 @@ public partial class WorkspaceSidebarView : UserControl
         }
         return null;
     }
+
+    private void OpenWorktreeInExplorer_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe", worktree.Path);
+            }
+            catch
+            {
+                // Ignore errors
+            }
+        }
+    }
+
+    private void ManageWorktreesFromWorktree_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            // Find the parent workspace and trigger manage worktrees
+            var workspace = FindParentWorkspaceFromContextMenu(contextMenu);
+            if (workspace != null && ViewModel != null)
+            {
+                ViewModel.ManageWorktreesCommand.Execute(workspace);
+            }
+        }
+    }
+
+    private void WorktreeGitFetch_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            // Find the parent workspace and trigger git fetch via sidebar ViewModel
+            var workspace = FindParentWorkspaceFromContextMenu(contextMenu);
+            if (workspace != null && ViewModel != null)
+            {
+                ViewModel.GitFetchCommand.Execute(workspace);
+            }
+        }
+    }
+
+    private void WorktreeGitPull_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            // Find the parent workspace and trigger git pull via sidebar ViewModel
+            var workspace = FindParentWorkspaceFromContextMenu(contextMenu);
+            if (workspace != null && ViewModel != null)
+            {
+                ViewModel.GitPullRebaseCommand.Execute(workspace);
+            }
+        }
+    }
+
+    private void WorktreeGitPush_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem &&
+            menuItem.Parent is ContextMenu contextMenu &&
+            contextMenu.PlacementTarget is FrameworkElement target &&
+            target.DataContext is WorktreeEntryViewModel worktree)
+        {
+            // Find the parent workspace and trigger git push via sidebar ViewModel
+            var workspace = FindParentWorkspaceFromContextMenu(contextMenu);
+            if (workspace != null && ViewModel != null)
+            {
+                ViewModel.GitPushCommand.Execute(workspace);
+            }
+        }
+    }
 }

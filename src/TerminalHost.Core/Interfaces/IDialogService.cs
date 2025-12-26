@@ -41,4 +41,5 @@ public interface IDialogService
     /// <param name="suggestedBasePath">Base path for auto-generated worktree location.</param>
     /// <returns>The dialog result, or null if cancelled.</returns>
     CreateWorktreeDialogResult? ShowCreateWorktreeDialog(string repoPath, IEnumerable<GitBranch> branches, string suggestedBasePath);
+
 }

@@ -212,6 +212,7 @@ public partial class App : Application
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<GitStashViewModel>();
         services.AddSingleton<ReflogViewModel>();
+        services.AddSingleton<ManageWorktreesViewModel>();
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<CommitHistoryViewModel>();

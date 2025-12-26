@@ -66,6 +66,9 @@
                         <MenuItem Header="Create Worktree..."
                                   Command="{Binding DataContext.CreateWorktreeCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
+                        <MenuItem Header="Manage Worktrees..."
+                                  Command="{Binding DataContext.ManageWorktreesCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"/>
                         <MenuItem Header="{Binding MoveToSectionHeader}"
                                   Command="{Binding DataContext.MoveWorkspaceToOtherSectionCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
@@ -179,6 +182,18 @@
                     <ContextMenu Style="{StaticResource DarkContextMenu}">
                         <MenuItem Header="Open"
                                   Click="OpenWorktree_Click"/>
+                        <MenuItem Header="Open in Explorer"
+                                  Click="OpenWorktreeInExplorer_Click"/>
+                        <Separator/>
+                        <MenuItem Header="Manage Worktrees..."
+                                  Click="ManageWorktreesFromWorktree_Click"/>
+                        <Separator/>
+                        <MenuItem Header="Git Fetch"
+                                  Click="WorktreeGitFetch_Click"/>
+                        <MenuItem Header="Git Pull (Rebase)"
+                                  Click="WorktreeGitPull_Click"/>
+                        <MenuItem Header="Git Push"
+                                  Click="WorktreeGitPush_Click"/>
                         <Separator/>
                         <MenuItem Header="Remove Worktree..."
                                   Command="{Binding DataContext.RemoveWorktreeCommand, Source={x:Reference SidebarRoot}}"
@@ -200,20 +215,55 @@
                                VerticalAlignment="Center"
                                Margin="0,0,4,0"/>
 
-                    <!-- Branch Name -->
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding DisplayName}"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               FontFamily="{StaticResource FontFamilyMonospace}"
-                               FontSize="11"
-                               VerticalAlignment="Center"/>
+                    <!-- Branch Name + Lock indicator -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontSize="11"/>
+                        <TextBlock Text="🔒"
+                                   FontSize="9"
+                                   Margin="4,0,0,0"
+                                   ToolTip="Locked"
+                                   Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
 
-                    <!-- Activity Indicator -->
-                    <Ellipse Grid.Column="2"
-                             Width="5" Height="5"
-                             Fill="{StaticResource AccentGreenBrush}"
-                             Margin="4,0"
-                             Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <!-- Activity Indicators -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <!-- Spinning indicator when terminal is active -->
+                        <TextBlock x:Name="WorktreeActivitySpinner"
+                                   Text="◐"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                   FontSize="9"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"
+                                   RenderTransformOrigin="0.5,0.5"
+                                   Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform Angle="0"/>
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasActivity}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="WorktreeSpinStoryboard">
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                         From="0" To="360" Duration="0:0:0.8"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="WorktreeSpinStoryboard"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
                 </Grid>
             </Border>
         </DataTemplate>

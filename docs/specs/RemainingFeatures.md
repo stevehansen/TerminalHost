@@ -17,10 +17,11 @@ This document consolidates remaining features from various PRDs into a single tr
 - Git status display (branch, ahead/behind)
 - Activity indicators
 - Create Worktree Dialog (Ctrl+Alt+N)
+- Manage Worktrees Panel (right-click → Manage Worktrees...)
 
 **Remaining:**
 1. Active Ports Detection
-2. Manage Worktrees Panel
+2. ~~Manage Worktrees Panel~~ ✅ Implemented
 3. Playground Templates
 4. Auto-cleanup for old playgrounds
 
@@ -411,7 +412,7 @@ Visual three-way merge for resolving conflicts.
 |----------|---------|--------|-------|
 | **Medium** | Active Ports Detection | Medium | Most useful for dev workflow |
 | ~~Medium~~ | ~~Create Worktree Dialog~~ | ~~Low~~ | ✅ Implemented |
-| **Medium** | Manage Worktrees Panel | Low | Complement to Create dialog |
+| ~~Medium~~ | ~~Manage Worktrees Panel~~ | ~~Low~~ | ✅ Implemented |
 | ~~Low~~ | ~~Reflog Access~~ | ~~Low~~ | ✅ Implemented |
 | **Low** | Submodule Support | Medium | Only needed for repos with submodules |
 | ~~Low~~ | ~~Cherry-pick UI~~ | ~~Low~~ | ✅ Implemented |

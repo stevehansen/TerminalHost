@@ -27,13 +27,13 @@ public partial class MainWindow : Window
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly GitStashViewModel _gitStashViewModel;
     private readonly ReflogViewModel _reflogViewModel;
+    private readonly ManageWorktreesViewModel _manageWorktreesViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
-    private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly RepositorySwitcherViewModel _repositorySwitcherViewModel;
     private readonly TestResultsViewModel _testResultsViewModel;
     private readonly PrReviewViewModel _prReviewViewModel;
@@ -46,7 +46,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -57,13 +57,13 @@ public partial class MainWindow : Window
         _gitBranchViewModel = gitBranchViewModel;
         _gitStashViewModel = gitStashViewModel;
         _reflogViewModel = reflogViewModel;
+        _manageWorktreesViewModel = manageWorktreesViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
         _fileViewerViewModel = fileViewerViewModel;
-        _taskPanelViewModel = taskPanelViewModel;
         _repositorySwitcherViewModel = repositorySwitcherViewModel;
         _testResultsViewModel = testResultsViewModel;
         _prReviewViewModel = prReviewViewModel;
@@ -77,6 +77,7 @@ public partial class MainWindow : Window
         GitBranchViewControl.DataContext = gitBranchViewModel;
         GitStashViewControl.DataContext = gitStashViewModel;
         ReflogViewControl.DataContext = reflogViewModel;
+        ManageWorktreesViewControl.DataContext = manageWorktreesViewModel;
         DetectedLinksViewControl.DataContext = detectedLinksViewModel;
         FileViewerPopupControl.DataContext = fileViewerViewModel;
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
@@ -93,6 +94,14 @@ public partial class MainWindow : Window
         _fileBlameViewModel.ShowRequested += OnPanelShowRequested;
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
+
+        // Subscribe to ManageWorktrees events
+        if (_viewModel.WorkspaceSidebar != null)
+        {
+            _viewModel.WorkspaceSidebar.ManageWorktreesRequested += OnManageWorktreesRequested;
+        }
+        _manageWorktreesViewModel.OpenWorktreeRequested += OnManageWorktreesOpenWorktree;
+        _manageWorktreesViewModel.CreateWorktreeRequested += OnManageWorktreesCreateWorktree;
 
         RestoreWindowState();
 
@@ -429,6 +438,12 @@ public partial class MainWindow : Window
             if (_reflogViewModel.IsOpen)
             {
                 _reflogViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_manageWorktreesViewModel.IsOpen)
+            {
+                _manageWorktreesViewModel.IsOpen = false;
                 e.Handled = true;
                 return;
             }
@@ -1303,6 +1318,38 @@ public partial class MainWindow : Window
         _fileBlameViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileBlameViewModel.Width) / 2;
         _fileBlameViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileBlameViewModel.Height) / 2;
         await _fileBlameViewModel.OpenAsync(workingDirectory, filePath);
+    }
+
+    #endregion
+
+    #region Manage Worktrees
+
+    private async void OnManageWorktreesRequested(object? sender, (string RepoPath, string RepoName) args)
+    {
+        await _manageWorktreesViewModel.OpenAsync(args.RepoPath, args.RepoName);
+    }
+
+    private void OnManageWorktreesOpenWorktree(object? sender, string worktreePath)
+    {
+        // Open the worktree as a new tab
+        _viewModel.OpenProjectTab(worktreePath);
+    }
+
+    private async void OnManageWorktreesCreateWorktree(object? sender, string repoPath)
+    {
+        // Trigger the create worktree flow from WorkspaceSidebar
+        if (_viewModel.WorkspaceSidebar != null)
+        {
+            var workspace = _viewModel.WorkspaceSidebar.Workspaces
+                .FirstOrDefault(w => string.Equals(w.Path, repoPath, StringComparison.OrdinalIgnoreCase))
+                ?? _viewModel.WorkspaceSidebar.Playgrounds
+                .FirstOrDefault(w => string.Equals(w.Path, repoPath, StringComparison.OrdinalIgnoreCase));
+
+            if (workspace != null)
+            {
+                await _viewModel.WorkspaceSidebar.CreateWorktreeCommand.ExecuteAsync(workspace);
+            }
+        }
     }
 
     #endregion

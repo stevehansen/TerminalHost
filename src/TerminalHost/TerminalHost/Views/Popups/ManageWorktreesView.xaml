@@ -1,0 +1,200 @@
+<UserControl x:Class="TerminalHost.Views.Popups.ManageWorktreesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:ManageWorktreesViewModel}"
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
+
+    <Popup x:Name="ManageWorktreesPopup"
+           Placement="Center"
+           PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+           StaysOpen="True"
+           AllowsTransparency="True"
+           IsOpen="{Binding IsOpen, Mode=TwoWay}">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxCyanBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="×"
+                                Style="{StaticResource TabCloseButton}"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="↻"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip="Refresh worktree list"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔀" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Worktrees: "
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RepoName}"
+                                       Foreground="{StaticResource AccentPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Worktrees List -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,8">
+                    <ItemsControl ItemsSource="{Binding Worktrees}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type viewModels:WorktreeItemViewModel}">
+                                <Border Background="{DynamicResource BackgroundMediumBrush}"
+                                        BorderBrush="{DynamicResource BorderMediumBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="12"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Header: Icon + Branch Name + Status -->
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Icon}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="{DynamicResource FontSizeNormal}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrightBrush}"
+                                                       FontFamily="{DynamicResource FontFamilyMonospace}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding StatusBadge}"
+                                                       FontSize="11"
+                                                       VerticalAlignment="Center"
+                                                       Margin="12,0,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource SyntaxGreenBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPrunable}" Value="True">
+                                                                <Setter Property="Foreground" Value="#F44336"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsLocked}" Value="True">
+                                                                <Setter Property="Foreground" Value="#FF9800"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <!-- Path -->
+                                        <TextBlock Grid.Row="1"
+                                                   Text="{Binding Path}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   FontFamily="{DynamicResource FontFamilyMonospace}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0,4,0,0"
+                                                   ToolTip="{Binding Path}"/>
+
+                                        <!-- Actions -->
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                            <Button Content="Open"
+                                                    Command="{Binding DataContext.OpenWorktreeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource TerminalSwitchButton}"
+                                                    Background="{DynamicResource AccentPrimaryBrush}"
+                                                    Padding="12,4"
+                                                    Margin="0,0,8,0"/>
+
+                                            <Button Content="Remove"
+                                                    Command="{Binding DataContext.RemoveWorktreeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Style="{DynamicResource TerminalSwitchButton}"
+                                                    Padding="12,4"
+                                                    Margin="0,0,8,0"/>
+
+                                            <Button Content="{Binding LockButtonText}"
+                                                    Command="{Binding DataContext.ToggleLockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Style="{DynamicResource TerminalSwitchButton}"
+                                                    Padding="12,4"
+                                                    Margin="0,0,8,0"/>
+
+                                            <Button Content="Copy Path"
+                                                    Command="{Binding DataContext.CopyPathCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource TerminalSwitchButton}"
+                                                    Padding="12,4"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Loading Overlay -->
+                <Border Grid.Row="1"
+                        Background="#80000000"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="Loading..."
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Footer -->
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Prune"
+                                    Command="{Binding PruneCommand}"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    ToolTip="Remove stale worktree entries"
+                                    Padding="12,4"
+                                    Margin="0,0,8,0"/>
+                            <Button Content="Close"
+                                    Command="{Binding CloseCommand}"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Padding="12,4"/>
+                        </StackPanel>
+                        <Button Content="+ New Worktree"
+                                Command="{Binding NewWorktreeCommand}"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Padding="12,4"
+                                HorizontalAlignment="Left"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Popup>
+</UserControl>
