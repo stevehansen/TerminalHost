@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
@@ -185,8 +186,8 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
 
     private void UpdateTroubleshootingStatus()
     {
-        var config = _configService.Load();
-        HooksInstalled = config.Settings.Timeline.HooksInstalled;
+        // Auto-detect if plugin is installed by checking Claude's installed_plugins.json
+        HooksInstalled = DetectHooksInstalled();
 
         // Count unassigned sessions (sessions not matched to any intent)
         var allSessions = _timelineService.GetAllSessions();
@@ -209,6 +210,32 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         else
         {
             HookStatusMessage = "Ready - Start Claude Code in an intent folder";
+        }
+    }
+
+    /// <summary>
+    /// Detects if the TerminalHost session tracker plugin is installed in Claude Code.
+    /// Checks ~/.claude/plugins/installed_plugins.json for the plugin entry.
+    /// </summary>
+    private static bool DetectHooksInstalled()
+    {
+        try
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var installedPluginsPath = Path.Combine(userProfile, ".claude", "plugins", "installed_plugins.json");
+
+            if (!File.Exists(installedPluginsPath))
+                return false;
+
+            var json = File.ReadAllText(installedPluginsPath);
+
+            // Check if our plugin is in the installed plugins list
+            // Look for "terminalhost-session-tracker" in the JSON
+            return json.Contains("terminalhost-session-tracker", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
         }
     }
 

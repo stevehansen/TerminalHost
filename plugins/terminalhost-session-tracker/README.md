@@ -1,5 +1,7 @@
 # TerminalHost Session Tracker Plugin
 
+<!-- Hook test: 00:52 -->
+
 A Claude Code plugin that enables automatic session tracking for TerminalHost's Timeline Mode.
 
 ## What It Does
