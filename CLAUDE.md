@@ -255,7 +255,7 @@ TerminalHost/
         ├── ProfilesView.xaml(.cs)        # Profile management UI
         ├── StatisticsView.xaml(.cs)      # Usage statistics UI
         ├── SetupWindow.xaml(.cs)         # Setup/dependency checker window
-        ├── ScratchPadView.xaml(.cs)      # Scratch pad popup content
+        ├── ScratchPadContentView.xaml(.cs)  # Scratch pad content (for panel system)
         ├── FileExplorerView.xaml(.cs)    # File explorer panel
         ├── FileViewerView.xaml(.cs)      # Unified file preview/edit view
         ├── FileViewerWindow.xaml(.cs)    # Detached/pop-out file viewer window
