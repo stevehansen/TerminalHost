@@ -95,7 +95,8 @@ public class ViewModelFactory : IViewModelFactory
         return new TimelineTabViewModel(
             _serviceProvider.GetRequiredService<ITimelineService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
-            _serviceProvider.GetRequiredService<IConfigurationService>()
+            _serviceProvider.GetRequiredService<IConfigurationService>(),
+            _serviceProvider.GetRequiredService<IGitStatusService>()
         );
     }
 }

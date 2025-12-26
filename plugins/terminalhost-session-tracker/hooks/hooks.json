@@ -1,0 +1,39 @@
+{
+  "description": "TerminalHost session tracking hooks - notifies TerminalHost of Claude Code session lifecycle events",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook session-start",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook session-stop",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook file-changed",
+            "timeout": 3000
+          }
+        ]
+      }
+    ]
+  }
+}

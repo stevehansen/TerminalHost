@@ -215,6 +215,47 @@ public sealed class TimelineService : ITimelineService
         return intent;
     }
 
+    public async Task<Intent> CreateIntentFromExistingFolderAsync(
+        string name,
+        string existingFolderPath,
+        string? context = null)
+    {
+        // Get the current branch name from the folder (if it's a git repo)
+        string branchName = "main";
+        try
+        {
+            var output = await _gitRunner.RunGitCommandAsync(
+                existingFolderPath,
+                "rev-parse --abbrev-ref HEAD");
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                branchName = output.Trim();
+            }
+        }
+        catch
+        {
+            // Not a git repo or git not available - use default branch name
+        }
+
+        Intent intent;
+        lock (_lock)
+        {
+            intent = Intent.Create(name, branchName, existingFolderPath, existingFolderPath);
+
+            if (!string.IsNullOrEmpty(context))
+            {
+                intent.ContextContent = context;
+            }
+
+            _state.AddIntent(intent);
+            SaveToConfig();
+        }
+
+        OnIntentsChanged();
+        return intent;
+    }
+
     public Intent? GetIntent(string intentId)
     {
         lock (_lock)
@@ -700,6 +741,261 @@ public sealed class TimelineService : ITimelineService
         if (wasFocusing)
         {
             OnFocusStateChanged(false);
+        }
+    }
+
+    #endregion
+
+    #region Hook Event Handling
+
+    /// <summary>
+    /// Finds an intent by matching the working directory to worktree paths.
+    /// </summary>
+    public Intent? FindIntentByWorkingDirectory(string workingDirectory)
+    {
+        if (string.IsNullOrEmpty(workingDirectory))
+            return null;
+
+        // Normalize the path for comparison
+        var normalizedCwd = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        lock (_lock)
+        {
+            return _state.Intents.FirstOrDefault(intent =>
+            {
+                if (string.IsNullOrEmpty(intent.WorktreePath))
+                    return false;
+
+                var normalizedWorktree = Path.GetFullPath(intent.WorktreePath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                return string.Equals(normalizedCwd, normalizedWorktree, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets a session by its Claude Code session ID (from hooks).
+    /// </summary>
+    public ClaudeSession? GetSessionByClaudeId(string claudeSessionId)
+    {
+        if (string.IsNullOrEmpty(claudeSessionId))
+            return null;
+
+        lock (_lock)
+        {
+            return _state.Sessions.FirstOrDefault(s =>
+                string.Equals(s.ContinueSessionId, claudeSessionId, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
+    /// Handles session start events from Claude Code hooks.
+    /// </summary>
+    public void HandleSessionStart(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId) || string.IsNullOrEmpty(hookEvent.Cwd))
+            return;
+
+        // Find the intent by working directory
+        var intent = FindIntentByWorkingDirectory(hookEvent.Cwd);
+        if (intent == null)
+        {
+            // No matching intent - could optionally track unassigned sessions
+            return;
+        }
+
+        // Check if we already have a session with this Claude session ID
+        var existingSession = GetSessionByClaudeId(hookEvent.SessionId);
+        if (existingSession != null)
+        {
+            // Session already exists (possibly from a --continue invocation)
+            // Just update the timestamp
+            lock (_lock)
+            {
+                existingSession.StartTime = hookEvent.Timestamp;
+                existingSession.Status = ClaudeSessionStatus.Running;
+                SaveToConfig();
+            }
+            OnSessionsChanged();
+            return;
+        }
+
+        // Create a new session
+        ClaudeSession session;
+        lock (_lock)
+        {
+            session = ClaudeSession.Create(intent.Id);
+            session.ContinueSessionId = hookEvent.SessionId;
+            session.StartTime = hookEvent.Timestamp;
+
+            _state.AddSession(session);
+
+            // Update intent's last active time
+            intent.LastActiveAt = DateTime.UtcNow;
+
+            SaveToConfig();
+        }
+
+        OnSessionsChanged();
+    }
+
+    /// <summary>
+    /// Handles file changed events from Claude Code hooks.
+    /// </summary>
+    public void HandleFileChanged(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId) || string.IsNullOrEmpty(hookEvent.FilePath))
+            return;
+
+        // Find the session by Claude session ID
+        var session = GetSessionByClaudeId(hookEvent.SessionId);
+        if (session == null)
+        {
+            // No matching session - might be an untracked session
+            return;
+        }
+
+        lock (_lock)
+        {
+            // Add the file to the session (we don't have line counts from hooks yet)
+            session.AddFileChange(hookEvent.FilePath, 0, 0);
+            SaveToConfig();
+        }
+
+        OnSessionsChanged();
+    }
+
+    /// <summary>
+    /// Handles session stop events from Claude Code hooks.
+    /// </summary>
+    public async Task HandleSessionStopAsync(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId))
+            return;
+
+        // Find the session by Claude session ID
+        var session = GetSessionByClaudeId(hookEvent.SessionId);
+        if (session == null)
+        {
+            // No matching session
+            return;
+        }
+
+        // Find the intent to get the worktree path for git operations
+        Intent? intent;
+        lock (_lock)
+        {
+            intent = _state.GetIntent(session.IntentId);
+        }
+
+        // Set end time first
+        lock (_lock)
+        {
+            session.EndTime = hookEvent.Timestamp;
+        }
+
+        // Gather git data if we have a worktree
+        if (intent != null && !string.IsNullOrEmpty(intent.WorktreePath))
+        {
+            await GatherSessionGitDataAsync(session, intent.WorktreePath);
+        }
+        else
+        {
+            // No worktree - just mark as complete without git data
+            lock (_lock)
+            {
+                if (session.FilesChanged.Count > 0)
+                {
+                    session.Status = ClaudeSessionStatus.Success;
+                }
+                else
+                {
+                    // No files changed - could be a failed or cancelled session
+                    session.Status = ClaudeSessionStatus.Success; // Default to success
+                }
+                SaveToConfig();
+            }
+        }
+
+        OnSessionsChanged();
+        OnSessionStatusChanged(session);
+    }
+
+    /// <summary>
+    /// Gathers git commit data for a completed session.
+    /// </summary>
+    private async Task GatherSessionGitDataAsync(ClaudeSession session, string worktreePath)
+    {
+        try
+        {
+            // Get the latest commit info
+            var logResult = await _gitRunner.RunGitOperationAsync(
+                worktreePath,
+                "log -1 --format=%H|||%s");
+
+            if (logResult.Success && !string.IsNullOrEmpty(logResult.Output))
+            {
+                var parts = logResult.Output.Trim().Split("|||", 2);
+                if (parts.Length >= 1)
+                {
+                    lock (_lock)
+                    {
+                        session.CommitHash = parts[0].Trim();
+                        if (parts.Length >= 2)
+                        {
+                            session.CommitMessage = parts[1].Trim();
+                        }
+                    }
+                }
+            }
+
+            // Get file stats from the last commit
+            var diffStatResult = await _gitRunner.RunGitOperationAsync(
+                worktreePath,
+                "diff --stat HEAD~1 HEAD 2>/dev/null || git diff --stat HEAD");
+
+            if (diffStatResult.Success && !string.IsNullOrEmpty(diffStatResult.Output))
+            {
+                // Parse diff stat output (e.g., " src/file.cs | 10 +++++-----")
+                var lines = diffStatResult.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    if (line.Contains("|"))
+                    {
+                        var lineParts = line.Split('|', 2);
+                        if (lineParts.Length == 2)
+                        {
+                            var filePath = lineParts[0].Trim();
+                            var stats = lineParts[1].Trim();
+
+                            // Count + and - characters for rough additions/deletions
+                            var additions = stats.Count(c => c == '+');
+                            var deletions = stats.Count(c => c == '-');
+
+                            lock (_lock)
+                            {
+                                session.AddFileChange(filePath, additions, deletions);
+                            }
+                        }
+                    }
+                }
+            }
+
+            lock (_lock)
+            {
+                session.Status = ClaudeSessionStatus.Success;
+                SaveToConfig();
+            }
+        }
+        catch
+        {
+            // Git operations failed - still mark session as complete
+            lock (_lock)
+            {
+                session.Status = ClaudeSessionStatus.Success;
+                SaveToConfig();
+            }
         }
     }
 

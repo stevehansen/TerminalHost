@@ -641,6 +641,12 @@ public partial class MainViewModel : ObservableObject
             _ = OpenDashboardAsync();
         }
 
+        // Restore timeline if it was open
+        if (config.Settings.Timeline.ShowOnStartup && config.Settings.Timeline.Enabled)
+        {
+            OpenTimeline();
+        }
+
         foreach (var folder in config.OpenFolders)
         {
             if (_fileSystem.DirectoryExists(folder))
@@ -1152,6 +1158,11 @@ public partial class MainViewModel : ObservableObject
         {
             timelineTab.CloseRequested -= OnTabCloseRequested;
             timelineTab.Dispose();
+
+            // Save that timeline is closed
+            var config = _configService.Load();
+            config.Settings.Timeline.ShowOnStartup = false;
+            _configService.Save(config);
         }
         else if (tab is DashboardTabViewModel dashboardTab)
         {
@@ -1525,6 +1536,11 @@ public partial class MainViewModel : ObservableObject
             timelineTab.CloseRequested += OnTabCloseRequested;
             Tabs.Add(timelineTab);
             SelectedTab = timelineTab;
+
+            // Save that timeline is open (for restore on startup)
+            var config = _configService.Load();
+            config.Settings.Timeline.ShowOnStartup = true;
+            _configService.Save(config);
         }
         catch (Exception ex)
         {

@@ -433,6 +433,12 @@ public class AppSettings
     public DashboardSettings Dashboard { get; set; } = new();
 
     /// <summary>
+    /// Timeline Mode settings.
+    /// </summary>
+    [JsonPropertyName("timeline")]
+    public TimelineSettings Timeline { get; set; } = new();
+
+    /// <summary>
     /// Repository quick access settings.
     /// </summary>
     [JsonPropertyName("repositories")]
@@ -554,6 +560,36 @@ public class DashboardSettings
     /// </summary>
     [JsonPropertyName("showOnStartup")]
     public bool ShowOnStartup { get; set; } = false;
+}
+
+/// <summary>
+/// Settings for the Timeline Mode feature.
+/// </summary>
+public class TimelineSettings
+{
+    /// <summary>
+    /// Whether Timeline Mode is enabled.
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show the Timeline tab on startup.
+    /// </summary>
+    [JsonPropertyName("showOnStartup")]
+    public bool ShowOnStartup { get; set; } = false;
+
+    /// <summary>
+    /// Whether Claude Code hooks are installed for session tracking.
+    /// </summary>
+    [JsonPropertyName("hooksInstalled")]
+    public bool HooksInstalled { get; set; } = false;
+
+    /// <summary>
+    /// Whether to track sessions that don't match any Intent.
+    /// </summary>
+    [JsonPropertyName("trackUnassignedSessions")]
+    public bool TrackUnassignedSessions { get; set; } = true;
 }
 
 /// <summary>

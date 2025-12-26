@@ -7,6 +7,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -16,8 +18,6 @@ using TerminalHost.ViewModels;
 using TerminalHost.Views;
 using TerminalHost.Windows.Interfaces;
 using TerminalHost.Windows.Services;
-using LiveChartsCore;
-using LiveChartsCore.SkiaSharpView;
 
 namespace TerminalHost;
 
@@ -49,6 +49,16 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        var startupArgs = CommandLineArgs.Parse(e.Args);
+
+        // Handle Claude Code hook callbacks early (before any WPF initialization)
+        // Hooks should read stdin, forward event, and exit immediately
+        if (startupArgs.IsHookMode)
+        {
+            HandleHookAndExit(startupArgs.HookType!);
+            return;
+        }
+
         // Initialize LiveCharts
         LiveCharts.Configure(config =>
             config
@@ -65,8 +75,6 @@ public partial class App : Application
 
         // Take control of application shutdown so the app doesn't exit when the modal setup window closes.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-        var startupArgs = CommandLineArgs.Parse(e.Args);
 
         // Check for first-run setup (automatic, before explicit /setup check)
         if (IsFirstRun(startupArgs))
@@ -146,6 +154,7 @@ public partial class App : Application
             // Start the IPC server to listen for commands from other instances
             _singleInstanceService.StartPipeServer();
             _singleInstanceService.CommandReceived += OnCommandReceived;
+            _singleInstanceService.HookEventReceived += OnHookEventReceived;
         }
 
         // Configure Services
@@ -158,13 +167,16 @@ public partial class App : Application
 
         // Show Main Window
         var mainWindow = _services.GetRequiredService<MainWindow>();
-        
+
         // Ensure that closing the main window shuts down the application
         mainWindow.Closed += (s, a) => Shutdown();
         mainWindow.Show();
 
         // Handle command line arguments for this instance
         HandleCommandLineArgs(startupArgs);
+
+        // Process any queued hook events from when the app wasn't running
+        _ = ProcessQueuedHookEventsAsync();
     }
 
     private void ConfigureServices(IServiceCollection services, CommandLineArgs args)
@@ -266,6 +278,50 @@ public partial class App : Application
             var mainWindow = Services.GetService<MainWindow>();
             mainWindow?.BringToFront();
         });
+    }
+
+    private void OnHookEventReceived(object? sender, HookEvent hookEvent)
+    {
+        // This runs on a background thread, so dispatch to UI thread
+        Dispatcher.Invoke(() =>
+        {
+            ProcessHookEvent(hookEvent);
+        });
+    }
+
+    private void ProcessHookEvent(HookEvent hookEvent)
+    {
+        var timelineService = Services.GetService<ITimelineService>();
+        if (timelineService == null) return;
+
+        switch (hookEvent.EventType)
+        {
+            case HookEventType.SessionStart:
+                timelineService.HandleSessionStart(hookEvent);
+                break;
+
+            case HookEventType.FileChanged:
+                timelineService.HandleFileChanged(hookEvent);
+                break;
+
+            case HookEventType.SessionStop:
+                // Run async but don't block
+                _ = timelineService.HandleSessionStopAsync(hookEvent);
+                break;
+        }
+    }
+
+    private async Task ProcessQueuedHookEventsAsync()
+    {
+        var queue = new HookEventQueue();
+        var events = await queue.DequeueAllAsync();
+
+        if (events.Count == 0) return;
+
+        foreach (var hookEvent in events)
+        {
+            ProcessHookEvent(hookEvent);
+        }
     }
 
     private void HandleCommandLineArgs(CommandLineArgs args)
@@ -455,6 +511,119 @@ public partial class App : Application
 
         Shutdown();
     }
+
+    #region Claude Code Hook Handling
+
+    /// <summary>
+    /// Handles a Claude Code hook callback.
+    /// Reads JSON from stdin, parses it, forwards to main instance or queues for later.
+    /// Exits immediately after processing.
+    /// IMPORTANT: Must exit quickly (< 5 seconds) to not block Claude Code.
+    /// </summary>
+    private void HandleHookAndExit(string hookType)
+    {
+        // Use Environment.Exit instead of Shutdown - we're not running a WPF app
+        try
+        {
+            // Read JSON from stdin with timeout to prevent hanging
+            string? stdinJson = ReadStdinWithTimeout(TimeSpan.FromSeconds(2));
+
+            if (string.IsNullOrWhiteSpace(stdinJson))
+            {
+                // No stdin data - nothing to process
+                Environment.Exit(0);
+                return;
+            }
+
+            // Parse the raw hook data
+            var hookData = HookEventData.Parse(stdinJson);
+            if (hookData == null)
+            {
+                // Failed to parse - exit silently
+                Environment.Exit(1);
+                return;
+            }
+
+            // Convert to our HookEvent based on hook type
+            HookEvent? hookEvent = hookType switch
+            {
+                "session-start" => HookEvent.CreateSessionStart(hookData),
+                "session-stop" => HookEvent.CreateSessionStop(hookData),
+                "file-changed" => hookData.IsFileModificationTool() ? HookEvent.CreateFileChanged(hookData) : null,
+                _ => null
+            };
+
+            if (hookEvent == null)
+            {
+                // Unknown hook type or not applicable
+                Environment.Exit(0);
+                return;
+            }
+
+            // Try to send to running main instance (with short timeout)
+            if (SingleInstanceService.IsMainInstanceRunningStatic())
+            {
+                if (SingleInstanceService.SendHookEventToRunningInstance(hookEvent))
+                {
+                    // Successfully sent to main instance
+                    Environment.Exit(0);
+                    return;
+                }
+            }
+
+            // Main instance not running or send failed - queue for later
+            var queue = new HookEventQueue();
+            // Use synchronous file write to avoid async issues
+            queue.EnqueueSync(hookEvent);
+
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't crash - hooks should fail silently
+            Debug.WriteLine($"Hook handling error: {ex.Message}");
+            Environment.Exit(1);
+        }
+    }
+
+    /// <summary>
+    /// Reads stdin with a timeout to prevent hanging.
+    /// </summary>
+    private static string? ReadStdinWithTimeout(TimeSpan timeout)
+    {
+        if (!Console.IsInputRedirected)
+            return null;
+
+        var result = new System.Text.StringBuilder();
+        var readTask = Task.Run(() =>
+        {
+            try
+            {
+                // Read character by character with a buffer
+                var buffer = new char[4096];
+                int charsRead;
+                while ((charsRead = Console.In.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    result.Append(buffer, 0, charsRead);
+                }
+            }
+            catch
+            {
+                // Ignore read errors
+            }
+        });
+
+        // Wait with timeout
+        if (readTask.Wait(timeout))
+        {
+            return result.ToString();
+        }
+
+        // Timeout - return what we have so far
+        return result.Length > 0 ? result.ToString() : null;
+    }
+
+    #endregion
 
     #region Popup Focus Fix
     // Workaround for WPF popup focus synchronization issues when main window isn't active.

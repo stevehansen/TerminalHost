@@ -11,11 +11,16 @@ public sealed class SingleInstanceService : ISingleInstanceService
     private const string MutexName = "TerminalHost_SingleInstance_Mutex";
     private const string PipeName = "TerminalHost_IPC_Pipe";
 
+    // Message type prefixes for IPC protocol
+    private const string MessageTypeCommand = "CMD:";
+    private const string MessageTypeHook = "HOOK:";
+
     private Mutex? _mutex;
     private CancellationTokenSource? _pipeServerCts;
     private Task? _pipeServerTask;
 
     public event EventHandler<CommandLineArgs>? CommandReceived;
+    public event EventHandler<HookEvent>? HookEventReceived;
 
     public bool TryAcquireLock()
     {
@@ -45,11 +50,34 @@ public sealed class SingleInstanceService : ISingleInstanceService
                 await server.WaitForConnectionAsync(cancellationToken);
 
                 using var reader = new StreamReader(server);
-                var json = await reader.ReadToEndAsync(cancellationToken);
+                var message = await reader.ReadToEndAsync(cancellationToken);
 
-                if (!string.IsNullOrEmpty(json))
+                if (string.IsNullOrEmpty(message))
+                    continue;
+
+                // Parse message based on type prefix
+                if (message.StartsWith(MessageTypeHook))
                 {
+                    var json = message[MessageTypeHook.Length..];
+                    var hookEvent = JsonSerializer.Deserialize<HookEvent>(json);
+                    if (hookEvent != null)
+                    {
+                        HookEventReceived?.Invoke(this, hookEvent);
+                    }
+                }
+                else if (message.StartsWith(MessageTypeCommand))
+                {
+                    var json = message[MessageTypeCommand.Length..];
                     var args = JsonSerializer.Deserialize<CommandLineArgs>(json);
+                    if (args != null)
+                    {
+                        CommandReceived?.Invoke(this, args);
+                    }
+                }
+                else
+                {
+                    // Legacy: assume it's a CommandLineArgs for backwards compatibility
+                    var args = JsonSerializer.Deserialize<CommandLineArgs>(message);
                     if (args != null)
                     {
                         CommandReceived?.Invoke(this, args);
@@ -76,9 +104,78 @@ public sealed class SingleInstanceService : ISingleInstanceService
 
             using var writer = new StreamWriter(client);
             var json = JsonSerializer.Serialize(args);
-            writer.Write(json);
+            // Use message prefix for protocol versioning
+            writer.Write(MessageTypeCommand + json);
             writer.Flush();
 
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Sends a hook event to the running main instance.
+    /// </summary>
+    /// <param name="hookEvent">The hook event to send.</param>
+    /// <returns>True if sent successfully, false if main instance not available.</returns>
+    public static bool SendHookEventToRunningInstance(HookEvent hookEvent)
+    {
+        try
+        {
+            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
+            client.Connect(timeout: 1000); // Shorter timeout for hooks
+
+            using var writer = new StreamWriter(client);
+            var json = JsonSerializer.Serialize(hookEvent);
+            writer.Write(MessageTypeHook + json);
+            writer.Flush();
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the main application instance is running by attempting to acquire the mutex.
+    /// </summary>
+    public bool IsMainInstanceRunning()
+    {
+        try
+        {
+            using var mutex = new Mutex(false, MutexName, out bool createdNew);
+            if (createdNew)
+            {
+                // We created it, so no other instance has it - release immediately
+                mutex.ReleaseMutex();
+                return false;
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Static version to check if main instance is running without creating a service instance.
+    /// </summary>
+    public static bool IsMainInstanceRunningStatic()
+    {
+        try
+        {
+            using var mutex = new Mutex(false, MutexName, out bool createdNew);
+            if (createdNew)
+            {
+                mutex.ReleaseMutex();
+                return false;
+            }
             return true;
         }
         catch

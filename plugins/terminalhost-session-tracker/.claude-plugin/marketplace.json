@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "terminalhost-plugins",
+  "version": "1.0.0",
+  "description": "Plugins for TerminalHost Timeline Mode",
+  "owner": {
+    "name": "Steve Hansen",
+    "email": "steve@yourlogic.be"
+  },
+  "plugins": [
+    {
+      "name": "terminalhost-session-tracker",
+      "description": "Session tracking for TerminalHost Timeline Mode. Tracks Claude Code sessions, file changes, and completion.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Steve Hansen",
+        "email": "steve@yourlogic.be"
+      },
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

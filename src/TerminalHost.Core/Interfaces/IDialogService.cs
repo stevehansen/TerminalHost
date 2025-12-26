@@ -11,6 +11,20 @@ public record CreateWorktreeDialogResult(
     bool CreateNewBranch,
     bool OpenAfterCreation);
 
+/// <summary>
+/// Result from the CreateIntentDialog.
+/// </summary>
+public record CreateIntentDialogResult(
+    string Name,
+    string? Context,
+    bool UseExistingFolder,
+    // For new worktree mode:
+    string? BranchName,
+    string? WorktreePath,
+    bool CreateNewBranch,
+    // For existing folder mode:
+    string? ExistingFolderPath);
+
 public interface IDialogService
 {
     void ShowError(string message, string title = "Error");
@@ -41,5 +55,19 @@ public interface IDialogService
     /// <param name="suggestedBasePath">Base path for auto-generated worktree location.</param>
     /// <returns>The dialog result, or null if cancelled.</returns>
     CreateWorktreeDialogResult? ShowCreateWorktreeDialog(string repoPath, IEnumerable<GitBranch> branches, string suggestedBasePath);
+
+    /// <summary>
+    /// Shows a dialog for creating a new Timeline intent.
+    /// </summary>
+    /// <param name="repoPath">Path to the repository (for context display and worktree creation).</param>
+    /// <param name="branches">Available branches for worktree creation.</param>
+    /// <param name="suggestedBasePath">Base path for auto-generated worktree location.</param>
+    /// <param name="openFolders">Currently open folders (for existing folder selection).</param>
+    /// <returns>The dialog result, or null if cancelled.</returns>
+    CreateIntentDialogResult? ShowCreateIntentDialog(
+        string repoPath,
+        IEnumerable<GitBranch> branches,
+        string suggestedBasePath,
+        IEnumerable<string> openFolders);
 
 }

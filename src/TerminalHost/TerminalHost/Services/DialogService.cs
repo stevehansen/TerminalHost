@@ -166,6 +166,40 @@ public class DialogService : IDialogService
     }
 
     /// <summary>
+    /// Shows a dialog for creating a new Timeline intent.
+    /// </summary>
+    public CreateIntentDialogResult? ShowCreateIntentDialog(
+        string repoPath,
+        IEnumerable<GitBranch> branches,
+        string suggestedBasePath,
+        IEnumerable<string> openFolders)
+    {
+        var owner = GetActiveWindow();
+        var dialog = new CreateIntentDialog(repoPath, branches, suggestedBasePath, openFolders)
+        {
+            Owner = owner,
+            WindowStartupLocation = owner != null
+                ? WindowStartupLocation.CenterOwner
+                : WindowStartupLocation.CenterScreen
+        };
+
+        var result = dialog.ShowDialog();
+        if (result == true && dialog.Confirmed)
+        {
+            return new CreateIntentDialogResult(
+                dialog.IntentName,
+                string.IsNullOrWhiteSpace(dialog.Context) ? null : dialog.Context,
+                dialog.UseExistingFolder,
+                dialog.UseExistingFolder ? null : dialog.BranchName,
+                dialog.UseExistingFolder ? null : dialog.WorktreePath,
+                dialog.UseExistingFolder ? false : dialog.CreateNewBranch,
+                dialog.UseExistingFolder ? dialog.ExistingFolderPath : null);
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Gets the currently active window to use as dialog owner.
     /// </summary>
     private static Window? GetActiveWindow()

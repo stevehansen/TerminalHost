@@ -14,6 +14,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     private readonly ITimelineService _timelineService;
     private readonly IDialogService _dialogService;
     private readonly IConfigurationService _configService;
+    private readonly IGitStatusService _gitStatusService;
     private System.Timers.Timer? _refreshTimer;
 
     public string Title => "Timeline";
@@ -75,16 +76,31 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _isSessionDetailVisible;
 
+    // Troubleshooting properties
+    [ObservableProperty]
+    private bool _hooksInstalled;
+
+    [ObservableProperty]
+    private int _unassignedSessionsCount;
+
+    [ObservableProperty]
+    private string _hookStatusMessage = "";
+
+    [ObservableProperty]
+    private bool _showTroubleshooting;
+
     #endregion
 
     public TimelineTabViewModel(
         ITimelineService timelineService,
         IDialogService dialogService,
-        IConfigurationService configService)
+        IConfigurationService configService,
+        IGitStatusService gitStatusService)
     {
         _timelineService = timelineService;
         _dialogService = dialogService;
         _configService = configService;
+        _gitStatusService = gitStatusService;
 
         // Subscribe to events
         _timelineService.EnabledChanged += OnEnabledChanged;
@@ -162,6 +178,44 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         ActiveForksCount = allSessions.Count(s => !string.IsNullOrEmpty(s.ParentSessionId));
         RunningSessionsCount = allSessions.Count(s => s.Status == ClaudeSessionStatus.Running);
         TotalCommitsCount = allSessions.Count(s => !string.IsNullOrEmpty(s.CommitHash));
+
+        // Update troubleshooting status
+        UpdateTroubleshootingStatus();
+    }
+
+    private void UpdateTroubleshootingStatus()
+    {
+        var config = _configService.Load();
+        HooksInstalled = config.Settings.Timeline.HooksInstalled;
+
+        // Count unassigned sessions (sessions not matched to any intent)
+        var allSessions = _timelineService.GetAllSessions();
+        var intentIds = _timelineService.GetAllIntents().Select(i => i.Id).ToHashSet();
+        UnassignedSessionsCount = allSessions.Count(s => string.IsNullOrEmpty(s.IntentId) || !intentIds.Contains(s.IntentId));
+
+        // Build status message
+        if (!HooksInstalled)
+        {
+            HookStatusMessage = "Hooks not installed - Install plugin to track sessions";
+        }
+        else if (TotalIntentsCount == 0)
+        {
+            HookStatusMessage = "No intents - Create an intent to start tracking";
+        }
+        else if (RunningSessionsCount > 0)
+        {
+            HookStatusMessage = $"{RunningSessionsCount} active session(s)";
+        }
+        else
+        {
+            HookStatusMessage = "Ready - Start Claude Code in an intent folder";
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleTroubleshooting()
+    {
+        ShowTroubleshooting = !ShowTroubleshooting;
     }
 
     #region Event Handlers
@@ -227,17 +281,6 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     [RelayCommand]
     private async Task CreateNewIntent()
     {
-        // Show dialog to get intent details
-        var name = _dialogService.ShowInput("Intent name:", "New Intent", "Implement feature...");
-
-        if (string.IsNullOrWhiteSpace(name))
-            return;
-
-        var branchName = _dialogService.ShowInput("Branch name:", "New Intent", SuggestBranchName(name));
-
-        if (string.IsNullOrWhiteSpace(branchName))
-            return;
-
         // Get the main repo path from config (first open folder)
         var config = _configService.Load();
         var mainRepoPath = config.OpenFolders?.FirstOrDefault();
@@ -248,38 +291,43 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
             return;
         }
 
-        var context = _dialogService.ShowInput("Context for Claude Code sessions (optional):", "Intent Context");
+        // Get branches for the repo
+        var branches = await _gitStatusService.GetBranchesAsync(mainRepoPath);
+        var openFolders = config.OpenFolders ?? [];
 
-        var intent = await _timelineService.CreateIntentAsync(
-            name,
-            branchName,
+        // Show the Create Intent dialog
+        var result = _dialogService.ShowCreateIntentDialog(
             mainRepoPath,
-            context: context);
+            branches,
+            mainRepoPath,
+            openFolders);
 
-        if (intent == null)
+        if (result == null)
+            return;
+
+        Intent? intent;
+        if (result.UseExistingFolder && !string.IsNullOrEmpty(result.ExistingFolderPath))
         {
-            _dialogService.ShowError("Could not create the worktree for this intent.", "Failed to create intent");
+            // Create intent from existing folder
+            intent = await _timelineService.CreateIntentFromExistingFolderAsync(
+                result.Name,
+                result.ExistingFolderPath,
+                result.Context);
         }
-    }
+        else if (!string.IsNullOrEmpty(result.BranchName) && !string.IsNullOrEmpty(result.WorktreePath))
+        {
+            // Create intent with new worktree
+            intent = await _timelineService.CreateIntentAsync(
+                result.Name,
+                result.BranchName,
+                mainRepoPath,
+                context: result.Context);
 
-    private static string SuggestBranchName(string intentName)
-    {
-        // Convert "Implement user auth" -> "feature/implement-user-auth"
-        var sanitized = intentName
-            .ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("_", "-");
-
-        // Remove any non-alphanumeric characters except hyphens
-        sanitized = new string(sanitized
-            .Where(c => char.IsLetterOrDigit(c) || c == '-')
-            .ToArray());
-
-        // Collapse multiple hyphens
-        while (sanitized.Contains("--"))
-            sanitized = sanitized.Replace("--", "-");
-
-        return $"feature/{sanitized.Trim('-')}";
+            if (intent == null)
+            {
+                _dialogService.ShowError("Could not create the worktree for this intent.", "Failed to create intent");
+            }
+        }
     }
 
     [RelayCommand]

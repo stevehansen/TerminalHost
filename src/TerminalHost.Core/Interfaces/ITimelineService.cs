@@ -55,6 +55,15 @@ public interface ITimelineService
     Task<Intent?> CreateIntentAsync(string name, string branchName, string mainRepoPath, string? baseBranch = null, string? context = null);
 
     /// <summary>
+    /// Creates a new intent from an existing folder (no worktree creation).
+    /// </summary>
+    /// <param name="name">Human-readable name for the intent.</param>
+    /// <param name="existingFolderPath">Path to the existing folder.</param>
+    /// <param name="context">Optional context content for Claude Code sessions.</param>
+    /// <returns>The created intent.</returns>
+    Task<Intent> CreateIntentFromExistingFolderAsync(string name, string existingFolderPath, string? context = null);
+
+    /// <summary>
     /// Gets an intent by ID.
     /// </summary>
     Intent? GetIntent(string intentId);
@@ -251,6 +260,46 @@ public interface ITimelineService
     /// Loads state from persistent storage.
     /// </summary>
     Task LoadAsync();
+
+    #endregion
+
+    #region Hook Event Handling
+
+    /// <summary>
+    /// Handles a session start event from Claude Code hooks.
+    /// Creates or updates a session based on the event data.
+    /// </summary>
+    /// <param name="hookEvent">The hook event data.</param>
+    void HandleSessionStart(HookEvent hookEvent);
+
+    /// <summary>
+    /// Handles a file changed event from Claude Code hooks.
+    /// Adds the file to the current session's modified files list.
+    /// </summary>
+    /// <param name="hookEvent">The hook event data.</param>
+    void HandleFileChanged(HookEvent hookEvent);
+
+    /// <summary>
+    /// Handles a session stop event from Claude Code hooks.
+    /// Finalizes the session and gathers git commit data.
+    /// </summary>
+    /// <param name="hookEvent">The hook event data.</param>
+    Task HandleSessionStopAsync(HookEvent hookEvent);
+
+    /// <summary>
+    /// Finds an intent by its worktree path.
+    /// Used to match Claude Code sessions to intents via working directory.
+    /// </summary>
+    /// <param name="workingDirectory">The working directory path.</param>
+    /// <returns>The matching intent, or null if not found.</returns>
+    Intent? FindIntentByWorkingDirectory(string workingDirectory);
+
+    /// <summary>
+    /// Gets the active session for a Claude Code session ID.
+    /// </summary>
+    /// <param name="claudeSessionId">The Claude Code session ID.</param>
+    /// <returns>The matching session, or null if not found.</returns>
+    ClaudeSession? GetSessionByClaudeId(string claudeSessionId);
 
     #endregion
 

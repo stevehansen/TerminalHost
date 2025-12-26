@@ -26,6 +26,23 @@ public class CommandLineArgs
     /// </summary>
     public bool IsShowChoiceDialog { get; set; }
 
+    /// <summary>
+    /// When set, indicates this is a hook callback from Claude Code.
+    /// Valid values: "session-start", "session-stop", "file-changed"
+    /// </summary>
+    public string? HookType { get; set; }
+
+    /// <summary>
+    /// When true, this invocation is handling a Claude Code hook.
+    /// Hook handling reads JSON from stdin, forwards to main app, and exits.
+    /// </summary>
+    public bool IsHookMode => !string.IsNullOrEmpty(HookType);
+
+    /// <summary>
+    /// The hook event data to forward (set after parsing stdin in hook mode).
+    /// </summary>
+    public HookEvent? HookEvent { get; set; }
+
     public static CommandLineArgs Parse(string[] args)
     {
         var result = new CommandLineArgs();
@@ -88,6 +105,11 @@ public class CommandLineArgs
 
                 case "--show-choice-dialog":
                     result.IsShowChoiceDialog = true;
+                    continue;
+
+                case "--hook":
+                    if (i + 1 < args.Length)
+                        result.HookType = args[++i].ToLowerInvariant();
                     continue;
             }
 

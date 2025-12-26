@@ -555,37 +555,128 @@
         <!-- Status Bar -->
         <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="16,8">
             <Grid>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock>
-                        <Run Text="{Binding TotalIntentsCount}"/>
-                        <Run Text=" intents"/>
-                    </TextBlock>
-                    <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
-                    <TextBlock>
-                        <Run Text="{Binding ActiveForksCount}"/>
-                        <Run Text=" forks"/>
-                    </TextBlock>
-                    <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
-                    <TextBlock>
-                        <Run Text="{Binding RunningSessionsCount}"/>
-                        <Run Text=" running"/>
-                    </TextBlock>
-                    <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
-                    <TextBlock>
-                        <Run Text="{Binding TotalCommitsCount}"/>
-                        <Run Text=" commits"/>
-                    </TextBlock>
-                </StackPanel>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- Legend -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Border Background="{StaticResource SyntaxGreenBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
-                    <TextBlock Text="Success" FontSize="11" Margin="0,0,12,0"/>
-                    <Border Background="{StaticResource SyntaxRedBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
-                    <TextBlock Text="Failed" FontSize="11" Margin="0,0,12,0"/>
-                    <Border Background="{StaticResource AccentBlueBrush}" Width="12" Height="12" CornerRadius="6" Margin="0,0,4,0"/>
-                    <TextBlock Text="Running" FontSize="11"/>
-                </StackPanel>
+                <Grid Grid.Row="0">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Hook Status Indicator -->
+                        <Border Width="8" Height="8" CornerRadius="4" Margin="0,0,8,0"
+                                ToolTip="{Binding HookStatusMessage}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource SyntaxYellowBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HooksInstalled}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource SyntaxGreenBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RunningSessionsCount}" Value="0">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                                                        Duration="0:0:0"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <TextBlock Text="{Binding HookStatusMessage}" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
+                        <TextBlock>
+                            <Run Text="{Binding TotalIntentsCount}"/>
+                            <Run Text=" intents"/>
+                        </TextBlock>
+                        <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
+                        <TextBlock>
+                            <Run Text="{Binding ActiveForksCount}"/>
+                            <Run Text=" forks"/>
+                        </TextBlock>
+                        <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
+                        <TextBlock>
+                            <Run Text="{Binding RunningSessionsCount}"/>
+                            <Run Text=" running"/>
+                        </TextBlock>
+                        <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"/>
+                        <TextBlock>
+                            <Run Text="{Binding TotalCommitsCount}"/>
+                            <Run Text=" commits"/>
+                        </TextBlock>
+                        <!-- Unassigned sessions warning -->
+                        <TextBlock Text=" · " Foreground="{StaticResource TextDimmedBrush}"
+                                   Visibility="{Binding UnassignedSessionsCount, Converter={StaticResource IntToVisibilityConverter}}"/>
+                        <TextBlock Foreground="{StaticResource SyntaxYellowBrush}" FontSize="11"
+                                   Visibility="{Binding UnassignedSessionsCount, Converter={StaticResource IntToVisibilityConverter}}">
+                            <Run Text="{Binding UnassignedSessionsCount}"/>
+                            <Run Text=" unassigned"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Legend + Troubleshoot button -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Border Background="{StaticResource SyntaxGreenBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
+                        <TextBlock Text="Success" FontSize="11" Margin="0,0,12,0"/>
+                        <Border Background="{StaticResource SyntaxRedBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
+                        <TextBlock Text="Failed" FontSize="11" Margin="0,0,12,0"/>
+                        <Border Background="{StaticResource AccentBlueBrush}" Width="12" Height="12" CornerRadius="6" Margin="0,0,4,0"/>
+                        <TextBlock Text="Running" FontSize="11" Margin="0,0,12,0"/>
+                        <Button Content="?" Command="{Binding ToggleTroubleshootingCommand}"
+                                Style="{StaticResource TimelineIconButton}"
+                                ToolTip="Toggle troubleshooting info"
+                                FontSize="11" Padding="6,2" MinWidth="24"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Expandable Troubleshooting Section -->
+                <Border Grid.Row="1" Margin="0,8,0,0" Padding="12,8" Background="{StaticResource BackgroundDarkBrush}"
+                        CornerRadius="4" Visibility="{Binding ShowTroubleshooting, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Troubleshooting" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Hooks installed:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,12,4"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" FontSize="11" Margin="0,0,0,4">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="No - Run: claude /install-plugin plugins\terminalhost-session-tracker"/>
+                                        <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HooksInstalled}" Value="True">
+                                                <Setter Property="Text" Value="Yes"/>
+                                                <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Intents configured:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,12,4"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" FontSize="11" Margin="0,0,0,4">
+                                <Run Text="{Binding TotalIntentsCount, Mode=OneWay}"/>
+                                <Run Text=" - Sessions are matched to intents by working directory"/>
+                            </TextBlock>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="How it works:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,12,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Create an intent → Start Claude Code in that folder → Sessions appear on timeline"
+                                       FontSize="11" Foreground="{StaticResource TextDimmedBrush}" TextWrapping="Wrap"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
     </Grid>
