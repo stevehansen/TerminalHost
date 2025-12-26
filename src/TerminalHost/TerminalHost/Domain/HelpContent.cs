@@ -1,14 +1,8 @@
+// ShortcutItem and ShortcutSection are now in TerminalHost.Core.Domain.ShortcutTypes
+// Re-export them for backward compatibility
+global using TerminalHost.Core.Domain;
+
 namespace TerminalHost.Domain;
-
-/// <summary>
-/// Represents a keyboard shortcut with its description.
-/// </summary>
-public record ShortcutItem(string Shortcut, string Description);
-
-/// <summary>
-/// Represents a group of related shortcuts.
-/// </summary>
-public record ShortcutSection(string Name, List<ShortcutItem> Items);
 
 /// <summary>
 /// Represents a command line usage example.

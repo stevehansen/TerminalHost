@@ -1,68 +1,126 @@
+using TerminalHost.Core.Domain;
+using System.Text.RegularExpressions;
+
 namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Service for detecting keyboard shortcut conflicts.
+/// Single source of truth for all built-in keyboard shortcuts.
 /// </summary>
 public static class ShortcutConflictService
 {
     /// <summary>
-    /// All built-in keyboard shortcuts that cannot be overridden by user shortcuts.
+    /// All built-in keyboard shortcuts organized by section.
+    /// This is the authoritative source - used by both Help view and conflict detection.
     /// </summary>
-    public static readonly Dictionary<string, string> BuiltInShortcuts = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly List<ShortcutSection> BuiltInShortcutSections =
+    [
+        new("Tab Navigation",
+        [
+            new("Ctrl+PageDown", "Next tab"),
+            new("Ctrl+PageUp", "Previous tab"),
+            new("Ctrl+1-9", "Jump to tab 1-9"),
+            new("Ctrl+Shift+T", "Open tab switcher (search tabs)"),
+            new("Ctrl+W", "Close current tab"),
+            new("Middle-click tab", "Close tab"),
+        ]),
+
+        new("Terminal",
+        [
+            new("Ctrl+`", "Switch between Custom/Shell terminal"),
+            new("Links button", "Click to view detected URLs and file paths"),
+        ]),
+
+        new("Layout",
+        [
+            new("Ctrl+L", "Toggle layout mode (Tabs/Sidebar)"),
+        ]),
+
+        new("File Operations",
+        [
+            new("Ctrl+N", "Open new project (folder picker)"),
+            new("Ctrl+E", "Open current folder in Explorer"),
+            new("Ctrl+O", "Open file preview dialog"),
+            new("Ctrl+Shift+E", "Open file editor"),
+            new("Ctrl+Shift+F", "Toggle file explorer panel"),
+            new("Ctrl+F3", "Search across files"),
+        ]),
+
+        new("Application",
+        [
+            new("Ctrl+,", "Open settings editor"),
+            new("Ctrl+P", "Open settings (Profiles)"),
+            new("Ctrl+Shift+P", "Open command palette"),
+            new("Ctrl+Shift+N", "Open scratch pad (notes)"),
+            new("Ctrl+T", "Open task panel"),
+            new("Ctrl+Shift+Q", "Quick add task"),
+            new("Ctrl+Shift+M", "Quick add note"),
+            new("Ctrl+G", "Open git changes panel"),
+            new("Ctrl+H", "Open commit history"),
+            new("Ctrl+B", "Open git branch switcher"),
+            new("Ctrl+Shift+S", "Open git stash manager"),
+            new("Ctrl+Shift+G", "Open git reflog"),
+            new("Ctrl+Shift+B", "View file blame"),
+            new("Ctrl+Shift+O", "Repository quick access"),
+            new("Ctrl+Shift+H", "GitHub Dashboard"),
+            new("Ctrl+Shift+R", "PR Review Mode"),
+            new("F1", "Show this help window"),
+            new("F6", "Run tests"),
+            new("Ctrl+M", "Markdown preview"),
+        ]),
+
+        new("Project Runner",
+        [
+            new("F5", "Start/Stop project run"),
+            new("Shift+F5", "Force stop project run"),
+        ]),
+    ];
+
+    /// <summary>
+    /// Flat dictionary of built-in shortcuts for quick conflict lookup.
+    /// Derived from BuiltInShortcutSections.
+    /// </summary>
+    public static readonly Dictionary<string, string> BuiltInShortcuts = BuildShortcutDictionary();
+
+    private static Dictionary<string, string> BuildShortcutDictionary()
     {
-        // Tab Navigation
-        ["Ctrl+PageDown"] = "Next tab",
-        ["Ctrl+PageUp"] = "Previous tab",
-        ["Ctrl+1"] = "Jump to tab 1",
-        ["Ctrl+2"] = "Jump to tab 2",
-        ["Ctrl+3"] = "Jump to tab 3",
-        ["Ctrl+4"] = "Jump to tab 4",
-        ["Ctrl+5"] = "Jump to tab 5",
-        ["Ctrl+6"] = "Jump to tab 6",
-        ["Ctrl+7"] = "Jump to tab 7",
-        ["Ctrl+8"] = "Jump to tab 8",
-        ["Ctrl+9"] = "Jump to tab 9",
-        ["Ctrl+Shift+T"] = "Open tab switcher",
-        ["Ctrl+W"] = "Close current tab",
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // Terminal
-        ["Ctrl+`"] = "Switch Custom/Shell terminal",
+        foreach (var section in BuiltInShortcutSections)
+        {
+            foreach (var item in section.Items)
+            {
+                // Skip non-keyboard shortcuts (like "Middle-click tab", "Links button")
+                if (!item.Shortcut.Contains("Ctrl") && !item.Shortcut.Contains("Shift") &&
+                    !item.Shortcut.Contains("Alt") && !item.Shortcut.StartsWith("F") &&
+                    !item.Shortcut.Contains("Escape"))
+                    continue;
 
-        // Layout
-        ["Ctrl+L"] = "Toggle layout mode",
+                // Handle range shortcuts like "Ctrl+1-9"
+                if (item.Shortcut.Contains("-") && item.Shortcut.Contains("Ctrl+"))
+                {
+                    var match = Regex.Match(item.Shortcut, @"Ctrl\+(\d)-(\d)");
+                    if (match.Success)
+                    {
+                        var start = int.Parse(match.Groups[1].Value);
+                        var end = int.Parse(match.Groups[2].Value);
+                        for (int i = start; i <= end; i++)
+                        {
+                            dict[$"Ctrl+{i}"] = item.Description;
+                        }
+                        continue;
+                    }
+                }
 
-        // File Operations
-        ["Ctrl+N"] = "Open new project",
-        ["Ctrl+E"] = "Open in Explorer",
-        ["Ctrl+O"] = "Open file preview",
-        ["Ctrl+Shift+E"] = "Open file editor",
-        ["Ctrl+Shift+F"] = "Toggle file explorer",
-        ["Ctrl+F3"] = "Search across files",
+                dict[item.Shortcut] = item.Description;
+            }
+        }
 
-        // Application
-        ["Ctrl+,"] = "Open settings",
-        ["Ctrl+P"] = "Open profiles",
-        ["Ctrl+Shift+P"] = "Command palette",
-        ["Ctrl+Shift+N"] = "Open scratch pad",
-        ["Ctrl+T"] = "Open task panel",
-        ["Ctrl+Shift+Q"] = "Quick add task",
-        ["Ctrl+Shift+M"] = "Quick add note",
-        ["Ctrl+G"] = "Git changes panel",
-        ["Ctrl+H"] = "Commit history",
-        ["Ctrl+B"] = "Branch switcher",
-        ["Ctrl+Shift+S"] = "Stash manager",
-        ["Ctrl+Shift+G"] = "Git reflog",
-        ["Ctrl+Shift+B"] = "File blame",
-        ["Ctrl+Shift+O"] = "Repository quick access",
-        ["Ctrl+Shift+H"] = "GitHub Dashboard",
-        ["Ctrl+Shift+R"] = "PR Review Mode",
-        ["F1"] = "Help window",
-        ["F5"] = "Start/Stop project",
-        ["Shift+F5"] = "Force stop project",
-        ["F6"] = "Run tests",
-        ["Ctrl+M"] = "Markdown preview",
-        ["Escape"] = "Close popups",
-    };
+        // Add Escape which isn't in sections but is a built-in
+        dict["Escape"] = "Close popups";
+
+        return dict;
+    }
 
     /// <summary>
     /// Check if a shortcut conflicts with a built-in shortcut.
