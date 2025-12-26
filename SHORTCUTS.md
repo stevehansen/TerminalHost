@@ -50,6 +50,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+M` | Open Markdown preview | Project tab | |
 | `Ctrl+Shift+H` | Open GitHub Dashboard | Project tab | |
 | `Ctrl+Shift+R` | Open PR Review Mode | Project tab | |
+| `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 
 ### Project Runner Shortcuts
 
@@ -121,7 +122,6 @@ These shortcuts are reserved by the system or have special meaning:
 
 ### Unused Ctrl+Shift+Key combinations:
 - `Ctrl+Shift+A` - Available
-- `Ctrl+Shift+I` - Available
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+K` - Available
 - `Ctrl+Shift+V` - Available

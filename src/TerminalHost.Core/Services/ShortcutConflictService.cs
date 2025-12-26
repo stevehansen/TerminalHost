@@ -64,6 +64,7 @@ public static class ShortcutConflictService
             new("Ctrl+Shift+O", "Repository quick access"),
             new("Ctrl+Shift+H", "GitHub Dashboard"),
             new("Ctrl+Shift+R", "PR Review Mode"),
+            new("Ctrl+Shift+I", "Timeline Mode"),
             new("F1", "Show this help window"),
             new("F6", "Run tests"),
             new("Ctrl+M", "Markdown preview"),

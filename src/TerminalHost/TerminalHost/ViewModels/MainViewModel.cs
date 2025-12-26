@@ -1148,6 +1148,11 @@ public partial class MainViewModel : ObservableObject
         {
             statsTab.CloseRequested -= OnTabCloseRequested;
         }
+        else if (tab is TimelineTabViewModel timelineTab)
+        {
+            timelineTab.CloseRequested -= OnTabCloseRequested;
+            timelineTab.Dispose();
+        }
         else if (tab is DashboardTabViewModel dashboardTab)
         {
             dashboardTab.CloseRequested -= OnTabCloseRequested;
@@ -1499,6 +1504,31 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _dialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}"); // Use injected IDialogService
+        }
+    }
+
+    [RelayCommand]
+    private void OpenTimeline()
+    {
+        try
+        {
+            // Check if timeline tab already exists
+            var existingTimeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+            if (existingTimeline != null)
+            {
+                SelectedTab = existingTimeline;
+                return;
+            }
+
+            // Create new timeline tab
+            var timelineTab = _viewModelFactory.CreateTimeline();
+            timelineTab.CloseRequested += OnTabCloseRequested;
+            Tabs.Add(timelineTab);
+            SelectedTab = timelineTab;
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"An error occurred while opening Timeline Mode:\n\n{ex.Message}");
         }
     }
 
@@ -1930,6 +1960,17 @@ public partial class MainViewModel : ObservableObject
                 Icon = "📊",
                 Category = "Tools",
                 Execute = () => OpenStatisticsCommand.Execute(null)
+            },
+
+            // Timeline Mode
+            new() {
+                Id = "timeline",
+                Name = "Timeline Mode",
+                Description = "Visual timeline of AI-assisted development sessions",
+                Shortcut = "Ctrl+Shift+I",
+                Icon = "⏱️",
+                Category = "Tools",
+                Execute = () => OpenTimelineCommand.Execute(null)
             },
 
             // GitHub Dashboard

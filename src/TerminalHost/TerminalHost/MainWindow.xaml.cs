@@ -843,6 +843,12 @@ public partial class MainWindow : Window
             }
             e.Handled = true;
         }
+        // Ctrl+Shift+I: Open Timeline Mode
+        else if (e.Key == Key.I && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _viewModel.OpenTimelineCommand.Execute(null);
+            e.Handled = true;
+        }
         // Ctrl+M: Open Markdown Preview
         else if (e.Key == Key.M && Keyboard.Modifiers == ModifierKeys.Control)
         {

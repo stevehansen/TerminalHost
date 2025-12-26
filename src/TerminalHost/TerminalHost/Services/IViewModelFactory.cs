@@ -11,4 +11,5 @@ public interface IViewModelFactory
     WorkspaceSidebarViewModel CreateWorkspaceSidebar();
     SettingsTabViewModel CreateSettings();
     StatisticsTabViewModel CreateStatistics();
+    TimelineTabViewModel CreateTimeline();
 }

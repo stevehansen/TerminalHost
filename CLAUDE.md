@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **When adding new keyboard shortcuts:**
   - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
+- **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
 - Keep CLAUDE.md, PRD files, and SHORTCUTS.md in sync with the actual implementation
 
 ## Important: Testing Requirements

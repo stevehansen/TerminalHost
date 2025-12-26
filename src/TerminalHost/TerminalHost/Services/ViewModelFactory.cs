@@ -89,4 +89,13 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<IStatisticsService>()
         );
     }
+
+    public TimelineTabViewModel CreateTimeline()
+    {
+        return new TimelineTabViewModel(
+            _serviceProvider.GetRequiredService<ITimelineService>(),
+            _serviceProvider.GetRequiredService<IDialogService>(),
+            _serviceProvider.GetRequiredService<IConfigurationService>()
+        );
+    }
 }
