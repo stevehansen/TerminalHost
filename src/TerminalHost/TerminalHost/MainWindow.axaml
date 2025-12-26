@@ -119,6 +119,12 @@
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch" />
 
+                <!-- Git Stash - Center -->
+                <popups:GitStashView
+                    x:Name="GitStashPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
                 <!-- Scratch Pad - Center -->
                 <views:ScratchPadView
                     x:Name="ScratchPadPopup"

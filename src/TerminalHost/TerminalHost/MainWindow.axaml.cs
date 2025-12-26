@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
+    private readonly GitStashViewModel _gitStashViewModel;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
@@ -32,6 +33,7 @@ public partial class MainWindow : Window
         GitBranchViewModel gitBranchViewModel,
         GitFilesViewModel gitFilesViewModel,
         CommitHistoryViewModel commitHistoryViewModel,
+        GitStashViewModel gitStashViewModel,
         ScratchPadViewModel scratchPadViewModel,
         FileViewerViewModel fileViewerViewModel,
         DetectedLinksViewModel detectedLinksViewModel,
@@ -47,6 +49,7 @@ public partial class MainWindow : Window
         _gitBranchViewModel = gitBranchViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
+        _gitStashViewModel = gitStashViewModel;
         _scratchPadViewModel = scratchPadViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
@@ -60,6 +63,7 @@ public partial class MainWindow : Window
         GitBranchPopup.DataContext = _gitBranchViewModel;
         GitFilesPopup.DataContext = _gitFilesViewModel;
         CommitHistoryPopup.DataContext = _commitHistoryViewModel;
+        GitStashPopup.DataContext = _gitStashViewModel;
         ScratchPadPopup.DataContext = _scratchPadViewModel;
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
@@ -207,6 +211,13 @@ public partial class MainWindow : Window
         };
         commitHistoryItem.Click += (_, _) => _ = _commitHistoryViewModel.OpenCommand.ExecuteAsync(null);
         viewMenu.Menu.Add(commitHistoryItem);
+
+        var gitStashItem = new NativeMenuItem("Git Stash...")
+        {
+            Gesture = new KeyGesture(Key.S, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        gitStashItem.Click += (_, _) => _ = _gitStashViewModel.OpenCommand.ExecuteAsync(null);
+        viewMenu.Menu.Add(gitStashItem);
 
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
@@ -561,6 +572,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+S for Git Stash
+        if (e.Key == Key.S && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _ = _gitStashViewModel.OpenCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+Shift+N for Scratch Pad
         if (e.Key == Key.N && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
@@ -664,6 +683,8 @@ public partial class MainWindow : Window
             _gitFilesViewModel.CloseCommand.Execute(null);
         if (_commitHistoryViewModel.CloseCommand.CanExecute(null))
             _commitHistoryViewModel.CloseCommand.Execute(null);
+        if (_gitStashViewModel.CloseCommand.CanExecute(null))
+            _gitStashViewModel.CloseCommand.Execute(null);
         if (_scratchPadViewModel.CloseCommand.CanExecute(null))
             _scratchPadViewModel.CloseCommand.Execute(null);
         _fileViewerViewModel.Close();

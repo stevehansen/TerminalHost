@@ -94,6 +94,7 @@ public partial class App : Application
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<CommitHistoryViewModel>();
+        services.AddSingleton<GitStashViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();

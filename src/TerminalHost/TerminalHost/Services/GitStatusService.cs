@@ -799,4 +799,131 @@ internal sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Stash Operations
+
+    public async Task<List<GitStashEntry>> GetStashListAsync(string workingDirectory)
+    {
+        var stashes = new List<GitStashEntry>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return stashes;
+
+        // Get stash list with format: %gd|%gs|%ci|%cr
+        // %gd = reflog selector (stash@{0})
+        // %gs = reflog subject (stash message)
+        // %ci = commit date ISO format
+        // %cr = relative commit date
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            "stash list --format=\"%gd|%gs|%ci|%cr\"");
+
+        if (string.IsNullOrEmpty(output))
+            return stashes;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|', 4);
+            if (parts.Length < 4) continue;
+
+            var reference = parts[0].Trim(); // stash@{0}
+            var message = parts[1].Trim();   // On branch: message or WIP on branch: hash message
+            var dateStr = parts[2].Trim();
+            var relativeDate = parts[3].Trim();
+
+            // Parse stash index from reference (e.g., "stash@{0}" -> 0)
+            var index = 0;
+            var indexMatch = Regex.Match(reference, @"stash@\{(\d+)\}");
+            if (indexMatch.Success)
+            {
+                int.TryParse(indexMatch.Groups[1].Value, out index);
+            }
+
+            // Parse branch name from message (e.g., "On master: message" or "WIP on master: hash message")
+            var branchName = "";
+            var stashMessage = message;
+            var onBranchMatch = Regex.Match(message, @"^(?:WIP )?[Oo]n ([^:]+): (.*)$");
+            if (onBranchMatch.Success)
+            {
+                branchName = onBranchMatch.Groups[1].Value;
+                stashMessage = onBranchMatch.Groups[2].Value;
+            }
+
+            // Parse date
+            DateTime.TryParse(dateStr, out var date);
+
+            stashes.Add(new GitStashEntry
+            {
+                Index = index,
+                Reference = reference,
+                Message = stashMessage,
+                BranchName = branchName,
+                Date = date,
+                RelativeDate = relativeDate
+            });
+        }
+
+        return stashes;
+    }
+
+    public async Task<(bool Success, string? Error)> StashAsync(string workingDirectory, string? message = null, bool includeUntracked = false)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var args = "stash push";
+
+        if (includeUntracked)
+            args += " -u";
+
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            var escapedMessage = message.Replace("\"", "\\\"");
+            args += $" -m \"{escapedMessage}\"";
+        }
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, args);
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> StashApplyAsync(string workingDirectory, int index)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"stash apply stash@{{{index}}}");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> StashPopAsync(string workingDirectory, int index)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"stash pop stash@{{{index}}}");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> StashDropAsync(string workingDirectory, int index)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"stash drop stash@{{{index}}}");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> StashBranchAsync(string workingDirectory, int index, string branchName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        if (string.IsNullOrWhiteSpace(branchName))
+            return (false, "Branch name cannot be empty");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"stash branch \"{branchName}\" stash@{{{index}}}");
+        return (result.Success, result.Error);
+    }
+
+    #endregion
 }
