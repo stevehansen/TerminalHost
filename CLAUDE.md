@@ -310,6 +310,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+O`: Open file viewer (preview mode, supports images)
 - `Ctrl+Shift+E`: Open file viewer (edit mode)
 - `Ctrl+Shift+F`: Toggle file explorer panel (tree view with git status)
+- `Cmd+F` / `Ctrl+F`: Open search across files (full-text search with replace)
 
 ### Application
 - `Ctrl+,`: Open settings editor

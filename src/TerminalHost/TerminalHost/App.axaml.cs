@@ -84,6 +84,7 @@ public partial class App : Application
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
+        services.AddSingleton<ISearchService, SearchService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
@@ -96,6 +97,7 @@ public partial class App : Application
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
+        services.AddSingleton<SearchAcrossFilesViewModel>();
 
         // Windows
         services.AddSingleton<MainWindow>();

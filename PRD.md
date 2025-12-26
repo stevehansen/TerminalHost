@@ -170,6 +170,16 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Live preview updates with 300ms debounce during editing
   - Available in File Viewer (Ctrl+O), popup, and detached window
   - Side-by-Side tab only visible for .md files
+- [x] **Search Across Files (Cmd+F):** Full-text search across project files:
+  - Search with options: case sensitive, whole word, regex
+  - Include/exclude file patterns (e.g., `*.cs`, `*.min.js`)
+  - Results grouped by file with match count badges
+  - Tree view with expandable file results showing line numbers and context
+  - Preview panel showing all matches in selected file with highlighted text
+  - Replace functionality: replace in single file or replace all
+  - Uses `git grep` for fast searching in git repositories, falls back to manual search
+  - Opens files in File Viewer with jump-to-line support
+  - Reveal in Finder action for files
 
 ### Deferred Features
 
@@ -280,6 +290,7 @@ If a project tab for the specified directory already exists, it will be focused 
 | Ctrl+Shift+R     | Open PR Review Mode                 |
 | F6               | Run tests (Quick Test Runner)       |
 | Ctrl+M           | Open Markdown Preview               |
+| Cmd+F / Ctrl+F   | Open Search Across Files            |
 | Ctrl+Shift+C     | Quick command: Commit (Claude Code) |
 | Ctrl+Shift+V     | Quick command: Review (Claude Code) |
 | Ctrl+Shift+D     | Quick command: Git Pull (Shell)     |
@@ -888,6 +899,52 @@ The Git Changes Panel (`Ctrl+G`) provides a visual interface to view modified fi
 - For untracked files, shows entire file content as additions
 - Deleted files cannot be previewed or edited (only shown in Explorer)
 
+### Search Across Files
+
+The Search Across Files popup (`Cmd+F` on macOS, `Ctrl+F` on other platforms) provides full-text search and replace across project files.
+
+**Features:**
+- **Search options**: Case sensitive, whole word, and regex support
+- **File filtering**: Include/exclude patterns (e.g., `*.cs`, `*.min.js`)
+- **Results tree**: Files grouped with match count badges, expandable to show individual matches
+- **Preview panel**: Shows all matches in selected file with highlighted text
+- **Replace**: Replace in single file or replace all matches across project
+- **File actions**: Open preview, Edit, Reveal in Finder
+
+**Search Behavior:**
+- Uses `git grep` for fast searching in git repositories
+- Falls back to manual file search for non-git directories
+- Respects `.gitignore` rules when in a git repository
+- Automatically excludes binary files and common build directories (node_modules, bin, obj, etc.)
+
+**Results Display:**
+| Element           | Description                                    |
+|-------------------|------------------------------------------------|
+| File icon         | Shows file type icon based on extension        |
+| File name         | Primary filename                               |
+| Directory path    | Relative path to file                          |
+| Match count badge | Number of matches in file                      |
+| Line number       | Shows line number for each match               |
+| Match highlight   | Yellow highlighted match text with context     |
+
+**Actions:**
+| Button    | Description                              |
+|-----------|------------------------------------------|
+| Search    | Execute search with current options      |
+| Replace   | Replace matches in selected file         |
+| All       | Replace all matches across all files     |
+| Open      | Open file in File Viewer (preview mode)  |
+| Edit      | Open file in File Viewer (edit mode)     |
+| Reveal    | Open containing folder in Finder         |
+| Expand All| Expand all file results                  |
+| Collapse  | Collapse all file results                |
+
+**Keyboard Shortcuts:**
+| Key      | Action                    |
+|----------|---------------------------|
+| Enter    | Execute search            |
+| Escape   | Close popup               |
+
 ### Git Branch Management
 
 The Git Branch popup (`Ctrl+B`) provides quick branch operations without using the terminal.
@@ -1462,5 +1519,5 @@ The application is successful when:
 
 ---
 
-*Document Version: 2.11*
-*Last Updated: 2025-12-19*
+*Document Version: 2.12*
+*Last Updated: 2025-12-26*

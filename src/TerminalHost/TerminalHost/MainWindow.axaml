@@ -136,6 +136,12 @@
                     x:Name="TaskPanelPopup"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
+
+                <!-- Search Across Files - Center (uses DraggablePopup internally) -->
+                <popups:SearchAcrossFilesView
+                    x:Name="SearchAcrossFilesPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
             </Panel>
         </Grid>
     </Grid>

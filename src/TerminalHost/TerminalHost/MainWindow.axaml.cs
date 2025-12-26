@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
+    private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
     private readonly IFilePickerService _filePickerService;
 
     public MainWindow(
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
         FileViewerViewModel fileViewerViewModel,
         DetectedLinksViewModel detectedLinksViewModel,
         TaskPanelViewModel taskPanelViewModel,
+        SearchAcrossFilesViewModel searchAcrossFilesViewModel,
         IFilePickerService filePickerService)
     {
         InitializeComponent();
@@ -46,6 +48,7 @@ public partial class MainWindow : Window
         _fileViewerViewModel = fileViewerViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _taskPanelViewModel = taskPanelViewModel;
+        _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
         _filePickerService = filePickerService;
 
         DataContext = _mainViewModel;
@@ -57,6 +60,7 @@ public partial class MainWindow : Window
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
         TaskPanelPopup.DataContext = _taskPanelViewModel;
+        SearchAcrossFilesPopup.DataContext = _searchAcrossFilesViewModel;
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -71,6 +75,10 @@ public partial class MainWindow : Window
 
         // Wire up file viewer detach event
         _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
+
+        // Wire up search across files events
+        _searchAcrossFilesViewModel.FilePreviewRequested += OnSearchFilePreviewRequested;
+        _searchAcrossFilesViewModel.FileEditRequested += OnSearchFileEditRequested;
 
         // Event handlers
         Opened += OnOpened;
@@ -188,6 +196,19 @@ public partial class MainWindow : Window
                 _ = _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
         };
         viewMenu.Menu.Add(gitChangesItem);
+
+        viewMenu.Menu.Add(new NativeMenuItemSeparator());
+
+        var searchFilesItem = new NativeMenuItem("Search in Files...")
+        {
+            Gesture = new KeyGesture(Key.F, KeyModifiers.Meta)
+        };
+        searchFilesItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+                _searchAcrossFilesViewModel.OpenCommand.Execute(terminalTab);
+        };
+        viewMenu.Menu.Add(searchFilesItem);
 
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
@@ -332,6 +353,24 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(e.FilePath))
         {
             _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Edit);
+        }
+    }
+
+    private void OnSearchFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.FilePath))
+        {
+            _searchAcrossFilesViewModel.CloseCommand.Execute(null);
+            _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Preview, e.Line);
+        }
+    }
+
+    private void OnSearchFileEditRequested(object? sender, FileEditRequestedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.FilePath))
+        {
+            _searchAcrossFilesViewModel.CloseCommand.Execute(null);
+            _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Edit, e.LineNumber);
         }
     }
 
@@ -548,6 +587,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+F for Search Across Files
+        if (e.Key == Key.F && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                _searchAcrossFilesViewModel.OpenCommand.Execute(terminalTab);
+            }
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+1-9 for tab jumping
         if (e.KeyModifiers == primaryModifier && e.Key >= Key.D1 && e.Key <= Key.D9)
         {
@@ -600,6 +650,8 @@ public partial class MainWindow : Window
             _detectedLinksViewModel.CloseCommand.Execute(null);
         if (_taskPanelViewModel.CloseCommand.CanExecute(null))
             _taskPanelViewModel.CloseCommand.Execute(null);
+        if (_searchAcrossFilesViewModel.CloseCommand.CanExecute(null))
+            _searchAcrossFilesViewModel.CloseCommand.Execute(null);
     }
 
     public void BringToFront()
