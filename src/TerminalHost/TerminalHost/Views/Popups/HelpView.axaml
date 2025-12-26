@@ -167,7 +167,7 @@
                         <TextBlock Grid.Row="10" Grid.Column="0" Text="⌘⇧ O" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="10" Grid.Column="1" Text="Repository quick access" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="11" Grid.Column="0" Text="⌘⇧ H" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="1" Text="GitHub Dashboard" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="11" Grid.Column="1" Text="Open commit history" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="12" Grid.Column="0" Text="⌘⇧ R" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="12" Grid.Column="1" Text="PR Review Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="13" Grid.Column="0" Text="F6" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>

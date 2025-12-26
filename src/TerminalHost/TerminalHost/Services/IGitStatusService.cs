@@ -26,4 +26,9 @@ public interface IGitStatusService
 
     // Commit operations
     Task<(bool Success, string? Error)> CommitAsync(string workingDirectory, string message, bool amend = false);
+
+    // Commit history operations
+    Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int skip = 0, int take = 50, string? author = null);
+    Task<GitCommitDetails?> GetCommitDetailsAsync(string workingDirectory, string commitHash);
+    Task<string?> GetFileDiffInCommitAsync(string workingDirectory, string commitHash, string filePath);
 }

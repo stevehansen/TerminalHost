@@ -156,6 +156,7 @@
     <Compile Include="ViewModels\RepositorySwitcherViewModel.cs" />
     <Compile Include="ViewModels\TestResultsViewModel.cs" />
     <Compile Include="ViewModels\SearchAcrossFilesViewModel.cs" />
+    <Compile Include="ViewModels\CommitHistoryViewModel.cs" />
   </ItemGroup>
 
   <!-- Stage 6: Additional Domain models needed by ViewModels -->
@@ -197,6 +198,9 @@
     <Compile Include="Domain\TestResult.cs" />
     <Compile Include="Domain\SearchResult.cs" />
     <Compile Include="Domain\SearchMatch.cs" />
+    <Compile Include="Domain\GitCommit.cs" />
+    <Compile Include="Domain\GitCommitDetails.cs" />
+    <Compile Include="Domain\GitCommitFile.cs" />
     <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
     <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
   </ItemGroup>
@@ -293,6 +297,7 @@
     <Compile Include="Views\Popups\RepositorySwitcherView.axaml.cs" />
     <Compile Include="Views\Popups\TabDropdownView.axaml.cs" />
     <Compile Include="Views\Popups\SearchAcrossFilesView.axaml.cs" />
+    <Compile Include="Views\Popups\CommitHistoryView.axaml.cs" />
 
     <!-- Window Views -->
     <Compile Include="Views\SetupWindow.axaml.cs" />

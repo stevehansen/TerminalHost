@@ -602,4 +602,201 @@ internal sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Commit History Operations
+
+    public async Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int skip = 0, int take = 50, string? author = null)
+    {
+        var commits = new List<GitCommit>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return commits;
+
+        // Format: hash|author|email|timestamp|subject
+        var authorFilter = string.IsNullOrEmpty(author) ? "" : $"--author=\"{author}\" ";
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"log {authorFilter}--skip={skip} -n {take} --format=\"%H|%an|%ae|%at|%s\"");
+
+        if (string.IsNullOrEmpty(output))
+            return commits;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|', 5);
+            if (parts.Length < 5) continue;
+
+            if (!long.TryParse(parts[3], out var timestamp))
+                continue;
+
+            commits.Add(new GitCommit
+            {
+                Hash = parts[0],
+                Author = parts[1],
+                AuthorEmail = parts[2],
+                Date = DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime,
+                Subject = parts[4]
+            });
+        }
+
+        return commits;
+    }
+
+    public async Task<GitCommitDetails?> GetCommitDetailsAsync(string workingDirectory, string commitHash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // Get commit info with format: hash|author|email|timestamp|subject
+        // Then body separately
+        var infoOutput = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"show {commitHash} --format=\"%H|%an|%ae|%at|%s\" --no-patch");
+
+        if (string.IsNullOrEmpty(infoOutput))
+            return null;
+
+        var infoLine = infoOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (string.IsNullOrEmpty(infoLine))
+            return null;
+
+        var parts = infoLine.Split('|', 5);
+        if (parts.Length < 5)
+            return null;
+
+        if (!long.TryParse(parts[3], out var timestamp))
+            return null;
+
+        // Get full body (everything after subject)
+        var bodyOutput = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"show {commitHash} --format=\"%b\" --no-patch");
+
+        // Get file stats: format is "additions deletions filename" with --numstat
+        var statsOutput = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"show {commitHash} --numstat --format=\"\"");
+
+        var files = new List<GitCommitFile>();
+        if (!string.IsNullOrEmpty(statsOutput))
+        {
+            var statLines = statsOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var statLine in statLines)
+            {
+                // Format: additions\tdeletions\tfilepath (or rename: oldpath => newpath)
+                var statParts = statLine.Split('\t', 3);
+                if (statParts.Length < 3) continue;
+
+                var additions = statParts[0] == "-" ? 0 : int.TryParse(statParts[0], out var a) ? a : 0;
+                var deletions = statParts[1] == "-" ? 0 : int.TryParse(statParts[1], out var d) ? d : 0;
+                var filePath = statParts[2];
+
+                string? originalPath = null;
+                var status = GitFileStatusType.Modified;
+
+                // Check for rename format: old => new or {old => new}
+                if (filePath.Contains(" => "))
+                {
+                    status = GitFileStatusType.Renamed;
+                    var renameMatch = System.Text.RegularExpressions.Regex.Match(filePath, @"(.*?)\{(.*?) => (.*?)\}(.*)");
+                    if (renameMatch.Success)
+                    {
+                        // Format: prefix{old => new}suffix
+                        var prefix = renameMatch.Groups[1].Value;
+                        var oldPart = renameMatch.Groups[2].Value;
+                        var newPart = renameMatch.Groups[3].Value;
+                        var suffix = renameMatch.Groups[4].Value;
+                        originalPath = prefix + oldPart + suffix;
+                        filePath = prefix + newPart + suffix;
+                    }
+                    else
+                    {
+                        // Format: old => new
+                        var renameParts = filePath.Split(" => ");
+                        if (renameParts.Length == 2)
+                        {
+                            originalPath = renameParts[0];
+                            filePath = renameParts[1];
+                        }
+                    }
+                }
+                else if (additions > 0 && deletions == 0)
+                {
+                    // Heuristic: new file likely has only additions
+                    status = GitFileStatusType.Added;
+                }
+                else if (deletions > 0 && additions == 0)
+                {
+                    // Heuristic: deleted file likely has only deletions
+                    status = GitFileStatusType.Deleted;
+                }
+
+                files.Add(new GitCommitFile
+                {
+                    FilePath = filePath,
+                    Status = status,
+                    Additions = additions,
+                    Deletions = deletions,
+                    OriginalPath = originalPath
+                });
+            }
+        }
+
+        // Refine file status by checking diff --name-status
+        var nameStatusOutput = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"show {commitHash} --name-status --format=\"\"");
+
+        if (!string.IsNullOrEmpty(nameStatusOutput))
+        {
+            var nameStatusMap = new Dictionary<string, GitFileStatusType>();
+            var nameStatusLines = nameStatusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var nsLine in nameStatusLines)
+            {
+                if (nsLine.Length < 2) continue;
+                var nsStatus = nsLine[0];
+                var nsPath = nsLine.Substring(1).Trim();
+
+                // Handle rename format: R100\told\tnew
+                if (nsStatus == 'R' && nsLine.Contains('\t'))
+                {
+                    var tabParts = nsLine.Split('\t');
+                    if (tabParts.Length >= 3)
+                        nsPath = tabParts[2]; // new path
+                }
+
+                var parsedStatus = ParseStatusChar(nsStatus);
+                nameStatusMap[nsPath] = parsedStatus;
+            }
+
+            // Update file statuses
+            foreach (var file in files)
+            {
+                if (nameStatusMap.TryGetValue(file.FilePath, out var correctStatus))
+                {
+                    file.Status = correctStatus;
+                }
+            }
+        }
+
+        return new GitCommitDetails
+        {
+            Hash = parts[0],
+            Author = parts[1],
+            AuthorEmail = parts[2],
+            Date = DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime,
+            Subject = parts[4],
+            Body = bodyOutput?.Trim() ?? "",
+            Files = files
+        };
+    }
+
+    public async Task<string?> GetFileDiffInCommitAsync(string workingDirectory, string commitHash, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // Get diff for a specific file in a commit
+        // Use commitHash^..commitHash to show changes introduced by that commit
+        return await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"show {commitHash} -- \"{filePath}\"");
+    }
+
+    #endregion
 }

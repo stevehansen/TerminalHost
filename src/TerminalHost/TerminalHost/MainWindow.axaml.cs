@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly IDialogService _dialogService;
     private readonly GitBranchViewModel _gitBranchViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
+    private readonly CommitHistoryViewModel _commitHistoryViewModel;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
         IDialogService dialogService,
         GitBranchViewModel gitBranchViewModel,
         GitFilesViewModel gitFilesViewModel,
+        CommitHistoryViewModel commitHistoryViewModel,
         ScratchPadViewModel scratchPadViewModel,
         FileViewerViewModel fileViewerViewModel,
         DetectedLinksViewModel detectedLinksViewModel,
@@ -44,6 +46,7 @@ public partial class MainWindow : Window
         _dialogService = dialogService;
         _gitBranchViewModel = gitBranchViewModel;
         _gitFilesViewModel = gitFilesViewModel;
+        _commitHistoryViewModel = commitHistoryViewModel;
         _scratchPadViewModel = scratchPadViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
@@ -56,6 +59,7 @@ public partial class MainWindow : Window
         // Set popup DataContexts
         GitBranchPopup.DataContext = _gitBranchViewModel;
         GitFilesPopup.DataContext = _gitFilesViewModel;
+        CommitHistoryPopup.DataContext = _commitHistoryViewModel;
         ScratchPadPopup.DataContext = _scratchPadViewModel;
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
@@ -196,6 +200,13 @@ public partial class MainWindow : Window
                 _ = _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
         };
         viewMenu.Menu.Add(gitChangesItem);
+
+        var commitHistoryItem = new NativeMenuItem("Commit History...")
+        {
+            Gesture = new KeyGesture(Key.H, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        commitHistoryItem.Click += (_, _) => _ = _commitHistoryViewModel.OpenCommand.ExecuteAsync(null);
+        viewMenu.Menu.Add(commitHistoryItem);
 
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
@@ -542,6 +553,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+H for Commit History
+        if (e.Key == Key.H && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _ = _commitHistoryViewModel.OpenCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+Shift+N for Scratch Pad
         if (e.Key == Key.N && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
@@ -643,6 +662,8 @@ public partial class MainWindow : Window
         _gitBranchViewModel.IsOpen = false;
         if (_gitFilesViewModel.CloseCommand.CanExecute(null))
             _gitFilesViewModel.CloseCommand.Execute(null);
+        if (_commitHistoryViewModel.CloseCommand.CanExecute(null))
+            _commitHistoryViewModel.CloseCommand.Execute(null);
         if (_scratchPadViewModel.CloseCommand.CanExecute(null))
             _scratchPadViewModel.CloseCommand.Execute(null);
         _fileViewerViewModel.Close();

@@ -113,6 +113,12 @@
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch" />
 
+                <!-- Commit History - Center (uses DraggablePopup internally) -->
+                <popups:CommitHistoryView
+                    x:Name="CommitHistoryPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
                 <!-- Scratch Pad - Center -->
                 <views:ScratchPadView
                     x:Name="ScratchPadPopup"

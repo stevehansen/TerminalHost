@@ -93,6 +93,7 @@ public partial class App : Application
         services.AddTransient<FilePreviewViewModel>();
         services.AddSingleton<GitFilesViewModel>();
         services.AddSingleton<GitBranchViewModel>();
+        services.AddSingleton<CommitHistoryViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();
