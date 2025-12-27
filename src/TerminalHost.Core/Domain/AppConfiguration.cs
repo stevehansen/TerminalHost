@@ -64,6 +64,13 @@ public class AppConfiguration
     [JsonPropertyName("lastSelectedFolder")]
     public string? LastSelectedFolder { get; set; }
 
+    /// <summary>
+    /// The type of tab that was last selected (Project, Dashboard, Timeline, etc.).
+    /// Used to restore special tabs as the active tab on restart.
+    /// </summary>
+    [JsonPropertyName("lastSelectedTabType")]
+    public string? LastSelectedTabType { get; set; }
+
     [JsonPropertyName("directorySettings")]
     public Dictionary<string, DirectorySettings> DirectorySettings { get; set; } = [];
 

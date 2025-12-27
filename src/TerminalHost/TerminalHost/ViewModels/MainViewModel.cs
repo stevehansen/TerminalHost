@@ -640,15 +640,20 @@ public partial class MainViewModel : ObservableObject
     private void RestoreOpenFolders()
     {
         var config = _configService.Load();
+        var lastTabType = config.LastSelectedTabType ?? "Project";
 
-        // Restore dashboard if it was open
-        if (config.Settings.Dashboard.ShowOnStartup && config.Settings.Dashboard.Enabled)
+        // Restore dashboard if it was open OR if it was the last active tab
+        var shouldOpenDashboard = (config.Settings.Dashboard.ShowOnStartup && config.Settings.Dashboard.Enabled)
+                                  || lastTabType == "Dashboard";
+        if (shouldOpenDashboard)
         {
             _ = OpenDashboardAsync();
         }
 
-        // Restore timeline if it was open
-        if (config.Settings.Timeline.ShowOnStartup && config.Settings.Timeline.Enabled)
+        // Restore timeline if it was open OR if it was the last active tab
+        var shouldOpenTimeline = (config.Settings.Timeline.ShowOnStartup && config.Settings.Timeline.Enabled)
+                                 || lastTabType == "Timeline";
+        if (shouldOpenTimeline)
         {
             OpenTimeline();
         }
@@ -661,15 +666,37 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // Restore the last selected tab
-        if (!string.IsNullOrEmpty(config.LastSelectedFolder))
+        // Restore the last selected tab based on type
+        switch (lastTabType)
         {
-            var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
-                .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
-            if (tabToSelect != null)
-            {
-                SelectedTab = tabToSelect;
-            }
+            case "Dashboard":
+                var dashboardTab = Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+                if (dashboardTab != null)
+                {
+                    SelectedTab = dashboardTab;
+                }
+                break;
+
+            case "Timeline":
+                var timelineTab = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+                if (timelineTab != null)
+                {
+                    SelectedTab = timelineTab;
+                }
+                break;
+
+            case "Project":
+            default:
+                if (!string.IsNullOrEmpty(config.LastSelectedFolder))
+                {
+                    var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
+                        .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
+                    if (tabToSelect != null)
+                    {
+                        SelectedTab = tabToSelect;
+                    }
+                }
+                break;
         }
     }
 
@@ -680,15 +707,33 @@ public partial class MainViewModel : ObservableObject
         // Only save TerminalPairTabViewModel tabs (not Settings, Stats, Dashboard, etc.)
         config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
 
-        // Save the currently selected tab (if it's a project tab)
-        if (SelectedTab is TerminalPairTabViewModel selectedProjectTab)
+        // Save the currently selected tab type and folder
+        switch (SelectedTab)
         {
-            config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
-        }
-        else
-        {
-            // Keep the previous selection or clear it
-            config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+            case TerminalPairTabViewModel selectedProjectTab:
+                config.LastSelectedTabType = "Project";
+                config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
+                break;
+            case DashboardTabViewModel:
+                config.LastSelectedTabType = "Dashboard";
+                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+                break;
+            case TimelineTabViewModel:
+                config.LastSelectedTabType = "Timeline";
+                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+                break;
+            case SettingsTabViewModel:
+                config.LastSelectedTabType = "Settings";
+                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+                break;
+            case StatisticsTabViewModel:
+                config.LastSelectedTabType = "Statistics";
+                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+                break;
+            default:
+                config.LastSelectedTabType = "Project";
+                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+                break;
         }
 
         _configService.Save(config);
