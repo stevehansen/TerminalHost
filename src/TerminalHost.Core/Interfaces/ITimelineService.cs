@@ -340,5 +340,10 @@ public interface ITimelineService
     /// </summary>
     event EventHandler<TimeScale>? TimeScaleChanged;
 
+    /// <summary>
+    /// Fired when a session start is requested - consumer should open a project tab.
+    /// </summary>
+    event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
+
     #endregion
 }

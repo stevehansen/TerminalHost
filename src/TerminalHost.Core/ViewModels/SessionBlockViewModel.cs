@@ -34,8 +34,8 @@ public partial class SessionBlockViewModel : ObservableObject
     {
         get
         {
-            var start = StartTime.ToString("HH:mm");
-            var end = EndTime?.ToString("HH:mm") ?? "...";
+            var start = StartTime.ToLocalTime().ToString("HH:mm");
+            var end = EndTime?.ToLocalTime().ToString("HH:mm") ?? "...";
             return $"{start} → {end}";
         }
     }
@@ -55,6 +55,67 @@ public partial class SessionBlockViewModel : ObservableObject
     public bool HasCommands => Commands.Any();
     public bool IsRunning => Status == ClaudeSessionStatus.Running;
     public bool IsCompleted => Status != ClaudeSessionStatus.Running;
+    public bool IsAbandoned => Status == ClaudeSessionStatus.Abandoned;
+
+    /// <summary>
+    /// Number of files changed in this session.
+    /// </summary>
+    public int FileCount => _session.FilesChanged.Count;
+
+    /// <summary>
+    /// Display text for the session block (e.g., "Claude Code" or "CC working...")
+    /// </summary>
+    public string BlockTitle => IsRunning ? "Claude Code working..." : "Claude Code";
+
+    /// <summary>
+    /// Compact summary for the session block (e.g., "25m • 3 files")
+    /// </summary>
+    public string BlockSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            parts.Add(DurationDisplay);
+            if (FileCount > 0)
+                parts.Add($"{FileCount} files");
+            return string.Join(" • ", parts);
+        }
+    }
+
+    // Timeline positioning properties
+    [ObservableProperty]
+    private double _xPosition;
+
+    [ObservableProperty]
+    private double _width = 120; // Minimum width
+
+    [ObservableProperty]
+    private double _progressWidth; // For running sessions, the progress bar width
+
+    /// <summary>
+    /// Update the position based on timeline view parameters.
+    /// </summary>
+    public void UpdatePosition(DateTime viewStartTime, double pixelsPerMinute)
+    {
+        // Calculate X position from start time (convert to local for comparison)
+        var localStart = StartTime.ToLocalTime();
+        var minutesFromStart = (localStart - viewStartTime).TotalMinutes;
+        XPosition = Math.Max(0, minutesFromStart * pixelsPerMinute);
+
+        // Calculate width from duration
+        var endTimeActual = EndTime?.ToLocalTime() ?? DateTime.Now;
+        var durationMinutes = (endTimeActual - localStart).TotalMinutes;
+        var calculatedWidth = durationMinutes * pixelsPerMinute;
+
+        // Minimum width for readability
+        Width = Math.Max(120, calculatedWidth);
+
+        // For running sessions, show progress within the block
+        if (IsRunning)
+        {
+            ProgressWidth = calculatedWidth;
+        }
+    }
 
     [ObservableProperty]
     private ObservableCollection<FileChangeViewModel> _filesChanged = [];
@@ -67,10 +128,11 @@ public partial class SessionBlockViewModel : ObservableObject
         _session = session;
         _parent = parent;
 
-        // Load file changes
+        // Load file changes with relative paths based on worktree
+        var basePath = parent.WorktreePath;
         foreach (var change in session.FilesChanged)
         {
-            FilesChanged.Add(new FileChangeViewModel(change));
+            FilesChanged.Add(new FileChangeViewModel(change, basePath));
         }
 
         // Load commands
@@ -123,17 +185,44 @@ public partial class SessionBlockViewModel : ObservableObject
 public class FileChangeViewModel
 {
     public string Path { get; }
+    public string RelativePath { get; }
     public string FileName { get; }
     public int Additions { get; }
     public int Deletions { get; }
     public string Summary { get; }
+    public bool HasLineChanges { get; }
 
-    public FileChangeViewModel(FileChange change)
+    public FileChangeViewModel(FileChange change, string? basePath = null)
     {
         Path = change.Path;
         FileName = System.IO.Path.GetFileName(change.Path);
         Additions = change.Additions;
         Deletions = change.Deletions;
         Summary = change.ChangeSummary;
+        HasLineChanges = Additions > 0 || Deletions > 0;
+
+        // Make path relative if possible
+        if (!string.IsNullOrEmpty(basePath) && change.Path.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+        {
+            RelativePath = change.Path.Substring(basePath.Length).TrimStart('\\', '/');
+        }
+        else
+        {
+            // Try to extract a reasonable relative path from the full path
+            // Look for common patterns like "src/", "plugins/", etc.
+            var path = change.Path.Replace('\\', '/');
+            var markers = new[] { "/src/", "/plugins/", "/tests/", "/docs/" };
+            foreach (var marker in markers)
+            {
+                var idx = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    RelativePath = path.Substring(idx + 1); // Keep "src/..." part
+                    return;
+                }
+            }
+            // Fallback: just use filename
+            RelativePath = FileName;
+        }
     }
 }

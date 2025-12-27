@@ -90,6 +90,24 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _showTroubleshooting;
 
+    // Timeline positioning properties
+    [ObservableProperty]
+    private DateTime _viewStartTime;
+
+    [ObservableProperty]
+    private DateTime _viewEndTime;
+
+    [ObservableProperty]
+    private double _pixelsPerMinute = 3.0; // Default: 3 pixels per minute = 180px per hour
+
+    [ObservableProperty]
+    private double _timelineWidth = 1000;
+
+    /// <summary>
+    /// Get time markers for the time ruler.
+    /// </summary>
+    public ObservableCollection<TimeMarker> TimeMarkers { get; } = [];
+
     #endregion
 
     public TimelineTabViewModel(
@@ -142,7 +160,133 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         {
             UpdateFocusTimeDisplay();
         }
+
+        UpdateTimelineView();
     }
+
+    private void UpdateTimelineView()
+    {
+        // Calculate visible time range based on scale
+        var now = DateTime.Now;
+        var today = now.Date;
+
+        // Find earliest session time to include it in view (convert UTC to local)
+        DateTime? earliestSession = null;
+        foreach (var intent in Intents)
+        {
+            foreach (var session in intent.Sessions)
+            {
+                var localTime = session.StartTime.ToLocalTime();
+                if (earliestSession == null || localTime < earliestSession)
+                    earliestSession = localTime;
+            }
+        }
+
+        // Default view adapts based on current time and earliest session
+        switch (CurrentTimeScale)
+        {
+            case TimeScale.Minutes:
+                // Last 30 min to now + 10 min
+                ViewStartTime = now.AddMinutes(-30);
+                ViewEndTime = now.AddMinutes(10);
+                PixelsPerMinute = 8.0; // 480px per hour
+                break;
+            case TimeScale.Hours:
+                // Start from earliest session or 2 hours before now, whichever is earlier
+                var defaultStart = now.AddHours(-2);
+                if (earliestSession.HasValue && earliestSession.Value.Date == today)
+                {
+                    // Round down to the hour
+                    var sessionHour = earliestSession.Value.Date.AddHours(earliestSession.Value.Hour);
+                    ViewStartTime = sessionHour < defaultStart ? sessionHour : defaultStart;
+                }
+                else
+                {
+                    ViewStartTime = defaultStart;
+                }
+                ViewEndTime = now.AddHours(1);
+                PixelsPerMinute = 3.0; // 180px per hour
+                break;
+            case TimeScale.Days:
+                // Last 3 days
+                ViewStartTime = today.AddDays(-2);
+                ViewEndTime = today.AddDays(1);
+                PixelsPerMinute = 0.1; // ~6px per hour
+                break;
+        }
+
+        // Calculate timeline width (minimum 1200px to fill typical screen)
+        var totalMinutes = (ViewEndTime - ViewStartTime).TotalMinutes;
+        TimelineWidth = Math.Max(1200, totalMinutes * PixelsPerMinute);
+
+        // Generate time markers
+        UpdateTimeMarkers();
+
+        // Update session positions
+        foreach (var intent in Intents)
+        {
+            foreach (var session in intent.Sessions)
+            {
+                session.UpdatePosition(ViewStartTime, PixelsPerMinute);
+            }
+        }
+    }
+
+    private void UpdateTimeMarkers()
+    {
+        TimeMarkers.Clear();
+
+        // Determine marker interval based on scale
+        TimeSpan interval = CurrentTimeScale switch
+        {
+            TimeScale.Minutes => TimeSpan.FromMinutes(5),
+            TimeScale.Hours => TimeSpan.FromHours(1),
+            TimeScale.Days => TimeSpan.FromDays(1), // Show only day boundaries
+            _ => TimeSpan.FromHours(1)
+        };
+
+        var current = ViewStartTime;
+        // Round to interval
+        var totalMinutes = (int)interval.TotalMinutes;
+        var minutes = (int)current.TimeOfDay.TotalMinutes;
+        var roundedMinutes = (minutes / totalMinutes) * totalMinutes;
+        current = current.Date.AddMinutes(roundedMinutes);
+
+        while (current <= ViewEndTime)
+        {
+            var x = (current - ViewStartTime).TotalMinutes * PixelsPerMinute;
+            var isMajor = CurrentTimeScale switch
+            {
+                TimeScale.Minutes => current.Minute == 0,
+                TimeScale.Hours => current.Minute == 0,
+                TimeScale.Days => current.Hour == 0,
+                _ => false
+            };
+
+            TimeMarkers.Add(new TimeMarker
+            {
+                Time = current,
+                XPosition = x,
+                Label = FormatTimeMarker(current),
+                IsMajor = isMajor
+            });
+
+            current = current.Add(interval);
+        }
+    }
+
+    private string FormatTimeMarker(DateTime time) => CurrentTimeScale switch
+    {
+        TimeScale.Minutes => time.ToString("HH:mm"),
+        TimeScale.Hours => time.ToString("HH:mm"),
+        TimeScale.Days => time.ToString("ddd d"),  // e.g., "Fri 27"
+        _ => time.ToString("HH:mm")
+    };
+
+    /// <summary>
+    /// Get X position for current time indicator.
+    /// </summary>
+    public double CurrentTimeXPosition => (DateTime.Now - ViewStartTime).TotalMinutes * PixelsPerMinute;
 
     private void UpdateFocusTimeDisplay()
     {
@@ -255,12 +399,14 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     private void OnIntentsChanged(object? sender, EventArgs e)
     {
         RefreshIntents();
+        UpdateTimelineView(); // Recalculate positions for new view models
         UpdateStatusBar();
     }
 
     private void OnSessionsChanged(object? sender, EventArgs e)
     {
         RefreshIntents();
+        UpdateTimelineView(); // Recalculate positions for new view models
         UpdateStatusBar();
     }
 
@@ -273,6 +419,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     private void OnTimeScaleChanged(object? sender, TimeScale scale)
     {
         CurrentTimeScale = scale;
+        UpdateTimelineView();
     }
 
     #endregion
@@ -470,4 +617,15 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.FocusStateChanged -= OnFocusStateChanged;
         _timelineService.TimeScaleChanged -= OnTimeScaleChanged;
     }
+}
+
+/// <summary>
+/// Represents a time marker on the timeline ruler.
+/// </summary>
+public class TimeMarker
+{
+    public DateTime Time { get; set; }
+    public double XPosition { get; set; }
+    public string Label { get; set; } = "";
+    public bool IsMajor { get; set; }
 }

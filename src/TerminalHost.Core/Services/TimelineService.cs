@@ -38,6 +38,7 @@ public sealed class TimelineService : ITimelineService
     public event EventHandler<ClaudeSession>? SessionStatusChanged;
     public event EventHandler<bool>? FocusStateChanged;
     public event EventHandler<TimeScale>? TimeScaleChanged;
+    public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
 
     private void OnEnabledChanged(bool enabled) =>
         EnabledChanged?.Invoke(this, enabled);
@@ -358,14 +359,20 @@ public sealed class TimelineService : ITimelineService
             if (intent == null) return false;
         }
 
-        // Remove worktree if requested
+        // Try to remove worktree if requested (don't fail if worktree removal fails)
         if (removeWorktree && !string.IsNullOrEmpty(intent.WorktreePath))
         {
-            var result = await _worktreeService.RemoveWorktreeAsync(intent.WorktreePath, force: true);
-            if (!result.Success)
-                return false;
+            try
+            {
+                await _worktreeService.RemoveWorktreeAsync(intent.WorktreePath, force: true);
+            }
+            catch
+            {
+                // Ignore worktree removal errors - still delete the intent
+            }
         }
 
+        // Always delete the intent from state
         lock (_lock)
         {
             _state.RemoveIntent(intentId);
@@ -443,6 +450,8 @@ public sealed class TimelineService : ITimelineService
     public ClaudeSession StartSession(string intentId, string? initialPrompt = null)
     {
         ClaudeSession session;
+        string? worktreePath = null;
+
         lock (_lock)
         {
             session = ClaudeSession.Create(intentId);
@@ -450,17 +459,25 @@ public sealed class TimelineService : ITimelineService
 
             _state.AddSession(session);
 
-            // Update intent's last active time
+            // Update intent's last active time and get worktree path
             var intent = _state.GetIntent(intentId);
             if (intent != null)
             {
                 intent.LastActiveAt = DateTime.UtcNow;
+                worktreePath = intent.WorktreePath;
             }
 
             SaveToConfig();
         }
 
         OnSessionsChanged();
+
+        // Request opening the project (this will open a new terminal tab)
+        if (!string.IsNullOrEmpty(worktreePath))
+        {
+            OpenProjectRequested?.Invoke(this, (worktreePath, initialPrompt));
+        }
+
         return session;
     }
 

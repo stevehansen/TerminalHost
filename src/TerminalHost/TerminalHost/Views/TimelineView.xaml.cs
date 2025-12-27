@@ -7,6 +7,8 @@ namespace TerminalHost.Views;
 
 public partial class TimelineView : UserControl
 {
+    private bool _isSyncingScroll;
+
     public TimelineView()
     {
         InitializeComponent();
@@ -17,6 +19,19 @@ public partial class TimelineView : UserControl
     {
         // Set focus to enable keyboard navigation
         Focus();
+
+        // Synchronize horizontal scroll between time ruler and swimlanes
+        if (FindName("TimeRulerScroll") is ScrollViewer timeRulerScroll &&
+            FindName("SwimlaneScroll") is ScrollViewer swimlaneScroll)
+        {
+            swimlaneScroll.ScrollChanged += (s, args) =>
+            {
+                if (_isSyncingScroll) return;
+                _isSyncingScroll = true;
+                timeRulerScroll.ScrollToHorizontalOffset(args.HorizontalOffset);
+                _isSyncingScroll = false;
+            };
+        }
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)

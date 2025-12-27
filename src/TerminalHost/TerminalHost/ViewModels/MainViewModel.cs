@@ -37,6 +37,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IDispatcherService _dispatcherService;
     private readonly IFolderPickerService _folderPickerService;
     private readonly IViewModelFactory _viewModelFactory;
+    private readonly ITimelineService _timelineService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -233,7 +234,8 @@ public partial class MainViewModel : ObservableObject
         ITimerService timerService,
         IDispatcherService dispatcherService,
         IFolderPickerService folderPickerService,
-        IViewModelFactory viewModelFactory)
+        IViewModelFactory viewModelFactory,
+        ITimelineService timelineService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -257,6 +259,10 @@ public partial class MainViewModel : ObservableObject
         _dispatcherService = dispatcherService;
         _folderPickerService = folderPickerService;
         _viewModelFactory = viewModelFactory;
+        _timelineService = timelineService;
+
+        // Subscribe to timeline events
+        _timelineService.OpenProjectRequested += OnTimelineOpenProjectRequested;
 
         // Initialize workspace sidebar
         WorkspaceSidebar = _viewModelFactory.CreateWorkspaceSidebar();
@@ -2301,6 +2307,16 @@ public partial class MainViewModel : ObservableObject
     private void OnWorkspaceSidebarOpenTabRequested(object? sender, string path)
     {
         OpenProjectTab(path);
+    }
+
+    /// <summary>
+    /// Handles the OpenProjectRequested event from the timeline service.
+    /// </summary>
+    private void OnTimelineOpenProjectRequested(object? sender, (string WorktreePath, string? InitialPrompt) args)
+    {
+        // Open the project tab for the intent's worktree
+        OpenProjectTab(args.WorktreePath);
+        // TODO: If there's an initial prompt, we could send it to the terminal after focus
     }
 
     /// <summary>
