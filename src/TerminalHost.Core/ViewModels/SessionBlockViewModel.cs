@@ -63,9 +63,56 @@ public partial class SessionBlockViewModel : ObservableObject
     public int FileCount => _session.FilesChanged.Count;
 
     /// <summary>
-    /// Display text for the session block (e.g., "Claude Code" or "CC working...")
+    /// Display text for the session block - shows commit message, agent notes, or default.
     /// </summary>
-    public string BlockTitle => IsRunning ? "Claude Code working..." : "Claude Code";
+    public string BlockTitle
+    {
+        get
+        {
+            if (IsRunning)
+                return "Claude Code working...";
+
+            // Try commit message first (most authoritative)
+            if (!string.IsNullOrEmpty(CommitMessage))
+                return TruncateTitle(CommitMessage);
+
+            // Then try agent notes/summary
+            if (!string.IsNullOrEmpty(AgentNotes))
+                return TruncateTitle(AgentNotes);
+
+            // Then try initial prompt
+            if (!string.IsNullOrEmpty(InitialPrompt))
+                return TruncateTitle(InitialPrompt);
+
+            return "Claude Code";
+        }
+    }
+
+    /// <summary>
+    /// Truncates a title to a reasonable display length.
+    /// </summary>
+    private static string TruncateTitle(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        // Clean up the text (remove newlines, collapse whitespace)
+        text = text.Replace('\r', ' ').Replace('\n', ' ');
+        while (text.Contains("  "))
+            text = text.Replace("  ", " ");
+        text = text.Trim();
+
+        const int maxLength = 50;
+        if (text.Length <= maxLength)
+            return text;
+
+        // Find a good break point
+        var breakPoint = text.LastIndexOf(' ', maxLength);
+        if (breakPoint < maxLength / 2)
+            breakPoint = maxLength;
+
+        return text[..breakPoint].TrimEnd() + "...";
+    }
 
     /// <summary>
     /// Compact summary for the session block (e.g., "25m • 3 files")

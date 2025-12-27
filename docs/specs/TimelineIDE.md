@@ -399,7 +399,7 @@ Timeline Mode can work alongside the existing workspace sidebar:
 
 ## Implementation Status
 
-> Last updated: 2025-12-27
+> Last updated: 2025-12-27 (orphan sessions, transcript parsing, improved titles)
 
 ### Completed
 
@@ -449,9 +449,11 @@ Timeline Mode can work alongside the existing workspace sidebar:
 - [ ] **Export/import timeline data**: Export intents + sessions to JSON for backup/sharing
 - [ ] **Statistics and insights**: Dedicated stats view (total focus time, sessions per intent, success rate, etc.)
 
-#### Session Detail Enhancements
-- [ ] **Commands from transcript**: Parse transcript JSONL for Bash tool calls
-- [ ] **Agent notes from transcript**: Extract Claude's summary from transcript
+#### Session Detail Enhancements ✅
+- [x] **Commands from transcript**: Parse transcript JSONL for Bash tool calls
+- [x] **Agent notes from transcript**: Extract Claude's summary from transcript
+- [x] **Orphan session tracking**: Store sessions without intent for later assignment (max 20)
+- [x] **Improved session titles**: Display commit message, agent notes, or initial prompt
 
 ## Session Tracking via Claude Code Hooks
 

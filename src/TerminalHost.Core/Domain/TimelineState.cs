@@ -68,6 +68,13 @@ public class TimelineState
     [JsonPropertyName("focusTimeResetDate")]
     public DateTime? FocusTimeResetDate { get; set; }
 
+    /// <summary>
+    /// Sessions detected via hooks that don't have a matching intent.
+    /// These can be assigned to intents later.
+    /// </summary>
+    [JsonPropertyName("orphanSessions")]
+    public List<OrphanSession> OrphanSessions { get; set; } = [];
+
     // Computed properties
 
     /// <summary>
@@ -252,4 +259,55 @@ public class TimelineState
         var intent = GetIntent(session.IntentId);
         intent?.AddSession(session.Id);
     }
+
+    /// <summary>
+    /// Gets an orphan session by Claude session ID.
+    /// </summary>
+    public OrphanSession? GetOrphanSession(string claudeSessionId) =>
+        OrphanSessions.FirstOrDefault(o => o.SessionId == claudeSessionId && !o.IsAssigned);
+
+    /// <summary>
+    /// Gets all unassigned orphan sessions.
+    /// </summary>
+    public IEnumerable<OrphanSession> GetUnassignedOrphanSessions() =>
+        OrphanSessions.Where(o => !o.IsAssigned).OrderByDescending(o => o.StartTime);
+
+    /// <summary>
+    /// Gets orphan sessions for a specific working directory.
+    /// </summary>
+    public IEnumerable<OrphanSession> GetOrphanSessionsForCwd(string cwd)
+    {
+        var normalizedCwd = Path.GetFullPath(cwd).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return OrphanSessions.Where(o => !o.IsAssigned &&
+            string.Equals(Path.GetFullPath(o.Cwd).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                normalizedCwd, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Adds or updates an orphan session.
+    /// </summary>
+    public void AddOrUpdateOrphanSession(OrphanSession orphan)
+    {
+        var existing = OrphanSessions.FirstOrDefault(o => o.SessionId == orphan.SessionId);
+        if (existing != null)
+        {
+            // Update existing
+            existing.EndTime = orphan.EndTime ?? existing.EndTime;
+            existing.TranscriptPath = orphan.TranscriptPath ?? existing.TranscriptPath;
+            foreach (var file in orphan.FilesModified)
+            {
+                existing.AddFile(file);
+            }
+        }
+        else
+        {
+            OrphanSessions.Add(orphan);
+        }
+    }
+
+    /// <summary>
+    /// Gets the count of unassigned orphan sessions.
+    /// </summary>
+    [JsonIgnore]
+    public int OrphanSessionCount => OrphanSessions.Count(o => !o.IsAssigned);
 }

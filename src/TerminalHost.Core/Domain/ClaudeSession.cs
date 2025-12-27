@@ -99,6 +99,12 @@ public class ClaudeSession
     [JsonPropertyName("costUsd")]
     public decimal? CostUsd { get; set; }
 
+    /// <summary>
+    /// Path to the Claude Code transcript file.
+    /// </summary>
+    [JsonPropertyName("transcriptPath")]
+    public string? TranscriptPath { get; set; }
+
     // Computed properties
 
     /// <summary>

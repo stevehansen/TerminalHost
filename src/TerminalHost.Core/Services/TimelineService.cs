@@ -39,6 +39,7 @@ public sealed class TimelineService : ITimelineService
     public event EventHandler<bool>? FocusStateChanged;
     public event EventHandler<TimeScale>? TimeScaleChanged;
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
+    public event EventHandler? OrphanSessionsChanged;
 
     private void OnEnabledChanged(bool enabled) =>
         EnabledChanged?.Invoke(this, enabled);
@@ -60,6 +61,9 @@ public sealed class TimelineService : ITimelineService
 
     private void OnTimeScaleChanged(TimeScale scale) =>
         TimeScaleChanged?.Invoke(this, scale);
+
+    private void OnOrphanSessionsChanged() =>
+        OrphanSessionsChanged?.Invoke(this, EventArgs.Empty);
 
     #endregion
 
@@ -212,6 +216,9 @@ public sealed class TimelineService : ITimelineService
             SaveToConfig();
         }
 
+        // Import any orphan sessions that were tracked for this directory
+        AssignOrphansToIntent(worktreePath, intent.Id);
+
         OnIntentsChanged();
         return intent;
     }
@@ -252,6 +259,9 @@ public sealed class TimelineService : ITimelineService
             _state.AddIntent(intent);
             SaveToConfig();
         }
+
+        // Import any orphan sessions that were tracked for this directory
+        var imported = AssignOrphansToIntent(existingFolderPath, intent.Id);
 
         OnIntentsChanged();
         return intent;
@@ -654,6 +664,119 @@ public sealed class TimelineService : ITimelineService
 
     #endregion
 
+    #region Orphan Sessions
+
+    /// <summary>
+    /// Gets all unassigned orphan sessions.
+    /// </summary>
+    public IReadOnlyList<OrphanSession> GetOrphanSessions()
+    {
+        lock (_lock)
+        {
+            return _state.GetUnassignedOrphanSessions().ToList();
+        }
+    }
+
+    /// <summary>
+    /// Gets orphan sessions for a specific working directory.
+    /// </summary>
+    public IReadOnlyList<OrphanSession> GetOrphanSessionsForPath(string path)
+    {
+        lock (_lock)
+        {
+            return _state.GetOrphanSessionsForCwd(path).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Gets the count of unassigned orphan sessions.
+    /// </summary>
+    public int GetOrphanSessionCount()
+    {
+        lock (_lock)
+        {
+            return _state.OrphanSessionCount;
+        }
+    }
+
+    /// <summary>
+    /// Assigns an orphan session to an intent, converting it to a proper ClaudeSession.
+    /// </summary>
+    public ClaudeSession? AssignOrphanToIntent(string orphanSessionId, string intentId)
+    {
+        ClaudeSession? session = null;
+        lock (_lock)
+        {
+            var orphan = _state.OrphanSessions.FirstOrDefault(o =>
+                o.SessionId == orphanSessionId && !o.IsAssigned);
+            if (orphan == null) return null;
+
+            var intent = _state.GetIntent(intentId);
+            if (intent == null) return null;
+
+            session = orphan.ToClaudeSession(intentId);
+            orphan.IsAssigned = true;
+            orphan.AssignedSessionId = session.Id;
+
+            _state.AddSession(session);
+            SaveToConfig();
+        }
+
+        OnSessionsChanged();
+        OnOrphanSessionsChanged();
+        return session;
+    }
+
+    /// <summary>
+    /// Assigns all orphan sessions from a directory to an intent.
+    /// Called when creating an intent - imports any previous sessions.
+    /// </summary>
+    public List<ClaudeSession> AssignOrphansToIntent(string cwd, string intentId)
+    {
+        var assigned = new List<ClaudeSession>();
+        lock (_lock)
+        {
+            var orphans = _state.GetOrphanSessionsForCwd(cwd).ToList();
+            foreach (var orphan in orphans)
+            {
+                var session = orphan.ToClaudeSession(intentId);
+                orphan.IsAssigned = true;
+                orphan.AssignedSessionId = session.Id;
+                _state.AddSession(session);
+                assigned.Add(session);
+            }
+
+            if (assigned.Count > 0)
+                SaveToConfig();
+        }
+
+        if (assigned.Count > 0)
+        {
+            OnSessionsChanged();
+            OnOrphanSessionsChanged();
+        }
+        return assigned;
+    }
+
+    /// <summary>
+    /// Removes an orphan session (if user dismisses it).
+    /// </summary>
+    public void RemoveOrphanSession(string orphanSessionId)
+    {
+        lock (_lock)
+        {
+            var orphan = _state.OrphanSessions.FirstOrDefault(o => o.SessionId == orphanSessionId);
+            if (orphan != null)
+            {
+                _state.OrphanSessions.Remove(orphan);
+                SaveToConfig();
+            }
+        }
+        OnOrphanSessionsChanged();
+    }
+
+    #endregion
+
     #region Cherry-pick
 
     public async Task<GitOperationResult> CherryPickSessionAsync(string sourceSessionId, string targetIntentId)
@@ -818,7 +941,32 @@ public sealed class TimelineService : ITimelineService
         var intent = FindIntentByWorkingDirectory(hookEvent.Cwd);
         if (intent == null)
         {
-            // No matching intent - could optionally track unassigned sessions
+            // No matching intent - store as orphan session for later assignment
+            lock (_lock)
+            {
+                var existingOrphan = _state.GetOrphanSession(hookEvent.SessionId);
+                if (existingOrphan != null)
+                {
+                    // Update existing orphan (might be a --continue)
+                    // Keep the earliest start time
+                    if (hookEvent.Timestamp < existingOrphan.StartTime)
+                        existingOrphan.StartTime = hookEvent.Timestamp;
+                    existingOrphan.TranscriptPath = hookEvent.TranscriptPath ?? existingOrphan.TranscriptPath;
+                }
+                else
+                {
+                    var orphan = new OrphanSession
+                    {
+                        SessionId = hookEvent.SessionId,
+                        Cwd = hookEvent.Cwd,
+                        TranscriptPath = hookEvent.TranscriptPath,
+                        StartTime = hookEvent.Timestamp
+                    };
+                    _state.AddOrUpdateOrphanSession(orphan);
+                }
+                SaveToConfig();
+            }
+            OnOrphanSessionsChanged();
             return;
         }
 
@@ -827,15 +975,23 @@ public sealed class TimelineService : ITimelineService
         if (existingSession != null)
         {
             // Session already exists (possibly from a --continue invocation)
-            // Just update the timestamp
+            // Keep the earliest start time for correct duration calculation
             lock (_lock)
             {
-                existingSession.StartTime = hookEvent.Timestamp;
+                if (hookEvent.Timestamp < existingSession.StartTime)
+                    existingSession.StartTime = hookEvent.Timestamp;
                 existingSession.Status = ClaudeSessionStatus.Running;
                 SaveToConfig();
             }
             OnSessionsChanged();
             return;
+        }
+
+        // Check if there's an orphan session that should be converted
+        OrphanSession? orphanToConvert;
+        lock (_lock)
+        {
+            orphanToConvert = _state.GetOrphanSession(hookEvent.SessionId);
         }
 
         // Create a new session
@@ -844,7 +1000,22 @@ public sealed class TimelineService : ITimelineService
         {
             session = ClaudeSession.Create(intent.Id);
             session.ContinueSessionId = hookEvent.SessionId;
-            session.StartTime = hookEvent.Timestamp;
+            session.TranscriptPath = hookEvent.TranscriptPath;
+
+            // Use the earliest timestamp between hook event and any existing orphan data
+            session.StartTime = orphanToConvert != null && orphanToConvert.StartTime < hookEvent.Timestamp
+                ? orphanToConvert.StartTime
+                : hookEvent.Timestamp;
+
+            // Copy files and transcript from orphan if present
+            if (orphanToConvert != null)
+            {
+                foreach (var file in orphanToConvert.FilesModified)
+                    session.AddFileChange(file, 0, 0);
+                session.TranscriptPath ??= orphanToConvert.TranscriptPath;
+                orphanToConvert.IsAssigned = true;
+                orphanToConvert.AssignedSessionId = session.Id;
+            }
 
             _state.AddSession(session);
 
@@ -867,20 +1038,43 @@ public sealed class TimelineService : ITimelineService
 
         // Find the session by Claude session ID
         var session = GetSessionByClaudeId(hookEvent.SessionId);
-        if (session == null)
+        if (session != null)
         {
-            // No matching session - might be an untracked session
+            lock (_lock)
+            {
+                // Add the file to the session (we don't have line counts from hooks yet)
+                session.AddFileChange(hookEvent.FilePath, 0, 0);
+
+                // If session was marked as completed but we're still getting file changes,
+                // the user must have continued the conversation - mark as running again
+                if (session.Status != ClaudeSessionStatus.Running)
+                {
+                    session.Status = ClaudeSessionStatus.Running;
+                    session.EndTime = null; // Clear end time since it's running again
+                }
+
+                SaveToConfig();
+            }
+            OnSessionsChanged();
             return;
         }
 
+        // Check if there's an orphan session for this
         lock (_lock)
         {
-            // Add the file to the session (we don't have line counts from hooks yet)
-            session.AddFileChange(hookEvent.FilePath, 0, 0);
-            SaveToConfig();
+            var orphan = _state.GetOrphanSession(hookEvent.SessionId);
+            if (orphan != null)
+            {
+                orphan.AddFile(hookEvent.FilePath);
+                // Also clear end time if session continues
+                if (orphan.EndTime.HasValue)
+                    orphan.EndTime = null;
+                SaveToConfig();
+                OnOrphanSessionsChanged();
+            }
+            // If no session and no orphan, the file change is lost
+            // This shouldn't happen in normal flow since session_start should create one
         }
-
-        OnSessionsChanged();
     }
 
     /// <summary>
@@ -895,7 +1089,19 @@ public sealed class TimelineService : ITimelineService
         var session = GetSessionByClaudeId(hookEvent.SessionId);
         if (session == null)
         {
-            // No matching session
+            // Check if there's an orphan session to finalize
+            lock (_lock)
+            {
+                var orphan = _state.GetOrphanSession(hookEvent.SessionId);
+                if (orphan != null)
+                {
+                    orphan.EndTime = hookEvent.Timestamp;
+                    orphan.TranscriptPath = hookEvent.TranscriptPath ?? orphan.TranscriptPath;
+                    CleanupOldOrphanSessions();
+                    SaveToConfig();
+                    OnOrphanSessionsChanged();
+                }
+            }
             return;
         }
 
@@ -906,10 +1112,11 @@ public sealed class TimelineService : ITimelineService
             intent = _state.GetIntent(session.IntentId);
         }
 
-        // Set end time first
+        // Set end time and transcript path first
         lock (_lock)
         {
             session.EndTime = hookEvent.Timestamp;
+            session.TranscriptPath ??= hookEvent.TranscriptPath;
         }
 
         // Gather git data if we have a worktree
@@ -935,8 +1142,86 @@ public sealed class TimelineService : ITimelineService
             }
         }
 
+        // Try to parse transcript for commands and summary
+        await TryParseTranscriptAsync(session);
+
         OnSessionsChanged();
         OnSessionStatusChanged(session);
+    }
+
+    /// <summary>
+    /// Attempts to parse the transcript file to extract commands and agent notes.
+    /// </summary>
+    private async Task TryParseTranscriptAsync(ClaudeSession session)
+    {
+        if (string.IsNullOrEmpty(session.TranscriptPath))
+            return;
+
+        // Only parse if we don't already have commands/notes
+        if (session.CommandsExecuted.Count > 0 || !string.IsNullOrEmpty(session.AgentNotes))
+            return;
+
+        try
+        {
+            var parser = new TranscriptParserService();
+            var result = await parser.ParseTranscriptAsync(session.TranscriptPath);
+
+            if (result.ParsedSuccessfully)
+            {
+                lock (_lock)
+                {
+                    foreach (var command in result.Commands)
+                    {
+                        session.AddCommand(command);
+                    }
+
+                    if (!string.IsNullOrEmpty(result.Summary))
+                    {
+                        session.AgentNotes = result.Summary;
+                    }
+
+                    SaveToConfig();
+                }
+            }
+        }
+        catch
+        {
+            // Transcript parsing is best-effort, don't fail the session
+        }
+    }
+
+    /// <summary>
+    /// Cleans up old orphan sessions, keeping only the most recent unassigned ones.
+    /// </summary>
+    private void CleanupOldOrphanSessions()
+    {
+        const int maxOrphanSessions = 20;
+
+        // Get unassigned orphans ordered by start time (most recent first)
+        var unassigned = _state.OrphanSessions
+            .Where(o => !o.IsAssigned)
+            .OrderByDescending(o => o.StartTime)
+            .ToList();
+
+        if (unassigned.Count > maxOrphanSessions)
+        {
+            // Remove the oldest ones
+            var toRemove = unassigned.Skip(maxOrphanSessions).ToList();
+            foreach (var orphan in toRemove)
+            {
+                _state.OrphanSessions.Remove(orphan);
+            }
+        }
+
+        // Also remove old assigned orphans (keep for 7 days for reference)
+        var oldAssigned = _state.OrphanSessions
+            .Where(o => o.IsAssigned && o.EndTime.HasValue &&
+                (DateTime.UtcNow - o.EndTime.Value).TotalDays > 7)
+            .ToList();
+        foreach (var orphan in oldAssigned)
+        {
+            _state.OrphanSessions.Remove(orphan);
+        }
     }
 
     /// <summary>
