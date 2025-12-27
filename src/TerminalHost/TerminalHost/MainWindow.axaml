@@ -13,13 +13,43 @@
         MinWidth="800" MinHeight="600"
         Background="{StaticResource BackgroundDarkestBrush}">
 
-    <!-- Main Layout -->
-    <Grid RowDefinitions="Auto,*">
-        <!-- Row 0: Tab Strip -->
-        <views:TabStrip Grid.Row="0" />
+    <!-- Main Layout with Sidebar Support -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar column (visible in Sidebar mode) -->
+            <ColumnDefinition Width="{Binding SidebarColumnWidth}"/>
+            <!-- Sidebar splitter -->
+            <ColumnDefinition Width="{Binding SidebarSplitterWidth}"/>
+            <!-- Content area -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <!-- Tab strip row (visible in Tabs mode) -->
+            <RowDefinition Height="{Binding TabStripRowHeight}"/>
+            <!-- Content -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- Row 1: Tab Content Area -->
-        <Grid Grid.Row="1">
+        <!-- Sidebar (Column 0, spans all rows) -->
+        <views:WorkspaceSidebar x:Name="WorkspaceSidebar"
+                                Grid.Column="0" Grid.RowSpan="2"
+                                IsVisible="{Binding IsSidebarMode}"/>
+
+        <!-- Sidebar Splitter -->
+        <GridSplitter x:Name="SidebarSplitter"
+                      Grid.Column="1" Grid.RowSpan="2"
+                      Width="4"
+                      Background="{StaticResource BackgroundMediumBrush}"
+                      ResizeDirection="Columns"
+                      IsVisible="{Binding IsSidebarMode}"
+                      DragCompleted="SidebarSplitter_DragCompleted"/>
+
+        <!-- Tab Strip (Row 0, Column 2, visible in Tabs mode) -->
+        <views:TabStrip Grid.Row="0" Grid.Column="2"
+                        IsVisible="{Binding IsTabsMode}"/>
+
+        <!-- Tab Content Area (Row 1, Column 2) -->
+        <Grid Grid.Row="1" Grid.Column="2">
             <!-- Tab Content - rendered via DataTemplates -->
             <ContentControl Content="{Binding SelectedTab}">
                 <!-- Placeholder when no tab selected -->

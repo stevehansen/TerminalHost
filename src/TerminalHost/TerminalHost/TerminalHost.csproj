@@ -161,6 +161,7 @@
     <Compile Include="ViewModels\FileHistoryViewModel.cs" />
     <Compile Include="ViewModels\FileBlameViewModel.cs" />
     <Compile Include="ViewModels\ReflogViewModel.cs" />
+    <Compile Include="ViewModels\WorkspaceSidebarViewModel.cs" />
   </ItemGroup>
 
   <!-- Stage 6: Additional Domain models needed by ViewModels -->
@@ -208,6 +209,9 @@
     <Compile Include="Domain\GitStashEntry.cs" />
     <Compile Include="Domain\GitBlame.cs" />
     <Compile Include="Domain\GitReflogEntry.cs" />
+    <Compile Include="Domain\AppLayoutMode.cs" />
+    <Compile Include="Domain\Workspace.cs" />
+    <Compile Include="Domain\WorktreeInfo.cs" />
     <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
     <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
   </ItemGroup>
@@ -269,6 +273,8 @@
     <Compile Include="Services\DiffParserService.cs" />
     <Compile Include="Services\ISearchService.cs" />
     <Compile Include="Services\SearchService.cs" />
+    <Compile Include="Services\IGitWorktreeService.cs" />
+    <Compile Include="Services\GitWorktreeService.cs" />
   </ItemGroup>
 
   <!-- Stage 7: Views code-behind files -->
@@ -279,6 +285,7 @@
     <Compile Include="Views\Tabs\ProfileTerminalView.axaml.cs" />
 
     <!-- Secondary Views -->
+    <Compile Include="Views\WorkspaceSidebar.axaml.cs" />
     <Compile Include="Views\SettingsView.axaml.cs" />
     <Compile Include="Views\ProfilesView.axaml.cs" />
     <Compile Include="Views\StatisticsView.axaml.cs" />

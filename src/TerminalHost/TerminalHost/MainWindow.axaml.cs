@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
     private readonly ReflogViewModel _reflogViewModel;
+    private readonly WorkspaceSidebarViewModel _workspaceSidebarViewModel;
     private readonly IFilePickerService _filePickerService;
 
     public MainWindow(
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
         FileHistoryViewModel fileHistoryViewModel,
         FileBlameViewModel fileBlameViewModel,
         ReflogViewModel reflogViewModel,
+        WorkspaceSidebarViewModel workspaceSidebarViewModel,
         IFilePickerService filePickerService)
     {
         InitializeComponent();
@@ -64,9 +66,17 @@ public partial class MainWindow : Window
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
         _reflogViewModel = reflogViewModel;
+        _workspaceSidebarViewModel = workspaceSidebarViewModel;
         _filePickerService = filePickerService;
 
+        // Wire up sidebar view model bidirectional reference
+        _mainViewModel.SidebarViewModel = _workspaceSidebarViewModel;
+        _workspaceSidebarViewModel.MainViewModel = _mainViewModel;
+
         DataContext = _mainViewModel;
+
+        // Set sidebar DataContext
+        WorkspaceSidebar.DataContext = _workspaceSidebarViewModel;
 
         // Set popup DataContexts
         GitBranchPopup.DataContext = _gitBranchViewModel;
@@ -619,6 +629,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+L for Layout Mode Toggle
+        if (e.Key == Key.L && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _mainViewModel.ToggleLayoutModeCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+Shift+N for Scratch Pad
         if (e.Key == Key.N && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
@@ -862,5 +880,19 @@ public partial class MainWindow : Window
         Topmost = true;
         Topmost = false;
         Focus();
+    }
+
+    private void SidebarSplitter_DragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
+    {
+        // Update the main view model with the new sidebar width
+        if (sender is GridSplitter splitter && splitter.Parent is Grid grid)
+        {
+            // Column 0 is the sidebar
+            if (grid.ColumnDefinitions.Count >= 1)
+            {
+                var sidebarWidth = grid.ColumnDefinitions[0].ActualWidth;
+                _mainViewModel.UpdateSidebarWidth(sidebarWidth);
+            }
+        }
     }
 }

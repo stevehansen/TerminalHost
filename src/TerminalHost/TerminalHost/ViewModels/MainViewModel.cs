@@ -129,6 +129,55 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _quickNoteText = string.Empty;
 
+    // Layout Mode (Tabs vs Sidebar)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSidebarMode))]
+    [NotifyPropertyChangedFor(nameof(IsTabsMode))]
+    [NotifyPropertyChangedFor(nameof(SidebarColumnWidth))]
+    [NotifyPropertyChangedFor(nameof(SidebarSplitterWidth))]
+    [NotifyPropertyChangedFor(nameof(TabStripRowHeight))]
+    private AppLayoutMode _layoutMode = AppLayoutMode.Tabs;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SidebarColumnWidth))]
+    private double _sidebarWidth = 250;
+
+    /// <summary>
+    /// The workspace sidebar view model.
+    /// </summary>
+    public WorkspaceSidebarViewModel? SidebarViewModel { get; set; }
+
+    /// <summary>
+    /// Whether the application is in sidebar layout mode.
+    /// </summary>
+    public bool IsSidebarMode => LayoutMode == AppLayoutMode.Sidebar;
+
+    /// <summary>
+    /// Whether the application is in tabs layout mode.
+    /// </summary>
+    public bool IsTabsMode => LayoutMode == AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Width of the sidebar column (0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength SidebarColumnWidth => IsSidebarMode
+        ? new Avalonia.Controls.GridLength(SidebarWidth, Avalonia.Controls.GridUnitType.Pixel)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
+    /// <summary>
+    /// Width of the sidebar splitter (0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength SidebarSplitterWidth => IsSidebarMode
+        ? new Avalonia.Controls.GridLength(4, Avalonia.Controls.GridUnitType.Pixel)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
+    /// <summary>
+    /// Height of the tab strip row (Auto when visible, 0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength TabStripRowHeight => IsTabsMode
+        ? new Avalonia.Controls.GridLength(1, Avalonia.Controls.GridUnitType.Auto)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<FileViewerRequestedEventArgs>? FilePopOutRequested;
@@ -293,6 +342,12 @@ public partial class MainViewModel : ObservableObject
             {
                 _ = InitializeTabTerminalsAsync(newValue);
             }
+
+            // Refresh worktrees in sidebar when tab changes
+            if (IsSidebarMode)
+            {
+                _ = SidebarViewModel?.RefreshWorktreesAsync();
+            }
         }
     }
 
@@ -407,6 +462,12 @@ public partial class MainViewModel : ObservableObject
         // Load quick commands from config
         LoadQuickCommands();
 
+        // Load layout mode from config
+        LoadLayoutSettings();
+
+        // Initialize sidebar view model
+        SidebarViewModel?.Initialize();
+
         // Restore previously open folders
         RestoreOpenFolders();
 
@@ -421,6 +482,13 @@ public partial class MainViewModel : ObservableObject
 
         // Start run URL detection timer
         _runUrlDetectionTimer.Start();
+    }
+
+    private void LoadLayoutSettings()
+    {
+        var config = _configService.Load();
+        LayoutMode = config.Settings.LayoutMode;
+        SidebarWidth = config.Settings.SidebarWidth;
     }
 
     private void LoadQuickCommands()
@@ -657,6 +725,39 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void ToggleLayoutMode()
+    {
+        LayoutMode = LayoutMode == AppLayoutMode.Tabs
+            ? AppLayoutMode.Sidebar
+            : AppLayoutMode.Tabs;
+
+        // Save preference
+        var config = _configService.Load();
+        config.Settings.LayoutMode = LayoutMode;
+        config.Settings.SidebarWidth = SidebarWidth;
+        _configService.Save(config);
+
+        // Refresh worktrees when switching to sidebar mode
+        if (IsSidebarMode)
+        {
+            _ = SidebarViewModel?.RefreshWorktreesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Updates the sidebar width when the splitter is dragged.
+    /// </summary>
+    public void UpdateSidebarWidth(double width)
+    {
+        SidebarWidth = Math.Max(150, Math.Min(width, 500)); // Clamp between 150-500px
+
+        // Save preference
+        var config = _configService.Load();
+        config.Settings.SidebarWidth = SidebarWidth;
+        _configService.Save(config);
+    }
+
     public async void OpenProjectTab(string workingDirectory, bool selectTab = true)
     {
         try
@@ -783,6 +884,9 @@ public partial class MainViewModel : ObservableObject
 
             // Track in recent folders
             UpdateRecentFolders(workingDirectory);
+
+            // Track workspace for sidebar
+            SidebarViewModel?.TrackWorkspace(workingDirectory);
 
             // Fetch git status for the new tab
             _ = RefreshTabGitStatusAsync(tabViewModel);

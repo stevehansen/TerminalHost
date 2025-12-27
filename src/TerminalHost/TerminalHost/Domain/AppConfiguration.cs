@@ -382,6 +382,31 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("customPaths")]
     public List<string> CustomPaths { get; set; } = [];
+
+    /// <summary>
+    /// Application layout mode (Tabs or Sidebar).
+    /// </summary>
+    [JsonPropertyName("layoutMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AppLayoutMode LayoutMode { get; set; } = AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Width of the workspace sidebar in pixels.
+    /// </summary>
+    [JsonPropertyName("sidebarWidth")]
+    public double SidebarWidth { get; set; } = 250;
+
+    /// <summary>
+    /// Recent workspaces for quick access in sidebar.
+    /// </summary>
+    [JsonPropertyName("recentWorkspaces")]
+    public List<Workspace> RecentWorkspaces { get; set; } = [];
+
+    /// <summary>
+    /// Maximum number of recent workspaces to track.
+    /// </summary>
+    [JsonPropertyName("maxRecentWorkspaces")]
+    public int MaxRecentWorkspaces { get; set; } = 20;
 }
 
 /// <summary>

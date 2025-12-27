@@ -114,7 +114,20 @@
                     ToolTip.Tip="View Usage Statistics"
                     Margin="0,0,4,0"/>
 
-
+            <!-- Layout Toggle Button -->
+            <Button DockPanel.Dock="Right"
+                    AutomationProperties.AutomationId="LayoutToggleButton"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding ToggleLayoutModeCommand}"
+                    ToolTip.Tip="Toggle Sidebar (Cmd+Shift+L)"
+                    Margin="0,0,4,0">
+                <Panel>
+                    <TextBlock Text="◧" FontSize="{StaticResource FontSizeSmall}"
+                               IsVisible="{Binding IsSidebarMode}"/>
+                    <TextBlock Text="☰" FontSize="{StaticResource FontSizeSmall}"
+                               IsVisible="{Binding IsTabsMode}"/>
+                </Panel>
+            </Button>
 
             <!-- Scroll Right Button -->
             <Button x:Name="ScrollRightButton"

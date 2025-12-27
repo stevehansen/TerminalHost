@@ -412,9 +412,10 @@ public interface ISearchService
 
 ---
 
-## Feature 7-8: Workspace Sidebar with Worktrees
+## Feature 7-8: Workspace Sidebar with Worktrees ✅ IMPLEMENTED
 
 **Master branch commit:** `65f7c74`
+**macOS implementation:** Cmd+Shift+L (toggle), sidebar header button
 
 ### What it does
 Alternative layout with sidebar showing workspaces and git worktrees.

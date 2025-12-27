@@ -145,6 +145,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ ," Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
@@ -180,6 +181,8 @@
                         <TextBlock Grid.Row="15" Grid.Column="1" Text="Run tests" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="16" Grid.Column="0" Text="⌘ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="16" Grid.Column="1" Text="Markdown preview" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="17" Grid.Column="0" Text="⌘⇧ L" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="17" Grid.Column="1" Text="Toggle sidebar layout" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Quick Commands Section -->

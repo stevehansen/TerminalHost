@@ -67,6 +67,7 @@ public partial class App : Application
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
         services.AddSingleton<IGitPrService, GitPrService>();
+        services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
 
         // File Services
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
@@ -103,6 +104,7 @@ public partial class App : Application
         services.AddSingleton<FileHistoryViewModel>();
         services.AddSingleton<FileBlameViewModel>();
         services.AddSingleton<ReflogViewModel>();
+        services.AddSingleton<WorkspaceSidebarViewModel>();
 
         // Windows
         services.AddSingleton<MainWindow>();
