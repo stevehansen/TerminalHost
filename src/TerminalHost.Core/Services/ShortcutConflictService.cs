@@ -75,6 +75,17 @@ public static class ShortcutConflictService
             new("F5", "Start/Stop project run"),
             new("Shift+F5", "Force stop project run"),
         ]),
+
+        new("Timeline Mode",
+        [
+            new("↑/↓", "Navigate intents"),
+            new("←/→", "Navigate sessions"),
+            new("Enter", "Open session detail"),
+            new("Escape", "Close session detail"),
+            new("Ctrl+Alt+N", "New Intent"),
+            new("Ctrl+Alt+S", "Start session"),
+            new("Ctrl+Alt+F", "Fork from session"),
+        ]),
     ];
 
     /// <summary>

@@ -52,6 +52,18 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+R` | Open PR Review Mode | Project tab | |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 
+### Timeline Mode Shortcuts (When Timeline Tab Focused)
+
+| Shortcut | Action | Scope | Notes |
+|----------|--------|-------|-------|
+| `↑` / `↓` | Navigate between intents | Timeline | Cycle through intent list |
+| `←` / `→` | Navigate between sessions | Timeline | Cycle through sessions in selected intent |
+| `Enter` | Open session detail | Timeline | Shows commit, files changed, actions |
+| `Escape` | Close session detail | Timeline | |
+| `Ctrl+Alt+N` | New Intent | Timeline | Create new intent with worktree |
+| `Ctrl+Alt+S` | Start session | Timeline | Start Claude Code in selected intent |
+| `Ctrl+Alt+F` | Fork from session | Timeline | Fork from selected session |
+
 ### Project Runner Shortcuts
 
 | Shortcut | Action | Scope | Notes |

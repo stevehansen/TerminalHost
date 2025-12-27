@@ -9,6 +9,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:TimelineTabViewModel}"
              d:DesignHeight="600" d:DesignWidth="1200"
+             Focusable="True"
              Background="{StaticResource BackgroundDarkestBrush}" Foreground="{StaticResource TextBrightBrush}">
 
     <UserControl.Resources>
