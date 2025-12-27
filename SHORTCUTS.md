@@ -46,7 +46,6 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+B` | View file blame | Project tab | Requires file selected in explorer |
 | `Ctrl+Shift+S` | Open git stash manager | Project tab | |
 | `Ctrl+Shift+G` | Open git reflog | Project tab | Recovery tool for lost commits |
-| `Ctrl+T` | Open task panel (focus mode) | Project tab | |
 | `Ctrl+M` | Open Markdown preview | Project tab | |
 | `Ctrl+Shift+H` | Open GitHub Dashboard | Project tab | |
 | `Ctrl+Shift+R` | Open PR Review Mode | Project tab | |
@@ -72,13 +71,11 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Shift+F5` | Force stop project run | Project tab | |
 | `F6` | Run tests | Project tab | |
 
-### Notes & Tasks Shortcuts
+### Notes Shortcuts
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
 | `Ctrl+Shift+N` | Open scratch pad | Global | Per-project notes |
-| `Ctrl+Shift+Q` | Quick add task | Global | |
-| `Ctrl+Shift+M` | Quick add note | Global | |
 
 ### Layout Shortcuts
 
@@ -127,6 +124,7 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Q` - Available
 - `Ctrl+R` - Available
 - `Ctrl+S` - Available (save - may want to reserve)
+- `Ctrl+T` - Available (freed from Task Panel removal)
 - `Ctrl+U` - Available
 - `Ctrl+X` - (Cut - may want to reserve for terminal)
 - `Ctrl+Y` - Available
@@ -136,6 +134,8 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+A` - Available
 - `Ctrl+Shift+J` - Available
 - `Ctrl+Shift+K` - Available
+- `Ctrl+Shift+M` - Available (freed from Quick Note removal)
+- `Ctrl+Shift+Q` - Available (freed from Quick Task removal)
 - `Ctrl+Shift+V` - Available
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available
@@ -198,4 +198,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2025-12-26*
+*Last updated: 2025-12-27*

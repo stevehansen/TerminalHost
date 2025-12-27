@@ -29,7 +29,6 @@ public partial class MainViewModel : ObservableObject
 
     private readonly IFilePreviewService _filePreviewService;
     private readonly IClaudeCommandService _claudeCommandService;
-    private readonly ITaskService _taskService;
     private readonly IAiAssistantService _aiAssistantService;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
@@ -168,24 +167,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private PaletteCommand? _selectedPaletteCommand;
 
-    // Task Panel
-    public TaskPanelViewModel? TaskPanelViewModel { get; set; }
-
     // Help
     public HelpViewModel HelpViewModel { get; }
-
-    // Quick Capture
-    [ObservableProperty]
-    private bool _isQuickTaskOpen;
-
-    [ObservableProperty]
-    private string _quickTaskTitle = string.Empty;
-
-    [ObservableProperty]
-    private bool _isQuickNoteOpen;
-
-    [ObservableProperty]
-    private string _quickNoteText = string.Empty;
 
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
@@ -227,7 +210,6 @@ public partial class MainViewModel : ObservableObject
         IDialogService dialogService,
         IFilePreviewService filePreviewService,
         IClaudeCommandService claudeCommandService,
-        ITaskService taskService,
         IAiAssistantService aiAssistantService,
         IProcessService processService,
         IToastService toastService,
@@ -251,7 +233,6 @@ public partial class MainViewModel : ObservableObject
         _dialogService = dialogService;
         _filePreviewService = filePreviewService;
         _claudeCommandService = claudeCommandService;
-        _taskService = taskService;
         _aiAssistantService = aiAssistantService;
         _processService = processService;
         _toastService = toastService;
@@ -279,10 +260,6 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(NonProjectTabs));
             OnPropertyChanged(nameof(HasNonProjectTabs));
         };
-
-        // Subscribe to focus mode changes
-        _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
-        _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
         _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
@@ -449,31 +426,6 @@ public partial class MainViewModel : ObservableObject
                 t.WorkingDirectory.ToLower().Contains(searchText)))
             {
                 _filteredSwitcherTabs.Add(tab);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Updates visibility of all tabs based on focus mode state.
-    /// Called when focus mode is toggled or current task changes.
-    /// </summary>
-    private void UpdateTabFocusModeVisibility()
-    {
-        var isFocusModeEnabled = _taskService.IsFocusModeEnabled;
-        var currentTaskProjects = _taskService.GetProjectsForCurrentTask();
-
-        foreach (var tab in Tabs)
-        {
-            tab.UpdateFocusModeVisibility(isFocusModeEnabled, currentTaskProjects);
-        }
-
-        // If the selected tab is now hidden, try to select a visible one
-        if (SelectedTab != null && !SelectedTab.IsVisibleInFocusMode)
-        {
-            var visibleTab = Tabs.FirstOrDefault(t => t.IsVisibleInFocusMode);
-            if (visibleTab != null)
-            {
-                SelectedTab = visibleTab;
             }
         }
     }
@@ -1716,7 +1668,6 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
-    public event EventHandler? TaskPanelRequested;
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
 
@@ -1736,77 +1687,6 @@ public partial class MainViewModel : ObservableObject
     private void OpenGitChanges()
     {
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    [RelayCommand]
-    private void OpenTaskPanel()
-    {
-        TaskPanelRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    [RelayCommand]
-    private void OpenQuickTask()
-    {
-        QuickTaskTitle = string.Empty;
-        IsQuickTaskOpen = true;
-    }
-
-    [RelayCommand]
-    private void CreateQuickTask()
-    {
-        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
-
-        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
-
-        // Associate with current project if available
-        if (SelectedTab is TerminalPairTabViewModel terminalTab)
-        {
-            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
-        }
-
-        QuickTaskTitle = string.Empty;
-        IsQuickTaskOpen = false;
-    }
-
-    [RelayCommand]
-    private void CreateAndStartQuickTask()
-    {
-        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
-
-        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
-
-        // Associate with current project if available
-        if (SelectedTab is TerminalPairTabViewModel terminalTab)
-        {
-            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
-        }
-
-        _taskService.StartTask(task.Id);
-
-        QuickTaskTitle = string.Empty;
-        IsQuickTaskOpen = false;
-    }
-
-    [RelayCommand]
-    private void OpenQuickNote()
-    {
-        QuickNoteText = string.Empty;
-        IsQuickNoteOpen = true;
-    }
-
-    [RelayCommand]
-    private void CreateQuickNote()
-    {
-        if (string.IsNullOrWhiteSpace(QuickNoteText)) return;
-
-        var projectPath = SelectedTab is TerminalPairTabViewModel terminalTab
-            ? terminalTab.Pair.WorkingDirectory
-            : null;
-
-        _taskService.CreateNote(QuickNoteText.Trim(), projectPath);
-
-        QuickNoteText = string.Empty;
-        IsQuickNoteOpen = false;
     }
 
     [RelayCommand]
@@ -1977,35 +1857,6 @@ public partial class MainViewModel : ObservableObject
                 Icon = "❓",
                 Category = "Help",
                 Execute = () => IsHelpOpen = true
-            },
-
-            // Task Panel
-            new() {
-                Id = "task-panel",
-                Name = "Tasks",
-                Description = "Open task management panel",
-                Shortcut = "Ctrl+T",
-                Icon = "📋",
-                Category = "Tools",
-                Execute = () => OpenTaskPanelCommand.Execute(null)
-            },
-            new() {
-                Id = "quick-task",
-                Name = "Quick Task",
-                Description = "Quickly add a new task",
-                Shortcut = "Ctrl+Shift+Q",
-                Icon = "+",
-                Category = "Tools",
-                Execute = () => OpenQuickTaskCommand.Execute(null)
-            },
-            new() {
-                Id = "quick-note",
-                Name = "Quick Note",
-                Description = "Capture a quick note",
-                Shortcut = "Ctrl+Shift+M",
-                Icon = "📝",
-                Category = "Tools",
-                Execute = () => OpenQuickNoteCommand.Execute(null)
             },
 
             // Scratch Pad

@@ -28,10 +28,4 @@ public interface IGitPrService
     /// Check if the GitHub CLI (gh) is available.
     /// </summary>
     bool IsGitHubCliAvailable();
-
-    /// <summary>
-    /// Auto-detect branch and PR info for a task based on its title.
-    /// Updates the task's LinkedBranch, LinkedPrNumber, and PrDetails.
-    /// </summary>
-    Task<bool> AutoDetectPrInfoAsync(FocusTask task, string projectPath);
 }

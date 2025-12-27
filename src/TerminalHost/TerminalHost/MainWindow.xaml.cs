@@ -46,7 +46,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, TaskPanelViewModel taskPanelViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -73,7 +73,6 @@ public partial class MainWindow : Window
         _fileSystem = fileSystem;
         _toastService = toastService;
         DataContext = viewModel;
-        viewModel.TaskPanelViewModel = taskPanelViewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         GitStashViewControl.DataContext = gitStashViewModel;
         ReflogViewControl.DataContext = reflogViewModel;
@@ -477,24 +476,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (_viewModel.TaskPanelViewModel?.IsOpen == true)
-            {
-                _viewModel.TaskPanelViewModel.IsOpen = false;
-                e.Handled = true;
-                return;
-            }
-            if (_viewModel.IsQuickTaskOpen)
-            {
-                _viewModel.IsQuickTaskOpen = false;
-                e.Handled = true;
-                return;
-            }
-            if (_viewModel.IsQuickNoteOpen)
-            {
-                _viewModel.IsQuickNoteOpen = false;
-                e.Handled = true;
-                return;
-            }
         }
 
         // F1: Toggle help popup
@@ -661,12 +642,6 @@ public partial class MainWindow : Window
             _viewModel.OpenInExplorerCommand.Execute(null);
             e.Handled = true;
         }
-        // Ctrl+T: Open task panel
-        else if (e.Key == Key.T && Keyboard.Modifiers == ModifierKeys.Control)
-        {
-            _viewModel.OpenTaskPanelCommand.Execute(null);
-            e.Handled = true;
-        }
         // Ctrl+Shift+T: Open tab switcher
         else if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
@@ -714,18 +689,6 @@ public partial class MainWindow : Window
         else if (e.Key == Key.N && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             _viewModel.OpenScratchPadCommand.Execute(null);
-            e.Handled = true;
-        }
-        // Ctrl+Shift+Q: Quick add task
-        else if (e.Key == Key.Q && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
-        {
-            _viewModel.OpenQuickTaskCommand.Execute(null);
-            e.Handled = true;
-        }
-        // Ctrl+Shift+M: Quick add note
-        else if (e.Key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
-        {
-            _viewModel.OpenQuickNoteCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+Shift+F: Toggle file explorer

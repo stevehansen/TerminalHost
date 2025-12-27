@@ -205,7 +205,6 @@ public partial class App : Application
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
         services.AddSingleton<IGitPrService, GitPrService>();
-        services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();
@@ -221,7 +220,6 @@ public partial class App : Application
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
-        services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<GitStashViewModel>();

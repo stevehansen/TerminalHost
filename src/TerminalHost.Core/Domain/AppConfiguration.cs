@@ -96,24 +96,6 @@ public class AppConfiguration
     public List<string> CommandPaletteMru { get; set; } = [];
 
     /// <summary>
-    /// Focus mode state (enabled, current task, history).
-    /// </summary>
-    [JsonPropertyName("focusMode")]
-    public FocusModeState FocusMode { get; set; } = new();
-
-    /// <summary>
-    /// All focus tasks.
-    /// </summary>
-    [JsonPropertyName("tasks")]
-    public List<FocusTask> Tasks { get; set; } = [];
-
-    /// <summary>
-    /// Quick notes (not yet converted to tasks).
-    /// </summary>
-    [JsonPropertyName("quickNotes")]
-    public List<QuickNote> QuickNotes { get; set; } = [];
-
-    /// <summary>
     /// Workspace entries for the sidebar layout mode.
     /// </summary>
     [JsonPropertyName("workspaces")]
@@ -156,9 +138,6 @@ public class AppConfiguration
 
         // Has command palette history
         if (CommandPaletteMru.Count > 0) return false;
-
-        // Has tasks
-        if (Tasks.Count > 0) return false;
 
         return true;
     }

@@ -187,50 +187,6 @@ public partial class GitPrService : IGitPrService
         return _ghAvailable ?? false;
     }
 
-    public async Task<bool> AutoDetectPrInfoAsync(FocusTask task, string projectPath)
-    {
-        if (task == null || string.IsNullOrEmpty(task.Title))
-            return false;
-
-        var (prNumber, issueNumber) = ParseTaskTitle(task.Title);
-        if (prNumber == null && issueNumber == null)
-            return false;
-
-        var updated = false;
-
-        // Store PR number if found
-        if (prNumber != null && task.LinkedPrNumber != prNumber)
-        {
-            task.LinkedPrNumber = prNumber;
-            updated = true;
-        }
-
-        // Try to find matching branch
-        var searchNumber = issueNumber ?? prNumber;
-        if (searchNumber != null && !string.IsNullOrEmpty(projectPath))
-        {
-            var branch = await FindBranchForIssueAsync(projectPath, searchNumber);
-            if (branch != null && task.LinkedBranch != branch)
-            {
-                task.LinkedBranch = branch;
-                updated = true;
-            }
-        }
-
-        // Fetch PR details if we have a PR number
-        if (prNumber != null && !string.IsNullOrEmpty(projectPath))
-        {
-            var details = await FetchPrDetailsAsync(projectPath, prNumber);
-            if (details != null)
-            {
-                task.PrDetails = details;
-                updated = true;
-            }
-        }
-
-        return updated;
-    }
-
     private static async Task<(int exitCode, string output)> RunGitCommandAsync(string workingDirectory, string arguments)
     {
         return await RunCommandAsync(workingDirectory, "git", arguments);

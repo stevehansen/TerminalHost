@@ -27,7 +27,6 @@ public class MainViewModelTests
     private readonly Mock<IFileSystem> _mockFileSystem;
     private readonly Mock<IDialogService> _mockDialogService;
     private readonly Mock<IClaudeCommandService> _mockClaudeCommandService;
-    private readonly Mock<ITaskService> _mockTaskService;
     private readonly Mock<IAiAssistantService> _mockAiAssistantService;
     private readonly Mock<IGitHubService> _mockGitHubService;
     private readonly Mock<IMarkdownService> _mockMarkdownService;
@@ -60,7 +59,6 @@ public class MainViewModelTests
         _mockFileSystem = new Mock<IFileSystem>();
         _mockDialogService = new Mock<IDialogService>();
         _mockClaudeCommandService = new Mock<IClaudeCommandService>();
-        _mockTaskService = new Mock<ITaskService>();
         _mockAiAssistantService = new Mock<IAiAssistantService>();
         _mockGitHubService = new Mock<IGitHubService>();
         _mockMarkdownService = new Mock<IMarkdownService>();
@@ -182,7 +180,6 @@ public class MainViewModelTests
             _mockDialogService.Object,
             _mockFilePreviewService.Object,
             _mockClaudeCommandService.Object,
-            _mockTaskService.Object,
             _mockAiAssistantService.Object,
             _mockProcessService.Object,
             _mockToastService.Object,
