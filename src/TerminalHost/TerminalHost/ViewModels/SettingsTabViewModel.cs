@@ -154,6 +154,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _isCapturingShortcut;
 
     [ObservableProperty]
+    private string _qcShortcutWarning = "";
+
+    [ObservableProperty]
     private bool _editQcAppendNewline = true;
 
     [ObservableProperty]
@@ -204,6 +207,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     [ObservableProperty]
     private string _editProfileShortcut = "";
+
+    [ObservableProperty]
+    private string _profileShortcutWarning = "";
 
     [ObservableProperty]
     private bool _editProfileAutoStart;
@@ -540,6 +546,42 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     // Notify EditQcTargetIndex when EditQcTarget changes (for ComboBox binding)
     partial void OnEditQcTargetChanged(QuickCommandTarget value) => OnPropertyChanged(nameof(EditQcTargetIndex));
+
+    // Check for shortcut conflicts when quick command shortcut changes
+    partial void OnEditQcShortcutChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            QcShortcutWarning = "";
+            return;
+        }
+
+        var conflict = ShortcutConflictService.GetConflict(
+            value,
+            QuickCommands,
+            Profiles,
+            excludeQuickCommandId: SelectedQuickCommand?.Id);
+
+        QcShortcutWarning = conflict ?? "";
+    }
+
+    // Check for shortcut conflicts when profile shortcut changes
+    partial void OnEditProfileShortcutChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            ProfileShortcutWarning = "";
+            return;
+        }
+
+        var conflict = ShortcutConflictService.GetConflict(
+            value,
+            QuickCommands,
+            Profiles,
+            excludeProfileName: SelectedProfile?.Name);
+
+        ProfileShortcutWarning = conflict ?? "";
+    }
 
     partial void OnViewModeChanged(SettingsViewMode value)
     {

@@ -927,6 +927,12 @@
                                                  FontFamily="{StaticResource FontFamilyMonospace}"/>
                                         <TextBlock Text="e.g., Ctrl+Shift+P"
                                                    Classes="HelpText"/>
+                                        <TextBlock Text="{Binding ProfileShortcutWarning}"
+                                                   IsVisible="{Binding ProfileShortcutWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="#FFA500"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   Margin="0,4,0,0"
+                                                   TextWrapping="Wrap"/>
 
                                         <CheckBox Content="Auto-start on application launch"
                                                   IsChecked="{Binding EditProfileAutoStart}"
@@ -1163,6 +1169,12 @@
                                         </Grid>
                                         <TextBlock Text="Click 'Record' and press the key combination, or type manually (e.g., Ctrl+Shift+C)"
                                                    Classes="HelpText"/>
+                                        <TextBlock Text="{Binding QcShortcutWarning}"
+                                                   IsVisible="{Binding QcShortcutWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="#FFA500"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   Margin="0,4,0,0"
+                                                   TextWrapping="Wrap"/>
 
                                         <CheckBox Content="Append newline after command"
                                                   IsChecked="{Binding EditQcAppendNewline}"

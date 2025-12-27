@@ -153,6 +153,12 @@ internal sealed class ConfigurationService : IConfigurationService
             }
         }
 
+        // Validate keyboard shortcut conflicts (WARNING - allows save but notifies user)
+        var shortcutConflicts = ShortcutConflictService.GetAllConflicts(
+            config.QuickCommands,
+            config.Profiles);
+        warnings.AddRange(shortcutConflicts);
+
         return (errors, warnings);
     }
 

@@ -521,12 +521,35 @@ public bool IsDefault() =>
 
 ---
 
-## Feature 11: Shortcut Conflict Warnings
+## Feature 11: Shortcut Conflict Warnings ✅ IMPLEMENTED
 
 **Master branch commit:** `d82ef59`
+**macOS implementation:** Real-time warnings in Settings (Quick Commands and Profiles sections)
 
 ### What it does
 Warn when configuring conflicting shortcuts in Settings.
+
+### Screens & Popups
+
+| Component | Type | Description |
+|-----------|------|-------------|
+| SettingsView | Tab | Shows orange warning text when shortcut conflicts with built-in or other shortcuts |
+
+### Exact Functionality
+
+**Real-time Conflict Detection:**
+- When editing a Quick Command shortcut, shows warning if it conflicts with:
+  - Built-in shortcuts (Cmd+G, Cmd+B, etc.)
+  - Other Quick Command shortcuts
+  - Profile shortcuts
+- When editing a Profile shortcut, shows warning if it conflicts with:
+  - Built-in shortcuts
+  - Quick Command shortcuts
+  - Other Profile shortcuts
+
+**Save-time Validation:**
+- When saving settings (Rich or Raw mode), warns about any shortcut conflicts
+- Allows save but notifies user with warning message
 
 ### Technical Details (from master)
 
@@ -536,19 +559,30 @@ public static class ShortcutConflictService
 {
     public static readonly Dictionary<string, string> BuiltInShortcuts = new()
     {
-        { "Ctrl+G", "Git Changes" },
-        { "Ctrl+B", "Git Branches" },
-        // ... all built-in shortcuts
+        { "Cmd+G", "Git Changes" },
+        { "Cmd+B", "Git Branches" },
+        // ... all built-in shortcuts (macOS uses Cmd instead of Ctrl)
     };
 
-    public static string? GetConflict(string shortcut, IEnumerable<QuickCommand> quickCommands, IEnumerable<Profile> profiles);
+    public static string? GetConflict(string shortcut, IEnumerable<QuickCommand> quickCommands, IEnumerable<Profile> profiles, string? excludeQuickCommandId, string? excludeProfileName);
+    public static List<string> GetAllConflicts(IEnumerable<QuickCommand> quickCommands, IEnumerable<Profile> profiles);
 }
 ```
 
+**New Files:**
+- `Services/ShortcutConflictService.cs` - Static service with built-in shortcuts dictionary and conflict detection
+
+**Modified Files:**
+- `ViewModels/SettingsTabViewModel.cs` - Add QcShortcutWarning, ProfileShortcutWarning properties and change handlers
+- `Views/SettingsView.axaml` - Add warning TextBlocks in Quick Commands and Profiles sections
+- `Services/ConfigurationService.cs` - Add conflict validation in ValidateConfiguration method
+- `TerminalHost.csproj` - Include ShortcutConflictService.cs
+
 **SettingsTabViewModel Changes:**
-- Add `ShortcutWarning` property
-- Check for conflicts when shortcut field changes
-- Display warning in UI
+- Add `QcShortcutWarning` property for Quick Commands
+- Add `ProfileShortcutWarning` property for Profiles
+- Add `OnEditQcShortcutChanged` partial method for real-time validation
+- Add `OnEditProfileShortcutChanged` partial method for real-time validation
 
 ---
 
@@ -606,13 +640,17 @@ git status --ignored --porcelain
 
 ## Implementation Order Recommendation
 
-1. **.gitignore Support** (Low complexity, improves existing feature)
-2. **Git Stash Operations** (Medium, standalone feature)
-3. **Commit History Viewer** (Medium, foundation for other features)
-4. **Interactive Staging & Commit UI** (High, enhances existing Git Changes)
-5. **File History & Blame** (Medium, uses commit infrastructure)
-6. **Reflog, Cherry-pick & Revert** (Medium, uses commit infrastructure)
-7. **Search Across Files** (High, standalone feature)
-8. **First-Run Setup** (Low, simple UX improvement)
-9. **Shortcut Conflict Warnings** (Low, settings enhancement)
-10. **Workspace Sidebar** (High, major UI change - do last)
+1. ~~**.gitignore Support**~~ (Low complexity, improves existing feature) - **NOT YET IMPLEMENTED**
+2. ~~**Git Stash Operations**~~ ✅ DONE
+3. ~~**Commit History Viewer**~~ ✅ DONE
+4. ~~**Interactive Staging & Commit UI**~~ ✅ DONE
+5. ~~**File History & Blame**~~ ✅ DONE
+6. ~~**Reflog, Cherry-pick & Revert**~~ ✅ DONE
+7. ~~**Search Across Files**~~ ✅ DONE
+8. ~~**First-Run Setup**~~ (Low, simple UX improvement) - **NOT YET IMPLEMENTED**
+9. ~~**Shortcut Conflict Warnings**~~ ✅ DONE
+10. ~~**Workspace Sidebar**~~ ✅ DONE
+
+**Remaining Features:**
+- Feature 9: .gitignore Support
+- Feature 10: First-Run Setup

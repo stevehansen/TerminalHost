@@ -275,6 +275,7 @@
     <Compile Include="Services\SearchService.cs" />
     <Compile Include="Services\IGitWorktreeService.cs" />
     <Compile Include="Services\GitWorktreeService.cs" />
+    <Compile Include="Services\ShortcutConflictService.cs" />
   </ItemGroup>
 
   <!-- Stage 7: Views code-behind files -->

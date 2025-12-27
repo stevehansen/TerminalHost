@@ -74,8 +74,8 @@ public class ConfigurationServiceTests
     {
         // Arrange
         var json = @"{
-            ""Settings"": {
-                ""CustomCommand"": ""invalid_command.exe""
+            ""settings"": {
+                ""customCommand"": ""invalid_command.exe""
             }
         }";
         
