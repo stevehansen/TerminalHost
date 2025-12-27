@@ -194,7 +194,19 @@
                             <!-- Details header -->
                             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                 <DockPanel>
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                                        <Button Content="Cherry-pick"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding CherryPickCommand}"
+                                                ToolTip.Tip="Apply this commit to current branch"
+                                                Padding="6,3"
+                                                FontSize="{StaticResource FontSizeMicro}"/>
+                                        <Button Content="Revert"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding RevertCommitCommand}"
+                                                ToolTip.Tip="Create a commit that undoes this commit"
+                                                Padding="6,3"
+                                                FontSize="{StaticResource FontSizeMicro}"/>
                                         <Button Content="Copy Hash"
                                                 Classes="TerminalSwitchButton"
                                                 Command="{Binding CopyHashCommand}"

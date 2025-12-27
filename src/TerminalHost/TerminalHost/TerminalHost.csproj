@@ -158,6 +158,9 @@
     <Compile Include="ViewModels\SearchAcrossFilesViewModel.cs" />
     <Compile Include="ViewModels\CommitHistoryViewModel.cs" />
     <Compile Include="ViewModels\GitStashViewModel.cs" />
+    <Compile Include="ViewModels\FileHistoryViewModel.cs" />
+    <Compile Include="ViewModels\FileBlameViewModel.cs" />
+    <Compile Include="ViewModels\ReflogViewModel.cs" />
   </ItemGroup>
 
   <!-- Stage 6: Additional Domain models needed by ViewModels -->
@@ -203,6 +206,8 @@
     <Compile Include="Domain\GitCommitDetails.cs" />
     <Compile Include="Domain\GitCommitFile.cs" />
     <Compile Include="Domain\GitStashEntry.cs" />
+    <Compile Include="Domain\GitBlame.cs" />
+    <Compile Include="Domain\GitReflogEntry.cs" />
     <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
     <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
   </ItemGroup>
@@ -301,6 +306,9 @@
     <Compile Include="Views\Popups\SearchAcrossFilesView.axaml.cs" />
     <Compile Include="Views\Popups\CommitHistoryView.axaml.cs" />
     <Compile Include="Views\Popups\GitStashView.axaml.cs" />
+    <Compile Include="Views\Popups\FileHistoryView.axaml.cs" />
+    <Compile Include="Views\Popups\FileBlameView.axaml.cs" />
+    <Compile Include="Views\Popups\ReflogView.axaml.cs" />
 
     <!-- Window Views -->
     <Compile Include="Views\SetupWindow.axaml.cs" />

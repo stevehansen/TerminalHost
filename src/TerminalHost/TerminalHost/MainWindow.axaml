@@ -154,6 +154,24 @@
                     x:Name="SearchAcrossFilesPopup"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch" />
+
+                <!-- File History - Center -->
+                <popups:FileHistoryView
+                    x:Name="FileHistoryPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- File Blame - Center -->
+                <popups:FileBlameView
+                    x:Name="FileBlamePopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Reflog - Center -->
+                <popups:ReflogView
+                    x:Name="ReflogPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
             </Panel>
         </Grid>
     </Grid>

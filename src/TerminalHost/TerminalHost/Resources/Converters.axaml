@@ -44,6 +44,8 @@
     <conv:BoolToBackgroundConverter x:Key="BoolToBackgroundConverter"/>
     <conv:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
     <conv:BoolToExpandCollapseTextConverter x:Key="BoolToExpandCollapseTextConverter"/>
+    <conv:BoolToStringConverter x:Key="BoolToStringConverter"/>
+    <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
 
     <!-- Time Converter -->
     <conv:RelativeTimeConverter x:Key="RelativeTimeConverter"/>

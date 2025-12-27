@@ -890,3 +890,61 @@ public class SectionToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts a boolean to one of two strings.
+/// ConverterParameter format: "TrueValue|FalseValue"
+/// </summary>
+public class BoolToStringConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue && parameter is string param)
+        {
+            var parts = param.Split('|');
+            if (parts.Length == 2)
+            {
+                return boolValue ? parts[0] : parts[1];
+            }
+        }
+        return "";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts a boolean to one of two brushes specified by hex color.
+/// ConverterParameter format: "TrueColor|FalseColor" (e.g., "#2196F3|#444444")
+/// </summary>
+public class BoolToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue && parameter is string param)
+        {
+            var parts = param.Split('|');
+            if (parts.Length == 2)
+            {
+                var colorHex = boolValue ? parts[0] : parts[1];
+                try
+                {
+                    return new SolidColorBrush(Color.Parse(colorHex));
+                }
+                catch
+                {
+                    return new SolidColorBrush(Colors.Transparent);
+                }
+            }
+        }
+        return new SolidColorBrush(Colors.Transparent);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

@@ -1,0 +1,183 @@
+<UserControl x:Class="TerminalHost.Views.Popups.ReflogView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             d:DataContext="{d:DesignInstance viewModels:ReflogViewModel}"
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}">
+
+    <!-- Overlay panel centered in parent -->
+    <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxOrangeBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                MinWidth="500"
+                MaxWidth="700"
+                MaxHeight="500"
+                BoxShadow="0 5 20 0 #80000000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Classes="TabCloseButton"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="Refresh"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip.Tip="Refresh reflog"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Git Reflog"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Reflog entries -->
+                <ListBox x:Name="ReflogList"
+                         Grid.Row="1"
+                         ItemsSource="{Binding Entries}"
+                         SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="domain:GitReflogEntry">
+                            <Grid Margin="12,6">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Selector (HEAD@{0}) -->
+                                <Border Grid.Row="0" Grid.Column="0"
+                                        Background="{StaticResource SyntaxOrangeBrush}"
+                                        CornerRadius="3"
+                                        Padding="4,2"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplaySelector}"
+                                               Foreground="{StaticResource BackgroundDarkBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontWeight="Bold"/>
+                                </Border>
+
+                                <!-- Action icon -->
+                                <TextBlock Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding ActionIcon}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- Message -->
+                                <TextBlock Grid.Row="0" Grid.Column="2"
+                                           Text="{Binding Message}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+
+                                <!-- Relative date -->
+                                <TextBlock Grid.Row="0" Grid.Column="3"
+                                           Text="{Binding RelativeDate}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0"/>
+
+                                <!-- Short hash and action -->
+                                <StackPanel Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2"
+                                            Orientation="Horizontal"
+                                            Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding ShortHash}"
+                                               Foreground="{StaticResource SyntaxCyanBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding Action}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+
+                <!-- Empty state -->
+                <TextBlock Grid.Row="1"
+                           Text="No reflog entries"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding !Entries.Count}"/>
+
+                <!-- Footer -->
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Copy Hash"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CopyHashCommand}"
+                                    ToolTip.Tip="Copy commit hash"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Branch"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CreateBranchCommand}"
+                                    ToolTip.Tip="Create branch from this entry"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Checkout"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CheckoutCommand}"
+                                    ToolTip.Tip="Checkout this commit"/>
+                        </StackPanel>
+                        <TextBlock Text="⌘⇧ G"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

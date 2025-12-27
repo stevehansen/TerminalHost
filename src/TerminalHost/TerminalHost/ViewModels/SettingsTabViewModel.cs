@@ -151,6 +151,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private string _editQcShortcut = "";
 
     [ObservableProperty]
+    private bool _isCapturingShortcut;
+
+    [ObservableProperty]
     private bool _editQcAppendNewline = true;
 
     [ObservableProperty]
@@ -842,6 +845,46 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             SelectedQuickCommand = cmd;
             SyncRichModeToJson();
         }
+    }
+
+    [RelayCommand]
+    private void ToggleShortcutCapture()
+    {
+        IsCapturingShortcut = !IsCapturingShortcut;
+    }
+
+    [RelayCommand]
+    private void ClearShortcut()
+    {
+        EditQcShortcut = "";
+        IsCapturingShortcut = false;
+    }
+
+    /// <summary>
+    /// Called from the view when a key is pressed while capturing shortcuts.
+    /// </summary>
+    public void CaptureShortcut(Avalonia.Input.Key key, Avalonia.Input.KeyModifiers modifiers)
+    {
+        if (!IsCapturingShortcut) return;
+
+        // Ignore modifier-only key presses
+        if (key == Avalonia.Input.Key.LeftCtrl || key == Avalonia.Input.Key.RightCtrl ||
+            key == Avalonia.Input.Key.LeftAlt || key == Avalonia.Input.Key.RightAlt ||
+            key == Avalonia.Input.Key.LeftShift || key == Avalonia.Input.Key.RightShift ||
+            key == Avalonia.Input.Key.LWin || key == Avalonia.Input.Key.RWin)
+        {
+            return;
+        }
+
+        // Require at least one modifier
+        if (modifiers == Avalonia.Input.KeyModifiers.None)
+        {
+            return;
+        }
+
+        // Format the shortcut string
+        EditQcShortcut = MainWindow.FormatShortcut(key, modifiers);
+        IsCapturingShortcut = false;
     }
 
     // Custom paths management

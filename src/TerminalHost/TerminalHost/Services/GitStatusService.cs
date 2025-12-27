@@ -926,4 +926,258 @@ internal sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region File History and Blame Operations
+
+    public async Task<GitBlameResult?> GetFileBlameAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        // Use git blame with line-porcelain format for detailed info
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"blame --line-porcelain -- \"{filePath}\"");
+
+        if (string.IsNullOrEmpty(output))
+            return null;
+
+        var result = new GitBlameResult { FilePath = filePath };
+        var lines = output.Split('\n');
+
+        string? currentHash = null;
+        string? currentAuthor = null;
+        string? currentAuthorEmail = null;
+        long? currentAuthorTime = null;
+        int currentLineNumber = 0;
+        string? previousHash = null;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+
+            if (string.IsNullOrEmpty(line))
+                continue;
+
+            // First line of a block: <40-char hash> <original line> <final line> [<line count>]
+            if (line.Length >= 40 && !line.StartsWith('\t') && !line.Contains(' ') ||
+                (line.Length > 40 && line[40] == ' ' && char.IsLetterOrDigit(line[0])))
+            {
+                var parts = line.Split(' ');
+                if (parts.Length >= 3 && parts[0].Length == 40)
+                {
+                    currentHash = parts[0];
+                    if (int.TryParse(parts[2], out var lineNum))
+                        currentLineNumber = lineNum;
+                }
+            }
+            else if (line.StartsWith("author "))
+            {
+                currentAuthor = line.Substring(7);
+            }
+            else if (line.StartsWith("author-mail "))
+            {
+                currentAuthorEmail = line.Substring(12).Trim('<', '>');
+            }
+            else if (line.StartsWith("author-time "))
+            {
+                if (long.TryParse(line.Substring(12), out var time))
+                    currentAuthorTime = time;
+            }
+            else if (line.StartsWith("\t"))
+            {
+                // This is the actual content line
+                if (currentHash != null && currentAuthorTime.HasValue)
+                {
+                    var blameLine = new GitBlameLine
+                    {
+                        CommitHash = currentHash,
+                        Author = currentAuthor ?? "Unknown",
+                        AuthorEmail = currentAuthorEmail ?? "",
+                        Date = DateTimeOffset.FromUnixTimeSeconds(currentAuthorTime.Value).LocalDateTime,
+                        LineNumber = currentLineNumber,
+                        Content = line.Substring(1), // Remove leading tab
+                        IsGroupStart = currentHash != previousHash
+                    };
+
+                    result.Lines.Add(blameLine);
+                    previousHash = currentHash;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<List<GitCommit>> GetFileHistoryAsync(string workingDirectory, string filePath, int skip = 0, int take = 50)
+    {
+        var commits = new List<GitCommit>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return commits;
+
+        // Use --follow to track file renames
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"log --follow --skip={skip} -n {take} --format=\"%H|%an|%ae|%at|%s\" -- \"{filePath}\"");
+
+        if (string.IsNullOrEmpty(output))
+            return commits;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|', 5);
+            if (parts.Length < 5) continue;
+
+            if (!long.TryParse(parts[3], out var timestamp))
+                continue;
+
+            commits.Add(new GitCommit
+            {
+                Hash = parts[0],
+                Author = parts[1],
+                AuthorEmail = parts[2],
+                Date = DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime,
+                Subject = parts[4]
+            });
+        }
+
+        return commits;
+    }
+
+    public async Task<string?> GetFileContentAtCommitAsync(string workingDirectory, string commitHash, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, $"show {commitHash}:\"{filePath}\"");
+    }
+
+    #endregion
+
+    #region Reflog Operations
+
+    public async Task<List<GitReflogEntry>> GetReflogAsync(string workingDirectory, int take = 100)
+    {
+        var entries = new List<GitReflogEntry>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return entries;
+
+        // Format: hash|selector|subject|date
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory,
+            $"reflog --format=\"%H|%gd|%gs|%ci\" -n {take}");
+
+        if (string.IsNullOrEmpty(output))
+            return entries;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|', 4);
+            if (parts.Length < 4) continue;
+
+            var hash = parts[0].Trim();
+            var selector = parts[1].Trim();
+            var subject = parts[2].Trim();
+            var dateStr = parts[3].Trim();
+
+            // Parse action from subject (e.g., "commit: message" or "checkout: moving from...")
+            var action = "other";
+            var message = subject;
+            var colonIndex = subject.IndexOf(':');
+            if (colonIndex > 0)
+            {
+                action = subject.Substring(0, colonIndex).Trim().ToLower();
+                message = subject.Substring(colonIndex + 1).Trim();
+            }
+
+            DateTime.TryParse(dateStr, out var date);
+
+            entries.Add(new GitReflogEntry
+            {
+                Hash = hash,
+                Selector = selector,
+                Action = action,
+                Message = message,
+                Date = date
+            });
+        }
+
+        return entries;
+    }
+
+    public async Task<(bool Success, string? Error)> CreateBranchFromRefAsync(string workingDirectory, string refSpec, string branchName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        if (string.IsNullOrWhiteSpace(branchName))
+            return (false, "Branch name cannot be empty");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"checkout -b \"{branchName}\" {refSpec}");
+        return (result.Success, result.Error);
+    }
+
+    #endregion
+
+    #region Cherry-pick Operations
+
+    public async Task<(bool Success, string? Error)> CherryPickAsync(string workingDirectory, string commitHash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"cherry-pick {commitHash}");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> CherryPickContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "cherry-pick --continue");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> CherryPickAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "cherry-pick --abort");
+        return (result.Success, result.Error);
+    }
+
+    #endregion
+
+    #region Revert Operations
+
+    public async Task<(bool Success, string? Error)> RevertAsync(string workingDirectory, string commitHash)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, $"revert {commitHash} --no-edit");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> RevertContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "revert --continue");
+        return (result.Success, result.Error);
+    }
+
+    public async Task<(bool Success, string? Error)> RevertAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, "Directory does not exist");
+
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "revert --abort");
+        return (result.Success, result.Error);
+    }
+
+    #endregion
 }

@@ -33,6 +33,18 @@
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
+            <MenuItem Header="View History" Command="{Binding ViewHistoryCommand}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📜" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="View Blame" Command="{Binding ViewBlameCommand}"
+                      InputGesture="Cmd+Shift+B">
+                <MenuItem.Icon>
+                    <TextBlock Text="👤" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
             <MenuItem Header="Open with Default App" Command="{Binding OpenExternalCommand}">
                 <MenuItem.Icon>
                     <TextBlock Text="🚀" FontSize="{StaticResource FontSizeSmall}"/>

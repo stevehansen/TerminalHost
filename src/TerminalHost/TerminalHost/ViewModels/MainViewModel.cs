@@ -133,6 +133,8 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
     public event EventHandler<FileViewerRequestedEventArgs>? FilePopOutRequested;
     public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
+    public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
+    public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
 
     public string WindowTitle
     {
@@ -765,6 +767,8 @@ public partial class MainViewModel : ObservableObject
             explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
+            explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
+            explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
 
             // Initialize explorer async (don't await - let it load in background)
             _ = explorerViewModel.InitializeAsync(workingDirectory);
@@ -1109,6 +1113,28 @@ public partial class MainViewModel : ObservableObject
         // Forward the pop-out request to MainWindow which will create the actual window
         // (ViewModels should not create windows directly - that's the View's responsibility)
         FilePopOutRequested?.Invoke(this, e);
+    }
+
+    private void OnExplorerFileHistoryRequested(object? sender, string filePath)
+    {
+        // Get the working directory from the current tab
+        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
+        FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
+        {
+            WorkingDirectory = workingDirectory,
+            FilePath = filePath
+        });
+    }
+
+    private void OnExplorerFileBlameRequested(object? sender, string filePath)
+    {
+        // Get the working directory from the current tab
+        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
+        FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
+        {
+            WorkingDirectory = workingDirectory,
+            FilePath = filePath
+        });
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
@@ -1978,4 +2004,16 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required TerminalPairTabViewModel Tab { get; init; }
     public required RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
+}
+
+public class FileHistoryRequestedEventArgs : EventArgs
+{
+    public required string WorkingDirectory { get; init; }
+    public required string FilePath { get; init; }
+}
+
+public class FileBlameRequestedEventArgs : EventArgs
+{
+    public required string WorkingDirectory { get; init; }
+    public required string FilePath { get; init; }
 }

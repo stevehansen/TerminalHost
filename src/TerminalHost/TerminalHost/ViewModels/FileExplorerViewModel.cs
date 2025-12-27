@@ -711,6 +711,27 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         EditInViewerCommand.NotifyCanExecuteChanged();
         PopOutViewerCommand.NotifyCanExecuteChanged();
         ExploreInExplorerCommand.NotifyCanExecuteChanged();
+        ViewHistoryCommand.NotifyCanExecuteChanged();
+        ViewBlameCommand.NotifyCanExecuteChanged();
+    }
+
+    // File history and blame commands
+    public bool CanViewHistory => SelectedNode != null && !SelectedNode.IsDirectory;
+
+    [RelayCommand(CanExecute = nameof(CanViewHistory))]
+    private void ViewHistory()
+    {
+        if (SelectedNode?.IsDirectory != false) return;
+        FileHistoryRequested?.Invoke(this, SelectedNode.FullPath);
+    }
+
+    public bool CanViewBlame => SelectedNode != null && !SelectedNode.IsDirectory;
+
+    [RelayCommand(CanExecute = nameof(CanViewBlame))]
+    private void ViewBlame()
+    {
+        if (SelectedNode?.IsDirectory != false) return;
+        FileBlameRequested?.Invoke(this, SelectedNode.FullPath);
     }
 
     // Events
@@ -718,6 +739,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     public event EventHandler<FileViewerRequestedEventArgs>? PopOutRequested;
     public event EventHandler<string>? CdToShellRequested;
     public event EventHandler<FileSystemNode>? RenameRequested;
+    public event EventHandler<string>? FileHistoryRequested;
+    public event EventHandler<string>? FileBlameRequested;
 
     public void Dispose()
     {

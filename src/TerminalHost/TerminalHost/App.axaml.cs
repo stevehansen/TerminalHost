@@ -100,6 +100,9 @@ public partial class App : Application
         services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
         services.AddSingleton<SearchAcrossFilesViewModel>();
+        services.AddSingleton<FileHistoryViewModel>();
+        services.AddSingleton<FileBlameViewModel>();
+        services.AddSingleton<ReflogViewModel>();
 
         // Windows
         services.AddSingleton<MainWindow>();

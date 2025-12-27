@@ -1137,12 +1137,31 @@
                                                    Classes="HelpText"/>
 
                                         <TextBlock Text="Keyboard Shortcut" Classes="FieldLabel"/>
-                                        <TextBox Text="{Binding EditQcShortcut}"
-                                                 Classes="FormTextBox"
-                                                 Width="200"
-                                                 HorizontalAlignment="Left"
-                                                 FontFamily="{StaticResource FontFamilyMonospace}"/>
-                                        <TextBlock Text="e.g., Ctrl+Shift+C or Ctrl+Alt+P"
+                                        <Grid ColumnDefinitions="*,Auto,Auto" HorizontalAlignment="Left" Width="340">
+                                            <TextBox x:Name="ShortcutTextBox"
+                                                     Grid.Column="0"
+                                                     Text="{Binding EditQcShortcut}"
+                                                     Classes="FormTextBox"
+                                                     FontFamily="{StaticResource FontFamilyMonospace}"
+                                                     IsReadOnly="{Binding IsCapturingShortcut}"
+                                                     Watermark="{Binding IsCapturingShortcut, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Press keys...|Type or click Record'}"
+                                                     KeyDown="ShortcutTextBox_KeyDown"/>
+                                            <Button Grid.Column="1"
+                                                    Content="{Binding IsCapturingShortcut, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Stop|Record'}"
+                                                    Command="{Binding ToggleShortcutCaptureCommand}"
+                                                    Click="RecordButton_Click"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="70"
+                                                    Margin="4,0,0,0"
+                                                    Background="{Binding IsCapturingShortcut, Converter={StaticResource BoolToBrushConverter}, ConverterParameter='#2196F3|#444444'}"/>
+                                            <Button Grid.Column="2"
+                                                    Content="Clear"
+                                                    Command="{Binding ClearShortcutCommand}"
+                                                    Classes="SettingsToolbarButton"
+                                                    Width="70"
+                                                    Margin="4,0,0,0"/>
+                                        </Grid>
+                                        <TextBlock Text="Click 'Record' and press the key combination, or type manually (e.g., Ctrl+Shift+C)"
                                                    Classes="HelpText"/>
 
                                         <CheckBox Content="Append newline after command"

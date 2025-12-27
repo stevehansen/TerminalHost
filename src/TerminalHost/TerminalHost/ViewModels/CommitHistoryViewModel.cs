@@ -292,4 +292,118 @@ public partial class CommitHistoryViewModel : ObservableObject
         await _clipboardService.SetTextAsync(SelectedCommit.ShortHash);
         _toastService.Show("Short hash copied", ToastType.Success);
     }
+
+    #region Cherry-pick and Revert
+
+    public bool CanCherryPickOrRevert => SelectedCommit != null;
+
+    [RelayCommand(CanExecute = nameof(CanCherryPickOrRevert))]
+    private async Task CherryPickAsync()
+    {
+        if (SelectedCommit == null || string.IsNullOrEmpty(_currentWorkingDirectory))
+            return;
+
+        var confirm = _dialogService.ShowConfirmation(
+            $"Cherry-pick commit {SelectedCommit.ShortHash}?\n\n" +
+            $"This will apply the changes from this commit to your current branch.\n\n" +
+            $"Subject: {SelectedCommit.Subject}",
+            "Cherry-pick Commit");
+
+        if (!confirm) return;
+
+        try
+        {
+            var result = await _gitStatusService.CherryPickAsync(_currentWorkingDirectory, SelectedCommit.Hash);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Cherry-picked {SelectedCommit.ShortHash}", ToastType.Success);
+                await RefreshAsync();
+            }
+            else
+            {
+                if (result.Error?.Contains("conflict") == true)
+                {
+                    var action = _dialogService.ShowConfirmation(
+                        "Cherry-pick resulted in conflicts.\n\n" +
+                        "Would you like to abort the cherry-pick?",
+                        "Conflicts Detected");
+
+                    if (action)
+                    {
+                        await _gitStatusService.CherryPickAbortAsync(_currentWorkingDirectory);
+                        _toastService.Show("Cherry-pick aborted", ToastType.Warning);
+                    }
+                    else
+                    {
+                        _toastService.Show("Resolve conflicts and commit manually", ToastType.Info);
+                    }
+                }
+                else
+                {
+                    _dialogService.ShowError(result.Error ?? "Failed to cherry-pick", "Cherry-pick Failed");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to cherry-pick: {ex.Message}", "Error");
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCherryPickOrRevert))]
+    private async Task RevertCommitAsync()
+    {
+        if (SelectedCommit == null || string.IsNullOrEmpty(_currentWorkingDirectory))
+            return;
+
+        var confirm = _dialogService.ShowConfirmation(
+            $"Revert commit {SelectedCommit.ShortHash}?\n\n" +
+            $"This will create a new commit that undoes all changes from this commit.\n\n" +
+            $"Subject: {SelectedCommit.Subject}",
+            "Revert Commit");
+
+        if (!confirm) return;
+
+        try
+        {
+            var result = await _gitStatusService.RevertAsync(_currentWorkingDirectory, SelectedCommit.Hash);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Reverted {SelectedCommit.ShortHash}", ToastType.Success);
+                await RefreshAsync();
+            }
+            else
+            {
+                if (result.Error?.Contains("conflict") == true)
+                {
+                    var action = _dialogService.ShowConfirmation(
+                        "Revert resulted in conflicts.\n\n" +
+                        "Would you like to abort the revert?",
+                        "Conflicts Detected");
+
+                    if (action)
+                    {
+                        await _gitStatusService.RevertAbortAsync(_currentWorkingDirectory);
+                        _toastService.Show("Revert aborted", ToastType.Warning);
+                    }
+                    else
+                    {
+                        _toastService.Show("Resolve conflicts and commit manually", ToastType.Info);
+                    }
+                }
+                else
+                {
+                    _dialogService.ShowError(result.Error ?? "Failed to revert", "Revert Failed");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to revert: {ex.Message}", "Error");
+        }
+    }
+
+    #endregion
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
@@ -343,5 +344,22 @@ public partial class SettingsView : UserControl
         }
 
         return _dialogService;
+    }
+
+    private void ShortcutTextBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel viewModel && viewModel.IsCapturingShortcut)
+        {
+            // Pass the key event to the view model for processing
+            viewModel.CaptureShortcut(e.Key, e.KeyModifiers);
+            e.Handled = true;
+        }
+    }
+
+    private void RecordButton_Click(object? sender, RoutedEventArgs e)
+    {
+        // Focus the TextBox after clicking Record so it receives key events
+        var shortcutTextBox = this.FindControl<TextBox>("ShortcutTextBox");
+        shortcutTextBox?.Focus();
     }
 }

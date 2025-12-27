@@ -24,6 +24,9 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
+    private readonly FileHistoryViewModel _fileHistoryViewModel;
+    private readonly FileBlameViewModel _fileBlameViewModel;
+    private readonly ReflogViewModel _reflogViewModel;
     private readonly IFilePickerService _filePickerService;
 
     public MainWindow(
@@ -39,6 +42,9 @@ public partial class MainWindow : Window
         DetectedLinksViewModel detectedLinksViewModel,
         TaskPanelViewModel taskPanelViewModel,
         SearchAcrossFilesViewModel searchAcrossFilesViewModel,
+        FileHistoryViewModel fileHistoryViewModel,
+        FileBlameViewModel fileBlameViewModel,
+        ReflogViewModel reflogViewModel,
         IFilePickerService filePickerService)
     {
         InitializeComponent();
@@ -55,6 +61,9 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _taskPanelViewModel = taskPanelViewModel;
         _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
+        _fileHistoryViewModel = fileHistoryViewModel;
+        _fileBlameViewModel = fileBlameViewModel;
+        _reflogViewModel = reflogViewModel;
         _filePickerService = filePickerService;
 
         DataContext = _mainViewModel;
@@ -69,6 +78,9 @@ public partial class MainWindow : Window
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
         TaskPanelPopup.DataContext = _taskPanelViewModel;
         SearchAcrossFilesPopup.DataContext = _searchAcrossFilesViewModel;
+        FileHistoryPopup.DataContext = _fileHistoryViewModel;
+        FileBlamePopup.DataContext = _fileBlameViewModel;
+        ReflogPopup.DataContext = _reflogViewModel;
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -76,6 +88,8 @@ public partial class MainWindow : Window
         _mainViewModel.FilePreviewRequested += OnFilePreviewRequested;
         _mainViewModel.FilePopOutRequested += OnFilePopOutRequested;
         _mainViewModel.SetupRequested += OnSetupRequested;
+        _mainViewModel.FileHistoryRequested += OnFileHistoryRequested;
+        _mainViewModel.FileBlameRequested += OnFileBlameRequested;
 
         // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
         _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
@@ -218,6 +232,13 @@ public partial class MainWindow : Window
         };
         gitStashItem.Click += (_, _) => _ = _gitStashViewModel.OpenCommand.ExecuteAsync(null);
         viewMenu.Menu.Add(gitStashItem);
+
+        var gitReflogItem = new NativeMenuItem("Git Reflog...")
+        {
+            Gesture = new KeyGesture(Key.G, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        gitReflogItem.Click += (_, _) => _ = _reflogViewModel.OpenCommand.ExecuteAsync(null);
+        viewMenu.Menu.Add(gitReflogItem);
 
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
@@ -415,6 +436,16 @@ public partial class MainWindow : Window
         CreatePopOutWindow(e.FilePath, e.Mode == FileViewerMode.Edit);
     }
 
+    private void OnFileHistoryRequested(object? sender, FileHistoryRequestedEventArgs e)
+    {
+        _ = _fileHistoryViewModel.OpenAsync(e.WorkingDirectory, e.FilePath);
+    }
+
+    private void OnFileBlameRequested(object? sender, FileBlameRequestedEventArgs e)
+    {
+        _ = _fileBlameViewModel.OpenAsync(e.WorkingDirectory, e.FilePath);
+    }
+
     private void OnFileViewerDetachRequested(object? sender, EventArgs e)
     {
         // Pop out the current file from the popup viewer
@@ -580,6 +611,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+G for Git Reflog
+        if (e.Key == Key.G && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _ = _reflogViewModel.OpenCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+Shift+N for Scratch Pad
         if (e.Key == Key.N && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
@@ -665,7 +704,117 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        // Check Quick Command shortcuts
+        if (TryExecuteQuickCommandShortcut(e.Key, e.KeyModifiers))
+        {
+            e.Handled = true;
+            return;
+        }
     }
+
+    #region Quick Command Shortcuts
+
+    private bool TryExecuteQuickCommandShortcut(Key key, KeyModifiers modifiers)
+    {
+        foreach (var command in _mainViewModel.QuickCommands)
+        {
+            if (string.IsNullOrEmpty(command.Shortcut)) continue;
+
+            if (TryParseShortcut(command.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                if (key == expectedKey && modifiers == expectedModifiers)
+                {
+                    _mainViewModel.ExecuteQuickCommandCommand.Execute(command);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool TryParseShortcut(string shortcut, out Key key, out KeyModifiers modifiers)
+    {
+        key = Key.None;
+        modifiers = KeyModifiers.None;
+
+        var parts = shortcut.Split('+', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+        if (parts.Length == 0) return false;
+
+        // Parse modifiers and key
+        foreach (var part in parts)
+        {
+            var upperPart = part.ToUpperInvariant();
+            switch (upperPart)
+            {
+                case "CTRL":
+                case "CONTROL":
+                    modifiers |= KeyModifiers.Control;
+                    break;
+                case "CMD":
+                case "META":
+                    modifiers |= KeyModifiers.Meta;
+                    break;
+                case "ALT":
+                case "OPT":
+                case "OPTION":
+                    modifiers |= KeyModifiers.Alt;
+                    break;
+                case "SHIFT":
+                    modifiers |= KeyModifiers.Shift;
+                    break;
+                default:
+                    // Try to parse as a Key
+                    if (System.Enum.TryParse<Key>(part, ignoreCase: true, out var parsedKey))
+                    {
+                        key = parsedKey;
+                    }
+                    else if (part.Length == 1 && char.IsLetter(part[0]))
+                    {
+                        // Single letter key (A-Z)
+                        key = (Key)System.Enum.Parse(typeof(Key), part.ToUpperInvariant());
+                    }
+                    else if (part.Length == 1 && char.IsDigit(part[0]))
+                    {
+                        // Number key (0-9) - use D0-D9 for top row
+                        key = (Key)System.Enum.Parse(typeof(Key), "D" + part);
+                    }
+                    break;
+            }
+        }
+
+        return key != Key.None && modifiers != KeyModifiers.None;
+    }
+
+    /// <summary>
+    /// Formats a key combination into a shortcut string.
+    /// </summary>
+    public static string FormatShortcut(Key key, KeyModifiers modifiers)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+
+        if (modifiers.HasFlag(KeyModifiers.Control))
+            parts.Add("Ctrl");
+        if (modifiers.HasFlag(KeyModifiers.Meta))
+            parts.Add("Cmd");
+        if (modifiers.HasFlag(KeyModifiers.Alt))
+            parts.Add("Alt");
+        if (modifiers.HasFlag(KeyModifiers.Shift))
+            parts.Add("Shift");
+
+        // Convert key to display string
+        var keyStr = key.ToString();
+        if (keyStr.StartsWith("D") && keyStr.Length == 2 && char.IsDigit(keyStr[1]))
+        {
+            // D0-D9 -> 0-9
+            keyStr = keyStr[1].ToString();
+        }
+        parts.Add(keyStr);
+
+        return string.Join("+", parts);
+    }
+
+    #endregion
 
     private void CloseAllPopups()
     {
@@ -694,6 +843,12 @@ public partial class MainWindow : Window
             _taskPanelViewModel.CloseCommand.Execute(null);
         if (_searchAcrossFilesViewModel.CloseCommand.CanExecute(null))
             _searchAcrossFilesViewModel.CloseCommand.Execute(null);
+        if (_fileHistoryViewModel.CloseCommand.CanExecute(null))
+            _fileHistoryViewModel.CloseCommand.Execute(null);
+        if (_fileBlameViewModel.CloseCommand.CanExecute(null))
+            _fileBlameViewModel.CloseCommand.Execute(null);
+        if (_reflogViewModel.CloseCommand.CanExecute(null))
+            _reflogViewModel.CloseCommand.Execute(null);
     }
 
     public void BringToFront()

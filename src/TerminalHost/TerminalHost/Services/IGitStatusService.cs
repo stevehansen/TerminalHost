@@ -39,4 +39,23 @@ public interface IGitStatusService
     Task<(bool Success, string? Error)> StashPopAsync(string workingDirectory, int index);
     Task<(bool Success, string? Error)> StashDropAsync(string workingDirectory, int index);
     Task<(bool Success, string? Error)> StashBranchAsync(string workingDirectory, int index, string branchName);
+
+    // File history and blame operations
+    Task<GitBlameResult?> GetFileBlameAsync(string workingDirectory, string filePath);
+    Task<List<GitCommit>> GetFileHistoryAsync(string workingDirectory, string filePath, int skip = 0, int take = 50);
+    Task<string?> GetFileContentAtCommitAsync(string workingDirectory, string commitHash, string filePath);
+
+    // Reflog operations
+    Task<List<GitReflogEntry>> GetReflogAsync(string workingDirectory, int take = 100);
+    Task<(bool Success, string? Error)> CreateBranchFromRefAsync(string workingDirectory, string refSpec, string branchName);
+
+    // Cherry-pick operations
+    Task<(bool Success, string? Error)> CherryPickAsync(string workingDirectory, string commitHash);
+    Task<(bool Success, string? Error)> CherryPickContinueAsync(string workingDirectory);
+    Task<(bool Success, string? Error)> CherryPickAbortAsync(string workingDirectory);
+
+    // Revert operations
+    Task<(bool Success, string? Error)> RevertAsync(string workingDirectory, string commitHash);
+    Task<(bool Success, string? Error)> RevertContinueAsync(string workingDirectory);
+    Task<(bool Success, string? Error)> RevertAbortAsync(string workingDirectory);
 }
