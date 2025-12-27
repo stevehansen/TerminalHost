@@ -397,6 +397,62 @@ Timeline Mode can work alongside the existing workspace sidebar:
 - Export/import timeline data
 - Statistics and insights
 
+## Implementation Status
+
+> Last updated: 2025-12-27
+
+### Completed
+
+#### Phase 1: Core Infrastructure ✅
+- [x] `Intent` and `ClaudeSession` domain models (`src/TerminalHost.Core/Domain/`)
+- [x] `ITimelineService` / `TimelineService` for state management
+- [x] Persistence in `config.json` via `TimelineState`
+- [x] Git worktree integration via `IGitWorktreeService`
+
+#### Phase 2: Timeline UI ✅
+- [x] Timeline view with horizontal swimlanes (`TimelineView.xaml`)
+- [x] Session blocks with status indicators (✓ success, ✗ failed, ● running)
+- [x] Time scale switching (Minutes/Hours/Days)
+- [x] Intent sidebar with status badges
+- [x] Session detail popup with files changed, commands, notes
+- [x] Create Intent dialog with branch selection
+
+#### Phase 3: Session Tracking ✅
+- [x] Claude Code hooks plugin (`plugins/terminalhost-session-tracker/`)
+- [x] Hook event handling (`--hook session-start|session-stop|file-changed`)
+- [x] IPC forwarding to main app via named pipe
+- [x] `HookEventQueue` for offline handling
+- [x] Files changed tracking from `PostToolUse` hooks
+- [x] Git commit linking on session end
+- [x] Intent matching by working directory
+- [x] Settings UI for hook installation status
+
+#### Phase 4: Advanced Features (Partial)
+- [x] Fork from session (`ForkSessionAsync`)
+- [x] Cherry-pick between intents (`CherryPickSessionAsync`)
+- [x] Focus time tracking (basic implementation)
+- [x] Session abandonment (`MarkSessionAbandoned`)
+- [x] Intent context field (inline string storage)
+
+#### Phase 5: Polish (Partial)
+- [x] Keyboard navigation (↑↓←→, Enter, Escape)
+- [x] Intent reordering via `ReorderIntent` method
+
+### Remaining
+
+#### Phase 4: Advanced Features
+- [ ] **Intent context file creation**: Auto-create `intent-context.md` in worktree when context is provided
+- [ ] **Context loading**: Sessions should auto-load `CLAUDE.md` + `intent-context.md` (requires Claude Code integration)
+
+#### Phase 5: Polish
+- [ ] **Drag to reorder intents**: UI drag-drop implementation (backend method exists)
+- [ ] **Export/import timeline data**: Export intents + sessions to JSON for backup/sharing
+- [ ] **Statistics and insights**: Dedicated stats view (total focus time, sessions per intent, success rate, etc.)
+
+#### Session Detail Enhancements
+- [ ] **Commands from transcript**: Parse transcript JSONL for Bash tool calls
+- [ ] **Agent notes from transcript**: Extract Claude's summary from transcript
+
 ## Session Tracking via Claude Code Hooks
 
 Session tracking is the core challenge for Timeline Mode. Rather than unreliably parsing terminal output, we leverage **Claude Code's hooks system** to receive structured events directly from Claude Code.
