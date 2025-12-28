@@ -105,6 +105,7 @@ public partial class App : Application
         services.AddSingleton<FileHistoryViewModel>();
         services.AddSingleton<FileBlameViewModel>();
         services.AddSingleton<ReflogViewModel>();
+        services.AddSingleton<ManageWorktreesViewModel>();
         services.AddSingleton<WorkspaceSidebarViewModel>();
 
         // Windows

@@ -51,6 +51,12 @@ public class WorktreeInfo
     public bool IsLocked { get; set; }
 
     /// <summary>
+    /// The reason for the lock, if any.
+    /// </summary>
+    [JsonPropertyName("lockReason")]
+    public string? LockReason { get; set; }
+
+    /// <summary>
     /// Whether the worktree is prunable (orphaned).
     /// </summary>
     [JsonPropertyName("isPrunable")]
@@ -104,4 +110,49 @@ public class WorktreeInfo
             return "🌿";
         }
     }
+
+    /// <summary>
+    /// Status badge text for display.
+    /// </summary>
+    [JsonIgnore]
+    public string StatusBadge
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (IsMain) parts.Add("Main Worktree");
+            if (IsLocked)
+            {
+                parts.Add(string.IsNullOrEmpty(LockReason) ? "🔒 Locked" : $"🔒 {LockReason}");
+            }
+            if (IsPrunable) parts.Add("⚠️ Missing");
+            return string.Join("  •  ", parts);
+        }
+    }
+
+    /// <summary>
+    /// Status color for display.
+    /// </summary>
+    [JsonIgnore]
+    public string StatusColor
+    {
+        get
+        {
+            if (IsPrunable) return "#F44336"; // Red
+            if (IsLocked) return "#FF9800"; // Orange
+            return "#4CAF50"; // Green
+        }
+    }
+
+    /// <summary>
+    /// Whether this worktree can be removed (not the main worktree).
+    /// </summary>
+    [JsonIgnore]
+    public bool CanRemove => !IsMain;
+
+    /// <summary>
+    /// Text for lock/unlock button.
+    /// </summary>
+    [JsonIgnore]
+    public string LockButtonText => IsLocked ? "Unlock" : "Lock";
 }

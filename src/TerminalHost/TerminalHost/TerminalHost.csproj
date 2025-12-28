@@ -161,6 +161,7 @@
     <Compile Include="ViewModels\FileHistoryViewModel.cs" />
     <Compile Include="ViewModels\FileBlameViewModel.cs" />
     <Compile Include="ViewModels\ReflogViewModel.cs" />
+    <Compile Include="ViewModels\ManageWorktreesViewModel.cs" />
     <Compile Include="ViewModels\WorkspaceSidebarViewModel.cs" />
     <!-- Timeline Mode view models -->
     <Compile Include="ViewModels\TimelineTabViewModel.cs" />
@@ -217,6 +218,7 @@
     <Compile Include="Domain\AppLayoutMode.cs" />
     <Compile Include="Domain\Workspace.cs" />
     <Compile Include="Domain\WorktreeInfo.cs" />
+    <Compile Include="Domain\CreateWorktreeDialogResult.cs" />
     <!-- Timeline Mode domain models -->
     <Compile Include="Domain\Intent.cs" />
     <Compile Include="Domain\IntentStatus.cs" />
@@ -336,6 +338,7 @@
     <Compile Include="Views\Popups\FileHistoryView.axaml.cs" />
     <Compile Include="Views\Popups\FileBlameView.axaml.cs" />
     <Compile Include="Views\Popups\ReflogView.axaml.cs" />
+    <Compile Include="Views\Popups\ManageWorktreesView.axaml.cs" />
 
     <!-- Window Views -->
     <Compile Include="Views\SetupWindow.axaml.cs" />
@@ -348,6 +351,7 @@
     <!-- Dialogs -->
     <Compile Include="Views\Dialogs\InputDialog.axaml.cs" />
     <Compile Include="Views\Dialogs\NotificationDialog.axaml.cs" />
+    <Compile Include="Views\Dialogs\CreateWorktreeDialog.axaml.cs" />
   </ItemGroup>
 
   <!-- Stage 7: Controls code-behind files -->

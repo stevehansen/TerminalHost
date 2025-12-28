@@ -202,6 +202,12 @@
                     x:Name="ReflogPopup"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
+
+                <!-- Manage Worktrees - Center -->
+                <popups:ManageWorktreesView
+                    x:Name="ManageWorktreesPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
             </Panel>
         </Grid>
     </Grid>

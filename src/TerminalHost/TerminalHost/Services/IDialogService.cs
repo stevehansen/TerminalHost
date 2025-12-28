@@ -1,3 +1,5 @@
+using TerminalHost.Domain;
+
 namespace TerminalHost.Services;
 
 public interface IDialogService
@@ -12,4 +14,16 @@ public interface IDialogService
     /// Returns the input text, or null if cancelled.
     /// </summary>
     string? ShowInput(string prompt, string title = "Input", string defaultValue = "");
+
+    /// <summary>
+    /// Shows the Create Worktree dialog.
+    /// </summary>
+    /// <param name="repositoryPath">Path to the repository.</param>
+    /// <param name="branches">Available branches.</param>
+    /// <param name="suggestedBasePath">Suggested base path for the worktree.</param>
+    /// <returns>The dialog result, or null if cancelled.</returns>
+    Task<CreateWorktreeDialogResult?> ShowCreateWorktreeDialogAsync(
+        string repositoryPath,
+        IEnumerable<GitBranch> branches,
+        string suggestedBasePath);
 }

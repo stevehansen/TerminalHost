@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using TerminalHost.Domain;
 using TerminalHost.Views.Dialogs;
 
 namespace TerminalHost.Services;
@@ -219,5 +220,39 @@ public class DialogService : IDialogService
 
         Dispatcher.UIThread.PushFrame(frame);
         return result;
+    }
+
+    /// <summary>
+    /// Shows the Create Worktree dialog.
+    /// </summary>
+    public async Task<CreateWorktreeDialogResult?> ShowCreateWorktreeDialogAsync(
+        string repositoryPath,
+        IEnumerable<GitBranch> branches,
+        string suggestedBasePath)
+    {
+        // Ensure we're on the UI thread
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            return await Dispatcher.UIThread.InvokeAsync(
+                () => ShowCreateWorktreeDialogAsync(repositoryPath, branches, suggestedBasePath));
+        }
+
+        var dialog = new CreateWorktreeDialog(repositoryPath, branches, suggestedBasePath);
+        var owner = GetMainWindow();
+
+        if (owner != null)
+        {
+            await dialog.ShowDialog(owner);
+        }
+        else
+        {
+            dialog.Show();
+            // Wait for dialog to close
+            var tcs = new TaskCompletionSource<bool>();
+            dialog.Closed += (s, e) => tcs.SetResult(true);
+            await tcs.Task;
+        }
+
+        return dialog.GetResult();
     }
 }

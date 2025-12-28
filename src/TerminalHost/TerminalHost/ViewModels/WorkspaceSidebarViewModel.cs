@@ -52,21 +52,10 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [ObservableProperty]
     private string _currentRepositoryName = string.Empty;
 
-    // For create worktree dialog
-    [ObservableProperty]
-    private bool _isCreateWorktreeDialogOpen;
-
-    [ObservableProperty]
-    private string _newWorktreePath = string.Empty;
-
-    [ObservableProperty]
-    private string _newWorktreeBranch = string.Empty;
-
-    [ObservableProperty]
-    private bool _createNewBranch;
-
-    [ObservableProperty]
-    private ObservableCollection<string> _availableBranches = [];
+    /// <summary>
+    /// Event raised when user wants to open the Manage Worktrees popup.
+    /// </summary>
+    public event EventHandler? ManageWorktreesRequested;
 
     public WorkspaceSidebarViewModel(
         IGitWorktreeService worktreeService,
@@ -258,50 +247,36 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             return;
         }
 
-        // Load available branches
-        var branches = await _worktreeService.GetAvailableBranchesAsync(repoRoot);
-        AvailableBranches = new ObservableCollection<string>(branches);
+        // Get branches for the dialog
+        var branches = await _worktreeService.GetBranchesForWorktreeAsync(repoRoot);
 
-        // Set defaults
-        NewWorktreePath = string.Empty;
-        NewWorktreeBranch = branches.FirstOrDefault() ?? string.Empty;
-        CreateNewBranch = false;
+        // Show the create worktree dialog
+        var result = await _dialogService.ShowCreateWorktreeDialogAsync(
+            repoRoot,
+            branches,
+            repoRoot);
 
-        IsCreateWorktreeDialogOpen = true;
-    }
-
-    [RelayCommand]
-    private async Task CreateWorktreeAsync()
-    {
-        if (MainViewModel?.SelectedTab is not TerminalPairTabViewModel terminalTab)
-            return;
-
-        if (string.IsNullOrWhiteSpace(NewWorktreePath) || string.IsNullOrWhiteSpace(NewWorktreeBranch))
-        {
-            _toastService.Show("Please fill in all fields.", ToastType.Warning);
-            return;
-        }
-
-        var workingDir = terminalTab.Pair.WorkingDirectory;
-        var repoRoot = await _worktreeService.GetRepositoryRootAsync(workingDir);
-
-        if (string.IsNullOrEmpty(repoRoot))
-            return;
+        if (result == null) return;
 
         IsLoading = true;
         try
         {
             var (success, error) = await _worktreeService.CreateWorktreeAsync(
                 repoRoot,
-                NewWorktreePath,
-                NewWorktreeBranch,
-                CreateNewBranch);
+                result.WorktreePath,
+                result.BranchName,
+                result.CreateNewBranch);
 
             if (success)
             {
-                _toastService.Show($"Worktree created: {NewWorktreeBranch}", ToastType.Success);
-                IsCreateWorktreeDialogOpen = false;
+                _toastService.Show($"Worktree created: {result.BranchName}", ToastType.Success);
                 await RefreshWorktreesAsync();
+
+                if (result.OpenAfterCreation)
+                {
+                    // Open the worktree as a new tab
+                    MainViewModel?.OpenProjectTab(result.WorktreePath);
+                }
             }
             else
             {
@@ -315,9 +290,9 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CancelCreateWorktree()
+    private void OpenManageWorktrees()
     {
-        IsCreateWorktreeDialogOpen = false;
+        ManageWorktreesRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]

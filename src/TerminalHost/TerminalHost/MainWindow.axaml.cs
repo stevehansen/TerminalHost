@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
     private readonly ReflogViewModel _reflogViewModel;
+    private readonly ManageWorktreesViewModel _manageWorktreesViewModel;
     private readonly WorkspaceSidebarViewModel _workspaceSidebarViewModel;
     private readonly IFilePickerService _filePickerService;
 
@@ -46,6 +47,7 @@ public partial class MainWindow : Window
         FileHistoryViewModel fileHistoryViewModel,
         FileBlameViewModel fileBlameViewModel,
         ReflogViewModel reflogViewModel,
+        ManageWorktreesViewModel manageWorktreesViewModel,
         WorkspaceSidebarViewModel workspaceSidebarViewModel,
         IFilePickerService filePickerService)
     {
@@ -66,6 +68,7 @@ public partial class MainWindow : Window
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
         _reflogViewModel = reflogViewModel;
+        _manageWorktreesViewModel = manageWorktreesViewModel;
         _workspaceSidebarViewModel = workspaceSidebarViewModel;
         _filePickerService = filePickerService;
 
@@ -91,6 +94,7 @@ public partial class MainWindow : Window
         FileHistoryPopup.DataContext = _fileHistoryViewModel;
         FileBlamePopup.DataContext = _fileBlameViewModel;
         ReflogPopup.DataContext = _reflogViewModel;
+        ManageWorktreesPopup.DataContext = _manageWorktreesViewModel;
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -111,6 +115,12 @@ public partial class MainWindow : Window
         // Wire up search across files events
         _searchAcrossFilesViewModel.FilePreviewRequested += OnSearchFilePreviewRequested;
         _searchAcrossFilesViewModel.FileEditRequested += OnSearchFileEditRequested;
+
+        // Wire up manage worktrees events
+        _manageWorktreesViewModel.OpenWorktreeRequested += OnOpenWorktreeRequested;
+
+        // Wire up workspace sidebar events
+        _workspaceSidebarViewModel.ManageWorktreesRequested += OnManageWorktreesRequested;
 
         // Event handlers
         Opened += OnOpened;
@@ -501,6 +511,18 @@ public partial class MainWindow : Window
         // TODO: Create SetupWindow when implemented for Avalonia
     }
 
+    private void OnOpenWorktreeRequested(object? sender, string worktreePath)
+    {
+        // Open or focus the worktree as a new tab
+        _mainViewModel.OpenProjectTab(worktreePath);
+    }
+
+    private async void OnManageWorktreesRequested(object? sender, EventArgs e)
+    {
+        CloseAllPopups();
+        await _manageWorktreesViewModel.OpenAsync();
+    }
+
     private async Task OpenFilePickerAsync(bool editMode)
     {
         try
@@ -882,6 +904,8 @@ public partial class MainWindow : Window
             _fileBlameViewModel.CloseCommand.Execute(null);
         if (_reflogViewModel.CloseCommand.CanExecute(null))
             _reflogViewModel.CloseCommand.Execute(null);
+        if (_manageWorktreesViewModel.CloseCommand.CanExecute(null))
+            _manageWorktreesViewModel.CloseCommand.Execute(null);
     }
 
     public void BringToFront()

@@ -65,4 +65,33 @@ public interface IGitWorktreeService
     /// <param name="repositoryPath">Path to any directory within the repository.</param>
     /// <returns>List of branch names.</returns>
     Task<List<string>> GetAvailableBranchesAsync(string repositoryPath);
+
+    /// <summary>
+    /// Locks a worktree to prevent accidental removal.
+    /// </summary>
+    /// <param name="worktreePath">Path to the worktree to lock.</param>
+    /// <param name="reason">Optional reason for locking.</param>
+    /// <returns>Success status and optional error message.</returns>
+    Task<(bool Success, string? Error)> LockWorktreeAsync(string worktreePath, string? reason = null);
+
+    /// <summary>
+    /// Unlocks a previously locked worktree.
+    /// </summary>
+    /// <param name="worktreePath">Path to the worktree to unlock.</param>
+    /// <returns>Success status and optional error message.</returns>
+    Task<(bool Success, string? Error)> UnlockWorktreeAsync(string worktreePath);
+
+    /// <summary>
+    /// Prunes stale worktree entries from the repository.
+    /// </summary>
+    /// <param name="repositoryPath">Path to any directory within the repository.</param>
+    /// <returns>Success status and optional error message.</returns>
+    Task<(bool Success, string? Error)> PruneWorktreesAsync(string repositoryPath);
+
+    /// <summary>
+    /// Gets detailed branch information for creating worktrees.
+    /// </summary>
+    /// <param name="repositoryPath">Path to any directory within the repository.</param>
+    /// <returns>List of branch information.</returns>
+    Task<List<GitBranch>> GetBranchesForWorktreeAsync(string repositoryPath);
 }

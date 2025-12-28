@@ -70,6 +70,12 @@
                     <TextBlock Text="🗑️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
+            <Separator/>
+            <MenuItem Header="Manage Worktrees..." Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenManageWorktreesCommand}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⚙️" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
         </ContextMenu>
     </UserControl.Resources>
 
@@ -210,7 +216,7 @@
                           IsVisible="{Binding HasWorktrees}"
                           Margin="0,0,0,1">
                     <Expander.Header>
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,4,0">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="🌿" FontSize="{StaticResource FontSizeSmall}"/>
                                 <TextBlock Text="WORKTREES"
@@ -223,13 +229,24 @@
                                            FontSize="{StaticResource FontSizeSmaller}"
                                            Foreground="{StaticResource TextDimmedBrush}"/>
                             </StackPanel>
-                            <Button Grid.Column="1"
+                            <Button Grid.Column="2"
+                                    Content="⚙"
+                                    Command="{Binding OpenManageWorktreesCommand}"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    FontSize="14"
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="Manage Worktrees"/>
+                            <Button Grid.Column="3"
                                     Content="+"
                                     Command="{Binding ShowCreateWorktreeDialogCommand}"
                                     Background="Transparent"
                                     Foreground="{StaticResource TextSecondaryBrush}"
-                                    FontSize="{StaticResource FontSizeSmall}"
-                                    Padding="4,0"
+                                    FontSize="16"
+                                    FontWeight="Bold"
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
                                     ToolTip.Tip="Create Worktree"/>
                         </Grid>
                     </Expander.Header>
@@ -344,80 +361,6 @@
                            FontFamily="{StaticResource FontFamilyStandard}"
                            Foreground="{StaticResource TextSecondaryBrush}"/>
             </StackPanel>
-        </Border>
-
-        <!-- Create Worktree Dialog -->
-        <Border Grid.RowSpan="2"
-                Background="#C0000000"
-                IsVisible="{Binding IsCreateWorktreeDialogOpen}">
-            <Border Background="{StaticResource BackgroundDarkBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="16"
-                    MaxWidth="350"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Create Worktree"
-                               FontFamily="{StaticResource FontFamilyStandard}"
-                               FontSize="{StaticResource FontSizeNormal}"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}"/>
-
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Path"
-                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                        <TextBox Text="{Binding NewWorktreePath}"
-                                 Watermark="/path/to/worktree"
-                                 FontFamily="{StaticResource FontFamilyMonospace}"
-                                 FontSize="{StaticResource FontSizeSmall}"
-                                 Background="{StaticResource BackgroundMediumBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"/>
-                    </StackPanel>
-
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Branch"
-                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding AvailableBranches}"
-                                  SelectedItem="{Binding NewWorktreeBranch}"
-                                  IsVisible="{Binding !CreateNewBranch}"
-                                  HorizontalAlignment="Stretch"
-                                  FontFamily="{StaticResource FontFamilyMonospace}"
-                                  FontSize="{StaticResource FontSizeSmall}"/>
-                        <TextBox Text="{Binding NewWorktreeBranch}"
-                                 IsVisible="{Binding CreateNewBranch}"
-                                 Watermark="new-branch-name"
-                                 FontFamily="{StaticResource FontFamilyMonospace}"
-                                 FontSize="{StaticResource FontSizeSmall}"
-                                 Background="{StaticResource BackgroundMediumBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"/>
-                    </StackPanel>
-
-                    <CheckBox IsChecked="{Binding CreateNewBranch}"
-                              Content="Create new branch"
-                              FontFamily="{StaticResource FontFamilyStandard}"
-                              FontSize="{StaticResource FontSizeSmall}"
-                              Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                        <Button Content="Cancel"
-                                Command="{Binding CancelCreateWorktreeCommand}"
-                                Background="{StaticResource BackgroundMediumBrush}"
-                                Foreground="{StaticResource TextSecondaryBrush}"
-                                Padding="16,8"/>
-                        <Button Content="Create"
-                                Command="{Binding CreateWorktreeCommand}"
-                                Background="{StaticResource AccentBlueBrush}"
-                                Foreground="{StaticResource TextPrimaryBrush}"
-                                Padding="16,8"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
         </Border>
     </Grid>
 </UserControl>

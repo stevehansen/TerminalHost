@@ -1,0 +1,188 @@
+<UserControl x:Class="TerminalHost.Views.Popups.ManageWorktreesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             d:DataContext="{d:DesignInstance viewModels:ManageWorktreesViewModel}"
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}">
+
+    <!-- Overlay panel centered in parent -->
+    <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxCyanBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                MinWidth="500"
+                MaxWidth="700"
+                MaxHeight="500"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}"
+                BoxShadow="0 5 20 0 #80000000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Classes="TabCloseButton"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="Refresh"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip.Tip="Refresh worktree list"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Worktrees: "
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RepoName}"
+                                       Foreground="{StaticResource AccentPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Worktrees List -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,8">
+                    <ItemsControl ItemsSource="{Binding Worktrees}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="domain:WorktreeInfo">
+                                <Border Background="{DynamicResource BackgroundMediumBrush}"
+                                        BorderBrush="{DynamicResource BorderMediumBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="12"
+                                        Margin="0,0,0,8">
+                                    <Grid RowDefinitions="Auto,Auto,Auto">
+                                        <!-- Header: Icon + Branch Name + Status -->
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Icon}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0"/>
+                                            <TextBlock Text="{Binding BranchDisplay}"
+                                                       FontSize="{DynamicResource FontSizeNormal}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrightBrush}"
+                                                       FontFamily="{DynamicResource FontFamilyMonospace}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding StatusBadge}"
+                                                       FontSize="11"
+                                                       VerticalAlignment="Center"
+                                                       Margin="12,0,0,0">
+                                                <TextBlock.Foreground>
+                                                    <SolidColorBrush Color="{Binding StatusColor}"/>
+                                                </TextBlock.Foreground>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <!-- Path -->
+                                        <TextBlock Grid.Row="1"
+                                                   Text="{Binding DisplayPath}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   FontFamily="{DynamicResource FontFamilyMonospace}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0,4,0,0"
+                                                   ToolTip.Tip="{Binding Path}"/>
+
+                                        <!-- Actions -->
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0" Spacing="8">
+                                            <Button Content="Open"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:ManageWorktreesViewModel)DataContext).OpenWorktreeCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Classes="TerminalSwitchButton"
+                                                    Background="{DynamicResource AccentPrimaryBrush}"
+                                                    Padding="12,4"/>
+
+                                            <Button Content="Remove"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:ManageWorktreesViewModel)DataContext).RemoveWorktreeCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    IsVisible="{Binding CanRemove}"
+                                                    Classes="TerminalSwitchButton"
+                                                    Padding="12,4"/>
+
+                                            <Button Content="{Binding LockButtonText}"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:ManageWorktreesViewModel)DataContext).ToggleLockCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    IsVisible="{Binding CanRemove}"
+                                                    Classes="TerminalSwitchButton"
+                                                    Padding="12,4"/>
+
+                                            <Button Content="Copy Path"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:ManageWorktreesViewModel)DataContext).CopyPathCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Classes="TerminalSwitchButton"
+                                                    Padding="12,4"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Loading Overlay -->
+                <Border Grid.Row="1"
+                        Background="#80000000"
+                        IsVisible="{Binding IsLoading}">
+                    <TextBlock Text="Loading..."
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Empty State -->
+                <TextBlock Grid.Row="1"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Padding="20"
+                           IsVisible="{Binding StatusMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Footer -->
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Prune"
+                                    Command="{Binding PruneCommand}"
+                                    Classes="TerminalSwitchButton"
+                                    ToolTip.Tip="Remove stale worktree entries"
+                                    Padding="12,4"/>
+                            <Button Content="Close"
+                                    Command="{Binding CloseCommand}"
+                                    Classes="TerminalSwitchButton"
+                                    Padding="12,4"/>
+                        </StackPanel>
+                        <Button Content="+ New Worktree"
+                                Command="{Binding NewWorktreeCommand}"
+                                Classes="TerminalSwitchButton"
+                                Padding="12,4"
+                                HorizontalAlignment="Left"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

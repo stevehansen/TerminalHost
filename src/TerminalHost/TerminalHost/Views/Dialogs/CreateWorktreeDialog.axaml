@@ -1,0 +1,265 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TerminalHost.Views.Dialogs.CreateWorktreeDialog"
+        Title="Create Git Worktree"
+        Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True">
+
+    <Border Background="{DynamicResource BackgroundDarkBrush}"
+            BorderBrush="{DynamicResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Margin="10"
+            BoxShadow="0 3 15 0 #80000000">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="6,6,0,0"
+                    PointerPressed="TitleBar_PointerPressed"
+                    Cursor="SizeAll">
+                <Grid>
+                    <TextBlock Text="Create Git Worktree"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrightBrush}"
+                               FontFamily="{StaticResource FontFamilyStandard}"/>
+                    <Button Content="x"
+                            HorizontalAlignment="Right"
+                            Click="CloseButton_Click"
+                            FontSize="16"
+                            Padding="8,2"
+                            Background="Transparent"
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <StackPanel Grid.Row="1" Margin="20,16">
+
+                <!-- Branch Section -->
+                <TextBlock Text="Branch"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           FontSize="{StaticResource FontSizeCode}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8"/>
+
+                <!-- Branch name input -->
+                <TextBox x:Name="BranchTextBox"
+                         Text="{Binding BranchName, RelativeSource={RelativeSource AncestorType=Window}}"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="{StaticResource FontSizeCode}"
+                         Padding="8,6"
+                         Background="{DynamicResource BackgroundMediumBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         BorderBrush="{DynamicResource BorderMediumBrush}"
+                         BorderThickness="1"
+                         CaretBrush="{DynamicResource TextPrimaryBrush}"
+                         SelectionBrush="{DynamicResource AccentPrimaryBrush}"
+                         Watermark="Enter branch name..."
+                         Margin="0,0,0,8"/>
+
+                <!-- Branch selection list -->
+                <Border Background="{DynamicResource BackgroundMediumBrush}"
+                        BorderBrush="{DynamicResource BorderMediumBrush}"
+                        BorderThickness="1"
+                        CornerRadius="3"
+                        MaxHeight="200">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="BranchList" Padding="2">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="ItemBorder"
+                                            Background="Transparent"
+                                            Padding="8,4"
+                                            Cursor="Hand"
+                                            PointerPressed="BranchItem_PointerPressed">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Icon}" Width="14" VerticalAlignment="Center">
+                                                <TextBlock.Foreground>
+                                                    <SolidColorBrush Color="{Binding StatusColor}"/>
+                                                </TextBlock.Foreground>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0,0,0"/>
+                                            <TextBlock Text="{Binding StatusDisplay}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <Border.Styles>
+                                            <Style Selector="Border:pointerover">
+                                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                                            </Style>
+                                        </Border.Styles>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+                <TextBlock Text="Select an existing branch or type a new branch name above"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           FontSize="11"
+                           FontStyle="Italic"
+                           Margin="0,4,0,0"/>
+
+                <!-- Branch mode radio buttons -->
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                    <RadioButton x:Name="CreateNewBranchRadio"
+                                 Content="Create new branch"
+                                 IsChecked="{Binding CreateNewBranch, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 FontFamily="{StaticResource FontFamilyStandard}"
+                                 Margin="0,0,20,0"
+                                 GroupName="BranchMode"/>
+                    <RadioButton Content="Use existing branch"
+                                 IsChecked="{Binding UseExistingBranch, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 FontFamily="{StaticResource FontFamilyStandard}"
+                                 GroupName="BranchMode"/>
+                </StackPanel>
+
+                <!-- Location Section -->
+                <TextBlock Text="Location"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           FontSize="{StaticResource FontSizeCode}"
+                           FontWeight="SemiBold"
+                           Margin="0,20,0,8"/>
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox x:Name="LocationTextBox"
+                             Grid.Column="0"
+                             Text="{Binding WorktreePath, RelativeSource={RelativeSource AncestorType=Window}}"
+                             FontFamily="{StaticResource FontFamilyMonospace}"
+                             FontSize="{StaticResource FontSizeCode}"
+                             Padding="8,6"
+                             Background="{DynamicResource BackgroundMediumBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderMediumBrush}"
+                             BorderThickness="1"
+                             CaretBrush="{DynamicResource TextPrimaryBrush}"
+                             SelectionBrush="{DynamicResource AccentPrimaryBrush}"/>
+
+                    <Button Grid.Column="1"
+                            Content="Browse"
+                            Click="BrowseButton_Click"
+                            Margin="8,0,0,0"
+                            Padding="12,6"
+                            Background="{DynamicResource BackgroundLightBrush}"
+                            Foreground="{DynamicResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                </Grid>
+
+                <!-- Suggested path hint -->
+                <TextBlock x:Name="SuggestedPathHint"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           FontSize="11"
+                           FontStyle="Italic"
+                           Margin="0,4,0,0"
+                           TextWrapping="Wrap"/>
+
+                <!-- Open after creation checkbox -->
+                <CheckBox Content="Open in TerminalHost after creation"
+                          IsChecked="{Binding OpenAfterCreation, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Foreground="{DynamicResource TextSecondaryBrush}"
+                          FontFamily="{StaticResource FontFamilyStandard}"
+                          Margin="0,16,0,0"/>
+
+                <!-- Validation message -->
+                <TextBlock x:Name="ValidationMessage"
+                           Foreground="#F44336"
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           FontSize="{StaticResource FontSizeCode}"
+                           Margin="0,12,0,0"
+                           TextWrapping="Wrap"
+                           IsVisible="False"/>
+            </StackPanel>
+
+            <!-- Footer with Buttons -->
+            <Border Grid.Row="2" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="0,0,6,6">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancel"
+                            Click="CancelButton_Click"
+                            Margin="0,0,8,0"
+                            Padding="16,6"
+                            MinWidth="80"
+                            Background="{DynamicResource BackgroundLightBrush}"
+                            Foreground="{DynamicResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pressed /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                    <Button x:Name="CreateButton"
+                            Content="Create Worktree"
+                            Click="CreateButton_Click"
+                            Padding="16,6"
+                            MinWidth="120"
+                            Background="{DynamicResource AccentPrimaryBrush}"
+                            Foreground="{DynamicResource TextBrightBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            CornerRadius="4">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pressed /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource AccentDarkBrush}"/>
+                            </Style>
+                            <Style Selector="Button:disabled /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
