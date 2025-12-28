@@ -42,6 +42,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private double _charHeight = 16;
     private Typeface _typeface;
     private Typeface _fallbackTypeface;
+    private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
 
     // Cursor blinking
@@ -120,6 +121,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         // Use Menlo on macOS
         _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
         _fallbackTypeface = new Typeface(new FontFamily("STIX Two Math, Arial, Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+
+        // Get glyph typeface for the primary font to check glyph availability
+        FontManager.Current.TryGetGlyphTypeface(_typeface, out _primaryGlyphTypeface);
 
         Focusable = true;
         ClipToBounds = true;
@@ -615,9 +619,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Fallback font names in order of preference
     private static readonly string[] FallbackFontNames =
     {
-        // Embedded Nerd Font (bundled with app) - for Powerline and icon glyphs
-        "avares://host/Assets/Fonts#Symbols Nerd Font Mono",
-        // Nerd Fonts (if installed) - have Powerline and icon glyphs used by Claude CLI
+        // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
+        // These must come before standard fonts to ensure Private Use Area glyphs render correctly
+        "avares://host/Assets/Fonts#Symbols Nerd Font Mono", // Embedded Nerd Font (bundled with app)
         "JetBrainsMono Nerd Font",
         "JetBrainsMono NF",
         "FiraCode Nerd Font",
@@ -625,14 +629,15 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         "MesloLGS NF",
         "Symbols Nerd Font Mono",
         "Symbols Nerd Font",
+        // macOS monospace fonts - for Unicode characters Nerd Fonts don't cover
+        "SF Mono",            // Apple's modern monospace font with good Unicode coverage
+        "Monaco",             // Classic macOS monospace
         // Standard fonts
         "Apple Color Emoji",  // Emoji support
         "STIX Two Math",      // Mathematical symbols
-        "Arial",              // Good for block elements
         "Arial Unicode MS",   // Wide Unicode coverage
         "Apple Symbols",      // macOS symbols
         "Menlo",              // Primary terminal font (retry in case it has the glyph)
-        "Helvetica Neue",     // Common macOS font
         "LastResort",         // Ultimate fallback
     };
 
@@ -665,17 +670,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     private static bool NeedsFallbackFont(char c)
     {
-        // Unicode blocks that Menlo doesn't support well
-        if (c >= '\u2300' && c <= '\u23FF') return true; // Miscellaneous Technical
-        if (c >= '\u25A0' && c <= '\u25FF') return true; // Geometric Shapes
-        if (c >= '\u2600' && c <= '\u26FF') return true; // Miscellaneous Symbols
-        if (c >= '\u2700' && c <= '\u27BF') return true; // Dingbats
-        if (c >= '\u2800' && c <= '\u28FF') return true; // Braille Patterns
-        if (c >= '\u2B00' && c <= '\u2BFF') return true; // Miscellaneous Symbols and Arrows
-        if (c >= '\u2580' && c <= '\u259F') return true; // Block Elements
-        if (c >= '\u2500' && c <= '\u257F') return true; // Box Drawing
-        if (c >= '\u27F0' && c <= '\u27FF') return true; // Supplemental Arrows-A
-        if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts, etc.)
+        // Only use fallback for characters that Menlo definitely doesn't have
+        // Most Unicode symbols should render fine with Menlo for consistent metrics
+        if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts icons)
         if (char.IsHighSurrogate(c)) return true; // Surrogate pairs (emoji and other non-BMP characters)
         if (char.IsLowSurrogate(c)) return true; // Low surrogates are part of emoji pairs
         return false;
@@ -702,6 +699,27 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         }
 
         uint codepoint = c;
+
+        // For box-drawing and block element characters, strongly prefer the primary font (Menlo)
+        // as it renders them with correct cell alignment for connected lines.
+        // Note: Braille patterns are NOT included here - they need specialized fonts.
+        bool isBoxDrawingOrBlock = (c >= '\u2500' && c <= '\u257F') || // Box Drawing
+                                   (c >= '\u2580' && c <= '\u259F');   // Block Elements
+        if (isBoxDrawingOrBlock && _primaryGlyphTypeface != null)
+        {
+            try
+            {
+                if (_primaryGlyphTypeface.TryGetGlyph(codepoint, out var glyphIndex) && glyphIndex != 0)
+                {
+                    CharacterTypefaceCache[c] = _typeface;
+                    return _typeface;
+                }
+            }
+            catch
+            {
+                // Continue to fallback fonts
+            }
+        }
 
         // Try each fallback font to find one that has the glyph
         foreach (var (typeface, glyphTypeface) in FallbackFonts.Value)
@@ -758,6 +776,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 if (currentRunNeedsFallback)
                 {
                     // Render fallback characters one at a time with the best available font
+                    // This path is mainly for Nerd Font icons (Private Use Area)
                     foreach (char c in run)
                     {
                         var charTypeface = GetTypefaceForCharacter(c);
@@ -768,6 +787,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                             charTypeface,
                             _fontSize,
                             foregroundBrush);
+
+                        // Render at the standard position - no centering adjustments
+                        // The Nerd Font glyphs are designed to fit standard terminal cells
                         context.DrawText(formattedText, new Point(currentX, y));
                         currentX += _charWidth;
                     }

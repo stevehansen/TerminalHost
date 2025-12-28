@@ -65,13 +65,14 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     }
 
     /// <summary>
-    /// Sends a startup command to the terminal after a short delay.
-    /// This allows the shell to initialize before the command is sent.
+    /// Sends a startup command to the terminal after a delay.
+    /// This allows the shell to fully initialize and print its prompt before the command is sent.
     /// </summary>
     private static async Task SendStartupCommandAsync(ITerminalControl control, string command)
     {
-        // Wait for shell to initialize and print prompt
-        await Task.Delay(500);
+        // Wait for shell to fully initialize and print prompt
+        // 1500ms gives enough time for zsh to load configs and display the prompt
+        await Task.Delay(1500);
 
         // Send the command with a newline to execute it
         control.WriteToTerminal(command + "\r");
