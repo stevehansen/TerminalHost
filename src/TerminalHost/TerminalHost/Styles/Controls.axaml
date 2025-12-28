@@ -53,4 +53,64 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
+    <!-- Expander Styles - Override Fluent theme blue backgrounds -->
+    <Style Selector="Expander">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:checked">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:pressed">
+        <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+    </Style>
+
+    <!-- Target nested Border elements in ToggleButton template -->
+    <Style Selector="Expander /template/ ToggleButton /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:checked /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:pointerover /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:pressed /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource BackgroundActiveBrush}"/>
+    </Style>
+
+    <!-- Target ContentPresenter backgrounds -->
+    <Style Selector="Expander /template/ ToggleButton /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BackgroundLightBrush}"/>
+    </Style>
+
 </Styles>

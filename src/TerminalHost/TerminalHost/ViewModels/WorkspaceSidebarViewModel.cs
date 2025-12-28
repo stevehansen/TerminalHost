@@ -234,6 +234,13 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void CloseTab(ITabViewModel tab)
+    {
+        if (MainViewModel == null) return;
+        MainViewModel.CloseTabCommand.Execute(tab);
+    }
+
+    [RelayCommand]
     private async Task ShowCreateWorktreeDialogAsync()
     {
         if (MainViewModel?.SelectedTab is not TerminalPairTabViewModel terminalTab)

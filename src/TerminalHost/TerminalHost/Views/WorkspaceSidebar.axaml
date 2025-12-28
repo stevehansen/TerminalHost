@@ -14,6 +14,16 @@
     </Design.DataContext>
 
     <UserControl.Resources>
+        <!-- Open Project Context Menu -->
+        <ContextMenu x:Key="OpenProjectContextMenu">
+            <MenuItem Header="Close" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="✕" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
         <!-- Workspace Item Context Menu -->
         <ContextMenu x:Key="WorkspaceContextMenu">
             <MenuItem Header="Open" Command="{Binding OpenWorkspaceCommand}"
@@ -64,18 +74,6 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
-        <!-- Expander header style -->
-        <Style Selector="Expander">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-
-        <Style Selector="Expander /template/ ToggleButton#PART_toggle">
-            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
-            <Setter Property="Padding" Value="8,6"/>
-        </Style>
-
         <!-- ListBox item style -->
         <Style Selector="ListBoxItem">
             <Setter Property="Padding" Value="8,4"/>
@@ -129,8 +127,8 @@
         </Border>
 
         <!-- Scrollable Content -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="0">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+            <StackPanel Spacing="0" HorizontalAlignment="Stretch">
 
                 <!-- Open Projects Section -->
                 <Expander IsExpanded="{Binding IsOpenProjectsExpanded}" Margin="0,0,0,1">
@@ -141,7 +139,7 @@
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
                             <TextBlock Text="{Binding MainViewModel.Tabs.Count, StringFormat='({0})'}"
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
@@ -155,7 +153,8 @@
                              BorderThickness="0">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:ITabViewModel">
-                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
+                                      ContextMenu="{StaticResource OpenProjectContextMenu}">
                                     <TextBlock Grid.Column="0" Text="{Binding TabIcon}"
                                                FontSize="{StaticResource FontSizeSmall}"
                                                VerticalAlignment="Center"
@@ -218,7 +217,7 @@
                                            FontFamily="{StaticResource FontFamilyStandard}"
                                            FontSize="{StaticResource FontSizeSmaller}"
                                            FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
                                 <TextBlock Text="{Binding CurrentRepositoryName, StringFormat='({0})'}"
                                            FontFamily="{StaticResource FontFamilyStandard}"
                                            FontSize="{StaticResource FontSizeSmaller}"
@@ -280,7 +279,7 @@
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
                             <TextBlock Text="{Binding RecentWorkspaces.Count, StringFormat='({0})'}"
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
