@@ -146,6 +146,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ ," Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
@@ -157,32 +158,34 @@
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="⌘ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="4" Grid.Column="1" Text="Open task panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="⌘⇧ Q" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Quick add task" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="⌘⇧ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Quick add note" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="⌘ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Open git changes panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="0" Text="⌘ B" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git branch switcher" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="0" Text="⌘⇧ S" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Open git stash panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="0" Text="⌘⇧ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="1" Text="Open git reflog" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="0" Text="F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="1" Text="Show this help window" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="0" Text="⌘⇧ O" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="1" Text="Repository quick access" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="0" Text="⌘⇧ H" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="1" Text="Open commit history" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="0" Text="⌘⇧ R" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="1" Text="PR Review Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="0" Text="F6" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="1" Text="Run tests" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="0" Text="⌘ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="1" Text="Markdown preview" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="17" Grid.Column="0" Text="⌘⇧ L" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="17" Grid.Column="1" Text="Toggle sidebar layout" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="⌘⇧ I" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Open Timeline Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="⌘⇧ Q" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Quick add task" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="⌘⇧ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Quick add note" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="⌘ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git changes panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="⌘ B" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Open git branch switcher" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="⌘⇧ S" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="10" Grid.Column="1" Text="Open git stash panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="⌘⇧ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="11" Grid.Column="1" Text="Open git reflog" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="1" Text="Show this help window" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="⌘⇧ O" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="13" Grid.Column="1" Text="Repository quick access" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="⌘⇧ H" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="14" Grid.Column="1" Text="Open commit history" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="15" Grid.Column="0" Text="⌘⇧ R" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="15" Grid.Column="1" Text="PR Review Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="16" Grid.Column="0" Text="F6" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="16" Grid.Column="1" Text="Run tests" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="17" Grid.Column="0" Text="⌘ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="17" Grid.Column="1" Text="Markdown preview" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="18" Grid.Column="0" Text="⌘⇧ L" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="18" Grid.Column="1" Text="Toggle sidebar layout" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Quick Commands Section -->

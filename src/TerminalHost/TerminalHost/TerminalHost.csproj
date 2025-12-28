@@ -162,6 +162,11 @@
     <Compile Include="ViewModels\FileBlameViewModel.cs" />
     <Compile Include="ViewModels\ReflogViewModel.cs" />
     <Compile Include="ViewModels\WorkspaceSidebarViewModel.cs" />
+    <!-- Timeline Mode view models -->
+    <Compile Include="ViewModels\TimelineTabViewModel.cs" />
+    <Compile Include="ViewModels\IntentRowViewModel.cs" />
+    <Compile Include="ViewModels\SessionBlockViewModel.cs" />
+    <Compile Include="ViewModels\FileChangeViewModel.cs" />
   </ItemGroup>
 
   <!-- Stage 6: Additional Domain models needed by ViewModels -->
@@ -212,6 +217,15 @@
     <Compile Include="Domain\AppLayoutMode.cs" />
     <Compile Include="Domain\Workspace.cs" />
     <Compile Include="Domain\WorktreeInfo.cs" />
+    <!-- Timeline Mode domain models -->
+    <Compile Include="Domain\Intent.cs" />
+    <Compile Include="Domain\IntentStatus.cs" />
+    <Compile Include="Domain\ClaudeCodeSession.cs" />
+    <Compile Include="Domain\ClaudeSessionStatus.cs" />
+    <Compile Include="Domain\TimelineFileChange.cs" />
+    <Compile Include="Domain\TimelineState.cs" />
+    <Compile Include="Domain\TimeScale.cs" />
+    <Compile Include="Domain\OrphanSession.cs" />
     <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
     <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
   </ItemGroup>
@@ -276,6 +290,10 @@
     <Compile Include="Services\IGitWorktreeService.cs" />
     <Compile Include="Services\GitWorktreeService.cs" />
     <Compile Include="Services\ShortcutConflictService.cs" />
+    <!-- Timeline Mode services -->
+    <Compile Include="Services\ITimelineService.cs" />
+    <Compile Include="Services\TimelineService.cs" />
+    <Compile Include="Services\TranscriptParserService.cs" />
   </ItemGroup>
 
   <!-- Stage 7: Views code-behind files -->
@@ -288,6 +306,7 @@
     <!-- Secondary Views -->
     <Compile Include="Views\WorkspaceSidebar.axaml.cs" />
     <Compile Include="Views\SettingsView.axaml.cs" />
+    <Compile Include="Views\TimelineModeView.axaml.cs" />
     <Compile Include="Views\ProfilesView.axaml.cs" />
     <Compile Include="Views\StatisticsView.axaml.cs" />
     <Compile Include="Views\FileExplorerView.axaml.cs" />

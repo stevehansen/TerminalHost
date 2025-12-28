@@ -940,7 +940,63 @@ public class BoolToBrushConverter : IValueConverter
                 }
             }
         }
+        // Default: return a selected background when true, transparent when false
+        if (value is bool selected)
+        {
+            return selected
+                ? new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))
+                : new SolidColorBrush(Colors.Transparent);
+        }
         return new SolidColorBrush(Colors.Transparent);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts a hex color string to a Color object.
+/// Similar to StringToColorConverter but specifically for hex strings.
+/// </summary>
+public class HexToColorConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string colorHex && !string.IsNullOrEmpty(colorHex))
+        {
+            try
+            {
+                return Color.Parse(colorHex);
+            }
+            catch
+            {
+                return Colors.Gray;
+            }
+        }
+        return Colors.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Alias for BoolToExpandCollapseTextConverter for Timeline Mode.
+/// Converts bool to expand/collapse icon.
+/// </summary>
+public class BoolToExpanderIconConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool isExpanded)
+        {
+            return isExpanded ? "\u25BC" : "\u25B6"; // ▼ : ▶
+        }
+        return "\u25B6";
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

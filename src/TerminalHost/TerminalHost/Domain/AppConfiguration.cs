@@ -92,6 +92,12 @@ public class AppConfiguration
     [JsonPropertyName("aiAssistants")]
     public List<AiAssistant> AiAssistants { get; set; } = [];
 
+    /// <summary>
+    /// Timeline Mode state (intents, sessions, focus time).
+    /// </summary>
+    [JsonPropertyName("timelineState")]
+    public TimelineState? TimelineState { get; set; }
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own

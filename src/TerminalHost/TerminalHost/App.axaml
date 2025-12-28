@@ -56,5 +56,10 @@
         <DataTemplate DataType="{x:Type vm:DashboardTabViewModel}">
             <views:DashboardView/>
         </DataTemplate>
+
+        <!-- Timeline Tab Content -->
+        <DataTemplate DataType="{x:Type vm:TimelineTabViewModel}">
+            <views:TimelineModeView/>
+        </DataTemplate>
     </Application.DataTemplates>
 </Application>

@@ -279,6 +279,13 @@ public partial class MainWindow : Window
         taskPanelItem.Click += (_, _) => _taskPanelViewModel.Open();
         viewMenu.Menu.Add(taskPanelItem);
 
+        var timelineItem = new NativeMenuItem("Timeline Mode")
+        {
+            Gesture = new KeyGesture(Key.I, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        timelineItem.Click += (_, _) => _mainViewModel.OpenTimelineCommand.Execute(null);
+        viewMenu.Menu.Add(timelineItem);
+
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
         var toggleFullScreenItem = new NativeMenuItem("Toggle Full Screen")
@@ -633,6 +640,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.L && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
             _mainViewModel.ToggleLayoutModeCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+I for Timeline Mode
+        if (e.Key == Key.I && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _mainViewModel.OpenTimelineCommand.Execute(null);
             e.Handled = true;
             return;
         }

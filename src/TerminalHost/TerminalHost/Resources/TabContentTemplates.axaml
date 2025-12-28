@@ -39,4 +39,9 @@
         <views:DashboardView/>
     </DataTemplate>
 
+    <!-- Timeline Tab Content -->
+    <DataTemplate DataType="{x:Type vm:TimelineTabViewModel}" x:Key="TimelineTabTemplate">
+        <views:TimelineModeView/>
+    </DataTemplate>
+
 </ResourceDictionary>

@@ -35,6 +35,7 @@ public class MainViewModelTests
     private readonly Mock<IFilePickerService> _mockFilePickerService;
     private readonly Mock<ITimerService> _mockTimerService;
     private readonly Mock<IDispatcherService> _mockDispatcherService;
+    private readonly Mock<ITimelineService> _mockTimelineService;
     private readonly Mock<ITerminalControl> _mockTerminalControl;
 
     private readonly MainViewModel _mainViewModel;
@@ -67,6 +68,7 @@ public class MainViewModelTests
         _mockFilePickerService = new Mock<IFilePickerService>();
         _mockTimerService = new Mock<ITimerService>();
         _mockDispatcherService = new Mock<IDispatcherService>();
+        _mockTimelineService = new Mock<ITimelineService>();
         _mockTerminalControl = new Mock<ITerminalControl>();
 
         // Setup default behaviors for IAiAssistantService
@@ -166,7 +168,8 @@ public class MainViewModelTests
             _mockFolderPickerService.Object,
             _mockFilePickerService.Object,
             _mockTimerService.Object,
-            _mockDispatcherService.Object);
+            _mockDispatcherService.Object,
+            _mockTimelineService.Object);
     }
 
     [Fact]

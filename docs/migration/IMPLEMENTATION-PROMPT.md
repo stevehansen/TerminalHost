@@ -586,6 +586,455 @@ public static class ShortcutConflictService
 
 ---
 
+## Feature 12: Timeline Mode ✅ IMPLEMENTED
+
+**Master branch commits:** `304cd1f`, `93119da`, `b8f3ef6`, `eb0ef95`, `16eb644`
+**macOS implementation:** Cmd+Shift+I
+
+### What it does
+Advanced mode providing a visual timeline view of AI-assisted development work. Organizes development into **intents** (goals/features), each backed by a git worktree, with Claude Code sessions displayed as blocks on a timeline.
+
+### Core Concepts
+
+**Intent = Swimlane = Worktree:**
+- 1 swimlane = 1 worktree = 1 intent
+- Each intent gets its own git worktree (e.g., `feature/auth`, `hotfix/payment`)
+- Intents displayed as horizontal swimlanes in the timeline
+
+**Claude Code Sessions:**
+- Blocks on timeline representing Claude Code work
+- Track: duration, files changed, commands run, agent notes
+- Sessions can fork to try alternative approaches
+
+### Technical Details (from master)
+
+**Domain Models:**
+```csharp
+public record Intent
+{
+    public string Id { get; init; }
+    public string Name { get; init; }           // "Implement user authentication"
+    public string WorktreePath { get; init; }    // Full path to worktree directory
+    public string BranchName { get; init; }      // "feature/auth"
+    public IntentStatus Status { get; init; }    // Active, Completed, Paused
+    public string? ContextFilePath { get; init; } // Path to intent-context.md
+    public DateTime CreatedAt { get; init; }
+    public List<string> SessionIds { get; init; }
+}
+
+public enum IntentStatus { Active, Completed, Paused }
+
+public record ClaudeSession
+{
+    public string Id { get; init; }
+    public string IntentId { get; init; }
+    public string? ParentSessionId { get; init; } // null for first session, set for forks
+    public DateTime StartTime { get; init; }
+    public DateTime? EndTime { get; init; }
+    public ClaudeSessionStatus Status { get; init; }   // Running, Success, Failed, Abandoned
+    public string? CommitHash { get; init; }
+    public string? CommitMessage { get; init; }
+    public List<FileChange> FilesChanged { get; init; }
+    public List<string> CommandsExecuted { get; init; }
+    public string? AgentNotes { get; init; }
+}
+
+public enum ClaudeSessionStatus { Running, Success, Failed, Abandoned }
+
+public record FileChange(string Path, int Additions, int Deletions);
+
+public record TimelineState
+{
+    public TimeSpan AccumulatedFocusTime { get; init; }
+    public TimeScale CurrentScale { get; init; } // Minutes, Hours, Days
+    public List<string> VisibleIntentIds { get; init; }
+}
+
+public enum TimeScale { Minutes, Hours, Days }
+```
+
+**Service Interface (ITimelineService):**
+```csharp
+public interface ITimelineService
+{
+    // Intent management
+    Task<Intent> CreateIntentAsync(string name, string branchName, string? contextFile = null);
+    Task<Intent?> GetIntentAsync(string id);
+    Task<List<Intent>> GetAllIntentsAsync();
+    Task UpdateIntentAsync(Intent intent);
+    Task DeleteIntentAsync(string id);
+
+    // Session management
+    Task<ClaudeSession> StartSessionAsync(string intentId, string? parentSessionId = null);
+    Task<ClaudeSession?> GetSessionAsync(string id);
+    Task UpdateSessionAsync(ClaudeSession session);
+    Task<List<ClaudeSession>> GetSessionsForIntentAsync(string intentId);
+
+    // Cherry-pick between intents
+    Task<(bool Success, string? Error)> CherryPickToIntentAsync(string sessionId, string targetIntentId);
+
+    // Focus time tracking
+    Task StartFocusTimerAsync();
+    Task StopFocusTimerAsync();
+    TimeSpan GetAccumulatedFocusTime();
+}
+```
+
+**New Files:**
+- `Domain/Intent.cs`
+- `Domain/IntentStatus.cs`
+- `Domain/ClaudeSession.cs`
+- `Domain/ClaudeSessionStatus.cs`
+- `Domain/FileChange.cs`
+- `Domain/TimelineState.cs`
+- `Domain/TimeScale.cs`
+- `Domain/OrphanSession.cs`
+- `Services/ITimelineService.cs`
+- `Services/TimelineService.cs`
+- `Services/TranscriptParserService.cs`
+- `ViewModels/TimelineModeViewModel.cs`
+- `ViewModels/IntentViewModel.cs`
+- `ViewModels/SessionBlockViewModel.cs`
+- `Views/TimelineModeView.axaml`
+
+**Claude Code Hooks Integration:**
+- Uses Claude Code hooks to track session events
+- Parses JSONL transcripts to extract commands and summaries
+- Tracks file changes and commits automatically
+
+---
+
+## Feature 13: Toast Notification System
+
+**Master branch commit:** `3b07d03`
+
+### What it does
+Non-intrusive toast notifications for user feedback instead of blocking dialogs.
+
+### Technical Details (from master)
+
+**Service Interface (IToastService):**
+```csharp
+public interface IToastService
+{
+    void Show(string message, ToastType type = ToastType.Info, int durationMs = 3000);
+    IProgressToast ShowProgress(string message);
+    void Update(string toastId, string message, ToastType type);
+    void Close(string toastId);
+}
+
+public interface IProgressToast : IDisposable
+{
+    void Complete(string message);
+    void Fail(string message);
+    void Update(string message);
+}
+
+public enum ToastType { Info, Success, Warning, Error }
+```
+
+**New Files:**
+- `Services/IToastService.cs`
+- `Services/ToastService.cs`
+- `ViewModels/ToastViewModel.cs`
+- `Views/ToastContainerView.axaml`
+- `Views/ToastItemView.axaml`
+- `Views/ToastWindow.axaml` (WPF airspace workaround)
+
+**Features:**
+- Max 5 visible toasts, others queued
+- Auto-close with configurable duration
+- Progress toasts for multi-step operations
+- Integrated with: Settings save, Dashboard checkout, PR Review actions
+
+---
+
+## Feature 14: Create Worktree Dialog
+
+**Master branch commit:** `947c8a8`
+
+### What it does
+Replace simple input dialog with full-featured Create Worktree dialog.
+
+### Technical Details (from master)
+
+**Dialog Features:**
+- Branch input text box for new branch names
+- Branch selection list showing all local/remote branches
+- Auto-selects "Use existing branch" when selecting from list
+- Uses short branch name for remote branches
+- Auto-generated worktree path with manual editing
+- Browse button for custom location
+- Validation for existing directories and branch names
+- "Open in TerminalHost after creation" checkbox
+
+**IDialogService Addition:**
+```csharp
+Task<CreateWorktreeDialogResult?> ShowCreateWorktreeDialog(
+    string repositoryPath,
+    List<GitBranch> branches);
+
+public record CreateWorktreeDialogResult(
+    string BranchName,
+    string WorktreePath,
+    bool CreateNewBranch,
+    bool OpenAfterCreation);
+```
+
+**New Files:**
+- `Views/Dialogs/CreateWorktreeDialog.axaml`
+
+---
+
+## Feature 15: Manage Worktrees Popup
+
+**Master branch commit:** `e562a48`
+
+### What it does
+Popup for managing all worktrees in a repository.
+
+### Technical Details (from master)
+
+**Popup Features:**
+- Shows all worktrees with path, branch, lock status
+- Actions: Open, Remove, Lock/Unlock, Copy Path
+- New Worktree button opens Create Worktree dialog
+- Prune button removes stale worktree entries
+
+**Enhanced Worktree Context Menu in Sidebar:**
+- Open in Explorer
+- Manage Worktrees...
+- Git Fetch, Pull (Rebase), Push
+- Remove Worktree...
+
+**New Files:**
+- `ViewModels/ManageWorktreesViewModel.cs`
+- `Views/Popups/ManageWorktreesView.axaml`
+
+---
+
+## Feature 16: Recent Folders, Markdown Side-by-Side, Side-by-Side Diff, PR Comments
+
+**Master branch commit:** `fead767`
+
+### What it does
+Four related features bundled together.
+
+### 16a: Recent Folders
+- Track last 20 opened project directories in config
+- Display in Repository Switcher popup (Ctrl+Shift+O)
+- Auto-update when opening new projects
+
+### 16b: Markdown Side-by-Side Editor
+- Tri-state mode for .md files: Preview, Edit, Side-by-Side
+- Live preview updates with 300ms debounce
+- Available in File Viewer, popup, and detached window
+
+### 16c: Side-by-Side Diff Viewer
+- Toggle between Unified and Side-by-Side views
+- Synchronized scrolling columns for old/new versions
+- Color-coded additions (green) and deletions (red)
+- Available in Git Changes panel and PR Review Mode
+
+### 16d: PR Comments (View Only)
+- Display existing review comments in PR Review popup
+- Comments panel with All/Current File filter
+- Expandable threads with resolved/outdated status
+- Fetch via GitHub GraphQL API
+
+### Technical Details (from master)
+
+**Domain Models:**
+```csharp
+public enum DiffViewMode { Unified, SideBySide }
+
+public class ParsedDiff
+{
+    public string FilePath { get; set; }
+    public List<DiffHunk> Hunks { get; set; }
+}
+
+public class DiffHunk
+{
+    public int OldStart { get; set; }
+    public int OldCount { get; set; }
+    public int NewStart { get; set; }
+    public int NewCount { get; set; }
+    public List<DiffLine> Lines { get; set; }
+}
+
+public class PrReviewComment
+{
+    public string Id { get; set; }
+    public string Author { get; set; }
+    public string Body { get; set; }
+    public string FilePath { get; set; }
+    public int? Line { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public bool IsResolved { get; set; }
+    public bool IsOutdated { get; set; }
+    public List<PrReviewComment> Replies { get; set; }
+}
+```
+
+**New Files:**
+- `Domain/DiffViewMode.cs`
+- `Domain/ParsedDiff.cs`
+- `Domain/PrComments.cs`
+- `Services/DiffParserService.cs`
+- `Controls/SideBySideDiffViewer.axaml`
+- `Controls/PrCommentThread.axaml`
+
+**New Service Methods (IGitHubService):**
+```csharp
+Task<PrComments?> GetPrCommentsAsync(string owner, string repo, int prNumber);
+```
+
+---
+
+## Feature 17: Multi-folder Opening & Auto-sort by Usage
+
+**Master branch commit:** `665ab1c`
+
+### What it does
+Open multiple folders at once and auto-sort workspaces by usage.
+
+### Technical Details (from master)
+
+**Multi-folder Opening:**
+- Add `PickFolders()` method to `IFolderPickerService` for multi-select
+- Add `AddWorkspacesAsync()` batch method to WorkspaceSidebarViewModel
+- Ctrl+click on Add Workspace button for multi-select
+
+**Auto-sort by Usage:**
+- Track focus time per directory (seconds tab was active)
+- Store `FocusTimeSecondsByDay` in stats.json
+- Calculate usage score: 60% focus time + 40% char count (last 7 days)
+- Sort toggle button in sidebar header
+- `WorkspaceAutoSort` setting in General Settings
+
+**IFolderPickerService Addition:**
+```csharp
+Task<List<string>?> PickFolders();
+```
+
+**IStatisticsService Additions:**
+```csharp
+Task TrackFocusTimeAsync(string directory, int seconds);
+Task<Dictionary<string, double>> GetUsageScoresAsync(IEnumerable<string> directories);
+```
+
+---
+
+## Feature 18: Workspace Git Actions & Auto-fetch
+
+**Master branch commit:** `aad0b4c`
+
+### What it does
+Git operations in workspace sidebar with automatic background fetch.
+
+### Technical Details (from master)
+
+**Context Menu Improvements:**
+- Simplified Close (combines close tab + remove from sidebar)
+- Git Fetch, Pull (Rebase), Push actions
+- Git Push disabled when no commits to push (AheadCount == 0)
+- Open in Explorer
+
+**Display Improvements:**
+- Short branch names (e.g., #123 for issues/123) with full name tooltip
+- Activity spinner (yellow) when terminal is active
+- Completed indicator (green dot) for unread activity
+
+**Git Auto-fetch:**
+- Automatically fetches from remotes every 60 seconds (configurable)
+- Keeps BehindCount up to date for all open projects
+- New settings: `gitAutoFetch` (default: true), `gitAutoFetchIntervalSeconds` (default: 60)
+
+**AppConfiguration Additions:**
+```csharp
+public bool GitAutoFetch { get; set; } = true;
+public int GitAutoFetchIntervalSeconds { get; set; } = 60;
+```
+
+---
+
+## Feature 19: Dashboard Improvements
+
+**Master branch commit:** `3cb75f3`
+
+### What it does
+Enhanced GitHub Dashboard with persistence and better UX.
+
+### Technical Details (from master)
+
+**Improvements:**
+- Dashboard persistence (restores on app restart if was open)
+- Size labels (XS/S/M/L/XL/XXL) with colors from GitHub
+- Time since update display with tooltip
+- Selected section indicator (highlighted background + bold)
+- Sort all lists by most recent update first
+- Improved Checkout UX: prompt to browse or clone when repo not found
+- Wire up PR Review mode from Dashboard items
+
+---
+
+## Feature 20: Terminal Window Title Display
+
+**Master branch commit:** `a1a2a65`
+
+### What it does
+Display terminal window titles in terminal headers.
+
+### Technical Details (from master)
+
+**Implementation:**
+- Parse OSC escape sequences from terminal output (OSC 0 and OSC 2)
+- Add `TerminalTitle` property and `TitleChanged` event to TerminalSession
+- Display title with " - " prefix when present in all terminal headers
+
+**TerminalSession Additions:**
+```csharp
+public string? TerminalTitle { get; private set; }
+public event EventHandler<string>? TitleChanged;
+```
+
+---
+
+## Feature 21: Syntax Highlighting in Markdown Preview
+
+**Master branch commit:** `87d52ca`
+
+### What it does
+Code syntax highlighting in markdown preview with VS Code Dark+ theme.
+
+### Technical Details (from master)
+
+**Implementation:**
+- Uses Markdig.SyntaxHighlighting package
+- Custom VS Code Dark+ color scheme for code blocks
+- Increased default preview window size
+
+---
+
+## Feature 22: PR Description & Squash Merge Preview
+
+**Master branch commit:** `afe92b2`
+
+### What it does
+Show PR description and expected squash commit message.
+
+### Technical Details (from master)
+
+**Improvements:**
+- Collapsible PR body/description panel in PR Review view
+- Render PR body as markdown using existing MarkdownViewer
+- Show expected squash commit message in merge confirmation dialog
+- Rename "Merge" button to "Squash & Merge" for clarity
+- Fix UTF-8 encoding for gh CLI output (emojis now render correctly)
+
+---
+
 ## Git Command Reference
 
 Common git commands used in implementations:
@@ -640,17 +1089,38 @@ git status --ignored --porcelain
 
 ## Implementation Order Recommendation
 
-1. ~~**.gitignore Support**~~ (Low complexity, improves existing feature) - **NOT YET IMPLEMENTED**
-2. ~~**Git Stash Operations**~~ ✅ DONE
-3. ~~**Commit History Viewer**~~ ✅ DONE
-4. ~~**Interactive Staging & Commit UI**~~ ✅ DONE
-5. ~~**File History & Blame**~~ ✅ DONE
-6. ~~**Reflog, Cherry-pick & Revert**~~ ✅ DONE
-7. ~~**Search Across Files**~~ ✅ DONE
-8. ~~**First-Run Setup**~~ (Low, simple UX improvement) - **NOT YET IMPLEMENTED**
-9. ~~**Shortcut Conflict Warnings**~~ ✅ DONE
-10. ~~**Workspace Sidebar**~~ ✅ DONE
+### Core Git Features (Phase 1) ✅ COMPLETE
+1. ~~**Git Stash Operations**~~ ✅ DONE
+2. ~~**Commit History Viewer**~~ ✅ DONE
+3. ~~**Interactive Staging & Commit UI**~~ ✅ DONE
+4. ~~**File History & Blame**~~ ✅ DONE
+5. ~~**Reflog, Cherry-pick & Revert**~~ ✅ DONE
+6. ~~**Search Across Files**~~ ✅ DONE
+7. ~~**Shortcut Conflict Warnings**~~ ✅ DONE
+8. ~~**Workspace Sidebar**~~ ✅ DONE
 
-**Remaining Features:**
-- Feature 9: .gitignore Support
-- Feature 10: First-Run Setup
+### UX Improvements (Phase 2)
+9. **.gitignore Support** (Low complexity) - **NOT YET IMPLEMENTED**
+10. **First-Run Setup** (Low complexity) - **NOT YET IMPLEMENTED**
+11. **Toast Notification System** (Medium) - **NOT YET IMPLEMENTED**
+12. **Terminal Window Title Display** (Low) - **NOT YET IMPLEMENTED**
+13. **Syntax Highlighting in Markdown** (Low) - **NOT YET IMPLEMENTED**
+
+### Enhanced Features (Phase 3)
+14. **Create Worktree Dialog** (Medium) - **NOT YET IMPLEMENTED**
+15. **Manage Worktrees Popup** (Medium) - **NOT YET IMPLEMENTED**
+16. **Recent Folders** (Low) - **NOT YET IMPLEMENTED**
+17. **Markdown Side-by-Side Editor** (Medium) - **NOT YET IMPLEMENTED**
+18. **Side-by-Side Diff Viewer** (Medium) - **NOT YET IMPLEMENTED**
+19. **PR Comments (View Only)** (Medium) - **NOT YET IMPLEMENTED**
+20. **Multi-folder Opening & Auto-sort** (Medium) - **NOT YET IMPLEMENTED**
+21. **Workspace Git Actions & Auto-fetch** (Medium) - **NOT YET IMPLEMENTED**
+22. **Dashboard Improvements** (Medium) - **NOT YET IMPLEMENTED**
+23. **PR Description & Squash Merge Preview** (Low) - **NOT YET IMPLEMENTED**
+
+### Advanced Features (Phase 4) ✅ COMPLETE
+24. ~~**Timeline Mode**~~ ✅ DONE
+
+**Remaining Features Summary:**
+- Phase 2: Features 9-10, 13 (3 features remaining)
+- Phase 3: Features 14-23 (10 features)

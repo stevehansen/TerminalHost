@@ -37,6 +37,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFilePickerService _filePickerService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly ITimelineService _timelineService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _activityTimer;
@@ -231,7 +232,8 @@ public partial class MainViewModel : ObservableObject
         IFolderPickerService folderPickerService,
         IFilePickerService filePickerService,
         ITimerService timerService,
-        IDispatcherService dispatcherService)
+        IDispatcherService dispatcherService,
+        ITimelineService timelineService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -260,6 +262,7 @@ public partial class MainViewModel : ObservableObject
         _filePickerService = filePickerService;
         _timerService = timerService;
         _dispatcherService = dispatcherService;
+        _timelineService = timelineService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -1344,6 +1347,28 @@ public partial class MainViewModel : ObservableObject
         await dashboardTab.InitializeAsync();
     }
 
+    [RelayCommand]
+    private void OpenTimeline()
+    {
+        // Check if timeline tab already exists
+        var existingTimeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+        if (existingTimeline != null)
+        {
+            SelectedTab = existingTimeline;
+            return;
+        }
+
+        // Create new timeline tab
+        var timelineTab = new TimelineTabViewModel(
+            _timelineService,
+            _dialogService,
+            _folderPickerService,
+            _timerService);
+        timelineTab.CloseRequested += OnTabCloseRequested;
+        Tabs.Add(timelineTab);
+        SelectedTab = timelineTab;
+    }
+
     /// <summary>
     /// Event raised when PR Review Mode should be opened from the Dashboard.
     /// </summary>
@@ -1836,6 +1861,17 @@ public partial class MainViewModel : ObservableObject
                 Category = "GitHub",
                 Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Timeline Mode
+            new() {
+                Id = "timeline",
+                Name = "Timeline Mode",
+                Description = "Track AI development sessions and intents",
+                Shortcut = "Cmd+Shift+I",
+                Icon = "📅",
+                Category = "Tools",
+                Execute = () => OpenTimelineCommand.Execute(null)
             },
 
             // Markdown

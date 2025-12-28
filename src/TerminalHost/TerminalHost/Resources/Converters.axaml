@@ -30,6 +30,7 @@
     <!-- Color Converters -->
     <conv:StringToColorConverter x:Key="StringToColorConverter"/>
     <conv:HexToBrushConverter x:Key="HexToBrushConverter"/>
+    <conv:HexToColorConverter x:Key="HexToColorConverter"/>
 
     <!-- RunState Converters -->
     <conv:RunStateToColorConverter x:Key="RunStateToColorConverter"/>
@@ -44,6 +45,7 @@
     <conv:BoolToBackgroundConverter x:Key="BoolToBackgroundConverter"/>
     <conv:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
     <conv:BoolToExpandCollapseTextConverter x:Key="BoolToExpandCollapseTextConverter"/>
+    <conv:BoolToExpanderIconConverter x:Key="BoolToExpanderIconConverter"/>
     <conv:BoolToStringConverter x:Key="BoolToStringConverter"/>
     <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
 
