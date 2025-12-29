@@ -749,9 +749,10 @@ public enum ToastType { Info, Success, Warning, Error }
 
 ---
 
-## Feature 14: Create Worktree Dialog
+## Feature 14: Create Worktree Dialog ✅ IMPLEMENTED
 
 **Master branch commit:** `947c8a8`
+**macOS implementation:** Workspace Sidebar → New Worktree button
 
 ### What it does
 Replace simple input dialog with full-featured Create Worktree dialog.
@@ -786,9 +787,10 @@ public record CreateWorktreeDialogResult(
 
 ---
 
-## Feature 15: Manage Worktrees Popup
+## Feature 15: Manage Worktrees Popup ✅ IMPLEMENTED
 
 **Master branch commit:** `e562a48`
+**macOS implementation:** Workspace Sidebar → Manage Worktrees context menu
 
 ### What it does
 Popup for managing all worktrees in a repository.
@@ -816,27 +818,28 @@ Popup for managing all worktrees in a repository.
 ## Feature 16: Recent Folders, Markdown Side-by-Side, Side-by-Side Diff, PR Comments
 
 **Master branch commit:** `fead767`
+**macOS implementation:** Partial - 16b and 16c implemented
 
 ### What it does
 Four related features bundled together.
 
-### 16a: Recent Folders
+### 16a: Recent Folders - **NOT YET IMPLEMENTED**
 - Track last 20 opened project directories in config
 - Display in Repository Switcher popup (Ctrl+Shift+O)
 - Auto-update when opening new projects
 
-### 16b: Markdown Side-by-Side Editor
+### 16b: Markdown Side-by-Side Editor ✅ IMPLEMENTED
 - Tri-state mode for .md files: Preview, Edit, Side-by-Side
 - Live preview updates with 300ms debounce
 - Available in File Viewer, popup, and detached window
 
-### 16c: Side-by-Side Diff Viewer
+### 16c: Side-by-Side Diff Viewer ✅ IMPLEMENTED
 - Toggle between Unified and Side-by-Side views
 - Synchronized scrolling columns for old/new versions
 - Color-coded additions (green) and deletions (red)
 - Available in Git Changes panel and PR Review Mode
 
-### 16d: PR Comments (View Only)
+### 16d: PR Comments (View Only) - **NOT YET IMPLEMENTED**
 - Display existing review comments in PR Review popup
 - Comments panel with All/Current File filter
 - Expandable threads with resolved/outdated status
@@ -1107,11 +1110,11 @@ git status --ignored --porcelain
 13. **Syntax Highlighting in Markdown** (Low) - **NOT YET IMPLEMENTED**
 
 ### Enhanced Features (Phase 3)
-14. **Create Worktree Dialog** (Medium) - **NOT YET IMPLEMENTED**
-15. **Manage Worktrees Popup** (Medium) - **NOT YET IMPLEMENTED**
+14. ~~**Create Worktree Dialog**~~ ✅ DONE
+15. ~~**Manage Worktrees Popup**~~ ✅ DONE
 16. **Recent Folders** (Low) - **NOT YET IMPLEMENTED**
-17. **Markdown Side-by-Side Editor** (Medium) - **NOT YET IMPLEMENTED**
-18. **Side-by-Side Diff Viewer** (Medium) - **NOT YET IMPLEMENTED**
+17. ~~**Markdown Side-by-Side Editor**~~ ✅ DONE
+18. ~~**Side-by-Side Diff Viewer**~~ ✅ DONE
 19. **PR Comments (View Only)** (Medium) - **NOT YET IMPLEMENTED**
 20. **Multi-folder Opening & Auto-sort** (Medium) - **NOT YET IMPLEMENTED**
 21. **Workspace Git Actions & Auto-fetch** (Medium) - **NOT YET IMPLEMENTED**
@@ -1122,5 +1125,5 @@ git status --ignored --porcelain
 24. ~~**Timeline Mode**~~ ✅ DONE
 
 **Remaining Features Summary:**
-- Phase 2: Features 9-10, 13 (3 features remaining)
-- Phase 3: Features 14-23 (10 features)
+- Phase 2: Features 9-10, 11-13 (5 features remaining)
+- Phase 3: Features 16, 19-23 (6 features remaining)

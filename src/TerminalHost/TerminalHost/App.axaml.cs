@@ -87,6 +87,7 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<ITimelineService, TimelineService>();
+        services.AddSingleton<IDiffParserService, DiffParserService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();

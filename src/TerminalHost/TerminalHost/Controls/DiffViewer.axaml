@@ -35,7 +35,12 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             Padding="{TemplateBinding Padding}"
                             CornerRadius="3">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          TextBlock.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                 </ControlTemplate>
             </Setter>
@@ -59,8 +64,18 @@
         </Grid.RowDefinitions>
 
         <!-- Mode toggle bar -->
-        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Border Grid.Row="0"
+                Background="{StaticResource BackgroundMediumBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,4"
+                MinHeight="28">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="View:"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
                 <RadioButton x:Name="UnifiedModeButton"
                              Content="Unified"
                              Classes="DiffModeToggleButton"
