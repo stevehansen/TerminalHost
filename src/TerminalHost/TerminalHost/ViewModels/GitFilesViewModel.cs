@@ -147,23 +147,31 @@ public partial class GitFilesViewModel : BasePanelViewModel
     [RelayCommand]
     public async Task OpenAsync(TerminalPairTabViewModel terminalTab)
     {
-        _currentTerminalTab = terminalTab;
         if (terminalTab.GitStatus?.IsGitRepository != true)
         {
             _dialogService.ShowInfo(
                 "The selected tab is not a Git repository or Git status is unavailable.",
                 "Git Changes");
-            _currentTerminalTab = null;
             return;
         }
 
+        await LoadDataAsync(terminalTab);
+
+        // Request to be shown in the appropriate mode
+        RequestShow();
+    }
+
+    /// <summary>
+    /// Loads git files data without opening the popup.
+    /// Used by the unified Git panel to load data for embedded display.
+    /// </summary>
+    public async Task LoadDataAsync(TerminalPairTabViewModel terminalTab)
+    {
+        _currentTerminalTab = terminalTab;
         Title = $"Git Changes - {terminalTab.Title}";
         Info = terminalTab.Pair.WorkingDirectory;
 
         await RefreshGitFilesAsync();
-
-        // Request to be shown in the appropriate mode
-        RequestShow();
     }
 
     [RelayCommand]

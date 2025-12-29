@@ -11,7 +11,8 @@ Quick reference for all converters defined in `src/TerminalHost/TerminalHost/Con
 | `CountToVisibilityConverter` | `int` | >0=Visible, 0=Collapsed | - |
 | `ZeroToVisibilityConverter` | `int` | 0=Visible, >0=Collapsed | - |
 | `IntToVisibilityConverter` | `int` | >0=Visible, 0=Collapsed | - |
-| `NullToVisibilityConverter` | object | non-null=Visible | - |
+| `NullToVisibilityConverter` | object | non-null=Visible, null=Collapsed | - |
+| `NullToVisibleConverter` | object | null=Visible, non-null=Collapsed | - |
 | `NullToCollapsedConverter` | object/string | null=Collapsed | `"Invert"` to reverse |
 | `SectionToVisibilityConverter` | `SettingsSection` | Visibility | Section name string |
 

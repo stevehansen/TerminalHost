@@ -233,7 +233,7 @@ public class AppConfiguration
             Text = "dev b",
             Target = QuickCommandTarget.Shell,
             AppendNewline = true,
-            Shortcut = ""  // No default shortcut (Ctrl+Shift+B used by File Blame)
+            Shortcut = "Ctrl+Shift+B"
         },
         new QuickCommand
         {
@@ -341,6 +341,14 @@ public class DirectorySettings
     /// </summary>
     [JsonPropertyName("isLeftPanelVisible")]
     public bool IsLeftPanelVisible { get; set; } = false;
+
+    /// <summary>
+    /// Per-project override for key branches.
+    /// If set, these branch names are used instead of the global KeyBranches setting.
+    /// This is useful for projects that use different branch naming conventions.
+    /// </summary>
+    [JsonPropertyName("keyBranchOverrides")]
+    public List<string>? KeyBranchOverrides { get; set; }
 }
 
 /// <summary>
@@ -503,6 +511,27 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("workspaceAutoSort")]
     public bool WorkspaceAutoSort { get; set; } = false;
+
+    /// <summary>
+    /// Branch names to track for quick access in Git operations.
+    /// These are auto-detected in each repo, matching by short name.
+    /// </summary>
+    [JsonPropertyName("keyBranches")]
+    public List<string> KeyBranches { get; set; } = GetDefaultKeyBranches();
+
+    private static List<string> GetDefaultKeyBranches() =>
+    [
+        "main",
+        "master",
+        "development",
+        "develop",
+        "dev",
+        "production",
+        "prod",
+        "staging",
+        "stage",
+        "qa"
+    ];
 }
 
 /// <summary>

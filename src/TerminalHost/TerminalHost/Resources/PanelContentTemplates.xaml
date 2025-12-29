@@ -33,4 +33,19 @@
         <views:SearchAcrossFilesContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for FileHistoryViewModel -->
+    <DataTemplate DataType="{x:Type vm:FileHistoryViewModel}">
+        <views:FileHistoryContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for FileBlameViewModel -->
+    <DataTemplate DataType="{x:Type vm:FileBlameViewModel}">
+        <views:FileBlameContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for BranchComparisonViewModel -->
+    <DataTemplate DataType="{x:Type vm:BranchComparisonViewModel}">
+        <views:BranchComparisonContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

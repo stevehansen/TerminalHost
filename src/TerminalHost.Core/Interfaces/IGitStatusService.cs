@@ -60,4 +60,34 @@ public interface IGitStatusService
 
     // Branch from reflog
     Task<GitOperationResult> CreateBranchFromRefAsync(string workingDirectory, string branchName, string refSpec);
+
+    // Reset operations
+    Task<GitOperationResult> ResetAsync(string workingDirectory, string targetRef, ResetMode mode = ResetMode.Mixed);
+
+    // Fast-forward (merge --ff-only)
+    Task<GitOperationResult> FastForwardAsync(string workingDirectory, string targetBranch);
+    Task<(bool CanFastForward, int CommitCount, string? Error)> CheckFastForwardAsync(string workingDirectory, string targetBranch);
+
+    // Standalone rebase
+    Task<GitOperationResult> RebaseAsync(string workingDirectory, string ontoBranch);
+    Task<GitOperationResult> RebaseContinueAsync(string workingDirectory);
+    Task<GitOperationResult> RebaseAbortAsync(string workingDirectory);
+    Task<GitOperationResult> RebaseSkipAsync(string workingDirectory);
+    Task<bool> IsRebaseInProgressAsync(string workingDirectory);
+
+    // Branch comparison
+    Task<BranchComparisonResult> CompareBranchesAsync(string workingDirectory, string baseBranch, string compareBranch);
+    Task<List<GitCommit>> GetCommitsBetweenAsync(string workingDirectory, string fromRef, string toRef);
+
+    // Key branches detection
+    Task<List<GitBranch>> GetKeyBranchesAsync(string workingDirectory, IEnumerable<string> keyBranchPatterns);
+
+    /// <summary>
+    /// Gets the ahead/behind commit counts between two branches.
+    /// </summary>
+    /// <param name="workingDirectory">The repository path.</param>
+    /// <param name="branch">The branch to check (typically current branch).</param>
+    /// <param name="compareTo">The branch to compare against (typically a key branch).</param>
+    /// <returns>Tuple of (ahead count, behind count) where ahead = commits in branch not in compareTo.</returns>
+    Task<(int Ahead, int Behind)> GetAheadBehindAsync(string workingDirectory, string branch, string compareTo);
 }

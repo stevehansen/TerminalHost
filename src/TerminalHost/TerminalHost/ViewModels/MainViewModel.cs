@@ -1657,6 +1657,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? SetupRequested;
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
+    public event EventHandler<GitPanelTab>? UnifiedGitPanelRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -1674,6 +1675,11 @@ public partial class MainViewModel : ObservableObject
     private void OpenGitChanges()
     {
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OpenUnifiedGitPanel(GitPanelTab tab)
+    {
+        UnifiedGitPanelRequested?.Invoke(this, tab);
     }
 
     [RelayCommand]
@@ -1919,7 +1925,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+G",
                 Icon = "📋",
                 Category = "Git",
-                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty), // Needs to be improved
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.Changes),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
             new() {
@@ -1929,7 +1935,37 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+B",
                 Icon = "🌿",
                 Category = "Git",
-                Execute = () => { /* Needs to be improved */ },
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.Branches),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-history",
+                Name = "Git History",
+                Description = "View commit history",
+                Shortcut = "Ctrl+H",
+                Icon = "📜",
+                Category = "Git",
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.History),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-stash",
+                Name = "Git Stash",
+                Description = "Manage stashed changes",
+                Shortcut = "Ctrl+Shift+S",
+                Icon = "📦",
+                Category = "Git",
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.Stash),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-compare",
+                Name = "Git Compare Branches",
+                Description = "Compare two branches",
+                Shortcut = "Ctrl+Alt+B",
+                Icon = "🔀",
+                Category = "Git",
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.Comparison),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 

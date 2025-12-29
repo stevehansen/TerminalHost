@@ -1,0 +1,148 @@
+<UserControl x:Class="TerminalHost.Views.Popups.UnifiedGitPanelView"
+             x:Name="RootControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             xmlns:popups="clr-namespace:TerminalHost.Views.Popups"
+             xmlns:views="clr-namespace:TerminalHost.Views"
+             d:DataContext="{d:DesignInstance viewModels:UnifiedGitPanelViewModel}"
+             mc:Ignorable="d"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
+
+    <UserControl.Resources>
+        <!-- Tab Button Style -->
+        <Style x:Key="GitPanelTabButton" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0,0,0,2"
+                                BorderBrush="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <controls:DraggablePopup
+        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        PopupWidth="{Binding Width, Mode=TwoWay}"
+        PopupHeight="{Binding Height, Mode=TwoWay}"
+        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+        Title="{Binding Title}"
+        CloseCommand="{Binding CloseCommand}">
+
+        <controls:DraggablePopup.HeaderRightContent>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Refresh"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding RefreshCurrentTabCommand}"
+                        ToolTip="Refresh current view"
+                        Margin="0,0,4,0"/>
+            </StackPanel>
+        </controls:DraggablePopup.HeaderRightContent>
+
+        <controls:DraggablePopup.PopupContent>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Tab Strip -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="Branches"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsBranchesTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.Branches}"/>
+                        <RadioButton Content="Changes"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsChangesTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.Changes}"/>
+                        <RadioButton Content="History"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsHistoryTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.History}"/>
+                        <RadioButton Content="Stash"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsStashTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.Stash}"/>
+                        <RadioButton Content="Compare"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsComparisonTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.Comparison}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Tab Content -->
+                <Grid Grid.Row="1">
+                    <!-- Branches Tab Content -->
+                    <ContentControl Visibility="{Binding IsBranchesTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:GitBranchesContentView DataContext="{Binding BranchesVM}"/>
+                    </ContentControl>
+
+                    <!-- Changes Tab Content -->
+                    <ContentControl Visibility="{Binding IsChangesTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:GitFilesContentView DataContext="{Binding ChangesVM}"/>
+                    </ContentControl>
+
+                    <!-- History Tab Content -->
+                    <ContentControl Visibility="{Binding IsHistoryTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:CommitHistoryContentView DataContext="{Binding HistoryVM}"/>
+                    </ContentControl>
+
+                    <!-- Stash Tab Content -->
+                    <ContentControl Visibility="{Binding IsStashTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:GitStashContentView DataContext="{Binding StashVM}"/>
+                    </ContentControl>
+
+                    <!-- Comparison Tab Content -->
+                    <ContentControl Visibility="{Binding IsComparisonTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:BranchComparisonContentView DataContext="{Binding ComparisonVM}"/>
+                    </ContentControl>
+                </Grid>
+
+                <!-- Loading overlay -->
+                <Border Grid.RowSpan="2"
+                    Background="#80000000"
+                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="Loading..."
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeNormal}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+        </controls:DraggablePopup.PopupContent>
+    </controls:DraggablePopup>
+</UserControl>

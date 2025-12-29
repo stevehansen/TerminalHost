@@ -24,6 +24,7 @@
         <local:BoolToSplitterWidthConverter x:Key="BoolToSplitterWidthConverter"/>
         <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <local:NullToVisibleConverter x:Key="NullToVisibleConverter"/>
         <local:NullToBoolConverter x:Key="NullToBoolConverter"/>
         <local:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>

@@ -39,17 +39,30 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+O` | Open file viewer (preview) | Project tab | |
 | `Ctrl+Shift+E` | Open file viewer (edit mode) | Project tab | |
 | `Ctrl+Shift+F` | Toggle file explorer panel | Project tab | Tree view with git status |
-| `Ctrl+G` | Open git changes panel | Project tab | Staging + commit UI |
-| `Ctrl+H` | Open commit history | Project tab | |
 | `Ctrl+F3` | Search across files | Project tab | Full-text search with replace |
-| `Ctrl+B` | Open git branch switcher | Project tab | |
-| `Ctrl+Shift+B` | View file blame | Project tab | Requires file selected in explorer |
-| `Ctrl+Shift+S` | Open git stash manager | Project tab | |
-| `Ctrl+Shift+G` | Open git reflog | Project tab | Recovery tool for lost commits |
 | `Ctrl+M` | Open Markdown preview | Project tab | |
-| `Ctrl+Shift+H` | Open GitHub Dashboard | Project tab | |
-| `Ctrl+Shift+R` | Open PR Review Mode | Project tab | |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
+
+### Git & GitHub Shortcuts (Requires Project Tab Selected)
+
+| Shortcut | Action | Scope | Notes |
+|----------|--------|-------|-------|
+| `Alt+G` | Unified Git panel | Project tab | Tabbed panel with all Git features (Changes, Branches, History, Stash, Comparison) |
+| `Ctrl+G` | Git changes panel | Project tab | Staging + commit UI |
+| `Ctrl+H` | Commit history | Project tab | |
+| `Ctrl+B` | Branch switcher | Project tab | |
+| `Ctrl+Shift+S` | Stash manager | Project tab | |
+| `Ctrl+Shift+G` | Reflog | Project tab | Recovery tool for lost commits |
+| `Ctrl+Alt+B` | Branch comparison | Project tab | Compare two branches side-by-side |
+| `Ctrl+Shift+H` | GitHub Dashboard | Project tab | |
+| `Ctrl+Shift+R` | PR Review Mode | Project tab | |
+
+### Build & Test Shortcuts
+
+| Shortcut | Action | Scope | Notes |
+|----------|--------|-------|-------|
+| `Ctrl+Shift+B` | Build | Project tab | Executes "dev-build" quick command |
+| `F6` | Run tests | Project tab | |
 
 ### Timeline Mode Shortcuts (When Timeline Tab Focused)
 
@@ -69,7 +82,6 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 |----------|--------|-------|-------|
 | `F5` | Start/Stop project run | Project tab | Toggle |
 | `Shift+F5` | Force stop project run | Project tab | |
-| `F6` | Run tests | Project tab | |
 
 ### Notes Shortcuts
 
@@ -136,11 +148,12 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+K` - Available
 - `Ctrl+Shift+M` - Available (freed from Quick Note removal)
 - `Ctrl+Shift+Q` - Available (freed from Quick Task removal)
-- `Ctrl+Shift+V` - Available
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available
 - `Ctrl+Shift+Y` - Available
 - `Ctrl+Shift+Z` - Available
+
+**Note:** `Ctrl+Shift+C`, `Ctrl+Shift+D`, `Ctrl+Shift+U`, `Ctrl+Shift+L`, `Ctrl+Shift+V` are used by default Quick Commands but are user-configurable.
 
 ### Unused Function Keys:
 - `F2` - Available
@@ -198,4 +211,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2025-12-27*
+*Last updated: 2025-12-29*

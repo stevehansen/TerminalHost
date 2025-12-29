@@ -1098,4 +1098,282 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Reset Operations
+
+    public async Task<GitOperationResult> ResetAsync(string workingDirectory, string targetRef, ResetMode mode = ResetMode.Mixed)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        if (string.IsNullOrWhiteSpace(targetRef))
+            return new GitOperationResult { Success = false, Error = "Target reference cannot be empty" };
+
+        var modeFlag = mode switch
+        {
+            ResetMode.Soft => "--soft",
+            ResetMode.Hard => "--hard",
+            _ => "--mixed"
+        };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"reset {modeFlag} \"{targetRef}\"");
+    }
+
+    #endregion
+
+    #region Fast-Forward Operations
+
+    public async Task<GitOperationResult> FastForwardAsync(string workingDirectory, string targetBranch)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        if (string.IsNullOrWhiteSpace(targetBranch))
+            return new GitOperationResult { Success = false, Error = "Target branch cannot be empty" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"merge --ff-only \"{targetBranch}\"");
+    }
+
+    public async Task<(bool CanFastForward, int CommitCount, string? Error)> CheckFastForwardAsync(string workingDirectory, string targetBranch)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return (false, 0, "Directory does not exist");
+
+        if (string.IsNullOrWhiteSpace(targetBranch))
+            return (false, 0, "Target branch cannot be empty");
+
+        // Get merge-base between current HEAD and target branch
+        var mergeBase = await _gitRunner.RunGitCommandAsync(workingDirectory, $"merge-base HEAD \"{targetBranch}\"");
+        if (string.IsNullOrEmpty(mergeBase))
+            return (false, 0, "Could not find common ancestor");
+
+        mergeBase = mergeBase.Trim();
+
+        // Get current HEAD commit
+        var currentHead = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse HEAD");
+        if (string.IsNullOrEmpty(currentHead))
+            return (false, 0, "Could not get current HEAD");
+
+        currentHead = currentHead.Trim();
+
+        // For fast-forward: merge-base must equal current HEAD
+        // (i.e., current branch is an ancestor of target branch)
+        if (mergeBase != currentHead)
+            return (false, 0, "Branches have diverged; fast-forward not possible");
+
+        // Count commits between HEAD and target
+        var countOutput = await _gitRunner.RunGitCommandAsync(workingDirectory, $"rev-list --count HEAD..\"{targetBranch}\"");
+        var commitCount = 0;
+        if (!string.IsNullOrEmpty(countOutput) && int.TryParse(countOutput.Trim(), out var count))
+            commitCount = count;
+
+        if (commitCount == 0)
+            return (false, 0, "Already up to date");
+
+        return (true, commitCount, null);
+    }
+
+    #endregion
+
+    #region Rebase Operations
+
+    public async Task<GitOperationResult> RebaseAsync(string workingDirectory, string ontoBranch)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        if (string.IsNullOrWhiteSpace(ontoBranch))
+            return new GitOperationResult { Success = false, Error = "Onto branch cannot be empty" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"rebase \"{ontoBranch}\"");
+    }
+
+    public async Task<GitOperationResult> RebaseContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "rebase --continue");
+    }
+
+    public async Task<GitOperationResult> RebaseAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "rebase --abort");
+    }
+
+    public async Task<GitOperationResult> RebaseSkipAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "rebase --skip");
+    }
+
+    public async Task<bool> IsRebaseInProgressAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        // Check for rebase-merge or rebase-apply directories in .git
+        var gitDir = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --git-dir");
+        if (string.IsNullOrEmpty(gitDir))
+            return false;
+
+        gitDir = gitDir.Trim();
+
+        // Handle both absolute and relative git dir paths
+        var gitDirPath = Path.IsPathRooted(gitDir)
+            ? gitDir
+            : Path.Combine(workingDirectory, gitDir);
+
+        return _fileSystem.DirectoryExists(Path.Combine(gitDirPath, "rebase-merge")) ||
+               _fileSystem.DirectoryExists(Path.Combine(gitDirPath, "rebase-apply"));
+    }
+
+    #endregion
+
+    #region Branch Comparison
+
+    public async Task<BranchComparisonResult> CompareBranchesAsync(string workingDirectory, string baseBranch, string compareBranch)
+    {
+        var result = new BranchComparisonResult
+        {
+            BaseBranch = baseBranch,
+            CompareBranch = compareBranch
+        };
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return result;
+
+        // Get merge-base
+        var mergeBase = await _gitRunner.RunGitCommandAsync(workingDirectory, $"merge-base \"{baseBranch}\" \"{compareBranch}\"");
+        result.MergeBase = mergeBase?.Trim() ?? "";
+
+        // Get commits only in base branch (not in compare)
+        result.CommitsOnlyInBase = await GetCommitsBetweenAsync(workingDirectory, compareBranch, baseBranch);
+
+        // Get commits only in compare branch (not in base)
+        result.CommitsOnlyInCompare = await GetCommitsBetweenAsync(workingDirectory, baseBranch, compareBranch);
+
+        // Count files changed
+        var diffStat = await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff --stat \"{baseBranch}\" \"{compareBranch}\"");
+        if (!string.IsNullOrEmpty(diffStat))
+        {
+            // Last line of diff --stat contains "X files changed" summary
+            var lines = diffStat.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length > 0)
+            {
+                var lastLine = lines[lines.Length - 1];
+                var filesMatch = Regex.Match(lastLine, @"(\d+) files? changed");
+                if (filesMatch.Success)
+                    result.FilesChanged = int.Parse(filesMatch.Groups[1].Value);
+            }
+        }
+
+        // Check fast-forward possibilities
+        // Base can FF to compare if base has no unique commits (base is ancestor of compare)
+        result.CanFastForwardBaseToCompare = result.CommitsOnlyInBase.Count == 0 && result.CommitsOnlyInCompare.Count > 0;
+
+        // Compare can FF to base if compare has no unique commits (compare is ancestor of base)
+        result.CanFastForwardCompareToBase = result.CommitsOnlyInCompare.Count == 0 && result.CommitsOnlyInBase.Count > 0;
+
+        return result;
+    }
+
+    public async Task<List<GitCommit>> GetCommitsBetweenAsync(string workingDirectory, string fromRef, string toRef)
+    {
+        var commits = new List<GitCommit>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return commits;
+
+        // Get commits that are in toRef but not in fromRef
+        // Format same as GetCommitHistoryAsync
+        var format = "%H|%h|%an|%ae|%ar|%aI|%s|%d|%P";
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"log --format=\"{format}\" \"{fromRef}..\"{toRef}\"");
+
+        if (string.IsNullOrEmpty(output))
+            return commits;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|');
+            if (parts.Length < 7) continue;
+
+            var commit = new GitCommit
+            {
+                Hash = parts[0],
+                ShortHash = parts[1],
+                AuthorName = parts[2],
+                AuthorEmail = parts[3],
+                RelativeDate = parts[4],
+                CommitDate = DateTimeOffset.TryParse(parts[5], out var date) ? date : DateTimeOffset.MinValue,
+                Subject = parts[6],
+                Decorations = parts.Length > 7 ? parts[7].Trim() : null,
+                ParentHashes = parts.Length > 8 && !string.IsNullOrWhiteSpace(parts[8])
+                    ? parts[8].Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList()
+                    : []
+            };
+
+            // Clean up decorations
+            if (!string.IsNullOrEmpty(commit.Decorations))
+            {
+                commit.Decorations = commit.Decorations.Trim('(', ')', ' ');
+                if (string.IsNullOrWhiteSpace(commit.Decorations))
+                    commit.Decorations = null;
+            }
+
+            commits.Add(commit);
+        }
+
+        return commits;
+    }
+
+    public async Task<List<GitBranch>> GetKeyBranchesAsync(string workingDirectory, IEnumerable<string> keyBranchPatterns)
+    {
+        var allBranches = await GetBranchesAsync(workingDirectory);
+
+        // Filter to only local branches that match the key branch patterns (case-insensitive)
+        var patterns = new HashSet<string>(keyBranchPatterns, StringComparer.OrdinalIgnoreCase);
+
+        return allBranches
+            .Where(b => !b.IsRemote && patterns.Contains(b.ShortName))
+            .ToList();
+    }
+
+    public async Task<(int Ahead, int Behind)> GetAheadBehindAsync(string workingDirectory, string branch, string compareTo)
+    {
+        int ahead = 0, behind = 0;
+
+        try
+        {
+            // Get commits using left-right syntax
+            // Output format: "X\tY" where X = commits only in left (compareTo), Y = commits only in right (branch)
+            var output = await _gitRunner.RunGitCommandAsync(
+                workingDirectory,
+                $"rev-list --count --left-right \"{compareTo}\"...\"{branch}\"");
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                var parts = output.Trim().Split('\t');
+                if (parts.Length == 2)
+                {
+                    int.TryParse(parts[0], out behind);  // Commits in compareTo not in branch
+                    int.TryParse(parts[1], out ahead);   // Commits in branch not in compareTo
+                }
+            }
+        }
+        catch
+        {
+            // If git command fails, return zeros
+        }
+
+        return (ahead, behind);
+    }
+
+    #endregion
 }

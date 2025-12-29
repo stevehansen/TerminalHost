@@ -1,0 +1,286 @@
+<UserControl x:Class="TerminalHost.Views.FileBlameContentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:FileBlameViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkBrush}">
+
+    <UserControl.Resources>
+        <!-- Blame line item template -->
+        <DataTemplate x:Key="BlameLineTemplate">
+            <Grid Height="18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70"/>  <!-- Short hash -->
+                    <ColumnDefinition Width="100"/> <!-- Author -->
+                    <ColumnDefinition Width="60"/>  <!-- Date -->
+                    <ColumnDefinition Width="45"/>  <!-- Line number -->
+                    <ColumnDefinition Width="*"/>   <!-- Code line -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Gutter background for first line in group -->
+                <Border Grid.ColumnSpan="3"
+                        Background="{Binding IsFirstInGroup, Converter={StaticResource BoolToBackgroundConverter}, ConverterParameter=#2D2D30}"
+                        Margin="0,0,0,0"/>
+
+                <!-- Short hash (only show for first line in group) -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding ShortHash}"
+                           Foreground="#569CD6"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           Padding="4,0"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsFirstInGroup, Converter={StaticResource BoolToVisibilityConverter}}"
+                           ToolTip="{Binding CommitHash}"/>
+
+                <!-- Author (only show for first line in group) -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Author}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           Padding="4,0"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding IsFirstInGroup, Converter={StaticResource BoolToVisibilityConverter}}"
+                           ToolTip="{Binding AuthorEmail}"/>
+
+                <!-- Relative date (only show for first line in group) -->
+                <TextBlock Grid.Column="2"
+                           Text="{Binding RelativeDate}"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           Padding="4,0"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsFirstInGroup, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Line number -->
+                <TextBlock Grid.Column="3"
+                           Text="{Binding LineNumber}"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           Padding="4,0"
+                           TextAlignment="Right"
+                           VerticalAlignment="Center"
+                           Background="{StaticResource BackgroundMediumBrush}"/>
+
+                <!-- Code content -->
+                <TextBlock Grid.Column="4"
+                           Text="{Binding LineContent}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           Padding="8,0,4,0"
+                           VerticalAlignment="Center"
+                           Background="{StaticResource BackgroundDarkestBrush}"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- ListBoxItem style for blame lines -->
+        <Style x:Key="BlameLineItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="#333333"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="#264F78"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- File path header -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Refresh"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding RefreshBlameCommand}"
+                            ToolTip="Refresh blame"
+                            Margin="0,0,8,0"/>
+                    <TextBlock Text="Authors: "
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeMicro}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding BlameResult.UniqueAuthors.Count, FallbackValue=0}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeMicro}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           TextTrimming="CharacterEllipsis">
+                    <Run Text="{Binding FilePath, Mode=OneWay}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="400"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="280" MinWidth="200"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel: Blame View -->
+            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                <Grid>
+                    <!-- Loading overlay -->
+                    <Border Background="#80000000"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Panel.ZIndex="100">
+                        <TextBlock Text="Loading blame..."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Blame lines -->
+                    <ListBox ItemsSource="{Binding BlameResult.Lines}"
+                             SelectedItem="{Binding SelectedLine}"
+                             ItemTemplate="{StaticResource BlameLineTemplate}"
+                             ItemContainerStyle="{StaticResource BlameLineItemStyle}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+            <!-- Right Panel: Commit Details -->
+            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="Copy"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding CopyHashCommand}"
+                                    FontSize="{StaticResource FontSizeMicro}"
+                                    ToolTip="Copy commit hash"/>
+                            <TextBlock Text="Commit Details"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Commit details content -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="8">
+                        <Grid Visibility="{Binding HasSelectedLine, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Line info -->
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8" Margin="0,0,0,8" CornerRadius="4">
+                                <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}">
+                                    <Run Text="Line "/>
+                                    <Run Text="{Binding SelectedLine.LineNumber, Mode=OneWay}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </TextBlock>
+                            </Border>
+
+                            <!-- Hash -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="Commit: "
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="{Binding SelectedLine.CommitHash}"
+                                           Foreground="#569CD6"
+                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <!-- Author -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="Author: "
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="{Binding SelectedLine.Author}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"/>
+                            </StackPanel>
+
+                            <!-- Date -->
+                            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Date: "
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="{Binding SelectedLine.CommitDate, StringFormat='yyyy-MM-dd HH:mm:ss'}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"/>
+                            </StackPanel>
+
+                            <!-- Summary/Subject -->
+                            <StackPanel Grid.Row="4" Margin="0,0,0,8">
+                                <TextBlock Text="Message:"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding SelectedLine.Summary}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- Placeholder when no line selected -->
+                    <TextBlock Grid.Row="1"
+                               Text="Click a line to see commit details"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding HasSelectedLine, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

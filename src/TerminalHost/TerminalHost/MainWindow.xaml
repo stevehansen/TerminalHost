@@ -156,5 +156,11 @@
 
         <!-- PR Review View (Ctrl+Shift+R) -->
         <popups:PrReviewView x:Name="PrReviewViewControl" />
+
+        <!-- Branch Comparison View (Ctrl+Alt+B) -->
+        <popups:BranchComparisonView x:Name="BranchComparisonViewControl" />
+
+        <!-- Unified Git Panel View (Alt+G) -->
+        <popups:UnifiedGitPanelView x:Name="UnifiedGitPanelViewControl" />
     </Grid>
 </Window>

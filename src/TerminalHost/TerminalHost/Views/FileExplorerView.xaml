@@ -146,8 +146,7 @@
                     <TextBlock Text="📜" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="View Blame" Command="{Binding ViewBlameCommand}"
-                      InputGestureText="Ctrl+Shift+B">
+            <MenuItem Header="View Blame" Command="{Binding ViewBlameCommand}">
                 <MenuItem.Icon>
                     <TextBlock Text="👤" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>

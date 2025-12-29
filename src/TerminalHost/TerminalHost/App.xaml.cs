@@ -236,6 +236,8 @@ public partial class App : Application
         services.AddSingleton<PrReviewViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
         services.AddSingleton<SearchAcrossFilesViewModel>();
+        services.AddSingleton<BranchComparisonViewModel>();
+        services.AddSingleton<UnifiedGitPanelViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

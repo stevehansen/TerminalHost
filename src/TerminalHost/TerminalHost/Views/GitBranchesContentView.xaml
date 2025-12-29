@@ -1,0 +1,294 @@
+<UserControl x:Class="TerminalHost.Views.GitBranchesContentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:GitBranchViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Branch Operations Section (vs Key Branches) -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8"
+                Visibility="{Binding HasKeyBranches, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header with current branch -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Current: "
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding CurrentBranch.ShortName}"
+                               Foreground="{StaticResource SyntaxGreenBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Key branch comparisons -->
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding KeyBranchStatuses}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- "vs" label -->
+                                <TextBlock Grid.Column="0"
+                                           Text="vs"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- Branch name -->
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Branch.ShortName}"
+                                           Foreground="{StaticResource SyntaxCyanBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+
+                                <!-- Ahead/Behind status -->
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding StatusDisplay}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInSync}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasDiverged}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource AccentOrangeBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- Action buttons -->
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="FF"
+                                            ToolTip="Fast-forward current branch to this"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.FastForwardToKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanFastForward, Converter={StaticResource BoolToVisibilityConverter}}"
+                                            Padding="6,2"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Margin="0,0,4,0"/>
+                                    <Button Content="Reset"
+                                            ToolTip="Reset current branch to this (destructive)"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.ResetToKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Foreground="{StaticResource AccentOrangeBrush}"
+                                            Padding="6,2"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Margin="0,0,4,0"/>
+                                    <Button Content="Compare"
+                                            ToolTip="Compare with current branch"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.CompareWithKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Padding="6,2"
+                                            FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+
+        <!-- Search Box -->
+        <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+            <TextBox x:Name="BranchSearchBox"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     Background="{StaticResource BackgroundMediumBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                     BorderThickness="1"
+                     Padding="8,6"
+                     FontSize="{StaticResource FontSizeCode}"/>
+        </Border>
+
+        <!-- Branch List -->
+        <ListBox Grid.Row="2"
+                 ItemsSource="{Binding Branches}"
+                 SelectedItem="{Binding SelectedBranch}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="8,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Current branch indicator -->
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding Icon}"
+                                   Foreground="{Binding StatusColor}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+
+                        <!-- Branch name -->
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding DisplayName}"
+                                   Foreground="{Binding StatusColor}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+
+                        <!-- Issue number -->
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding IssueNumber}"
+                                   Foreground="{StaticResource SyntaxBlueBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"
+                                   Visibility="{Binding IssueNumber, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <!-- Ahead/Behind status -->
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding StatusDisplay}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"
+                                   Visibility="{Binding StatusDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Padding" Value="4,2"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu Background="{StaticResource BackgroundDarkBrush}"
+                                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}">
+                                <MenuItem Header="Checkout"
+                                          Command="{Binding DataContext.CheckoutBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Compare with current"
+                                          Command="{Binding DataContext.CompareWithSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Fast-forward current to this"
+                                          Command="{Binding DataContext.FastForwardToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <MenuItem Header="Rebase current onto this"
+                                          Command="{Binding DataContext.RebaseOntoSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <MenuItem Header="Reset current to this"
+                                          Command="{Binding DataContext.ResetToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource AccentOrangeBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Delete"
+                                          Command="{Binding DataContext.DeleteBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="ItemBorder"
+                                        Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+
+        <!-- Footer with action buttons -->
+        <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Fetch"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding FetchAllCommand}"
+                            ToolTip="Fetch all remotes"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Pull"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding PullCommand}"
+                            ToolTip="Pull current branch"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Compare"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding CompareWithSelectedBranchCommand}"
+                            ToolTip="Compare current branch with selected"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Delete"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DeleteBranchCommand}"
+                            ToolTip="Delete selected branch"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Checkout"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding CheckoutBranchCommand}"
+                            ToolTip="Switch to selected branch"/>
+                </StackPanel>
+                <Button Content="+ New Branch"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding CreateBranchCommand}"
+                        ToolTip="Create new branch from current HEAD"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Empty state -->
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource TextMutedBrush}"
+                   FontSize="{StaticResource FontSizeSmall}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Padding="20"
+                   Visibility="{Binding Branches.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+    </Grid>
+</UserControl>

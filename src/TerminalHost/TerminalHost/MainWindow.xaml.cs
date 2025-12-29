@@ -39,6 +39,8 @@ public partial class MainWindow : Window
     private readonly PrReviewViewModel _prReviewViewModel;
     private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
+    private readonly BranchComparisonViewModel _branchComparisonViewModel;
+    private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -46,7 +48,7 @@ public partial class MainWindow : Window
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -69,6 +71,8 @@ public partial class MainWindow : Window
         _prReviewViewModel = prReviewViewModel;
         _markdownPreviewViewModel = markdownPreviewViewModel;
         _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
+        _branchComparisonViewModel = branchComparisonViewModel;
+        _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -82,6 +86,8 @@ public partial class MainWindow : Window
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
         TestResultsViewControl.DataContext = testResultsViewModel;
         PrReviewViewControl.DataContext = prReviewViewModel;
+        BranchComparisonViewControl.DataContext = branchComparisonViewModel;
+        UnifiedGitPanelViewControl.DataContext = unifiedGitPanelViewModel;
 
         // Git Files, Commit History, and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
 
@@ -93,6 +99,10 @@ public partial class MainWindow : Window
         _fileBlameViewModel.ShowRequested += OnPanelShowRequested;
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
+        _branchComparisonViewModel.ShowRequested += OnPanelShowRequested;
+
+        // Subscribe to branch comparison events
+        _gitBranchViewModel.CompareBranchesRequested += OnCompareBranchesRequested;
 
         // Subscribe to ManageWorktrees events
         if (_viewModel.WorkspaceSidebar != null)
@@ -134,6 +144,7 @@ public partial class MainWindow : Window
         _viewModel.PrReviewRequested += OnPrReviewRequested;
         _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
+        _viewModel.UnifiedGitPanelRequested += OnUnifiedGitPanelRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -700,37 +711,17 @@ public partial class MainWindow : Window
             }
             e.Handled = true;
         }
-        // Ctrl+G: Open git files panel
+        // Ctrl+G: Open unified Git panel on Changes tab
         else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
         {
+            await OpenUnifiedGitPanelAsync(GitPanelTab.Changes);
             e.Handled = true;
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-            {
-                var windowPos = PointToScreen(new Point(0, 0));
-                _gitFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _gitFilesViewModel.Width) / 2;
-                _gitFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _gitFilesViewModel.Height) / 2;
-                await _gitFilesViewModel.OpenAsync(terminalTab);
-            }
-            else
-            {
-                _dialogService.ShowInfo("Please select a project tab first.", "Git Changes"); // Use injected IDialogService
-            }
         }
-        // Ctrl+H: Open commit history
+        // Ctrl+H: Open unified Git panel on History tab
         else if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.Control)
         {
+            await OpenUnifiedGitPanelAsync(GitPanelTab.History);
             e.Handled = true;
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-            {
-                var windowPos = PointToScreen(new Point(0, 0));
-                _commitHistoryViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _commitHistoryViewModel.Width) / 2;
-                _commitHistoryViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _commitHistoryViewModel.Height) / 2;
-                await _commitHistoryViewModel.OpenAsync(terminalTab);
-            }
-            else
-            {
-                _dialogService.ShowInfo("Please select a project tab first.", "Commit History");
-            }
         }
         // Ctrl+F3: Open search across files
         else if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.Control)
@@ -748,29 +739,22 @@ public partial class MainWindow : Window
                 _dialogService.ShowInfo("Please select a project tab first.", "Search");
             }
         }
-        // Ctrl+B: Open git branch switcher
+        // Ctrl+B: Open unified Git panel on Branches tab
         else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            await _gitBranchViewModel.OpenAsync();
+            await OpenUnifiedGitPanelAsync(GitPanelTab.Branches);
             e.Handled = true;
         }
-        // Ctrl+Shift+B: Open file blame (if file selected in explorer)
-        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        // Ctrl+Alt+B: Open unified Git panel on Comparison tab
+        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
         {
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-            {
-                var explorerVm = terminalTab.ExplorerViewModel;
-                if (explorerVm?.SelectedNode != null && !explorerVm.SelectedNode.IsDirectory)
-                {
-                    OpenFileBlame(terminalTab.Pair.WorkingDirectory, explorerVm.SelectedNode.FullPath);
-                }
-            }
+            await OpenUnifiedGitPanelAsync(GitPanelTab.Comparison);
             e.Handled = true;
         }
-        // Ctrl+Shift+S: Open git stash manager
+        // Ctrl+Shift+S: Open unified Git panel on Stash tab
         else if (e.Key == Key.S && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            await _gitStashViewModel.OpenAsync();
+            await OpenUnifiedGitPanelAsync(GitPanelTab.Stash);
             e.Handled = true;
         }
         // Ctrl+Shift+G: Open git reflog
@@ -790,7 +774,7 @@ public partial class MainWindow : Window
             await _repositorySwitcherViewModel.OpenAsync();
             e.Handled = true;
         }
-        // Ctrl+Shift+H: Open GitHub Dashboard
+                // Ctrl+Shift+H: Open GitHub Dashboard
         else if (e.Key == Key.H && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             await _viewModel.OpenDashboardCommand.ExecuteAsync(null);
@@ -1053,6 +1037,11 @@ public partial class MainWindow : Window
         await _gitFilesViewModel.OpenAsync(currentTab);
     }
 
+    private async void OnUnifiedGitPanelRequested(object? sender, GitPanelTab tab)
+    {
+        await OpenUnifiedGitPanelAsync(tab);
+    }
+
     #endregion
 
     #region Scratch Pad Panel
@@ -1086,6 +1075,72 @@ public partial class MainWindow : Window
         // Not open yet - set display state to Panel for docked display
         _scratchPadViewModel.DisplayState = PanelDisplayState.Panel;
         _scratchPadViewModel.Open();
+    }
+
+    #endregion
+
+    #region Branch Comparison Panel
+
+    private async void OnCompareBranchesRequested(object? sender, CompareBranchesRequestedEventArgs e)
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null)
+        {
+            _dialogService.ShowInfo("Please select a project tab first.", "Branch Comparison");
+            return;
+        }
+
+        // Open comparison view with the specified branches
+        await _branchComparisonViewModel.OpenWithBranchesAsync(currentTab, e.BaseBranch, e.CompareBranch);
+    }
+
+    private async Task OpenBranchComparisonAsync()
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null)
+        {
+            _dialogService.ShowInfo("Please select a project tab first.", "Branch Comparison");
+            return;
+        }
+
+        // If already open, toggle off
+        if (_branchComparisonViewModel.IsOpen)
+        {
+            _branchComparisonViewModel.IsOpen = false;
+            return;
+        }
+
+        await _branchComparisonViewModel.OpenAsync(currentTab);
+    }
+
+    private async Task OpenUnifiedGitPanelAsync(GitPanelTab? tab = null)
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null)
+        {
+            _dialogService.ShowInfo("Please select a project tab first.", "Git Panel");
+            return;
+        }
+
+        // If already open, toggle off (or switch to requested tab)
+        if (_unifiedGitPanelViewModel.IsOpen)
+        {
+            if (tab.HasValue && _unifiedGitPanelViewModel.ActiveTab != tab.Value)
+            {
+                // Switch to the requested tab instead of closing
+                _unifiedGitPanelViewModel.ActiveTab = tab.Value;
+                return;
+            }
+            _unifiedGitPanelViewModel.IsOpen = false;
+            return;
+        }
+
+        // Center the popup on screen
+        var windowPos = PointToScreen(new Point(0, 0));
+        _unifiedGitPanelViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _unifiedGitPanelViewModel.Width) / 2;
+        _unifiedGitPanelViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _unifiedGitPanelViewModel.Height) / 2;
+
+        await _unifiedGitPanelViewModel.OpenOnTabAsync(currentTab, tab ?? GitPanelTab.Changes);
     }
 
     #endregion

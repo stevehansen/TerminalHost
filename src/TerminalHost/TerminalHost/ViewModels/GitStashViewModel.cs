@@ -78,6 +78,16 @@ public partial class GitStashViewModel : ObservableObject
             return;
         }
 
+        await LoadDataAsync(terminalTab);
+        IsOpen = true;
+    }
+
+    /// <summary>
+    /// Loads stash data without opening the popup.
+    /// Used by the unified Git panel to load data for embedded display.
+    /// </summary>
+    public async Task LoadDataAsync(TerminalPairTabViewModel terminalTab)
+    {
         _currentTerminalTab = terminalTab;
         CurrentWorkingDirectory = terminalTab.Pair.WorkingDirectory;
         Title = $"Git Stash - {terminalTab.Title}";
@@ -86,8 +96,6 @@ public partial class GitStashViewModel : ObservableObject
         IncludeUntracked = false;
 
         await RefreshStashListAsync();
-
-        IsOpen = true;
     }
 
     [RelayCommand]

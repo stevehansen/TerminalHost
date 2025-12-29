@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Data;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -11,10 +12,18 @@ namespace TerminalHost.ViewModels;
 public partial class GitBranchViewModel : ObservableObject
 {
     private readonly IGitStatusService _gitStatusService;
+    private readonly IConfigurationService _configurationService;
     private readonly MainViewModel _mainViewModel; // To get selected tab and refresh its git status
-    private readonly IDialogService _dialogService; // Added IDialogService dependency
+    private readonly IDialogService _dialogService;
+    private readonly IToastService _toastService;
 
     private List<GitBranch> _allBranches = [];
+
+    /// <summary>
+    /// Event raised when user requests to compare branches.
+    /// MainWindow handles this to open BranchComparisonViewModel.
+    /// </summary>
+    public event EventHandler<CompareBranchesRequestedEventArgs>? CompareBranchesRequested;
 
     [ObservableProperty]
     private string _currentBranchWorkingDirectory = string.Empty;
@@ -40,6 +49,16 @@ public partial class GitBranchViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    // Key branch comparison properties
+    [ObservableProperty]
+    private GitBranch? _currentBranch;
+
+    [ObservableProperty]
+    private ObservableCollection<KeyBranchStatus> _keyBranchStatuses = [];
+
+    [ObservableProperty]
+    private bool _hasKeyBranches;
+
     // View properties for positioning/sizing the popup
     [ObservableProperty]
     private double _width = 1100;
@@ -50,11 +69,18 @@ public partial class GitBranchViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
-    public GitBranchViewModel(IGitStatusService gitStatusService, MainViewModel mainViewModel, IDialogService dialogService) // Added IDialogService
+    public GitBranchViewModel(
+        IGitStatusService gitStatusService,
+        IConfigurationService configurationService,
+        MainViewModel mainViewModel,
+        IDialogService dialogService,
+        IToastService toastService)
     {
         _gitStatusService = gitStatusService;
+        _configurationService = configurationService;
         _mainViewModel = mainViewModel;
-        _dialogService = dialogService; // Initialize IDialogService
+        _dialogService = dialogService;
+        _toastService = toastService;
 
         // GitBranch is opened via MainWindow.xaml.cs directly (Ctrl+B shortcut)
     }
@@ -69,13 +95,21 @@ public partial class GitBranchViewModel : ObservableObject
             return;
         }
 
+        await LoadDataAsync(terminalTab);
+        IsOpen = true;
+    }
+
+    /// <summary>
+    /// Loads branch data without opening the popup.
+    /// Used by the unified Git panel to load data for embedded display.
+    /// </summary>
+    public async Task LoadDataAsync(TerminalPairTabViewModel terminalTab)
+    {
         CurrentBranchWorkingDirectory = terminalTab.Pair.WorkingDirectory;
         Title = $"Git Branches - {terminalTab.Title}";
         StatusMessage = string.Empty; // Clear previous messages
 
         await RefreshGitBranchesAsync();
-
-        IsOpen = true;
 
         // Reset search text and focus should be handled by the view
         SearchText = string.Empty;
@@ -92,10 +126,67 @@ public partial class GitBranchViewModel : ObservableObject
         {
             _allBranches = await _gitStatusService.GetBranchesAsync(CurrentBranchWorkingDirectory);
             ApplyBranchFilter();
+
+            // Set current branch
+            CurrentBranch = _allBranches.FirstOrDefault(b => b.IsCurrent);
+
+            // Load key branch comparisons
+            await LoadKeyBranchStatusesAsync();
         }
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private async Task LoadKeyBranchStatusesAsync()
+    {
+        if (CurrentBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+        {
+            KeyBranchStatuses.Clear();
+            HasKeyBranches = false;
+            return;
+        }
+
+        try
+        {
+            // Get key branch patterns from config
+            var config = _configurationService.Load();
+            var dirSettings = config.DirectorySettings.TryGetValue(CurrentBranchWorkingDirectory.ToLowerInvariant(), out var ds) ? ds : null;
+            var keyBranchPatterns = dirSettings?.KeyBranchOverrides ?? config.Settings.KeyBranches;
+
+            // Get key branches that exist in this repo
+            var keyBranches = await _gitStatusService.GetKeyBranchesAsync(CurrentBranchWorkingDirectory, keyBranchPatterns);
+
+            // Filter out the current branch from key branches display
+            keyBranches = keyBranches.Where(b => !b.IsCurrent).ToList();
+
+            var statuses = new List<KeyBranchStatus>();
+
+            foreach (var keyBranch in keyBranches)
+            {
+                // Get ahead/behind counts
+                var (ahead, behind) = await _gitStatusService.GetAheadBehindAsync(
+                    CurrentBranchWorkingDirectory,
+                    CurrentBranch.Name,
+                    keyBranch.Name);
+
+                statuses.Add(new KeyBranchStatus
+                {
+                    Branch = keyBranch,
+                    AheadCount = ahead,
+                    BehindCount = behind
+                });
+            }
+
+            KeyBranchStatuses = new ObservableCollection<KeyBranchStatus>(statuses);
+            HasKeyBranches = statuses.Count > 0;
+        }
+        catch
+        {
+            // If anything fails, just clear the key branches section
+            KeyBranchStatuses.Clear();
+            HasKeyBranches = false;
         }
     }
 
@@ -141,6 +232,10 @@ public partial class GitBranchViewModel : ObservableObject
     {
         CheckoutBranchCommand.NotifyCanExecuteChanged();
         DeleteBranchCommand.NotifyCanExecuteChanged();
+        ResetToSelectedBranchCommand.NotifyCanExecuteChanged();
+        FastForwardToSelectedBranchCommand.NotifyCanExecuteChanged();
+        RebaseOntoSelectedBranchCommand.NotifyCanExecuteChanged();
+        CompareWithSelectedBranchCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanCheckoutBranch))]
@@ -345,6 +440,310 @@ public partial class GitBranchViewModel : ObservableObject
         }
     }
 
+    #region Branch Operations (Reset, Fast-Forward, Rebase, Compare)
+
+    /// <summary>
+    /// Reset current branch to the selected branch (hard reset).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanResetToSelectedBranch))]
+    private async Task ResetToSelectedBranchAsync()
+    {
+        if (SelectedBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        var currentBranch = _allBranches.FirstOrDefault(b => b.IsCurrent);
+        if (currentBranch == null) return;
+
+        var message = $"WARNING: This will HARD RESET '{currentBranch.ShortName}' to match '{SelectedBranch.ShortName}'.\n\n" +
+                      "Any uncommitted changes will be LOST.\n" +
+                      "Any commits unique to the current branch will become unreachable.\n\n" +
+                      "This is a destructive operation. Continue?";
+
+        if (!_dialogService.ShowConfirmation(message, "Reset Branch"))
+            return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.ResetAsync(
+                CurrentBranchWorkingDirectory,
+                SelectedBranch.Name,
+                ResetMode.Hard);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Reset {currentBranch.ShortName} to {SelectedBranch.ShortName}", ToastType.Success);
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                _dialogService.ShowWarning($"Reset failed: {result.Error}", "Git Reset");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private bool CanResetToSelectedBranch() =>
+        SelectedBranch != null && !SelectedBranch.IsCurrent && !IsLoading;
+
+    /// <summary>
+    /// Fast-forward current branch to the selected branch.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanFastForwardToSelectedBranch))]
+    private async Task FastForwardToSelectedBranchAsync()
+    {
+        if (SelectedBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        var currentBranch = _allBranches.FirstOrDefault(b => b.IsCurrent);
+        if (currentBranch == null) return;
+
+        // Check if fast-forward is possible
+        var (canFF, commitCount, error) = await _gitStatusService.CheckFastForwardAsync(
+            CurrentBranchWorkingDirectory,
+            SelectedBranch.Name);
+
+        if (!canFF)
+        {
+            _dialogService.ShowWarning(
+                $"Cannot fast-forward '{currentBranch.ShortName}' to '{SelectedBranch.ShortName}':\n\n{error}",
+                "Fast-Forward Not Possible");
+            return;
+        }
+
+        var message = $"Fast-forward '{currentBranch.ShortName}' to '{SelectedBranch.ShortName}'?\n\n" +
+                      $"This will move the branch pointer forward by {commitCount} commit(s).";
+
+        if (!_dialogService.ShowConfirmation(message, "Fast-Forward Branch"))
+            return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.FastForwardAsync(
+                CurrentBranchWorkingDirectory,
+                SelectedBranch.Name);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Fast-forwarded {currentBranch.ShortName} ({commitCount} commits)", ToastType.Success);
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                _dialogService.ShowWarning($"Fast-forward failed: {result.Error}", "Git Fast-Forward");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private bool CanFastForwardToSelectedBranch() =>
+        SelectedBranch != null && !SelectedBranch.IsCurrent && !IsLoading;
+
+    /// <summary>
+    /// Rebase current branch onto the selected branch.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRebaseOntoSelectedBranch))]
+    private async Task RebaseOntoSelectedBranchAsync()
+    {
+        if (SelectedBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        var currentBranch = _allBranches.FirstOrDefault(b => b.IsCurrent);
+        if (currentBranch == null) return;
+
+        var message = $"Rebase '{currentBranch.ShortName}' onto '{SelectedBranch.ShortName}'?\n\n" +
+                      "This will replay your commits on top of the selected branch.\n" +
+                      "If there are conflicts, you'll need to resolve them.";
+
+        if (!_dialogService.ShowConfirmation(message, "Rebase Branch"))
+            return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.RebaseAsync(
+                CurrentBranchWorkingDirectory,
+                SelectedBranch.Name);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Rebased {currentBranch.ShortName} onto {SelectedBranch.ShortName}", ToastType.Success);
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                // Check if rebase is in progress (conflicts)
+                var isRebaseInProgress = await _gitStatusService.IsRebaseInProgressAsync(CurrentBranchWorkingDirectory);
+                if (isRebaseInProgress)
+                {
+                    _dialogService.ShowWarning(
+                        "Rebase has conflicts that need to be resolved.\n\n" +
+                        "Resolve conflicts in the terminal, then use:\n" +
+                        "  git rebase --continue (after resolving)\n" +
+                        "  git rebase --abort (to cancel)",
+                        "Rebase Conflicts");
+                }
+                else
+                {
+                    _dialogService.ShowWarning($"Rebase failed: {result.Error}", "Git Rebase");
+                }
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private bool CanRebaseOntoSelectedBranch() =>
+        SelectedBranch != null && !SelectedBranch.IsCurrent && !IsLoading;
+
+    /// <summary>
+    /// Open branch comparison view for current vs selected branch.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanCompareWithSelectedBranch))]
+    private void CompareWithSelectedBranch()
+    {
+        if (SelectedBranch == null) return;
+
+        var currentBranch = _allBranches.FirstOrDefault(b => b.IsCurrent);
+        if (currentBranch == null) return;
+
+        // Raise event for MainWindow to handle
+        CompareBranchesRequested?.Invoke(this, new CompareBranchesRequestedEventArgs(
+            CurrentBranchWorkingDirectory,
+            currentBranch.ShortName,
+            SelectedBranch.ShortName));
+
+        IsOpen = false; // Close branch switcher
+    }
+
+    private bool CanCompareWithSelectedBranch() =>
+        SelectedBranch != null && !SelectedBranch.IsCurrent;
+
+    #endregion
+
+    #region Key Branch Operations
+
+    /// <summary>
+    /// Fast-forward current branch to the specified key branch.
+    /// </summary>
+    [RelayCommand]
+    private async Task FastForwardToKeyBranchAsync(KeyBranchStatus keyBranchStatus)
+    {
+        if (keyBranchStatus?.Branch == null || CurrentBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        if (!keyBranchStatus.CanFastForward)
+        {
+            _dialogService.ShowWarning(
+                $"Cannot fast-forward: {CurrentBranch.ShortName} has commits not in {keyBranchStatus.Branch.ShortName}.\n\n" +
+                "Use Reset if you want to discard those commits, or Rebase to replay them.",
+                "Fast-Forward Not Possible");
+            return;
+        }
+
+        var message = $"Fast-forward '{CurrentBranch.ShortName}' to '{keyBranchStatus.Branch.ShortName}'?\n\n" +
+                      $"This will move {CurrentBranch.ShortName} forward by {keyBranchStatus.BehindCount} commit(s).";
+
+        if (!_dialogService.ShowConfirmation(message, "Fast-Forward"))
+            return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.FastForwardAsync(
+                CurrentBranchWorkingDirectory,
+                keyBranchStatus.Branch.Name);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Fast-forwarded to {keyBranchStatus.Branch.ShortName}", ToastType.Success);
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                _dialogService.ShowWarning($"Fast-forward failed: {result.Error}", "Git Fast-Forward");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Reset current branch to the specified key branch.
+    /// </summary>
+    [RelayCommand]
+    private async Task ResetToKeyBranchAsync(KeyBranchStatus keyBranchStatus)
+    {
+        if (keyBranchStatus?.Branch == null || CurrentBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        var warningText = keyBranchStatus.AheadCount > 0
+            ? $"\n\nWARNING: You will lose {keyBranchStatus.AheadCount} commit(s) that are only in {CurrentBranch.ShortName}!"
+            : "";
+
+        var message = $"Reset '{CurrentBranch.ShortName}' to '{keyBranchStatus.Branch.ShortName}'?{warningText}\n\n" +
+                      "This is a hard reset - uncommitted changes will be lost.";
+
+        if (!_dialogService.ShowConfirmation(message, "Reset Branch"))
+            return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.ResetAsync(
+                CurrentBranchWorkingDirectory,
+                keyBranchStatus.Branch.Name,
+                ResetMode.Hard);
+
+            if (result.Success)
+            {
+                _toastService.Show($"Reset {CurrentBranch.ShortName} to {keyBranchStatus.Branch.ShortName}", ToastType.Success);
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                _dialogService.ShowWarning($"Reset failed: {result.Error}", "Git Reset");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Compare current branch with the specified key branch.
+    /// </summary>
+    [RelayCommand]
+    private void CompareWithKeyBranch(KeyBranchStatus keyBranchStatus)
+    {
+        if (keyBranchStatus?.Branch == null || CurrentBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        CompareBranchesRequested?.Invoke(this, new CompareBranchesRequestedEventArgs(
+            CurrentBranchWorkingDirectory,
+            CurrentBranch.ShortName,
+            keyBranchStatus.Branch.ShortName));
+    }
+
+    #endregion
+
     [RelayCommand]
     private void Close()
     {
@@ -455,4 +854,21 @@ public partial class GitBranchViewModel : ObservableObject
 
     //     return dialog.ShowDialog() == true ? textBox.Text : null;
     // }
+}
+
+/// <summary>
+/// Event arguments for branch comparison request.
+/// </summary>
+public class CompareBranchesRequestedEventArgs : EventArgs
+{
+    public string WorkingDirectory { get; }
+    public string BaseBranch { get; }
+    public string CompareBranch { get; }
+
+    public CompareBranchesRequestedEventArgs(string workingDirectory, string baseBranch, string compareBranch)
+    {
+        WorkingDirectory = workingDirectory;
+        BaseBranch = baseBranch;
+        CompareBranch = compareBranch;
+    }
 }

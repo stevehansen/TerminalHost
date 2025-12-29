@@ -155,6 +155,38 @@
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Padding" Value="4,2"/>
                             <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="ContextMenu">
+                                <Setter.Value>
+                                    <ContextMenu Background="{StaticResource BackgroundDarkBrush}"
+                                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                 Foreground="{StaticResource TextPrimaryBrush}">
+                                        <MenuItem Header="✓ Checkout"
+                                                  Command="{Binding DataContext.CheckoutBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <Separator/>
+                                        <MenuItem Header="⇄ Compare with current branch"
+                                                  Command="{Binding DataContext.CompareWithSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <Separator/>
+                                        <MenuItem Header="⏩ Fast-forward current to this"
+                                                  Command="{Binding DataContext.FastForwardToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  ToolTip="Fast-forward current branch to match this branch (only if no divergence)"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <MenuItem Header="⎇ Rebase current onto this"
+                                                  Command="{Binding DataContext.RebaseOntoSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  ToolTip="Rebase current branch onto this branch"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <MenuItem Header="⚠ Reset current to this"
+                                                  Command="{Binding DataContext.ResetToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  ToolTip="Hard reset current branch to match this branch (destructive)"
+                                                  Foreground="{StaticResource AccentOrangeBrush}"/>
+                                        <Separator/>
+                                        <MenuItem Header="🗑 Delete"
+                                                  Command="{Binding DataContext.DeleteBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    </ContextMenu>
+                                </Setter.Value>
+                            </Setter>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
@@ -193,6 +225,11 @@
                 <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="⇄ Compare"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding CompareWithSelectedBranchCommand}"
+                                    ToolTip="Compare current branch with selected branch"
+                                    Margin="0,0,4,0"/>
                             <Button Content="🗑 Delete"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Command="{Binding DeleteBranchCommand}"

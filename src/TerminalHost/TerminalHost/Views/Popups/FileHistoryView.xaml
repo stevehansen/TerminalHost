@@ -228,11 +228,11 @@
                                     <StackPanel Orientation="Horizontal">
                                         <RadioButton Content="Diff"
                                                      IsChecked="{Binding ShowFileContent, Converter={StaticResource InverseBoolConverter}}"
-                                                     Style="{StaticResource TabRadioButton}"
+                                                     Style="{StaticResource ScopeRadioButton}"
                                                      Margin="0,0,4,0"/>
                                         <RadioButton Content="File Content"
                                                      IsChecked="{Binding ShowFileContent}"
-                                                     Style="{StaticResource TabRadioButton}"
+                                                     Style="{StaticResource ScopeRadioButton}"
                                                      Command="{Binding ViewFileAtCommitCommand}"/>
                                     </StackPanel>
                                 </Border>
