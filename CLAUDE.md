@@ -215,6 +215,8 @@ TerminalHost/
 ├── src/TerminalHost/TerminalHost/
 │   ├── App.axaml(.cs)                # Application entry, single instance handling
 │   ├── MainWindow.axaml(.cs)         # Main window with native macOS menu, keyboard shortcuts
+│   ├── MainWindow.CommandPalette.cs  # Partial class: command palette logic
+│   ├── MainWindow.Tabs.cs            # Partial class: tab management logic
 │   ├── GlobalUsings.cs               # Global using statements
 │   ├── AssemblyInfo.cs               # Assembly metadata
 │   ├── Converters/
@@ -643,6 +645,8 @@ Config file: `~/Library/Application Support/TerminalHost/config.json`
   "sidebarWidth": 250,
   "recentWorkspaces": [],
   "maxRecentWorkspaces": 20,
+  "gitAutoFetch": true,
+  "gitAutoFetchIntervalSeconds": 60,
   "timelineState": {
     "scale": "Minutes",
     "showFileChanges": true,
