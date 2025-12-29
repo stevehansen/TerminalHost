@@ -818,15 +818,16 @@ Popup for managing all worktrees in a repository.
 ## Feature 16: Recent Folders, Markdown Side-by-Side, Side-by-Side Diff, PR Comments
 
 **Master branch commit:** `fead767`
-**macOS implementation:** Partial - 16b and 16c implemented
+**macOS implementation:** All sub-features implemented (16a, 16b, 16c, 16d)
 
 ### What it does
 Four related features bundled together.
 
-### 16a: Recent Folders - **NOT YET IMPLEMENTED**
+### 16a: Recent Folders ✅ IMPLEMENTED
 - Track last 20 opened project directories in config
-- Display in Repository Switcher popup (Ctrl+Shift+O)
+- Display in Repository Switcher popup (Cmd+Shift+O)
 - Auto-update when opening new projects
+- Recent items shown with "r" indicator in orange
 
 ### 16b: Markdown Side-by-Side Editor ✅ IMPLEMENTED
 - Tri-state mode for .md files: Preview, Edit, Side-by-Side
@@ -839,7 +840,7 @@ Four related features bundled together.
 - Color-coded additions (green) and deletions (red)
 - Available in Git Changes panel and PR Review Mode
 
-### 16d: PR Comments (View Only) - **NOT YET IMPLEMENTED**
+### 16d: PR Comments (View Only) ✅ IMPLEMENTED
 - Display existing review comments in PR Review popup
 - Comments panel with All/Current File filter
 - Expandable threads with resolved/outdated status
@@ -1112,10 +1113,10 @@ git status --ignored --porcelain
 ### Enhanced Features (Phase 3)
 14. ~~**Create Worktree Dialog**~~ ✅ DONE
 15. ~~**Manage Worktrees Popup**~~ ✅ DONE
-16. **Recent Folders** (Low) - **NOT YET IMPLEMENTED**
+16. ~~**Recent Folders**~~ ✅ DONE
 17. ~~**Markdown Side-by-Side Editor**~~ ✅ DONE
 18. ~~**Side-by-Side Diff Viewer**~~ ✅ DONE
-19. **PR Comments (View Only)** (Medium) - **NOT YET IMPLEMENTED**
+19. ~~**PR Comments (View Only)**~~ ✅ DONE
 20. **Multi-folder Opening & Auto-sort** (Medium) - **NOT YET IMPLEMENTED**
 21. **Workspace Git Actions & Auto-fetch** (Medium) - **NOT YET IMPLEMENTED**
 22. **Dashboard Improvements** (Medium) - **NOT YET IMPLEMENTED**
@@ -1126,4 +1127,4 @@ git status --ignored --porcelain
 
 **Remaining Features Summary:**
 - Phase 2: Features 9-10, 11-13 (5 features remaining)
-- Phase 3: Features 16, 19-23 (6 features remaining)
+- Phase 3: Features 20-23 (4 features remaining)

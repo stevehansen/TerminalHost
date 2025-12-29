@@ -208,6 +208,12 @@
                     x:Name="ManageWorktreesPopup"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
+
+                <!-- PR Review - Center (uses DraggablePopup internally) -->
+                <popups:PrReviewView
+                    x:Name="PrReviewPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
             </Panel>
         </Grid>
     </Grid>

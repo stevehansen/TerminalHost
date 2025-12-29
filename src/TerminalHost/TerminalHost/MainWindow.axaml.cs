@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private readonly ReflogViewModel _reflogViewModel;
     private readonly ManageWorktreesViewModel _manageWorktreesViewModel;
     private readonly WorkspaceSidebarViewModel _workspaceSidebarViewModel;
+    private readonly PrReviewViewModel _prReviewViewModel;
     private readonly IFilePickerService _filePickerService;
 
     public MainWindow(
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
         ReflogViewModel reflogViewModel,
         ManageWorktreesViewModel manageWorktreesViewModel,
         WorkspaceSidebarViewModel workspaceSidebarViewModel,
+        PrReviewViewModel prReviewViewModel,
         IFilePickerService filePickerService)
     {
         InitializeComponent();
@@ -70,6 +72,7 @@ public partial class MainWindow : Window
         _reflogViewModel = reflogViewModel;
         _manageWorktreesViewModel = manageWorktreesViewModel;
         _workspaceSidebarViewModel = workspaceSidebarViewModel;
+        _prReviewViewModel = prReviewViewModel;
         _filePickerService = filePickerService;
 
         // Wire up sidebar view model bidirectional reference
@@ -95,6 +98,7 @@ public partial class MainWindow : Window
         FileBlamePopup.DataContext = _fileBlameViewModel;
         ReflogPopup.DataContext = _reflogViewModel;
         ManageWorktreesPopup.DataContext = _manageWorktreesViewModel;
+        PrReviewPopup.DataContext = _prReviewViewModel;
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -104,6 +108,8 @@ public partial class MainWindow : Window
         _mainViewModel.SetupRequested += OnSetupRequested;
         _mainViewModel.FileHistoryRequested += OnFileHistoryRequested;
         _mainViewModel.FileBlameRequested += OnFileBlameRequested;
+        _mainViewModel.PrReviewRequested += OnPrReviewRequested;
+        _mainViewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
 
         // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
         _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
@@ -259,6 +265,17 @@ public partial class MainWindow : Window
         };
         gitReflogItem.Click += (_, _) => _ = _reflogViewModel.OpenCommand.ExecuteAsync(null);
         viewMenu.Menu.Add(gitReflogItem);
+
+        var prReviewItem = new NativeMenuItem("PR Review...")
+        {
+            Gesture = new KeyGesture(Key.R, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        prReviewItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+                _ = _prReviewViewModel.OpenAsync(terminalTab.WorkingDirectory);
+        };
+        viewMenu.Menu.Add(prReviewItem);
 
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
@@ -511,6 +528,19 @@ public partial class MainWindow : Window
         // TODO: Create SetupWindow when implemented for Avalonia
     }
 
+    private async void OnPrReviewRequested(object? sender, EventArgs e)
+    {
+        if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            await _prReviewViewModel.OpenAsync(terminalTab.WorkingDirectory);
+        }
+    }
+
+    private async void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
+    {
+        await _prReviewViewModel.OpenForPrAsync(e.WorkingDirectory, e.PullRequest);
+    }
+
     private void OnOpenWorktreeRequested(object? sender, string worktreePath)
     {
         // Open or focus the worktree as a new tab
@@ -654,6 +684,17 @@ public partial class MainWindow : Window
         if (e.Key == Key.G && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
             _ = _reflogViewModel.OpenCommand.ExecuteAsync(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+R for PR Review
+        if (e.Key == Key.R && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                _ = _prReviewViewModel.OpenAsync(terminalTab.WorkingDirectory);
+            }
             e.Handled = true;
             return;
         }
@@ -906,6 +947,8 @@ public partial class MainWindow : Window
             _reflogViewModel.CloseCommand.Execute(null);
         if (_manageWorktreesViewModel.CloseCommand.CanExecute(null))
             _manageWorktreesViewModel.CloseCommand.Execute(null);
+        if (_prReviewViewModel.CloseCommand.CanExecute(null))
+            _prReviewViewModel.CloseCommand.Execute(null);
     }
 
     public void BringToFront()

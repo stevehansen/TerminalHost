@@ -88,6 +88,7 @@ public partial class App : Application
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
+        services.AddSingleton<ITestRunnerService, TestRunnerService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
@@ -108,6 +109,7 @@ public partial class App : Application
         services.AddSingleton<ReflogViewModel>();
         services.AddSingleton<ManageWorktreesViewModel>();
         services.AddSingleton<WorkspaceSidebarViewModel>();
+        services.AddSingleton<PrReviewViewModel>();
 
         // Windows
         services.AddSingleton<MainWindow>();
