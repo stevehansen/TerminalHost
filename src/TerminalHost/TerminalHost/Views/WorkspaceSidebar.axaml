@@ -16,6 +16,32 @@
     <UserControl.Resources>
         <!-- Open Project Context Menu -->
         <ContextMenu x:Key="OpenProjectContextMenu">
+            <MenuItem Header="Git Fetch" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitFetchCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⬇" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Git Pull (Rebase)" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPullRebaseCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⬇" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Git Push" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPushCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⬆" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Open in Finder" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenInFinderCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
             <MenuItem Header="Close" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>

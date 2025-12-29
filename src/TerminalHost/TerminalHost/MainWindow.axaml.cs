@@ -110,6 +110,7 @@ public partial class MainWindow : Window
         _mainViewModel.FileBlameRequested += OnFileBlameRequested;
         _mainViewModel.PrReviewRequested += OnPrReviewRequested;
         _mainViewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
+        _mainViewModel.RunTerminalRequested += OnRunTerminalRequested;
 
         // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
         _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
@@ -553,6 +554,39 @@ public partial class MainWindow : Window
         await _manageWorktreesViewModel.OpenAsync();
     }
 
+    private async void OnRunTerminalRequested(object? sender, RunTerminalRequestedEventArgs e)
+    {
+        var tab = e.Tab;
+
+        if (e.IsStop)
+        {
+            // Send Ctrl+C to stop the running process
+            if (tab.Pair.RunTerminal != null)
+            {
+                tab.Pair.RunTerminal.SendText("\x03", appendNewline: false); // Ctrl+C
+                tab.OnRunStopped();
+            }
+            return;
+        }
+
+        // Initialize the run terminal if not already done
+        if (tab.Pair.RunTerminal == null)
+        {
+            await tab.InitializeRunTerminalAsync();
+        }
+
+        // Send the run command to the terminal
+        if (tab.Pair.RunTerminal != null)
+        {
+            var command = e.Configuration.Command;
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                tab.Pair.RunTerminal.SendText(command, appendNewline: true);
+                tab.OnRunStarted();
+            }
+        }
+    }
+
     private async Task OpenFilePickerAsync(bool editMode)
     {
         try
@@ -590,6 +624,28 @@ public partial class MainWindow : Window
         if (e.Key == Key.F1)
         {
             _mainViewModel.IsHelpOpen = !_mainViewModel.IsHelpOpen;
+            e.Handled = true;
+            return;
+        }
+
+        // Handle F5 for Run Start
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel tab && tab.CanRun)
+            {
+                tab.StartRunCommand.Execute(null);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Shift+F5 for Run Stop
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.Shift)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel tab && tab.CanStop)
+            {
+                tab.StopRunCommand.Execute(null);
+            }
             e.Handled = true;
             return;
         }

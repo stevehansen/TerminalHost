@@ -815,7 +815,7 @@ Popup for managing all worktrees in a repository.
 
 ---
 
-## Feature 16: Recent Folders, Markdown Side-by-Side, Side-by-Side Diff, PR Comments
+## Feature 16: Recent Folders, Markdown Side-by-Side, Side-by-Side Diff, PR Comments ✅ IMPLEMENTED
 
 **Master branch commit:** `fead767`
 **macOS implementation:** All sub-features implemented (16a, 16b, 16c, 16d)
@@ -930,9 +930,10 @@ Task<Dictionary<string, double>> GetUsageScoresAsync(IEnumerable<string> directo
 
 ---
 
-## Feature 18: Workspace Git Actions & Auto-fetch
+## Feature 18: Workspace Git Actions & Auto-fetch ✅ IMPLEMENTED
 
 **Master branch commit:** `aad0b4c`
+**macOS implementation:** Workspace sidebar context menu with Git Fetch/Pull/Push, auto-fetch timer (Cmd+Shift+L)
 
 ### What it does
 Git operations in workspace sidebar with automatic background fetch.
@@ -963,9 +964,10 @@ public int GitAutoFetchIntervalSeconds { get; set; } = 60;
 
 ---
 
-## Feature 19: Dashboard Improvements
+## Feature 19: Dashboard Improvements ✅ IMPLEMENTED
 
 **Master branch commit:** `3cb75f3`
+**macOS implementation:** Dashboard tab with persistence, size labels, and improved UX
 
 ### What it does
 Enhanced GitHub Dashboard with persistence and better UX.
@@ -1021,9 +1023,10 @@ Code syntax highlighting in markdown preview with VS Code Dark+ theme.
 
 ---
 
-## Feature 22: PR Description & Squash Merge Preview
+## Feature 22: PR Description & Squash Merge Preview ✅ IMPLEMENTED
 
 **Master branch commit:** `afe92b2`
+**macOS implementation:** PR Review popup (Cmd+Shift+R) with collapsible description and Squash & Merge
 
 ### What it does
 Show PR description and expected squash commit message.
@@ -1118,13 +1121,13 @@ git status --ignored --porcelain
 18. ~~**Side-by-Side Diff Viewer**~~ ✅ DONE
 19. ~~**PR Comments (View Only)**~~ ✅ DONE
 20. **Multi-folder Opening & Auto-sort** (Medium) - **NOT YET IMPLEMENTED**
-21. **Workspace Git Actions & Auto-fetch** (Medium) - **NOT YET IMPLEMENTED**
-22. **Dashboard Improvements** (Medium) - **NOT YET IMPLEMENTED**
-23. **PR Description & Squash Merge Preview** (Low) - **NOT YET IMPLEMENTED**
+21. ~~**Workspace Git Actions & Auto-fetch**~~ ✅ DONE
+22. ~~**Dashboard Improvements**~~ ✅ DONE
+23. ~~**PR Description & Squash Merge Preview**~~ ✅ DONE
 
 ### Advanced Features (Phase 4) ✅ COMPLETE
 24. ~~**Timeline Mode**~~ ✅ DONE
 
 **Remaining Features Summary:**
 - Phase 2: Features 9-10, 11-13 (5 features remaining)
-- Phase 3: Features 20-23 (4 features remaining)
+- Phase 3: Feature 20 (1 feature remaining)

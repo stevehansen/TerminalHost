@@ -572,7 +572,11 @@ Config file: `~/Library/Application Support/TerminalHost/config.json`
       "autoReload": true,
       "defaultPanelPosition": "right",
       "syncScroll": true
-    }
+    },
+    "layoutMode": "Tabs",
+    "sidebarWidth": 250,
+    "gitAutoFetch": true,
+    "gitAutoFetchIntervalSeconds": 60
   },
   "windowState": {
     "left": 100,
@@ -701,3 +705,17 @@ Manage multiple working directories for the same repository:
 Switch between two application layout modes (`Cmd+Shift+L`):
 - **Tabs Mode** (default): Traditional tab-based navigation with TabStrip
 - **Sidebar Mode**: Workspace sidebar on the left for project navigation
+
+### Workspace Sidebar Git Actions
+In Sidebar mode, the Open Projects context menu provides git operations:
+- **Git Fetch**: Fetch from all remotes
+- **Git Pull (Rebase)**: Pull with rebase
+- **Git Push**: Push to remote
+- **Open in Finder**: Open project folder in Finder
+
+### Git Auto-fetch
+Automatically fetches from git remotes periodically to keep behind counts up to date:
+- **Enabled by default**: `gitAutoFetch: true`
+- **Configurable interval**: `gitAutoFetchIntervalSeconds: 60` (minimum 30 seconds)
+- Runs for all open project tabs in the background
+- Silently ignores network errors

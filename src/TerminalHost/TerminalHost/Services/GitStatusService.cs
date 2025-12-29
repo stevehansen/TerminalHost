@@ -502,6 +502,22 @@ internal sealed class GitStatusService : IGitStatusService
         return await _gitRunner.RunGitOperationAsync(workingDirectory, "pull");
     }
 
+    public async Task<GitOperationResult> PullRebaseAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "pull --rebase");
+    }
+
+    public async Task<GitOperationResult> PushAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "push");
+    }
+
     #endregion
 
     #region Staging Operations

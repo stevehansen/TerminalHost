@@ -83,6 +83,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _showInSystemTray;
 
     [ObservableProperty]
+    private bool _gitAutoFetch = true;
+
+    [ObservableProperty]
+    private int _gitAutoFetchIntervalSeconds = 60;
+
+    [ObservableProperty]
     private string _customCommand = "";
 
     [ObservableProperty]
@@ -397,6 +403,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
+            GitAutoFetch = config.Settings.GitAutoFetch;
+            GitAutoFetchIntervalSeconds = config.Settings.GitAutoFetchIntervalSeconds;
 
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
@@ -427,8 +435,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Project types
             ProjectTypes = new ObservableCollection<ProjectType>(config.ProjectTypes);
 
-            // Directory settings
-            Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
+            // Directory settings - include both open folders and folders with saved settings
+            var allDirectories = config.OpenFolders
+                .Union(config.DirectorySettings.Keys)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(k => k);
+            Directories = new ObservableCollection<string>(allDirectories);
             if (Directories.Count > 0 && SelectedDirectory == null)
             {
                 SelectedDirectory = Directories.First();
@@ -450,6 +462,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
+            config.Settings.GitAutoFetch = GitAutoFetch;
+            config.Settings.GitAutoFetchIntervalSeconds = GitAutoFetchIntervalSeconds;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -480,7 +494,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
             {
-                config.DirectorySettings[SelectedDirectory] = CurrentDirectorySettings;
+                var normalizedPath = NormalizePath(SelectedDirectory);
+                config.DirectorySettings[normalizedPath] = CurrentDirectorySettings;
             }
 
             // Re-serialize
@@ -505,8 +520,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         try
         {
             var config = JsonSerializer.Deserialize<AppConfiguration>(JsonText, JsonOptions);
+            var normalizedPath = NormalizePath(SelectedDirectory);
 
-            if (config?.DirectorySettings.TryGetValue(SelectedDirectory, out var settings) == true)
+            if (config?.DirectorySettings.TryGetValue(normalizedPath, out var settings) == true)
             {
                 CurrentDirectorySettings = settings;
             }
@@ -519,6 +535,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         {
             CurrentDirectorySettings = new DirectorySettings();
         }
+    }
+
+    /// <summary>
+    /// Normalizes a path to match the format used by MainViewModel for DirectorySettings keys.
+    /// </summary>
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
     }
 
     /// <summary>
@@ -537,6 +561,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     // Property change handlers for rich mode - mark dirty
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnGitAutoFetchChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnGitAutoFetchIntervalSecondsChanged(int value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();
@@ -1594,14 +1620,19 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         try
         {
             var config = JsonSerializer.Deserialize<AppConfiguration>(JsonText, JsonOptions);
-            if (config?.DirectorySettings.ContainsKey(SelectedDirectory) == true)
+            var normalizedPath = NormalizePath(SelectedDirectory);
+            if (config?.DirectorySettings.ContainsKey(normalizedPath) == true)
             {
-                config.DirectorySettings.Remove(SelectedDirectory);
+                config.DirectorySettings.Remove(normalizedPath);
                 JsonText = JsonSerializer.Serialize(config, JsonOptions);
                 IsDirty = JsonText != _originalJson;
 
-                // Refresh directories list
-                Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
+                // Refresh directories list - include both open folders and folders with saved settings
+                var allDirectories = config.OpenFolders
+                    .Union(config.DirectorySettings.Keys)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(k => k);
+                Directories = new ObservableCollection<string>(allDirectories);
                 if (Directories.Count > 0)
                 {
                     SelectedDirectory = Directories.First();

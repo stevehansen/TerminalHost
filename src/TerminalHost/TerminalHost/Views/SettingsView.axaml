@@ -413,6 +413,40 @@
                         <!-- Separator -->
                         <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
 
+                        <!-- Git Auto-fetch -->
+                        <TextBlock Text="GIT AUTO-FETCH"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8"/>
+
+                        <CheckBox Content="Automatically fetch from git remotes"
+                                  IsChecked="{Binding GitAutoFetch}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Periodically fetches from all git remotes to keep behind counts up to date."/>
+                        <TextBlock Text="When enabled, automatically fetches from git remotes in the background to keep behind/ahead counts current."
+                                   Classes="HelpText"/>
+
+                        <Grid ColumnDefinitions="Auto,100,*" Margin="0,8,0,0"
+                              IsEnabled="{Binding GitAutoFetch}">
+                            <TextBlock Grid.Column="0"
+                                       Text="Fetch interval (seconds):"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"/>
+                            <NumericUpDown Grid.Column="1"
+                                           Value="{Binding GitAutoFetchIntervalSeconds}"
+                                           Minimum="30"
+                                           Maximum="600"
+                                           Increment="10"
+                                           FormatString="0"
+                                           ToolTip.Tip="Interval between automatic fetches (30-600 seconds)"/>
+                        </Grid>
+                        <TextBlock Text="How often to fetch from remotes (minimum 30 seconds, maximum 10 minutes)."
+                                   Classes="HelpText"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
                         <!-- Custom Paths -->
                         <TextBlock Text="CUSTOM PATH ENTRIES"
                                    Foreground="{StaticResource TextDimmedBrush}"

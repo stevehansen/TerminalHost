@@ -40,6 +40,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimelineService _timelineService;
 
     private readonly IPlatformTimer _gitStatusTimer;
+    private readonly IPlatformTimer _gitAutoFetchTimer;
     private readonly IPlatformTimer _activityTimer;
     private readonly IPlatformTimer _linkDetectionTimer;
     private readonly IPlatformTimer _runUrlDetectionTimer;
@@ -285,6 +286,12 @@ public partial class MainViewModel : ObservableObject
             TimeSpan.FromSeconds(5),
             async () => await RefreshSelectedTabGitStatusAsync());
 
+        // Set up timer for git auto-fetch (configurable interval, default 60 seconds)
+        var fetchInterval = Math.Max(30, _configService.Load().Settings.GitAutoFetchIntervalSeconds);
+        _gitAutoFetchTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(fetchInterval),
+            async () => await AutoFetchAllAsync());
+
         // Set up timer for activity state refresh (every 1 second to detect idle transitions)
         _activityTimer = _timerService.CreateTimer(
             TimeSpan.FromSeconds(1),
@@ -366,6 +373,12 @@ public partial class MainViewModel : ObservableObject
         {
             _sessionManager.TrackSession(terminalTab.Pair.CustomTerminal);
             _sessionManager.TrackSession(terminalTab.Pair.ShellTerminal);
+
+            // Track run terminal if it was initialized (due to IsRunTerminalVisible being restored)
+            if (terminalTab.Pair.RunTerminal != null)
+            {
+                _sessionManager.TrackSession(terminalTab.Pair.RunTerminal);
+            }
         }
         else if (tab is ProfileTerminalTabViewModel profileTab)
         {
@@ -477,6 +490,12 @@ public partial class MainViewModel : ObservableObject
         // Start git status refresh timer
         _gitStatusTimer.Start();
 
+        // Start git auto-fetch timer (if enabled)
+        if (_configService.Load().Settings.GitAutoFetch)
+        {
+            _gitAutoFetchTimer.Start();
+        }
+
         // Start activity refresh timer
         _activityTimer.Start();
 
@@ -543,6 +562,29 @@ public partial class MainViewModel : ObservableObject
         {
             tab.UpdateActivityState();
         }
+    }
+
+    /// <summary>
+    /// Automatically fetches from git remotes for all open projects.
+    /// This runs periodically to keep behind counts up to date.
+    /// </summary>
+    private async Task AutoFetchAllAsync()
+    {
+        // Fetch for all open terminal pair tabs in parallel
+        var fetchTasks = Tabs.OfType<TerminalPairTabViewModel>()
+            .Select(async tab =>
+            {
+                try
+                {
+                    await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
+                }
+                catch
+                {
+                    // Silently ignore fetch errors (network issues, etc.)
+                }
+            });
+
+        await Task.WhenAll(fetchTasks);
     }
 
     private void RefreshDetectedLinks()
@@ -2161,6 +2203,7 @@ public partial class MainViewModel : ObservableObject
     {
         // Stop and dispose timers
         _gitStatusTimer.Dispose();
+        _gitAutoFetchTimer.Dispose();
         _activityTimer.Dispose();
         _linkDetectionTimer.Dispose();
         _runUrlDetectionTimer.Dispose();

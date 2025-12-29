@@ -413,6 +413,18 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("maxRecentWorkspaces")]
     public int MaxRecentWorkspaces { get; set; } = 20;
+
+    /// <summary>
+    /// Whether to automatically fetch from git remotes periodically.
+    /// </summary>
+    [JsonPropertyName("gitAutoFetch")]
+    public bool GitAutoFetch { get; set; } = true;
+
+    /// <summary>
+    /// Interval in seconds between automatic git fetches (default: 60 seconds).
+    /// </summary>
+    [JsonPropertyName("gitAutoFetchIntervalSeconds")]
+    public int GitAutoFetchIntervalSeconds { get; set; } = 60;
 }
 
 /// <summary>

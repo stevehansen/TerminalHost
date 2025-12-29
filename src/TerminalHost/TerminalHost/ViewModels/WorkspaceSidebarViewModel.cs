@@ -16,6 +16,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private readonly IConfigurationService _configService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IGitStatusService _gitStatusService;
+    private readonly IProcessService _processService;
 
     private List<Workspace> _allRecentWorkspaces = [];
     private List<WorktreeInfo> _allWorktrees = [];
@@ -61,12 +63,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         IGitWorktreeService worktreeService,
         IConfigurationService configService,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        IGitStatusService gitStatusService,
+        IProcessService processService)
     {
         _worktreeService = worktreeService;
         _configService = configService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _gitStatusService = gitStatusService;
+        _processService = processService;
     }
 
     /// <summary>
@@ -443,4 +449,106 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         config.Settings.RecentWorkspaces = _allRecentWorkspaces.ToList();
         _configService.Save(config);
     }
+
+    #region Git Operations for Open Projects
+
+    /// <summary>
+    /// Gets the working directory from a tab if it's a terminal pair tab.
+    /// </summary>
+    private string? GetWorkingDirectory(ITabViewModel? tab)
+    {
+        return tab is TerminalPairTabViewModel terminalTab
+            ? terminalTab.Pair.WorkingDirectory
+            : null;
+    }
+
+    /// <summary>
+    /// Runs git fetch for an open project tab.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitFetchAsync(ITabViewModel? tab)
+    {
+        var workingDir = GetWorkingDirectory(tab);
+        if (string.IsNullOrEmpty(workingDir)) return;
+
+        using var toast = _toastService.ShowProgress("Fetching from remotes...");
+        var result = await _gitStatusService.FetchAllAsync(workingDir);
+        if (result.Success)
+        {
+            toast.Complete("Fetch completed");
+        }
+        else
+        {
+            toast.Fail("Fetch failed");
+            _dialogService.ShowWarning($"Git fetch failed:\n{result.Error}", "Git Fetch");
+        }
+    }
+
+    /// <summary>
+    /// Runs git pull --rebase for an open project tab.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitPullRebaseAsync(ITabViewModel? tab)
+    {
+        var workingDir = GetWorkingDirectory(tab);
+        if (string.IsNullOrEmpty(workingDir)) return;
+
+        using var toast = _toastService.ShowProgress("Pulling with rebase...");
+        var result = await _gitStatusService.PullRebaseAsync(workingDir);
+        if (result.Success)
+        {
+            toast.Complete("Pull completed");
+        }
+        else
+        {
+            toast.Fail("Pull failed");
+            _dialogService.ShowWarning($"Git pull failed:\n{result.Error}", "Git Pull");
+        }
+    }
+
+    /// <summary>
+    /// Runs git push for an open project tab.
+    /// </summary>
+    [RelayCommand]
+    private async Task GitPushAsync(ITabViewModel? tab)
+    {
+        var workingDir = GetWorkingDirectory(tab);
+        if (string.IsNullOrEmpty(workingDir)) return;
+
+        using var toast = _toastService.ShowProgress("Pushing to remote...");
+        var result = await _gitStatusService.PushAsync(workingDir);
+        if (result.Success)
+        {
+            toast.Complete("Push completed");
+        }
+        else
+        {
+            toast.Fail("Push failed");
+            _dialogService.ShowWarning($"Git push failed:\n{result.Error}", "Git Push");
+        }
+    }
+
+    /// <summary>
+    /// Opens the project folder in Finder.
+    /// </summary>
+    [RelayCommand]
+    private void OpenInFinder(ITabViewModel? tab)
+    {
+        var workingDir = GetWorkingDirectory(tab);
+        if (string.IsNullOrEmpty(workingDir)) return;
+
+        try
+        {
+            _processService.Start(new System.Diagnostics.ProcessStartInfo("open", workingDir)
+            {
+                UseShellExecute = false
+            });
+        }
+        catch
+        {
+            // Silently ignore if Finder fails to open
+        }
+    }
+
+    #endregion
 }

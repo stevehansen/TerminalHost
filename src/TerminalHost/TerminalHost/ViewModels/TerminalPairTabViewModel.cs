@@ -434,7 +434,43 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         // Set up the controls
         SetTerminalControls(customControl, shellControl);
+
+        // Initialize run terminal if it should be visible
+        if (IsRunTerminalVisible)
+        {
+            await InitializeRunTerminalAsync();
+        }
+
         IsTerminalInitialized = true;
+    }
+
+    /// <summary>
+    /// Initializes the run terminal with a shell. Called when IsRunTerminalVisible is true at startup,
+    /// or when the run terminal is first shown.
+    /// </summary>
+    public async Task InitializeRunTerminalAsync()
+    {
+        if (Pair.RunTerminal != null)
+            return; // Already initialized
+
+        // Create a shell profile for the run terminal (using the same shell as the Shell terminal)
+        var shellProfile = new Profile
+        {
+            Id = "run-shell",
+            Name = "Run Shell",
+            Command = Pair.ShellTerminal.Profile.Command,
+            WorkingDir = Pair.WorkingDirectory,
+            Icon = "▶"
+        };
+
+        // Create the run terminal session
+        var runSession = Pair.CreateRunTerminal(shellProfile);
+
+        // Create the terminal control
+        var runControl = await _terminalFactory.CreateTerminalControlAsync(runSession);
+
+        // Set up the control
+        SetRunTerminalControl(runControl);
     }
 
     public void SetTerminalControls(ITerminalControl customControl, ITerminalControl shellControl)
@@ -779,6 +815,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(RunSplitterWidth));
         OnPropertyChanged(nameof(MainTerminalsColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
+
+        // Initialize run terminal if becoming visible and not yet initialized
+        if (value && IsTerminalInitialized && Pair.RunTerminal == null)
+        {
+            _ = InitializeRunTerminalAsync();
+        }
     }
 
     partial void OnRunSplitRatioChanged(double value)
