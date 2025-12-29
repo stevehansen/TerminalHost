@@ -518,34 +518,21 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Automatically fetches from git remotes for all open projects.
+    /// Automatically fetches from git remotes for all workspaces in the sidebar.
     /// This runs periodically to keep behind counts up to date.
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        // Fetch for all open terminal pair tabs
-        var fetchTasks = Tabs.OfType<TerminalPairTabViewModel>()
-            .Select(async tab =>
-            {
-                try
-                {
-                    await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
-                    // Refresh git status after fetch to update behind count
-                    await RefreshTabGitStatusAsync(tab);
-                }
-                catch
-                {
-                    // Silently ignore fetch errors (network issues, etc.)
-                }
-            });
-
-        await Task.WhenAll(fetchTasks);
-
-        // Also refresh workspace sidebar git status
+        // Fetch for all workspaces in the sidebar (not just open tabs)
         if (WorkspaceSidebar != null)
         {
-            await WorkspaceSidebar.RefreshAllGitStatusAsync();
+            await WorkspaceSidebar.FetchAllAsync();
         }
+
+        // Also refresh git status for any open tabs (keeps tab indicators in sync)
+        var refreshTasks = Tabs.OfType<TerminalPairTabViewModel>()
+            .Select(tab => RefreshTabGitStatusAsync(tab));
+        await Task.WhenAll(refreshTasks);
     }
 
     private void RefreshDetectedLinks()

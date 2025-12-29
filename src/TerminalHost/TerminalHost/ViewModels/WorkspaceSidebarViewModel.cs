@@ -268,6 +268,28 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Fetches from git remotes for all workspaces and refreshes their status.
+    /// This is called by the auto-fetch timer to keep behind counts up to date.
+    /// </summary>
+    public async Task FetchAllAsync()
+    {
+        var tasks = Workspaces.Concat(Playgrounds)
+            .Select(async w =>
+            {
+                try
+                {
+                    await _gitStatusService.FetchAllAsync(w.Path);
+                    await w.RefreshGitStatusAsync();
+                }
+                catch
+                {
+                    // Silently ignore fetch errors (network issues, etc.)
+                }
+            });
+        await Task.WhenAll(tasks);
+    }
+
+    /// <summary>
     /// Refreshes git status for a specific workspace.
     /// </summary>
     public async Task RefreshGitStatusAsync(string path)
