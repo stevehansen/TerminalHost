@@ -139,6 +139,11 @@ The following use direct system calls because they don't participate in DI or ex
 - **Search Across Files**: Full-text search with regex support and replace functionality
 - **Test Runner Integration**: Run and view test results
 - **Markdown Preview**: Live preview of markdown files
+- **Timeline Mode**: Visualize Claude Code sessions with intent tracking and file changes
+- **Git History Tools**: Commit history, file blame, file history, and reflog viewers
+- **Git Worktrees**: Create and manage git worktrees for parallel development
+- **Workspace Sidebar**: Alternative layout with sidebar navigation for workspaces
+- **App Layout Modes**: Switch between Tabs mode and Sidebar mode
 
 ## Technology Stack
 
@@ -240,10 +245,18 @@ TerminalHost/
 │   │   ├── SessionState.cs           # Running/Exited enum
 │   │   ├── AppConfiguration.cs       # Root config with settings, layout modes
 │   │   ├── AppConstants.cs           # Application constants
+│   │   ├── AppLayoutMode.cs          # App layout mode enum (Tabs/Sidebar)
 │   │   ├── GitStatus.cs              # Git repository status model
 │   │   ├── GitFileStatus.cs          # Git file-level status
 │   │   ├── GitBranch.cs              # Git branch model
 │   │   ├── GitStashEntry.cs          # Git stash entry model
+│   │   ├── GitBlame.cs               # Git blame information model
+│   │   ├── GitCommit.cs              # Git commit model
+│   │   ├── GitCommitDetails.cs       # Detailed commit information
+│   │   ├── GitCommitFile.cs          # File changed in a commit
+│   │   ├── GitReflogEntry.cs         # Git reflog entry model
+│   │   ├── WorktreeInfo.cs           # Git worktree information
+│   │   ├── CreateWorktreeDialogResult.cs # Worktree creation result
 │   │   ├── QuickCommand.cs           # Quick command with shortcut
 │   │   ├── LinkPattern.cs            # Custom link pattern definition
 │   │   ├── PaletteCommand.cs         # Command palette item
@@ -278,6 +291,15 @@ TerminalHost/
 │   │   ├── TestResult.cs             # Test result model
 │   │   ├── SearchResult.cs           # Search result model
 │   │   ├── SearchMatch.cs            # Search match model
+│   │   ├── Workspace.cs              # Workspace model for sidebar mode
+│   │   ├── TimelineState.cs          # Timeline mode state
+│   │   ├── ClaudeCodeSession.cs      # Claude Code session for timeline
+│   │   ├── ClaudeSessionStatus.cs    # Session status enum
+│   │   ├── Intent.cs                 # Intent model for timeline
+│   │   ├── IntentStatus.cs           # Intent status enum
+│   │   ├── TimelineFileChange.cs     # File change in timeline
+│   │   ├── TimeScale.cs              # Timeline scale enum
+│   │   ├── OrphanSession.cs          # Orphan session model
 │   │   ├── FilePreviewRequestedEventArgs.cs  # File preview event args
 │   │   └── FileEditRequestedEventArgs.cs     # File edit event args
 │   ├── Services/
@@ -293,6 +315,7 @@ TerminalHost/
 │   │   ├── IGitProcessRunner.cs / GitProcessRunner.cs            # Git process runner
 │   │   ├── IGitHubService.cs / GitHubService.cs                  # GitHub CLI integration
 │   │   ├── IGitPrService.cs / GitPrService.cs                    # PR operations
+│   │   ├── IGitWorktreeService.cs / GitWorktreeService.cs        # Git worktree operations
 │   │   ├── IFilePreviewService.cs / FilePreviewService.cs        # File preview loading
 │   │   ├── IFileEditService.cs / FileEditService.cs              # File editing
 │   │   ├── IFileExplorerService.cs / FileExplorerService.cs      # File explorer + watcher
@@ -306,6 +329,9 @@ TerminalHost/
 │   │   ├── IMarkdownService.cs / MarkdownService.cs              # Markdown rendering
 │   │   ├── ISearchService.cs / SearchService.cs                  # File search service
 │   │   ├── ITestRunnerService.cs / TestRunnerService.cs          # Test runner integration
+│   │   ├── ITimelineService.cs / TimelineService.cs              # Timeline mode service
+│   │   ├── TranscriptParserService.cs                            # Claude transcript parsing
+│   │   ├── ShortcutConflictService.cs                            # Keyboard shortcut conflict detection
 │   │   ├── ITimerService.cs / TimerService.cs                    # Timer abstractions
 │   │   ├── IDispatcherService.cs / DispatcherService.cs          # UI thread dispatch
 │   │   ├── IFilePickerService.cs / FilePickerService.cs          # File picker dialog
@@ -341,12 +367,19 @@ TerminalHost/
 │   │   ├── SettingsTabViewModel.cs           # Settings editor tab
 │   │   ├── ProfilesTabViewModel.cs           # Profile management tab
 │   │   ├── StatisticsTabViewModel.cs         # Usage statistics tab
+│   │   ├── TimelineTabViewModel.cs           # Timeline mode tab
 │   │   ├── ProjectStatViewModel.cs           # Project statistics
 │   │   ├── SetupViewModel.cs                 # Setup/dependency checker
 │   │   ├── ScratchPadViewModel.cs            # Scratch pad notes
 │   │   ├── GitBranchViewModel.cs             # Git branch operations
 │   │   ├── GitFilesViewModel.cs              # Git changed files + diff
 │   │   ├── GitStashViewModel.cs              # Git stash management
+│   │   ├── CommitHistoryViewModel.cs         # Git commit history viewer
+│   │   ├── FileBlameViewModel.cs             # Git file blame viewer
+│   │   ├── FileHistoryViewModel.cs           # Git file history viewer
+│   │   ├── FileChangeViewModel.cs            # File change display
+│   │   ├── ReflogViewModel.cs                # Git reflog viewer
+│   │   ├── ManageWorktreesViewModel.cs       # Git worktree management
 │   │   ├── DetectedLinksViewModel.cs         # Terminal link detection
 │   │   ├── FileViewerViewModel.cs            # Unified file preview/edit
 │   │   ├── FilePreviewViewModel.cs           # File preview state
@@ -357,6 +390,9 @@ TerminalHost/
 │   │   ├── RepositorySwitcherViewModel.cs    # Repository quick access
 │   │   ├── TestResultsViewModel.cs           # Test results display
 │   │   ├── SearchAcrossFilesViewModel.cs     # Search across files
+│   │   ├── WorkspaceSidebarViewModel.cs      # Workspace sidebar for sidebar mode
+│   │   ├── SessionBlockViewModel.cs          # Timeline session block
+│   │   ├── IntentRowViewModel.cs             # Timeline intent row
 │   │   └── ToastViewModel.cs                 # Individual toast state
 │   └── Views/
 │       ├── TabStrip.axaml(.cs)               # Tab bar with drag-drop, overflow
@@ -370,12 +406,15 @@ TerminalHost/
 │       ├── FileViewerView.axaml(.cs)         # File preview/edit view
 │       ├── FileViewerWindow.axaml(.cs)       # Detached file viewer window
 │       ├── MarkdownPreviewWindow.axaml(.cs)  # Markdown preview window
+│       ├── TimelineModeView.axaml(.cs)       # Timeline visualization view
+│       ├── WorkspaceSidebar.axaml(.cs)       # Workspace sidebar for sidebar mode
 │       ├── ToastContainerView.axaml(.cs)     # Toast container
 │       ├── ToastItemView.axaml(.cs)          # Individual toast UI
 │       ├── ToastWindow.axaml(.cs)            # Toast overlay window
 │       ├── Dialogs/
 │       │   ├── InputDialog.axaml(.cs)        # Input dialog
-│       │   └── NotificationDialog.axaml(.cs) # Themed notification dialog
+│       │   ├── NotificationDialog.axaml(.cs) # Themed notification dialog
+│       │   └── CreateWorktreeDialog.axaml(.cs) # Git worktree creation dialog
 │       ├── Tabs/
 │       │   ├── TerminalPairView.axaml(.cs)   # Terminal pair layout
 │       │   └── ProfileTerminalView.axaml(.cs) # Single profile terminal
@@ -387,13 +426,18 @@ TerminalHost/
 │           ├── GitBranchView.axaml(.cs)      # Git branch switcher (Cmd+B)
 │           ├── GitFilesView.axaml(.cs)       # Git changes panel (Cmd+G)
 │           ├── GitStashView.axaml(.cs)       # Git stash panel (Cmd+Shift+S)
+│           ├── CommitHistoryView.axaml(.cs)  # Git commit history (Cmd+Shift+H)
+│           ├── FileBlameView.axaml(.cs)      # Git file blame viewer
+│           ├── FileHistoryView.axaml(.cs)    # Git file history viewer
+│           ├── ReflogView.axaml(.cs)         # Git reflog viewer (Cmd+Shift+G)
+│           ├── ManageWorktreesView.axaml(.cs) # Git worktree management
 │           ├── DetectedLinksView.axaml(.cs)  # Detected links popup
 │           ├── FileViewerPopup.axaml(.cs)    # File viewer popup (Cmd+O)
 │           ├── FilePreviewView.axaml(.cs)    # File preview popup content
 │           ├── TaskPanelView.axaml(.cs)      # Task/focus mode (Cmd+T)
 │           ├── QuickTaskView.axaml(.cs)      # Quick task input
 │           ├── QuickNoteView.axaml(.cs)      # Quick note input
-│           ├── PrReviewView.axaml(.cs)       # PR review popup
+│           ├── PrReviewView.axaml(.cs)       # PR review popup (Cmd+Shift+R)
 │           ├── TestResultsView.axaml(.cs)    # Test results popup
 │           ├── RepositorySwitcherView.axaml(.cs) # Repository switcher
 │           └── SearchAcrossFilesView.axaml(.cs)  # Search across files (Cmd+F)
@@ -462,6 +506,10 @@ The terminal control supports setting the working directory directly. Commands a
 - `Cmd+B`: Open git branch switcher
 - `Cmd+Shift+H`: Open commit history viewer
 - `Cmd+Shift+S`: Open git stash panel
+- `Cmd+Shift+G`: Open git reflog viewer
+- `Cmd+Shift+R`: Open PR review popup
+- `Cmd+Shift+L`: Toggle app layout mode (Tabs/Sidebar)
+- `Cmd+Shift+I`: Toggle timeline mode
 - `Cmd+T`: Open task panel (focus mode)
 - `Cmd+Ctrl+F`: Toggle full screen
 - `Cmd+M`: Minimize window
@@ -586,7 +634,16 @@ Config file: `~/Library/Application Support/TerminalHost/config.json`
       "enabled": true,
       "isDefault": true
     }
-  ]
+  ],
+  "layoutMode": "Tabs",
+  "sidebarWidth": 250,
+  "recentWorkspaces": [],
+  "maxRecentWorkspaces": 20,
+  "timelineState": {
+    "scale": "Minutes",
+    "showFileChanges": true,
+    "expandedSessions": []
+  }
 }
 ```
 
@@ -618,3 +675,29 @@ The dashboard provides an overview of GitHub activity (requires `gh` CLI):
 - Issues assigned to you
 - Failed CI workflow runs
 - Quick checkout and review mode access
+
+### Timeline Mode
+Timeline mode (`Cmd+Shift+I`) visualizes Claude Code sessions and their activity:
+- **Session Blocks**: Shows Claude Code sessions as timeline blocks
+- **Intent Tracking**: Displays user intents/prompts with their status (pending, in-progress, completed, failed)
+- **File Changes**: Shows files modified during each session
+- **Time Scale**: Adjustable scale (Minutes, Hours, Days)
+- **Transcript Parsing**: Parses Claude Code transcripts from `~/.claude/projects/`
+
+### Git History Tools
+Comprehensive git history exploration:
+- **Commit History** (`Cmd+Shift+H`): Browse repository commits with details and file changes
+- **File Blame**: View line-by-line blame information for any file
+- **File History**: Track changes to a specific file over time
+- **Reflog** (`Cmd+Shift+G`): View and recover from git reference log
+
+### Git Worktrees
+Manage multiple working directories for the same repository:
+- **Create Worktree**: Create new worktree from branch or commit
+- **Manage Worktrees**: View, open, and remove existing worktrees
+- **Parallel Development**: Work on multiple branches simultaneously
+
+### App Layout Modes
+Switch between two application layout modes (`Cmd+Shift+L`):
+- **Tabs Mode** (default): Traditional tab-based navigation with TabStrip
+- **Sidebar Mode**: Workspace sidebar on the left for project navigation
