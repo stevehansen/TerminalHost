@@ -2,17 +2,56 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Problem Statement
+
+Developers working with AI coding assistants like Claude Code need to:
+- Run the AI assistant in a project directory
+- Quickly switch to a shell for manual commands (git, npm, etc.)
+- Return to the AI assistant without losing context
+
+Current solutions require multiple terminal windows or tabs that must be manually configured and navigated. TerminalHost pairs terminals per project directory, making it effortless to switch between AI assistant and shell.
+
+## Goals
+
+1. **Directory-centric terminal pairs** - Each project directory gets a paired custom + shell terminal
+2. **Single-instance with CLI** - `host .` opens/focuses a terminal pair for current directory
+3. **Easy terminal switching** - Toggle between custom and shell without termination
+4. **Always-on split view** - Both terminals visible simultaneously (60/40 default layout, adjustable via splitter)
+5. **Full terminal emulation** - ANSI colors, interactive CLIs, nerd font support
+
+## Current Implementation Status
+
+### Completed Features
+
+- [x] **Core Terminal Pairing**: Custom command + Shell terminal per project with 60/40 split view.
+- [x] **Tab Management**: Ctrl+Tab, Ctrl+1-9, Ctrl+W, drag-and-drop reordering, middle-click to close.
+- [x] **CLI & Single Instance**: `host .` support with named pipe IPC and duplicate tab detection.
+- [x] **Terminal Features**: ANSI colors, Interactive CLI support, Nerd Font (Cascadia Code NF), Activity indicators.
+- [x] **Settings & Persistence**: Form-based (Rich) and JSON (Raw) settings editor (Ctrl+,), window/session state persistence.
+- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff (Ctrl+G), Stash manager (Ctrl+Shift+S).
+- [x] **File Tools**: File explorer panel (Ctrl+Shift+F), syntax-highlighted preview (Ctrl+O), built-in editor (Ctrl+Shift+E).
+- [x] **Productivity**: Command palette (Ctrl+Shift+P), Tab switcher (Ctrl+Shift+T), Scratch pad (Ctrl+Shift+N).
+- [x] **Project Runner**: F5 to run projects with auto-detection and dedicated run terminal.
+- [x] **Task & Focus Mode**: Hierarchical tasks, time tracking, and PR integration (Ctrl+T).
+- [x] **AI Assistant Support**: Multi-AI CLI support (Claude, Gemini, etc.) with per-project selection.
+- [x] **GitHub Integration**: Dashboard (Ctrl+Shift+H), PR Review Mode (Ctrl+Shift+R).
+- [x] **UI Enhancements**: Toast notifications, themed dialogs, system tray support, Markdown preview (Ctrl+M).
+- [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
+
+### Deferred Features
+
+(None currently)
+
 ## Important: Documentation Maintenance
 
 **Always keep documentation updated** when making changes to the codebase:
-- When adding new features, document them in the relevant PRD file
+- When adding new features, update the "Current Implementation Status" section above
 - When changing existing behavior, update the relevant sections
 - When adding new configuration options, update the schema documentation
 - **When adding new keyboard shortcuts:**
   - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
-- Keep CLAUDE.md, PRD files, and SHORTCUTS.md in sync with the actual implementation
 
 ## Important: Testing Requirements
 
@@ -130,6 +169,32 @@ The following use direct system calls because they don't participate in DI or ex
 - **MVVM**: CommunityToolkit.Mvvm for view models
 - **Configuration**: JSON file stored in `%APPDATA%\TerminalHost\config.json`
 - **Single Instance**: Mutex detection with named pipe IPC
+
+## Domain Model
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      TerminalHost                           │
+│                                                             │
+│  ┌─────────────────┐       ┌─────────────────────────────┐ │
+│  │ ProfileRegistry │       │      SessionManager         │ │
+│  │                 │       │                             │ │
+│  │ - settings      │──────▶│ - activeSessions[]          │ │
+│  │ - customCommand │       │ - trackSession(session)     │ │
+│  │ - shellCommand  │       │ - closeSession(session)     │ │
+│  └─────────────────┘       └─────────────────────────────┘ │
+│          │                              │                   │
+│          ▼                              ▼                   │
+│  ┌─────────────────┐       ┌─────────────────────────────┐ │
+│  │  TerminalPair   │       │      TerminalSession        │ │
+│  │                 │       │                             │ │
+│  │ - workingDir    │◀─────▶│ - profile                   │ │
+│  │ - customTerminal│       │ - terminalControl           │ │
+│  │ - shellTerminal │       │ - state (Running|Exited)    │ │
+│  │ - activeTerminal│       │                             │ │
+│  └─────────────────┘       └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Build Commands
 
@@ -312,7 +377,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Drag tab`: Reorder tabs
 
 ### Terminal
-- `Ctrl+\``: Switch between Custom/Shell terminal
+- `Ctrl+``: Switch between Custom/Shell terminal
 - `Links button`: Shows detected URLs and file paths from terminal output (toolbar)
 
 ### File Operations
@@ -407,3 +472,56 @@ Tabs show an animated spinning indicator when terminals are producing output:
 - Uses `ConPTYTerm.InterceptOutputToUITerminal` to track output
 - Terminal is "active" if output received within last 2 seconds
 - Spinner appears/animates when active, hidden when idle
+
+## Specifications Index
+
+All specifications are documented in `docs/specs/`. Status legend:
+- **Completed**: Fully implemented
+- **Partial**: Core features done, some items remaining
+- **Draft**: Specified but not started
+
+### Feature Specifications
+
+| Spec | Description | Status | Notes |
+|------|-------------|--------|-------|
+| [GitAdvanced.md](docs/specs/GitAdvanced.md) | Commit history, staging, stash, blame, reflog, cherry-pick, branch compare | **Partial** | Tags, submodules, merge conflicts remaining |
+| [WorkspaceLayout.md](docs/specs/WorkspaceLayout.md) | Sidebar layout, git worktree management, playgrounds | **Partial** | Active ports detection remaining |
+| [SearchAndProductivity.md](docs/specs/SearchAndProductivity.md) | File search (Ctrl+F3), snippets, session management | **Partial** | Search implemented; snippets/sessions draft |
+| [MultiAiAssistants.md](docs/specs/MultiAiAssistants.md) | Claude, Gemini, Codex, Copilot support per-project | **Completed** | Full per-project AI selection |
+| [GitHubWorkflows.md](docs/specs/GitHubWorkflows.md) | Dashboard, PR review, test runner, markdown preview | **Completed** | All features implemented |
+| [ToastNotifications.md](docs/specs/ToastNotifications.md) | Non-intrusive toast notifications with progress support | **Completed** | WPF airspace workaround included |
+| [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
+| [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
+
+### Architecture Specifications
+
+| Spec | Description | Status | Notes |
+|------|-------------|--------|-------|
+| [Panels.md](docs/specs/Panels.md) | Unified panel system (dock/popup/window states) | **Completed** | Panel transitions, .gitignore support |
+| [CrossPlatform.md](docs/specs/CrossPlatform.md) | Code separation for future cross-platform | **Completed** | Core/Windows/App project split |
+| [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
+| [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
+
+## Remaining Work Summary
+
+| Priority | Feature | Spec |
+|----------|---------|------|
+| **Medium** | Active Ports Detection | RemainingFeatures.md |
+| **Low** | Tags Management | GitAdvanced.md |
+| **Low** | Submodule Support | GitAdvanced.md |
+| **Low** | Merge Conflict Resolution | GitAdvanced.md |
+| **Low** | Playground Templates | RemainingFeatures.md |
+| **Future** | Timeline IDE (remaining) | TimelineIDE.md |
+| **Future** | Versioning & Auto-Updates | Versioning.md |
+
+## Future Considerations
+
+- Custom Profile Pairs: Different command pairs for different project types
+- Plugin System: Extensible architecture for third-party integrations
+
+## Success Criteria
+
+1. User can run `host .` and get a terminal pair for the current directory.
+2. User can switch between AI assistant and shell instantly.
+3. Configuration and session state persist across restarts.
+4. UI remains responsive and provides clear activity indicators.
