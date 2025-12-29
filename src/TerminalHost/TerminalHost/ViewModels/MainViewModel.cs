@@ -822,8 +822,12 @@ public partial class MainViewModel : ObservableObject
             // Create view model with AI assistant info (terminals created lazily on first selection)
             var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
+            tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
             tabViewModel.CloseRequested += OnTabCloseRequested;
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
+
+            // Initialize available shell profiles
+            tabViewModel.RefreshAvailableShellProfiles(_profileRegistry.Profiles);
 
             // Restore per-directory settings if available
             var dirSettings = GetDirectorySettings(workingDirectory);
@@ -1160,6 +1164,39 @@ public partial class MainViewModel : ObservableObject
             tab.Pair.ReplaceCustomTerminal(newSession);
             tab.SetCustomTerminalControl(newControl);
             tab.UpdateActiveAiAssistant(e.NewAssistant);
+        }
+    }
+
+    private async void OnShellProfileSwitchRequested(object? sender, Profile newProfile)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            // Create the shell profile with the selected profile's command
+            var shellProfile = new Profile
+            {
+                Id = "shell",
+                Name = newProfile.Name,
+                Command = newProfile.Command,
+                WorkingDir = tab.WorkingDirectory,
+                Icon = newProfile.Icon
+            };
+
+            // Close old shell terminal session
+            var oldSession = tab.Pair.ShellTerminal;
+            _sessionManager.CloseSession(oldSession);
+
+            // Create new session and control
+            var newSession = new TerminalSession(shellProfile, _statisticsService, _clipboardService, "Shell");
+            var newControl = await _terminalFactory.CreateTerminalControlAsync(newSession);
+            _sessionManager.TrackSession(newSession);
+
+            // Subscribe to link click events
+            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+
+            // Replace the terminal in the pair
+            tab.Pair.ReplaceShellTerminal(newSession);
+            tab.SetShellTerminalControl(newControl);
+            tab.UpdateActiveShellProfile(newProfile);
         }
     }
 

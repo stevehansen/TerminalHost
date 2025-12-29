@@ -18,9 +18,8 @@
 
         <!-- Terminal Switcher Bar -->
         <Border Grid.Row="0" Background="{DynamicResource BackgroundDarkBrush}" Padding="8,4">
-            <DockPanel>
-                <!-- Layout Mode Toggle Buttons -->
-                <StackPanel Orientation="Horizontal">
+            <!-- Use WrapPanel so buttons wrap to next line when window is narrow -->
+            <WrapPanel Orientation="Horizontal">
                     <!-- Custom Full Mode -->
                     <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
                                   Command="{Binding SetCustomFullLayoutCommand}"
@@ -110,6 +109,17 @@
                               MinWidth="100"
                               Classes="dark"
                               DisplayMemberBinding="{Binding DisplayLabel}"/>
+
+                    <!-- Shell Profile Selector (visible only when multiple profiles available) -->
+                    <ComboBox ItemsSource="{Binding AvailableShellProfiles}"
+                              SelectedItem="{Binding SelectedShellProfile, Mode=TwoWay}"
+                              IsVisible="{Binding HasMultipleShellProfiles}"
+                              AutomationProperties.AutomationId="ShellProfileSelector"
+                              ToolTip.Tip="Switch Shell Profile"
+                              Margin="8,0,0,0"
+                              MinWidth="100"
+                              Classes="dark"
+                              DisplayMemberBinding="{Binding Name}"/>
 
                     <TextBlock Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.DirectoryName}"
@@ -290,8 +300,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
-            </DockPanel>
+            </WrapPanel>
         </Border>
 
         <!-- Terminal Content Area - Outer grid for Explorer only -->

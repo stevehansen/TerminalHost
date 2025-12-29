@@ -172,6 +172,25 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool HasMultipleAiAssistants => AvailableAiAssistants.Count > 1;
 
+    // Shell Profile support
+    [ObservableProperty]
+    private ObservableCollection<Profile> _availableShellProfiles = [];
+
+    [ObservableProperty]
+    private Profile? _selectedShellProfile;
+
+    private bool _suppressShellSwitchEvent;
+
+    /// <summary>
+    /// Whether multiple shell profiles are available (controls visibility of selector).
+    /// </summary>
+    public bool HasMultipleShellProfiles => AvailableShellProfiles.Count > 1;
+
+    /// <summary>
+    /// Event raised when the user selects a different shell profile.
+    /// </summary>
+    public event EventHandler<Profile>? ShellProfileSwitchRequested;
+
     /// <summary>
     /// Updates visibility based on focus mode state.
     /// </summary>
@@ -389,6 +408,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
+    partial void OnSelectedShellProfileChanged(Profile? oldValue, Profile? newValue)
+    {
+        // Only fire event if the user actually changed the selection (not suppressed)
+        if (_suppressShellSwitchEvent)
+            return;
+
+        if (newValue != null && oldValue != null && newValue.Id != oldValue.Id)
+        {
+            ShellProfileSwitchRequested?.Invoke(this, newValue);
+        }
+    }
+
     /// <summary>
     /// Initializes the terminal controls. Called when the tab is first selected (lazy initialization).
     /// </summary>
@@ -468,6 +499,32 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     /// <summary>
+    /// Sets the shell terminal control when switching shell profile.
+    /// </summary>
+    public void SetShellTerminalControl(ITerminalControl newControl)
+    {
+        ShellTerminalContent = newControl.NativeControl as Control;
+        Pair.ShellTerminal.SetTerminalControl(newControl);
+
+        // Subscribe to activity changes
+        Pair.ShellTerminal.ActivityChanged += (s, e) =>
+        {
+            IsShellTerminalActive = Pair.ShellTerminal.IsActive;
+        };
+
+        // Subscribe to title changes
+        Pair.ShellTerminal.TitleChanged += (s, title) =>
+        {
+            ShellTerminalTitle = title;
+        };
+
+        // Reset title for new terminal
+        ShellTerminalTitle = string.Empty;
+
+        OnPropertyChanged(nameof(CurrentTerminalContent));
+    }
+
+    /// <summary>
     /// Updates the active AI assistant after switching.
     /// </summary>
     public void UpdateActiveAiAssistant(AiAssistant newAssistant)
@@ -516,6 +573,60 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         _suppressAiSwitchEvent = false;
         OnPropertyChanged(nameof(HasMultipleAiAssistants));
+    }
+
+    /// <summary>
+    /// Refreshes the available shell profiles list.
+    /// </summary>
+    public void RefreshAvailableShellProfiles(IReadOnlyList<Profile> profiles)
+    {
+        _suppressShellSwitchEvent = true;
+
+        AvailableShellProfiles.Clear();
+        foreach (var profile in profiles)
+        {
+            AvailableShellProfiles.Add(profile);
+        }
+
+        // Update selected to match current active (find by ID)
+        if (SelectedShellProfile != null)
+        {
+            var matchingProfile = profiles.FirstOrDefault(p => p.Id == SelectedShellProfile.Id);
+            if (matchingProfile != null)
+            {
+                SelectedShellProfile = matchingProfile;
+                ShellIcon = matchingProfile.Icon ?? "💻";
+            }
+            else if (profiles.Count > 0)
+            {
+                // Current profile was removed, switch to first available
+                var firstProfile = profiles[0];
+                SelectedShellProfile = firstProfile;
+                ShellIcon = firstProfile.Icon ?? "💻";
+            }
+        }
+        else if (profiles.Count > 0)
+        {
+            // No profile selected yet, select the first one
+            SelectedShellProfile = profiles[0];
+            ShellIcon = profiles[0].Icon ?? "💻";
+        }
+
+        _suppressShellSwitchEvent = false;
+        OnPropertyChanged(nameof(HasMultipleShellProfiles));
+    }
+
+    /// <summary>
+    /// Updates the shell profile after switching.
+    /// </summary>
+    public void UpdateActiveShellProfile(Profile newProfile)
+    {
+        ShellIcon = newProfile.Icon ?? "💻";
+
+        // Update selected without triggering the change event
+        _suppressShellSwitchEvent = true;
+        SelectedShellProfile = newProfile;
+        _suppressShellSwitchEvent = false;
     }
 
     [RelayCommand]

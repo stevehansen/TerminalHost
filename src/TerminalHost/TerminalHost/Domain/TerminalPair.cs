@@ -15,7 +15,7 @@ public class TerminalPair : IDisposable
                                    ?? WorkingDirectory;
 
     public TerminalSession CustomTerminal { get; private set; }
-    public TerminalSession ShellTerminal { get; }
+    public TerminalSession ShellTerminal { get; private set; }
 
     /// <summary>
     /// Optional run terminal, created lazily when first needed.
@@ -121,6 +121,15 @@ public class TerminalPair : IDisposable
     public void ReplaceCustomTerminal(TerminalSession newSession)
     {
         CustomTerminal = newSession;
+    }
+
+    /// <summary>
+    /// Replaces the shell terminal with a new session (e.g., when switching shell profile).
+    /// The old session is NOT disposed here - caller is responsible for cleanup.
+    /// </summary>
+    public void ReplaceShellTerminal(TerminalSession newSession)
+    {
+        ShellTerminal = newSession;
     }
 
     public void Dispose()

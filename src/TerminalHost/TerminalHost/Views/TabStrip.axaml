@@ -88,7 +88,7 @@
     </UserControl.Resources>
     <Border Background="{StaticResource BackgroundMediumBrush}" Padding="4">
         <DockPanel>
-            <!-- New Project Button -->
+            <!-- New Project Button - Always visible -->
             <Button DockPanel.Dock="Right"
                     Content="+ New Project"
                     AutomationProperties.AutomationId="NewProjectButton"

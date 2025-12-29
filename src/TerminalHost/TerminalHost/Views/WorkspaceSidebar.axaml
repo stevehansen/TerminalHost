@@ -96,7 +96,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*" Background="{StaticResource BackgroundDarkBrush}">
+    <Grid RowDefinitions="Auto,*,Auto" Background="{StaticResource BackgroundDarkBrush}">
         <!-- Header with toggle button -->
         <Border Grid.Row="0" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid RowDefinitions="Auto,Auto">
@@ -352,8 +352,34 @@
             </StackPanel>
         </ScrollViewer>
 
+        <!-- Footer with action buttons -->
+        <Border Grid.Row="2" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="+ New"
+                        Command="{Binding MainViewModel.OpenNewProjectCommand}"
+                        ToolTip.Tip="Open New Project (Cmd+N)"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Dashboard"
+                        Command="{Binding MainViewModel.OpenDashboardCommand}"
+                        ToolTip.Tip="GitHub Dashboard"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Statistics"
+                        Command="{Binding MainViewModel.OpenStatisticsCommand}"
+                        ToolTip.Tip="Usage Statistics"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Settings"
+                        Command="{Binding MainViewModel.OpenSettingsCommand}"
+                        ToolTip.Tip="Settings (Cmd+,)"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+            </WrapPanel>
+        </Border>
+
         <!-- Loading Indicator -->
-        <Border Grid.RowSpan="2"
+        <Border Grid.RowSpan="3"
                 Background="#80000000"
                 IsVisible="{Binding IsLoading}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
