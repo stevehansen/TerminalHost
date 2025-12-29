@@ -62,8 +62,8 @@
         <SolidColorBrush x:Key="BorderDefaultBrush" Color="#555555"/>
 
         <!-- Text Colors -->
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#666666"/>
-        <SolidColorBrush x:Key="TextDimmedBrush" Color="#808080"/>
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#888888"/>
+        <SolidColorBrush x:Key="TextDimmedBrush" Color="#999999"/>
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AAAAAA"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#CCCCCC"/>
         <SolidColorBrush x:Key="TextLightBrush" Color="#D4D4D4"/>
