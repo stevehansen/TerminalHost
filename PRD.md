@@ -129,31 +129,62 @@ Config file: `%APPDATA%\TerminalHost\config.json`
 }
 ```
 
-## Planned Features
+## Specifications Index
 
-Detailed specifications for planned features are documented in separate files in `docs/specs/`:
+All specifications are documented in `docs/specs/`. Status legend:
+- **Completed**: Fully implemented
+- **Partial**: Core features done, some items remaining
+- **In Progress**: Active development
+- **Draft**: Specified but not started
+- **Archived**: Superseded or removed
 
-- **[Advanced Git Features](docs/specs/GitAdvanced.md)**: Interactive staging, submodule support, merge conflict resolution.
-- **[Search & Productivity](docs/specs/SearchAndProductivity.md)**: Terminal output search, snippet manager.
-- **[Workspace Sidebar](docs/specs/WorkspaceLayout.md)**: Tree-based project navigation and git worktree management.
+### Feature Specifications
 
-### Implementation Priority Summary
+| Spec | Description | Status | Notes |
+|------|-------------|--------|-------|
+| [GitAdvanced.md](docs/specs/GitAdvanced.md) | Commit history, staging, stash, blame, reflog, cherry-pick, branch compare | **Partial** | Tags, submodules, merge conflicts remaining |
+| [WorkspaceLayout.md](docs/specs/WorkspaceLayout.md) | Sidebar layout, git worktree management, playgrounds | **Partial** | Active ports detection remaining |
+| [SearchAndProductivity.md](docs/specs/SearchAndProductivity.md) | File search (Ctrl+F3), snippets, session management | **Partial** | Search implemented; snippets/sessions draft |
+| [MultiAiAssistants.md](docs/specs/MultiAiAssistants.md) | Claude, Gemini, Codex, Copilot support per-project | **Completed** | Full per-project AI selection |
+| [GitHubWorkflows.md](docs/specs/GitHubWorkflows.md) | Dashboard, PR review, test runner, markdown preview | **Completed** | All features implemented |
+| [ToastNotifications.md](docs/specs/ToastNotifications.md) | Non-intrusive toast notifications with progress support | **Completed** | WPF airspace workaround included |
+| [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
+| [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
 
-| Priority | Feature | Specification |
-|----------|---------|--------------|
-| **Medium** | Active Ports Detection | docs/specs/RemainingFeatures.md |
-| **Medium** | Manage Worktrees Panel | docs/specs/RemainingFeatures.md |
-| **Medium** | Terminal Search | docs/specs/SearchAndProductivity.md |
-| **Low** | Submodule Support | docs/specs/RemainingFeatures.md |
-| **Low** | Merge Conflict Resolution | docs/specs/RemainingFeatures.md |
+### Architecture Specifications
+
+| Spec | Description | Status | Notes |
+|------|-------------|--------|-------|
+| [Panels.md](docs/specs/Panels.md) | Unified panel system (dock/popup/window states) | **Completed** | Panel transitions, .gitignore support |
+| [CrossPlatform.md](docs/specs/CrossPlatform.md) | Code separation for future cross-platform | **Completed** | Core/Windows/App project split |
+| [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
+| [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
+
+### Process/Meta Specifications
+
+| Spec | Description | Status | Notes |
+|------|-------------|--------|-------|
+| [TaskFocusMode-REMOVAL.md](docs/specs/TaskFocusMode-REMOVAL.md) | Plan to remove Task Panel in favor of Timeline | **Archived** | Superseded by Timeline Mode |
+| [Refactoring_MainViewModel.md](docs/specs/Refactoring_MainViewModel.md) | MainViewModel cleanup documentation | **Completed** | Refactoring done |
+
+### Remaining Work Summary
+
+| Priority | Feature | Spec |
+|----------|---------|------|
+| **Medium** | Active Ports Detection | RemainingFeatures.md |
+| **Low** | Tags Management | GitAdvanced.md |
+| **Low** | Submodule Support | GitAdvanced.md |
+| **Low** | Merge Conflict Resolution | GitAdvanced.md |
+| **Low** | Playground Templates | RemainingFeatures.md |
+| **Future** | Timeline IDE (remaining) | TimelineIDE.md |
+| **Future** | Versioning & Auto-Updates | Versioning.md |
 
 ---
 
 ## Future Considerations
 
-- **[Versioning & Auto-Updates](docs/specs/Versioning.md)**: Automatic updates via GitHub Releases.
-- **[Unified Panel System](docs/specs/Panels.md)**: Dockable/floating panels for various tools.
-- Custom Profile Pairs: Different command pairs for different project types.
+- Custom Profile Pairs: Different command pairs for different project types
+- Plugin System: Extensible architecture for third-party integrations
 
 ## Success Criteria
 
@@ -164,5 +195,5 @@ Detailed specifications for planned features are documented in separate files in
 
 ---
 
-*Document Version: 3.0*
-*Last Updated: 2025-12-26*
+*Document Version: 3.1*
+*Last Updated: 2025-12-29*
