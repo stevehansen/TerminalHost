@@ -10,10 +10,16 @@ namespace TerminalHost.Services;
 /// </summary>
 internal sealed class GitHubService : IGitHubService
 {
+    private readonly IConfigurationService _configurationService;
     private bool? _ghAvailable;
     private string? _currentUser;
     private DateTime _lastUserFetch = DateTime.MinValue;
     private readonly TimeSpan _userCacheDuration = TimeSpan.FromMinutes(30);
+
+    public GitHubService(IConfigurationService configurationService)
+    {
+        _configurationService = configurationService;
+    }
 
     public bool IsGitHubCliAvailable()
     {
@@ -32,6 +38,9 @@ internal sealed class GitHubService : IGitHubService
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
+
+            // Set up PATH with custom paths
+            SetupEnvironmentWithCustomPaths(psi);
 
             using var process = Process.Start(psi);
             if (process == null)
@@ -479,7 +488,7 @@ internal sealed class GitHubService : IGitHubService
         }
     }
 
-    private static async Task<string?> RunGhGraphQLQueryAsync(string query, string owner, string repo, int pr)
+    private async Task<string?> RunGhGraphQLQueryAsync(string query, string owner, string repo, int pr)
     {
         try
         {
@@ -505,6 +514,9 @@ internal sealed class GitHubService : IGitHubService
                     StandardOutputEncoding = System.Text.Encoding.UTF8,
                     StandardErrorEncoding = System.Text.Encoding.UTF8
                 };
+
+                // Set up PATH with custom paths
+                SetupEnvironmentWithCustomPaths(psi);
 
                 using var process = Process.Start(psi);
                 if (process == null)
@@ -613,7 +625,7 @@ internal sealed class GitHubService : IGitHubService
 
     #region Private Helpers
 
-    private static async Task<(int exitCode, string output, string error)> RunGhCommandAsync(string? workingDirectory, string arguments, int timeoutSeconds = 120)
+    private async Task<(int exitCode, string output, string error)> RunGhCommandAsync(string? workingDirectory, string arguments, int timeoutSeconds = 120)
     {
         try
         {
@@ -630,6 +642,9 @@ internal sealed class GitHubService : IGitHubService
                 StandardOutputEncoding = System.Text.Encoding.UTF8,
                 StandardErrorEncoding = System.Text.Encoding.UTF8
             };
+
+            // Set up PATH with custom paths
+            SetupEnvironmentWithCustomPaths(psi);
 
             if (!string.IsNullOrEmpty(workingDirectory))
             {
@@ -663,6 +678,59 @@ internal sealed class GitHubService : IGitHubService
         {
             return (-1, "", ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Sets up the environment with custom paths from settings.
+    /// This ensures gh CLI can be found even when installed in non-standard locations.
+    /// </summary>
+    private void SetupEnvironmentWithCustomPaths(ProcessStartInfo psi)
+    {
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var config = _configurationService.Load();
+        var customPaths = config.Settings.CustomPaths;
+
+        // Build a comprehensive PATH
+        var additionalPaths = new List<string>();
+
+        // Add user-configured custom paths first (highest priority)
+        if (customPaths.Count > 0)
+        {
+            additionalPaths.AddRange(customPaths.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+
+        // Add default paths that are commonly used
+        additionalPaths.AddRange(new[]
+        {
+            $"{homeDir}/.local/bin",           // User-installed tools
+            "/opt/homebrew/bin",               // Homebrew on Apple Silicon
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",                  // Homebrew on Intel, user tools
+            "/usr/local/sbin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+            $"{homeDir}/.cargo/bin",           // Rust tools
+            $"{homeDir}/.npm-global/bin",      // npm global packages
+            "/opt/local/bin",                  // MacPorts
+        });
+
+        // Get existing PATH
+        var currentPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+        var pathParts = currentPath.Split(':', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        // Add paths that don't already exist, in reverse order so first items end up first
+        for (int i = additionalPaths.Count - 1; i >= 0; i--)
+        {
+            var path = additionalPaths[i];
+            if (!pathParts.Contains(path) && Directory.Exists(path))
+            {
+                pathParts.Insert(0, path); // Prepend to give priority
+            }
+        }
+
+        psi.Environment["PATH"] = string.Join(":", pathParts);
     }
 
     private static string EscapeArgument(string arg)
