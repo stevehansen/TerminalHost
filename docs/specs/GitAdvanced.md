@@ -11,6 +11,8 @@ TerminalHost provides a comprehensive suite of visual git tools to manage your w
 - **File History & Blame (Ctrl+Shift+B)**: Line-by-line annotations showing who changed what and when. View full history for any file.
 - **Reflog Access (Ctrl+Shift+G)**: Recover "lost" commits after reset or rebase. Checkout or create branches from reflog entries.
 - **Cherry-pick & Revert**: Apply specific commits to your current branch or create revert commits via the Commit History context menu.
+- **Branch Comparison (Ctrl+Alt+B)**: Compare changes between any two refs (commits, branches, tags). Shows summary of changes (+N/-M) with file list and diffs.
+- **Unified Git Panel**: Tabbed interface (Branches, Changes, History, Stash, Compare) consolidating all git operations. Key branch operations section shows current branch vs development/production/staging with ahead/behind counts and quick actions (fast-forward, reset, compare).
 
 ## Planned Features
 
@@ -24,12 +26,7 @@ Basic management of git submodules.
 - **Features**: Indicator in file explorer, status display, init/update actions.
 - **Status**: Planned.
 
-### 3. Commit/Branch Comparison (Medium Priority)
-Compare changes between any two refs (commits, branches, tags).
-- **Features**: Summary of changes (+N/-M), file list with diffs.
-- **Status**: Planned.
-
-### 4. Tags Management (Low Priority)
+### 3. Tags Management (Low Priority)
 View and manage git tags.
 - **Features**: List all tags, create lightweight/annotated tags, push to remote.
 - **Status**: Planned.
@@ -38,7 +35,6 @@ View and manage git tags.
 
 | Priority | Feature | Status |
 |----------|---------|--------|
-| **Medium** | Commit/Branch Comparison | Planned |
 | **Low** | Tags Management | Planned |
 | **Low** | Submodule Support | Planned |
 | **Low** | Merge Conflict Resolution | Planned |
