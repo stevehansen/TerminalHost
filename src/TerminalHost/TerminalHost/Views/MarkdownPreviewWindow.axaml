@@ -3,6 +3,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+        xmlns:controls="clr-namespace:TerminalHost.Controls"
         mc:Ignorable="d"
         x:Class="TerminalHost.Views.MarkdownPreviewWindow"
         Title="{Binding WindowTitle}"
@@ -94,19 +95,9 @@
             </DockPanel>
         </Border>
 
-        <!-- WebView Content (Placeholder - requires platform-specific implementation) -->
+        <!-- Markdown Content -->
         <Grid Grid.Row="1">
-            <!-- WebView2 equivalent for Avalonia needs platform-specific implementation -->
-            <!-- For now, showing placeholder -->
-            <Border Background="#1E1E1E">
-                <TextBlock Text="WebView rendering area (requires platform-specific WebView implementation)"
-                           FontSize="14"
-                           Foreground="#808080"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           TextWrapping="Wrap"
-                           Margin="20"/>
-            </Border>
+            <controls:MarkdownViewer MarkdownContent="{Binding RawMarkdown}"/>
 
             <!-- Loading overlay -->
             <Border Background="#CC1E1E1E"

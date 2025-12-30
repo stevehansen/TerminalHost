@@ -22,7 +22,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
     private string _filePath = "";
 
     [ObservableProperty]
-    private string _renderedHtml = "";
+    private string _rawMarkdown = "";
 
     [ObservableProperty]
     private bool _autoReload = true;
@@ -147,7 +147,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(FilePath))
         {
-            RenderedHtml = "";
+            RawMarkdown = "";
             StatusMessage = "No file loaded";
             return;
         }
@@ -157,7 +157,7 @@ public partial class MarkdownPreviewViewModel : ObservableObject
 
         try
         {
-            RenderedHtml = await _markdownService.ConvertFileToHtmlAsync(FilePath);
+            RawMarkdown = await _fileSystem.ReadAllTextAsync(FilePath);
             StatusMessage = $"Last updated: {DateTime.Now:HH:mm:ss}";
         }
         catch (Exception ex)

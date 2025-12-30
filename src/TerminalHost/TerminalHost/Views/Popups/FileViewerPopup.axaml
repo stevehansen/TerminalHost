@@ -91,7 +91,7 @@
                 <!-- Markdown preview mode: WebView-based rich rendering (only in Preview mode, not SideBySide) -->
                 <controls:MarkdownViewer
                     Grid.Row="0"
-                    HtmlContent="{Binding RenderedHtml}"
+                    MarkdownContent="{Binding RawMarkdown}"
                     IsVisible="{Binding IsMarkdownPreviewMode}"/>
 
                 <!-- Edit mode: TextBox with line numbers -->
@@ -201,7 +201,7 @@
 
                     <!-- Right: Markdown Preview -->
                     <controls:MarkdownViewer Grid.Column="2"
-                                             HtmlContent="{Binding RenderedHtml}"/>
+                                             MarkdownContent="{Binding RawMarkdown}"/>
                 </Grid>
 
                 <!-- Image preview mode -->

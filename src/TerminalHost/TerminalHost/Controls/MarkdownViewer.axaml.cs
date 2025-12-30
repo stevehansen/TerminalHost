@@ -1,19 +1,35 @@
-using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Markdig;
+using Markdig.Extensions.TaskLists;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 namespace TerminalHost.Controls;
 
 /// <summary>
-/// Simple markdown/HTML viewer for Avalonia.
-/// NOTE: This is a temporary fallback implementation that strips HTML tags and displays plain text.
-/// WebView2 is not available on macOS, so this provides basic content viewing.
-/// Future enhancement: Use Markdown.Avalonia package for proper markdown rendering.
+/// Markdown viewer control using Markdig for parsing and custom Avalonia rendering.
+/// Supports headings, bold, italic, code blocks, lists, links, and more.
 /// </summary>
 public partial class MarkdownViewer : UserControl
 {
-    private TextBlock? _contentTextBlock;
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .Build();
+
+    // Colors for dark theme
+    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#D4D4D4"));
+    private static readonly IBrush HeadingBrush = new SolidColorBrush(Color.Parse("#E0E0E0"));
+    private static readonly IBrush CodeBrush = new SolidColorBrush(Color.Parse("#CE9178"));
+    private static readonly IBrush CodeBlockBg = new SolidColorBrush(Color.Parse("#2D2D2D"));
+    private static readonly IBrush LinkBrush = new SolidColorBrush(Color.Parse("#569CD6"));
+    private static readonly IBrush QuoteBrush = new SolidColorBrush(Color.Parse("#9CDCFE"));
+    private static readonly IBrush QuoteBorderBrush = new SolidColorBrush(Color.Parse("#569CD6"));
+    private static readonly IBrush ListMarkerBrush = new SolidColorBrush(Color.Parse("#569CD6"));
 
     public MarkdownViewer()
     {
@@ -23,106 +39,401 @@ public partial class MarkdownViewer : UserControl
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
-        _contentTextBlock = this.FindControl<TextBlock>("ContentTextBlock");
     }
 
-    public static readonly StyledProperty<string> HtmlContentProperty =
-        AvaloniaProperty.Register<MarkdownViewer, string>(nameof(HtmlContent), string.Empty);
+    /// <summary>
+    /// The raw markdown content to render.
+    /// </summary>
+    public static readonly StyledProperty<string> MarkdownContentProperty =
+        AvaloniaProperty.Register<MarkdownViewer, string>(nameof(MarkdownContent), string.Empty);
 
-    public string HtmlContent
+    public string MarkdownContent
     {
-        get => GetValue(HtmlContentProperty);
-        set => SetValue(HtmlContentProperty, value);
+        get => GetValue(MarkdownContentProperty);
+        set => SetValue(MarkdownContentProperty, value);
+    }
+
+    /// <summary>
+    /// Collection of rendered controls for the ItemsControl.
+    /// </summary>
+    public static readonly StyledProperty<ObservableCollection<Control>> MarkdownBlocksProperty =
+        AvaloniaProperty.Register<MarkdownViewer, ObservableCollection<Control>>(
+            nameof(MarkdownBlocks),
+            new ObservableCollection<Control>());
+
+    public ObservableCollection<Control> MarkdownBlocks
+    {
+        get => GetValue(MarkdownBlocksProperty);
+        set => SetValue(MarkdownBlocksProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == HtmlContentProperty)
+        if (change.Property == MarkdownContentProperty)
         {
-            UpdateContent((string?)change.NewValue ?? string.Empty);
+            RenderMarkdown((string?)change.NewValue ?? string.Empty);
         }
     }
 
-    private void UpdateContent(string html)
+    private void RenderMarkdown(string markdown)
     {
-        if (_contentTextBlock == null)
-            return;
+        var blocks = new ObservableCollection<Control>();
 
-        // Strip HTML tags and convert to plain text
-        var plainText = StripHtml(html);
-        _contentTextBlock.Text = plainText;
+        if (string.IsNullOrEmpty(markdown))
+        {
+            MarkdownBlocks = blocks;
+            return;
+        }
+
+        try
+        {
+            var document = Markdig.Markdown.Parse(markdown, Pipeline);
+
+            foreach (var block in document)
+            {
+                var control = RenderBlock(block);
+                if (control != null)
+                {
+                    blocks.Add(control);
+                }
+            }
+        }
+        catch
+        {
+            // Fallback to plain text on parsing error
+            blocks.Add(new TextBlock
+            {
+                Text = markdown,
+                Foreground = TextBrush,
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        MarkdownBlocks = blocks;
+    }
+
+    private Control? RenderBlock(Block block, bool skipTaskListInline = false)
+    {
+        return block switch
+        {
+            HeadingBlock heading => RenderHeading(heading),
+            ParagraphBlock paragraph => RenderParagraph(paragraph, skipTaskListInline),
+            FencedCodeBlock fencedCode => RenderCodeBlock(fencedCode),
+            CodeBlock codeBlock => RenderCodeBlock(codeBlock),
+            QuoteBlock quote => RenderQuote(quote),
+            ListBlock list => RenderList(list),
+            ThematicBreakBlock => RenderHorizontalRule(),
+            LinkReferenceDefinitionGroup => null, // Link references are not rendered visually
+            LinkReferenceDefinition => null, // Link references are not rendered visually
+            _ => RenderGenericBlock(block)
+        };
+    }
+
+    private Control RenderHeading(HeadingBlock heading)
+    {
+        var textBlock = new SelectableTextBlock
+        {
+            Foreground = HeadingBrush,
+            FontWeight = FontWeight.Bold,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, heading.Level <= 2 ? 16 : 8, 0, 4)
+        };
+
+        textBlock.FontSize = heading.Level switch
+        {
+            1 => 28,
+            2 => 24,
+            3 => 20,
+            4 => 18,
+            5 => 16,
+            _ => 14
+        };
+
+        RenderInlines(textBlock.Inlines, heading.Inline);
+        return textBlock;
+    }
+
+    private Control RenderParagraph(ParagraphBlock paragraph, bool skipTaskListInline = false)
+    {
+        var textBlock = new SelectableTextBlock
+        {
+            Foreground = TextBrush,
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 24
+        };
+
+        RenderInlines(textBlock.Inlines, paragraph.Inline, skipTaskListInline);
+        return textBlock;
+    }
+
+    private Control RenderCodeBlock(Block codeBlock)
+    {
+        string code;
+        if (codeBlock is FencedCodeBlock fenced)
+        {
+            code = fenced.Lines.ToString().TrimEnd();
+        }
+        else if (codeBlock is CodeBlock cb)
+        {
+            code = cb.Lines.ToString().TrimEnd();
+        }
+        else
+        {
+            return new TextBlock { Text = "" };
+        }
+
+        return new Border
+        {
+            Background = CodeBlockBg,
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 8),
+            BorderBrush = new SolidColorBrush(Color.Parse("#3C3C3C")),
+            BorderThickness = new Thickness(1),
+            Child = new SelectableTextBlock
+            {
+                Text = code,
+                Foreground = TextBrush,
+                FontFamily = new FontFamily("Consolas,Menlo,Monaco,monospace"),
+                FontSize = 13,
+                TextWrapping = TextWrapping.NoWrap
+            }
+        };
+    }
+
+    private Control RenderQuote(QuoteBlock quote)
+    {
+        var panel = new StackPanel { Spacing = 4 };
+
+        foreach (var block in quote)
+        {
+            var control = RenderBlock(block);
+            if (control is TextBlock tb)
+            {
+                tb.Foreground = QuoteBrush;
+            }
+            if (control != null)
+            {
+                panel.Children.Add(control);
+            }
+        }
+
+        return new Border
+        {
+            BorderBrush = QuoteBorderBrush,
+            BorderThickness = new Thickness(4, 0, 0, 0),
+            Padding = new Thickness(16, 8),
+            Margin = new Thickness(0, 8),
+            Child = panel
+        };
+    }
+
+    private Control RenderList(ListBlock list)
+    {
+        var panel = new StackPanel { Spacing = 4, Margin = new Thickness(0, 4) };
+        int index = 1;
+
+        foreach (var item in list)
+        {
+            if (item is ListItemBlock listItem)
+            {
+                var itemPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+
+                // Check if this is a task list item
+                var taskListInfo = GetTaskListInfo(listItem);
+
+                // Bullet, number, or checkbox
+                string marker;
+                if (taskListInfo.HasValue)
+                {
+                    marker = taskListInfo.Value ? "☑" : "☐";
+                }
+                else
+                {
+                    marker = list.IsOrdered ? $"{index++}." : "•";
+                }
+
+                itemPanel.Children.Add(new TextBlock
+                {
+                    Text = marker,
+                    Foreground = ListMarkerBrush,
+                    FontWeight = FontWeight.Bold,
+                    Width = 24,
+                    Margin = new Thickness(8, 0, 8, 0)
+                });
+
+                // Item content
+                var contentPanel = new StackPanel { Spacing = 2 };
+                foreach (var block in listItem)
+                {
+                    var control = RenderBlock(block, skipTaskListInline: taskListInfo.HasValue);
+                    if (control != null)
+                    {
+                        contentPanel.Children.Add(control);
+                    }
+                }
+                itemPanel.Children.Add(contentPanel);
+
+                panel.Children.Add(itemPanel);
+            }
+        }
+
+        return panel;
     }
 
     /// <summary>
-    /// Strips HTML tags and decodes common HTML entities to produce readable plain text.
+    /// Gets task list info from a list item. Returns true if checked, false if unchecked, null if not a task list.
     /// </summary>
-    private static string StripHtml(string html)
+    private bool? GetTaskListInfo(ListItemBlock listItem)
     {
-        if (string.IsNullOrEmpty(html))
-            return string.Empty;
+        foreach (var block in listItem)
+        {
+            if (block is ParagraphBlock paragraph && paragraph.Inline != null)
+            {
+                foreach (var inline in paragraph.Inline)
+                {
+                    if (inline is TaskList taskList)
+                    {
+                        return taskList.Checked;
+                    }
+                }
+            }
+        }
+        return null;
+    }
 
-        // Remove DOCTYPE, html, head, body, style, and script tags with their content
-        html = Regex.Replace(html, @"<!DOCTYPE[^>]*>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<html[^>]*>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</html>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<head[^>]*>.*?</head>", string.Empty, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        html = Regex.Replace(html, @"<body[^>]*>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</body>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<style[^>]*>.*?</style>", string.Empty, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        html = Regex.Replace(html, @"<script[^>]*>.*?</script>", string.Empty, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+    private Control RenderHorizontalRule()
+    {
+        return new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(Color.Parse("#3C3C3C")),
+            Margin = new Thickness(0, 16)
+        };
+    }
 
-        // Convert common block elements to newlines
-        html = Regex.Replace(html, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<p[^>]*>", "\n\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</p>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<div[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</div>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<h[1-6][^>]*>", "\n\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</h[1-6]>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<li[^>]*>", "\n• ", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</li>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<ul[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</ul>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<ol[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</ol>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<hr[^>]*>", "\n─────────────────────\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<blockquote[^>]*>", "\n  ", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</blockquote>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<pre[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</pre>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<code[^>]*>", "`", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</code>", "`", RegexOptions.IgnoreCase);
+    private Control? RenderGenericBlock(Block block)
+    {
+        // Try to extract text from unknown blocks
+        var text = block.ToString();
+        if (!string.IsNullOrEmpty(text))
+        {
+            return new TextBlock
+            {
+                Text = text,
+                Foreground = TextBrush,
+                TextWrapping = TextWrapping.Wrap
+            };
+        }
+        return null;
+    }
 
-        // Handle table elements
-        html = Regex.Replace(html, @"<table[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</table>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<tr[^>]*>", "\n", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</tr>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<th[^>]*>", " | ", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</th>", string.Empty, RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"<td[^>]*>", " | ", RegexOptions.IgnoreCase);
-        html = Regex.Replace(html, @"</td>", string.Empty, RegexOptions.IgnoreCase);
+    private void RenderInlines(InlineCollection inlines, ContainerInline? container, bool skipTaskListInline = false)
+    {
+        if (container == null) return;
 
-        // Remove all other HTML tags
-        html = Regex.Replace(html, @"<[^>]+>", string.Empty);
+        foreach (var inline in container)
+        {
+            // Skip TaskList inline if we're rendering inside a task list item (checkbox already shown)
+            if (skipTaskListInline && inline is TaskList)
+                continue;
 
-        // Decode common HTML entities
-        html = html.Replace("&nbsp;", " ");
-        html = html.Replace("&lt;", "<");
-        html = html.Replace("&gt;", ">");
-        html = html.Replace("&amp;", "&");
-        html = html.Replace("&quot;", "\"");
-        html = html.Replace("&#39;", "'");
-        html = html.Replace("&apos;", "'");
+            RenderInline(inlines, inline);
+        }
+    }
 
-        // Clean up excessive whitespace
-        html = Regex.Replace(html, @"[ \t]+", " ");
-        html = Regex.Replace(html, @"\n[ \t]+", "\n");
-        html = Regex.Replace(html, @"[ \t]+\n", "\n");
-        html = Regex.Replace(html, @"\n{3,}", "\n\n");
+    private void RenderInline(InlineCollection inlines, Markdig.Syntax.Inlines.Inline inline)
+    {
+        switch (inline)
+        {
+            case LiteralInline literal:
+                inlines.Add(new Run(literal.Content.ToString()));
+                break;
 
-        return html.Trim();
+            case EmphasisInline emphasis:
+                var emphasisRuns = new List<Run>();
+                CollectRuns(emphasis, emphasisRuns);
+                foreach (var run in emphasisRuns)
+                {
+                    if (emphasis.DelimiterCount == 2)
+                    {
+                        run.FontWeight = FontWeight.Bold;
+                    }
+                    else
+                    {
+                        run.FontStyle = FontStyle.Italic;
+                    }
+                    inlines.Add(run);
+                }
+                break;
+
+            case CodeInline code:
+                inlines.Add(new Run(code.Content)
+                {
+                    Foreground = CodeBrush,
+                    FontFamily = new FontFamily("Consolas,Menlo,Monaco,monospace")
+                });
+                break;
+
+            case LinkInline link:
+                var linkText = GetLinkText(link);
+                inlines.Add(new Run(linkText)
+                {
+                    Foreground = LinkBrush,
+                    TextDecorations = TextDecorations.Underline
+                });
+                break;
+
+            case LineBreakInline:
+                inlines.Add(new LineBreak());
+                break;
+
+            case TaskList:
+                // TaskList is handled by RenderList, skip rendering here
+                break;
+
+            case ContainerInline container:
+                RenderInlines(inlines, container);
+                break;
+
+            default:
+                // Try to get text content
+                var text = inline.ToString();
+                if (!string.IsNullOrEmpty(text))
+                {
+                    inlines.Add(new Run(text));
+                }
+                break;
+        }
+    }
+
+    private void CollectRuns(ContainerInline container, List<Run> runs)
+    {
+        foreach (var inline in container)
+        {
+            if (inline is LiteralInline literal)
+            {
+                runs.Add(new Run(literal.Content.ToString()));
+            }
+            else if (inline is ContainerInline child)
+            {
+                CollectRuns(child, runs);
+            }
+        }
+    }
+
+    private string GetLinkText(LinkInline link)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var inline in link)
+        {
+            if (inline is LiteralInline literal)
+            {
+                sb.Append(literal.Content.ToString());
+            }
+        }
+        return sb.Length > 0 ? sb.ToString() : link.Url ?? "";
     }
 }

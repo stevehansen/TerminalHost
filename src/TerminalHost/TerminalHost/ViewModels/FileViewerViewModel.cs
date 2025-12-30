@@ -105,7 +105,7 @@ public partial class FileViewerViewModel : ObservableObject
     private bool _isMarkdownMode;
 
     [ObservableProperty]
-    private string _renderedHtml = "";
+    private string _rawMarkdown = "";
 
     // Computed properties for tab selection (used by radio buttons)
     public bool IsPreviewModeSelected => Mode == FileViewerMode.Preview && !IsImageMode;
@@ -252,7 +252,7 @@ public partial class FileViewerViewModel : ObservableObject
 
         // Reset markdown mode
         IsMarkdownMode = false;
-        RenderedHtml = "";
+        RawMarkdown = "";
         PreviewError = "";
 
         if (result == null)
@@ -274,7 +274,7 @@ public partial class FileViewerViewModel : ObservableObject
             if (extension == ".md" || extension == ".markdown")
             {
                 IsMarkdownMode = true;
-                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "");
+                RawMarkdown = result.Content ?? "";
             }
             else
             {
@@ -351,7 +351,7 @@ public partial class FileViewerViewModel : ObservableObject
 
         // Keep markdown mode true for side-by-side to show MarkdownViewer
         IsMarkdownMode = true;
-        RenderedHtml = _markdownService.ConvertToHtml(EditContent);
+        RawMarkdown = EditContent;
 
         Title = result.FileName + (IsReadOnly ? " (Read-only)" : "");
         UpdateEditInfo(result.LineCount, result.FileSize, result.IsReadOnly);
@@ -386,7 +386,7 @@ public partial class FileViewerViewModel : ObservableObject
         if (value == FileViewerMode.Edit)
         {
             IsMarkdownMode = false;
-            RenderedHtml = "";
+            RawMarkdown = "";
         }
 
         // Reload content when switching modes
@@ -442,7 +442,7 @@ public partial class FileViewerViewModel : ObservableObject
             () =>
             {
                 _markdownDebounceTimer?.Stop();
-                RenderedHtml = _markdownService.ConvertToHtml(markdown);
+                RawMarkdown = markdown;
             });
         _markdownDebounceTimer.Start();
     }
@@ -545,7 +545,7 @@ public partial class FileViewerViewModel : ObservableObject
 
         // Reset markdown mode
         IsMarkdownMode = false;
-        RenderedHtml = "";
+        RawMarkdown = "";
     }
 
     [RelayCommand]

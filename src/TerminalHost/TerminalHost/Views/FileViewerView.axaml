@@ -143,7 +143,7 @@
 
             <!-- Markdown preview mode: MarkdownViewer control (WebView2 replacement) -->
             <controls:MarkdownViewer
-                HtmlContent="{Binding RenderedHtml}"
+                MarkdownContent="{Binding RawMarkdown}"
                 IsVisible="{Binding IsMarkdownPreviewMode}"/>
 
             <!-- Image preview mode -->
@@ -268,7 +268,7 @@
 
                 <!-- Right: Markdown Preview -->
                 <controls:MarkdownViewer Grid.Column="2"
-                                         HtmlContent="{Binding RenderedHtml}"/>
+                                         MarkdownContent="{Binding RawMarkdown}"/>
             </Grid>
 
             <!-- Empty state -->

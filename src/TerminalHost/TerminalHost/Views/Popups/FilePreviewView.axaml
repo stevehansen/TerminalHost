@@ -64,7 +64,7 @@
                 </ScrollViewer>
 
                 <!-- Markdown Mode -->
-                <controls:MarkdownViewer HtmlContent="{Binding RenderedHtml}"
+                <controls:MarkdownViewer MarkdownContent="{Binding RawMarkdown}"
                                          IsVisible="{Binding IsMarkdown}" />
 
                 <!-- Image Mode -->

@@ -150,7 +150,7 @@ The following use direct system calls because they don't participate in DI or ex
 - **Framework**: Avalonia UI 11.2 on .NET 8
 - **Terminal Control**: Custom MacTerminalControl with PTY via Python helper
 - **MVVM**: CommunityToolkit.Mvvm for view models
-- **Markdown**: Markdig with syntax highlighting
+- **Markdown**: Custom renderer using Markdig AST (headings, bold, italic, code blocks, lists, task lists, links, blockquotes)
 - **Charts**: LiveCharts for statistics
 - **Dialogs**: MessageBox.Avalonia
 - **Configuration**: JSON file stored in `~/Library/Application Support/TerminalHost/config.json`
@@ -238,7 +238,7 @@ TerminalHost/
 │   │   ├── DraggablePopup.axaml(.cs) # Draggable popup base control
 │   │   ├── DiffViewer.axaml(.cs)     # Unified diff viewer
 │   │   ├── SideBySideDiffViewer.axaml(.cs) # Side-by-side diff viewer
-│   │   ├── MarkdownViewer.axaml(.cs) # Markdown rendering control
+│   │   ├── MarkdownViewer.axaml(.cs) # Custom markdown renderer using Markdig AST
 │   │   └── PrCommentThread.axaml(.cs) # PR comment thread display
 │   ├── Domain/
 │   │   ├── Profile.cs                # Configuration template for terminal sessions

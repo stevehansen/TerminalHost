@@ -24,7 +24,7 @@ public partial class FilePreviewViewModel : ObservableObject
     private string _contentError = "";
 
     [ObservableProperty]
-    private string _renderedHtml = "";
+    private string _rawMarkdown = "";
 
     [ObservableProperty]
     private string _imageSource = "";
@@ -120,7 +120,7 @@ public partial class FilePreviewViewModel : ObservableObject
             if (extension == ".md")
             {
                 IsMarkdown = true;
-                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "");
+                RawMarkdown = result.Content ?? "";
             }
             else
             {
@@ -179,7 +179,7 @@ public partial class FilePreviewViewModel : ObservableObject
         _currentFilePath = null;
         Content = "Select a file to preview.";
         ContentError = "";
-        RenderedHtml = "";
+        RawMarkdown = "";
         ImageSource = "";
         IsText = true;
         IsMarkdown = false;

@@ -59,7 +59,7 @@ public partial class PrReviewViewModel : ObservableObject
     private TestRunSummary? _testSummary;
 
     [ObservableProperty]
-    private string _bodyHtml = "";
+    private string _bodyMarkdown = "";
 
     [ObservableProperty]
     private bool _isBodyExpanded;
@@ -125,7 +125,7 @@ public partial class PrReviewViewModel : ObservableObject
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
-        BodyHtml = "";
+        BodyMarkdown = "";
         IsBodyExpanded = false;
 
         try
@@ -148,7 +148,7 @@ public partial class PrReviewViewModel : ObservableObject
             // Convert body markdown to HTML
             if (!string.IsNullOrWhiteSpace(pr.Body))
             {
-                BodyHtml = _markdownService.ConvertToHtml(pr.Body);
+                BodyMarkdown = pr.Body;
             }
 
             // Load the files changed in this PR
@@ -182,7 +182,7 @@ public partial class PrReviewViewModel : ObservableObject
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
-        BodyHtml = "";
+        BodyMarkdown = "";
         IsBodyExpanded = false;
 
         try
@@ -200,7 +200,7 @@ public partial class PrReviewViewModel : ObservableObject
             // Convert body markdown to HTML
             if (!string.IsNullOrWhiteSpace(pr.Body))
             {
-                BodyHtml = _markdownService.ConvertToHtml(pr.Body);
+                BodyMarkdown = pr.Body;
                 OnPropertyChanged(nameof(HasBody));
             }
 
@@ -317,7 +317,7 @@ public partial class PrReviewViewModel : ObservableObject
         ChangedFiles.Clear();
         DiffContent = "";
         PendingComments.Clear();
-        BodyHtml = "";
+        BodyMarkdown = "";
         IsBodyExpanded = false;
         PrComments = null;
         CurrentFileThreads.Clear();

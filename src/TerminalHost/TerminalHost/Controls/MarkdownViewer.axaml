@@ -8,13 +8,15 @@
     <Border Background="#1E1E1E">
         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto">
-            <TextBlock x:Name="ContentTextBlock"
-                       Foreground="#D4D4D4"
-                       FontFamily="Consolas,Menlo,Monaco,monospace"
-                       FontSize="14"
-                       TextWrapping="Wrap"
-                       Padding="20"
-                       LineHeight="24"/>
+            <ItemsControl x:Name="ContentPanel"
+                          Padding="20"
+                          ItemsSource="{Binding MarkdownBlocks, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical" Spacing="8"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
         </ScrollViewer>
     </Border>
 </UserControl>
