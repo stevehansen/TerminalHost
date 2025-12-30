@@ -144,6 +144,8 @@ The following use direct system calls because they don't participate in DI or ex
 - **Git Worktrees**: Create and manage git worktrees for parallel development
 - **Workspace Sidebar**: Alternative layout with sidebar navigation for workspaces
 - **App Layout Modes**: Switch between Tabs mode and Sidebar mode
+- **First-Run Setup**: Automatic dependency checker on first launch
+- **File Explorer**: Tree view with git status indicators and gitignore filtering
 
 ## Technology Stack
 
@@ -302,6 +304,7 @@ TerminalHost/
 │   │   ├── TimelineFileChange.cs     # File change in timeline
 │   │   ├── TimeScale.cs              # Timeline scale enum
 │   │   ├── OrphanSession.cs          # Orphan session model
+│   │   ├── CommandLineArgs.cs        # Parsed command line arguments
 │   │   ├── FilePreviewRequestedEventArgs.cs  # File preview event args
 │   │   └── FileEditRequestedEventArgs.cs     # File edit event args
 │   ├── Services/
@@ -578,7 +581,8 @@ Config file: `~/Library/Application Support/TerminalHost/config.json`
     "layoutMode": "Tabs",
     "sidebarWidth": 250,
     "gitAutoFetch": true,
-    "gitAutoFetchIntervalSeconds": 60
+    "gitAutoFetchIntervalSeconds": 60,
+    "hideGitIgnoredFiles": true
   },
   "windowState": {
     "left": 100,
@@ -651,7 +655,9 @@ Config file: `~/Library/Application Support/TerminalHost/config.json`
     "scale": "Minutes",
     "showFileChanges": true,
     "expandedSessions": []
-  }
+  },
+  "firstRunCompleted": false,
+  "firstRunDate": null
 }
 ```
 
@@ -723,3 +729,17 @@ Automatically fetches from git remotes periodically to keep behind counts up to 
 - **Configurable interval**: `gitAutoFetchIntervalSeconds: 60` (minimum 30 seconds)
 - Runs for all open project tabs in the background
 - Silently ignores network errors
+
+### First-Run Setup
+On first launch (or with `--setup` flag), shows the Setup window:
+- Checks for recommended dependencies (Git, Claude Code, GitHub CLI, etc.)
+- Displays installation status and instructions
+- Sets `firstRunCompleted: true` after closing
+- Can be re-opened via Command Palette: "Open Setup"
+
+### File Explorer Gitignore Support
+The File Explorer (`Cmd+Shift+F`) can hide files matching `.gitignore` patterns:
+- **Toggle button**: 🚫 icon in File Explorer header
+- **Enabled by default**: `hideGitIgnoredFiles: true`
+- Uses `git status --ignored --porcelain` for accurate filtering
+- Respects nested `.gitignore` files in subdirectories

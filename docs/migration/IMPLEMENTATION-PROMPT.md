@@ -466,9 +466,10 @@ public interface IGitWorktreeService
 
 ---
 
-## Feature 9: .gitignore Support
+## Feature 9: .gitignore Support ✅ IMPLEMENTED
 
 **Master branch commit:** `eaee789`
+**macOS implementation:** File Explorer toggle button (🚫 icon), `hideGitIgnoredFiles` setting
 
 ### What it does
 Hide git-ignored files in file explorer.
@@ -493,9 +494,10 @@ public interface IGitIgnoreService
 
 ---
 
-## Feature 10: First-Run Setup
+## Feature 10: First-Run Setup ✅ IMPLEMENTED
 
 **Master branch commit:** `93273f3`
+**macOS implementation:** SetupWindow on first launch, `--setup` CLI flag
 
 ### What it does
 Show setup window on first launch.
@@ -1107,8 +1109,8 @@ git status --ignored --porcelain
 8. ~~**Workspace Sidebar**~~ ✅ DONE
 
 ### UX Improvements (Phase 2)
-9. **.gitignore Support** (Low complexity) - **NOT YET IMPLEMENTED**
-10. **First-Run Setup** (Low complexity) - **NOT YET IMPLEMENTED**
+9. ~~**.gitignore Support**~~ ✅ DONE
+10. ~~**First-Run Setup**~~ ✅ DONE
 11. **Toast Notification System** (Medium) - **NOT YET IMPLEMENTED**
 12. **Terminal Window Title Display** (Low) - **NOT YET IMPLEMENTED**
 13. **Syntax Highlighting in Markdown** (Low) - **NOT YET IMPLEMENTED**
@@ -1129,5 +1131,5 @@ git status --ignored --porcelain
 24. ~~**Timeline Mode**~~ ✅ DONE
 
 **Remaining Features Summary:**
-- Phase 2: Features 9-10, 11-13 (5 features remaining)
+- Phase 2: Features 11-13 (3 features remaining)
 - Phase 3: Feature 20 (1 feature remaining)
