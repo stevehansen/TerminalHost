@@ -118,11 +118,25 @@ fi
 # Make executable
 chmod +x "$APP_BUNDLE/Contents/MacOS/host"
 
-# Optional: Code signing (requires Apple Developer account)
+# Code signing
+ENTITLEMENTS="$PROJECT_PATH/TerminalHost.entitlements"
 if [ -n "$CODESIGN_IDENTITY" ]; then
-    echo "Code signing app bundle..."
-    codesign --force --deep --sign "$CODESIGN_IDENTITY" "$APP_BUNDLE"
+    echo "Code signing app bundle with identity: $CODESIGN_IDENTITY"
+    if [ -f "$ENTITLEMENTS" ]; then
+        codesign --force --deep --options runtime --entitlements "$ENTITLEMENTS" --sign "$CODESIGN_IDENTITY" "$APP_BUNDLE"
+    else
+        codesign --force --deep --options runtime --sign "$CODESIGN_IDENTITY" "$APP_BUNDLE"
+    fi
     echo "Code signing complete."
+else
+    # Ad-hoc signing with entitlements (allows local use without Apple Developer account)
+    echo "Ad-hoc code signing with entitlements..."
+    if [ -f "$ENTITLEMENTS" ]; then
+        codesign --force --deep --entitlements "$ENTITLEMENTS" --sign - "$APP_BUNDLE"
+        echo "Ad-hoc signing complete. App can access Dropbox/cloud storage."
+    else
+        echo "Warning: No entitlements file found. App may have limited file access."
+    fi
 fi
 
 echo ""
