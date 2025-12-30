@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using TerminalHost.Views;
 
 namespace TerminalHost;
 
@@ -526,7 +528,17 @@ public partial class MainWindow : Window
 
     private void OnSetupRequested(object? sender, EventArgs e)
     {
-        // TODO: Create SetupWindow when implemented for Avalonia
+        // Create and show SetupWindow
+        var services = App.Current.Services;
+        var setupViewModel = new SetupViewModel(
+            services.GetService<ISystemInfoService>(),
+            services.GetService<IProcessService>());
+
+        var clipboardService = services.GetRequiredService<IClipboardService>();
+        var timerService = services.GetRequiredService<ITimerService>();
+
+        var setupWindow = new SetupWindow(setupViewModel, clipboardService, timerService, isStartupMode: false);
+        setupWindow.Show(this);
     }
 
     private async void OnPrReviewRequested(object? sender, EventArgs e)

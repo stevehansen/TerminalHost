@@ -1,3 +1,5 @@
+using TerminalHost.Domain;
+
 namespace TerminalHost.Services;
 
 public interface ISingleInstanceService : IDisposable

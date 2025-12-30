@@ -229,6 +229,7 @@
     <Compile Include="Domain\TimelineState.cs" />
     <Compile Include="Domain\TimeScale.cs" />
     <Compile Include="Domain\OrphanSession.cs" />
+    <Compile Include="Domain\CommandLineArgs.cs" />
     <!-- TerminalLayoutMode is defined in AppConfiguration.cs -->
     <!-- ProfileLaunchEventArgs is defined in ProfilesTabViewModel.cs -->
   </ItemGroup>

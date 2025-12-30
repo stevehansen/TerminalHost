@@ -1196,4 +1196,37 @@ internal sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Gitignore Operations
+
+    public async Task<HashSet<string>> GetIgnoredFilesAsync(string workingDirectory)
+    {
+        var ignoredFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return ignoredFiles;
+
+        // Use git status --ignored --porcelain to get ignored files
+        // Output format for ignored files: !! path/to/file
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --ignored --porcelain");
+
+        if (string.IsNullOrEmpty(output))
+            return ignoredFiles;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            // Ignored files are marked with !!
+            if (line.StartsWith("!! "))
+            {
+                var relativePath = line.Substring(3).TrimEnd('/');
+                var fullPath = Path.GetFullPath(Path.Combine(workingDirectory, relativePath));
+                ignoredFiles.Add(fullPath);
+            }
+        }
+
+        return ignoredFiles;
+    }
+
+    #endregion
 }

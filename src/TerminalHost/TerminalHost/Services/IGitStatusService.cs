@@ -60,4 +60,11 @@ public interface IGitStatusService
     Task<(bool Success, string? Error)> RevertAsync(string workingDirectory, string commitHash);
     Task<(bool Success, string? Error)> RevertContinueAsync(string workingDirectory);
     Task<(bool Success, string? Error)> RevertAbortAsync(string workingDirectory);
+
+    // Gitignore operations
+    /// <summary>
+    /// Gets the set of files that are ignored by .gitignore.
+    /// Returns full paths for all ignored files.
+    /// </summary>
+    Task<HashSet<string>> GetIgnoredFilesAsync(string workingDirectory);
 }

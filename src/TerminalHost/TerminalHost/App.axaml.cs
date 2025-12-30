@@ -2,8 +2,10 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
+using TerminalHost.Views;
 
 namespace TerminalHost;
 
@@ -14,6 +16,11 @@ public partial class App : Application
     public new static App Current => (App)Application.Current!;
     public IServiceProvider Services => _services!;
 
+    /// <summary>
+    /// Parsed command line arguments.
+    /// </summary>
+    public CommandLineArgs? StartupArgs { get; private set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -23,20 +30,69 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Parse command line arguments
+            StartupArgs = CommandLineArgs.Parse(desktop.Args ?? []);
+
             // Configure DI
             var services = new ServiceCollection();
             ConfigureServices(services);
             _services = services.BuildServiceProvider();
 
-            // Create main window
-            var mainWindow = _services.GetRequiredService<MainWindow>();
-            desktop.MainWindow = mainWindow;
+            // Load configuration to check for first run
+            var configService = _services.GetRequiredService<IConfigurationService>();
+            var config = configService.Load();
+
+            // Show setup window if --setup flag or first run
+            if (StartupArgs.IsSetupMode || config.IsDefault())
+            {
+                ShowSetupWindowThenMain(desktop, configService, config);
+            }
+            else
+            {
+                // Create main window directly
+                var mainWindow = _services.GetRequiredService<MainWindow>();
+                desktop.MainWindow = mainWindow;
+            }
 
             // Handle shutdown
             desktop.ShutdownRequested += OnShutdownRequested;
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void ShowSetupWindowThenMain(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        IConfigurationService configService,
+        Domain.AppConfiguration config)
+    {
+        // Create SetupWindow
+        var setupViewModel = new SetupViewModel(
+            _services!.GetService<ISystemInfoService>(),
+            _services!.GetService<IProcessService>());
+
+        var clipboardService = _services!.GetRequiredService<IClipboardService>();
+        var timerService = _services!.GetRequiredService<ITimerService>();
+
+        var setupWindow = new SetupWindow(setupViewModel, clipboardService, timerService, isStartupMode: true);
+
+        setupWindow.Closed += (_, _) =>
+        {
+            // Mark first run as completed
+            if (!config.FirstRunCompleted)
+            {
+                config.FirstRunCompleted = true;
+                config.FirstRunDate = DateTime.UtcNow;
+                configService.Save(config);
+            }
+
+            // Now show the main window
+            var mainWindow = _services!.GetRequiredService<MainWindow>();
+            desktop.MainWindow = mainWindow;
+            mainWindow.Show();
+        };
+
+        desktop.MainWindow = setupWindow;
     }
 
     private void ConfigureServices(IServiceCollection services)

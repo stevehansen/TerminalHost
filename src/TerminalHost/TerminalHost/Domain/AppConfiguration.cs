@@ -98,6 +98,29 @@ public class AppConfiguration
     [JsonPropertyName("timelineState")]
     public TimelineState? TimelineState { get; set; }
 
+    /// <summary>
+    /// Whether the first-run setup has been completed.
+    /// </summary>
+    [JsonPropertyName("firstRunCompleted")]
+    public bool FirstRunCompleted { get; set; }
+
+    /// <summary>
+    /// The date when first-run setup was completed.
+    /// </summary>
+    [JsonPropertyName("firstRunDate")]
+    public DateTime? FirstRunDate { get; set; }
+
+    /// <summary>
+    /// Returns true if this is a fresh/default configuration (no meaningful user data).
+    /// Used to determine if first-run setup should be shown.
+    /// </summary>
+    public bool IsDefault() =>
+        !FirstRunCompleted &&
+        OpenFolders.Count == 0 &&
+        ScratchPads.Count == 0 &&
+        Tasks.Count == 0 &&
+        Profiles.Count <= 1;
+
     private static List<LinkPattern> GetDefaultLinkPatterns() =>
     [
         // Example pattern - users can customize or add their own
@@ -425,6 +448,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("gitAutoFetchIntervalSeconds")]
     public int GitAutoFetchIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Whether to hide git-ignored files in the file explorer (default: true).
+    /// </summary>
+    [JsonPropertyName("hideGitIgnoredFiles")]
+    public bool HideGitIgnoredFiles { get; set; } = true;
 }
 
 /// <summary>
