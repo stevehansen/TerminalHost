@@ -258,6 +258,18 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Updates IsCurrentTab for all workspaces based on the selected tab's working directory.
+    /// </summary>
+    public void UpdateCurrentTab(string? currentPath)
+    {
+        foreach (var workspace in Workspaces.Concat(Playgrounds))
+        {
+            workspace.IsCurrentTab = !string.IsNullOrEmpty(currentPath) &&
+                string.Equals(workspace.Path, currentPath, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>
     /// Refreshes git status for all workspaces.
     /// </summary>
     public async Task RefreshAllGitStatusAsync()

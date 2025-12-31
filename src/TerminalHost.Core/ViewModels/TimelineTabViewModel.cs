@@ -25,8 +25,10 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     public string WorkingDirectory => string.Empty;
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
-    public bool IsSelected { get; set; }
     public bool IsVisibleInFocusMode => true;
+
+    [ObservableProperty]
+    private bool _isSelected;
     public bool ShowActivitySpinner => false;
     public bool ShowCompletedIndicator => false;
     public bool IsTerminalInitialized => true;

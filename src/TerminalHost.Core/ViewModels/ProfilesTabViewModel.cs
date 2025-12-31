@@ -46,8 +46,10 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
     public bool CanDuplicate => false;
     public bool IsAnyTerminalActive => false;
     public bool HasUnreadActivity => false;
-    public bool IsSelected { get; set; }
     public bool IsVisibleInFocusMode => true; // Profiles always visible
+
+    [ObservableProperty]
+    private bool _isSelected;
     public bool ShowActivitySpinner => false;
     public bool ShowCompletedIndicator => false;
     public bool IsTerminalInitialized => true;

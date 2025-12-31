@@ -21,24 +21,21 @@ public partial class WorkspaceSidebarView : UserControl
 
     private void Workspace_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Handle double-click to open
-        if (e.ClickCount == 2 && sender is FrameworkElement element && element.DataContext is WorkspaceEntryViewModel workspace)
+        // Single-click opens the workspace (same behavior as double-click before)
+        if (sender is FrameworkElement element && element.DataContext is WorkspaceEntryViewModel workspace)
         {
             workspace.OpenCommand.Execute(null);
+            if (ViewModel != null)
+            {
+                ViewModel.SelectedWorkspace = workspace;
+            }
             e.Handled = true;
         }
     }
 
     private void Workspace_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        // Single click selects the workspace
-        if (sender is FrameworkElement element && element.DataContext is WorkspaceEntryViewModel workspace)
-        {
-            if (ViewModel != null)
-            {
-                ViewModel.SelectedWorkspace = workspace;
-            }
-        }
+        // No-op - opening is handled in MouseLeftButtonDown for immediate response
     }
 
     private void Worktree_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

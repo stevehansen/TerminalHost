@@ -39,9 +39,31 @@
         <!-- Workspace Item Template -->
         <DataTemplate x:Key="WorkspaceItemTemplate" DataType="{x:Type viewModels:WorkspaceEntryViewModel}">
             <Border Padding="4,2" Cursor="Hand"
-                    Background="Transparent"
                     MouseLeftButtonDown="Workspace_MouseLeftButtonDown"
                     MouseLeftButtonUp="Workspace_MouseLeftButtonUp">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="3,0,0,0"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCurrentTab}" Value="True">
+                                <Setter Property="Background" Value="#1E3A5F"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2A2A2A"/>
+                            </Trigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsCurrentTab}" Value="True"/>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Background" Value="#254A6F"/>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Border.ContextMenu>
                     <ContextMenu Style="{StaticResource DarkContextMenu}">
                         <MenuItem Header="Open"
@@ -399,8 +421,30 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Padding="8,4" Cursor="Hand"
-                            Background="Transparent"
                             MouseLeftButtonDown="OpenTab_MouseLeftButtonDown">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="3,0,0,0"/>
+                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Background" Value="#1E3A5F"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#2A2A2A"/>
+                                    </Trigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsSelected}" Value="True"/>
+                                            <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="#254A6F"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

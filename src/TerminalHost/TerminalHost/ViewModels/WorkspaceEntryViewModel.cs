@@ -23,6 +23,9 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _isSelected;
 
     [ObservableProperty]
+    private bool _isCurrentTab;
+
+    [ObservableProperty]
     private bool _isActive;
 
     [ObservableProperty]

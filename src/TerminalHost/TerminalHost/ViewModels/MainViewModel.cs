@@ -187,10 +187,13 @@ public partial class MainViewModel : ObservableObject
                     : "";
                 return $"{terminalTab.Title}{gitBranch} - TerminalHost";
             }
-            else if (SelectedTab is SettingsTabViewModel)
+
+            // Handle non-project tabs by using their Title
+            if (SelectedTab != null)
             {
-                return "Settings - TerminalHost";
+                return $"{SelectedTab.Title} - TerminalHost";
             }
+
             return "TerminalHost";
         }
     }
@@ -360,11 +363,21 @@ public partial class MainViewModel : ObservableObject
             // Clear unread activity indicator when tab is selected/focused
             newValue.ClearUnreadActivity();
 
-            // Also clear unread activity in workspace sidebar
+            // Update workspace sidebar highlighting
             if (newValue is TerminalPairTabViewModel terminalTab)
             {
                 WorkspaceSidebar?.ClearUnreadActivity(terminalTab.Pair.WorkingDirectory);
+                WorkspaceSidebar?.UpdateCurrentTab(terminalTab.Pair.WorkingDirectory);
             }
+            else
+            {
+                // For non-project tabs, clear the current tab highlight
+                WorkspaceSidebar?.UpdateCurrentTab(null);
+            }
+        }
+        else
+        {
+            WorkspaceSidebar?.UpdateCurrentTab(null);
         }
     }
 
