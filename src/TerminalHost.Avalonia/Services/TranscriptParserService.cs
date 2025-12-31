@@ -57,7 +57,9 @@ public static class TranscriptParserService
                 return result;
             }
 
-            var lines = await File.ReadAllLinesAsync(transcriptPath);
+            // Open with FileShare.ReadWrite to avoid locking conflicts with Claude Code
+            // which may still be writing to the transcript file
+            var lines = await ReadAllLinesSharedAsync(transcriptPath);
             var commands = new HashSet<string>();
             string? lastAssistantMessage = null;
             var toolCallCount = 0;
@@ -244,5 +246,22 @@ public static class TranscriptParserService
             result = result[..497] + "...";
 
         return result;
+    }
+
+    /// <summary>
+    /// Reads all lines from a file with FileShare.ReadWrite to avoid locking conflicts.
+    /// </summary>
+    private static async Task<string[]> ReadAllLinesSharedAsync(string path)
+    {
+        var lines = new List<string>();
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync();
+            if (line != null)
+                lines.Add(line);
+        }
+        return lines.ToArray();
     }
 }

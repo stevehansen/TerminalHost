@@ -308,10 +308,13 @@ public class TranscriptParserService
 
     /// <summary>
     /// Asynchronously reads lines from a file.
+    /// Opens with FileShare.ReadWrite to avoid locking conflicts with Claude Code
+    /// which may still be writing to the transcript file.
     /// </summary>
     private async IAsyncEnumerable<string> ReadLinesAsync(string path)
     {
-        using var reader = new StreamReader(path);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
         while (!reader.EndOfStream)
         {
             var line = await reader.ReadLineAsync();
