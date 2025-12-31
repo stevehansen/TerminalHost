@@ -1,8 +1,17 @@
 # TerminalHost
 
-**TerminalHost** (executable: `host.exe`) is a WPF desktop application that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), allowing easy switching between them without termination.
+**TerminalHost** is a desktop application that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal, allowing easy switching between them without termination.
 
 It's designed for developers who work with AI coding assistants and need to seamlessly switch between the AI and a regular shell without losing context.
+
+## Platform Support
+
+| Platform | Executable | UI Framework | Shell |
+|----------|------------|--------------|-------|
+| **Windows** | `host.exe` | WPF (.NET 8) | PowerShell |
+| **macOS** | `host` | Avalonia (.NET 8) | zsh |
+
+Both versions share the same core functionality and configuration format.
 
 ## Getting Started
 
@@ -10,10 +19,16 @@ It's designed for developers who work with AI coding assistants and need to seam
 
 From the command line:
 ```bash
+# Windows
 host              # Open/focus the application
 host .            # Open project from current directory
 host P:\MyProject # Open project from a specific path
 host /setup       # Launch the setup/dependency checker
+
+# macOS
+host              # Open/focus the application
+host .            # Open project from current directory
+host ~/Projects   # Open project from a specific path
 ```
 
 From within the application:
@@ -27,7 +42,7 @@ Each project tab gives you three terminals:
 | Terminal | Purpose | Toggle |
 |----------|---------|--------|
 | **Custom** | AI assistant (Claude Code by default) | Always visible (left/top) |
-| **Shell** | PowerShell for manual commands | `Ctrl+\`` to switch focus |
+| **Shell** | PowerShell (Windows) or zsh (macOS) | `Ctrl+\`` to switch focus |
 | **Run** | Development server output | `F5` to start, toggle visibility in toolbar |
 
 Layout modes: Custom Full, Horizontal Split, Vertical Split (toggle in toolbar).
@@ -153,7 +168,11 @@ host --user-data-dir "C:\Path"  # Override configuration path (or -data)
 
 ## Configuration
 
-The configuration file is located at `%APPDATA%\TerminalHost\config.json`. You can edit it directly or use the built-in settings editor (`Ctrl+,`).
+Configuration file location:
+- **Windows**: `%APPDATA%\TerminalHost\config.json`
+- **macOS**: `~/.config/TerminalHost/config.json`
+
+You can edit it directly or use the built-in settings editor (`Ctrl+,`).
 
 The configuration allows you to customize:
 - Terminal commands (e.g., `customCommand`, `shellCommand`)
@@ -165,20 +184,33 @@ The configuration allows you to customize:
 
 ### Technology Stack
 
-- **Framework**: WPF on .NET 8
-- **Terminal Control**: EasyWindowsTerminalControl
-- **MVVM**: CommunityToolkit.Mvvm
-- **Single Instance**: Mutex + named pipe IPC
+| Component | Windows | macOS |
+|-----------|---------|-------|
+| **UI Framework** | WPF (.NET 8) | Avalonia (.NET 8) |
+| **Terminal Control** | EasyWindowsTerminalControl | Native PTY via Python helper |
+| **MVVM** | CommunityToolkit.Mvvm | CommunityToolkit.Mvvm |
+| **Single Instance** | Mutex + Named Pipes | Unix Domain Sockets |
+
+### Project Structure
+
+```
+src/
+├── TerminalHost.Core/      # Platform-agnostic (domain, interfaces, services)
+├── TerminalHost.Windows/   # Windows-specific services (system tray, timers)
+├── TerminalHost.macOS/     # macOS-specific services (PTY, Unix sockets)
+├── TerminalHost/           # Windows WPF application
+└── TerminalHost.Avalonia/  # macOS Avalonia application
+```
 
 ### Build Commands
 
 ```bash
-# Build the solution
+# Build for Windows
 dotnet build
-
-# Run the application
 dotnet run --project src/TerminalHost/TerminalHost
-
-# Publish as a single executable
 dotnet publish src/TerminalHost/TerminalHost -c Release -o publish
+
+# Build for macOS (on macOS)
+dotnet build src/TerminalHost.Avalonia
+dotnet publish src/TerminalHost.Avalonia -c Release -r osx-arm64 -o publish
 ```

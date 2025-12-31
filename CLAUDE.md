@@ -160,15 +160,22 @@ The following use direct system calls because they don't participate in DI or ex
 
 ## Project Overview
 
-**TerminalHost** (executable: `host.exe`) is a WPF desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal (PowerShell), plus an optional run terminal for development servers. Allows easy switching between them without termination.
+**TerminalHost** is a cross-platform desktop application (.NET 8) that manages terminal pairs for project directories. Each project tab contains two terminals: a custom command terminal (default: Claude Code) and a shell terminal, plus an optional run terminal for development servers. Allows easy switching between them without termination.
+
+| Platform | Executable | UI Framework | Shell |
+|----------|------------|--------------|-------|
+| Windows | `host.exe` | WPF | PowerShell |
+| macOS | `host` | Avalonia | zsh |
 
 ## Technology Stack
 
-- **Framework**: WPF on .NET 8
-- **Terminal Control**: EasyWindowsTerminalControl (NuGet package)
-- **MVVM**: CommunityToolkit.Mvvm for view models
-- **Configuration**: JSON file stored in `%APPDATA%\TerminalHost\config.json`
-- **Single Instance**: Mutex detection with named pipe IPC
+| Component | Windows | macOS |
+|-----------|---------|-------|
+| **UI Framework** | WPF (.NET 8) | Avalonia (.NET 8) |
+| **Terminal Control** | EasyWindowsTerminalControl | Native PTY via Python helper |
+| **MVVM** | CommunityToolkit.Mvvm | CommunityToolkit.Mvvm |
+| **Single Instance** | Mutex + Named Pipes | Unix Domain Sockets |
+| **Config Location** | `%APPDATA%\TerminalHost\` | `~/.config/TerminalHost/` |
 
 ## Domain Model
 
@@ -199,21 +206,23 @@ The following use direct system calls because they don't participate in DI or ex
 ## Build Commands
 
 ```bash
-# Build the solution
+# Build the solution (all projects)
 dotnet build
 
-# Run the application
+# Windows - Run the WPF application
 dotnet run --project src/TerminalHost/TerminalHost
 
-# Build for release
-dotnet build -c Release
-
-# Publish as single executable (self-contained, ~70MB)
+# Windows - Publish as single executable (~70MB)
 dotnet publish src/TerminalHost/TerminalHost -c Release -o publish
 
-# Output locations
-# Debug: src/TerminalHost/TerminalHost/bin/Debug/net8.0-windows/win-x64/host.exe
-# Publish: publish/host.exe (single file, no .NET runtime required)
+# macOS - Run the Avalonia application (on macOS)
+dotnet run --project src/TerminalHost.Avalonia
+
+# macOS - Publish for Apple Silicon
+dotnet publish src/TerminalHost.Avalonia -c Release -r osx-arm64 -o publish
+
+# macOS - Publish for Intel
+dotnet publish src/TerminalHost.Avalonia -c Release -r osx-x64 -o publish
 ```
 
 ## Command Line Usage
@@ -248,9 +257,59 @@ host --no-setup                 # Skip first-run setup check
 
 If a project tab for the specified directory already exists, it will be focused instead of creating a new tab (unless `--new` is used).
 
-## Project Structure
+## Cross-Platform Architecture
 
-The codebase follows a modular architecture with reusable components extracted into dedicated views and view models.
+The codebase is split into platform-agnostic and platform-specific projects:
+
+```
+src/
+├── TerminalHost.Core/        # Platform-agnostic (.NET 8)
+│   ├── Domain/               # All domain models (44 files)
+│   ├── Interfaces/           # Service contracts (23 interfaces)
+│   ├── Services/             # Portable service implementations
+│   └── ViewModels/           # Portable ViewModels (5 files)
+│
+├── TerminalHost.Windows/     # Windows-specific (.NET 8 Windows)
+│   ├── Services/             # TimerService, ToastService, SingleInstanceService
+│   └── Platform/             # DarkModeHelper (P/Invoke)
+│
+├── TerminalHost.macOS/       # macOS-specific (.NET 8)
+│   ├── Services/             # MacSingleInstanceService, MacTimerService
+│   └── Resources/            # pty_helper.py for PTY support
+│
+├── TerminalHost/             # Windows WPF application
+│   ├── Views/                # WPF XAML views
+│   ├── ViewModels/           # WPF-coupled ViewModels
+│   └── Services/             # WPF-coupled services (DialogService, etc.)
+│
+└── TerminalHost.Avalonia/    # macOS Avalonia application
+    ├── Views/                # Avalonia AXAML views
+    ├── ViewModels/           # Avalonia-coupled ViewModels
+    └── Services/             # Avalonia-coupled services
+```
+
+### Important: Cross-Platform Code Changes
+
+**When modifying code, consider which project(s) need updates:**
+
+| Change Type | Where to Update |
+|-------------|-----------------|
+| Domain models (data classes) | `TerminalHost.Core/Domain/` |
+| Service interfaces | `TerminalHost.Core/Interfaces/` |
+| Platform-agnostic logic | `TerminalHost.Core/Services/` or `ViewModels/` |
+| Windows-only features | `TerminalHost/` and/or `TerminalHost.Windows/` |
+| macOS-only features | `TerminalHost.Avalonia/` and/or `TerminalHost.macOS/` |
+| UI views (both platforms) | `TerminalHost/Views/` (XAML) AND `TerminalHost.Avalonia/Views/` (AXAML) |
+| Platform services (timers, dialogs) | Both `TerminalHost.Windows/` AND `TerminalHost.macOS/` |
+
+**Examples:**
+- Adding a new setting → Update `AppSettings.cs` in Core, then update Settings views in both WPF and Avalonia
+- New git feature → Add interface to Core, implement in Core if portable, update views in both apps
+- Windows-specific fix → Only update `TerminalHost/` or `TerminalHost.Windows/`
+
+## Project Structure (Windows WPF App)
+
+The Windows application follows a modular architecture with reusable components extracted into dedicated views and view models.
 
 ```
 TerminalHost/
@@ -410,7 +469,9 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ## Configuration Schema
 
-Config file: `%APPDATA%\TerminalHost\config.json`
+Config file location:
+- **Windows**: `%APPDATA%\TerminalHost\config.json`
+- **macOS**: `~/.config/TerminalHost/config.json`
 
 ```json
 {
@@ -498,7 +559,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | Spec | Description | Status | Notes |
 |------|-------------|--------|-------|
 | [Panels.md](docs/specs/Panels.md) | Unified panel system (dock/popup/window states) | **Completed** | Panel transitions, .gitignore support |
-| [CrossPlatform.md](docs/specs/CrossPlatform.md) | Code separation for future cross-platform | **Completed** | Core/Windows/App project split |
+| [CrossPlatform.md](docs/specs/CrossPlatform.md) | Cross-platform support (Windows + macOS) | **Completed** | Core/Windows/macOS/Avalonia projects |
 | [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
 
