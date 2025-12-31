@@ -262,6 +262,26 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive || IsRunTerminalActive;
 
     /// <summary>
+    /// True if activity spinner should be shown.
+    /// </summary>
+    public bool ShowActivitySpinner => IsAnyTerminalActive;
+
+    /// <summary>
+    /// True if completed indicator should be shown.
+    /// </summary>
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive;
+
+    /// <summary>
+    /// True if terminals have been initialized.
+    /// </summary>
+    public bool IsTerminalInitialized => Pair?.CustomTerminal?.TerminalControl != null;
+
+    /// <summary>
+    /// Initializes terminals asynchronously.
+    /// </summary>
+    public Task InitializeTerminalsAsync() => Task.CompletedTask;
+
+    /// <summary>
     /// Collection of detected links from terminal output.
     /// </summary>
     public ObservableCollection<DetectedLink> DetectedLinks { get; } = [];

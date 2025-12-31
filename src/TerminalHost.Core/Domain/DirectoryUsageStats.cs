@@ -22,4 +22,9 @@ public class DirectoryUsageStats
     /// Key: "yyyy-MM-dd"
     /// </summary>
     public Dictionary<string, long> FocusTimeSecondsByDay { get; set; } = [];
+
+    /// <summary>
+    /// Alias for FocusTimeSecondsByDay for compatibility.
+    /// </summary>
+    public Dictionary<string, long> FocusTimeByDay => FocusTimeSecondsByDay;
 }

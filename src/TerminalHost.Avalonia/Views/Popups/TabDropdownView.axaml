@@ -1,0 +1,88 @@
+<UserControl x:Class="TerminalHost.Views.Popups.TabDropdownView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:TerminalHost"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:core="clr-namespace:TerminalHost.Core.Interfaces;assembly=TerminalHost.Core"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             d:DesignHeight="300" d:DesignWidth="200">
+
+   <Border Background="{StaticResource BackgroundMediumBrush}"
+           BorderBrush="{StaticResource BorderSubtleBrush}"
+           BorderThickness="1"
+           CornerRadius="4"
+           Padding="4"
+           MaxHeight="400"
+           MinWidth="200">
+       <Grid>
+           <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="*"/>
+           </Grid.RowDefinitions>
+
+           <!-- Search Box & Close Button -->
+           <Grid Grid.Row="0" Margin="0,0,0,4">
+               <Grid.ColumnDefinitions>
+                   <ColumnDefinition Width="*"/>
+                   <ColumnDefinition Width="Auto"/>
+               </Grid.ColumnDefinitions>
+
+               <TextBox x:Name="DropdownSearchBox"
+                        Grid.Column="0"
+                        Background="{StaticResource BackgroundDarkestBrush}"
+                        Foreground="{StaticResource TextPrimaryBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        Padding="6,4"
+                        Text="{Binding DropdownSearchText, Mode=TwoWay}">
+                   <TextBox.Styles>
+                       <Style Selector="TextBox[Text='']">
+                           <Setter Property="Background" Value="{StaticResource BackgroundDarkestBrush}"/>
+                       </Style>
+                   </TextBox.Styles>
+               </TextBox>
+
+               <Button Grid.Column="1"
+                       Content="├ù"
+                       Classes="TabCloseButton"
+                       Padding="8,2"
+                       Margin="4,0,0,0"
+                       VerticalAlignment="Stretch"/>
+           </Grid>
+
+           <!-- Tab List -->
+           <ListBox x:Name="DropdownTabList"
+                    Grid.Row="1"
+                    ItemsSource="{Binding FilteredDropdownTabs}"
+                    SelectedItem="{Binding SelectedTab, Mode=OneWay}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    MaxHeight="350">
+               <ListBox.ItemTemplate>
+                   <DataTemplate DataType="core:ITabViewModel">
+                       <StackPanel Orientation="Horizontal" Margin="4,2">
+                           <TextBlock Text="{Binding TabIcon}" Margin="0,0,8,0"/>
+                           <TextBlock Text="{Binding Title}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                       </StackPanel>
+                   </DataTemplate>
+               </ListBox.ItemTemplate>
+               <ListBox.Styles>
+                   <Style Selector="ListBoxItem">
+                       <Setter Property="Background" Value="Transparent"/>
+                       <Setter Property="Padding" Value="4,2"/>
+                       <Setter Property="Cursor" Value="Hand"/>
+                   </Style>
+                   <Style Selector="ListBoxItem:pointerover">
+                       <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                   </Style>
+                   <Style Selector="ListBoxItem:selected">
+                       <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                   </Style>
+               </ListBox.Styles>
+           </ListBox>
+       </Grid>
+   </Border>
+</UserControl>

@@ -1,0 +1,409 @@
+<UserControl x:Class="TerminalHost.Views.Popups.SearchAcrossFilesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             d:DataContext="{d:DesignInstance vm:SearchAcrossFilesViewModel}"
+             mc:Ignorable="d">
+
+    <controls:DraggablePopup
+        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        PopupWidth="{Binding Width, Mode=TwoWay}"
+        PopupHeight="{Binding Height, Mode=TwoWay}"
+        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+        Title="{Binding Title}"
+        CloseCommand="{Binding CloseCommand}">
+
+        <controls:DraggablePopup.HeaderRightContent>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Expand All"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding ExpandAllCommand}"
+                        ToolTip.Tip="Expand all results"
+                        Margin="0,0,4,0"/>
+                <Button Content="Collapse"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding CollapseAllCommand}"
+                        ToolTip.Tip="Collapse all results"
+                        Margin="0,0,8,0"/>
+            </StackPanel>
+        </controls:DraggablePopup.HeaderRightContent>
+
+        <controls:DraggablePopup.PopupContent>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Search Input Area -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="12,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Search row -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="SearchTextBox"
+                                     Grid.Column="0"
+                                     Text="{Binding SearchText, Mode=TwoWay}"
+                                     Watermark="Search text..."
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BackgroundLightBrush}"
+                                     FontSize="{StaticResource FontSizeNormal}"
+                                     Padding="8,6"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                <Button Content="Search"
+                                        Command="{Binding SearchCommand}"
+                                        Classes="TerminalSwitchButton AccentButton"
+                                        Width="80"
+                                        ToolTip.Tip="Search (Enter)"/>
+                                <Button Content="..."
+                                        Command="{Binding ToggleReplaceModeCommand}"
+                                        Classes="TerminalSwitchButton"
+                                        Margin="4,0,0,0"
+                                        ToolTip.Tip="Toggle replace mode"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Replace row (collapsed by default) -->
+                        <Grid Grid.Row="1" Margin="0,8,0,0" IsVisible="{Binding IsReplaceMode}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding ReplaceText, Mode=TwoWay}"
+                                     Watermark="Replace with..."
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BackgroundLightBrush}"
+                                     FontSize="{StaticResource FontSizeNormal}"
+                                     Padding="8,6"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                <Button Content="Replace"
+                                        Command="{Binding ReplaceInFileCommand}"
+                                        Classes="TerminalSwitchButton"
+                                        Width="80"
+                                        ToolTip.Tip="Replace in selected file"/>
+                                <Button Content="All"
+                                        Command="{Binding ReplaceAllCommand}"
+                                        Classes="TerminalSwitchButton"
+                                        Margin="4,0,0,0"
+                                        Width="50"
+                                        ToolTip.Tip="Replace all occurrences"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Options row -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                            <CheckBox Content="Case sensitive"
+                                      IsChecked="{Binding CaseSensitive}"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      FontSize="{StaticResource FontSizeSmall}"
+                                      Margin="0,0,16,0"/>
+                            <CheckBox Content="Whole word"
+                                      IsChecked="{Binding WholeWord}"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      FontSize="{StaticResource FontSizeSmall}"
+                                      Margin="0,0,16,0"/>
+                            <CheckBox Content="Regex"
+                                      IsChecked="{Binding UseRegex}"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      FontSize="{StaticResource FontSizeSmall}"
+                                      Margin="0,0,16,0"/>
+
+                            <TextBlock Text="Include:"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0,4,0"/>
+                            <TextBox Text="{Binding IncludePattern, Mode=TwoWay}"
+                                     Width="100"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BackgroundLightBrush}"
+                                     FontSize="{StaticResource FontSizeSmall}"
+                                     Padding="4,2"
+                                     Watermark="*.cs, *.ts"/>
+
+                            <TextBlock Text="Exclude:"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0,4,0"/>
+                            <TextBox Text="{Binding ExcludePattern, Mode=TwoWay}"
+                                     Width="100"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BackgroundLightBrush}"
+                                     FontSize="{StaticResource FontSizeSmall}"
+                                     Padding="4,2"
+                                     Watermark="*.min.js"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Results Area -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="350" MinWidth="200"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*" MinWidth="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Results List -->
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Results header -->
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <TextBlock Text="{Binding StatusText}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"/>
+                            </Border>
+
+                            <!-- Results tree -->
+                            <TreeView Grid.Row="1"
+                                      ItemsSource="{Binding SearchResults}"
+                                      SelectedItem="{Binding SelectedResult}"
+                                      Background="Transparent"
+                                      BorderThickness="0">
+                                <TreeView.DataTemplates>
+                                    <!-- Template for SearchResult (file level) -->
+                                    <TreeDataTemplate DataType="domain:SearchResult" ItemsSource="{Binding Matches}">
+                                        <Grid Margin="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- File icon -->
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Icon}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- File name and path -->
+                                            <StackPanel Grid.Column="1" Orientation="Vertical">
+                                                <TextBlock Text="{Binding FileName}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Directory}"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           IsVisible="{Binding Directory, Converter={StaticResource NullToBoolConverter}}"/>
+                                            </StackPanel>
+
+                                            <!-- Match count badge -->
+                                            <Border Grid.Column="2"
+                                                    Background="{StaticResource BackgroundLightBrush}"
+                                                    CornerRadius="8"
+                                                    Padding="6,2"
+                                                    Margin="4,0,0,0">
+                                                <TextBlock Text="{Binding MatchCount}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                            </Border>
+                                        </Grid>
+                                    </TreeDataTemplate>
+                                    <!-- Template for SearchMatch (individual match - leaf node) -->
+                                    <DataTemplate DataType="domain:SearchMatch">
+                                        <Grid Margin="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="40"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Line number -->
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding LineNumber}"
+                                                       Foreground="{StaticResource TextDimmedBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       HorizontalAlignment="Right"
+                                                       Margin="0,0,8,0"/>
+
+                                            <!-- Line content with highlighted match -->
+                                            <TextBlock Grid.Column="1"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding TextBefore}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                <Run Text="{Binding MatchedText}" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="Bold"/>
+                                                <Run Text="{Binding TextAfter}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </TreeView.DataTemplates>
+                                <TreeView.Styles>
+                                    <Style Selector="TreeViewItem">
+                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay, FallbackValue=True}"/>
+                                        <Setter Property="Padding" Value="4,2"/>
+                                    </Style>
+                                    <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+                                        <Setter Property="Background" Value="#333333"/>
+                                    </Style>
+                                    <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+                                        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                    </Style>
+                                </TreeView.Styles>
+                            </TreeView>
+
+                            <!-- Empty/Loading state -->
+                            <StackPanel Grid.Row="1"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding !HasResults}">
+                                <TextBlock Text="Enter a search term and press Search"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="{StaticResource FontSizeCode}"
+                                           HorizontalAlignment="Center"
+                                           IsVisible="{Binding !IsSearching}"/>
+                                <TextBlock Text="Searching..."
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="{StaticResource FontSizeCode}"
+                                           HorizontalAlignment="Center"
+                                           IsVisible="{Binding IsSearching}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                    <!-- Preview Area -->
+                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Preview header with actions -->
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="Open"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding OpenFileCommand}"
+                                                ToolTip.Tip="Open file preview"
+                                                Margin="0,0,4,0"/>
+                                        <Button Content="Edit"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding EditFileCommand}"
+                                                ToolTip.Tip="Open file in editor"
+                                                Margin="0,0,4,0"/>
+                                        <Button Content="Reveal"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding RevealInExplorerCommand}"
+                                                ToolTip.Tip="Reveal in Finder"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SelectedResult.RelativePath, FallbackValue='Select a result to preview'}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Preview content - show matches in context -->
+                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding SelectedResult.Matches}" Margin="8">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="domain:SearchMatch">
+                                            <Border Background="{StaticResource BackgroundDarkBrush}"
+                                                    CornerRadius="4"
+                                                    Padding="8,4"
+                                                    Margin="0,2">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Line number -->
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding LineNumber, StringFormat='Line {0}'}"
+                                                               Foreground="{StaticResource AccentBlueBrush}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Top"/>
+
+                                                    <!-- Line content -->
+                                                    <TextBlock Grid.Column="1"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeCode}"
+                                                               TextWrapping="Wrap">
+                                                        <Run Text="{Binding TextBefore}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                        <Run Text="{Binding MatchedText}" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="Bold" Background="#44FFFF00"/>
+                                                        <Run Text="{Binding TextAfter}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- Empty state for preview -->
+                            <TextBlock Grid.Row="1"
+                                       Text="Select a file to see matches"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding SelectedResult, Converter={StaticResource NullToBoolConverter}, ConverterParameter=Invert}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Footer -->
+                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,20,0"
+                                   Text="Press Escape to close"/>
+                        <TextBlock Text="{Binding Info}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </controls:DraggablePopup.PopupContent>
+    </controls:DraggablePopup>
+</UserControl>

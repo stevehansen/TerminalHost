@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:views="clr-namespace:TerminalHost.Views"
+        xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+        mc:Ignorable="d"
+        x:Class="TerminalHost.Views.FileViewerWindow"
+        Title="{Binding Title}"
+        Width="900"
+        Height="700"
+        MinWidth="400"
+        MinHeight="300"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        d:DataContext="{d:DesignInstance Type=vm:FileViewerViewModel}">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}"/>
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding ReloadCommand}"/>
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCommand}"/>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </Window.KeyBindings>
+
+    <views:FileViewerView DataContext="{Binding}"/>
+</Window>

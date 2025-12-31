@@ -1,0 +1,65 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:TerminalHost"
+             xmlns:vm="using:TerminalHost.ViewModels"
+             xmlns:views="using:TerminalHost.Views"
+             xmlns:tabs="using:TerminalHost.Views.Tabs"
+             x:Class="TerminalHost.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://host/Styles/Controls.axaml"/>
+        <StyleInclude Source="avares://host/Styles/Buttons.axaml"/>
+        <StyleInclude Source="avares://host/Styles/ScrollBars.axaml"/>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Colors and Typography are resource dictionaries, not styles -->
+                <ResourceInclude Source="avares://host/Styles/Colors.axaml"/>
+                <ResourceInclude Source="avares://host/Styles/Typography.axaml"/>
+                <ResourceInclude Source="avares://host/Resources/Converters.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <!-- Implicit DataTemplates for tab content - matched automatically by ViewModel type -->
+    <Application.DataTemplates>
+        <!-- Terminal Tab Content -->
+        <DataTemplate DataType="{x:Type vm:TerminalPairTabViewModel}">
+            <tabs:TerminalPairView />
+        </DataTemplate>
+
+        <!-- Profile Terminal Tab Content -->
+        <DataTemplate DataType="{x:Type vm:ProfileTerminalTabViewModel}">
+            <tabs:ProfileTerminalView />
+        </DataTemplate>
+
+        <!-- Settings Tab Content -->
+        <DataTemplate DataType="{x:Type vm:SettingsTabViewModel}">
+            <views:SettingsView/>
+        </DataTemplate>
+
+        <!-- Profiles Tab Content -->
+        <DataTemplate DataType="{x:Type vm:ProfilesTabViewModel}">
+            <views:ProfilesView/>
+        </DataTemplate>
+
+        <!-- Statistics Tab Content -->
+        <DataTemplate DataType="{x:Type vm:StatisticsTabViewModel}">
+            <views:StatisticsView/>
+        </DataTemplate>
+
+        <!-- Dashboard Tab Content -->
+        <DataTemplate DataType="{x:Type vm:DashboardTabViewModel}">
+            <views:DashboardView/>
+        </DataTemplate>
+
+        <!-- Timeline Tab Content -->
+        <DataTemplate DataType="{x:Type vm:TimelineTabViewModel}">
+            <views:TimelineModeView/>
+        </DataTemplate>
+    </Application.DataTemplates>
+</Application>

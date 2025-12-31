@@ -1,0 +1,420 @@
+<UserControl x:Class="TerminalHost.Views.WorkspaceSidebar"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             xmlns:coreInterfaces="clr-namespace:TerminalHost.Core.Interfaces;assembly=TerminalHost.Core"
+             xmlns:coreDomain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             d:DesignWidth="250" d:DesignHeight="600"
+             mc:Ignorable="d"
+             x:DataType="viewModels:WorkspaceSidebarViewModel">
+
+    <Design.DataContext>
+        <viewModels:WorkspaceSidebarViewModel/>
+    </Design.DataContext>
+
+    <UserControl.Resources>
+        <!-- Open Project Context Menu -->
+        <ContextMenu x:Key="OpenProjectContextMenu">
+            <MenuItem Header="Git Fetch" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitFetchCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="Γ¼ç" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Git Pull (Rebase)" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPullRebaseCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="Γ¼ç" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Git Push" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPushCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="Γ¼å" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Open in Finder" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenInFinderCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Close" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="Γ£ò" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Workspace Item Context Menu -->
+        <ContextMenu x:Key="WorkspaceContextMenu">
+            <MenuItem Header="Open" Command="{Binding OpenWorkspaceCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Remove from Recent" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).RemoveFromRecentCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒùæ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Toggle Playground" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).TogglePlaygroundCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒÄ«" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Worktree Item Context Menu -->
+        <ContextMenu x:Key="WorktreeContextMenu">
+            <MenuItem Header="Open" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenWorktreeCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Create Branch" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CreateBranchFromWorktreeCommand}"
+                      CommandParameter="{Binding}"
+                      IsVisible="{Binding IsDetached}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒî┐" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Remove Worktree" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).RemoveWorktreeCommand}"
+                      CommandParameter="{Binding}"
+                      IsVisible="{Binding !IsMain}">
+                <MenuItem.Icon>
+                    <TextBlock Text="≡ƒùæ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Manage Worktrees..." Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenManageWorktreesCommand}">
+                <MenuItem.Icon>
+                    <TextBlock Text="ΓÜÖ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- ListBox item style -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </Style>
+
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+        </Style>
+
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{StaticResource BackgroundDarkBrush}">
+        <!-- Header with toggle button -->
+        <Border Grid.Row="0" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
+            <Grid RowDefinitions="Auto,Auto">
+                <!-- Title and toggle button -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <TextBlock Grid.Column="0"
+                               Text="WORKSPACES"
+                               FontFamily="{StaticResource FontFamilyStandard}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1"
+                            Command="{Binding MainViewModel.ToggleLayoutModeCommand}"
+                            ToolTip.Tip="Switch to Tabs (Cmd+Shift+L)"
+                            Background="Transparent"
+                            Foreground="{StaticResource TextSecondaryBrush}"
+                            Padding="4,2">
+                        <TextBlock Text="Γÿ░" FontSize="{StaticResource FontSizeSmall}"/>
+                    </Button>
+                </Grid>
+                <!-- Search/Filter Box -->
+                <TextBox Grid.Row="1"
+                         Text="{Binding FilterText}"
+                         Watermark="Filter workspaces..."
+                         FontFamily="{StaticResource FontFamilyStandard}"
+                         FontSize="{StaticResource FontSizeSmall}"
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         BorderThickness="1"
+                         BorderBrush="{StaticResource BorderBrush}"
+                         Padding="8,6"/>
+            </Grid>
+        </Border>
+
+        <!-- Scrollable Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+            <StackPanel Spacing="0" HorizontalAlignment="Stretch">
+
+                <!-- Open Projects Section -->
+                <Expander IsExpanded="{Binding IsOpenProjectsExpanded}" Margin="0,0,0,1">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="≡ƒôü" FontSize="{StaticResource FontSizeSmall}"/>
+                            <TextBlock Text="OPEN PROJECTS"
+                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                       FontSize="{StaticResource FontSizeSmaller}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding MainViewModel.Tabs.Count, StringFormat='({0})'}"
+                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                       FontSize="{StaticResource FontSizeSmaller}"
+                                       Foreground="{StaticResource TextDimmedBrush}"/>
+                        </StackPanel>
+                    </Expander.Header>
+
+                    <ListBox ItemsSource="{Binding MainViewModel.Tabs}"
+                             SelectedItem="{Binding MainViewModel.SelectedTab}"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="coreInterfaces:ITabViewModel">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
+                                      ContextMenu="{StaticResource OpenProjectContextMenu}">
+                                    <TextBlock Grid.Column="0" Text="{Binding TabIcon}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayTitle}"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <!-- Activity indicators -->
+                                    <Panel Grid.Column="2" VerticalAlignment="Center" Margin="4,0,0,0">
+                                        <!-- Spinning activity indicator (yellow) -->
+                                        <TextBlock x:Name="ActivitySpinner" Text="ΓùÅ"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                                   IsVisible="{Binding ShowActivitySpinner}">
+                                            <TextBlock.Styles>
+                                                <Style Selector="TextBlock#ActivitySpinner[IsVisible=True]">
+                                                    <Style.Animations>
+                                                        <Animation Duration="0:0:1" IterationCount="INFINITE">
+                                                            <KeyFrame Cue="0%">
+                                                                <Setter Property="Opacity" Value="1"/>
+                                                            </KeyFrame>
+                                                            <KeyFrame Cue="50%">
+                                                                <Setter Property="Opacity" Value="0.3"/>
+                                                            </KeyFrame>
+                                                            <KeyFrame Cue="100%">
+                                                                <Setter Property="Opacity" Value="1"/>
+                                                            </KeyFrame>
+                                                        </Animation>
+                                                    </Style.Animations>
+                                                </Style>
+                                            </TextBlock.Styles>
+                                        </TextBlock>
+                                        <!-- Completed indicator (green) -->
+                                        <TextBlock Text="ΓùÅ"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource SyntaxGreenBrush}"
+                                                   IsVisible="{Binding ShowCompletedIndicator}"/>
+                                    </Panel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Expander>
+
+                <!-- Git Worktrees Section -->
+                <Expander IsExpanded="{Binding IsWorktreesExpanded}"
+                          IsVisible="{Binding HasWorktrees}"
+                          Margin="0,0,0,1">
+                    <Expander.Header>
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,4,0">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="≡ƒî┐" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="WORKTREES"
+                                           FontFamily="{StaticResource FontFamilyStandard}"
+                                           FontSize="{StaticResource FontSizeSmaller}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding CurrentRepositoryName, StringFormat='({0})'}"
+                                           FontFamily="{StaticResource FontFamilyStandard}"
+                                           FontSize="{StaticResource FontSizeSmaller}"
+                                           Foreground="{StaticResource TextDimmedBrush}"/>
+                            </StackPanel>
+                            <Button Grid.Column="2"
+                                    Content="ΓÜÖ"
+                                    Command="{Binding OpenManageWorktreesCommand}"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    FontSize="14"
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="Manage Worktrees"/>
+                            <Button Grid.Column="3"
+                                    Content="+"
+                                    Command="{Binding ShowCreateWorktreeDialogCommand}"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    FontSize="16"
+                                    FontWeight="Bold"
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="Create Worktree"/>
+                        </Grid>
+                    </Expander.Header>
+
+                    <ListBox ItemsSource="{Binding Worktrees}"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="coreDomain:WorktreeInfo">
+                                <Grid ColumnDefinitions="Auto,*" Margin="0,2"
+                                      ContextMenu="{StaticResource WorktreeContextMenu}"
+                                      DoubleTapped="Worktree_DoubleTapped">
+                                    <TextBlock Grid.Column="0" Text="{Binding Icon}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding BranchDisplay}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding ShortHash}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmaller}"
+                                                       Foreground="{StaticResource TextDimmedBrush}"
+                                                       IsVisible="{Binding !IsDetached}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding DisplayPath}"
+                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontSize="{StaticResource FontSizeSmaller}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Expander>
+
+                <!-- Recent Workspaces Section -->
+                <Expander IsExpanded="{Binding IsRecentExpanded}" Margin="0,0,0,1">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="≡ƒòÉ" FontSize="{StaticResource FontSizeSmall}"/>
+                            <TextBlock Text="RECENT"
+                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                       FontSize="{StaticResource FontSizeSmaller}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding RecentWorkspaces.Count, StringFormat='({0})'}"
+                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                       FontSize="{StaticResource FontSizeSmaller}"
+                                       Foreground="{StaticResource TextDimmedBrush}"/>
+                        </StackPanel>
+                    </Expander.Header>
+
+                    <ListBox ItemsSource="{Binding RecentWorkspaces}"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="coreDomain:Workspace">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
+                                      ContextMenu="{StaticResource WorkspaceContextMenu}"
+                                      DoubleTapped="Workspace_DoubleTapped">
+                                    <Panel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <TextBlock Text="≡ƒÄ«" FontSize="{StaticResource FontSizeSmall}"
+                                                   IsVisible="{Binding IsPlayground}"/>
+                                        <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"
+                                                   IsVisible="{Binding !IsPlayground}"/>
+                                    </Panel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding GitBranch}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmaller}"
+                                                       Foreground="{StaticResource AccentBlueBrush}"
+                                                       IsVisible="{Binding GitBranch, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding DisplayPath}"
+                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontSize="{StaticResource FontSizeSmaller}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding RelativeLastOpened}"
+                                               FontFamily="{StaticResource FontFamilyStandard}"
+                                               FontSize="{StaticResource FontSizeSmaller}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Expander>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer with action buttons -->
+        <Border Grid.Row="2" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="+ New"
+                        Command="{Binding MainViewModel.OpenNewProjectCommand}"
+                        ToolTip.Tip="Open New Project (Cmd+N)"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Dashboard"
+                        Command="{Binding MainViewModel.OpenDashboardCommand}"
+                        ToolTip.Tip="GitHub Dashboard"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Statistics"
+                        Command="{Binding MainViewModel.OpenStatisticsCommand}"
+                        ToolTip.Tip="Usage Statistics"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+                <Button Content="Settings"
+                        Command="{Binding MainViewModel.OpenSettingsCommand}"
+                        ToolTip.Tip="Settings (Cmd+,)"
+                        Classes="TerminalSwitchButton"
+                        Margin="2"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- Loading Indicator -->
+        <Border Grid.RowSpan="3"
+                Background="#80000000"
+                IsVisible="{Binding IsLoading}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Loading..."
+                           FontFamily="{StaticResource FontFamilyStandard}"
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

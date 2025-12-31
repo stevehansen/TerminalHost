@@ -1,0 +1,220 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:TerminalHost.ViewModels"
+        xmlns:views="using:TerminalHost.Views"
+        xmlns:popups="using:TerminalHost.Views.Popups"
+        mc:Ignorable="d"
+        x:Class="TerminalHost.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1200" Height="800"
+        MinWidth="800" MinHeight="600"
+        Background="{StaticResource BackgroundDarkestBrush}">
+
+    <!-- Main Layout with Sidebar Support -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar column (visible in Sidebar mode) -->
+            <ColumnDefinition Width="{Binding SidebarColumnWidth}"/>
+            <!-- Sidebar splitter -->
+            <ColumnDefinition Width="{Binding SidebarSplitterWidth}"/>
+            <!-- Content area -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <!-- Tab strip row (visible in Tabs mode) -->
+            <RowDefinition Height="{Binding TabStripRowHeight}"/>
+            <!-- Content -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Sidebar (Column 0, spans all rows) -->
+        <views:WorkspaceSidebar x:Name="WorkspaceSidebar"
+                                Grid.Column="0" Grid.RowSpan="2"
+                                IsVisible="{Binding IsSidebarMode}"/>
+
+        <!-- Sidebar Splitter -->
+        <GridSplitter x:Name="SidebarSplitter"
+                      Grid.Column="1" Grid.RowSpan="2"
+                      Width="4"
+                      Background="{StaticResource BackgroundMediumBrush}"
+                      ResizeDirection="Columns"
+                      IsVisible="{Binding IsSidebarMode}"
+                      DragCompleted="SidebarSplitter_DragCompleted"/>
+
+        <!-- Tab Strip (Row 0, Column 2, visible in Tabs mode) -->
+        <views:TabStrip Grid.Row="0" Grid.Column="2"
+                        IsVisible="{Binding IsTabsMode}"/>
+
+        <!-- Tab Content Area (Row 1, Column 2) -->
+        <Grid Grid.Row="1" Grid.Column="2">
+            <!-- Tab Content - rendered via DataTemplates -->
+            <ContentControl Content="{Binding SelectedTab}">
+                <!-- Placeholder when no tab selected -->
+                <ContentControl.Styles>
+                    <Style Selector="ContentControl:empty">
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Background="{StaticResource TerminalBackgroundBrush}">
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="Welcome to TerminalHost"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeHeader}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Press Ctrl+N to open a project folder"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeNormal}"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,8,0,0"/>
+                                        <TextBlock Text="or click '+ New Project' in the tab bar"
+                                                   FontFamily="{StaticResource FontFamilyStandard}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,16,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </ContentControl.Styles>
+            </ContentControl>
+
+            <!-- Popup Overlay Layer -->
+            <Panel x:Name="PopupHost">
+                <!-- Command Palette - Top Center -->
+                <popups:CommandPaletteView
+                    IsVisible="{Binding IsCommandPaletteOpen}"
+                    IsHitTestVisible="{Binding IsCommandPaletteOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Margin="0,80,0,0" />
+
+                <!-- Help View - Center -->
+                <popups:HelpView
+                    IsVisible="{Binding IsHelpOpen}"
+                    IsHitTestVisible="{Binding IsHelpOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Tab Switcher - Center -->
+                <popups:TabSwitcherView
+                    IsVisible="{Binding IsTabSwitcherOpen}"
+                    IsHitTestVisible="{Binding IsTabSwitcherOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Tab Dropdown - Top Left -->
+                <popups:TabDropdownView
+                    IsVisible="{Binding IsTabDropdownOpen}"
+                    IsHitTestVisible="{Binding IsTabDropdownOpen}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="4,0,0,0" />
+
+                <!-- Quick Task - Center -->
+                <popups:QuickTaskView
+                    IsVisible="{Binding IsQuickTaskOpen}"
+                    IsHitTestVisible="{Binding IsQuickTaskOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Quick Note - Center -->
+                <popups:QuickNoteView
+                    IsVisible="{Binding IsQuickNoteOpen}"
+                    IsHitTestVisible="{Binding IsQuickNoteOpen}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Git Branch Switcher - Center -->
+                <popups:GitBranchView
+                    x:Name="GitBranchPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Git Files/Changes - Center (uses DraggablePopup internally) -->
+                <popups:GitFilesView
+                    x:Name="GitFilesPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- Commit History - Center (uses DraggablePopup internally) -->
+                <popups:CommitHistoryView
+                    x:Name="CommitHistoryPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- Git Stash - Center -->
+                <popups:GitStashView
+                    x:Name="GitStashPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Scratch Pad - Center -->
+                <views:ScratchPadView
+                    x:Name="ScratchPadPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- File Viewer Popup - Center (uses DraggablePopup internally) -->
+                <popups:FileViewerPopup
+                    x:Name="FileViewerPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- Detected Links - Center -->
+                <popups:DetectedLinksView
+                    x:Name="DetectedLinksPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Task Panel - Center -->
+                <popups:TaskPanelView
+                    x:Name="TaskPanelPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Search Across Files - Center (uses DraggablePopup internally) -->
+                <popups:SearchAcrossFilesView
+                    x:Name="SearchAcrossFilesPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+
+                <!-- File History - Center -->
+                <popups:FileHistoryView
+                    x:Name="FileHistoryPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- File Blame - Center -->
+                <popups:FileBlameView
+                    x:Name="FileBlamePopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Reflog - Center -->
+                <popups:ReflogView
+                    x:Name="ReflogPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Manage Worktrees - Center -->
+                <popups:ManageWorktreesView
+                    x:Name="ManageWorktreesPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- PR Review - Center (uses DraggablePopup internally) -->
+                <popups:PrReviewView
+                    x:Name="PrReviewPopup"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
+            </Panel>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,206 @@
+<UserControl x:Class="TerminalHost.Controls.PrCommentThread"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             d:DataContext="{d:DesignInstance domain:PrReviewThread}"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="ResolvedBrush" Color="#3FB950"/>
+        <SolidColorBrush x:Key="UnresolvedBrush" Color="#F85149"/>
+        <SolidColorBrush x:Key="OutdatedBrush" Color="#8B949E"/>
+    </UserControl.Resources>
+
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Margin="0,4">
+        <Expander IsExpanded="False">
+            <Expander.Styles>
+                <Style Selector="Expander">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Expander">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Header -->
+                                    <ToggleButton Grid.Row="0"
+                                                  IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Cursor="Hand">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}" Padding="8,6">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Expand/Collapse indicator -->
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,8,0"/>
+
+                                                        <!-- Resolved status icon -->
+                                                        <TextBlock Grid.Column="1"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   Margin="0,0,8,0">
+                                                            <TextBlock.Styles>
+                                                                <Style Selector="TextBlock">
+                                                                    <Setter Property="Text" Value=""/>
+                                                                    <Setter Property="Foreground" Value="{StaticResource UnresolvedBrush}"/>
+                                                                </Style>
+                                                                <Style Selector="TextBlock[IsVisible=True]" x:DataType="domain:PrReviewThread">
+                                                                    <Style Selector="^[Tag=Resolved]">
+                                                                        <Setter Property="Text" Value=""/>
+                                                                        <Setter Property="Foreground" Value="{StaticResource ResolvedBrush}"/>
+                                                                    </Style>
+                                                                    <Style Selector="^[Tag=Outdated]">
+                                                                        <Setter Property="Foreground" Value="{StaticResource OutdatedBrush}"/>
+                                                                    </Style>
+                                                                </Style>
+                                                            </TextBlock.Styles>
+                                                        </TextBlock>
+
+                                                        <!-- File path, Author and preview -->
+                                                        <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center">
+                                                            <!-- File path -->
+                                                            <TextBlock Text="{Binding FilePath}"
+                                                                       Foreground="{StaticResource SyntaxBlueBrush}"
+                                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="450"
+                                                                       Margin="0,0,0,2"/>
+                                                            <!-- Author and preview -->
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding FirstComment.Author}"
+                                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                                           FontSize="{StaticResource FontSizeTiny}"
+                                                                           FontWeight="SemiBold"/>
+                                                                <TextBlock Text=": "
+                                                                           Foreground="{StaticResource TextDimmedBrush}"
+                                                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                                                <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                                                           FontSize="{StaticResource FontSizeTiny}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           MaxWidth="350">
+                                                                    <TextBlock.Text>
+                                                                        <Binding Path="FirstComment.Body" Converter="{StaticResource TruncateConverter}" ConverterParameter="60"/>
+                                                                    </TextBlock.Text>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </StackPanel>
+
+                                                        <!-- Line number -->
+                                                        <TextBlock Grid.Column="3"
+                                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="8,0">
+                                                            <TextBlock.Styles>
+                                                                <Style Selector="TextBlock">
+                                                                    <Setter Property="Text" Value="{Binding Line, StringFormat='Line {0}'}"/>
+                                                                </Style>
+                                                                <Style Selector="TextBlock" x:DataType="domain:PrReviewThread">
+                                                                    <Style Selector="^[Tag=NullLine]">
+                                                                        <Setter Property="Text" Value=""/>
+                                                                    </Style>
+                                                                </Style>
+                                                            </TextBlock.Styles>
+                                                        </TextBlock>
+
+                                                        <!-- Reply count -->
+                                                        <Border Grid.Column="4"
+                                                                Background="{StaticResource BackgroundMediumBrush}"
+                                                                CornerRadius="8"
+                                                                Padding="6,2"
+                                                                IsVisible="{Binding ReplyCount, Converter={StaticResource IntToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding ReplyCount, StringFormat='+{0}'}"
+                                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                                       FontSize="{StaticResource FontSizeMicro}"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                        <ToggleButton.Styles>
+                                            <Style Selector="ToggleButton /template/ Border:pointerover">
+                                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                            </Style>
+                                        </ToggleButton.Styles>
+                                    </ToggleButton>
+
+                                    <!-- Content -->
+                                    <Border Grid.Row="1"
+                                            IsVisible="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibilityConverter}}"
+                                            BorderBrush="{StaticResource BorderSubtleBrush}"
+                                            BorderThickness="0,1,0,0">
+                                        <ContentPresenter/>
+                                    </Border>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Expander.Styles>
+
+            <!-- Expanded content: all comments in the thread -->
+            <ItemsControl ItemsSource="{Binding Comments}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="12,8"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Comment header -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBlock Text="{Binding Author}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text=" commented "
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                    <TextBlock Text="{Binding CreatedAt, Converter={StaticResource RelativeTimeConverter}}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </StackPanel>
+
+                                <!-- Comment body -->
+                                <TextBlock Grid.Row="1"
+                                           Text="{Binding Body}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Expander>
+    </Border>
+</UserControl>

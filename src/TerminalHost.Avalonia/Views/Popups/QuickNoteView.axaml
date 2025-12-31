@@ -1,0 +1,77 @@
+<UserControl x:Class="TerminalHost.Views.Popups.QuickNoteView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="120" d:DesignWidth="450">
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource SyntaxYellowBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Width="450"
+            Padding="0"
+            BoxShadow="0 5 20 0 #80000000">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="≡ƒô¥"
+                               FontSize="14"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+
+                    <TextBlock Grid.Column="1"
+                               Text="Quick Note"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeNormal}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="2"
+                            Content="├ù"
+                            Click="CloseButton_Click"
+                            Classes="TabCloseButton"
+                            Padding="8,2"/>
+                </Grid>
+            </Border>
+
+            <!-- Input -->
+            <Border Grid.Row="1" Padding="12,10">
+                <TextBox x:Name="NoteTextBox"
+                         Text="{Binding QuickNoteText, Mode=TwoWay}"
+                         Background="{StaticResource BackgroundLightBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderThickness="1"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         Padding="10,8"
+                         FontSize="{StaticResource FontSizeNormal}"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="False"
+                         MaxHeight="60"/>
+            </Border>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8" CornerRadius="0,0,6,6">
+                <TextBlock Text="Enter to save ΓÇó Esc to cancel"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

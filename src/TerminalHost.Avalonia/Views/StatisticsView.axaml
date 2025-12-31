@@ -1,0 +1,141 @@
+<UserControl x:Class="TerminalHost.Views.StatisticsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
+             mc:Ignorable="d"
+             d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewmodels:StatisticsTabViewModel"
+             Background="{DynamicResource BackgroundDarkestBrush}"
+             Foreground="{DynamicResource TextBrightBrush}">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+            <TextBlock Text="Project Usage Statistics"
+                       FontSize="{DynamicResource FontSizeLarge}"
+                       FontWeight="Bold"
+                       VerticalAlignment="Center"/>
+            <Button Command="{Binding LoadStatsCommand}"
+                    Content="≡ƒöä Refresh"
+                    Margin="20,0,0,0"
+                    Padding="8,4"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,0,10,10">
+            <Border Background="{DynamicResource SyntaxLightBlueBrush}"
+                    Width="12" Height="12"
+                    CornerRadius="2"
+                    VerticalAlignment="Center"/>
+            <TextBlock Text="Custom" Margin="4,0,16,0" VerticalAlignment="Center"/>
+            <Border Background="{DynamicResource SyntaxOrangeBrush}"
+                    Width="12" Height="12"
+                    CornerRadius="2"
+                    VerticalAlignment="Center"/>
+            <TextBlock Text="Shell" Margin="4,0,16,0" VerticalAlignment="Center"/>
+            <Border Background="{DynamicResource SyntaxGreenBrush}"
+                    Width="12" Height="12"
+                    CornerRadius="2"
+                    VerticalAlignment="Center"/>
+            <TextBlock Text="Run" Margin="4,0,16,0" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Grid Grid.Row="2" ColumnDefinitions="420,5,*">
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <ListBox ItemsSource="{Binding ProjectStats}"
+                         Margin="10,0,10,10"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="10"
+                                    Margin="0,2">
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{Binding ProjectName}"
+                                                   FontWeight="Bold"
+                                                   FontSize="{DynamicResource FontSizeNormal}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextBrightBrush}"/>
+                                        <TextBlock Grid.Column="1"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{DynamicResource TextBrightBrush}">
+                                            <Run Text="Total Chars:"/>
+                                            <Run Text="{Binding TotalCharsFormatted, Mode=OneWay}" FontWeight="Bold"/>
+                                        </TextBlock>
+                                    </Grid>
+
+                                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                                        <Border Background="{DynamicResource BackgroundLightBrush}"
+                                                Height="20"
+                                                CornerRadius="3"
+                                                ToolTip.Tip="Total characters output for this project."
+                                                ClipToBounds="True">
+                                            <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+                                                <Border Grid.Column="0"
+                                                        Background="{DynamicResource SyntaxLightBlueBrush}"
+                                                        ToolTip.Tip="{Binding CustomCharsFormatted, StringFormat='Custom: {0} chars'}"
+                                                        Height="20"
+                                                        Width="{Binding CustomBarWidth}"
+                                                        IsVisible="{Binding CustomBarWidth, Converter={StaticResource IntToVisibilityConverter}}"/>
+                                                <Border Grid.Column="1"
+                                                        Background="{DynamicResource SyntaxOrangeBrush}"
+                                                        ToolTip.Tip="{Binding ShellCharsFormatted, StringFormat='Shell: {0} chars'}"
+                                                        Height="20"
+                                                        Width="{Binding ShellBarWidth}"
+                                                        IsVisible="{Binding ShellBarWidth, Converter={StaticResource IntToVisibilityConverter}}"/>
+                                                <Border Grid.Column="2"
+                                                        Background="{DynamicResource SyntaxGreenBrush}"
+                                                        ToolTip.Tip="{Binding RunCharsFormatted, StringFormat='Run: {0} chars'}"
+                                                        Height="20"
+                                                        Width="{Binding RunBarWidth}"
+                                                        IsVisible="{Binding RunBarWidth, Converter={StaticResource IntToVisibilityConverter}}"/>
+                                                <Border Grid.Column="3"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </ScrollViewer>
+
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          Background="{DynamicResource BackgroundLightBrush}"/>
+
+            <Grid Grid.Column="2" Margin="10,0,10,10">
+                <TextBlock Text="Select a project to view details"
+                           FontSize="{DynamicResource FontSizeLarge}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextDimmedBrush}"
+                           IsVisible="{Binding !IsChartVisible}"/>
+
+                <lvc:CartesianChart
+                    Series="{Binding Series}"
+                    XAxes="{Binding XAxes}"
+                    YAxes="{Binding YAxes}"
+                    ZoomMode="None"
+                    IsVisible="{Binding IsChartVisible}"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -46,6 +46,11 @@ public class WorktreeInfo
     public bool IsDetached { get; set; }
 
     /// <summary>
+    /// Whether this is a bare repository (no working tree).
+    /// </summary>
+    public bool IsBare { get; set; }
+
+    /// <summary>
     /// Gets the display name for this worktree.
     /// </summary>
     public string DisplayName => IsMain ? "main" : (string.IsNullOrEmpty(Branch) ? System.IO.Path.GetFileName(Path) : Branch);

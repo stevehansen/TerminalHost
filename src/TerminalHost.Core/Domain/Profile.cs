@@ -13,6 +13,13 @@ public class Profile
     [JsonPropertyName("command")]
     public string Command { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional startup command to run after the main command.
+    /// Used to start AI CLI inside a shell.
+    /// </summary>
+    [JsonPropertyName("startupCommand")]
+    public string? StartupCommand { get; set; }
+
     [JsonPropertyName("workingDir")]
     public string WorkingDir { get; set; } = string.Empty;
 

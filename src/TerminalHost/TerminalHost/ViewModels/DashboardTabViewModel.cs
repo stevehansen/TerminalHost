@@ -37,6 +37,10 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     public bool IsSelected { get; set; }
     public bool IsVisibleInFocusMode => true;  // Dashboard always visible
     public string DisplayTitle => Title;
+    public bool ShowActivitySpinner => false;
+    public bool ShowCompletedIndicator => false;
+    public bool IsTerminalInitialized => true;
+    public Task InitializeTerminalsAsync() => Task.CompletedTask;
 
     public event EventHandler? CloseRequested;
 

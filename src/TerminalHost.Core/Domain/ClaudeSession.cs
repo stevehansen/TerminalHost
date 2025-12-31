@@ -114,6 +114,48 @@ public class ClaudeSession
     public bool IsFork => !string.IsNullOrEmpty(ParentSessionId);
 
     /// <summary>
+    /// Whether this session has a commit.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasCommit => !string.IsNullOrEmpty(CommitHash);
+
+    /// <summary>
+    /// Whether this session has agent notes.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasNotes => !string.IsNullOrEmpty(AgentNotes);
+
+    /// <summary>
+    /// Whether this session has any files changed.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasFilesChanged => FilesChanged.Count > 0;
+
+    /// <summary>
+    /// Whether this session has any commands executed.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasCommands => CommandsExecuted.Count > 0;
+
+    /// <summary>
+    /// Whether this session is currently running.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsRunning => Status == ClaudeSessionStatus.Running;
+
+    /// <summary>
+    /// Whether this session has completed (success or failed).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsCompleted => Status == ClaudeSessionStatus.Success || Status == ClaudeSessionStatus.Failed;
+
+    /// <summary>
+    /// Gets a display title for the session.
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayTitle => ShortDuration;
+
+    /// <summary>
     /// Duration of the session.
     /// </summary>
     [JsonIgnore]

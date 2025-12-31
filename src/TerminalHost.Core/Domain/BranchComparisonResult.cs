@@ -57,6 +57,12 @@ public class BranchComparisonResult
     /// </summary>
     public int BaseBehindCount => CommitsOnlyInCompare.Count;
 
+    // Aliases for compatibility (properties used for assignment - not computed)
+    public int AheadCount { get; set; }
+    public int BehindCount { get; set; }
+    public List<GitCommit> UniqueCommits { get; set; } = [];
+    public List<GitFileStatus> ChangedFiles { get; set; } = [];
+
     /// <summary>
     /// Summary display of the relationship.
     /// </summary>

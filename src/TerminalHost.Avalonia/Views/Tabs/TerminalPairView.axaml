@@ -1,0 +1,456 @@
+<UserControl x:Class="TerminalHost.Views.Tabs.TerminalPairView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:views="clr-namespace:TerminalHost.Views"
+             mc:Ignorable="d"
+             d:DesignWidth="1024" d:DesignHeight="600"
+             x:DataType="vm:TerminalPairTabViewModel">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Terminal Switcher Bar -->
+        <Border Grid.Row="0" Background="{DynamicResource BackgroundDarkBrush}" Padding="8,4">
+            <!-- Use WrapPanel so buttons wrap to next line when window is narrow -->
+            <WrapPanel Orientation="Horizontal">
+                    <!-- Custom Full Mode -->
+                    <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
+                                  Command="{Binding SetCustomFullLayoutCommand}"
+                                  ToolTip.Tip="Custom terminal only (full view)"
+                                  AutomationProperties.AutomationId="CustomFullLayoutButton">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="3,0,0,3"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                        <TextBlock Text="Γûú" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Horizontal Split Mode -->
+                    <ToggleButton IsChecked="{Binding IsHorizontalSplitMode, Mode=OneWay}"
+                                  Command="{Binding SetHorizontalSplitLayoutCommand}"
+                                  ToolTip.Tip="Horizontal split (side by side)"
+                                  AutomationProperties.AutomationId="HorizontalSplitLayoutButton">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="0"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                        <TextBlock Text="ΓûÑ" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Vertical Split Mode -->
+                    <ToggleButton IsChecked="{Binding IsVerticalSplitMode, Mode=OneWay}"
+                                  Command="{Binding SetVerticalSplitLayoutCommand}"
+                                  ToolTip.Tip="Vertical split (stacked)"
+                                  AutomationProperties.AutomationId="VerticalSplitLayoutButton"
+                                  Margin="0,0,8,0">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="0,3,3,0"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                        <TextBlock Text="Γûñ" FontSize="14" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- AI Assistant Selector (visible only when multiple assistants enabled) -->
+                    <ComboBox ItemsSource="{Binding AvailableAiAssistants}"
+                              SelectedItem="{Binding SelectedAiAssistant, Mode=TwoWay}"
+                              IsVisible="{Binding HasMultipleAiAssistants}"
+                              AutomationProperties.AutomationId="AiAssistantSelector"
+                              ToolTip.Tip="Switch AI Assistant"
+                              Margin="8,0,0,0"
+                              MinWidth="100"
+                              Classes="dark"
+                              DisplayMemberBinding="{Binding DisplayLabel}"/>
+
+                    <!-- Shell Profile Selector (visible only when multiple profiles available) -->
+                    <ComboBox ItemsSource="{Binding AvailableShellProfiles}"
+                              SelectedItem="{Binding SelectedShellProfile, Mode=TwoWay}"
+                              IsVisible="{Binding HasMultipleShellProfiles}"
+                              AutomationProperties.AutomationId="ShellProfileSelector"
+                              ToolTip.Tip="Switch Shell Profile"
+                              Margin="8,0,0,0"
+                              MinWidth="100"
+                              Classes="dark"
+                              DisplayMemberBinding="{Binding Name}"/>
+
+                    <TextBlock Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding Pair.DirectoryName}"
+                               ToolTip.Tip="{Binding Pair.WorkingDirectory}"/>
+
+                    <!-- Git Status Display -->
+                    <TextBlock Foreground="{DynamicResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               Text="{Binding GitStatusDisplay}"/>
+
+                    <!-- Quick Commands Separator -->
+                    <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="16,2,8,2"/>
+
+                    <!-- Built-in Quick Commands -->
+                    <Button x:Name="DetectedLinksButton"
+                            ToolTip.Tip="Detected Links - Click to view"
+                            AutomationProperties.Name="Detected Links"
+                            Classes="terminalSwitch"
+                            Command="{Binding $parent[Window].DataContext.OpenDetectedLinksCommand}"
+                            IsVisible="{Binding HasDetectedLinks}"
+                            Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="≡ƒöù" Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding DetectedLinks.Count}"
+                                       FontSize="{DynamicResource FontSizeMicro}"
+                                       Foreground="{DynamicResource SyntaxCyanBrush}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Content="≡ƒôü"
+                            ToolTip.Tip="Open in Explorer (Ctrl+E)"
+                            AutomationProperties.Name="Open in Explorer"
+                            Classes="terminalSwitch"
+                            Command="{Binding $parent[Window].DataContext.OpenInExplorerCommand}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="≡ƒô¥"
+                            ToolTip.Tip="Scratch Pad (Ctrl+Shift+N)"
+                            AutomationProperties.Name="Scratch Pad"
+                            Classes="terminalSwitch"
+                            Command="{Binding $parent[Window].DataContext.OpenScratchPadCommand}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="≡ƒôï"
+                            ToolTip.Tip="Git Changes (Ctrl+G)"
+                            AutomationProperties.Name="Git Changes"
+                            Classes="terminalSwitch"
+                            Command="{Binding $parent[Window].DataContext.OpenGitChangesCommand}"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Γ¥ô"
+                            ToolTip.Tip="Help &amp; Shortcuts (F1)"
+                            AutomationProperties.Name="Help"
+                            Classes="terminalSwitch"
+                            Command="{Binding $parent[Window].DataContext.OpenHelpCommand}"
+                            Margin="0,0,4,0"/>
+
+                    <!-- Run Controls Separator -->
+                    <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,2,8,2"
+                            IsVisible="{Binding HasAnyRunConfiguration}"/>
+
+                    <!-- Run State Indicator (colored dot) -->
+                    <Ellipse Width="8" Height="8"
+                             Fill="{Binding RunState, Converter={StaticResource RunStateToColorConverter}}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,4,0"
+                             IsVisible="{Binding HasAnyRunConfiguration}"/>
+
+                    <!-- Run/Stop Button -->
+                    <Button Content="{Binding RunState, Converter={StaticResource RunStateToIconConverter}}"
+                            ToolTip.Tip="{Binding RunState, Converter={StaticResource RunStateToTooltipConverter}}"
+                            AutomationProperties.Name="Toggle Project Run"
+                            Classes="terminalSwitch"
+                            Command="{Binding ToggleRunCommand}"
+                            Margin="0,0,4,0"
+                            IsVisible="{Binding HasAnyRunConfiguration}"/>
+
+                    <!-- Run Configuration Dropdown (only if multiple configs) -->
+                    <ComboBox ItemsSource="{Binding RunConfigurations}"
+                              SelectedItem="{Binding ActiveRunConfiguration}"
+                              MinWidth="80"
+                              IsVisible="{Binding HasMultipleRunConfigs}"
+                              Classes="dark"
+                              Margin="0,0,4,0">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="domain:RunConfiguration">
+                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!-- Detected Run URL Button -->
+                    <Button ToolTip.Tip="{Binding DetectedRunUrl}"
+                            AutomationProperties.Name="Open Detected URL"
+                            Classes="terminalSwitch"
+                            Click="OpenDetectedRunUrl_Click"
+                            IsVisible="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
+                            Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="≡ƒîÉ" Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding DetectedRunUrl}"
+                                       FontSize="{DynamicResource FontSizeMicro}"
+                                       Foreground="{DynamicResource SyntaxCyanBrush}"
+                                       MaxWidth="150"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Toggle Run Terminal Visibility -->
+                    <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
+                                  Content="Γû╢"
+                                  ToolTip.Tip="Show/Hide Run Terminal"
+                                  AutomationProperties.Name="Toggle Run Terminal Visibility"
+                                  Margin="0,0,4,0"
+                                  IsVisible="{Binding HasAnyRunConfiguration}">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="3"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+
+                    <!-- Toggle Explorer Visibility -->
+                    <ToggleButton IsChecked="{Binding IsExplorerVisible}"
+                                  Content="≡ƒôé"
+                                  ToolTip.Tip="File Explorer (Ctrl+Shift+F)"
+                                  AutomationProperties.Name="Toggle File Explorer"
+                                  Margin="0,0,8,0">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="3"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+
+                    <!-- Separator between built-in and user commands -->
+                    <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,2,8,2"
+                            IsVisible="{Binding $parent[Window].DataContext.QuickCommands.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+
+                    <!-- User Quick Commands -->
+                    <ItemsControl ItemsSource="{Binding $parent[Window].DataContext.QuickCommands}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="domain:QuickCommand">
+                                <Button Content="{Binding DisplayText}"
+                                        ToolTip.Tip="{Binding Tooltip}"
+                                        Classes="terminalSwitch"
+                                        Command="{Binding $parent[Window].DataContext.ExecuteQuickCommandCommand}"
+                                        CommandParameter="{Binding}"
+                                        Margin="0,0,4,0"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+            </WrapPanel>
+        </Border>
+
+        <!-- Terminal Content Area - Outer grid for Explorer only -->
+        <Grid Grid.Row="1" Background="{DynamicResource BackgroundDarkestBrush}">
+            <Grid.ColumnDefinitions>
+                <!-- Main content area (terminals + run) -->
+                <ColumnDefinition Width="{Binding MainContentColumnWidth}"/>
+                <!-- Explorer splitter column (hidden when explorer not visible) -->
+                <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
+                <!-- Explorer column (hidden when not visible) -->
+                <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Main Content Grid - contains terminals and run terminal -->
+            <Grid x:Name="MainContentGrid" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <!-- Main terminals area -->
+                    <ColumnDefinition Width="{Binding MainTerminalsColumnWidth}"/>
+                    <!-- Run splitter column (hidden when run terminal not visible) -->
+                    <ColumnDefinition Width="{Binding RunSplitterWidth}"/>
+                    <!-- Run terminal column (hidden when not visible) -->
+                    <ColumnDefinition Width="{Binding RunColumnWidth}"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Main Terminals Grid - supports both horizontal and vertical layouts -->
+                <Grid x:Name="MainTerminalsGrid" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <!-- Custom terminal column (for horizontal split) -->
+                    <ColumnDefinition Width="{Binding CustomColumnWidth}"/>
+                    <!-- Horizontal splitter column -->
+                    <ColumnDefinition Width="{Binding MainSplitterWidth}"/>
+                    <!-- Shell terminal column (for horizontal split) -->
+                    <ColumnDefinition Width="{Binding ShellColumnWidth}"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <!-- Custom terminal row (for vertical split) -->
+                    <RowDefinition Height="{Binding CustomRowHeight}"/>
+                    <!-- Vertical splitter row -->
+                    <RowDefinition Height="{Binding VerticalSplitterHeight}"/>
+                    <!-- Shell terminal row (for vertical split) -->
+                    <RowDefinition Height="{Binding ShellRowHeight}"/>
+                </Grid.RowDefinitions>
+
+                <!-- Custom Terminal (Column 0, Row 0) - always visible, spans all rows/columns in full mode -->
+                <Grid x:Name="CustomTerminalGrid" Grid.Column="0" Grid.Row="0"
+                      Grid.RowSpan="{Binding ShouldCustomSpanAllRows, Converter={StaticResource BoolToRowSpanConverter}}"
+                      Grid.ColumnSpan="{Binding ShouldCustomSpanAllColumns, Converter={StaticResource BoolToColumnSpanConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource BackgroundMediumBrush}" Padding="8,4">
+                        <TextBlock FontSize="{DynamicResource FontSizeSmall}" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding CustomIcon, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Run Text=" Claude Code" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Run Text="{Binding CustomTerminalTitleDisplay, Mode=OneWay}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </TextBlock>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
+                                      AutomationProperties.AutomationId="CustomTerminalContent"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+
+                <!-- Horizontal Splitter (Column 1, Row 0) - visible in horizontal split mode -->
+                <GridSplitter x:Name="TerminalSplitter" Grid.Column="1" Grid.Row="0" Grid.RowSpan="3"
+                              Width="4" Background="{DynamicResource BackgroundMediumBrush}"
+                              ResizeDirection="Columns"
+                              IsVisible="{Binding IsHorizontalSplitMode}"
+                              DragCompleted="GridSplitter_DragCompleted"/>
+
+                <!-- Vertical Splitter (Column 0, Row 1) - visible in vertical split mode -->
+                <GridSplitter x:Name="VerticalTerminalSplitter" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="3"
+                              Height="4" Background="{DynamicResource BackgroundMediumBrush}"
+                              ResizeDirection="Rows"
+                              IsVisible="{Binding IsVerticalSplitMode}"
+                              DragCompleted="VerticalSplitter_DragCompleted"/>
+
+                <!-- Shell Terminal - Position depends on layout mode -->
+                <!-- In Horizontal mode: Column 2, Row 0, spans all rows -->
+                <!-- In Vertical mode: Column 0, Row 2, spans all columns -->
+                <Grid x:Name="ShellTerminalGrid"
+                      Grid.Column="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToShellColumnConverter}}"
+                      Grid.Row="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToShellRowConverter}}"
+                      Grid.RowSpan="{Binding IsHorizontalSplitMode, Converter={StaticResource BoolToRowSpanConverter}}"
+                      Grid.ColumnSpan="{Binding IsVerticalSplitMode, Converter={StaticResource BoolToColumnSpanConverter}}"
+                      IsVisible="{Binding IsShellVisible}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource BackgroundMediumBrush}" Padding="8,4">
+                        <TextBlock FontSize="{DynamicResource FontSizeSmall}" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding ShellIcon, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Run Text=" Shell" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Run Text="{Binding ShellTerminalTitleDisplay, Mode=OneWay}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </TextBlock>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                      AutomationProperties.AutomationId="ShellTerminalContent"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+                </Grid>
+                <!-- End of MainTerminalsGrid -->
+
+                <!-- Run Splitter (Column 1 of MainContentGrid) - only visible when run terminal is visible -->
+                <GridSplitter x:Name="RunTerminalSplitter" Grid.Column="1" Width="4"
+                              Background="{DynamicResource BackgroundMediumBrush}"
+                              ResizeDirection="Columns"
+                              IsVisible="{Binding IsRunTerminalVisible}"
+                              DragCompleted="RunSplitter_DragCompleted"/>
+
+                <!-- Run Terminal (Column 2 of MainContentGrid) - only visible when run terminal is visible -->
+                <Grid Grid.Column="2" IsVisible="{Binding IsRunTerminalVisible}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource BackgroundMediumBrush}" Padding="8,4">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="├ù"
+                                    Classes="tabClose"
+                                    Command="{Binding ToggleRunTerminalCommand}"
+                                    AutomationProperties.Name="Hide Run Terminal"
+                                    ToolTip.Tip="Hide Run Terminal"/>
+                            <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center">
+                                <Run Text="Γû╢ Run"/>
+                                <Run Text=" - " Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{DynamicResource SyntaxCyanBrush}"/>
+                            </TextBlock>
+                        </DockPanel>
+                    </Border>
+                    <ContentPresenter Grid.Row="1" Content="{Binding RunTerminalContent}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </Grid>
+            </Grid>
+            <!-- End of MainContentGrid -->
+
+            <!-- Explorer Splitter (Column 1 of outer grid) - only visible when explorer is visible -->
+            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4"
+                          Background="{DynamicResource BackgroundMediumBrush}"
+                          ResizeDirection="Columns"
+                          IsVisible="{Binding IsExplorerVisible}"
+                          DragCompleted="ExplorerSplitter_DragCompleted"/>
+
+            <!-- Explorer Panel (Column 2 of outer grid) - only visible when explorer is visible -->
+            <views:FileExplorerView Grid.Column="2"
+                                    DataContext="{Binding ExplorerViewModel}"
+                                    IsVisible="{Binding IsExplorerVisible}"/>
+        </Grid>
+    </Grid>
+</UserControl>

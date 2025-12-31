@@ -1,0 +1,2243 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Domain;
+using TerminalHost.Services;
+using ITimerService = TerminalHost.Services.ITimerService;
+
+namespace TerminalHost.ViewModels;
+
+public partial class MainViewModel : ObservableObject
+{
+    private readonly IProfileRegistry _profileRegistry;
+    private readonly ISessionManager _sessionManager;
+    private readonly ITerminalControlFactory _terminalFactory;
+    private readonly IConfigurationService _configService;
+    private readonly IStatisticsService _statisticsService;
+    private readonly IGitStatusService _gitStatusService;
+    private readonly ILinkDetectionService _linkDetectionService;
+    private readonly IProjectDetectionService _projectDetectionService;
+    private readonly IRunUrlDetectionService _runUrlDetectionService;
+    private readonly DetectedLinksViewModel _detectedLinksViewModel;
+    private readonly IFileSystem _fileSystem;
+    private readonly IDialogService _dialogService;
+    private readonly IFileExplorerService _fileExplorerService;
+    private readonly IFilePreviewService _filePreviewService;
+    private readonly IFileEditService _fileEditService;
+    private readonly IClaudeCommandService _claudeCommandService;
+    private readonly ITaskService _taskService;
+    private readonly IAiAssistantService _aiAssistantService;
+    private readonly IGitHubService _gitHubService;
+    private readonly IMarkdownService _markdownService;
+    private readonly IProcessService _processService;
+    private readonly IToastService _toastService;
+    private readonly IClipboardService _clipboardService;
+    private readonly IFolderPickerService _folderPickerService;
+    private readonly IFilePickerService _filePickerService;
+    private readonly ITimerService _timerService;
+    private readonly IDispatcherService _dispatcherService;
+    private readonly ITimelineService _timelineService;
+
+    private readonly IPlatformTimer _gitStatusTimer;
+    private readonly IPlatformTimer _gitAutoFetchTimer;
+    private readonly IPlatformTimer _activityTimer;
+    private readonly IPlatformTimer _linkDetectionTimer;
+    private readonly IPlatformTimer _runUrlDetectionTimer;
+
+    /// <summary>
+    /// The link detection service for scanning terminal output for clickable links.
+    /// </summary>
+    public ILinkDetectionService LinkDetectionService => _linkDetectionService;
+
+    /// <summary>
+    /// The run URL detection service for detecting localhost URLs from run output.
+    /// </summary>
+    public IRunUrlDetectionService RunUrlDetectionService => _runUrlDetectionService;
+
+    /// <summary>
+    /// The project detection service for auto-detecting project types.
+    /// </summary>
+    public IProjectDetectionService ProjectDetectionService => _projectDetectionService;
+
+    /// <summary>
+    /// The terminal control factory for creating terminal controls.
+    /// </summary>
+    public ITerminalControlFactory TerminalFactory => _terminalFactory;
+
+    /// <summary>
+    /// The session manager for tracking terminal sessions.
+    /// </summary>
+    public ISessionManager SessionManager => _sessionManager;
+
+    [ObservableProperty]
+    private ObservableCollection<ITabViewModel> _tabs = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
+    private ITabViewModel? _selectedTab;
+
+    [ObservableProperty]
+    private ObservableCollection<QuickCommand> _quickCommands = [];
+
+    [ObservableProperty]
+    private string _dropdownSearchText = "";
+
+    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = [];
+    public ReadOnlyObservableCollection<ITabViewModel> FilteredDropdownTabs { get; }
+
+    [ObservableProperty]
+    private bool _isTabDropdownOpen;
+
+    [ObservableProperty]
+    private string _switcherSearchText = "";
+
+    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = [];
+    public ReadOnlyObservableCollection<ITabViewModel> FilteredSwitcherTabs { get; }
+
+    [ObservableProperty]
+    private bool _isTabSwitcherOpen;
+
+    [ObservableProperty]
+    private bool _isHelpOpen;
+
+    // Command Palette Properties
+    [ObservableProperty]
+    private bool _isCommandPaletteOpen;
+
+    [ObservableProperty]
+    private string _paletteSearchText = "";
+
+    private ObservableCollection<PaletteCommand> _allPaletteCommands = []; // Stores all commands
+    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = [];
+    public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
+
+    [ObservableProperty]
+    private PaletteCommand? _selectedPaletteCommand;
+
+    // Task Panel
+    public TaskPanelViewModel? TaskPanelViewModel { get; set; }
+
+    // Quick Capture
+    [ObservableProperty]
+    private bool _isQuickTaskOpen;
+
+    [ObservableProperty]
+    private string _quickTaskTitle = string.Empty;
+
+    [ObservableProperty]
+    private bool _isQuickNoteOpen;
+
+    [ObservableProperty]
+    private string _quickNoteText = string.Empty;
+
+    // Layout Mode (Tabs vs Sidebar)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSidebarMode))]
+    [NotifyPropertyChangedFor(nameof(IsTabsMode))]
+    [NotifyPropertyChangedFor(nameof(SidebarColumnWidth))]
+    [NotifyPropertyChangedFor(nameof(SidebarSplitterWidth))]
+    [NotifyPropertyChangedFor(nameof(TabStripRowHeight))]
+    private AppLayoutMode _layoutMode = AppLayoutMode.Tabs;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SidebarColumnWidth))]
+    private double _sidebarWidth = 250;
+
+    /// <summary>
+    /// The workspace sidebar view model.
+    /// </summary>
+    public WorkspaceSidebarViewModel? SidebarViewModel { get; set; }
+
+    /// <summary>
+    /// Whether the application is in sidebar layout mode.
+    /// </summary>
+    public bool IsSidebarMode => LayoutMode == AppLayoutMode.WorkspaceSidebar;
+
+    /// <summary>
+    /// Whether the application is in tabs layout mode.
+    /// </summary>
+    public bool IsTabsMode => LayoutMode == AppLayoutMode.Tabs;
+
+    /// <summary>
+    /// Width of the sidebar column (0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength SidebarColumnWidth => IsSidebarMode
+        ? new Avalonia.Controls.GridLength(SidebarWidth, Avalonia.Controls.GridUnitType.Pixel)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
+    /// <summary>
+    /// Width of the sidebar splitter (0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength SidebarSplitterWidth => IsSidebarMode
+        ? new Avalonia.Controls.GridLength(4, Avalonia.Controls.GridUnitType.Pixel)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
+    /// <summary>
+    /// Height of the tab strip row (Auto when visible, 0 when hidden).
+    /// </summary>
+    public Avalonia.Controls.GridLength TabStripRowHeight => IsTabsMode
+        ? new Avalonia.Controls.GridLength(1, Avalonia.Controls.GridUnitType.Auto)
+        : new Avalonia.Controls.GridLength(0, Avalonia.Controls.GridUnitType.Pixel);
+
+    public event EventHandler? ConfigReloaded;
+    public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
+    public event EventHandler<FileViewerRequestedEventArgs>? FilePopOutRequested;
+    public event EventHandler<RunTerminalRequestedEventArgs>? RunTerminalRequested;
+    public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
+    public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
+
+    public string WindowTitle
+    {
+        get
+        {
+            if (SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                var gitBranch = terminalTab.GitStatus?.IsGitRepository == true
+                    ? $" ({terminalTab.GitStatus.BranchName})"
+                    : "";
+                return $"{terminalTab.Title}{gitBranch} - TerminalHost";
+            }
+            else if (SelectedTab is SettingsTabViewModel)
+            {
+                return "Settings - TerminalHost";
+            }
+            return "TerminalHost";
+        }
+    }
+
+    public MainViewModel(
+        IProfileRegistry profileRegistry,
+        ISessionManager sessionManager,
+        ITerminalControlFactory terminalFactory,
+        IConfigurationService configService,
+        IStatisticsService statisticsService,
+        IGitStatusService gitStatusService,
+        ILinkDetectionService linkDetectionService,
+        IProjectDetectionService projectDetectionService,
+        IRunUrlDetectionService runUrlDetectionService,
+        DetectedLinksViewModel detectedLinksViewModel,
+        IFileSystem fileSystem,
+        IDialogService dialogService,
+        IFileExplorerService fileExplorerService,
+        IFilePreviewService filePreviewService,
+        IFileEditService fileEditService,
+        IClaudeCommandService claudeCommandService,
+        ITaskService taskService,
+        IAiAssistantService aiAssistantService,
+        IGitHubService gitHubService,
+        IMarkdownService markdownService,
+        IProcessService processService,
+        IToastService toastService,
+        IClipboardService clipboardService,
+        IFolderPickerService folderPickerService,
+        IFilePickerService filePickerService,
+        ITimerService timerService,
+        IDispatcherService dispatcherService,
+        ITimelineService timelineService)
+    {
+        _profileRegistry = profileRegistry;
+        _sessionManager = sessionManager;
+        _terminalFactory = terminalFactory;
+        _configService = configService;
+        _statisticsService = statisticsService;
+        _gitStatusService = gitStatusService;
+        _linkDetectionService = linkDetectionService;
+        _projectDetectionService = projectDetectionService;
+        _runUrlDetectionService = runUrlDetectionService;
+        _detectedLinksViewModel = detectedLinksViewModel;
+        _fileSystem = fileSystem;
+        _dialogService = dialogService;
+        _fileExplorerService = fileExplorerService;
+        _filePreviewService = filePreviewService;
+        _fileEditService = fileEditService;
+        _claudeCommandService = claudeCommandService;
+        _taskService = taskService;
+        _aiAssistantService = aiAssistantService;
+        _gitHubService = gitHubService;
+        _markdownService = markdownService;
+        _processService = processService;
+        _toastService = toastService;
+        _clipboardService = clipboardService;
+        _folderPickerService = folderPickerService;
+        _filePickerService = filePickerService;
+        _timerService = timerService;
+        _dispatcherService = dispatcherService;
+        _timelineService = timelineService;
+
+        // Subscribe to focus mode changes
+        _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
+        _taskService.CurrentTaskChanged += (_, _) => UpdateTabFocusModeVisibility();
+
+        // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
+        _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
+
+        FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
+        UpdateFilteredDropdownTabs(); // Initial population
+
+        FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
+        UpdateFilteredSwitcherTabs(); // Initial population
+
+        FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
+        InitializeCommandPalette(); // Initialize commands once
+
+        // Set up timer for periodic git status refresh (every 5 seconds)
+        _gitStatusTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(5),
+            async () => await RefreshSelectedTabGitStatusAsync());
+
+        // Set up timer for git auto-fetch (configurable interval, default 60 seconds)
+        var fetchInterval = Math.Max(30, _configService.Load().Settings.GitAutoFetchIntervalSeconds);
+        _gitAutoFetchTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(fetchInterval),
+            async () => await AutoFetchAllAsync());
+
+        // Set up timer for activity state refresh (every 1 second to detect idle transitions)
+        _activityTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(1),
+            RefreshActivityState);
+
+        // Set up timer for link detection refresh (every 3 seconds)
+        _linkDetectionTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(3),
+            RefreshDetectedLinks);
+
+        // Set up timer for run URL detection (every 2 seconds, only when running)
+        _runUrlDetectionTimer = _timerService.CreateTimer(
+            TimeSpan.FromSeconds(2),
+            RefreshRunUrlDetection);
+    }
+
+    partial void OnDropdownSearchTextChanged(string value)
+    {
+        UpdateFilteredDropdownTabs();
+    }
+
+    partial void OnSwitcherSearchTextChanged(string value)
+    {
+        UpdateFilteredSwitcherTabs();
+    }
+
+    partial void OnTabsChanged(ObservableCollection<ITabViewModel> value)
+    {
+        UpdateFilteredDropdownTabs();
+        UpdateFilteredSwitcherTabs();
+    }
+
+    partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
+    {
+        // If the selected tab changes, and the dropdown is open, close it.
+        if (IsTabDropdownOpen && newValue != null)
+        {
+            IsTabDropdownOpen = false;
+        }
+        if (IsTabSwitcherOpen && newValue != null)
+        {
+            IsTabSwitcherOpen = false;
+        }
+
+        // Update IsSelected state on tabs
+        if (oldValue != null)
+        {
+            oldValue.IsSelected = false;
+        }
+        if (newValue != null)
+        {
+            newValue.IsSelected = true;
+            // Clear unread activity indicator when tab is selected/focused
+            newValue.ClearUnreadActivity();
+
+            // Lazy initialization: create terminal controls when tab is first selected
+            if (!newValue.IsTerminalInitialized)
+            {
+                _ = InitializeTabTerminalsAsync(newValue);
+            }
+
+            // Refresh worktrees in sidebar when tab changes
+            if (IsSidebarMode)
+            {
+                _ = SidebarViewModel?.RefreshWorktreesAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Initializes terminal controls for a tab. Called on first selection (lazy initialization).
+    /// </summary>
+    private async Task InitializeTabTerminalsAsync(ITabViewModel tab)
+    {
+        await tab.InitializeTerminalsAsync();
+
+        // Track sessions after initialization (for terminal tabs)
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            _sessionManager.TrackSession(terminalTab.Pair.CustomTerminal);
+            _sessionManager.TrackSession(terminalTab.Pair.ShellTerminal);
+
+            // Track run terminal if it was initialized (due to IsRunTerminalVisible being restored)
+            if (terminalTab.Pair.RunTerminal != null)
+            {
+                _sessionManager.TrackSession(terminalTab.Pair.RunTerminal);
+            }
+        }
+        else if (tab is ProfileTerminalTabViewModel profileTab)
+        {
+            _sessionManager.TrackSession(profileTab.Session);
+        }
+    }
+
+    partial void OnIsTabDropdownOpenChanged(bool value)
+    {
+        if (value)
+        {
+            DropdownSearchText = "";
+            UpdateFilteredDropdownTabs();
+        }
+    }
+
+    partial void OnIsTabSwitcherOpenChanged(bool value)
+    {
+        if (value)
+        {
+            SwitcherSearchText = "";
+            UpdateFilteredSwitcherTabs();
+        }
+    }
+
+    private void UpdateFilteredDropdownTabs()
+    {
+        _filteredDropdownTabs.Clear();
+        if (string.IsNullOrEmpty(DropdownSearchText))
+        {
+            foreach (var tab in Tabs)
+            {
+                _filteredDropdownTabs.Add(tab);
+            }
+        }
+        else
+        {
+            var searchText = DropdownSearchText.ToLower();
+            foreach (var tab in Tabs.Where(t =>
+                t.Title.ToLower().Contains(searchText) ||
+                t.WorkingDirectory.ToLower().Contains(searchText)))
+            {
+                _filteredDropdownTabs.Add(tab);
+            }
+        }
+    }
+
+    private void UpdateFilteredSwitcherTabs()
+    {
+        _filteredSwitcherTabs.Clear();
+        if (string.IsNullOrEmpty(SwitcherSearchText))
+        {
+            foreach (var tab in Tabs)
+            {
+                _filteredSwitcherTabs.Add(tab);
+            }
+        }
+        else
+        {
+            var searchText = SwitcherSearchText.ToLower();
+            foreach (var tab in Tabs.Where(t =>
+                t.Title.ToLower().Contains(searchText) ||
+                t.WorkingDirectory.ToLower().Contains(searchText)))
+            {
+                _filteredSwitcherTabs.Add(tab);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates visibility of all tabs based on focus mode state.
+    /// Called when focus mode is toggled or current task changes.
+    /// </summary>
+    private void UpdateTabFocusModeVisibility()
+    {
+        var isFocusModeEnabled = _taskService.IsFocusModeEnabled;
+        var currentTaskProjects = _taskService.GetProjectsForCurrentTask();
+
+        foreach (var tab in Tabs)
+        {
+            tab.UpdateFocusModeVisibility(isFocusModeEnabled, currentTaskProjects);
+        }
+
+        // If the selected tab is now hidden, try to select a visible one
+        if (SelectedTab != null && !SelectedTab.IsVisibleInFocusMode)
+        {
+            var visibleTab = Tabs.FirstOrDefault(t => t.IsVisibleInFocusMode);
+            if (visibleTab != null)
+            {
+                SelectedTab = visibleTab;
+            }
+        }
+    }
+
+    public void Initialize()
+    {
+        // Load quick commands from config
+        LoadQuickCommands();
+
+        // Load layout mode from config
+        LoadLayoutSettings();
+
+        // Initialize sidebar view model
+        SidebarViewModel?.Initialize();
+
+        // Restore previously open folders
+        RestoreOpenFolders();
+
+        // Start git status refresh timer
+        _gitStatusTimer.Start();
+
+        // Start git auto-fetch timer (if enabled)
+        if (_configService.Load().Settings.GitAutoFetch)
+        {
+            _gitAutoFetchTimer.Start();
+        }
+
+        // Start activity refresh timer
+        _activityTimer.Start();
+
+        // Start link detection timer
+        _linkDetectionTimer.Start();
+
+        // Start run URL detection timer
+        _runUrlDetectionTimer.Start();
+    }
+
+    private void LoadLayoutSettings()
+    {
+        var config = _configService.Load();
+        LayoutMode = config.Settings.LayoutMode;
+        SidebarWidth = config.Settings.SidebarWidth;
+    }
+
+    private void LoadQuickCommands()
+    {
+        var config = _configService.Load();
+        QuickCommands = new ObservableCollection<QuickCommand>(config.QuickCommands);
+    }
+
+    private async Task RefreshSelectedTabGitStatusAsync()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
+
+        try
+        {
+            var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+            terminalTab.GitStatus = status;
+            // Update window title when git status changes
+            OnPropertyChanged(nameof(WindowTitle));
+        }
+        catch
+        {
+            // Silently ignore git status errors
+        }
+    }
+
+    private async Task RefreshTabGitStatusAsync(TerminalPairTabViewModel tab)
+    {
+        try
+        {
+            var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
+            tab.GitStatus = status;
+        }
+        catch
+        {
+            // Silently ignore git status errors
+        }
+    }
+
+    private void RefreshActivityState()
+    {
+        // Update activity state for all terminal tabs (to detect idle transitions)
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            tab.UpdateActivityState();
+        }
+
+        // Also update profile terminal tabs
+        foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
+        {
+            tab.UpdateActivityState();
+        }
+    }
+
+    /// <summary>
+    /// Automatically fetches from git remotes for all open projects.
+    /// This runs periodically to keep behind counts up to date.
+    /// </summary>
+    private async Task AutoFetchAllAsync()
+    {
+        // Fetch for all open terminal pair tabs in parallel
+        var fetchTasks = Tabs.OfType<TerminalPairTabViewModel>()
+            .Select(async tab =>
+            {
+                try
+                {
+                    await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
+                }
+                catch
+                {
+                    // Silently ignore fetch errors (network issues, etc.)
+                }
+            });
+
+        await Task.WhenAll(fetchTasks);
+    }
+
+    private void RefreshDetectedLinks()
+    {
+        // Only refresh the selected tab to keep it lightweight
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.UpdateDetectedLinks(_linkDetectionService);
+        }
+    }
+
+    private void RefreshRunUrlDetection()
+    {
+        // Only scan when there's a running project
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+            return;
+
+        if (terminalTab.RunState != RunState.Running && terminalTab.RunState != RunState.Starting)
+            return;
+
+        if (terminalTab.Pair.RunTerminal == null)
+            return;
+
+        // Don't re-detect if we already have a URL
+        if (!string.IsNullOrEmpty(terminalTab.DetectedRunUrl))
+            return;
+
+        // Get recent output from run terminal
+        var output = terminalTab.Pair.RunTerminal.GetRecentOutput(5000);
+        if (string.IsNullOrEmpty(output))
+            return;
+
+        // Get the URL pattern from the active configuration
+        var urlPattern = terminalTab.ActiveRunConfiguration?.UrlPattern;
+
+        // Detect URL
+        var url = _runUrlDetectionService.DetectUrl(output, urlPattern);
+        if (!string.IsNullOrEmpty(url))
+        {
+            terminalTab.DetectedRunUrl = url;
+        }
+    }
+
+    private void RestoreOpenFolders()
+    {
+        var config = _configService.Load();
+
+        // Restore dashboard if it was open
+        if (config.Settings.Dashboard.ShowOnStartup && config.Settings.Dashboard.Enabled)
+        {
+            _ = OpenDashboardAsync();
+        }
+
+        foreach (var folder in config.OpenFolders)
+        {
+            if (_fileSystem.DirectoryExists(folder))
+            {
+                // Don't select tabs during restore - lazy initialization will happen when user clicks
+                OpenProjectTab(folder, selectTab: false);
+            }
+        }
+
+        // Restore the last selected tab (this is the only one that will be initialized on startup)
+        if (!string.IsNullOrEmpty(config.LastSelectedFolder))
+        {
+            var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
+                .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
+            if (tabToSelect != null)
+            {
+                SelectedTab = tabToSelect;
+            }
+        }
+        else if (Tabs.Count > 0)
+        {
+            // If no last selected folder, select the first tab
+            SelectedTab = Tabs[0];
+        }
+    }
+
+    private void SaveOpenFolders()
+    {
+        var config = _configService.Load();
+
+        // Only save TerminalPairTabViewModel tabs (not Settings, Stats, Dashboard, etc.)
+        config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
+
+        // Save the currently selected tab (if it's a project tab)
+        if (SelectedTab is TerminalPairTabViewModel selectedProjectTab)
+        {
+            config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
+        }
+        else
+        {
+            // Keep the previous selection or clear it
+            config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
+        }
+
+        _configService.Save(config);
+    }
+
+    private void SaveDirectorySettings(TerminalPairTabViewModel tab)
+    {
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(tab.Pair.WorkingDirectory);
+
+        // Get existing settings or create new
+        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var settings))
+        {
+            settings = new DirectorySettings();
+        }
+
+        // Update basic settings
+        settings.LayoutMode = tab.LayoutMode;
+        settings.SplitRatio = tab.SplitRatio;
+        settings.ActiveTerminal = tab.ActiveTerminal.ToString();
+
+        // Update run settings
+        settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
+        settings.RunSplitRatio = tab.RunSplitRatio;
+        settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
+        settings.RunConfigurations = [.. tab.RunConfigurations];
+
+        // Update explorer settings
+        settings.IsExplorerVisible = tab.IsExplorerVisible;
+        settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
+
+        config.DirectorySettings[normalizedPath] = settings;
+        _configService.Save(config);
+    }
+
+    private DirectorySettings? GetDirectorySettings(string workingDirectory)
+    {
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(workingDirectory);
+
+        return config.DirectorySettings.TryGetValue(normalizedPath, out var settings) ? settings : null;
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Updates the recent folders list when a folder is opened.
+    /// </summary>
+    private void UpdateRecentFolders(string path)
+    {
+        var config = _configService.Load();
+        var recentPaths = config.Settings.Repositories.RecentPaths;
+        var maxItems = config.Settings.Repositories.MaxRecentItems;
+
+        // Normalize path for comparison
+        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        // Remove existing entry (case-insensitive) and add to front
+        recentPaths.RemoveAll(p => p.Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+        recentPaths.Insert(0, normalizedPath);
+
+        // Trim to max
+        while (recentPaths.Count > maxItems)
+        {
+            recentPaths.RemoveAt(recentPaths.Count - 1);
+        }
+
+        _configService.Save(config);
+    }
+
+    [RelayCommand]
+    private void OpenNewProject()
+    {
+        try
+        {
+            var path = _folderPickerService.PickFolder("Select Project Directory");
+            if (!string.IsNullOrEmpty(path))
+            {
+                OpenProjectTab(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Error opening project: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleLayoutMode()
+    {
+        LayoutMode = LayoutMode == AppLayoutMode.Tabs
+            ? AppLayoutMode.WorkspaceSidebar
+            : AppLayoutMode.Tabs;
+
+        // Save preference
+        var config = _configService.Load();
+        config.Settings.LayoutMode = LayoutMode;
+        config.Settings.SidebarWidth = SidebarWidth;
+        _configService.Save(config);
+
+        // Refresh worktrees when switching to sidebar mode
+        if (IsSidebarMode)
+        {
+            _ = SidebarViewModel?.RefreshWorktreesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Updates the sidebar width when the splitter is dragged.
+    /// </summary>
+    public void UpdateSidebarWidth(double width)
+    {
+        SidebarWidth = Math.Max(150, Math.Min(width, 500)); // Clamp between 150-500px
+
+        // Save preference
+        var config = _configService.Load();
+        config.Settings.SidebarWidth = SidebarWidth;
+        _configService.Save(config);
+    }
+
+    public async void OpenProjectTab(string workingDirectory, bool selectTab = true)
+    {
+        try
+        {
+            // Normalize the path for comparison
+            workingDirectory = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (!_fileSystem.DirectoryExists(workingDirectory)) // Use injected IFileSystem
+            {
+                _dialogService.ShowError($"Directory not found: {workingDirectory}"); // Use injected IDialogService
+                return;
+            }
+
+            // Check if we already have a tab open for this directory
+            var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
+                string.Equals(
+                    Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    workingDirectory,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (existingTab != null)
+            {
+                // Focus the existing tab instead of creating a new one
+                SelectedTab = existingTab;
+                return;
+            }
+
+            var settings = _profileRegistry.Settings;
+
+            // Get the AI assistant for this directory
+            var aiAssistant = _aiAssistantService.GetAssistantForDirectory(workingDirectory);
+            var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
+
+            // Create profiles for custom command and shell
+            // The custom terminal runs the shell first, then starts the AI CLI as a startup command.
+            // This allows the user to exit and restart the AI CLI without losing the terminal.
+            var customProfile = new Profile
+            {
+                Id = "custom",
+                Name = aiAssistant.Name,
+                Command = settings.ShellCommand,  // Start with the shell
+                StartupCommand = aiAssistant.Command,  // Then launch the AI CLI
+                WorkingDir = workingDirectory,
+                Icon = aiAssistant.Icon
+            };
+
+            var shellProfile = new Profile
+            {
+                Id = "shell",
+                Name = settings.ShellCommandName,
+                Command = settings.ShellCommand,
+                WorkingDir = workingDirectory,
+                Icon = settings.ShellCommandIcon
+            };
+
+            // Create the terminal pair
+            var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
+
+            // Create view model with AI assistant info (terminals created lazily on first selection)
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory);
+            tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
+            tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
+            tabViewModel.CloseRequested += OnTabCloseRequested;
+            tabViewModel.SettingsChanged += OnTabSettingsChanged;
+
+            // Initialize available shell profiles
+            tabViewModel.RefreshAvailableShellProfiles(_profileRegistry.Profiles);
+
+            // Restore per-directory settings if available
+            var dirSettings = GetDirectorySettings(workingDirectory);
+            if (dirSettings != null)
+            {
+                tabViewModel.LayoutMode = dirSettings.LayoutMode;
+                tabViewModel.SplitRatio = dirSettings.SplitRatio;
+                if (Enum.TryParse<ActiveTerminal>(dirSettings.ActiveTerminal, out var activeTerminal))
+                {
+                    tabViewModel.ActiveTerminal = activeTerminal;
+                    pair.ActiveTerminal = activeTerminal;
+                }
+
+                // Restore run settings
+                tabViewModel.IsRunTerminalVisible = dirSettings.IsRunTerminalVisible;
+                tabViewModel.RunSplitRatio = dirSettings.RunSplitRatio;
+            }
+
+            // Initialize run configurations (from settings or auto-detect)
+            InitializeRunConfigurations(tabViewModel, workingDirectory, dirSettings);
+
+            // Note: Sessions are tracked in InitializeTabTerminalsAsync when terminals are created
+
+            // Subscribe to link click events
+            pair.CustomTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+            pair.ShellTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+
+            // Subscribe to run terminal events
+            tabViewModel.RunStartRequested += OnRunStartRequested;
+            tabViewModel.RunStopRequested += OnRunStopRequested;
+
+            // Initialize file explorer
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService, _dispatcherService, _clipboardService);
+            tabViewModel.ExplorerViewModel = explorerViewModel;
+
+            // Restore explorer settings
+            if (dirSettings != null)
+            {
+                tabViewModel.IsExplorerVisible = dirSettings.IsExplorerVisible;
+                tabViewModel.ExplorerSplitRatio = dirSettings.ExplorerSplitRatio;
+            }
+
+            // Wire up explorer events
+            explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
+            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
+            explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
+            explorerViewModel.RenameRequested += OnExplorerRenameRequested;
+            explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
+            explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
+
+            // Initialize explorer async (don't await - let it load in background)
+            _ = explorerViewModel.InitializeAsync(workingDirectory);
+
+            Tabs.Add(tabViewModel);
+
+            // Only select the tab if requested (false during startup restore for lazy init)
+            if (selectTab)
+            {
+                SelectedTab = tabViewModel;
+            }
+
+            // Track in recent folders
+            UpdateRecentFolders(workingDirectory);
+
+            // Track workspace for sidebar
+            // TrackWorkspace method not in Core interface - stubbed
+            // TODO: Add workspace tracking to Core
+
+            // Fetch git status for the new tab
+            _ = RefreshTabGitStatusAsync(tabViewModel);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Error creating terminal: {ex.Message}"); // Use injected IDialogService
+        }
+    }
+
+    /// <summary>
+    /// Opens a new tab with a single terminal running the specified profile.
+    /// </summary>
+    /// <param name="profile">The profile to launch.</param>
+    /// <param name="workingDirectory">Optional working directory. If null, uses the profile's WorkingDir.</param>
+    public async void OpenProfileTab(Profile profile, string? workingDirectory = null)
+    {
+        try
+        {
+            // Determine working directory
+            var effectiveWorkingDir = workingDirectory;
+            if (string.IsNullOrWhiteSpace(effectiveWorkingDir))
+            {
+                effectiveWorkingDir = profile.GetExpandedWorkingDir();
+            }
+
+            // If still empty, use user profile directory
+            if (string.IsNullOrWhiteSpace(effectiveWorkingDir))
+            {
+                effectiveWorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            // Normalize path
+            effectiveWorkingDir = Path.GetFullPath(effectiveWorkingDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (!_fileSystem.DirectoryExists(effectiveWorkingDir)) // Use injected IFileSystem
+            {
+                _dialogService.ShowError($"Directory not found: {effectiveWorkingDir}"); // Use injected IDialogService
+                return;
+            }
+
+            // Clone the profile with the working directory set
+            var profileWithDir = new Profile
+            {
+                Id = profile.Id,
+                Name = profile.Name,
+                Command = profile.Command,
+                WorkingDir = effectiveWorkingDir,
+                Icon = profile.Icon,
+                Shortcut = profile.Shortcut,
+                AutoStart = profile.AutoStart
+            };
+
+            // Create view model (terminal created lazily on first selection)
+            var tabViewModel = new ProfileTerminalTabViewModel(profileWithDir, effectiveWorkingDir, _statisticsService, _clipboardService, _terminalFactory);
+
+            // Subscribe to events
+            tabViewModel.CloseRequested += OnTabCloseRequested;
+
+            // Note: Session is tracked in InitializeTabTerminalsAsync when terminal is created
+
+            // Add tab and select it
+            Tabs.Add(tabViewModel);
+            SelectedTab = tabViewModel;
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Error launching profile: {ex.Message}"); // Use injected IDialogService
+        }
+    }
+
+    /// <summary>
+    /// Opens a profile tab with a folder picker to select the working directory.
+    /// </summary>
+    /// <param name="profile">The profile to launch.</param>
+    public void OpenProfileTabWithPicker(Profile profile)
+    {
+        try
+        {
+            // Set initial directory to profile's configured directory if it exists
+            var initialDir = profile.GetExpandedWorkingDir();
+            if (string.IsNullOrWhiteSpace(initialDir) || !_fileSystem.DirectoryExists(initialDir))
+            {
+                initialDir = null;
+            }
+
+            var path = _folderPickerService.PickFolder(
+                $"Select Working Directory for {profile.Name}",
+                initialDir);
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                OpenProfileTab(profile, path);
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Error opening folder picker: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void CloseTab(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            var hasRunning = terminalTab.Pair.CustomTerminal.IsProcessRunning() || terminalTab.Pair.ShellTerminal.IsProcessRunning();
+
+            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
+            {
+                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
+                    $"Terminals in '{terminalTab.Title}' are still running. Close anyway?",
+                    "Confirm Close"))
+                    return;
+            }
+
+            terminalTab.CloseRequested -= OnTabCloseRequested;
+            terminalTab.SettingsChanged -= OnTabSettingsChanged;
+            terminalTab.RunStartRequested -= OnRunStartRequested;
+            terminalTab.RunStopRequested -= OnRunStopRequested;
+            _sessionManager.CloseSession(terminalTab.Pair.CustomTerminal);
+            _sessionManager.CloseSession(terminalTab.Pair.ShellTerminal);
+            if (terminalTab.Pair.RunTerminal != null)
+            {
+                _sessionManager.CloseSession(terminalTab.Pair.RunTerminal);
+            }
+            terminalTab.Pair.Dispose();
+        }
+        else if (tab is SettingsTabViewModel settingsTab)
+        {
+            settingsTab.CloseRequested -= OnTabCloseRequested;
+            settingsTab.ConfigSaved -= OnConfigSaved;
+        }
+        else if (tab is ProfilesTabViewModel profilesTab)
+        {
+            profilesTab.CloseRequested -= OnTabCloseRequested;
+            profilesTab.ProfileLaunchRequested -= OnProfileLaunchRequested;
+        }
+        else if (tab is StatisticsTabViewModel statsTab)
+        {
+            statsTab.CloseRequested -= OnTabCloseRequested;
+        }
+        else if (tab is DashboardTabViewModel dashboardTab)
+        {
+            dashboardTab.CloseRequested -= OnTabCloseRequested;
+            dashboardTab.PrReviewRequested -= OnDashboardPrReviewRequested;
+
+            // Save that dashboard is closed
+            var config = _configService.Load();
+            config.Settings.Dashboard.ShowOnStartup = false;
+            _configService.Save(config);
+        }
+        else if (tab is ProfileTerminalTabViewModel profileTab)
+        {
+            var hasRunning = profileTab.Session.IsProcessRunning();
+
+            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
+            {
+                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
+                    $"Terminal '{profileTab.Title}' is still running. Close anyway?",
+                    "Confirm Close"))
+                    return;
+            }
+
+            profileTab.CloseRequested -= OnTabCloseRequested;
+            _sessionManager.CloseSession(profileTab.Session);
+            profileTab.Session.Dispose();
+        }
+
+        Tabs.Remove(tab);
+
+        if (SelectedTab == tab && Tabs.Count > 0)
+        {
+            SelectedTab = Tabs[^1];
+        }
+    }
+
+    [RelayCommand]
+    private void SwitchActiveTerminal()
+    {
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.SwitchTerminalCommand.Execute(null);
+        }
+    }
+
+    [RelayCommand]
+    private void ExecuteQuickCommand(QuickCommand? command)
+    {
+        if (command == null || SelectedTab is not TerminalPairTabViewModel terminalTab) return;
+
+        // Switch to the target terminal
+        if (command.Target == QuickCommandTarget.Custom)
+        {
+            terminalTab.ShowCustomTerminalCommand.Execute(null);
+        }
+        else
+        {
+            // If targeting Shell and currently in Custom-only mode, switch to split layout
+            if (terminalTab.IsCustomFullMode)
+            {
+                terminalTab.SetVerticalSplitLayoutCommand.Execute(null);
+            }
+            terminalTab.ShowShellTerminalCommand.Execute(null);
+        }
+
+        var targetSession = command.Target == QuickCommandTarget.Custom
+            ? terminalTab.Pair.CustomTerminal
+            : terminalTab.Pair.ShellTerminal;
+
+        targetSession.SendText(command.Text, command.AppendNewline, command.NewlineChar, command.UseUserInput);
+
+        // Focus the terminal
+        targetSession.Focus();
+    }
+
+    private void OnTabCloseRequested(object? sender, EventArgs e)
+    {
+        if (sender is ITabViewModel tab)
+        {
+            CloseTab(tab);
+        }
+    }
+
+    private void OnTabSettingsChanged(object? sender, EventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            SaveDirectorySettings(tab);
+        }
+    }
+
+    private async void OnAiAssistantSwitchRequested(object? sender, AiAssistantSwitchEventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            // Save the new AI selection
+            _aiAssistantService.SetAssistantForDirectory(tab.WorkingDirectory, e.NewAssistant.Id);
+
+            // Create new profile for the new AI assistant
+            // Uses shell with startup command so user can exit and restart the AI CLI
+            var settings = _profileRegistry.Settings;
+            var newProfile = new Profile
+            {
+                Id = "custom",
+                Name = e.NewAssistant.Name,
+                Command = settings.ShellCommand,  // Start with the shell
+                StartupCommand = e.NewAssistant.Command,  // Then launch the AI CLI
+                WorkingDir = tab.WorkingDirectory,
+                Icon = e.NewAssistant.Icon
+            };
+
+            // Close old custom terminal session
+            var oldSession = tab.Pair.CustomTerminal;
+            _sessionManager.CloseSession(oldSession);
+
+            // Create new session and control
+            var newSession = new TerminalSession(newProfile, _statisticsService, _clipboardService, "Custom");
+            var newControl = await _terminalFactory.CreateTerminalControlAsync(newSession);
+            _sessionManager.TrackSession(newSession);
+
+            // Subscribe to link click events
+            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+
+            // Replace the terminal in the pair
+            tab.Pair.ReplaceCustomTerminal(newSession);
+            tab.SetCustomTerminalControl(newControl);
+            tab.UpdateActiveAiAssistant(e.NewAssistant);
+        }
+    }
+
+    private async void OnShellProfileSwitchRequested(object? sender, Profile newProfile)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            // Create the shell profile with the selected profile's command
+            var shellProfile = new Profile
+            {
+                Id = "shell",
+                Name = newProfile.Name,
+                Command = newProfile.Command,
+                WorkingDir = tab.WorkingDirectory,
+                Icon = newProfile.Icon
+            };
+
+            // Close old shell terminal session
+            var oldSession = tab.Pair.ShellTerminal;
+            _sessionManager.CloseSession(oldSession);
+
+            // Create new session and control
+            var newSession = new TerminalSession(shellProfile, _statisticsService, _clipboardService, "Shell");
+            var newControl = await _terminalFactory.CreateTerminalControlAsync(newSession);
+            _sessionManager.TrackSession(newSession);
+
+            // Subscribe to link click events
+            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+
+            // Replace the terminal in the pair
+            tab.Pair.ReplaceShellTerminal(newSession);
+            tab.SetShellTerminalControl(newControl);
+            tab.UpdateActiveShellProfile(newProfile);
+        }
+    }
+
+    private void OnRunStartRequested(object? sender, RunConfiguration configuration)
+    {
+        if (sender is TerminalPairTabViewModel tab)
+        {
+            RunTerminalRequested?.Invoke(this, new RunTerminalRequestedEventArgs
+            {
+                Tab = tab,
+                Configuration = configuration,
+                IsStop = false
+            });
+        }
+    }
+
+    private void OnRunStopRequested(object? sender, EventArgs e)
+    {
+        if (sender is TerminalPairTabViewModel tab && tab.ActiveRunConfiguration != null)
+        {
+            RunTerminalRequested?.Invoke(this, new RunTerminalRequestedEventArgs
+            {
+                Tab = tab,
+                Configuration = tab.ActiveRunConfiguration,
+                IsStop = true
+            });
+        }
+    }
+
+    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Fire event to open in the popup viewer
+        if (e.Mode == FileViewerMode.Preview)
+        {
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = e.FilePath,
+                Line = 0,
+                Column = 0
+            });
+        }
+        else
+        {
+            // For edit mode, we need a different event or we can reuse FileEditRequested from GitFilesViewModel
+            // For now, use FilePreviewRequested and let the viewer switch to edit mode
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = e.FilePath,
+                Line = 0,
+                Column = 0,
+                OpenInEditMode = true
+            });
+        }
+    }
+
+    private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
+    {
+        // Forward the pop-out request to MainWindow which will create the actual window
+        // (ViewModels should not create windows directly - that's the View's responsibility)
+        FilePopOutRequested?.Invoke(this, e);
+    }
+
+    private void OnExplorerFileHistoryRequested(object? sender, string filePath)
+    {
+        // Get the working directory from the current tab
+        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
+        FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
+        {
+            WorkingDirectory = workingDirectory,
+            FilePath = filePath
+        });
+    }
+
+    private void OnExplorerFileBlameRequested(object? sender, string filePath)
+    {
+        // Get the working directory from the current tab
+        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
+        FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
+        {
+            WorkingDirectory = workingDirectory,
+            FilePath = filePath
+        });
+    }
+
+    private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
+    {
+        if (sender is not FileExplorerViewModel explorerVm)
+            return;
+
+        var newName = _dialogService.ShowInput(
+            $"Enter new name for '{node.Name}':",
+            "Rename",
+            node.Name);
+
+        if (!string.IsNullOrWhiteSpace(newName) && newName != node.Name)
+        {
+            await explorerVm.PerformRenameAsync(node, newName);
+        }
+    }
+
+    private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
+    {
+        List<RunConfiguration> configs;
+
+        if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
+        {
+            // Use saved configurations
+            configs = dirSettings.RunConfigurations;
+        }
+        else
+        {
+            // Auto-detect project type and create configurations
+            configs = _projectDetectionService.GetOrCreateConfigurations(
+                workingDirectory,
+                dirSettings ?? new DirectorySettings());
+        }
+
+        tab.InitializeRunConfigurations(configs, dirSettings?.ActiveRunConfigurationId);
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        // Check if settings tab already exists
+        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
+        if (existingSettings != null)
+        {
+            SelectedTab = existingSettings;
+            return;
+        }
+
+        // Create new settings tab
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        settingsTab.CloseRequested += OnTabCloseRequested;
+        settingsTab.ConfigSaved += OnConfigSaved;
+        Tabs.Add(settingsTab);
+        SelectedTab = settingsTab;
+    }
+
+    [RelayCommand]
+    private void OpenProfiles()
+    {
+        // Open Settings and navigate to Profiles section
+        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
+        if (existingSettings != null)
+        {
+            existingSettings.SelectedSection = SettingsSection.Profiles;
+            SelectedTab = existingSettings;
+            return;
+        }
+
+        // Create new settings tab with Profiles section selected
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        settingsTab.SelectedSection = SettingsSection.Profiles;
+        settingsTab.CloseRequested += OnTabCloseRequested;
+        settingsTab.ConfigSaved += OnConfigSaved;
+        Tabs.Add(settingsTab);
+        SelectedTab = settingsTab;
+    }
+
+    [RelayCommand]
+    private async Task OpenDashboardAsync()
+    {
+        // Check if dashboard tab already exists
+        var existingDashboard = Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+        if (existingDashboard != null)
+        {
+            SelectedTab = existingDashboard;
+            return;
+        }
+
+        // Create new dashboard tab
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService);
+        dashboardTab.CloseRequested += OnTabCloseRequested;
+        dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
+        Tabs.Add(dashboardTab);
+        SelectedTab = dashboardTab;
+
+        // Save that dashboard is open
+        var config = _configService.Load();
+        config.Settings.Dashboard.ShowOnStartup = true;
+        _configService.Save(config);
+
+        // Initialize the dashboard (fetches data)
+        await dashboardTab.InitializeAsync();
+    }
+
+    [RelayCommand]
+    private void OpenTimeline()
+    {
+        // Check if timeline tab already exists
+        var existingTimeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+        if (existingTimeline != null)
+        {
+            SelectedTab = existingTimeline;
+            return;
+        }
+
+        // Create new timeline tab
+        var timelineTab = new TimelineTabViewModel(
+            _timelineService,
+            _dialogService,
+            _folderPickerService,
+            _timerService);
+        timelineTab.CloseRequested += OnTabCloseRequested;
+        Tabs.Add(timelineTab);
+        SelectedTab = timelineTab;
+    }
+
+    /// <summary>
+    /// Event raised when PR Review Mode should be opened from the Dashboard.
+    /// </summary>
+    public event EventHandler<PrReviewRequestedEventArgs>? DashboardPrReviewRequested;
+
+    private void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
+    {
+        DashboardPrReviewRequested?.Invoke(this, e);
+    }
+
+    private void OnProfileLaunchRequested(object? sender, ProfileLaunchEventArgs e)
+    {
+        if (e.PickFolder)
+        {
+            OpenProfileTabWithPicker(e.Profile);
+        }
+        else
+        {
+            OpenProfileTab(e.Profile);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenStatistics()
+    {
+        try
+        {
+            // Check if statistics tab already exists
+            var existingStats = Tabs.OfType<StatisticsTabViewModel>().FirstOrDefault();
+            if (existingStats != null)
+            {
+                SelectedTab = existingStats;
+                // Also refresh the stats when focusing the existing tab
+                existingStats.LoadStatsCommand.Execute(null);
+                return;
+            }
+
+            // Create new statistics tab
+            var statsTab = new StatisticsTabViewModel(_statisticsService);
+            statsTab.CloseRequested += OnTabCloseRequested;
+            Tabs.Add(statsTab);
+            SelectedTab = statsTab;
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}"); // Use injected IDialogService
+        }
+    }
+
+    private void OnConfigSaved(object? sender, EventArgs e)
+    {
+        // Reload settings from profile registry
+        _profileRegistry.Reload();
+
+        // Reload quick commands when config is saved
+        LoadQuickCommands();
+
+        // Reload AI assistants and update all terminal tabs
+        _aiAssistantService.Reload();
+        var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            tab.RefreshAvailableAiAssistants(enabledAssistants);
+        }
+
+        // Notify that config has been reloaded (for system tray, etc.)
+        ConfigReloaded?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Handles Ctrl+Click link detection from terminals.
+    /// </summary>
+    private void HandleLinkClick(string recentOutput, string workingDirectory)
+    {
+        if (string.IsNullOrEmpty(recentOutput)) return;
+
+        // Try to find a link in the recent output
+        // We scan the output looking for URL patterns, file paths, or custom patterns
+        var lines = recentOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // Start from the end (most recent) and work backwards
+        foreach (var line in lines.Reverse())
+        {
+            var cleanLine = line.Trim();
+            if (string.IsNullOrEmpty(cleanLine)) continue;
+
+            // Try each "word" in the line
+            var words = cleanLine.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            foreach (var word in words)
+            {
+                var link = _linkDetectionService.DetectLink(word, workingDirectory);
+                if (link != null)
+                {
+                    HandleDetectedLink(link);
+                    return;
+                }
+            }
+
+            // Also try the whole line in case it's a file path with spaces
+            var linkFromLine = _linkDetectionService.DetectLink(cleanLine, workingDirectory);
+            if (linkFromLine != null)
+            {
+                HandleDetectedLink(linkFromLine);
+                return;
+            }
+        }
+
+    }
+
+    private void HandleDetectedLink(string link)
+    {
+        // Check if it's a file path that we should show in preview
+        if (LinkDetectionService.IsFilePath(link))
+        {
+            // Parse for line/column numbers
+            var (path, line, column) = FilePreviewService.ParseFilePathWithPosition(link);
+
+            // Fire event for MainWindow to show preview
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = path,
+                Line = line,
+                Column = column
+            });
+        }
+        else
+        {
+            // It's a URL or something else - open normally
+            _linkDetectionService.OpenLink(link);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenInExplorer()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
+
+        var folder = terminalTab.Pair.WorkingDirectory;
+        if (_fileSystem.DirectoryExists(folder))
+        {
+            _processService.Start("explorer.exe", folder);
+        }
+    }
+
+    [RelayCommand]
+    private void CycleTab(bool forward)
+    {
+        if (Tabs.Count <= 1) return;
+
+        var currentIndex = SelectedTab != null
+            ? Tabs.IndexOf(SelectedTab)
+            : 0;
+
+        int newIndex;
+        if (forward)
+        {
+            newIndex = (currentIndex + 1) % Tabs.Count;
+        }
+        else
+        {
+            newIndex = (currentIndex - 1 + Tabs.Count) % Tabs.Count;
+        }
+
+        SelectedTab = Tabs[newIndex];
+    }
+
+    public event EventHandler? ScratchPadRequested;
+    public event EventHandler? GitChangesRequested;
+    public event EventHandler? SetupRequested;
+    public event EventHandler? TaskPanelRequested;
+    public event EventHandler? PrReviewRequested;
+    public event EventHandler? MarkdownPreviewRequested;
+
+    [RelayCommand]
+    private void OpenSetup()
+    {
+        SetupRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenScratchPad()
+    {
+        ScratchPadRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenGitChanges()
+    {
+        GitChangesRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenTaskPanel()
+    {
+        TaskPanelRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenQuickTask()
+    {
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = true;
+    }
+
+    [RelayCommand]
+    private void CreateQuickTask()
+    {
+        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
+
+        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
+
+        // Associate with current project if available
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
+        }
+
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = false;
+    }
+
+    [RelayCommand]
+    private void CreateAndStartQuickTask()
+    {
+        if (string.IsNullOrWhiteSpace(QuickTaskTitle)) return;
+
+        var task = _taskService.CreateTask(QuickTaskTitle.Trim());
+
+        // Associate with current project if available
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            _taskService.AddProjectToTask(task.Id, terminalTab.Pair.WorkingDirectory);
+        }
+
+        _taskService.StartTask(task.Id);
+
+        QuickTaskTitle = string.Empty;
+        IsQuickTaskOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenQuickNote()
+    {
+        QuickNoteText = string.Empty;
+        IsQuickNoteOpen = true;
+    }
+
+    [RelayCommand]
+    private void CreateQuickNote()
+    {
+        if (string.IsNullOrWhiteSpace(QuickNoteText)) return;
+
+        var projectPath = SelectedTab is TerminalPairTabViewModel terminalTab
+            ? terminalTab.Pair.WorkingDirectory
+            : null;
+
+        _taskService.CreateNote(QuickNoteText.Trim(), projectPath);
+
+        QuickNoteText = string.Empty;
+        IsQuickNoteOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenHelp()
+    {
+        IsHelpOpen = true;
+    }
+
+    [RelayCommand]
+    private void OpenTabDropdown()
+    {
+        IsTabDropdownOpen = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenDetectedLinks))]
+    private async Task OpenDetectedLinks()
+    {
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            await _detectedLinksViewModel.OpenAsync(terminalTab);
+        }
+    }
+
+    private bool CanOpenDetectedLinks() => SelectedTab is TerminalPairTabViewModel;
+
+    [RelayCommand]
+    private void CloseHelp()
+    {
+        IsHelpOpen = false;
+    }
+
+    partial void OnPaletteSearchTextChanged(string value)
+    {
+        FilterPaletteCommands();
+    }
+
+    partial void OnIsCommandPaletteOpenChanged(bool value)
+    {
+        if (value)
+        {
+            PaletteSearchText = "";
+            FilterPaletteCommands();
+            if (FilteredPaletteCommands.Any())
+            {
+                SelectedPaletteCommand = FilteredPaletteCommands.First();
+            }
+        }
+    }
+
+    private void InitializeCommandPalette()
+    {
+        _allPaletteCommands =
+        [
+            // Tab/Project commands
+            new() {
+                Id = "new-project",
+                Name = "New Project",
+                Description = "Open folder as new project",
+                Shortcut = "Ctrl+N",
+                Icon = "📁",
+                Category = "Project",
+                Execute = () => OpenNewProjectCommand.Execute(null)
+            },
+            new() {
+                Id = "close-tab",
+                Name = "Close Tab",
+                Description = "Close current tab",
+                Shortcut = "Ctrl+W",
+                Icon = "✕",
+                Category = "Tab",
+                Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
+            },
+            new() {
+                Id = "tab-switcher",
+                Name = "Switch Tab",
+                Description = "Search and switch tabs",
+                Shortcut = "Ctrl+Shift+T",
+                Icon = "🔍",
+                Category = "Tab",
+                Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
+            },
+
+            // File commands
+            new() {
+                Id = "file-preview",
+                Name = "Preview File",
+                Description = "Open file preview",
+                Shortcut = "Ctrl+O",
+                Icon = "👁",
+                Category = "File",
+                Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
+            },
+            new() {
+                Id = "file-edit",
+                Name = "Edit File",
+                Description = "Open file in editor",
+                Shortcut = "Ctrl+Shift+E",
+                Icon = "✏️",
+                Category = "File",
+                Execute = () => { /* Needs to be improved */ }
+            },
+            new() {
+                Id = "open-explorer",
+                Name = "Open in Explorer",
+                Description = "Open folder in file explorer",
+                Shortcut = "Ctrl+E",
+                Icon = "📂",
+                Category = "File",
+                Execute = () => OpenInExplorerCommand.Execute(null),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Terminal commands
+            new() {
+                Id = "switch-terminal",
+                Name = "Switch Terminal",
+                Description = "Toggle between custom and shell",
+                Shortcut = "Ctrl+`",
+                Icon = "⇄",
+                Category = "Terminal",
+                Execute = () => SwitchActiveTerminalCommand.Execute(null),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Settings
+            new() {
+                Id = "settings",
+                Name = "Settings",
+                Description = "Open settings editor",
+                Shortcut = "Ctrl+,",
+                Icon = "⚙️",
+                Category = "Settings",
+                Execute = () => OpenSettingsCommand.Execute(null)
+            },
+            new() {
+                Id = "profiles",
+                Name = "Settings: Profiles",
+                Description = "Open settings and manage terminal profiles",
+                Shortcut = "Ctrl+P",
+                Icon = "👤",
+                Category = "Settings",
+                Execute = () => OpenProfilesCommand.Execute(null)
+            },
+            new() {
+                Id = "setup",
+                Name = "Setup",
+                Description = "Check dependencies and setup",
+                Icon = "🔧",
+                Category = "Settings",
+                Execute = () => OpenSetupCommand.Execute(null)
+            },
+
+            // Help
+            new() {
+                Id = "help",
+                Name = "Help",
+                Description = "Show keyboard shortcuts",
+                Shortcut = "F1",
+                Icon = "❓",
+                Category = "Help",
+                Execute = () => IsHelpOpen = true
+            },
+
+            // Task Panel
+            new() {
+                Id = "task-panel",
+                Name = "Tasks",
+                Description = "Open task management panel",
+                Shortcut = "Ctrl+T",
+                Icon = "📋",
+                Category = "Tools",
+                Execute = () => OpenTaskPanelCommand.Execute(null)
+            },
+            new() {
+                Id = "quick-task",
+                Name = "Quick Task",
+                Description = "Quickly add a new task",
+                Shortcut = "Ctrl+Shift+Q",
+                Icon = "+",
+                Category = "Tools",
+                Execute = () => OpenQuickTaskCommand.Execute(null)
+            },
+            new() {
+                Id = "quick-note",
+                Name = "Quick Note",
+                Description = "Capture a quick note",
+                Shortcut = "Ctrl+Shift+M",
+                Icon = "📝",
+                Category = "Tools",
+                Execute = () => OpenQuickNoteCommand.Execute(null)
+            },
+
+            // Scratch Pad
+            new() {
+                Id = "scratch-pad",
+                Name = "Scratch Pad",
+                Description = "Open notes panel",
+                Shortcut = "Ctrl+Shift+N",
+                Icon = "📝",
+                Category = "Tools",
+                Execute = () => OpenScratchPadCommand.Execute(null)
+            },
+
+            // Statistics
+            new() {
+                Id = "statistics",
+                Name = "Statistics",
+                Description = "View usage statistics",
+                Icon = "📊",
+                Category = "Tools",
+                Execute = () => OpenStatisticsCommand.Execute(null)
+            },
+
+            // GitHub Dashboard
+            new() {
+                Id = "dashboard",
+                Name = "Dashboard",
+                Description = "View GitHub PRs, issues, and CI status",
+                Shortcut = "Ctrl+Shift+H",
+                Icon = "🏠",
+                Category = "GitHub",
+                Execute = () => OpenDashboardCommand.Execute(null)
+            },
+            new() {
+                Id = "pr-review",
+                Name = "PR Review Mode",
+                Description = "Review the current branch's pull request",
+                Shortcut = "Ctrl+Shift+R",
+                Icon = "📝",
+                Category = "GitHub",
+                Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Timeline Mode
+            new() {
+                Id = "timeline",
+                Name = "Timeline Mode",
+                Description = "Track AI development sessions and intents",
+                Shortcut = "Cmd+Shift+I",
+                Icon = "📅",
+                Category = "Tools",
+                Execute = () => OpenTimelineCommand.Execute(null)
+            },
+
+            // Markdown
+            new() {
+                Id = "markdown-preview",
+                Name = "Markdown Preview",
+                Description = "Preview markdown files",
+                Shortcut = "Ctrl+M",
+                Icon = "📄",
+                Category = "Tools",
+                Execute = () => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Git
+            new() {
+                Id = "git-changes",
+                Name = "Git Changes",
+                Description = "View modified files and diffs",
+                Shortcut = "Ctrl+G",
+                Icon = "📋",
+                Category = "Git",
+                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty), // Needs to be improved
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-branches",
+                Name = "Git Branches",
+                Description = "Switch, create, or delete branches",
+                Shortcut = "Ctrl+B",
+                Icon = "🌿",
+                Category = "Git",
+                Execute = () => { /* Needs to be improved */ },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Run commands
+            new() {
+                Id = "run-start",
+                Name = "Run: Start",
+                Description = "Start the project",
+                Shortcut = "F5",
+                Icon = "▶",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
+            },
+            new() {
+                Id = "run-stop",
+                Name = "Run: Stop",
+                Description = "Stop the running project",
+                Shortcut = "Shift+F5",
+                Icon = "⏹",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
+            },
+            new() {
+                Id = "run-restart",
+                Name = "Run: Restart",
+                Description = "Restart the running project",
+                Icon = "🔄",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
+            },
+            new() {
+                Id = "run-toggle-terminal",
+                Name = "Run: Toggle Terminal",
+                Description = "Show/hide run terminal panel",
+                Icon = "📺",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "run-open-url",
+                Name = "Run: Open URL",
+                Description = "Open detected localhost URL in browser",
+                Icon = "🌐",
+                Category = "Run",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
+            }
+        ];
+    }
+
+    private void FilterPaletteCommands()
+    {
+        _filteredPaletteCommands.Clear();
+        var searchText = PaletteSearchText?.ToLower() ?? "";
+        var allCommands = new List<PaletteCommand>();
+
+        // Get static commands
+        var filtered = _allPaletteCommands
+            .Where(c => c.CanExecute == null || c.CanExecute()) // Evaluate CanExecute on the spot
+            .Where(c =>
+                string.IsNullOrEmpty(searchText) ||
+                c.Name.ToLower().Contains(searchText) ||
+                (c.Description?.ToLower().Contains(searchText) ?? false) ||
+                c.Category.ToLower().Contains(searchText))
+            .ToList();
+
+        allCommands.AddRange(filtered);
+
+        // Add dynamic profile launch commands
+        foreach (var profile in _profileRegistry.Profiles)
+        {
+            var profileName = $"Launch: {profile.Name}";
+            var matchesSearch = string.IsNullOrEmpty(searchText) ||
+                               profileName.ToLower().Contains(searchText) ||
+                               "profile".Contains(searchText) ||
+                               "launch".Contains(searchText);
+
+            if (matchesSearch)
+            {
+                var capturedProfile = profile; // Capture for closure
+                allCommands.Add(new PaletteCommand
+                {
+                    Id = $"launch-profile-{profile.Id}",
+                    Name = profileName,
+                    Description = profile.Command,
+                    Shortcut = profile.Shortcut ?? "",
+                    Icon = profile.Icon ?? "▶",
+                    Category = "Profile",
+                    Execute = () => OpenProfileTab(capturedProfile)
+                });
+            }
+        }
+
+        // Add Claude commands (from ~/.claude/commands/ and .claude/commands/)
+        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
+        var claudeCommands = _claudeCommandService.GetAllCommands(currentWorkingDir);
+
+        foreach (var cmd in claudeCommands)
+        {
+            var commandName = $"Claude: /{cmd.Name}";
+            var matchesSearch = string.IsNullOrEmpty(searchText) ||
+                               commandName.ToLower().Contains(searchText) ||
+                               (cmd.Description?.ToLower().Contains(searchText) ?? false) ||
+                               "claude".Contains(searchText);
+
+            if (matchesSearch)
+            {
+                var capturedCmd = cmd; // Capture for closure
+                allCommands.Add(new PaletteCommand
+                {
+                    Id = $"claude-cmd-{cmd.Id}",
+                    Name = commandName,
+                    Description = cmd.Description ?? cmd.FilePath,
+                    Shortcut = cmd.Shortcut ?? "",
+                    Icon = "🤖",
+                    Category = cmd.Source == ClaudeCommandSource.Global ? "Claude (Global)" : "Claude (Project)",
+                    Execute = () => ExecuteClaudeCommand(capturedCmd)
+                });
+            }
+        }
+
+        // Sort by MRU (most recently used first), then alphabetically
+        var mruList = _configService.Load().CommandPaletteMru;
+        var sortedCommands = allCommands
+            .OrderBy(c =>
+            {
+                var mruIndex = mruList.IndexOf(c.Id);
+                return mruIndex >= 0 ? mruIndex : int.MaxValue;
+            })
+            .ThenBy(c => c.Name)
+            .ToList();
+
+        foreach (var command in sortedCommands)
+        {
+            _filteredPaletteCommands.Add(command);
+        }
+
+        if (FilteredPaletteCommands.Any())
+        {
+            SelectedPaletteCommand = FilteredPaletteCommands.First();
+        }
+        else
+        {
+            SelectedPaletteCommand = null;
+        }
+    }
+
+    [RelayCommand]
+    private void ExecuteSelectedPaletteCommand()
+    {
+        if (SelectedPaletteCommand != null)
+        {
+            // Track MRU before closing
+            UpdateCommandMru(SelectedPaletteCommand.Id);
+
+            IsCommandPaletteOpen = false;
+            SelectedPaletteCommand.Execute();
+        }
+    }
+
+    private void UpdateCommandMru(string commandId)
+    {
+        var config = _configService.Load();
+
+        // Remove if already exists (will be re-added at front)
+        config.CommandPaletteMru.Remove(commandId);
+
+        // Add to front
+        config.CommandPaletteMru.Insert(0, commandId);
+
+        // Limit to 30 most recent
+        if (config.CommandPaletteMru.Count > 30)
+        {
+            config.CommandPaletteMru.RemoveRange(30, config.CommandPaletteMru.Count - 30);
+        }
+
+        _configService.Save(config);
+    }
+
+    /// <summary>
+    /// Executes a Claude command by sending the slash command to the Custom terminal.
+    /// </summary>
+    public void ExecuteClaudeCommand(ClaudeCommand command)
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab)
+            return;
+
+        // Switch to Custom terminal
+        tab.ShowCustomTerminalCommand.Execute(null);
+
+        // Send the slash command to Claude Code
+        tab.Pair.CustomTerminal.SendText(
+            $"/{command.Name}",
+            appendNewline: true,
+            newlineChar: "\r",
+            useUserInput: true  // Important for Claude Code to properly receive the command
+        );
+
+        // Focus the terminal
+        tab.Pair.CustomTerminal.Focus();
+    }
+
+    /// <summary>
+    /// Gets all Claude commands for the current project (used by MainWindow for keyboard shortcuts).
+    /// </summary>
+    public IReadOnlyList<ClaudeCommand> GetClaudeCommandsForCurrentProject()
+    {
+        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
+        return _claudeCommandService.GetAllCommands(currentWorkingDir);
+    }
+
+    public void Shutdown()
+    {
+        // Stop and dispose timers
+        _gitStatusTimer.Dispose();
+        _gitAutoFetchTimer.Dispose();
+        _activityTimer.Dispose();
+        _linkDetectionTimer.Dispose();
+        _runUrlDetectionTimer.Dispose();
+
+        // Save open folders before closing
+        SaveOpenFolders();
+
+        _sessionManager.CloseAllSessions();
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            tab.Pair.Dispose();
+        }
+    }
+}
+
+public class RunTerminalRequestedEventArgs : EventArgs
+{
+    public required TerminalPairTabViewModel Tab { get; init; }
+    public required RunConfiguration Configuration { get; init; }
+    public bool IsStop { get; init; }
+}
+
+public class FileHistoryRequestedEventArgs : EventArgs
+{
+    public required string WorkingDirectory { get; init; }
+    public required string FilePath { get; init; }
+}
+
+public class FileBlameRequestedEventArgs : EventArgs
+{
+    public required string WorkingDirectory { get; init; }
+    public required string FilePath { get; init; }
+}

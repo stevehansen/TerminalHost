@@ -1,0 +1,326 @@
+<UserControl x:Class="TerminalHost.Views.FileViewerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="using:TerminalHost.ViewModels"
+             xmlns:controls="using:TerminalHost.Controls"
+             mc:Ignorable="d"
+             d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="vm:FileViewerViewModel">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="ModeTabForeground" Color="#808080"/>
+            <SolidColorBrush x:Key="ModeTabForegroundChecked" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="ModeTabBorderChecked" Color="#569CD6"/>
+            <SolidColorBrush x:Key="ModeTabHoverBackground" Color="#2D2D30"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- ModeTabButton Style -->
+        <Style Selector="RadioButton.ModeTabButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource ModeTabForeground}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="RadioButton.ModeTabButton:checked">
+            <Setter Property="Foreground" Value="{StaticResource ModeTabForegroundChecked}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ModeTabBorderChecked}"/>
+        </Style>
+        <Style Selector="RadioButton.ModeTabButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource ModeTabHoverBackground}"/>
+        </Style>
+
+        <!-- ViewerToolbarButton Style -->
+        <Style Selector="Button.ViewerToolbarButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="Button.ViewerToolbarButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3E3E42"/>
+        </Style>
+        <Style Selector="Button.ViewerToolbarButton:disabled">
+            <Setter Property="Foreground" Value="#555555"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Background="#1E1E1E">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header with mode tabs and actions -->
+        <Border Grid.Row="0" Background="#252526" BorderBrush="#3F3F46" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Mode tabs -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <RadioButton Content="Preview"
+                                 Classes="ModeTabButton"
+                                 IsChecked="{Binding IsPreviewModeSelected, Mode=OneWay}"
+                                 Command="{Binding SwitchToPreviewCommand}"/>
+                    <RadioButton Content="Edit"
+                                 Classes="ModeTabButton"
+                                 IsChecked="{Binding IsEditModeSelected, Mode=OneWay}"
+                                 Command="{Binding SwitchToEditCommand}"/>
+                    <!-- Side by Side tab - only visible for markdown files -->
+                    <RadioButton Content="Side by Side"
+                                 Classes="ModeTabButton"
+                                 IsChecked="{Binding IsSideBySideModeSelected, Mode=OneWay}"
+                                 Command="{Binding SwitchToSideBySideCommand}"
+                                 IsVisible="{Binding ShowSideBySideTab}"/>
+                </StackPanel>
+
+                <!-- File name with dirty indicator -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="#CCCCCC"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text=" *"
+                               Foreground="#CCCCCC"
+                               IsVisible="{Binding IsModified}"/>
+                </StackPanel>
+
+                <!-- Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="≡ƒÆ╛"
+                            Classes="ViewerToolbarButton"
+                            Command="{Binding SaveCommand}"
+                            ToolTip.Tip="Save (Ctrl+S)"
+                            IsVisible="{Binding CanSave}"/>
+                    <Button Content="Γƒ│"
+                            Classes="ViewerToolbarButton"
+                            Command="{Binding ReloadCommand}"
+                            ToolTip.Tip="Reload"/>
+                    <Button Content="Γºë"
+                            Classes="ViewerToolbarButton"
+                            Command="{Binding DetachCommand}"
+                            ToolTip.Tip="Pop Out"
+                            IsVisible="{Binding !IsDetached}"/>
+                    <!-- Hide close button in detached window mode (window has its own close) -->
+                    <Button Content="Γ£ò"
+                            Classes="ViewerToolbarButton"
+                            Command="{Binding CloseCommand}"
+                            ToolTip.Tip="Close"
+                            IsVisible="{Binding !IsDetached}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Content area -->
+        <Grid Grid.Row="1">
+            <!-- Preview mode: ScrollViewer with TextBlock (replaces FlowDocumentScrollViewer) -->
+            <ScrollViewer x:Name="PreviewViewer"
+                          IsVisible="{Binding IsPreviewMode}"
+                          Background="#1E1E1E"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Auto">
+                <TextBlock Text="{Binding PreviewContent}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeCode}"
+                           Foreground="#CCCCCC"
+                           Padding="8"
+                           TextWrapping="NoWrap"/>
+            </ScrollViewer>
+
+            <!-- Markdown preview mode: MarkdownViewer control (WebView2 replacement) -->
+            <controls:MarkdownViewer
+                MarkdownContent="{Binding RawMarkdown}"
+                IsVisible="{Binding IsMarkdownPreviewMode}"/>
+
+            <!-- Image preview mode -->
+            <Grid IsVisible="{Binding IsImageMode}"
+                  Background="#1E1E1E">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <Image Source="{Binding ImageSource}"
+                           Stretch="None"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Margin="16"/>
+                </ScrollViewer>
+                <TextBlock Text="{Binding ImageInfo}"
+                           Foreground="#666666"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Top"
+                           Margin="8"
+                           Padding="4,2"
+                           Background="#80000000"/>
+            </Grid>
+
+            <!-- Edit mode: TextBox with line numbers -->
+            <Grid IsVisible="{Binding IsEditMode}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Line numbers -->
+                <ScrollViewer x:Name="LineNumbersScroll"
+                              Grid.Column="0"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Hidden"
+                              Background="#1E1E1E">
+                    <TextBlock x:Name="LineNumbers"
+                               Text="{Binding LineNumbers}"
+                               FontFamily="{StaticResource FontFamilyMonospace}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               Foreground="#5A5A5A"
+                               Background="#1E1E1E"
+                               Padding="8,4,8,4"
+                               TextAlignment="Right"
+                               MinWidth="40"/>
+                </ScrollViewer>
+
+                <!-- Editor -->
+                <TextBox x:Name="EditTextBox"
+                         Grid.Column="1"
+                         Text="{Binding EditContent}"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="{StaticResource FontSizeCode}"
+                         Foreground="#CCCCCC"
+                         Background="#1E1E1E"
+                         CaretBrush="#AEAFAD"
+                         BorderThickness="0"
+                         AcceptsReturn="True"
+                         AcceptsTab="True"
+                         TextWrapping="NoWrap"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         IsReadOnly="{Binding IsReadOnly}"
+                         Padding="4"/>
+            </Grid>
+
+            <!-- Side-by-Side mode: Editor + Preview for markdown files -->
+            <Grid IsVisible="{Binding IsSideBySideMode}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Editor with line numbers -->
+                <Grid Grid.Column="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Line numbers -->
+                    <ScrollViewer x:Name="SideBySideLineNumbersScroll"
+                                  Grid.Column="0"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  Background="#1E1E1E">
+                        <TextBlock Text="{Binding LineNumbers}"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontSize="{StaticResource FontSizeCode}"
+                                   Foreground="#5A5A5A"
+                                   Background="#1E1E1E"
+                                   Padding="8,4,8,4"
+                                   TextAlignment="Right"
+                                   MinWidth="40"/>
+                    </ScrollViewer>
+
+                    <!-- Editor -->
+                    <TextBox x:Name="SideBySideEditTextBox"
+                             Grid.Column="1"
+                             Text="{Binding EditContent}"
+                             FontFamily="{StaticResource FontFamilyMonospace}"
+                             FontSize="{StaticResource FontSizeCode}"
+                             Foreground="#CCCCCC"
+                             Background="#1E1E1E"
+                             CaretBrush="#AEAFAD"
+                             BorderThickness="0"
+                             AcceptsReturn="True"
+                             AcceptsTab="True"
+                             TextWrapping="NoWrap"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             IsReadOnly="{Binding IsReadOnly}"
+                             Padding="4"/>
+                </Grid>
+
+                <!-- Splitter -->
+                <GridSplitter Grid.Column="1"
+                              Width="4"
+                              Background="#3F3F46"
+                              HorizontalAlignment="Stretch"/>
+
+                <!-- Right: Markdown Preview -->
+                <controls:MarkdownViewer Grid.Column="2"
+                                         MarkdownContent="{Binding RawMarkdown}"/>
+            </Grid>
+
+            <!-- Empty state -->
+            <TextBlock Text="Select a file to view"
+                       Foreground="#808080"
+                       FontSize="{StaticResource FontSizeNormal}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding FilePath, Converter={x:Static ObjectConverters.IsNull}}"/>
+        </Grid>
+
+        <!-- Status bar -->
+        <Border Grid.Row="2" Background="#007ACC" Padding="8,2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- File info -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Info}"
+                           Foreground="White"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Cursor position (edit and side-by-side modes) -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CursorInfo}"
+                           Foreground="White"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"
+                           Margin="16,0">
+                    <TextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                            <Binding Path="IsEditMode"/>
+                            <Binding Path="IsSideBySideMode"/>
+                        </MultiBinding>
+                    </TextBlock.IsVisible>
+                </TextBlock>
+
+                <!-- Modified indicator -->
+                <TextBlock Grid.Column="2"
+                           Text="Modified"
+                           Foreground="White"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding IsModified}"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

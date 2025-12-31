@@ -114,6 +114,24 @@ public class AppConfiguration
     public TimelineState? TimelineState { get; set; }
 
     /// <summary>
+    /// Focus mode tasks (hierarchical task list).
+    /// </summary>
+    [JsonPropertyName("tasks")]
+    public List<FocusTask> Tasks { get; set; } = [];
+
+    /// <summary>
+    /// Quick notes for tasks.
+    /// </summary>
+    [JsonPropertyName("quickNotes")]
+    public List<QuickNote> QuickNotes { get; set; } = [];
+
+    /// <summary>
+    /// Focus mode state (enabled, current task, etc.).
+    /// </summary>
+    [JsonPropertyName("focusMode")]
+    public FocusModeState? FocusMode { get; set; }
+
+    /// <summary>
     /// Determines if this configuration is in its default/untouched state.
     /// Used for first-run detection.
     /// </summary>
@@ -518,6 +536,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("keyBranches")]
     public List<string> KeyBranches { get; set; } = GetDefaultKeyBranches();
+
+    /// <summary>
+    /// Custom paths to add to PATH environment variable.
+    /// </summary>
+    [JsonPropertyName("customPaths")]
+    public List<string> CustomPaths { get; set; } = [];
 
     private static List<string> GetDefaultKeyBranches() =>
     [

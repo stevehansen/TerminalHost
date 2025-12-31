@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="using:TerminalHost.Converters">
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- VALUE CONVERTERS                                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- Boolean Converters -->
+    <conv:InverseBoolConverter x:Key="InverseBoolConverter"/>
+    <conv:NullToBoolConverter x:Key="NullToBoolConverter"/>
+
+    <!-- Visibility Converters (for IsVisible binding) -->
+    <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+    <conv:InverseBoolToVisibilityConverter x:Key="BoolToVisibilityInvertedConverter"/>
+    <conv:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+    <conv:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
+    <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    <conv:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
+    <conv:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
+
+    <!-- Layout Converters -->
+    <conv:BoolToSplitterWidthConverter x:Key="BoolToSplitterWidthConverter"/>
+    <conv:BoolToRowSpanConverter x:Key="BoolToRowSpanConverter"/>
+    <conv:BoolToColumnSpanConverter x:Key="BoolToColumnSpanConverter"/>
+    <conv:BoolToShellColumnConverter x:Key="BoolToShellColumnConverter"/>
+    <conv:BoolToShellRowConverter x:Key="BoolToShellRowConverter"/>
+
+    <!-- Color Converters -->
+    <conv:StringToColorConverter x:Key="StringToColorConverter"/>
+    <conv:HexToBrushConverter x:Key="HexToBrushConverter"/>
+    <conv:HexToColorConverter x:Key="HexToColorConverter"/>
+
+    <!-- RunState Converters -->
+    <conv:RunStateToColorConverter x:Key="RunStateToColorConverter"/>
+    <conv:RunStateToIconConverter x:Key="RunStateToIconConverter"/>
+    <conv:RunStateToTooltipConverter x:Key="RunStateToTooltipConverter"/>
+
+    <!-- Path/String Converters -->
+    <conv:PathToFolderNameConverter x:Key="PathToFolderNameConverter"/>
+    <conv:TruncateConverter x:Key="TruncateConverter"/>
+
+    <!-- UI State Converters -->
+    <conv:BoolToBackgroundConverter x:Key="BoolToBackgroundConverter"/>
+    <conv:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+    <conv:BoolToExpandCollapseTextConverter x:Key="BoolToExpandCollapseTextConverter"/>
+    <conv:BoolToExpanderIconConverter x:Key="BoolToExpanderIconConverter"/>
+    <conv:BoolToStringConverter x:Key="BoolToStringConverter"/>
+    <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+
+    <!-- Time Converter -->
+    <conv:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
+
+</ResourceDictionary>

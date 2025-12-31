@@ -66,6 +66,10 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     }
 
     public bool IsAnyTerminalActive => IsActive;
+    public bool ShowActivitySpinner => IsActive;
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsActive;
+    public bool IsTerminalInitialized => Session?.TerminalControl != null;
+    public Task InitializeTerminalsAsync() => Task.CompletedTask;
 
     public Profile Profile { get; }
     public TerminalSession Session { get; }

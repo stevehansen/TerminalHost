@@ -1,0 +1,466 @@
+<UserControl x:Class="TerminalHost.Views.TimelineModeView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             mc:Ignorable="d"
+             d:DesignWidth="1200" d:DesignHeight="700"
+             x:DataType="viewmodels:TimelineTabViewModel"
+             Background="{DynamicResource BackgroundDarkestBrush}"
+             Foreground="{DynamicResource TextBrightBrush}"
+             Focusable="True">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header Bar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource BackgroundMediumBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                <!-- Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Timeline Mode"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Focus Timer -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="Focus:"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextDimmedBrush}"
+                               Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding FocusTimeDisplay}"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SyntaxYellowBrush}"/>
+                    <Button Command="{Binding ToggleFocusCommand}"
+                            Margin="10,0,0,0"
+                            Padding="8,4"
+                            Background="{DynamicResource BackgroundLightBrush}"
+                            Content="{Binding IsFocusing, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Pause|Start'}"/>
+                    <Button Command="{Binding ResetFocusTimeCommand}"
+                            Content="Reset"
+                            Margin="4,0,0,0"
+                            Padding="8,4"
+                            Background="{DynamicResource BackgroundLightBrush}"/>
+                </StackPanel>
+
+                <!-- Time Scale Buttons -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,20,0">
+                    <Button Command="{Binding SetTimeScaleCommand}"
+                            CommandParameter="{x:Static domain:TimeScale.Minutes}"
+                            Content="Min"
+                            Padding="8,4"
+                            Margin="0,0,4,0"/>
+                    <Button Command="{Binding SetTimeScaleCommand}"
+                            CommandParameter="{x:Static domain:TimeScale.Hours}"
+                            Content="Hour"
+                            Padding="8,4"
+                            Margin="0,0,4,0"/>
+                    <Button Command="{Binding SetTimeScaleCommand}"
+                            CommandParameter="{x:Static domain:TimeScale.Days}"
+                            Content="Day"
+                            Padding="8,4"/>
+                </StackPanel>
+
+                <!-- New Intent Button -->
+                <Button Grid.Column="4"
+                        Command="{Binding OpenCreateIntentDialogCommand}"
+                        Padding="12,6"
+                        Background="{DynamicResource AccentBlueBrush}"
+                        Foreground="White">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="+" FontWeight="Bold" Margin="0,0,6,0"/>
+                        <TextBlock Text="New Intent"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" ColumnDefinitions="250,5,*">
+            <!-- Intent Sidebar -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource BackgroundDarkBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0"
+                               Text="Intents"
+                               FontWeight="SemiBold"
+                               Padding="12,10"
+                               Foreground="{DynamicResource TextDimmedBrush}"/>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Intents}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="10,8"
+                                            Margin="4,2"
+                                            CornerRadius="4"
+                                            Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}}"
+                                            Cursor="Hand">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Start Session" Command="{Binding StartNewSessionCommand}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Mark Active" Command="{Binding MarkActiveCommand}"/>
+                                                <MenuItem Header="Mark Paused" Command="{Binding MarkPausedCommand}"/>
+                                                <MenuItem Header="Mark Complete" Command="{Binding MarkCompleteCommand}"/>
+                                                <MenuItem Header="Abandon" Command="{Binding AbandonCommand}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Delete" Command="{Binding DeleteCommand}"/>
+                                                <MenuItem Header="Delete with Worktree" Command="{Binding DeleteWithWorktreeCommand}"/>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Border.Styles>
+                                            <Style Selector="Border:pointerover">
+                                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                                            </Style>
+                                        </Border.Styles>
+                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*,Auto">
+                                            <!-- Expand/Collapse -->
+                                            <Button Grid.Row="0" Grid.Column="0"
+                                                    Command="{Binding ToggleExpandedCommand}"
+                                                    Background="Transparent"
+                                                    Padding="2"
+                                                    Margin="0,0,6,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding IsExpanded, Converter={StaticResource BoolToExpanderIconConverter}}"
+                                                           FontSize="10"/>
+                                            </Button>
+
+                                            <!-- Intent Name -->
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                                <!-- Running indicator -->
+                                                <Ellipse Width="8" Height="8"
+                                                         Fill="{DynamicResource AccentBlueBrush}"
+                                                         Margin="6,0,0,0"
+                                                         VerticalAlignment="Center"
+                                                         IsVisible="{Binding HasRunningSession}"/>
+                                            </StackPanel>
+
+                                            <!-- Start Session Button -->
+                                            <Button Grid.Row="0" Grid.Column="2"
+                                                    Command="{Binding StartNewSessionCommand}"
+                                                    Content="+ Start"
+                                                    Padding="6,2"
+                                                    FontSize="11"
+                                                    Background="{DynamicResource BackgroundLightBrush}"/>
+
+                                            <!-- Branch -->
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                                       Text="{Binding ShortBranchName}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextDimmedBrush}"
+                                                       Margin="0,2,0,0"/>
+
+                                            <!-- Status -->
+                                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                                        Orientation="Horizontal"
+                                                        Margin="0,4,0,0">
+                                                <TextBlock Text="{Binding StatusIcon}"
+                                                           FontSize="12"
+                                                           Margin="0,0,4,0">
+                                                    <TextBlock.Foreground>
+                                                        <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}"/>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Status}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource TextDimmedBrush}"/>
+                                                <TextBlock Text="{Binding FocusTimeDisplay}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource TextDimmedBrush}"
+                                                           Margin="10,0,0,0"/>
+                                                <TextBlock Text="(context)"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource SyntaxYellowBrush}"
+                                                           Margin="6,0,0,0"
+                                                           IsVisible="{Binding HasContext}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          Background="{DynamicResource BackgroundLightBrush}"/>
+
+            <!-- Timeline Area -->
+            <Grid Grid.Column="2" RowDefinitions="*">
+                <!-- Sessions Timeline -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Intents}" Margin="10">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- Intent Swimlane -->
+                                <Border Margin="0,0,0,10"
+                                        IsVisible="{Binding IsExpanded}">
+                                    <Grid RowDefinitions="Auto,Auto">
+                                        <!-- Swimlane Header -->
+                                        <Border Grid.Row="0"
+                                                Background="{DynamicResource BackgroundMediumBrush}"
+                                                Padding="10,6"
+                                                CornerRadius="4,4,0,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding SessionCount, StringFormat='({0} sessions)'}"
+                                                           Foreground="{DynamicResource TextDimmedBrush}"
+                                                           Margin="8,0,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Sessions Row -->
+                                        <Border Grid.Row="1"
+                                                Background="{DynamicResource BackgroundDarkBrush}"
+                                                MinHeight="80"
+                                                Padding="10"
+                                                CornerRadius="0,0,4,4"
+                                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                BorderThickness="1,0,1,1">
+                                            <ItemsControl ItemsSource="{Binding Sessions}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" Spacing="10"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <!-- Session Block -->
+                                                        <Border MinWidth="150"
+                                                                MaxWidth="250"
+                                                                Padding="10"
+                                                                CornerRadius="4"
+                                                                Cursor="Hand"
+                                                                BorderThickness="2">
+                                                            <Border.Background>
+                                                                <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}" Opacity="0.1"/>
+                                                            </Border.Background>
+                                                            <Border.BorderBrush>
+                                                                <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}"/>
+                                                            </Border.BorderBrush>
+                                                            <Border.Styles>
+                                                                <Style Selector="Border:pointerover">
+                                                                    <Setter Property="Opacity" Value="0.9"/>
+                                                                </Style>
+                                                            </Border.Styles>
+                                                            <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                                                                <!-- Title -->
+                                                                <TextBlock Grid.Row="0"
+                                                                           Text="{Binding DisplayTitle}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           MaxWidth="220"/>
+
+                                                                <!-- Time Range -->
+                                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                                                    <TextBlock Text="{Binding TimeRangeDisplay}"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource TextDimmedBrush}"/>
+                                                                    <TextBlock Text="{Binding DurationDisplay, StringFormat='({0})'}"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource TextDimmedBrush}"
+                                                                               Margin="6,0,0,0"/>
+                                                                </StackPanel>
+
+                                                                <!-- Files -->
+                                                                <TextBlock Grid.Row="2"
+                                                                           Text="{Binding FilesSummary}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextDimmedBrush}"
+                                                                           Margin="0,2,0,0"
+                                                                           IsVisible="{Binding HasFilesChanged}"/>
+
+                                                                <!-- Status & Actions -->
+                                                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
+                                                                    <TextBlock Text="{Binding StatusIcon}" FontSize="12">
+                                                                        <TextBlock.Foreground>
+                                                                            <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}"/>
+                                                                        </TextBlock.Foreground>
+                                                                    </TextBlock>
+                                                                    <TextBlock Text="{Binding Status}"
+                                                                               FontSize="11"
+                                                                               Margin="4,0,0,0"/>
+                                                                    <TextBlock Text="(fork)"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource SyntaxPurpleBrush}"
+                                                                               Margin="6,0,0,0"
+                                                                               IsVisible="{Binding IsFork}"/>
+                                                                    <TextBlock Text="{Binding ShortCommitHash}"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource SyntaxGreenBrush}"
+                                                                               Margin="6,0,0,0"
+                                                                               IsVisible="{Binding HasCommit}"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Empty State -->
+                <StackPanel VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            IsVisible="{Binding !TotalIntentsCount}">
+                    <TextBlock Text="No Intents Yet"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextDimmedBrush}"/>
+                    <TextBlock Text="Create an intent to start tracking your development sessions."
+                               FontSize="14"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextDimmedBrush}"
+                               Margin="0,8,0,0"/>
+                    <Button Command="{Binding OpenCreateIntentDialogCommand}"
+                            Content="Create Intent"
+                            HorizontalAlignment="Center"
+                            Margin="0,16,0,0"
+                            Padding="16,8"
+                            Background="{DynamicResource AccentBlueBrush}"
+                            Foreground="White"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource BackgroundMediumBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,6">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Foreground="{DynamicResource TextDimmedBrush}">
+                    <Run Text="{Binding TotalIntentsCount}"/>
+                    <Run Text="intents"/>
+                </TextBlock>
+                <TextBlock Text=" | " Foreground="{DynamicResource TextDimmedBrush}"/>
+                <TextBlock Foreground="{DynamicResource TextDimmedBrush}">
+                    <Run Text="{Binding TotalSessionsCount}"/>
+                    <Run Text="sessions"/>
+                </TextBlock>
+                <TextBlock Text=" | " Foreground="{DynamicResource TextDimmedBrush}"/>
+                <TextBlock Foreground="{DynamicResource TextDimmedBrush}">
+                    <Run Text="{Binding RunningSessionsCount}"/>
+                    <Run Text="running"/>
+                </TextBlock>
+                <TextBlock Text=" | " Foreground="{DynamicResource TextDimmedBrush}"/>
+                <TextBlock Foreground="{DynamicResource TextDimmedBrush}">
+                    <Run Text="{Binding TotalCommitsCount}"/>
+                    <Run Text="commits"/>
+                </TextBlock>
+                <TextBlock Text=" | " Foreground="{DynamicResource TextDimmedBrush}" Margin="20,0,0,0"/>
+                <TextBlock Text="{Binding CurrentTimeDisplay}"
+                           Foreground="{DynamicResource TextBrightBrush}"/>
+                <TextBlock Text=" - " Foreground="{DynamicResource TextDimmedBrush}"/>
+                <TextBlock Text="{Binding CurrentDateDisplay}"
+                           Foreground="{DynamicResource TextDimmedBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Create Intent Dialog Overlay -->
+        <Border Grid.RowSpan="3"
+                Background="#80000000"
+                IsVisible="{Binding IsCreateIntentDialogOpen}">
+            <Border Background="{DynamicResource BackgroundDarkBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24"
+                    Width="450"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0"
+                               Text="Create New Intent"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Margin="0,0,0,16"/>
+
+                    <!-- Intent Name -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                        <TextBlock Text="Intent Name" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewIntentName, Mode=TwoWay}"
+                                 Watermark="e.g., Implement user authentication"/>
+                    </StackPanel>
+
+                    <!-- Create from existing folder toggle -->
+                    <CheckBox Grid.Row="2"
+                              Content="Create from existing folder"
+                              IsChecked="{Binding CreateFromExistingFolder, Mode=TwoWay}"
+                              Margin="0,0,0,12"/>
+
+                    <!-- Branch Name (when not using existing folder) -->
+                    <StackPanel Grid.Row="3" Margin="0,0,0,12"
+                                IsVisible="{Binding !CreateFromExistingFolder}">
+                        <TextBlock Text="Branch Name" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewIntentBranch, Mode=TwoWay}"
+                                 Watermark="e.g., feature/auth"/>
+                    </StackPanel>
+
+                    <!-- Repository/Folder Path -->
+                    <StackPanel Grid.Row="4" Margin="0,0,0,12">
+                        <TextBlock Margin="0,0,0,4">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}{0}">
+                                    <Binding Path="CreateFromExistingFolder" Converter="{StaticResource BoolToStringConverter}" ConverterParameter="Folder Path|Repository Path"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding NewIntentRepoPath, Mode=TwoWay}"
+                                     Watermark="Path to repository or folder"/>
+                            <Button Grid.Column="1"
+                                    Command="{Binding BrowseForRepoPathCommand}"
+                                    Content="Browse..."
+                                    Margin="8,0,0,0"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Buttons -->
+                    <StackPanel Grid.Row="6"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="0,16,0,0">
+                        <Button Command="{Binding CloseCreateIntentDialogCommand}"
+                                Content="Cancel"
+                                Padding="16,8"
+                                Margin="0,0,8,0"/>
+                        <Button Command="{Binding CreateIntentCommand}"
+                                Content="Create"
+                                Padding="16,8"
+                                Background="{DynamicResource AccentBlueBrush}"
+                                Foreground="White"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

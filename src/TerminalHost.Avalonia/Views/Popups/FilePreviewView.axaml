@@ -1,0 +1,99 @@
+<UserControl x:Class="TerminalHost.Views.Popups.FilePreviewView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             d:DataContext="{d:DesignInstance viewModels:FilePreviewViewModel}"
+             mc:Ignorable="d">
+
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="0"
+            Width="{Binding Width, Mode=TwoWay}"
+            Height="{Binding Height, Mode=TwoWay}"
+            BoxShadow="0 3 15 0 #66000000">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="├ù"
+                            Classes="TabCloseButton"
+                            Command="{Binding CloseCommand}"
+                            FontSize="{StaticResource FontSizeLarge}"
+                            Padding="8,2"/>
+                    <Button DockPanel.Dock="Right"
+                            Content="Γ£Å∩╕Å Edit"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding OpenInEditorCommand}"
+                            ToolTip.Tip="Open file in editor"
+                            Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Content Area -->
+            <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
+                <!-- Text/Code Mode -->
+                <ScrollViewer x:Name="ContentScrollViewer"
+                              IsVisible="{Binding IsText}"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto"
+                              Background="{StaticResource BackgroundDarkestBrush}">
+                    <SelectableTextBlock x:Name="ContentTextBlock"
+                                         Text="{Binding Content}"
+                                         Foreground="#CCCCCC"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         FontSize="{StaticResource FontSizeCode}"
+                                         Padding="8"
+                                         TextWrapping="NoWrap"/>
+                </ScrollViewer>
+
+                <!-- Markdown Mode -->
+                <controls:MarkdownViewer MarkdownContent="{Binding RawMarkdown}"
+                                         IsVisible="{Binding IsMarkdown}" />
+
+                <!-- Image Mode -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              IsVisible="{Binding IsImage}">
+                    <Image Source="{Binding ImageSource}"
+                           Stretch="None"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Margin="16"/>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,20,0"
+                               Text="Press Escape to close"/>
+                    <TextBlock Text="{Binding Info}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

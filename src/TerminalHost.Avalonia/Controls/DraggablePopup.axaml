@@ -1,0 +1,111 @@
+<UserControl x:Class="TerminalHost.Controls.DraggablePopup"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+
+    <UserControl.Styles>
+        <!-- TabCloseButton Style -->
+        <Style Selector="Button.TabCloseButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.TabCloseButton:pointerover">
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+        </Style>
+
+        <!-- ResizeGrip Template -->
+        <Style Selector="Thumb.ResizeGrip">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Cursor" Value="BottomRightCorner"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent">
+                        <Path Data="M 0,16 L 16,0 M 5,16 L 16,5 M 10,16 L 16,10"
+                              Stroke="{StaticResource ResizeGripBrush}"
+                              StrokeThickness="1.5"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Inline display (replaces Popup for better macOS compatibility) -->
+    <Border x:Name="PopupBorder"
+            Background="{StaticResource BackgroundDarkestBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            MinWidth="400"
+            MinHeight="300"
+            Width="{Binding PopupWidth, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+            Height="{Binding PopupHeight, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+            IsVisible="{Binding IsOpen, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            BoxShadow="0 5 20 0 #80000000"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Draggable header -->
+            <Border x:Name="DragHeader"
+                    Grid.Row="0"
+                    Background="{StaticResource BackgroundMediumBrush}"
+                    Padding="12,8"
+                    CornerRadius="6,6,0,0"
+                    Cursor="SizeAll">
+                <DockPanel LastChildFill="True">
+                    <!-- Close button -->
+                    <Button DockPanel.Dock="Right"
+                            Content="├ù"
+                            Classes="TabCloseButton"
+                            Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            FontSize="{StaticResource FontSizeLarge}"
+                            Padding="8,2"/>
+
+                    <!-- Header Right Content -->
+                    <ContentPresenter DockPanel.Dock="Right"
+                                      Content="{Binding HeaderRightContent, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      Margin="0,0,8,0"/>
+
+                    <!-- Header Left Content -->
+                    <ContentPresenter DockPanel.Dock="Left"
+                                      Content="{Binding HeaderLeftContent, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      Margin="0,0,8,0"/>
+
+                    <!-- Title -->
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Content Area -->
+            <ContentPresenter Grid.Row="1"
+                              Content="{Binding PopupContent, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
+            <!-- Resize grip - ZIndex ensures it renders above content -->
+            <Thumb x:Name="ResizeGrip"
+                   Grid.Row="1"
+                   ZIndex="100"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,4,4"
+                   Classes="ResizeGrip"/>
+        </Grid>
+    </Border>
+</UserControl>

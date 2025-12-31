@@ -1,0 +1,120 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+        xmlns:controls="clr-namespace:TerminalHost.Controls"
+        mc:Ignorable="d"
+        x:Class="TerminalHost.Views.MarkdownPreviewWindow"
+        Title="{Binding WindowTitle}"
+        Width="1024"
+        Height="768"
+        MinWidth="400"
+        MinHeight="300"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        d:DataContext="{d:DesignInstance Type=vm:MarkdownPreviewViewModel}">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCommand}"/>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </Window.KeyBindings>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Header/Toolbar -->
+        <Border Grid.Row="0" Background="#252526" Padding="8,6">
+            <DockPanel>
+                <!-- Right side buttons -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Γå╗ Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Padding="8,4"
+                            Margin="0,0,4,0"
+                            Background="#3C3C3C"
+                            Foreground="#CCCCCC"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            ToolTip.Tip="Refresh (F5)">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Background" Value="#4C4C4C"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                    <ToggleButton x:Name="AutoReloadToggle"
+                                  Content="Auto"
+                                  IsChecked="{Binding AutoReload}"
+                                  Padding="8,4"
+                                  Margin="0,0,4,0"
+                                  Cursor="Hand"
+                                  ToolTip.Tip="Auto-reload on file change">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="#3C3C3C"/>
+                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Template">
+                                    <ControlTemplate>
+                                        <Border Background="{TemplateBinding Background}"
+                                                Padding="{TemplateBinding Padding}"
+                                                CornerRadius="3">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="#2EA043"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="#4C4C4C"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked:pointerover">
+                                <Setter Property="Background" Value="#2EA043"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+                </StackPanel>
+
+                <!-- File path info -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="MD"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="#569CD6"
+                               Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding FileName}"
+                               FontSize="12"
+                               Foreground="#CCCCCC"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding FilePath}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Markdown Content -->
+        <Grid Grid.Row="1">
+            <controls:MarkdownViewer MarkdownContent="{Binding RawMarkdown}"/>
+
+            <!-- Loading overlay -->
+            <Border Background="#CC1E1E1E"
+                    IsVisible="{Binding IsLoading}">
+                <TextBlock Text="Loading..."
+                           FontSize="14"
+                           Foreground="#808080"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="#252526" Padding="8,4">
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="11"
+                       Foreground="#808080"/>
+        </Border>
+    </Grid>
+</Window>

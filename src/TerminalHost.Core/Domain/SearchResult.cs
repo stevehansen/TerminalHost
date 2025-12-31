@@ -155,6 +155,10 @@ public class SearchMatch
         ? LineText[..Column]
         : "";
 
+    // Aliases for compatibility (settable properties)
+    public string LineContent { get => LineText; set => LineText = value; }
+    public int MatchStart { get => Column; set => Column = value; }
+
     /// <summary>
     /// Text after the match on the same line.
     /// </summary>

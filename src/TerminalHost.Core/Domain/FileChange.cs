@@ -37,6 +37,12 @@ public class FileChange
     [JsonIgnore]
     public int TotalChanges => Additions + Deletions;
 
+    /// <summary>
+    /// Gets the file name without path.
+    /// </summary>
+    [JsonIgnore]
+    public string FileName => System.IO.Path.GetFileName(Path);
+
     public FileChange() { }
 
     public FileChange(string path, int additions, int deletions)

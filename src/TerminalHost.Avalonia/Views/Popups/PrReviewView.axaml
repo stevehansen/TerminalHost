@@ -1,0 +1,397 @@
+<UserControl x:Class="TerminalHost.Views.Popups.PrReviewView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             xmlns:converters="clr-namespace:TerminalHost"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DataContext="{d:DesignInstance viewModels:PrReviewViewModel}"
+             mc:Ignorable="d">
+
+    <controls:DraggablePopup
+        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        PopupWidth="1400"
+        PopupHeight="900"
+        Title="{Binding PullRequest.Title, FallbackValue='PR Review Mode'}"
+        CloseCommand="{Binding CloseCommand}">
+
+        <controls:DraggablePopup.HeaderRightContent>
+            <Button Content="Open in Browser"
+                    Classes="TerminalSwitchButton"
+                    Command="{Binding OpenInBrowserCommand}"
+                    Padding="8,4"
+                    Margin="0,0,8,0"/>
+        </controls:DraggablePopup.HeaderRightContent>
+
+        <controls:DraggablePopup.PopupContent>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- PR Details (moved from Header) -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="#"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"/>
+                            <TextBlock Text="{Binding PullRequest.Number}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxBlueBrush}"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="by"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="0,0,4,0"/>
+                            <TextBlock Text="{Binding PullRequest.Author}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text=" | "
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       Margin="8,0"/>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxGreenBrush}">
+                                <Run Text="+"/>
+                                <Run Text="{Binding PullRequest.Additions, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource SyntaxRedBrush}"
+                                       Margin="8,0,0,0">
+                                <Run Text="-"/>
+                                <Run Text="{Binding PullRequest.Deletions, Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Toggle Description Button -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ToggleBodyCommand}"
+                                Classes="TerminalSwitchButton"
+                                Padding="8,2"
+                                IsVisible="{Binding HasBody, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding IsBodyExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text=" Description"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Collapsible PR Body/Description -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource BackgroundDarkestBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="0,0,0,1"
+                        Height="200"
+                        IsVisible="{Binding IsBodyExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <controls:MarkdownViewer MarkdownContent="{Binding BodyMarkdown}"/>
+                </Border>
+
+                <!-- Main Content: Files + Diff -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Changed Files List -->
+                    <Border Grid.Column="0" BorderBrush="{StaticResource BorderSubtleBrush}"
+                            BorderThickness="0,0,1,0" Background="{StaticResource BackgroundDarkestBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Changed Files"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Padding="12,8"/>
+
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding ChangedFiles}"
+                                     SelectedItem="{Binding SelectedFile}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="8,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding FileName}"
+                                                       FontSize="{StaticResource FontSizeTiny}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Path}"/>
+
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="4,0,0,0">
+                                                <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                           Foreground="{StaticResource SyntaxGreenBrush}">
+                                                    <Run Text="+"/>
+                                                    <Run Text="{Binding Additions, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                           Foreground="{StaticResource SyntaxRedBrush}"
+                                                           Margin="4,0,0,0">
+                                                    <Run Text="-"/>
+                                                    <Run Text="{Binding Deletions, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="4,2"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundDarkBrush}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Diff Viewer and Comments -->
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Diff Viewer -->
+                        <controls:DiffViewer Grid.Row="0" DiffText="{Binding DiffContent}" />
+
+                        <!-- Comments Header Bar -->
+                        <Border Grid.Row="1"
+                                Background="{StaticResource BackgroundMediumBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,1,0,0">
+                            <Grid Margin="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Toggle expand/collapse -->
+                                <Button Grid.Column="0"
+                                        Command="{Binding ToggleCommentsCommand}"
+                                        Classes="TerminalSwitchButton"
+                                        Padding="8,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding IsCommentsExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0">
+                                            <Run Text=" Comments ("/>
+                                            <Run Text="{Binding TotalCommentCount, Mode=OneWay}"/>
+                                            <Run Text=")"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Filter toggle -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                            IsVisible="{Binding IsCommentsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <RadioButton Content="All"
+                                                 Classes="PopupModeTabButton"
+                                                 IsChecked="{Binding ShowAllComments}"
+                                                 Command="{Binding ToggleCommentFilterCommand}"
+                                                 Padding="8,2"
+                                                 FontSize="{StaticResource FontSizeTiny}"
+                                                 Margin="0,0,4,0"/>
+                                    <RadioButton Content="Current File"
+                                                 Classes="PopupModeTabButton"
+                                                 IsChecked="{Binding ShowAllComments, Converter={StaticResource InverseBoolConverter}}"
+                                                 Command="{Binding ToggleCommentFilterCommand}"
+                                                 Padding="8,2"
+                                                 FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Comments Panel -->
+                        <Border Grid.Row="2"
+                                Background="{StaticResource BackgroundDarkBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,1,0,0"
+                                MaxHeight="250"
+                                IsVisible="{Binding IsCommentsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid>
+                                <!-- Comments list -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              Padding="8"
+                                              IsVisible="{Binding TotalCommentCount, Converter={StaticResource IntToVisibilityConverter}}">
+                                    <ItemsControl ItemsSource="{Binding DisplayedThreads}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <controls:PrCommentThread/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <!-- Empty state -->
+                                <TextBlock Text="No comments on this PR"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Margin="16"
+                                           IsVisible="{Binding TotalCommentCount, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Loading Overlay -->
+                    <Border Grid.Column="0" Grid.ColumnSpan="2"
+                            Background="#CC1E1E1E"
+                            IsVisible="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding StatusMessage}"
+                                       FontSize="{StaticResource FontSizeNormal}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- No PR Message -->
+                    <Border Grid.Column="0" Grid.ColumnSpan="2"
+                            Background="{StaticResource BackgroundDarkBrush}"
+                            IsVisible="{Binding HasPullRequest, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    IsVisible="{Binding IsLoading, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <TextBlock Text="No PR Found"
+                                       FontSize="{StaticResource FontSizeLarge}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="The current branch doesn't have an open PR."
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Comment Input -->
+                <Border Grid.Row="3" Padding="12,8"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="0,1,0,0">
+                    <TextBox Text="{Binding ReviewComment, Mode=TwoWay}"
+                             Background="{StaticResource BackgroundDarkestBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                             BorderThickness="1"
+                             Padding="8"
+                             Height="60"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Watermark="Add a comment..."/>
+                </Border>
+
+                <!-- Action Buttons -->
+                <Border Grid.Row="4" Padding="12,8,24,8"
+                        Background="{StaticResource BackgroundDarkestBrush}"
+                        CornerRadius="0,0,8,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Test Results -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Run Tests"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding RunTestsCommand}"
+                                    IsEnabled="{Binding IsRunningTests, Converter={StaticResource InverseBoolConverter}}"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock VerticalAlignment="Center"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       IsVisible="{Binding TestSummary, Converter={StaticResource NullToVisibilityConverter}}">
+                                <Run Text="Tests:" Foreground="{StaticResource TextDimmedBrush}"/>
+                                <Run Text="{Binding TestSummary.PassedCount}" Foreground="{StaticResource SyntaxGreenBrush}"/>
+                                <Run Text="/" Foreground="{StaticResource TextDimmedBrush}"/>
+                                <Run Text="{Binding TestSummary.FailedCount}" Foreground="{StaticResource SyntaxRedBrush}"/>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Right: Review Actions -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Comment"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CommentCommand}"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"/>
+                            <Button Content="Γ£ô Approve"
+                                    Command="{Binding ApproveCommand}"
+                                    Background="#2EA043"
+                                    Foreground="#FFFFFF"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    CornerRadius="4"
+                                    VerticalAlignment="Center"/>
+                            <Button Content="Request Changes"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding RequestChangesCommand}"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"/>
+                            <Button Content="Squash &amp; Merge"
+                                    Command="{Binding MergeCommand}"
+                                    Background="#8957E5"
+                                    Foreground="#FFFFFF"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    Padding="12,6"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    CornerRadius="4"
+                                    VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </controls:DraggablePopup.PopupContent>
+    </controls:DraggablePopup>
+</UserControl>

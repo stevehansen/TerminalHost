@@ -1,0 +1,161 @@
+<UserControl x:Class="TerminalHost.Views.Popups.DetectedLinksView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Domain"
+             xmlns:local="clr-namespace:TerminalHost"
+             d:DataContext="{d:DesignInstance viewModels:DetectedLinksViewModel}"
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}"
+             IsHitTestVisible="{Binding IsOpen}">
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="0"
+            MinWidth="300"
+            MaxWidth="500"
+            MaxHeight="400"
+            Width="{Binding Width, Mode=TwoWay}"
+            Height="{Binding Height, Mode=TwoWay}"
+            BoxShadow="0 3 15 0 #66000000">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="├ù"
+                            Classes="TabCloseButton"
+                            Command="{Binding CloseCommand}"
+                            FontSize="{StaticResource FontSizeLarge}"
+                            Padding="8,2"/>
+                    <Button DockPanel.Dock="Right"
+                            Content="Γå╗"
+                            Classes="TabCloseButton"
+                            Command="{Binding RefreshLinksCommand}"
+                            ToolTip.Tip="Refresh links"
+                            FontSize="{StaticResource FontSizeNormal}"
+                            Padding="6,2"
+                            Margin="0,0,4,0"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="≡ƒöù" FontSize="{StaticResource FontSizeNormal}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Detected Links"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="{StaticResource FontSizeCode}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Links List -->
+            <ListBox x:Name="LinksList"
+                     Grid.Row="1"
+                     ItemsSource="{Binding Links}"
+                     SelectedItem="{Binding SelectedLink}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     MaxHeight="320"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     DoubleTapped="LinksList_DoubleTapped">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="8,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Icon}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeNormal}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayText}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Url}"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding Url}"/>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Name="Root"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="4"
+                                        Margin="4,2"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Style Selector="^:pointerover /template/ Border#Root">
+                            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                        </Style>
+                        <Style Selector="^:selected /template/ Border#Root">
+                            <Setter Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                        </Style>
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+
+            <!-- Empty state -->
+            <TextBlock x:Name="EmptyState"
+                       Grid.Row="1"
+                       Text="No links detected"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="{StaticResource FontSizeSmall}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Padding="20"
+                       IsVisible="{Binding IsEmptyStateVisible}"/>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                        <Button Content="≡ƒæü∩╕Å Preview"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding PreviewSelectedLinkCommand}"
+                                ToolTip.Tip="Preview file"
+                                Margin="0,0,4,0"/>
+                        <Button Content="≡ƒîÉ Open"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding OpenSelectedLinkCommand}"
+                                ToolTip.Tip="Open link"/>
+                    </StackPanel>
+                    <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeMicro}"
+                               Text="Double-click or Enter to open, Esc to close"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>
