@@ -30,12 +30,32 @@ public partial class SessionBlockViewModel : ObservableObject
 
     public string ShortCommitHash => CommitHash?.Length > 7 ? CommitHash[..7] : CommitHash ?? "";
 
+    // Debug info properties
+    public string? ContinueSessionId => _session.ContinueSessionId;
+    public string? TranscriptPath => _session.TranscriptPath;
+    public DateTime? LastActivityTime => _session.LastActivityTime;
+    public string StartTimeDisplay => StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public string? EndTimeDisplay => EndTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public string? LastActivityDisplay => LastActivityTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public bool HasLastActivity => LastActivityTime.HasValue;
+
     public string TimeRangeDisplay
     {
         get
         {
-            var start = StartTime.ToLocalTime().ToString("HH:mm");
-            var end = EndTime?.ToLocalTime().ToString("HH:mm") ?? "...";
+            var localStart = StartTime.ToLocalTime();
+            var localEnd = EndTime?.ToLocalTime();
+
+            // Check if session spans multiple days
+            if (localEnd.HasValue && localStart.Date != localEnd.Value.Date)
+            {
+                var startStr = localStart.ToString("MMM d HH:mm");
+                var endStr = localEnd.Value.ToString("MMM d HH:mm");
+                return $"{startStr} → {endStr}";
+            }
+
+            var start = localStart.ToString("HH:mm");
+            var end = localEnd?.ToString("HH:mm") ?? "...";
             return $"{start} → {end}";
         }
     }
@@ -139,25 +159,37 @@ public partial class SessionBlockViewModel : ObservableObject
     [ObservableProperty]
     private double _progressWidth; // For running sessions, the progress bar width
 
+    [ObservableProperty]
+    private bool _isVisibleInView = true; // Whether session is within the visible time range
+
     /// <summary>
     /// Update the position based on timeline view parameters.
     /// </summary>
-    public void UpdatePosition(DateTime viewStartTime, double pixelsPerMinute)
+    public void UpdatePosition(DateTime viewStartTime, DateTime viewEndTime, double pixelsPerMinute)
     {
-        // Calculate X position from start time (convert to local for comparison)
+        // Calculate positions (convert to local for comparison)
         var localStart = StartTime.ToLocalTime();
-        var minutesFromStart = (localStart - viewStartTime).TotalMinutes;
-        XPosition = Math.Max(0, minutesFromStart * pixelsPerMinute);
+        var localEnd = EndTime?.ToLocalTime() ?? DateTime.Now;
 
-        // Calculate width from duration
-        var endTimeActual = EndTime?.ToLocalTime() ?? DateTime.Now;
-        var durationMinutes = (endTimeActual - localStart).TotalMinutes;
-        var calculatedWidth = durationMinutes * pixelsPerMinute;
+        // Determine visibility: session must overlap with the visible time range
+        IsVisibleInView = !(localEnd < viewStartTime || localStart > viewEndTime);
 
-        // Minimum width for readability
+        // Calculate visible portion of the session
+        var visibleStart = localStart < viewStartTime ? viewStartTime : localStart;
+        var visibleEnd = localEnd > viewEndTime ? viewEndTime : localEnd;
+
+        // X position: where the visible portion starts
+        var minutesFromViewStart = (visibleStart - viewStartTime).TotalMinutes;
+        XPosition = Math.Max(0, minutesFromViewStart * pixelsPerMinute);
+
+        // Width: the visible portion duration
+        var visibleDuration = (visibleEnd - visibleStart).TotalMinutes;
+        var calculatedWidth = visibleDuration * pixelsPerMinute;
+
+        // Minimum width for readability (but only if there's actually content to show)
         Width = Math.Max(120, calculatedWidth);
 
-        // For running sessions, show progress within the block
+        // For running sessions, show progress bar
         if (IsRunning)
         {
             ProgressWidth = calculatedWidth;

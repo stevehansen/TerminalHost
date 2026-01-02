@@ -303,6 +303,20 @@ public interface ITimelineService
 
     #endregion
 
+    #region Orphan Sessions
+
+    /// <summary>
+    /// Gets all unassigned orphan sessions.
+    /// </summary>
+    IReadOnlyList<OrphanSession> GetOrphanSessions();
+
+    /// <summary>
+    /// Removes/dismisses an orphan session.
+    /// </summary>
+    void RemoveOrphanSession(string orphanSessionId);
+
+    #endregion
+
     #region Events
 
     /// <summary>
@@ -344,6 +358,11 @@ public interface ITimelineService
     /// Fired when a session start is requested - consumer should open a project tab.
     /// </summary>
     event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
+
+    /// <summary>
+    /// Fired when orphan sessions are added, updated, or removed.
+    /// </summary>
+    event EventHandler? OrphanSessionsChanged;
 
     #endregion
 }

@@ -58,6 +58,9 @@ public partial class IntentRowViewModel : ObservableObject
         _intent = intent;
         _parent = parent;
 
+        // Initialize expanded state from persisted Intent
+        _isExpanded = intent.IsExpanded;
+
         // Build session view models
         foreach (var session in sessions.OrderBy(s => s.StartTime))
         {
@@ -65,6 +68,13 @@ public partial class IntentRowViewModel : ObservableObject
         }
 
         HasRunningSession = sessions.Any(s => s.Status == ClaudeSessionStatus.Running);
+    }
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        // Sync back to Intent domain model for persistence
+        _intent.IsExpanded = value;
+        _parent.SaveIntentExpandedState(Id, value);
     }
 
     [RelayCommand]

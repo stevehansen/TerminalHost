@@ -105,6 +105,13 @@ public class ClaudeSession
     [JsonPropertyName("transcriptPath")]
     public string? TranscriptPath { get; set; }
 
+    /// <summary>
+    /// Last time any activity was recorded (file change, command, hook event).
+    /// Used to determine correct end time for stuck sessions.
+    /// </summary>
+    [JsonPropertyName("lastActivityTime")]
+    public DateTime? LastActivityTime { get; set; }
+
     // Computed properties
 
     /// <summary>
@@ -194,15 +201,26 @@ public class ClaudeSession
     }
 
     /// <summary>
-    /// Gets the time range display (e.g., "10:45 → 11:10").
+    /// Gets the time range display (e.g., "10:45 → 11:10" or "Dec 31 15:03 → Jan 2 09:11" for multi-day).
     /// </summary>
     [JsonIgnore]
     public string TimeRangeDisplay
     {
         get
         {
-            var start = StartTime.ToLocalTime().ToString("HH:mm");
-            var end = EndTime?.ToLocalTime().ToString("HH:mm") ?? "...";
+            var localStart = StartTime.ToLocalTime();
+            var localEnd = EndTime?.ToLocalTime();
+
+            // Check if session spans multiple days
+            if (localEnd.HasValue && localStart.Date != localEnd.Value.Date)
+            {
+                var startStr = localStart.ToString("MMM d HH:mm");
+                var endStr = localEnd.Value.ToString("MMM d HH:mm");
+                return $"{startStr} → {endStr}";
+            }
+
+            var start = localStart.ToString("HH:mm");
+            var end = localEnd?.ToString("HH:mm") ?? "...";
             return $"{start} → {end}";
         }
     }
@@ -285,11 +303,13 @@ public class ClaudeSession
 
     /// <summary>
     /// Marks the session as successful.
+    /// Uses LastActivityTime as EndTime if available (for stuck sessions).
     /// </summary>
     public void MarkSuccess(string? commitHash = null, string? commitMessage = null, string? agentNotes = null)
     {
         Status = ClaudeSessionStatus.Success;
-        EndTime = DateTime.UtcNow;
+        // Use LastActivityTime if available and EndTime not already set
+        EndTime ??= LastActivityTime ?? DateTime.UtcNow;
         CommitHash = commitHash;
         CommitMessage = commitMessage;
         if (agentNotes != null)
@@ -298,26 +318,30 @@ public class ClaudeSession
 
     /// <summary>
     /// Marks the session as failed.
+    /// Uses LastActivityTime as EndTime if available (for stuck sessions).
     /// </summary>
     public void MarkFailed(string? agentNotes = null)
     {
         Status = ClaudeSessionStatus.Failed;
-        EndTime = DateTime.UtcNow;
+        // Use LastActivityTime if available and EndTime not already set
+        EndTime ??= LastActivityTime ?? DateTime.UtcNow;
         if (agentNotes != null)
             AgentNotes = agentNotes;
     }
 
     /// <summary>
     /// Marks the session as abandoned.
+    /// Uses LastActivityTime as EndTime if available (for stuck sessions).
     /// </summary>
     public void MarkAbandoned()
     {
         Status = ClaudeSessionStatus.Abandoned;
-        EndTime = DateTime.UtcNow;
+        // Use LastActivityTime if available and EndTime not already set
+        EndTime ??= LastActivityTime ?? DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Adds a file change to this session.
+    /// Adds a file change to this session and updates LastActivityTime.
     /// </summary>
     public void AddFileChange(string path, int additions, int deletions)
     {
@@ -331,14 +355,26 @@ public class ClaudeSession
         {
             FilesChanged.Add(new FileChange(path, additions, deletions));
         }
+        LastActivityTime = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Adds a command to the executed commands list.
+    /// Adds a command to the executed commands list and updates LastActivityTime.
     /// </summary>
     public void AddCommand(string command)
     {
         if (!string.IsNullOrWhiteSpace(command) && !CommandsExecuted.Contains(command))
+        {
             CommandsExecuted.Add(command);
+            LastActivityTime = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Updates the last activity time. Called when hook events are received.
+    /// </summary>
+    public void RecordActivity()
+    {
+        LastActivityTime = DateTime.UtcNow;
     }
 }

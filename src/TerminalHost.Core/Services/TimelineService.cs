@@ -974,13 +974,22 @@ public sealed class TimelineService : ITimelineService
         var existingSession = GetSessionByClaudeId(hookEvent.SessionId);
         if (existingSession != null)
         {
-            // Session already exists (possibly from a --continue invocation)
-            // Keep the earliest start time for correct duration calculation
+            // Session already exists - only reactivate if it was still in Running status
+            // Don't reactivate sessions that were explicitly marked as Success/Failed/Abandoned
+            // This prevents /compact and other commands from incorrectly restarting completed sessions
             lock (_lock)
             {
                 if (hookEvent.Timestamp < existingSession.StartTime)
                     existingSession.StartTime = hookEvent.Timestamp;
-                existingSession.Status = ClaudeSessionStatus.Running;
+
+                // Only update to Running if it wasn't explicitly completed/failed/abandoned
+                if (existingSession.Status == ClaudeSessionStatus.Running)
+                {
+                    existingSession.RecordActivity();
+                }
+                // If session was explicitly ended, don't touch it - this is likely a follow-up command
+                // like /compact that shouldn't restart the session
+
                 SaveToConfig();
             }
             OnSessionsChanged();
@@ -1042,18 +1051,17 @@ public sealed class TimelineService : ITimelineService
         {
             lock (_lock)
             {
-                // Add the file to the session (we don't have line counts from hooks yet)
-                session.AddFileChange(hookEvent.FilePath, 0, 0);
-
-                // If session was marked as completed but we're still getting file changes,
-                // the user must have continued the conversation - mark as running again
-                if (session.Status != ClaudeSessionStatus.Running)
+                // Only track file changes for running sessions
+                // Don't reactivate completed/failed/abandoned sessions - the file change
+                // might be from a follow-up command like /compact that modifies files
+                if (session.Status == ClaudeSessionStatus.Running)
                 {
-                    session.Status = ClaudeSessionStatus.Running;
-                    session.EndTime = null; // Clear end time since it's running again
+                    // Add the file to the session (we don't have line counts from hooks yet)
+                    // Note: AddFileChange already updates LastActivityTime
+                    session.AddFileChange(hookEvent.FilePath, 0, 0);
+                    SaveToConfig();
                 }
-
-                SaveToConfig();
+                // If session was explicitly ended, ignore file changes
             }
             OnSessionsChanged();
             return;

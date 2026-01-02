@@ -194,72 +194,101 @@
         <!-- Main Content Area -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250" MinWidth="180"/>
-                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="220" MinWidth="180"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Intent List (Left Panel) -->
             <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Intents}" Margin="8">
+                <ScrollViewer x:Name="LeftPanelScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="8,40,8,8">
+                        <ItemsControl ItemsSource="{Binding Intents}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type viewmodels:IntentRowViewModel}">
-                                <Border Background="{StaticResource BackgroundMediumBrush}"
-                                        Margin="0,0,0,8" Padding="12,10" CornerRadius="4"
-                                        Cursor="Hand">
-                                    <Border.InputBindings>
-                                        <MouseBinding Gesture="LeftClick" Command="{Binding SelectCommand}"/>
-                                    </Border.InputBindings>
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
+                                <!-- Wrapper with height matching swimlane rows -->
+                                <Border BorderThickness="0,0,0,1" BorderBrush="{StaticResource BorderSubtleBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Height" Value="70"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                    <Setter Property="Height" Value="32"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Border Background="Transparent" Padding="8,6" Cursor="Hand">
+                                        <Border.InputBindings>
+                                            <MouseBinding Gesture="LeftClick" Command="{Binding SelectCommand}"/>
+                                        </Border.InputBindings>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
 
-                                        <!-- Expand/Collapse Toggle -->
-                                        <TextBlock Grid.Row="0" Grid.Column="0"
-                                                   Text="{Binding IsExpanded, Converter={StaticResource BoolToStringConverter}, ConverterParameter='▼|▶'}"
-                                                   FontSize="10" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                   Cursor="Hand">
-                                            <TextBlock.InputBindings>
-                                                <MouseBinding Gesture="LeftClick" Command="{Binding ToggleExpandedCommand}"/>
-                                            </TextBlock.InputBindings>
-                                        </TextBlock>
+                                            <!-- Expand/Collapse Toggle -->
+                                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                                       Text="{Binding IsExpanded, Converter={StaticResource BoolToStringConverter}, ConverterParameter='▼|▶'}"
+                                                       FontSize="10" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                       Cursor="Hand">
+                                                <TextBlock.InputBindings>
+                                                    <MouseBinding Gesture="LeftClick" Command="{Binding ToggleExpandedCommand}"/>
+                                                </TextBlock.InputBindings>
+                                            </TextBlock>
 
-                                        <!-- Intent Name -->
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
-                                                   FontWeight="Bold" FontSize="14"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                            <!-- Intent Name -->
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
+                                                       FontWeight="Bold" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
 
-                                        <!-- Running Indicator -->
-                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="●" FontSize="12"
-                                                   Foreground="{StaticResource AccentBlueBrush}"
+                                            <!-- Running Indicator -->
+                                            <TextBlock Grid.Row="0" Grid.Column="2" Text="●" FontSize="12"
+                                                       Foreground="{StaticResource AccentBlueBrush}"
                                                    Visibility="{Binding HasRunningSession, Converter={StaticResource BoolToVisibilityConverter}}"
                                                    ToolTip="Claude Code running"/>
 
-                                        <!-- Branch Name -->
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                                   Text="{Binding ShortBranchName}"
-                                                   FontSize="12" Foreground="{StaticResource TextDimmedBrush}"
-                                                   ToolTip="{Binding BranchName}"/>
+                                            <!-- Branch Name (hidden when collapsed) -->
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                                       Text="{Binding ShortBranchName}"
+                                                       FontSize="11" Foreground="{StaticResource TextDimmedBrush}"
+                                                       ToolTip="{Binding BranchName}"
+                                                       Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                                        <!-- Status -->
-                                        <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
-                                                    Orientation="Horizontal" Margin="0,6,0,0">
-                                            <TextBlock Text="{Binding StatusIcon}" FontSize="12" Margin="0,0,4,0"/>
+                                            <!-- Status (hidden when collapsed) -->
+                                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                                        Orientation="Horizontal" Margin="0,4,0,0"
+                                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <TextBlock Text="{Binding StatusIcon}" FontSize="12" Margin="0,0,4,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Active}">
+                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Paused}">
+                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Completed}">
+                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxCyanBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                             <TextBlock FontSize="11">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Active}">
-                                                                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>
                                                                 <Setter Property="Text" Value="Active"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Paused}">
@@ -267,7 +296,7 @@
                                                                 <Setter Property="Text" Value="Paused"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Completed}">
-                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxCyanBrush}"/>
                                                                 <Setter Property="Text" Value="Completed"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:IntentStatus.Abandoned}">
@@ -284,39 +313,100 @@
                                                        Visibility="{Binding HasContext, Converter={StaticResource BoolToVisibilityConverter}}"
                                                        ToolTip="Has context file"/>
 
-                                            <!-- Start Session Button -->
-                                            <Button Content="+ Start" Command="{Binding StartNewSessionCommand}"
-                                                    Style="{StaticResource TimelineIconButton}"
-                                                    FontSize="10" Margin="8,0,0,0"
-                                                    ToolTip="Start new Claude Code session"/>
-                                        </StackPanel>
-                                    </Grid>
-                                    <!-- Context Menu -->
-                                    <Border.ContextMenu>
-                                        <ContextMenu Style="{StaticResource DarkContextMenu}">
-                                            <MenuItem Header="Start Session" Command="{Binding StartNewSessionCommand}"/>
-                                            <Separator/>
-                                            <MenuItem Header="Mark Active" Command="{Binding MarkActiveCommand}"/>
-                                            <MenuItem Header="Mark Paused" Command="{Binding MarkPausedCommand}"/>
-                                            <MenuItem Header="Mark Complete" Command="{Binding MarkCompleteCommand}"/>
-                                            <MenuItem Header="Abandon" Command="{Binding AbandonCommand}"/>
-                                            <Separator/>
-                                            <MenuItem Header="Delete Intent" Command="{Binding DeleteCommand}"/>
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
+                                                <!-- Start Session Button -->
+                                                <Button Content="+ Start" Command="{Binding StartNewSessionCommand}"
+                                                        Style="{StaticResource TimelineIconButton}"
+                                                        FontSize="10" Margin="8,0,0,0"
+                                                        ToolTip="Start new Claude Code session"
+                                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <!-- Context Menu on inner border -->
+                                        <Border.ContextMenu>
+                                            <ContextMenu Style="{StaticResource DarkContextMenu}">
+                                                <MenuItem Header="Start Session" Command="{Binding StartNewSessionCommand}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Mark Active" Command="{Binding MarkActiveCommand}"/>
+                                                <MenuItem Header="Mark Paused" Command="{Binding MarkPausedCommand}"/>
+                                                <MenuItem Header="Mark Complete" Command="{Binding MarkCompleteCommand}"/>
+                                                <MenuItem Header="Abandon" Command="{Binding AbandonCommand}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Delete Intent" Command="{Binding DeleteCommand}"/>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                    </Border>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                        <!-- Unassigned Sessions Section -->
+                        <Border Margin="0,8,0,0" Visibility="{Binding OrphanSessions.Count, Converter={StaticResource IntToVisibilityConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="UNASSIGNED SESSIONS" FontWeight="Bold" FontSize="11"
+                                           Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Sessions detected but not matched to an intent"
+                                           FontSize="10" Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"
+                                           TextWrapping="Wrap"/>
+                                <ItemsControl ItemsSource="{Binding OrphanSessions}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource BackgroundMediumBrush}"
+                                                    Margin="0,0,0,6" Padding="10,8" CornerRadius="4">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Name and Status -->
+                                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding StatusIcon}" FontSize="11" Margin="0,0,4,0"
+                                                                   Foreground="{StaticResource AccentBlueBrush}"/>
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"/>
+                                                    </StackPanel>
+
+                                                    <!-- Duration -->
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                               FontSize="10" Foreground="{StaticResource TextDimmedBrush}" Margin="0,2,0,0">
+                                                        <Run Text="{Binding StartTimeDisplay, Mode=OneWay}"/>
+                                                        <Run Text=" • "/>
+                                                        <Run Text="{Binding DurationDisplay, Mode=OneWay}"/>
+                                                        <Run Text=" • "/>
+                                                        <Run Text="{Binding FileCount, Mode=OneWay}"/>
+                                                        <Run Text=" files"/>
+                                                    </TextBlock>
+
+                                                    <!-- Actions -->
+                                                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                                                Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <Button Content="Create Intent" Command="{Binding CreateIntentCommand}"
+                                                                Style="{StaticResource TimelineIconButton}"
+                                                                FontSize="10" Padding="8,4"
+                                                                ToolTip="Create a new intent from this session"/>
+                                                        <Button Content="Dismiss" Command="{Binding DismissCommand}"
+                                                                Style="{StaticResource TimelineIconButton}"
+                                                                FontSize="10" Padding="8,4" Margin="6,0,0,0"
+                                                                ToolTip="Remove this unassigned session"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
             </Border>
 
-            <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
-                          Background="{StaticResource BackgroundLightBrush}"/>
-
             <!-- Timeline Area (Right Panel) -->
-            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+            <Border Grid.Column="1" Background="{StaticResource BackgroundDarkestBrush}">
                 <Grid>
                     <!-- Empty State -->
                     <TextBlock Text="Create an intent to start tracking Claude Code sessions"
@@ -372,17 +462,53 @@
                             <ItemsControl ItemsSource="{Binding Intents}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type viewmodels:IntentRowViewModel}">
-                                        <Border Height="80" BorderThickness="0,0,0,1" BorderBrush="{StaticResource BorderSubtleBrush}"
-                                                Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Border BorderThickness="0,0,0,1" BorderBrush="{StaticResource BorderSubtleBrush}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Height" Value="70"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                            <Setter Property="Height" Value="32"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
                                             <Canvas MinWidth="{Binding DataContext.TimelineWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     ClipToBounds="True" HorizontalAlignment="Stretch">
-                                                <!-- Background guide line -->
-                                                <Rectangle Canvas.Top="38" Height="4" Fill="{StaticResource BackgroundLightBrush}"
-                                                           Width="{Binding DataContext.TimelineWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                <!-- Vertical grid lines (aligned with time ruler) -->
+                                                <ItemsControl ItemsSource="{Binding DataContext.TimeMarkers, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <Canvas/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemContainerStyle>
+                                                        <Style TargetType="ContentPresenter">
+                                                            <Setter Property="Canvas.Left" Value="{Binding XPosition}"/>
+                                                        </Style>
+                                                    </ItemsControl.ItemContainerStyle>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Rectangle Width="1" Height="70" Opacity="0.15">
+                                                                <Rectangle.Style>
+                                                                    <Style TargetType="Rectangle">
+                                                                        <Setter Property="Fill" Value="{StaticResource BorderSubtleBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsMajor}" Value="True">
+                                                                                <Setter Property="Fill" Value="{StaticResource TextDimmedBrush}"/>
+                                                                                <Setter Property="Opacity" Value="0.25"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Rectangle.Style>
+                                                            </Rectangle>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
 
                                                 <!-- Current time vertical line -->
                                                 <Rectangle Canvas.Left="{Binding DataContext.CurrentTimeXPosition, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                           Canvas.Top="0" Width="2" Height="80" Fill="{StaticResource AccentBlueBrush}" Opacity="0.3"/>
+                                                           Canvas.Top="0" Width="2" Height="70" Fill="{StaticResource AccentBlueBrush}" Opacity="0.3"/>
 
                                                 <!-- Session Blocks -->
                                                 <ItemsControl ItemsSource="{Binding Sessions}">
@@ -399,22 +525,22 @@
                                                     </ItemsControl.ItemContainerStyle>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate DataType="{x:Type viewmodels:SessionBlockViewModel}">
-                                                            <Grid>
+                                                            <Grid Visibility="{Binding IsVisibleInView, Converter={StaticResource BoolToVisibilityConverter}}">
                                                                 <!-- Abandoned Path Label -->
-                                                                <TextBlock Text="abandoned path" FontSize="9" FontStyle="Italic"
+                                                                <TextBlock Text="abandoned path" FontSize="8" FontStyle="Italic"
                                                                            Foreground="{StaticResource TextDimmedBrush}"
-                                                                           Margin="0,-14,0,0"
+                                                                           Margin="0,-12,0,0"
                                                                            Visibility="{Binding IsAbandoned, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                                                                 <!-- Session Block -->
-                                                                <Border Width="{Binding Width}" Height="60" CornerRadius="6"
-                                                                        Cursor="Hand" Padding="10,6">
+                                                                <Border Width="{Binding Width}" Height="48" CornerRadius="4"
+                                                                        Cursor="Hand" Padding="8,6">
                                                                     <Border.Style>
                                                                         <Style TargetType="Border">
                                                                             <Setter Property="Background" Value="#2D3E4E"/>
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Success}">
-                                                                                    <Setter Property="Background" Value="#1B4332"/>
+                                                                                    <Setter Property="Background" Value="#1E4D4D"/>
                                                                                 </DataTrigger>
                                                                                 <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Failed}">
                                                                                     <Setter Property="Background" Value="#5A2D2D"/>
@@ -439,13 +565,31 @@
                                                                         <Grid.RowDefinitions>
                                                                             <RowDefinition Height="Auto"/>
                                                                             <RowDefinition Height="Auto"/>
-                                                                            <RowDefinition Height="*"/>
+                                                                            <RowDefinition Height="Auto"/>
                                                                         </Grid.RowDefinitions>
 
                                                                         <!-- Status Icon + Title -->
                                                                         <StackPanel Grid.Row="0" Orientation="Horizontal">
-                                                                            <TextBlock Text="{Binding StatusIcon}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                                                            <TextBlock Text="{Binding BlockTitle}" FontWeight="SemiBold" FontSize="12"
+                                                                            <TextBlock FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Text" Value="{Binding StatusIcon}"/>
+                                                                                        <Setter Property="Foreground" Value="{StaticResource SyntaxCyanBrush}"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Failed}">
+                                                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxRedBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Running}">
+                                                                                                <Setter Property="Foreground" Value="{StaticResource SyntaxBlueBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Abandoned}">
+                                                                                                <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="{Binding BlockTitle}" FontWeight="SemiBold" FontSize="11"
                                                                                        TextTrimming="CharacterEllipsis" MaxWidth="140"/>
                                                                         </StackPanel>
 
@@ -492,10 +636,7 @@
                         <Grid DataContext="{Binding SelectedSession}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
@@ -505,9 +646,28 @@
                                 <Grid>
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding StatusText}" FontWeight="Bold" FontSize="14"/>
+                                            <!-- Status badge with colored background -->
+                                            <Border Padding="6,2" CornerRadius="3" Margin="0,0,8,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#2D5A2D"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Running}">
+                                                                <Setter Property="Background" Value="#1B4B6B"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Failed}">
+                                                                <Setter Property="Background" Value="#5A2D2D"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="{x:Static domain:ClaudeSessionStatus.Abandoned}">
+                                                                <Setter Property="Background" Value="#3A3A3A"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding StatusText}" FontWeight="Bold" FontSize="12"/>
+                                            </Border>
                                             <TextBlock Text="{Binding TimeRangeDisplay}"
-                                                       Margin="12,0,0,0"
+                                                       VerticalAlignment="Center"
                                                        Foreground="{StaticResource TextDimmedBrush}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -518,79 +678,138 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Commit Info -->
-                            <Border Grid.Row="1" Padding="16,12"
-                                    Visibility="{Binding HasCommit, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <!-- Scrollable Content Area -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding ShortCommitHash}" FontFamily="Consolas"
-                                               FontSize="12" Foreground="{StaticResource SyntaxYellowBrush}"/>
-                                    <TextBlock Text="{Binding CommitMessage}" TextWrapping="Wrap"
-                                               Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Border>
+                                    <!-- Commit Info -->
+                                    <Border Padding="16,12"
+                                            Visibility="{Binding HasCommit, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding ShortCommitHash}" FontFamily="Consolas"
+                                                       FontSize="12" Foreground="{StaticResource SyntaxYellowBrush}"/>
+                                            <TextBlock Text="{Binding CommitMessage}" TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
 
-                            <!-- Files Changed -->
-                            <Border Grid.Row="2" Padding="16,12"
-                                    Visibility="{Binding HasFilesChanged, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <StackPanel>
-                                    <TextBlock Text="FILES CHANGED" FontWeight="Bold" FontSize="11"
-                                               Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
-                                    <ItemsControl ItemsSource="{Binding FilesChanged}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,2" ToolTip="{Binding Path}">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding RelativePath}" FontFamily="Consolas" FontSize="11"
-                                                               TextTrimming="CharacterEllipsis"/>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
-                                                                Visibility="{Binding HasLineChanges, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                        <TextBlock Text="{Binding Additions, StringFormat='+{0}'}"
-                                                                   Foreground="{StaticResource SyntaxGreenBrush}" FontSize="11"/>
-                                                        <TextBlock Text="{Binding Deletions, StringFormat=' -{0}'}"
-                                                                   Foreground="{StaticResource SyntaxRedBrush}" FontSize="11"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
+                                    <!-- Files Changed -->
+                                    <Border Padding="16,12"
+                                            Visibility="{Binding HasFilesChanged, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="FILES CHANGED" FontWeight="Bold" FontSize="11"
+                                                       Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding FilesChanged}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,2" ToolTip="{Binding Path}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding RelativePath}" FontFamily="Consolas" FontSize="11"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
+                                                                        Visibility="{Binding HasLineChanges, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="{Binding Additions, StringFormat='+{0}'}"
+                                                                           Foreground="{StaticResource SyntaxGreenBrush}" FontSize="11"/>
+                                                                <TextBlock Text="{Binding Deletions, StringFormat=' -{0}'}"
+                                                                           Foreground="{StaticResource SyntaxRedBrush}" FontSize="11"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
 
-                            <!-- Commands -->
-                            <Border Grid.Row="3" Padding="16,12"
-                                    Visibility="{Binding HasCommands, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <StackPanel>
-                                    <TextBlock Text="COMMANDS" FontWeight="Bold" FontSize="11"
-                                               Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
-                                    <ItemsControl ItemsSource="{Binding Commands}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock FontFamily="Consolas" FontSize="11" Margin="0,2">
-                                                    <Run Text="$" Foreground="{StaticResource SyntaxYellowBrush}"/>
-                                                    <Run Text=" "/>
-                                                    <Run Text="{Binding Mode=OneWay}"/>
+                                    <!-- Commands -->
+                                    <Border Padding="16,12"
+                                            Visibility="{Binding HasCommands, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="COMMANDS" FontWeight="Bold" FontSize="11"
+                                                       Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
+                                            <ItemsControl ItemsSource="{Binding Commands}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock FontFamily="Consolas" FontSize="11" Margin="0,2">
+                                                            <Run Text="$" Foreground="{StaticResource SyntaxYellowBrush}"/>
+                                                            <Run Text=" "/>
+                                                            <Run Text="{Binding Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Agent Notes -->
+                                    <Border Padding="16,12"
+                                            Visibility="{Binding HasNotes, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="AGENT NOTES" FontWeight="Bold" FontSize="11"
+                                                       Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
+                                            <TextBlock Text="{Binding AgentNotes}" TextWrapping="Wrap" FontSize="12"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Debug Info (expandable) -->
+                                    <Border Padding="16,8" Background="{StaticResource BackgroundDarkestBrush}">
+                                        <Expander Header="Session Details (Debug)" Foreground="{StaticResource TextDimmedBrush}" FontSize="11">
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Session ID:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Id}" FontFamily="Consolas" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Claude ID:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ContinueSessionId, TargetNullValue='(not tracked)'}" FontFamily="Consolas" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Status:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding StatusText}" FontSize="10" Margin="0,0,0,4"/>
+
+                                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Start Time:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StartTimeDisplay}" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+
+                                                <TextBlock Grid.Row="4" Grid.Column="0" Text="End Time:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding EndTimeDisplay, TargetNullValue='(running)'}" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+
+                                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Last Activity:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,4"/>
+                                                <TextBlock Grid.Row="5" Grid.Column="1" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="{Binding LastActivityDisplay}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasLastActivity}" Value="False">
+                                                                    <Setter Property="Text" Value="(no activity recorded)"/>
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
                                                 </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
 
-                            <!-- Agent Notes -->
-                            <Border Grid.Row="4" Padding="16,12"
-                                    Visibility="{Binding HasNotes, Converter={StaticResource BoolToVisibilityConverter}}">
-                                <StackPanel>
-                                    <TextBlock Text="AGENT NOTES" FontWeight="Bold" FontSize="11"
-                                               Foreground="{StaticResource TextDimmedBrush}" Margin="0,0,0,8"/>
-                                    <TextBlock Text="{Binding AgentNotes}" TextWrapping="Wrap" FontSize="12"/>
+                                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Transcript:" Foreground="{StaticResource TextDimmedBrush}" FontSize="10" Margin="0,0,12,0"/>
+                                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding TranscriptPath, TargetNullValue='(none)'}" FontFamily="Consolas" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding TranscriptPath}"/>
+                                            </Grid>
+                                        </Expander>
+                                    </Border>
                                 </StackPanel>
-                            </Border>
+                            </ScrollViewer>
 
                             <!-- Actions -->
-                            <Border Grid.Row="5" Padding="16,12" Background="{StaticResource BackgroundMediumBrush}"
+                            <Border Grid.Row="2" Padding="16,12" Background="{StaticResource BackgroundMediumBrush}"
                                     CornerRadius="0,0,8,8">
                                 <StackPanel>
                                     <!-- Running session actions -->
@@ -694,7 +913,7 @@
 
                     <!-- Legend + Troubleshoot button -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Border Background="{StaticResource SyntaxGreenBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
+                        <Border Background="{StaticResource SyntaxCyanBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
                         <TextBlock Text="Success" FontSize="11" Margin="0,0,12,0"/>
                         <Border Background="{StaticResource SyntaxRedBrush}" Width="12" Height="12" CornerRadius="2" Margin="0,0,4,0"/>
                         <TextBlock Text="Failed" FontSize="11" Margin="0,0,12,0"/>

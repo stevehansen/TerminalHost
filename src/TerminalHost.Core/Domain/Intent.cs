@@ -59,6 +59,12 @@ public class Intent
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Whether this intent's swimlane is expanded in the UI.
+    /// </summary>
+    [JsonPropertyName("isExpanded")]
+    public bool IsExpanded { get; set; } = true;
+
+    /// <summary>
     /// When the intent was last worked on.
     /// </summary>
     [JsonPropertyName("lastActiveAt")]

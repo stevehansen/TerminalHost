@@ -96,18 +96,37 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _showTroubleshooting;
 
+    [ObservableProperty]
+    private ObservableCollection<OrphanSessionViewModel> _orphanSessions = [];
+
     // Timeline positioning properties
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentTimeXPosition))]
     private DateTime _viewStartTime;
 
     [ObservableProperty]
     private DateTime _viewEndTime;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentTimeXPosition))]
     private double _pixelsPerMinute = 3.0; // Default: 3 pixels per minute = 180px per hour
 
     [ObservableProperty]
     private double _timelineWidth = 1000;
+
+    private double _containerWidth = 800; // Default fallback
+
+    /// <summary>
+    /// Set by the View when container size changes. Triggers recalculation.
+    /// </summary>
+    public void SetContainerWidth(double width)
+    {
+        if (width > 100 && Math.Abs(_containerWidth - width) > 10)
+        {
+            _containerWidth = width;
+            UpdateTimelineView();
+        }
+    }
 
     /// <summary>
     /// Get time markers for the time ruler.
@@ -133,6 +152,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.SessionsChanged += OnSessionsChanged;
         _timelineService.FocusStateChanged += OnFocusStateChanged;
         _timelineService.TimeScaleChanged += OnTimeScaleChanged;
+        _timelineService.OrphanSessionsChanged += OnOrphanSessionsChanged;
 
         // Initialize state
         LoadState();
@@ -153,7 +173,22 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
 
         UpdateFocusTimeDisplay();
         RefreshIntents();
+        RefreshOrphanSessions();
         UpdateStatusBar();
+
+        // Initialize timeline view immediately (don't wait for timer)
+        UpdateTimelineView();
+    }
+
+    private void RefreshOrphanSessions()
+    {
+        var orphans = _timelineService.GetOrphanSessions();
+        OrphanSessions.Clear();
+
+        foreach (var orphan in orphans)
+        {
+            OrphanSessions.Add(new OrphanSessionViewModel(orphan, this));
+        }
     }
 
     private void UpdateTimeDisplay()
@@ -192,17 +227,15 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         switch (CurrentTimeScale)
         {
             case TimeScale.Minutes:
-                // Last 30 min to now + 10 min
-                ViewStartTime = now.AddMinutes(-30);
-                ViewEndTime = now.AddMinutes(10);
-                PixelsPerMinute = 8.0; // 480px per hour
+                // 40 min total span, now at 80% (32min past, 8min future)
+                ViewStartTime = now.AddMinutes(-32);
+                ViewEndTime = now.AddMinutes(8);
                 break;
             case TimeScale.Hours:
-                // Start from earliest session or 2 hours before now, whichever is earlier
-                var defaultStart = now.AddHours(-2);
+                // ~5 hour span, now at ~85% (4.5h past, 0.75h future)
+                var defaultStart = now.AddHours(-4.5);
                 if (earliestSession.HasValue && earliestSession.Value.Date == today)
                 {
-                    // Round down to the hour
                     var sessionHour = earliestSession.Value.Date.AddHours(earliestSession.Value.Hour);
                     ViewStartTime = sessionHour < defaultStart ? sessionHour : defaultStart;
                 }
@@ -210,20 +243,22 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
                 {
                     ViewStartTime = defaultStart;
                 }
-                ViewEndTime = now.AddHours(1);
-                PixelsPerMinute = 3.0; // 180px per hour
+                ViewEndTime = now.AddMinutes(45);
                 break;
             case TimeScale.Days:
-                // Last 3 days
-                ViewStartTime = today.AddDays(-2);
-                ViewEndTime = today.AddDays(1);
-                PixelsPerMinute = 0.1; // ~6px per hour
+                // ~4 day span, now at ~80% (3.5 days past, 0.5 day future)
+                ViewStartTime = today.AddDays(-3).AddHours(-12);
+                ViewEndTime = now.AddHours(12);
                 break;
         }
 
-        // Calculate timeline width (minimum 1200px to fill typical screen)
+        // Calculate PixelsPerMinute to fill the container width
         var totalMinutes = (ViewEndTime - ViewStartTime).TotalMinutes;
-        TimelineWidth = Math.Max(1200, totalMinutes * PixelsPerMinute);
+        if (totalMinutes > 0 && _containerWidth > 100)
+        {
+            PixelsPerMinute = _containerWidth / totalMinutes;
+        }
+        TimelineWidth = _containerWidth;
 
         // Generate time markers
         UpdateTimeMarkers();
@@ -233,7 +268,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         {
             foreach (var session in intent.Sessions)
             {
-                session.UpdatePosition(ViewStartTime, PixelsPerMinute);
+                session.UpdatePosition(ViewStartTime, ViewEndTime, PixelsPerMinute);
             }
         }
     }
@@ -411,9 +446,30 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
 
     private void OnSessionsChanged(object? sender, EventArgs e)
     {
+        // Remember selected session ID before refresh
+        var selectedSessionId = SelectedSession?.Id;
+
         RefreshIntents();
         UpdateTimelineView(); // Recalculate positions for new view models
         UpdateStatusBar();
+
+        // Re-select the session if one was selected (the old VM is gone, need to find new one)
+        if (selectedSessionId != null)
+        {
+            foreach (var intent in Intents)
+            {
+                var session = intent.Sessions.FirstOrDefault(s => s.Id == selectedSessionId);
+                if (session != null)
+                {
+                    SelectedSession = session;
+                    IsSessionDetailVisible = true;
+                    return;
+                }
+            }
+            // Session not found - close detail panel
+            SelectedSession = null;
+            IsSessionDetailVisible = false;
+        }
     }
 
     private void OnFocusStateChanged(object? sender, bool isFocusing)
@@ -426,6 +482,12 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     {
         CurrentTimeScale = scale;
         UpdateTimelineView();
+    }
+
+    private void OnOrphanSessionsChanged(object? sender, EventArgs e)
+    {
+        RefreshOrphanSessions();
+        UpdateStatusBar();
     }
 
     #endregion
@@ -580,6 +642,16 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.UpdateIntentStatus(intentId, status);
     }
 
+    public void SaveIntentExpandedState(string intentId, bool isExpanded)
+    {
+        var intent = _timelineService.GetIntent(intentId);
+        if (intent != null)
+        {
+            intent.IsExpanded = isExpanded;
+            _timelineService.UpdateIntent(intent);
+        }
+    }
+
     public async Task DeleteIntent(string intentId)
     {
         var confirm = _dialogService.ShowConfirmation("Delete this intent and its worktree?", "Delete Intent");
@@ -622,6 +694,86 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.SessionsChanged -= OnSessionsChanged;
         _timelineService.FocusStateChanged -= OnFocusStateChanged;
         _timelineService.TimeScaleChanged -= OnTimeScaleChanged;
+        _timelineService.OrphanSessionsChanged -= OnOrphanSessionsChanged;
+    }
+
+    #region Orphan Session Methods
+
+    /// <summary>
+    /// Creates a new intent from an orphan session's working directory.
+    /// </summary>
+    public async Task CreateIntentFromOrphan(string orphanSessionId)
+    {
+        var orphans = _timelineService.GetOrphanSessions();
+        var orphan = orphans.FirstOrDefault(o => o.SessionId == orphanSessionId);
+        if (orphan == null) return;
+
+        // Prompt for intent name
+        var name = _dialogService.ShowInput(
+            $"Intent name for '{orphan.DisplayName}':",
+            "Create Intent from Session");
+
+        if (string.IsNullOrEmpty(name)) return;
+
+        // Create intent from the orphan's working directory
+        var intent = await _timelineService.CreateIntentFromExistingFolderAsync(
+            name,
+            orphan.Cwd,
+            context: null);
+
+        if (intent == null)
+        {
+            _dialogService.ShowError("Failed to create intent.", "Error");
+        }
+    }
+
+    /// <summary>
+    /// Removes/dismisses an orphan session.
+    /// </summary>
+    public void DismissOrphan(string orphanSessionId)
+    {
+        _timelineService.RemoveOrphanSession(orphanSessionId);
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// ViewModel for an orphan (unassigned) Claude Code session.
+/// </summary>
+public partial class OrphanSessionViewModel : ObservableObject
+{
+    private readonly OrphanSession _orphan;
+    private readonly TimelineTabViewModel _parent;
+
+    public string SessionId => _orphan.SessionId;
+    public string Cwd => _orphan.Cwd;
+    public string DisplayName => _orphan.DisplayName;
+    public string DurationDisplay => _orphan.DurationDisplay;
+    public bool IsRunning => _orphan.IsRunning;
+    public int FileCount => _orphan.FilesModified.Count;
+    public string StartTimeDisplay => _orphan.StartTime.ToLocalTime().ToString("MM/dd HH:mm");
+    public string? LastActivityDisplay => _orphan.LastActivityTime?.ToLocalTime().ToString("MM/dd HH:mm");
+
+    public string StatusText => IsRunning ? "Running" : "Completed";
+    public string StatusIcon => IsRunning ? "●" : "✓";
+
+    public OrphanSessionViewModel(OrphanSession orphan, TimelineTabViewModel parent)
+    {
+        _orphan = orphan;
+        _parent = parent;
+    }
+
+    [RelayCommand]
+    private async Task CreateIntent()
+    {
+        await _parent.CreateIntentFromOrphan(SessionId);
+    }
+
+    [RelayCommand]
+    private void Dismiss()
+    {
+        _parent.DismissOrphan(SessionId);
     }
 }
 

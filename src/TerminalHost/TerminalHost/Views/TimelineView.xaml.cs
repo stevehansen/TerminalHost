@@ -20,15 +20,56 @@ public partial class TimelineView : UserControl
         // Set focus to enable keyboard navigation
         Focus();
 
+        var timeRulerScroll = FindName("TimeRulerScroll") as ScrollViewer;
+        var swimlaneScroll = FindName("SwimlaneScroll") as ScrollViewer;
+        var leftPanelScroll = FindName("LeftPanelScroll") as ScrollViewer;
+
+        // Report container width for responsive scaling
+        if (swimlaneScroll != null)
+        {
+            swimlaneScroll.SizeChanged += (s, args) =>
+            {
+                if (DataContext is TimelineTabViewModel vm)
+                {
+                    vm.SetContainerWidth(args.NewSize.Width);
+                }
+            };
+
+            // Initial width report
+            if (DataContext is TimelineTabViewModel vm && swimlaneScroll.ActualWidth > 0)
+            {
+                vm.SetContainerWidth(swimlaneScroll.ActualWidth);
+            }
+        }
+
         // Synchronize horizontal scroll between time ruler and swimlanes
-        if (FindName("TimeRulerScroll") is ScrollViewer timeRulerScroll &&
-            FindName("SwimlaneScroll") is ScrollViewer swimlaneScroll)
+        if (timeRulerScroll != null && swimlaneScroll != null)
         {
             swimlaneScroll.ScrollChanged += (s, args) =>
             {
                 if (_isSyncingScroll) return;
                 _isSyncingScroll = true;
                 timeRulerScroll.ScrollToHorizontalOffset(args.HorizontalOffset);
+                _isSyncingScroll = false;
+            };
+        }
+
+        // Synchronize vertical scroll between left panel and swimlanes
+        if (leftPanelScroll != null && swimlaneScroll != null)
+        {
+            swimlaneScroll.ScrollChanged += (s, args) =>
+            {
+                if (_isSyncingScroll) return;
+                _isSyncingScroll = true;
+                leftPanelScroll.ScrollToVerticalOffset(args.VerticalOffset);
+                _isSyncingScroll = false;
+            };
+
+            leftPanelScroll.ScrollChanged += (s, args) =>
+            {
+                if (_isSyncingScroll) return;
+                _isSyncingScroll = true;
+                swimlaneScroll.ScrollToVerticalOffset(args.VerticalOffset);
                 _isSyncingScroll = false;
             };
         }

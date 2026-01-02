@@ -46,6 +46,13 @@ public class OrphanSession
     public List<string> FilesModified { get; set; } = [];
 
     /// <summary>
+    /// Last time any activity was recorded (file change, hook event).
+    /// Used to determine correct end time for stuck sessions.
+    /// </summary>
+    [JsonPropertyName("lastActivityTime")]
+    public DateTime? LastActivityTime { get; set; }
+
+    /// <summary>
     /// Whether this session has been assigned to an intent.
     /// </summary>
     [JsonPropertyName("isAssigned")]
@@ -101,12 +108,15 @@ public class OrphanSession
     }
 
     /// <summary>
-    /// Adds a file to the modified list if not already present.
+    /// Adds a file to the modified list if not already present and updates LastActivityTime.
     /// </summary>
     public void AddFile(string filePath)
     {
         if (!string.IsNullOrEmpty(filePath) && !FilesModified.Contains(filePath))
+        {
             FilesModified.Add(filePath);
+            LastActivityTime = DateTime.UtcNow;
+        }
     }
 
     /// <summary>
@@ -119,15 +129,18 @@ public class OrphanSession
             Id = $"session-{StartTime:yyyyMMddHHmmss}-{Guid.NewGuid().ToString()[..8]}",
             IntentId = intentId,
             ContinueSessionId = SessionId,
+            TranscriptPath = TranscriptPath,
             StartTime = StartTime,
             EndTime = EndTime,
+            LastActivityTime = LastActivityTime,
             Status = EndTime.HasValue ? ClaudeSessionStatus.Success : ClaudeSessionStatus.Running
         };
 
         // Add files with zero line counts (can be updated later via git diff)
+        // Note: Don't use AddFileChange here as it would update LastActivityTime again
         foreach (var file in FilesModified)
         {
-            session.AddFileChange(file, 0, 0);
+            session.FilesChanged.Add(new FileChange(file, 0, 0));
         }
 
         return session;

@@ -36,6 +36,7 @@ public class TimelineService : ITimelineService
     public event EventHandler<bool>? FocusStateChanged;
     public event EventHandler<TimeScale>? TimeScaleChanged;
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
+    public event EventHandler? OrphanSessionsChanged;
 
     // Timeline Mode state
 
@@ -509,6 +510,17 @@ public class TimelineService : ITimelineService
     public List<ClaudeSession> AssignOrphansToIntent(string intentId, string cwd)
     {
         return []; // STUB
+    }
+
+    // Orphan sessions (stub implementation)
+    public IReadOnlyList<OrphanSession> GetOrphanSessions()
+    {
+        return []; // STUB: macOS version doesn't track orphan sessions yet
+    }
+
+    public void RemoveOrphanSession(string orphanSessionId)
+    {
+        // STUB: macOS version doesn't track orphan sessions yet
     }
 
     // Persistence
