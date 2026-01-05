@@ -221,7 +221,42 @@ public sealed class GitHubService : IGitHubService
 
         try
         {
+            // First, fetch the latest from the PR to ensure we have the latest refs
+            await RunGhCommandAsync(workingDirectory, $"pr checkout {prNumber} --detach", timeoutSeconds: 60);
+
+            // Get the PR branch name
+            var (branchExitCode, branchOutput, _) = await RunGhCommandAsync(
+                workingDirectory,
+                $"pr view {prNumber} --json headRefName --jq .headRefName",
+                timeoutSeconds: 30);
+
+            if (branchExitCode != 0 || string.IsNullOrWhiteSpace(branchOutput))
+            {
+                return (false, "Failed to get PR branch name");
+            }
+
+            var branchName = branchOutput.Trim();
+
+            // Fetch the latest from origin for this branch
+            await RunGitCommandAsync(workingDirectory, "fetch origin", timeoutSeconds: 60);
+
+            // Check if local branch exists
+            var (localBranchExitCode, _, _) = await RunGitCommandAsync(
+                workingDirectory,
+                $"rev-parse --verify {branchName}",
+                timeoutSeconds: 10);
+
+            if (localBranchExitCode == 0)
+            {
+                // Local branch exists - delete it so we can recreate fresh from origin
+                // First switch to a safe branch (detached HEAD or default branch)
+                await RunGitCommandAsync(workingDirectory, "checkout --detach HEAD", timeoutSeconds: 10);
+                await RunGitCommandAsync(workingDirectory, $"branch -D {branchName}", timeoutSeconds: 10);
+            }
+
+            // Now checkout the PR fresh - this will create the branch tracking the remote
             var (exitCode, _, error) = await RunGhCommandAsync(workingDirectory, $"pr checkout {prNumber}", timeoutSeconds: 60);
+
             if (exitCode == 0)
                 return (true, null);
 
@@ -232,6 +267,54 @@ public sealed class GitHubService : IGitHubService
         catch (Exception ex)
         {
             return (false, ex.Message);
+        }
+    }
+
+    private static async Task<(int exitCode, string output, string error)> RunGitCommandAsync(string? workingDirectory, string arguments, int timeoutSeconds = 120)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
+            };
+
+            if (!string.IsNullOrEmpty(workingDirectory))
+            {
+                psi.WorkingDirectory = workingDirectory;
+            }
+
+            using var process = Process.Start(psi);
+            if (process == null)
+                return (-1, "", "Failed to start git process");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            try
+            {
+                var outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+                var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
+
+                await Task.WhenAll(outputTask, errorTask);
+                await process.WaitForExitAsync(cts.Token);
+
+                return (process.ExitCode, await outputTask, await errorTask);
+            }
+            catch (OperationCanceledException)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return (-1, "", $"Operation timed out after {timeoutSeconds} seconds");
+            }
+        }
+        catch (Exception ex)
+        {
+            return (-1, "", ex.Message);
         }
     }
 
