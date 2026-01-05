@@ -19,6 +19,7 @@ public sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFile
 
     // Built-in patterns for common link types
     // Constructed using char arrays to completely bypass string literal escape issues
+    // Excludes: whitespace, <>"'`[])\ and common terminal artifacts
     private static readonly Regex UrlPattern = new(
         string.Join("", [
             "https?://[^",
@@ -27,6 +28,7 @@ public sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFile
             new(['\\', '[']),
             new(['\\', ']']),
             new(['\\', ')']),
+            new(['\\', '\\']),  // Exclude backslashes - they're Windows path separators, not valid in URLs
             "]+"
         ]),
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -42,9 +44,45 @@ public sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFile
         RegexOptions.Compiled);
 
     // Constructed using char array to avoid string literal corruption
-    private static readonly string punctuation = new(['.', ',', ':', ';', '!', '?', ')', ']', '>']);
+    // Includes backslash since it's commonly left as trailing artifact from terminal output
+    private static readonly string punctuation = new(['.', ',', ':', ';', '!', '?', ')', ']', '>', '\\']);
     // Word boundary characters (not including common URL/path characters)
     private static readonly HashSet<char> separators = [' ', '\t', '\n', '\r', '"', '\'', '<', '>', '`', '|', ';'];
+
+    // ANSI escape sequence pattern - matches all common escape sequences from terminal output
+    // Matches: ESC[...m (SGR), ESC[...H (cursor), ESC]...BEL (OSC), and other CSI sequences
+    private static readonly Regex AnsiEscapePattern = new(
+        string.Join("", [
+            new(['\\', 'x', '1', 'b']),  // ESC character
+            "(?:",
+            new(['\\', '[']),            // CSI sequences: ESC[
+            "[0-9;?]*[A-Za-z]",          // Parameters and final byte
+            "|",
+            new(['\\', ']']),            // OSC sequences: ESC]
+            "[^",
+            new(['\\', 'x', '0', '7']),  // Until BEL
+            new(['\\', 'x', '1', 'b']),  // or ESC
+            "]*",
+            "(?:",
+            new(['\\', 'x', '0', '7']),  // BEL terminator
+            "|",
+            new(['\\', 'x', '1', 'b', '\\', '\\']),  // or ESC\ terminator
+            ")?",
+            "|",
+            "[()][AB012]",               // Character set selection
+            ")"
+        ]),
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Strips ANSI escape sequences from terminal output.
+    /// </summary>
+    private static string StripAnsiCodes(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+        return AnsiEscapePattern.Replace(text, "");
+    }
 
     /// <summary>
     /// Attempts to detect and resolve a link from the given text.
@@ -58,7 +96,8 @@ public sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFile
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        text = text.Trim();
+        // Strip ANSI escape codes before processing
+        text = StripAnsiCodes(text).Trim();
 
         // 1. Check custom patterns first (highest priority)
         var customLink = TryMatchCustomPatterns(text);
@@ -311,6 +350,9 @@ public sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFile
 
         if (string.IsNullOrWhiteSpace(text))
             return [];
+
+        // Strip ANSI escape codes from terminal output before processing
+        text = StripAnsiCodes(text);
 
         // 1. Find all URLs with their positions
         foreach (Match match in UrlPattern.Matches(text))

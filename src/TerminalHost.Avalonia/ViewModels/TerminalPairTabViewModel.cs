@@ -251,6 +251,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public ObservableCollection<DetectedLink> DetectedLinks { get; } = [];
 
     /// <summary>
+    /// MRU cache of detected links - keeps links even after they scroll out of the terminal buffer.
+    /// Key is URL (case-insensitive), value is (Link, LastSeenTime).
+    /// </summary>
+    private readonly Dictionary<string, (DetectedLink Link, DateTime LastSeen)> _linkCache = new(StringComparer.OrdinalIgnoreCase);
+    private const int MaxCachedLinks = 50;
+
+    /// <summary>
     /// True if there are any detected links to display.
     /// </summary>
     public bool HasDetectedLinks => DetectedLinks.Count > 0;
@@ -914,7 +921,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     /// <summary>
     /// Updates the detected links collection from terminal output.
-    /// Only updates if the actual links have changed to preserve UI selection state.
+    /// Uses MRU caching to preserve links that scroll out of the terminal buffer.
     /// </summary>
     /// <param name="linkDetectionService">The link detection service to use.</param>
     public void UpdateDetectedLinks(ILinkDetectionService linkDetectionService)
@@ -924,14 +931,43 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         var shellOutput = Pair.ShellTerminal.GetRecentOutput(10000);
         var combinedOutput = customOutput + "\n" + shellOutput;
 
-        // Detect links
-        var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, 20);
+        // Detect links from current buffer
+        var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, MaxCachedLinks);
+        var now = DateTime.Now;
 
-        // Check if links have changed by comparing URLs
+        // Update cache with newly detected links (add or update timestamp)
+        foreach (var link in newLinks)
+        {
+            _linkCache[link.Url] = (link, now);
+        }
+
+        // Trim cache if it exceeds max size (remove oldest entries)
+        if (_linkCache.Count > MaxCachedLinks)
+        {
+            var toRemove = _linkCache
+                .OrderBy(kvp => kvp.Value.LastSeen)
+                .Take(_linkCache.Count - MaxCachedLinks)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var key in toRemove)
+            {
+                _linkCache.Remove(key);
+            }
+        }
+
+        // Get links sorted by most recently seen (MRU order)
+        var cachedLinks = _linkCache
+            .OrderByDescending(kvp => kvp.Value.LastSeen)
+            .Select(kvp => kvp.Value.Link)
+            .Take(20)
+            .ToList();
+
+        // Check if the displayed links have changed
         var currentUrls = DetectedLinks.Select(l => l.Url).ToList();
-        var newUrls = newLinks.Select(l => l.Url).ToList();
+        var cachedUrls = cachedLinks.Select(l => l.Url).ToList();
 
-        if (currentUrls.SequenceEqual(newUrls))
+        if (currentUrls.SequenceEqual(cachedUrls))
         {
             // No change, preserve selection state
             return;
@@ -939,7 +975,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         // Links changed, update collection
         DetectedLinks.Clear();
-        foreach (var link in newLinks)
+        foreach (var link in cachedLinks)
         {
             DetectedLinks.Add(link);
         }

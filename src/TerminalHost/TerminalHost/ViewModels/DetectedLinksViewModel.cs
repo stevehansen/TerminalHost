@@ -81,12 +81,11 @@ public partial class DetectedLinksViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            var recentOutput = terminalTab.Pair.CustomTerminal?.GetRecentOutput(5000) + "\n" +
-                               terminalTab.Pair.ShellTerminal?.GetRecentOutput(5000);
+            // Trigger an update of the tab's link cache first
+            terminalTab.UpdateDetectedLinks(_linkDetectionService);
 
-            var detectedLinks = _linkDetectionService.DetectAllLinks(recentOutput ?? "", terminalTab.Pair.WorkingDirectory);
-
-            Links = new ObservableCollection<DetectedLink>(detectedLinks);
+            // Use the tab's MRU-cached links (already sorted by most recently seen)
+            Links = new ObservableCollection<DetectedLink>(terminalTab.DetectedLinks);
             IsEmptyStateVisible = !Links.Any();
 
             // Auto-select first link if available
