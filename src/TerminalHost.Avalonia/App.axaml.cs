@@ -102,7 +102,7 @@ public partial class App : Application
         services.AddSingleton<ISystemInfoService, SystemInfoService>();
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
-        services.AddSingleton<IStatisticsService, StatisticsService>();
+        services.AddSingleton<IStatisticsService, TerminalHost.Core.Services.StatisticsService>();
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
@@ -121,9 +121,9 @@ public partial class App : Application
 
         // Git Services (use Core implementations for consistency with WPF)
         services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
-        services.AddSingleton<IGitHubService, TerminalHost.Core.Services.GitHubService>();
+        services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<IGitProcessRunner, TerminalHost.Core.Services.GitProcessRunner>();
-        services.AddSingleton<IGitPrService, GitPrService>();
+        services.AddSingleton<IGitPrService, TerminalHost.Core.Services.GitPrService>();
         services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
 
         // File Services
@@ -145,7 +145,7 @@ public partial class App : Application
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
-        services.AddSingleton<ITestRunnerService, TerminalHost.Core.Services.TestRunnerService>();
+        services.AddSingleton<ITestRunnerService, TestRunnerService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();

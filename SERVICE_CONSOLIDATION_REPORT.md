@@ -25,14 +25,14 @@ These services are nearly identical and can be consolidated with minimal effort.
 | AiAssistantService | 216 | 216 | 6 | 99% | Namespace diff only |
 | DiffParserService | 261 | 263 | 6 | 99% | Namespace diff only |
 | RunUrlDetectionService | 191 | 192 | 7 | 99% | Namespace diff only |
-| TestRunnerService | 462 | 462 | 12 | 99% | Namespace diff only |
+| ~~TestRunnerService~~ | 462 | 462 | 12 | 99% | **KEEP SEPARATE** - Core uses `cmd.exe`, Avalonia uses `/bin/sh` |
 | GitProcessRunner | 81 | 81 | 4 | 98% | Namespace diff only |
 | ProfileRegistry | 105 | 105 | 6 | 98% | Namespace diff only |
 | FileEditService | 143 | 144 | 11 | 97% | Minor differences |
 | JsonFileService | 133 | 132 | 8 | 97% | Minor differences |
-| GitHubService | 1168 | 1238 | 100 | 96% | Minor additions in Avalonia |
+| ~~GitHubService~~ | 1168 | 1238 | 100 | 96% | **KEEP SEPARATE** - Core uses `powershell.exe`, Avalonia uses `/bin/sh` |
 
-**Action:** Switch Avalonia DI to use Core implementations directly.
+**Action:** Switch Avalonia DI to use Core implementations directly (except GitHubService - platform-specific).
 
 ### Moderate Merges (80-94% Similar)
 
@@ -82,18 +82,23 @@ Consolidate these immediately - just change DI registration:
 | 4 | AiAssistantService | Done |
 | 5 | DiffParserService | Done |
 | 6 | RunUrlDetectionService | Done |
-| 7 | TestRunnerService | Done |
+| 7 | ~~TestRunnerService~~ | **SKIPPED** | Platform-specific (Core=cmd.exe, Avalonia=sh) |
 | 8 | GitProcessRunner | Done |
 | 9 | ProfileRegistry | Done |
 | 10 | FileEditService | Done |
 | 11 | JsonFileService | Done |
-| 12 | GitHubService | Done |
+| 12 | ~~GitHubService~~ | **SKIPPED** | Platform-specific (Core=PowerShell, Avalonia=sh) |
 
-**Phase 1 completed:** 12 Avalonia service files deleted, DI updated to use Core implementations.
+**Phase 1 completed:** 10 Avalonia service files deleted, DI updated to use Core implementations. GitHubService and TestRunnerService kept separate (platform-specific).
 
-### Phase 2: Review and Merge
-1. GitPrService - merge extra Avalonia methods to Core
-2. StatisticsService - review differences
+### Phase 2: Review and Merge - COMPLETED
+
+| # | Service | Status | Notes |
+|---|---------|--------|-------|
+| 1 | GitPrService | Done | Removed unused `AutoDetectPrInfoAsync` (dead code) |
+| 2 | StatisticsService | Done | Core version compatible (uses aliased property) |
+
+**Phase 2 completed:** 2 Avalonia service files deleted, missing method merged to Core.
 
 ### Phase 3: Analysis Required
 1. ConfigurationService - understand size difference
@@ -104,11 +109,12 @@ Consolidate these immediately - just change DI registration:
 
 ## Estimated Impact
 
-- **Lines of code removed:** ~3,500 (Phase 1 completed)
-- **Files deleted:** 13 service files (12 Phase 1 + GitStatusService)
-- **Remaining:** 7 service files to consolidate (Phase 2 & 3)
-- **Risk:** Low for Phase 1 (done), Medium for Phase 2, High for Phase 3
+- **Lines of code removed:** ~4,000 (Phase 1 & 2 completed)
+- **Files deleted:** 15 service files (12 Phase 1 + GitStatusService + 2 Phase 2)
+- **Remaining:** 5 service files to consolidate (Phase 3)
+- **Risk:** Low for Phase 1 (done), Medium for Phase 2 (done), High for Phase 3
 
 ---
 *Generated: 2026-01-05*
 *Phase 1 completed: 2026-01-05*
+*Phase 2 completed: 2026-01-05*
