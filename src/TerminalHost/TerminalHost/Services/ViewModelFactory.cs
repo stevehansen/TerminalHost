@@ -96,7 +96,8 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<ITimelineService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
             _serviceProvider.GetRequiredService<IConfigurationService>(),
-            _serviceProvider.GetRequiredService<IGitStatusService>()
+            _serviceProvider.GetRequiredService<IGitStatusService>(),
+            _serviceProvider.GetRequiredService<ITimerService>()
         );
     }
 }

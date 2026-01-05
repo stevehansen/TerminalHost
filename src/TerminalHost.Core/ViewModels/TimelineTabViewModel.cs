@@ -16,7 +16,8 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     private readonly IDialogService _dialogService;
     private readonly IConfigurationService _configService;
     private readonly IGitStatusService _gitStatusService;
-    private System.Timers.Timer? _refreshTimer;
+    private readonly ITimerService _timerService;
+    private IAppTimer? _refreshTimer;
 
     public string Title => "Timeline";
     public string TabIcon => "⏱️";
@@ -139,12 +140,14 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         ITimelineService timelineService,
         IDialogService dialogService,
         IConfigurationService configService,
-        IGitStatusService gitStatusService)
+        IGitStatusService gitStatusService,
+        ITimerService timerService)
     {
         _timelineService = timelineService;
         _dialogService = dialogService;
         _configService = configService;
         _gitStatusService = gitStatusService;
+        _timerService = timerService;
 
         // Subscribe to events
         _timelineService.EnabledChanged += OnEnabledChanged;
@@ -158,9 +161,8 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         LoadState();
         UpdateTimeDisplay();
 
-        // Start refresh timer for time display
-        _refreshTimer = new System.Timers.Timer(1000);
-        _refreshTimer.Elapsed += (s, e) => UpdateTimeDisplay();
+        // Start refresh timer for time display (uses UI-thread-safe timer)
+        _refreshTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(1), UpdateTimeDisplay);
         _refreshTimer.Start();
     }
 
