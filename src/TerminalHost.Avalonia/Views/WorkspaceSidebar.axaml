@@ -40,7 +40,7 @@
             <MenuItem Header="Open in Finder" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenInFinderCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -57,20 +57,20 @@
             <MenuItem Header="Open" Command="{Binding OpenWorkspaceCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Remove from Recent" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).RemoveFromRecentCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒùæ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🗑️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Toggle Playground" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).TogglePlaygroundCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒÄ«" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🎮" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -80,7 +80,7 @@
             <MenuItem Header="Open" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenWorktreeCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -88,14 +88,14 @@
                       CommandParameter="{Binding}"
                       IsVisible="{Binding IsDetached}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒî┐" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🌿" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Remove Worktree" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).RemoveWorktreeCommand}"
                       CommandParameter="{Binding}"
                       IsVisible="{Binding !IsMain}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒùæ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🗑️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -143,7 +143,7 @@
                             Background="Transparent"
                             Foreground="{StaticResource TextSecondaryBrush}"
                             Padding="4,2">
-                        <TextBlock Text="Γÿ░" FontSize="{StaticResource FontSizeSmall}"/>
+                        <TextBlock Text="☰" FontSize="{StaticResource FontSizeSmall}"/>
                     </Button>
                 </Grid>
                 <!-- Search/Filter Box -->
@@ -168,7 +168,7 @@
                 <Expander IsExpanded="{Binding IsOpenProjectsExpanded}" Margin="0,0,0,1">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="≡ƒôü" FontSize="{StaticResource FontSizeSmall}"/>
+                            <TextBlock Text="📁" FontSize="{StaticResource FontSizeSmall}"/>
                             <TextBlock Text="OPEN PROJECTS"
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
@@ -203,7 +203,7 @@
                                     <!-- Activity indicators -->
                                     <Panel Grid.Column="2" VerticalAlignment="Center" Margin="4,0,0,0">
                                         <!-- Spinning activity indicator (yellow) -->
-                                        <TextBlock x:Name="ActivitySpinner" Text="ΓùÅ"
+                                        <TextBlock x:Name="ActivitySpinner" Text="●"
                                                    FontSize="{StaticResource FontSizeSmall}"
                                                    FontWeight="Bold"
                                                    Foreground="{StaticResource SyntaxYellowBrush}"
@@ -227,7 +227,7 @@
                                             </TextBlock.Styles>
                                         </TextBlock>
                                         <!-- Completed indicator (green) -->
-                                        <TextBlock Text="ΓùÅ"
+                                        <TextBlock Text="●"
                                                    FontSize="{StaticResource FontSizeSmall}"
                                                    FontWeight="Bold"
                                                    Foreground="{StaticResource SyntaxGreenBrush}"
@@ -246,7 +246,7 @@
                     <Expander.Header>
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,4,0">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="≡ƒî┐" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="🌿" FontSize="{StaticResource FontSizeSmall}"/>
                                 <TextBlock Text="WORKTREES"
                                            FontFamily="{StaticResource FontFamilyStandard}"
                                            FontSize="{StaticResource FontSizeSmaller}"
@@ -319,7 +319,7 @@
                 <Expander IsExpanded="{Binding IsRecentExpanded}" Margin="0,0,0,1">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="≡ƒòÉ" FontSize="{StaticResource FontSizeSmall}"/>
+                            <TextBlock Text="🔐" FontSize="{StaticResource FontSizeSmall}"/>
                             <TextBlock Text="RECENT"
                                        FontFamily="{StaticResource FontFamilyStandard}"
                                        FontSize="{StaticResource FontSizeSmaller}"
@@ -341,9 +341,9 @@
                                       ContextMenu="{StaticResource WorkspaceContextMenu}"
                                       DoubleTapped="Workspace_DoubleTapped">
                                     <Panel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
-                                        <TextBlock Text="≡ƒÄ«" FontSize="{StaticResource FontSizeSmall}"
+                                        <TextBlock Text="🎮" FontSize="{StaticResource FontSizeSmall}"
                                                    IsVisible="{Binding IsPlayground}"/>
-                                        <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"
+                                        <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"
                                                    IsVisible="{Binding !IsPlayground}"/>
                                     </Panel>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">

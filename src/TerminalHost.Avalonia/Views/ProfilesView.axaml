@@ -263,12 +263,12 @@
                                IsVisible="{Binding SelectedProfile.AutoStart, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="Γû╢ Launch"
+                        <Button Content="▶ Launch"
                                 ToolTip.Tip="Launch profile (use profile's working directory)"
                                 Command="{Binding LaunchCommand}"
                                 Classes="PrimaryButton"
                                 Width="100"/>
-                        <Button Content="≡ƒôü In Folder..."
+                        <Button Content="📁 In Folder..."
                                 ToolTip.Tip="Launch with folder picker"
                                 Command="{Binding LaunchWithFolderCommand}"
                                 Classes="ProfileButton"

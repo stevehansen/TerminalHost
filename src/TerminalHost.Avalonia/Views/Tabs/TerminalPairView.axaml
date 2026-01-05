@@ -43,7 +43,7 @@
                                 <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
                             </Style>
                         </ToggleButton.Styles>
-                        <TextBlock Text="Γûú" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="▣" FontSize="14" VerticalAlignment="Center"/>
                     </ToggleButton>
 
                     <!-- Horizontal Split Mode -->
@@ -69,7 +69,7 @@
                                 <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
                             </Style>
                         </ToggleButton.Styles>
-                        <TextBlock Text="ΓûÑ" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="▥" FontSize="14" VerticalAlignment="Center"/>
                     </ToggleButton>
 
                     <!-- Vertical Split Mode -->
@@ -96,7 +96,7 @@
                                 <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
                             </Style>
                         </ToggleButton.Styles>
-                        <TextBlock Text="Γûñ" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="▤" FontSize="14" VerticalAlignment="Center"/>
                     </ToggleButton>
 
                     <!-- AI Assistant Selector (visible only when multiple assistants enabled) -->
@@ -141,32 +141,32 @@
                             IsVisible="{Binding HasDetectedLinks}"
                             Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="≡ƒöù" Margin="0,0,4,0"/>
+                            <TextBlock Text="🔗" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedLinks.Count}"
                                        FontSize="{DynamicResource FontSizeMicro}"
                                        Foreground="{DynamicResource SyntaxCyanBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Content="≡ƒôü"
+                    <Button Content="📁"
                             ToolTip.Tip="Open in Explorer (Ctrl+E)"
                             AutomationProperties.Name="Open in Explorer"
                             Classes="terminalSwitch"
                             Command="{Binding $parent[Window].DataContext.OpenInExplorerCommand}"
                             Margin="0,0,4,0"/>
-                    <Button Content="≡ƒô¥"
+                    <Button Content="📝"
                             ToolTip.Tip="Scratch Pad (Ctrl+Shift+N)"
                             AutomationProperties.Name="Scratch Pad"
                             Classes="terminalSwitch"
                             Command="{Binding $parent[Window].DataContext.OpenScratchPadCommand}"
                             Margin="0,0,4,0"/>
-                    <Button Content="≡ƒôï"
+                    <Button Content="📋"
                             ToolTip.Tip="Git Changes (Ctrl+G)"
                             AutomationProperties.Name="Git Changes"
                             Classes="terminalSwitch"
                             Command="{Binding $parent[Window].DataContext.OpenGitChangesCommand}"
                             Margin="0,0,4,0"/>
-                    <Button Content="Γ¥ô"
+                    <Button Content="❓"
                             ToolTip.Tip="Help &amp; Shortcuts (F1)"
                             AutomationProperties.Name="Help"
                             Classes="terminalSwitch"
@@ -215,7 +215,7 @@
                             IsVisible="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
                             Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="≡ƒîÉ" Margin="0,0,4,0"/>
+                            <TextBlock Text="🌐" Margin="0,0,4,0"/>
                             <TextBlock Text="{Binding DetectedRunUrl}"
                                        FontSize="{DynamicResource FontSizeMicro}"
                                        Foreground="{DynamicResource SyntaxCyanBrush}"
@@ -227,7 +227,7 @@
 
                     <!-- Toggle Run Terminal Visibility -->
                     <ToggleButton IsChecked="{Binding IsRunTerminalVisible}"
-                                  Content="Γû╢"
+                                  Content="▶"
                                   ToolTip.Tip="Show/Hide Run Terminal"
                                   AutomationProperties.Name="Toggle Run Terminal Visibility"
                                   Margin="0,0,4,0"
@@ -254,7 +254,7 @@
 
                     <!-- Toggle Explorer Visibility -->
                     <ToggleButton IsChecked="{Binding IsExplorerVisible}"
-                                  Content="≡ƒôé"
+                                  Content="📂"
                                   ToolTip.Tip="File Explorer (Ctrl+Shift+F)"
                                   AutomationProperties.Name="Toggle File Explorer"
                                   Margin="0,0,8,0">
@@ -422,13 +422,13 @@
                     </Grid.RowDefinitions>
                     <Border Background="{DynamicResource BackgroundMediumBrush}" Padding="8,4">
                         <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="├ù"
+                            <Button DockPanel.Dock="Right" Content="×"
                                     Classes="tabClose"
                                     Command="{Binding ToggleRunTerminalCommand}"
                                     AutomationProperties.Name="Hide Run Terminal"
                                     ToolTip.Tip="Hide Run Terminal"/>
                             <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center">
-                                <Run Text="Γû╢ Run"/>
+                                <Run Text="▶ Run"/>
                                 <Run Text=" - " Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <Run Text="{Binding ActiveRunConfiguration.Name, FallbackValue='Not configured'}" Foreground="{DynamicResource SyntaxCyanBrush}"/>
                             </TextBlock>

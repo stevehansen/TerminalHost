@@ -69,7 +69,7 @@
                 <DockPanel LastChildFill="True">
                     <!-- Close button -->
                     <Button DockPanel.Dock="Right"
-                            Content="├ù"
+                            Content="×"
                             Classes="TabCloseButton"
                             Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             FontSize="{StaticResource FontSizeLarge}"

@@ -35,7 +35,7 @@
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
                     <DockPanel>
                         <Button DockPanel.Dock="Right"
-                                Content="├ù"
+                                Content="×"
                                 Classes="TabCloseButton"
                                 Command="{Binding CloseCommand}"
                                 FontSize="{StaticResource FontSizeLarge}"
@@ -53,7 +53,7 @@
                                 ToolTip.Tip="Fetch all remotes"
                                 Margin="0,0,4,0"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="≡ƒî┐" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="🌿" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="{Binding Title}"
                                        Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="{StaticResource FontSizeCode}"
@@ -161,7 +161,7 @@
                 <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="≡ƒùæ Delete"
+                            <Button Content="🗑 Delete"
                                     Classes="TerminalSwitchButton"
                                     Command="{Binding DeleteBranchCommand}"
                                     ToolTip.Tip="Delete selected branch"

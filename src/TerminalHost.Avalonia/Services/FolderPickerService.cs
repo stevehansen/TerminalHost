@@ -38,7 +38,8 @@ internal sealed class FolderPickerService : IFolderPickerService
         string? result = null;
         var frame = new DispatcherFrame();
 
-        _ = Task.Run(async () =>
+        // Must use InvokeAsync to stay on UI thread - folder picker requires main thread on macOS
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
             result = await PickFolderAsync(title, initialPath);
             frame.Continue = false;
@@ -76,7 +77,8 @@ internal sealed class FolderPickerService : IFolderPickerService
         string[]? result = null;
         var frame = new DispatcherFrame();
 
-        _ = Task.Run(async () =>
+        // Must use InvokeAsync to stay on UI thread - folder picker requires main thread on macOS
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
             result = await PickFoldersAsync(title, initialPath);
             frame.Continue = false;

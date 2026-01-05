@@ -46,7 +46,7 @@
                </TextBox>
 
                <Button Grid.Column="1"
-                       Content="├ù"
+                       Content="×"
                        Classes="TabCloseButton"
                        Padding="8,2"
                        Margin="4,0,0,0"

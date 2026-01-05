@@ -101,7 +101,7 @@
 
                 <!-- Actions -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="≡ƒÆ╛"
+                    <Button Content="💾"
                             Classes="ViewerToolbarButton"
                             Command="{Binding SaveCommand}"
                             ToolTip.Tip="Save (Ctrl+S)"

@@ -28,7 +28,7 @@
             <DockPanel>
                 <!-- Right side buttons -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Content="Γå╗ Refresh"
+                    <Button Content="↻ Refresh"
                             Command="{Binding RefreshCommand}"
                             Padding="8,4"
                             Margin="0,0,4,0"

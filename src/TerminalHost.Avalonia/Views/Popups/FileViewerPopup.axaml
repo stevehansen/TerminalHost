@@ -30,7 +30,7 @@
             <StackPanel Orientation="Horizontal">
                 <!-- Mode tabs -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <RadioButton Content="≡ƒæü Preview"
+                    <RadioButton Content="👁 Preview"
                                  Classes="PopupModeTabButton"
                                  IsChecked="{Binding IsPreviewModeSelected, Mode=OneWay}"
                                  Command="{Binding SwitchToPreviewCommand}"
@@ -239,14 +239,14 @@
 
                         <!-- Action buttons -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <Button Content="≡ƒÆ╛ Save"
+                            <Button Content="💾 Save"
                                     Classes="StatusBarButton"
                                     Command="{Binding SaveCommand}"
                                     ToolTip.Tip="Save (Ctrl+S)"
                                     IsVisible="{Binding CanSave}"
                                     IsEnabled="{Binding CanSave}"
                                     Margin="0,0,8,0"/>
-                            <Button Content="Γå╗ Reload"
+                            <Button Content="↻ Reload"
                                     Classes="StatusBarButton"
                                     Command="{Binding ReloadCommand}"
                                     ToolTip.Tip="Reload from disk"/>

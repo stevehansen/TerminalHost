@@ -42,7 +42,7 @@
                          Watermark="Search tabs..."/>
 
                 <Button Grid.Column="1"
-                        Content="├ù"
+                        Content="×"
                         Click="CloseButton_Click"
                         Classes="TabCloseButton"
                         Padding="8,2"

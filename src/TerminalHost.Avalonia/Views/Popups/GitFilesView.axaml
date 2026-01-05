@@ -19,7 +19,7 @@
         CloseCommand="{Binding CloseCommand}">
 
         <controls:DraggablePopup.HeaderRightContent>
-            <Button Content="Γå╗ Refresh"
+            <Button Content="↻ Refresh"
                     Classes="TerminalSwitchButton"
                     Command="{Binding RefreshGitFilesCommand}"
                     ToolTip.Tip="Refresh file list"
@@ -371,7 +371,7 @@
                             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button Content="≡ƒæü Preview"
+                                        <Button Content="👁 Preview"
                                                 Classes="TerminalSwitchButton"
                                                 Command="{Binding PreviewFileCommand}"
                                                 ToolTip.Tip="Open file preview"
@@ -381,7 +381,7 @@
                                                 Command="{Binding EditFileCommand}"
                                                 ToolTip.Tip="Open file in editor"
                                                 Margin="0,0,4,0"/>
-                                        <Button Content="≡ƒôé Explorer"
+                                        <Button Content="📂 Explorer"
                                                 Classes="TerminalSwitchButton"
                                                 Command="{Binding ExploreFileCommand}"
                                                 ToolTip.Tip="Open containing folder"/>

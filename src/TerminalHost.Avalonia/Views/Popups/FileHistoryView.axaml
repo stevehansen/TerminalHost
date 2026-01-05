@@ -43,7 +43,7 @@
                                 ToolTip.Tip="Refresh history"
                                 Margin="0,0,8,0"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="≡ƒô£" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="📜" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="File History - "
                                        Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="{StaticResource FontSizeCode}"

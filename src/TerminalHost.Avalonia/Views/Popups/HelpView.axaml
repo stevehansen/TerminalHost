@@ -27,7 +27,7 @@
             <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="8,8,0,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                        Content="├ù"
+                        Content="×"
                         Classes="TabCloseButton"
                         Command="{Binding CloseHelpCommand}"
                         FontSize="{DynamicResource FontSizeHeader}"

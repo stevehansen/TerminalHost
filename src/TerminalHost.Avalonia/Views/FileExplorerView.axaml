@@ -18,7 +18,7 @@
             <MenuItem Header="Open" Command="{Binding OpenInViewerCommand}"
                       InputGesture="Enter">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôä" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📄" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Edit" Command="{Binding EditInViewerCommand}"
@@ -35,36 +35,36 @@
             <Separator/>
             <MenuItem Header="View History" Command="{Binding ViewHistoryCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒô£" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📜" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="View Blame" Command="{Binding ViewBlameCommand}"
                       InputGesture="Cmd+Shift+B">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒæñ" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="👤" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Open with Default App" Command="{Binding OpenExternalCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒÜÇ" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🚀" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Show in Explorer" Command="{Binding ExploreInExplorerCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôé" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
             <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}"
                       InputGesture="Ctrl+C">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒôï" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📋" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="CD to Folder" Command="{Binding CdToFolderCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒÆ╗" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="📋" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -77,7 +77,7 @@
             <MenuItem Header="Delete" Command="{Binding DeleteCommand}"
                       InputGesture="Delete">
                 <MenuItem.Icon>
-                    <TextBlock Text="≡ƒùæ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="🗑️" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -140,7 +140,7 @@
                 <!-- Right buttons -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <ToggleButton IsChecked="{Binding HideGitIgnoredFiles}"
-                                  Content="≡ƒÜ½"
+                                  Content="💻"
                                   ToolTip.Tip="Hide gitignored files"
                                   Background="Transparent"
                                   Foreground="{StaticResource TextSecondaryBrush}"
@@ -150,17 +150,17 @@
                                   CornerRadius="3"
                                   Margin="0,0,4,0"/>
                     <ToggleButton IsChecked="{Binding ShowHiddenFiles}"
-                                  Content="≡ƒæü"
+                                  Content="👁"
                                   ToolTip.Tip="Show hidden files"
                                   Classes="HiddenFilesToggle"
                                   Margin="0,0,4,0"/>
-                    <Button Content="≡ƒôä+"
+                    <Button Content="📁+"
                             Command="{Binding NewFileCommand}"
                             Classes="TerminalSwitchButton"
                             ToolTip.Tip="New File"
                             Padding="6,2"
                             Margin="0,0,4,0"/>
-                    <Button Content="≡ƒôü+"
+                    <Button Content="📁+"
                             Command="{Binding NewFolderCommand}"
                             Classes="TerminalSwitchButton"
                             ToolTip.Tip="New Folder"
@@ -186,7 +186,7 @@
 
                 <!-- Title -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="≡ƒôü"
+                    <TextBlock Text="📁"
                                Foreground="{StaticResource SyntaxCyanBrush}"
                                FontSize="{StaticResource FontSizeCode}"
                                VerticalAlignment="Center"

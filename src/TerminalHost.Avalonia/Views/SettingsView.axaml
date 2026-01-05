@@ -1790,7 +1790,7 @@
                         </Border>
 
                         <TextBlock TextWrapping="Wrap">
-                            <Run Text="≡ƒÆí Tip:" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="SemiBold"/>
+                            <Run Text="💡 Tip:" Foreground="{StaticResource SyntaxYellowBrush}" FontWeight="SemiBold"/>
                             <Run Text=" Create .md files in the commands folders to add your own slash commands. The filename becomes the command name." Foreground="{StaticResource TextSecondaryBrush}"/>
                         </TextBlock>
                     </StackPanel>
@@ -2049,7 +2049,7 @@
                                                                 <ColumnDefinition Width="*"/>
                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Grid.Column="0"
-                                                                       Text="ΓùÅ"
+                                                                       Text="●"
                                                                        Foreground="{StaticResource StatusSuccessBrush}"
                                                                        IsVisible="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}"
                                                                        Margin="0,0,4,0"/>

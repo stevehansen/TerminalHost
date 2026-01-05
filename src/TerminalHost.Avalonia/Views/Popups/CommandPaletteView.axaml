@@ -58,7 +58,7 @@
                                  Text="{Binding PaletteSearchText, Mode=TwoWay}"/>
                     </Grid>
                     <Button Grid.Column="2"
-                            Content="├ù"
+                            Content="×"
                             Click="CloseButton_Click"
                             Classes="TabCloseButton"
                             Padding="8,2"

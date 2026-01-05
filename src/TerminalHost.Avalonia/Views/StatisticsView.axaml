@@ -17,7 +17,7 @@
                        FontWeight="Bold"
                        VerticalAlignment="Center"/>
             <Button Command="{Binding LoadStatsCommand}"
-                    Content="≡ƒöä Refresh"
+                    Content="🔄 Refresh"
                     Margin="20,0,0,0"
                     Padding="8,4"/>
         </StackPanel>

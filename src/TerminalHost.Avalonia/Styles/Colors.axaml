@@ -6,11 +6,13 @@
     <SolidColorBrush x:Key="BackgroundMediumBrush" Color="#2D2D30"/>
     <SolidColorBrush x:Key="BackgroundLightBrush" Color="#3C3C3C"/>
     <SolidColorBrush x:Key="BackgroundHoverBrush" Color="#404040"/>
+    <SolidColorBrush x:Key="BackgroundActiveBrush" Color="#4E4E4E"/>
 
     <!-- Border Colors -->
     <SolidColorBrush x:Key="BorderSubtleBrush" Color="#3F3F3F"/>
     <SolidColorBrush x:Key="BorderMediumBrush" Color="#4F4F4F"/>
     <SolidColorBrush x:Key="BorderDarkBrush" Color="#2B2B2B"/>
+    <SolidColorBrush x:Key="BorderDefaultBrush" Color="#555555"/>
 
     <!-- Text Colors -->
     <SolidColorBrush x:Key="TextBrightBrush" Color="#FFFFFF"/>
@@ -18,10 +20,15 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B0B0B0"/>
     <SolidColorBrush x:Key="TextMutedBrush" Color="#808080"/>
     <SolidColorBrush x:Key="TextDimmedBrush" Color="#606060"/>
+    <SolidColorBrush x:Key="TextLightBrush" Color="#D4D4D4"/>
 
     <!-- Accent Colors -->
     <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#007ACC"/>
     <SolidColorBrush x:Key="AccentBlueBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#0E639C"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#1084D8"/>
+    <SolidColorBrush x:Key="AccentOrangeBrush" Color="#FFA500"/>
+    <SolidColorBrush x:Key="AccentGreenBrush" Color="#32CD32"/>
 
     <!-- Syntax Colors -->
     <SolidColorBrush x:Key="SyntaxBlueBrush" Color="#569CD6"/>
@@ -31,9 +38,29 @@
     <SolidColorBrush x:Key="SyntaxOrangeBrush" Color="#CE9178"/>
     <SolidColorBrush x:Key="SyntaxPurpleBrush" Color="#C586C0"/>
     <SolidColorBrush x:Key="SyntaxRedBrush" Color="#F14C4C"/>
+    <SolidColorBrush x:Key="SyntaxLightBlueBrush" Color="#9CDCFE"/>
 
     <!-- Status Colors -->
     <SolidColorBrush x:Key="SuccessGreenBrush" Color="#3FB950"/>
     <SolidColorBrush x:Key="ErrorRedBrush" Color="#F85149"/>
     <SolidColorBrush x:Key="WarningOrangeBrush" Color="#D29922"/>
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="#F48771"/>
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="#FFCC00"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="#4F8A10"/>
+
+    <!-- Danger Colors -->
+    <SolidColorBrush x:Key="DangerBackgroundBrush" Color="#5A2D2D"/>
+    <SolidColorBrush x:Key="DangerHoverBrush" Color="#8B3A3A"/>
+
+    <!-- Misc -->
+    <SolidColorBrush x:Key="ResizeGripBrush" Color="#888888"/>
+
+    <!-- ScrollBar Colors -->
+    <SolidColorBrush x:Key="ScrollBarBackgroundBrush" Color="#252525"/>
+    <SolidColorBrush x:Key="ScrollBarTrackBackgroundBrush" Color="#3C3C3C"/>
+    <SolidColorBrush x:Key="ScrollBarThumbBackgroundBrush" Color="#555555"/>
+    <SolidColorBrush x:Key="ScrollBarThumbMouseOverBrush" Color="#777777"/>
+    <SolidColorBrush x:Key="ScrollBarThumbPressedBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="ScrollBarButtonBackgroundBrush" Color="#3C3C3C"/>
+    <SolidColorBrush x:Key="ScrollBarButtonForegroundBrush" Color="#CCCCCC"/>
 </ResourceDictionary>

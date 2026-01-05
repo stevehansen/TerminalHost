@@ -38,7 +38,7 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
-                               Text="≡ƒôï"
+                               Text="📋"
                                FontSize="16"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
@@ -64,7 +64,7 @@
                     </Button>
 
                     <Button Grid.Column="3"
-                            Content="├ù"
+                            Content="×"
                             Click="CloseButton_Click"
                             Classes="TabCloseButton"
                             Padding="8,2"/>
@@ -93,7 +93,7 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
-                                   Text="ΓùÅ CURRENT"
+                                   Text="● CURRENT"
                                    Foreground="{StaticResource SyntaxYellowBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    FontWeight="Bold"
@@ -144,7 +144,7 @@
                                 Command="{Binding AddSubtaskCommand}"
                                 Classes="SmallButton"
                                 Margin="0,0,8,0"/>
-                        <Button Content="≡ƒöä PR"
+                        <Button Content="🔄 PR"
                                 ToolTip.Tip="Refresh PR/Branch info"
                                 Command="{Binding RefreshPrInfoCommand}"
                                 Classes="SmallButton"/>
@@ -247,7 +247,7 @@
                                                            Foreground="{StaticResource TextDimmedBrush}"
                                                            FontSize="{StaticResource FontSizeTiny}"/>
                                             </Border>
-                                            <Button Content="Γû╢"
+                                            <Button Content="▶"
                                                     ToolTip.Tip="Start Task"
                                                     Command="{Binding $parent[UserControl].((vm:TaskPanelViewModel)DataContext).StartTaskCommand}"
                                                     CommandParameter="{Binding}"
@@ -382,7 +382,7 @@
                                                                Foreground="{StaticResource TextPrimaryBrush}"
                                                                FontSize="{StaticResource FontSizeTiny}"
                                                                VerticalAlignment="Center"/>
-                                                    <Button Content="├ù"
+                                                    <Button Content="×"
                                                             Command="{Binding $parent[UserControl].((vm:TaskPanelViewModel)DataContext).RemoveProjectFromSelectedTaskCommand}"
                                                             CommandParameter="{Binding}"
                                                             Classes="TabCloseButton"
@@ -434,7 +434,7 @@
                     </Border>
 
                     <!-- Quick Notes Section -->
-                    <TextBlock Text="≡ƒô¥ QUICK NOTES"
+                    <TextBlock Text="📝 QUICK NOTES"
                                Foreground="{StaticResource TextDimmedBrush}"
                                FontSize="{StaticResource FontSizeTiny}"
                                FontWeight="Bold"
@@ -470,7 +470,7 @@
                                                     Classes="SmallButton"
                                                     Padding="6,2"
                                                     Margin="4,0"/>
-                                            <Button Content="├ù"
+                                            <Button Content="×"
                                                     ToolTip.Tip="Delete Note"
                                                     Command="{Binding $parent[UserControl].((vm:TaskPanelViewModel)DataContext).DeleteNoteCommand}"
                                                     CommandParameter="{Binding}"

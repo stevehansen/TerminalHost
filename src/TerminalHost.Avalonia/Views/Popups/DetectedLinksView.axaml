@@ -32,13 +32,13 @@
             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                            Content="├ù"
+                            Content="×"
                             Classes="TabCloseButton"
                             Command="{Binding CloseCommand}"
                             FontSize="{StaticResource FontSizeLarge}"
                             Padding="8,2"/>
                     <Button DockPanel.Dock="Right"
-                            Content="Γå╗"
+                            Content="↻"
                             Classes="TabCloseButton"
                             Command="{Binding RefreshLinksCommand}"
                             ToolTip.Tip="Refresh links"
@@ -46,7 +46,7 @@
                             Padding="6,2"
                             Margin="0,0,4,0"/>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="≡ƒöù" FontSize="{StaticResource FontSizeNormal}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="🔗" FontSize="{StaticResource FontSizeNormal}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBlock Text="Detected Links"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    FontSize="{StaticResource FontSizeCode}"
@@ -140,12 +140,12 @@
             <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                 <DockPanel>
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                        <Button Content="≡ƒæü∩╕Å Preview"
+                        <Button Content="👁️ Preview"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding PreviewSelectedLinkCommand}"
                                 ToolTip.Tip="Preview file"
                                 Margin="0,0,4,0"/>
-                        <Button Content="≡ƒîÉ Open"
+                        <Button Content="🌐 Open"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding OpenSelectedLinkCommand}"
                                 ToolTip.Tip="Open link"/>

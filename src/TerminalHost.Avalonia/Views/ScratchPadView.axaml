@@ -40,7 +40,7 @@
                     PointerReleased="ScratchPadHeader_PointerReleased">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                            Content="├ù"
+                            Content="×"
                             Classes="TabCloseButton"
                             Command="{Binding CloseCommand}"
                             FontSize="{StaticResource FontSizeLarge}"

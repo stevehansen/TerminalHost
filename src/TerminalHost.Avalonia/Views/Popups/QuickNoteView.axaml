@@ -29,7 +29,7 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
-                               Text="≡ƒô¥"
+                               Text="📝"
                                FontSize="14"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
@@ -42,7 +42,7 @@
                                VerticalAlignment="Center"/>
 
                     <Button Grid.Column="2"
-                            Content="├ù"
+                            Content="×"
                             Click="CloseButton_Click"
                             Classes="TabCloseButton"
                             Padding="8,2"/>

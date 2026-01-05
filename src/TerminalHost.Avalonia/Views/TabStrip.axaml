@@ -33,7 +33,7 @@
                 </Border.Styles>
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                            Content="├ù"
+                            Content="×"
                             AutomationProperties.Name="Close tab"
                             AutomationProperties.AutomationId="CloseTabButton"
                             Classes="TabCloseButton"
@@ -42,7 +42,7 @@
                     <!-- Activity indicator - pulses when terminal is active (hidden for selected tab) -->
                     <TextBlock x:Name="ActivitySpinner"
                                DockPanel.Dock="Right"
-                               Text="ΓùÅ"
+                               Text="◐"
                                AutomationProperties.HelpText="Terminal is active"
                                Foreground="{StaticResource SyntaxYellowBrush}"
                                FontSize="{StaticResource FontSizeSmall}"
@@ -72,7 +72,7 @@
                     <!-- Completed indicator - solid green dot when activity finished but tab not yet focused -->
                     <TextBlock x:Name="CompletedIndicator"
                                DockPanel.Dock="Right"
-                               Text="ΓùÅ"
+                               Text="●"
                                AutomationProperties.HelpText="Terminal activity completed"
                                Foreground="{StaticResource SyntaxGreenBrush}"
                                FontSize="{StaticResource FontSizeSmall}"
@@ -123,9 +123,9 @@
                     ToolTip.Tip="Toggle Sidebar (Cmd+Shift+L)"
                     Margin="0,0,4,0">
                 <Panel>
-                    <TextBlock Text="Γùº" FontSize="{StaticResource FontSizeSmall}"
+                    <TextBlock Text="☐" FontSize="{StaticResource FontSizeSmall}"
                                IsVisible="{Binding IsSidebarMode}"/>
-                    <TextBlock Text="Γÿ░" FontSize="{StaticResource FontSizeSmall}"
+                    <TextBlock Text="☰" FontSize="{StaticResource FontSizeSmall}"
                                IsVisible="{Binding IsTabsMode}"/>
                 </Panel>
             </Button>
@@ -133,7 +133,7 @@
             <!-- Scroll Right Button -->
             <Button x:Name="ScrollRightButton"
                     DockPanel.Dock="Right"
-                    Content="ΓÇ║"
+                    Content="›"
                     AutomationProperties.Name="Scroll tabs right"
                     Classes="TerminalSwitchButton"
                     Click="ScrollRight_Click"
@@ -145,7 +145,7 @@
             <!-- Scroll Left Button -->
             <Button x:Name="ScrollLeftButton"
                     DockPanel.Dock="Right"
-                    Content="ΓÇ╣"
+                    Content="‹"
                     AutomationProperties.Name="Scroll tabs left"
                     Classes="TerminalSwitchButton"
                     Click="ScrollLeft_Click"
@@ -157,7 +157,7 @@
             <!-- Tab Dropdown Button (shows all tabs when there's overflow) -->
             <Button x:Name="TabDropdownButton"
                     DockPanel.Dock="Right"
-                    Content="Γû╝"
+                    Content="▼"
                     AutomationProperties.Name="Show all tabs"
                     Classes="TerminalSwitchButton"
                     Command="{Binding $parent[Window].DataContext.OpenTabDropdownCommand}"

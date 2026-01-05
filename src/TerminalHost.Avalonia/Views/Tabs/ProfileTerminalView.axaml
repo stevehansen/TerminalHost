@@ -36,13 +36,13 @@
                     <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
 
                     <!-- Quick Actions -->
-                    <Button Content="≡ƒôü"
+                    <Button Content="📁"
                             ToolTip.Tip="Open Working Directory in Explorer"
                             AutomationProperties.Name="Open in Explorer"
                             Classes="TerminalSwitch"
                             Click="OpenInExplorer_Click"
                             Margin="0,0,4,0"/>
-                    <Button Content="Γ¥ô"
+                    <Button Content="❓"
                             ToolTip.Tip="Help &amp; Shortcuts (F1)"
                             AutomationProperties.Name="Help"
                             Classes="TerminalSwitch"
