@@ -213,4 +213,35 @@ dotnet publish src/TerminalHost/TerminalHost -c Release -o publish
 # Build for macOS (on macOS)
 dotnet build src/TerminalHost.Avalonia
 dotnet publish src/TerminalHost.Avalonia -c Release -r osx-arm64 -o publish
+
+# Build macOS app bundle with DMG installer
+./scripts/build-macos.sh --dmg
 ```
+
+### macOS Troubleshooting
+
+**Cannot access Dropbox/iCloud/cloud storage folders**
+
+If TerminalHost cannot access folders in `~/Library/CloudStorage/` (Dropbox, iCloud, OneDrive, etc.) after installing to `/Applications`, try these fixes:
+
+1. **Remove quarantine and re-sign the app:**
+   ```bash
+   # Remove quarantine attribute
+   sudo xattr -rd com.apple.quarantine /Applications/TerminalHost.app
+
+   # Re-sign with entitlements
+   codesign --force --deep --entitlements src/TerminalHost.Avalonia/TerminalHost.entitlements --sign - /Applications/TerminalHost.app
+   ```
+
+2. **Reset and re-grant Full Disk Access:**
+   ```bash
+   # Reset TCC permissions for the app
+   tccutil reset All com.terminalhost.app
+   ```
+   Then go to **System Settings → Privacy & Security → Full Disk Access**, remove TerminalHost if listed, re-add it, and restart the app.
+
+3. **Rebuild with correct entitlements:**
+   ```bash
+   ./scripts/build-macos.sh --dmg
+   # Then reinstall from the new DMG
+   ```
