@@ -18,6 +18,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IStatisticsService _statisticsService;
+    private readonly IToastService _toastService;
 
     [ObservableProperty]
     private ObservableCollection<WorkspaceEntryViewModel> _workspaces = [];
@@ -73,7 +74,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IStatisticsService statisticsService)
+        IStatisticsService statisticsService,
+        IToastService toastService)
     {
         _configurationService = configurationService;
         _gitWorktreeService = gitWorktreeService;
@@ -81,6 +83,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _statisticsService = statisticsService;
+        _toastService = toastService;
     }
 
     /// <summary>
@@ -669,14 +672,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
+        using var toast = _toastService.ShowProgress($"Fetching {workspace.Name}...");
         var result = await _gitStatusService.FetchAllAsync(workspace.Path);
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            toast.Complete("Fetch complete");
         }
         else
         {
-            _dialogService.ShowWarning($"Git fetch failed:\n{result.Error}", "Git Fetch");
+            toast.Fail($"Fetch failed: {result.Error}");
         }
     }
 
@@ -688,14 +693,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
+        using var toast = _toastService.ShowProgress($"Pulling {workspace.Name}...");
         var result = await _gitStatusService.PullRebaseAsync(workspace.Path);
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            toast.Complete("Pull complete");
         }
         else
         {
-            _dialogService.ShowWarning($"Git pull failed:\n{result.Error}", "Git Pull");
+            toast.Fail($"Pull failed: {result.Error}");
         }
     }
 
@@ -707,14 +714,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
+        using var toast = _toastService.ShowProgress($"Pushing {workspace.Name}...");
         var result = await _gitStatusService.PushAsync(workspace.Path);
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            toast.Complete("Push complete");
         }
         else
         {
-            _dialogService.ShowWarning($"Git push failed:\n{result.Error}", "Git Push");
+            toast.Fail($"Push failed: {result.Error}");
         }
     }
 

@@ -70,7 +70,8 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<IGitStatusService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
             _serviceProvider.GetRequiredService<IFileSystem>(),
-            _serviceProvider.GetRequiredService<IStatisticsService>()
+            _serviceProvider.GetRequiredService<IStatisticsService>(),
+            _serviceProvider.GetRequiredService<IToastService>()
         );
     }
 
