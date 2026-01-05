@@ -35,6 +35,19 @@ public partial class Dependency : ObservableObject
                 ? $"Open: {HomepageUrl}"
                 : "No installation method available.";
 
+    /// <summary>
+    /// Button text for the install action.
+    /// </summary>
+    public string InstallButtonText =>
+        IsInstalled ? "🏠 Homepage"
+        : !string.IsNullOrEmpty(InstallCommand) ? "⚡ Install"
+        : "🏠 Homepage";
+
+    /// <summary>
+    /// Whether the dependency is not currently being installed.
+    /// </summary>
+    public bool IsNotInstalling => !IsInstalling;
+
     // Properties for the UI to bind to
     [ObservableProperty]
     private bool _isInstalled;
@@ -56,4 +69,33 @@ public partial class Dependency : ObservableObject
 
     [ObservableProperty]
     private string? _fullOutput;
+
+    /// <summary>
+    /// Status icon for UI display (computed from IsDetecting/IsInstalled).
+    /// </summary>
+    public string StatusIcon => IsDetecting ? "◌" : "●";
+
+    /// <summary>
+    /// Status color for UI display (computed from IsDetecting/IsInstalled).
+    /// Returns a color string that can be used with a converter or parsed.
+    /// </summary>
+    public string StatusColor => IsDetecting ? "#569CD6" : (IsInstalled ? "#4EC9B0" : "#F14C4C");
+
+    partial void OnIsDetectingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(StatusIcon));
+        OnPropertyChanged(nameof(StatusColor));
+    }
+
+    partial void OnIsInstalledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(StatusIcon));
+        OnPropertyChanged(nameof(StatusColor));
+        OnPropertyChanged(nameof(InstallButtonText));
+    }
+
+    partial void OnIsInstallingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotInstalling));
+    }
 }

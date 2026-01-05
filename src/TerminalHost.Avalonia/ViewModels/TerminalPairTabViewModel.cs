@@ -1139,14 +1139,19 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             RunConfigurations.Add(config);
         }
 
-        // Set active configuration
-        if (!string.IsNullOrEmpty(activeConfigId))
+        // Set active configuration - prioritize IsDefault flag over activeConfigId
+        // because user explicitly marking a config as default should take precedence
+        var defaultConfig = RunConfigurations.FirstOrDefault(c => c.IsDefault);
+        if (defaultConfig != null)
+        {
+            ActiveRunConfiguration = defaultConfig;
+        }
+        else if (!string.IsNullOrEmpty(activeConfigId))
         {
             ActiveRunConfiguration = RunConfigurations.FirstOrDefault(c => c.Id == activeConfigId);
         }
 
-        ActiveRunConfiguration ??= RunConfigurations.FirstOrDefault(c => c.IsDefault)
-                                  ?? RunConfigurations.FirstOrDefault();
+        ActiveRunConfiguration ??= RunConfigurations.FirstOrDefault();
 
         OnPropertyChanged(nameof(HasMultipleRunConfigs));
         OnPropertyChanged(nameof(HasAnyRunConfiguration));

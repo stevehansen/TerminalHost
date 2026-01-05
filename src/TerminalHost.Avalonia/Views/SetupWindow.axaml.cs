@@ -62,7 +62,7 @@ public partial class SetupWindow : Window
 
                 // Briefly change button text to indicate success
                 var originalContent = button.Content;
-                button.Content = "Copied!";
+                button.Content = "✓ Copied!";
 
                 var timer = _timerService.CreateTimer(TimeSpan.FromSeconds(1.5), () =>
                 {

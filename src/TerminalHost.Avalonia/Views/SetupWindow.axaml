@@ -93,10 +93,10 @@
                                                    FontSize="{StaticResource FontSizeNormal}"
                                                    ToolTip.Tip="Detection Status"
                                                    Text="{Binding StatusIcon}"
-                                                   Foreground="{Binding StatusColor}"/>
+                                                   Foreground="{Binding StatusColor, Converter={StaticResource HexToBrushConverter}}"/>
 
                                         <!-- Download Button -->
-                                        <Button Content="Download"
+                                        <Button Content="⬇ Download"
                                                 Classes="setup"
                                                 Command="{Binding $parent[ItemsControl].((viewModels:SetupViewModel)DataContext).OpenInstallLinkCommand}"
                                                 CommandParameter="{Binding}"
@@ -120,9 +120,8 @@
                                     Margin="20,0,20,10"
                                     Padding="8"
                                     CornerRadius="4"
-                                    IsVisible="{Binding !IsInstalled}">
-                                <Grid ColumnDefinitions="*,Auto"
-                                      IsVisible="{Binding InstallCommand, Converter={StaticResource NullToBoolConverter}}">
+                                    IsVisible="{Binding InstallCommand, Converter={StaticResource NullToCollapsedConverter}}">
+                                <Grid ColumnDefinitions="*,Auto">
                                     <TextBox Grid.Column="0"
                                              Text="{Binding InstallCommand, Mode=OneWay}"
                                              IsReadOnly="True"
@@ -134,7 +133,7 @@
                                              VerticalContentAlignment="Center"
                                              Padding="4,0"/>
                                     <Button Grid.Column="1"
-                                            Content="Copy"
+                                            Content="📋 Copy"
                                             Classes="setup"
                                             Click="CopyInstallCommand_Click"
                                             Tag="{Binding InstallCommand}"

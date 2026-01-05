@@ -4,23 +4,18 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using TerminalHost.Core.Interfaces;
-using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
-using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
 public partial class SetupViewModel : ObservableObject
 {
-    private readonly ISystemInfoService? _systemInfoService;
     private readonly IProcessService? _processService;
 
     [ObservableProperty]
     private ObservableCollection<Dependency> _dependencies = [];
 
-    public SetupViewModel(ISystemInfoService? systemInfoService = null, IProcessService? processService = null)
+    public SetupViewModel(IProcessService? processService = null)
     {
-        _systemInfoService = systemInfoService;
         _processService = processService;
         LoadDependencies();
     }
@@ -34,15 +29,6 @@ public partial class SetupViewModel : ObservableObject
             DetectionCommand = "git --version",
             HomepageUrl = "https://git-scm.com/",
             InstallUrl = "https://git-scm.com/downloads"
-        });
-
-        Dependencies.Add(new Dependency
-        {
-            Name = "Nerd Font",
-            Description = "A font with developer-focused glyphs (e.g., Cascadia Code NF).",
-            DetectionCommand = "", // Special case, requires different detection logic
-            HomepageUrl = "https://github.com/microsoft/cascadia-code",
-            InstallUrl = "https://github.com/microsoft/cascadia-code/releases"
         });
 
         Dependencies.Add(new Dependency
@@ -99,7 +85,6 @@ public partial class SetupViewModel : ObservableObject
             Name = "GitHub CLI",
             Description = "CLI for GitHub. Used for PR/issue integration in Tasks.",
             DetectionCommand = "gh --version",
-            InstallCommand = "winget install --id GitHub.cli",
             HomepageUrl = "https://cli.github.com/",
             InstallUrl = "https://cli.github.com/"
         });
@@ -146,57 +131,23 @@ public partial class SetupViewModel : ObservableObject
         if (dependency == null) return;
 
         dependency.IsDetecting = true;
-        
-        if (dependency.Name == "Nerd Font")
+
+        var (success, output, exitCode) = await RunCommandAsync(dependency.DetectionCommand);
+
+        // For commands that need to check output content (e.g., gh extension list)
+        if (!string.IsNullOrEmpty(dependency.DetectionOutputContains))
         {
-            var nerdFontNames = AppConstants.NerdFontNames;
-            string? foundFontName = null;
-
-            // Use ISystemInfoService if available, otherwise skip
-            if (_systemInfoService != null)
-            {
-                var installedFonts = _systemInfoService.GetInstalledFontFamilies().ToList();
-                dependency.IsInstalled = installedFonts.Any(fontName =>
-                {
-                    if (nerdFontNames.Any(name => fontName.Equals(name, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        foundFontName = fontName;
-                        return true;
-                    }
-                    return false;
-                });
-            }
-            else
-            {
-                // Fallback: assume not detected if service unavailable
-                dependency.IsInstalled = false;
-            }
-
-            dependency.DetectedVersion = dependency.IsInstalled ? $"Installed ({foundFontName})" : "Not Found";
-            dependency.FullOutput = dependency.IsInstalled
-                ? $"An installed Nerd Font was found: {foundFontName}"
-                : $"None of the recommended Nerd Fonts were found: {string.Join(", ", nerdFontNames)}";
-            dependency.ExitCode = dependency.IsInstalled ? 0 : 1;
+            dependency.IsInstalled = success && output.Contains(dependency.DetectionOutputContains, StringComparison.OrdinalIgnoreCase);
+            dependency.DetectedVersion = dependency.IsInstalled ? "Installed" : "Not found";
         }
         else
         {
-            var (success, output, exitCode) = await RunCommandAsync(dependency.DetectionCommand);
-
-            // For commands that need to check output content (e.g., gh extension list)
-            if (!string.IsNullOrEmpty(dependency.DetectionOutputContains))
-            {
-                dependency.IsInstalled = success && output.Contains(dependency.DetectionOutputContains, StringComparison.OrdinalIgnoreCase);
-                dependency.DetectedVersion = dependency.IsInstalled ? "Installed" : "Not found";
-            }
-            else
-            {
-                dependency.IsInstalled = success;
-                dependency.DetectedVersion = success ? output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
-            }
-
-            dependency.FullOutput = output;
-            dependency.ExitCode = exitCode;
+            dependency.IsInstalled = success;
+            dependency.DetectedVersion = success ? output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? output : "Not found";
         }
+
+        dependency.FullOutput = output;
+        dependency.ExitCode = exitCode;
 
         dependency.IsDetecting = false;
     }

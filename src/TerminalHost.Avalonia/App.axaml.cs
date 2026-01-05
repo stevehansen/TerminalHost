@@ -70,7 +70,6 @@ public partial class App : Application
     {
         // Create SetupWindow
         var setupViewModel = new SetupViewModel(
-            _services!.GetService<ISystemInfoService>(),
             _services!.GetService<IProcessService>());
 
         var clipboardService = _services!.GetRequiredService<IClipboardService>();

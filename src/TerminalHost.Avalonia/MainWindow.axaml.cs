@@ -534,7 +534,6 @@ public partial class MainWindow : Window
         // Create and show SetupWindow
         var services = App.Current.Services;
         var setupViewModel = new SetupViewModel(
-            services.GetService<ISystemInfoService>(),
             services.GetService<IProcessService>());
 
         var clipboardService = services.GetRequiredService<IClipboardService>();

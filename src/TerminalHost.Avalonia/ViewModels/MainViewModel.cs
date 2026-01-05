@@ -1348,21 +1348,24 @@ public partial class MainViewModel : ObservableObject
     private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
     {
         List<RunConfiguration> configs;
+        string? activeConfigId;
 
         if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
         {
             // Use saved configurations
             configs = dirSettings.RunConfigurations;
+            activeConfigId = dirSettings.ActiveRunConfigurationId;
         }
         else
         {
             // Auto-detect project type and create configurations
-            configs = _projectDetectionService.GetOrCreateConfigurations(
-                workingDirectory,
-                dirSettings ?? new DirectorySettings());
+            // Use existing dirSettings or create new one - GetOrCreateConfigurations will set ActiveRunConfigurationId
+            var settings = dirSettings ?? new DirectorySettings();
+            configs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
+            activeConfigId = settings.ActiveRunConfigurationId;
         }
 
-        tab.InitializeRunConfigurations(configs, dirSettings?.ActiveRunConfigurationId);
+        tab.InitializeRunConfigurations(configs, activeConfigId);
     }
 
     [RelayCommand]
