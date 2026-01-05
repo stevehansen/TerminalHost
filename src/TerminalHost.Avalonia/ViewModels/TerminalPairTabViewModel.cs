@@ -150,6 +150,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
                 OnPropertyChanged(nameof(IsSelected));
                 OnPropertyChanged(nameof(ShowActivitySpinner));
                 OnPropertyChanged(nameof(ShowCompletedIndicator));
+
+                // When tab becomes selected, suppress activity briefly to avoid
+                // false positives from terminal redraw output
+                if (value)
+                {
+                    Pair.CustomTerminal.SuppressActivityBriefly();
+                    Pair.ShellTerminal.SuppressActivityBriefly();
+                    Pair.RunTerminal?.SuppressActivityBriefly();
+                }
             }
         }
     }
@@ -821,7 +830,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         // Initialize run terminal if becoming visible and not yet initialized
         if (value && IsTerminalInitialized && Pair.RunTerminal == null)
         {
-            _ = InitializeRunTerminalAsync();
+            // Use Dispatcher to ensure proper async handling
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                try
+                {
+                    await InitializeRunTerminalAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to initialize run terminal: {ex}");
+                }
+            });
         }
     }
 
@@ -871,10 +891,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         // Check for idle transitions
         Pair.CustomTerminal.CheckActivityState();
         Pair.ShellTerminal.CheckActivityState();
+        Pair.RunTerminal?.CheckActivityState();
 
         // Update properties
         IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
         IsShellTerminalActive = Pair.ShellTerminal.IsActive;
+        if (Pair.RunTerminal != null)
+        {
+            IsRunTerminalActive = Pair.RunTerminal.IsActive;
+        }
     }
 
     public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)

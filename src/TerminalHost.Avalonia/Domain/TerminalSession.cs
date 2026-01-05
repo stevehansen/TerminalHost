@@ -22,6 +22,7 @@ public class TerminalSession : IDisposable
     // Activity tracking
     private DateTime? _lastOutputTime;
     private bool _wasActive;
+    private DateTime? _activitySuppressedUntil;
 
     // Terminal title tracking (parsed from OSC escape sequences)
     private string _terminalTitle = string.Empty;
@@ -38,10 +39,27 @@ public class TerminalSession : IDisposable
     public DateTime? LastOutputTime => _lastOutputTime;
 
     /// <summary>
-    /// Returns true if the terminal has produced output within the last 2 seconds.
+    /// Returns true if the terminal has produced substantial output within the last 3 seconds.
     /// </summary>
     public bool IsActive => _lastOutputTime.HasValue &&
-        (DateTime.Now - _lastOutputTime.Value).TotalSeconds < 2;
+        (DateTime.Now - _lastOutputTime.Value).TotalSeconds < 3;
+
+    /// <summary>
+    /// Temporarily suppresses activity detection for a period of time.
+    /// Use this when resize/tab switch causes terminal redraw that shouldn't count as activity.
+    /// </summary>
+    /// <param name="seconds">How long to suppress activity detection.</param>
+    public void SuppressActivityBriefly(double seconds = 2.0)
+    {
+        _activitySuppressedUntil = DateTime.Now.AddSeconds(seconds);
+        // Also clear current activity state to stop any current spinner
+        _lastOutputTime = null;
+        if (_wasActive)
+        {
+            _wasActive = false;
+            ActivityChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     public event EventHandler<int>? ProcessExited;
 
@@ -91,6 +109,14 @@ public class TerminalSession : IDisposable
         control.OutputReceived += OnTerminalOutput;
         control.MouseClicked += OnTerminalMouseClicked;
         control.ProcessExited += OnProcessExited;
+        control.Resized += OnTerminalResized;
+    }
+
+    private void OnTerminalResized(object? sender, EventArgs e)
+    {
+        // Suppress activity briefly after resize to avoid false positives
+        // from terminal redraw output (shell prompt, etc.)
+        SuppressActivityBriefly(1.5);
     }
 
     private void OnTerminalLoaded(object? sender, EventArgs e)
@@ -106,13 +132,21 @@ public class TerminalSession : IDisposable
         // Increment character count for statistics
         _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, output.Length);
 
-        _lastOutputTime = DateTime.Now;
-
-        // Fire activity changed if we transitioned from idle to active
-        if (!_wasActive)
+        // Only trigger activity for output that contains visible characters
+        // This prevents invisible escape sequences (cursor updates, title changes, etc.)
+        // from keeping the activity indicator spinning indefinitely
+        // Also skip if activity is temporarily suppressed (e.g., after resize/tab switch)
+        var isSuppressed = _activitySuppressedUntil.HasValue && DateTime.Now < _activitySuppressedUntil.Value;
+        if (!isSuppressed && ContainsVisibleOutput(output))
         {
-            _wasActive = true;
-            ActivityChanged?.Invoke(this, EventArgs.Empty);
+            _lastOutputTime = DateTime.Now;
+
+            // Fire activity changed if we transitioned from idle to active
+            if (!_wasActive)
+            {
+                _wasActive = true;
+                ActivityChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         // Parse OSC escape sequences for title changes
@@ -120,6 +154,81 @@ public class TerminalSession : IDisposable
 
         // Append to output buffer for link detection
         AppendToOutputBuffer(output);
+    }
+
+    /// <summary>
+    /// Checks if output contains substantial visible (printable) characters.
+    /// Returns false if output consists only of control characters, escape sequences,
+    /// or very short output (like single-character status updates).
+    /// </summary>
+    private static bool ContainsVisibleOutput(string output)
+    {
+        // Require at least this many visible characters to trigger activity
+        // This filters out prompt redraws, single-char spinners, etc.
+        const int MinVisibleChars = 5;
+
+        bool inEscapeSequence = false;
+        int visibleCount = 0;
+
+        for (int i = 0; i < output.Length; i++)
+        {
+            char c = output[i];
+
+            // Start of escape sequence
+            if (c == '\x1b')
+            {
+                inEscapeSequence = true;
+                continue;
+            }
+
+            if (inEscapeSequence)
+            {
+                // CSI sequence: ESC [ ... letter
+                // OSC sequence: ESC ] ... BEL or ST
+                // Other: ESC letter
+                if (c == '[')
+                {
+                    // CSI - scan until letter
+                    while (++i < output.Length)
+                    {
+                        char sc = output[i];
+                        if (sc >= 0x40 && sc <= 0x7E) // @ to ~
+                            break;
+                    }
+                }
+                else if (c == ']')
+                {
+                    // OSC - scan until BEL or ST
+                    while (++i < output.Length)
+                    {
+                        if (output[i] == '\x07') // BEL
+                            break;
+                        if (output[i] == '\x1b' && i + 1 < output.Length && output[i + 1] == '\\')
+                        {
+                            i++; // Skip ST
+                            break;
+                        }
+                    }
+                }
+                // Single-character escape sequence (ESC letter)
+                inEscapeSequence = false;
+                continue;
+            }
+
+            // Skip control characters
+            if (c < 0x20)
+                continue;
+
+            // Count visible characters
+            if (c >= 0x20)
+            {
+                visibleCount++;
+                if (visibleCount >= MinVisibleChars)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

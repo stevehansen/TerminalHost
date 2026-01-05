@@ -116,6 +116,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     public event Action<string>? OutputReceived;
     public event EventHandler<TerminalMouseEventArgs>? MouseClicked;
     public event EventHandler<int>? ProcessExited;
+    public event EventHandler? Resized;
 
     #endregion
 
@@ -155,6 +156,12 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         // Schedule a render after the control is fully attached and sized
         Dispatcher.UIThread.Post(() =>
         {
+            // Force a resize update in case the control was initialized before being attached
+            // This ensures the PTY gets the correct size when the Run terminal is shown lazily
+            if (Bounds.Width > 0 && Bounds.Height > 0)
+            {
+                UpdateTerminalSize(Bounds.Size);
+            }
             InvalidateVisual();
             Focus();
         }, DispatcherPriority.Loaded);
@@ -1168,6 +1175,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
             // Force a redraw after resize
             InvalidateVisual();
+
+            // Notify listeners of resize
+            Resized?.Invoke(this, EventArgs.Empty);
         }
     }
 

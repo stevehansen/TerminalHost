@@ -79,4 +79,9 @@ public interface ITerminalControl
     /// Fired when the terminal process exits.
     /// </summary>
     event EventHandler<int>? ProcessExited;
+
+    /// <summary>
+    /// Fired when the terminal is resized.
+    /// </summary>
+    event EventHandler? Resized;
 }
