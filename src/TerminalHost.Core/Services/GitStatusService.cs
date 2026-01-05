@@ -65,8 +65,8 @@ public sealed class GitStatusService : IGitStatusService
             return files;
 
         // Get status in porcelain v1 format: XY PATH or XY ORIG -> PATH for renames
-        // Use -u (--untracked-files=all) to show individual files in new directories
-        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain -u");
+        // Use --untracked-files=all to show individual files in new directories (not just directory names)
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all");
         if (string.IsNullOrEmpty(output))
             return files;
 
@@ -494,7 +494,32 @@ public sealed class GitStatusService : IGitStatusService
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
 
         // For tracked files: restore to HEAD version
-        // For untracked files: we'd need to delete, but that's handled in the ViewModel with confirmation
+        // For untracked files: we need to delete them (git restore doesn't work on untracked files)
+        var status = await _gitRunner.RunGitCommandAsync(workingDirectory, $"status --porcelain -- \"{filePath}\"");
+        if (string.IsNullOrEmpty(status))
+            return new GitOperationResult { Success = false, Error = "Could not get file status" };
+
+        // Check if file is untracked (starts with ??)
+        if (status.TrimStart().StartsWith("??"))
+        {
+            // Delete untracked file
+            var fullPath = Path.Combine(workingDirectory, filePath);
+            if (_fileSystem.FileExists(fullPath))
+            {
+                try
+                {
+                    _fileSystem.DeleteFile(fullPath);
+                    return new GitOperationResult { Success = true };
+                }
+                catch (Exception ex)
+                {
+                    return new GitOperationResult { Success = false, Error = ex.Message };
+                }
+            }
+            return new GitOperationResult { Success = false, Error = "File not found" };
+        }
+
+        // For tracked files, use restore to discard changes
         return await _gitRunner.RunGitOperationAsync(workingDirectory, $"restore -- \"{filePath}\"");
     }
 
@@ -504,7 +529,12 @@ public sealed class GitStatusService : IGitStatusService
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
 
         // Restore all tracked files to HEAD version
-        return await _gitRunner.RunGitOperationAsync(workingDirectory, "restore .");
+        var restoreResult = await _gitRunner.RunGitOperationAsync(workingDirectory, "restore .");
+        if (!restoreResult.Success)
+            return restoreResult;
+
+        // Also clean untracked files
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "clean -fd");
     }
 
     #endregion

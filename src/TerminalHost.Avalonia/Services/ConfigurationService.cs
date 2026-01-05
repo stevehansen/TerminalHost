@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services;

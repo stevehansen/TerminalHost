@@ -113,39 +113,39 @@ public partial class App : Application
 
         // Configuration Services
         services.AddSingleton<IConfigurationService, ConfigurationService>();
-        services.AddSingleton<IProfileRegistry, ProfileRegistry>();
+        services.AddSingleton<IProfileRegistry, TerminalHost.Core.Services.ProfileRegistry>();
         services.AddSingleton<ISessionManager, SessionManager>();
 
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
 
-        // Git Services
-        services.AddSingleton<IGitStatusService, GitStatusService>();
-        services.AddSingleton<IGitHubService, GitHubService>();
-        services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
+        // Git Services (use Core implementations for consistency with WPF)
+        services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
+        services.AddSingleton<IGitHubService, TerminalHost.Core.Services.GitHubService>();
+        services.AddSingleton<IGitProcessRunner, TerminalHost.Core.Services.GitProcessRunner>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
 
         // File Services
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
         services.AddSingleton<IFilePreviewService, FilePreviewService>();
-        services.AddSingleton<IFileEditService, FileEditService>();
+        services.AddSingleton<IFileEditService, TerminalHost.Core.Services.FileEditService>();
 
         // Detection Services
         services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
-        services.AddSingleton<IProjectDetectionService, ProjectDetectionService>();
-        services.AddSingleton<IRunUrlDetectionService, RunUrlDetectionService>();
+        services.AddSingleton<IProjectDetectionService, TerminalHost.Core.Services.ProjectDetectionService>();
+        services.AddSingleton<IRunUrlDetectionService, TerminalHost.Core.Services.RunUrlDetectionService>();
 
         // Feature Services
-        services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
+        services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();
         services.AddSingleton<ITaskService, TaskService>();
-        services.AddSingleton<IAiAssistantService, AiAssistantService>();
-        services.AddSingleton<IMarkdownService, MarkdownService>();
+        services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
+        services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<ITimelineService, TimelineService>();
-        services.AddSingleton<IDiffParserService, DiffParserService>();
-        services.AddSingleton<ITestRunnerService, TestRunnerService>();
+        services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
+        services.AddSingleton<ITestRunnerService, TerminalHost.Core.Services.TestRunnerService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();

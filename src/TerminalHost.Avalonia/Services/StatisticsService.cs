@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Domain;
 
 namespace TerminalHost.Services
