@@ -359,7 +359,7 @@
                                     Padding="12,6"
                                     Margin="0,0,8,0"
                                     VerticalAlignment="Center"/>
-                            <Button Content="Γ£ô Approve"
+                            <Button Content="✔ Approve"
                                     Command="{Binding ApproveCommand}"
                                     Background="#2EA043"
                                     Foreground="#FFFFFF"

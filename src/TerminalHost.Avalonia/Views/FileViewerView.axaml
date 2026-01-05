@@ -106,17 +106,17 @@
                             Command="{Binding SaveCommand}"
                             ToolTip.Tip="Save (Ctrl+S)"
                             IsVisible="{Binding CanSave}"/>
-                    <Button Content="Γƒ│"
+                    <Button Content="↻"
                             Classes="ViewerToolbarButton"
                             Command="{Binding ReloadCommand}"
                             ToolTip.Tip="Reload"/>
-                    <Button Content="Γºë"
+                    <Button Content="⧉"
                             Classes="ViewerToolbarButton"
                             Command="{Binding DetachCommand}"
                             ToolTip.Tip="Pop Out"
                             IsVisible="{Binding !IsDetached}"/>
                     <!-- Hide close button in detached window mode (window has its own close) -->
-                    <Button Content="Γ£ò"
+                    <Button Content="✕"
                             Classes="ViewerToolbarButton"
                             Command="{Binding CloseCommand}"
                             ToolTip.Tip="Close"

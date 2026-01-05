@@ -249,11 +249,11 @@ public partial class MarkdownViewer : UserControl
                 string marker;
                 if (taskListInfo.HasValue)
                 {
-                    marker = taskListInfo.Value ? "Γÿæ" : "ΓÿÉ";
+                    marker = taskListInfo.Value ? "☑" : "☐";
                 }
                 else
                 {
-                    marker = list.IsOrdered ? $"{index++}." : "ΓÇó";
+                    marker = list.IsOrdered ? $"{index++}." : "•";
                 }
 
                 itemPanel.Children.Add(new TextBlock

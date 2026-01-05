@@ -322,7 +322,7 @@ public partial class SearchAcrossFilesViewModel : ObservableObject
 
         if (_fileSystem.FileExists(SelectedResult.FilePath))
         {
-            _processService.Start("explorer.exe", $"/select,\"{SelectedResult.FilePath}\"");
+            _processService.RevealInFolder(SelectedResult.FilePath);
         }
     }
 

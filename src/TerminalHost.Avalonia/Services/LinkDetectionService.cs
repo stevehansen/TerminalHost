@@ -248,8 +248,8 @@ internal sealed class LinkDetectionService(IProfileRegistry profileRegistry, IFi
                 }
                 else if (_fileSystem.DirectoryExists(link))
                 {
-                    // Open folder in explorer
-                    _processService.Start("explorer.exe", link);
+                    // Open folder in file manager
+                    _processService.OpenFolder(link);
                     return;
                 }
             }

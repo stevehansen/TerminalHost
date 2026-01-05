@@ -23,10 +23,24 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         public string Path { get; set; } = "";
         public string DisplayName => System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
+        public string DisplayPath => Path.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
+            ? "~" + Path[Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Length..]
+            : Path;
         public string GitBranch { get; set; } = "";
         public DateTime LastOpened { get; set; } = DateTime.UtcNow;
+        public string RelativeLastOpened => GetRelativeTime(LastOpened);
         public bool IsPlayground { get; set; }
         public static WorkspaceItem FromPath(string path) => new() { Path = path };
+
+        private static string GetRelativeTime(DateTime dt)
+        {
+            var span = DateTime.UtcNow - dt;
+            if (span.TotalMinutes < 1) return "just now";
+            if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes}m ago";
+            if (span.TotalHours < 24) return $"{(int)span.TotalHours}h ago";
+            if (span.TotalDays < 7) return $"{(int)span.TotalDays}d ago";
+            return dt.ToString("MMM d");
+        }
     }
 
     // Stub worktree class for compilation

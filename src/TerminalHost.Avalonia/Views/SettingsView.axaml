@@ -835,12 +835,12 @@
                                                     Classes="SettingsToolbarButton"
                                                     ToolTip.Tip="Add a new profile"/>
                                             <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
-                                            <Button Content="Γåæ"
+                                            <Button Content="↑"
                                                     Command="{Binding MoveProfileUpCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
                                                     ToolTip.Tip="Move up"/>
-                                            <Button Content="Γåô"
+                                            <Button Content="↓"
                                                     Command="{Binding MoveProfileDownCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
@@ -1043,12 +1043,12 @@
                                                     Classes="SettingsToolbarButton"
                                                     ToolTip.Tip="Reset to default quick commands"/>
                                             <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
-                                            <Button Content="Γåæ"
+                                            <Button Content="↑"
                                                     Command="{Binding MoveQuickCommandUpCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
                                                     ToolTip.Tip="Move up"/>
-                                            <Button Content="Γåô"
+                                            <Button Content="↓"
                                                     Command="{Binding MoveQuickCommandDownCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
@@ -1287,12 +1287,12 @@
                                                     Classes="SettingsToolbarButton"
                                                     ToolTip.Tip="Add a new link pattern"/>
                                             <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
-                                            <Button Content="Γåæ"
+                                            <Button Content="↑"
                                                     Command="{Binding MoveLinkPatternUpCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
                                                     ToolTip.Tip="Move up (higher priority)"/>
-                                            <Button Content="Γåô"
+                                            <Button Content="↓"
                                                     Command="{Binding MoveLinkPatternDownCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
@@ -1532,12 +1532,12 @@
                                                     Classes="SettingsToolbarButton"
                                                     ToolTip.Tip="Reset to default project types"/>
                                             <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="4,2"/>
-                                            <Button Content="Γåæ"
+                                            <Button Content="↑"
                                                     Command="{Binding MoveProjectTypeUpCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
                                                     ToolTip.Tip="Move up"/>
-                                            <Button Content="Γåô"
+                                            <Button Content="↓"
                                                     Command="{Binding MoveProjectTypeDownCommand}"
                                                     Classes="SettingsToolbarButton"
                                                     Width="28"
@@ -1713,7 +1713,7 @@
                         <TextBlock Text="Claude Commands" Classes="SectionHeader"/>
                         <StackPanel Orientation="Horizontal" Classes="SectionDescription">
                             <TextBlock Text="Keyboard shortcuts for Claude Code slash commands. "/>
-                            <Button Content="View documentation ΓåÆ"
+                            <Button Content="View documentation →"
                                     Classes="HyperlinkButton"
                                     Tag="https://code.claude.com/docs/en/slash-commands#custom-slash-commands"
                                     Click="Hyperlink_Click"/>

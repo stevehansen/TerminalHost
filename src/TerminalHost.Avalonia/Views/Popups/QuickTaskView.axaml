@@ -68,7 +68,7 @@
             <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8" CornerRadius="0,0,6,6">
                 <Grid>
                     <TextBlock Grid.Column="0"
-                               Text="Enter to add ΓÇó Shift+Enter to add and start ΓÇó Esc to cancel"
+                               Text="Enter to add • Shift+Enter to add and start • Esc to cancel"
                                Foreground="{StaticResource TextDimmedBrush}"
                                FontSize="{StaticResource FontSizeTiny}"
                                VerticalAlignment="Center"/>

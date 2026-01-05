@@ -1709,15 +1709,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             SelectedRunConfiguration.IsDefault = false;
         }
 
-        // Force collection refresh
-        var index = RunConfigurations.IndexOf(SelectedRunConfiguration);
-        if (index >= 0)
+        // Force full collection refresh to update all IsDefault indicators
+        var configs = RunConfigurations.ToList();
+        var selected = SelectedRunConfiguration;
+        RunConfigurations.Clear();
+        foreach (var config in configs)
         {
-            var config = SelectedRunConfiguration;
-            RunConfigurations.RemoveAt(index);
-            RunConfigurations.Insert(index, config);
-            SelectedRunConfiguration = config;
+            RunConfigurations.Add(config);
         }
+        SelectedRunConfiguration = selected;
 
         // Update the directory settings with the run configurations
         if (CurrentDirectorySettings != null)

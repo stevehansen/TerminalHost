@@ -149,8 +149,8 @@
                         </StackPanel>
                     </Button>
                     <Button Content="📁"
-                            ToolTip.Tip="Open in Explorer (Ctrl+E)"
-                            AutomationProperties.Name="Open in Explorer"
+                            ToolTip.Tip="Open in Finder (⌘E)"
+                            AutomationProperties.Name="Open in Finder"
                             Classes="terminalSwitch"
                             Command="{Binding $parent[Window].DataContext.OpenInExplorerCommand}"
                             Margin="0,0,4,0"/>

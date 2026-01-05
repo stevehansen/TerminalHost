@@ -17,7 +17,7 @@
         CloseCommand="{Binding CloseCommand}">
 
         <controls:DraggablePopup.HeaderRightContent>
-             <Button Content="Γºë"
+             <Button Content="⧉"
                      Classes="TabCloseButton"
                      Command="{Binding DetachCommand}"
                      ToolTip.Tip="Pop out to window"
@@ -35,12 +35,12 @@
                                  IsChecked="{Binding IsPreviewModeSelected, Mode=OneWay}"
                                  Command="{Binding SwitchToPreviewCommand}"
                                  Margin="0,0,4,0"/>
-                    <RadioButton Content="Γ£Å Edit"
+                    <RadioButton Content="✏ Edit"
                                  Classes="PopupModeTabButton"
                                  IsChecked="{Binding IsEditModeSelected, Mode=OneWay}"
                                  Command="{Binding SwitchToEditCommand}"
                                  Margin="0,0,4,0"/>
-                    <RadioButton Content="Γ½Å Side by Side"
+                    <RadioButton Content="↔ Side by Side"
                                  Classes="PopupModeTabButton"
                                  IsChecked="{Binding IsSideBySideModeSelected, Mode=OneWay}"
                                  Command="{Binding SwitchToSideBySideCommand}"
@@ -280,7 +280,7 @@
                         <!-- Shortcuts hint -->
                         <TextBlock Grid.Column="3"
                                    Name="ShortcutsText"
-                                   Text="Ctrl+O preview ΓÇó Ctrl+Shift+E edit ΓÇó Esc close"
+                                   Text="Ctrl+O preview • Ctrl+Shift+E edit • Esc close"
                                    Foreground="#CCFFFFFF"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"/>

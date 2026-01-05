@@ -171,7 +171,7 @@
                                     Command="{Binding CheckoutCommand}"
                                     ToolTip.Tip="Checkout this commit"/>
                         </StackPanel>
-                        <TextBlock Text="ΓîÿΓçº G"
+                        <TextBlock Text="⌘⇧ G"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"/>

@@ -21,19 +21,19 @@
             <MenuItem Header="Git Fetch" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitFetchCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ¼ç" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="↓" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Git Pull (Rebase)" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPullRebaseCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ¼ç" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="↓" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Git Push" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitPushCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ¼å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="↑" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -47,7 +47,7 @@
             <MenuItem Header="Close" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ£ò" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="✕" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -101,7 +101,7 @@
             <Separator/>
             <MenuItem Header="Manage Worktrees..." Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenManageWorktreesCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="ΓÜÖ∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="⚙" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
         </ContextMenu>
@@ -165,7 +165,7 @@
             <StackPanel Spacing="0" HorizontalAlignment="Stretch">
 
                 <!-- Open Projects Section -->
-                <Expander IsExpanded="{Binding IsOpenProjectsExpanded}" Margin="0,0,0,1">
+                <Expander IsExpanded="{Binding IsOpenProjectsExpanded}" Margin="0,0,0,1" HorizontalAlignment="Stretch">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="📁" FontSize="{StaticResource FontSizeSmall}"/>
@@ -184,7 +184,8 @@
                     <ListBox ItemsSource="{Binding MainViewModel.Tabs}"
                              SelectedItem="{Binding MainViewModel.SelectedTab}"
                              Background="Transparent"
-                             BorderThickness="0">
+                             BorderThickness="0"
+                             HorizontalAlignment="Stretch">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="coreInterfaces:ITabViewModel">
                                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
@@ -242,7 +243,8 @@
                 <!-- Git Worktrees Section -->
                 <Expander IsExpanded="{Binding IsWorktreesExpanded}"
                           IsVisible="{Binding HasWorktrees}"
-                          Margin="0,0,0,1">
+                          Margin="0,0,0,1"
+                          HorizontalAlignment="Stretch">
                     <Expander.Header>
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,4,0">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
@@ -258,7 +260,7 @@
                                            Foreground="{StaticResource TextDimmedBrush}"/>
                             </StackPanel>
                             <Button Grid.Column="2"
-                                    Content="ΓÜÖ"
+                                    Content="⚙"
                                     Command="{Binding OpenManageWorktreesCommand}"
                                     Background="Transparent"
                                     Foreground="{StaticResource TextSecondaryBrush}"
@@ -281,7 +283,8 @@
 
                     <ListBox ItemsSource="{Binding Worktrees}"
                              Background="Transparent"
-                             BorderThickness="0">
+                             BorderThickness="0"
+                             HorizontalAlignment="Stretch">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="coreDomain:WorktreeInfo">
                                 <Grid ColumnDefinitions="Auto,*" Margin="0,2"
@@ -316,7 +319,7 @@
                 </Expander>
 
                 <!-- Recent Workspaces Section -->
-                <Expander IsExpanded="{Binding IsRecentExpanded}" Margin="0,0,0,1">
+                <Expander IsExpanded="{Binding IsRecentExpanded}" Margin="0,0,0,1" HorizontalAlignment="Stretch">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="🔐" FontSize="{StaticResource FontSizeSmall}"/>
@@ -334,9 +337,11 @@
 
                     <ListBox ItemsSource="{Binding RecentWorkspaces}"
                              Background="Transparent"
-                             BorderThickness="0">
+                             BorderThickness="0"
+                             HorizontalAlignment="Stretch">
                         <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="coreDomain:Workspace">
+                            <!-- Using runtime binding (no x:DataType) for nested WorkspaceItem class -->
+                            <DataTemplate>
                                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
                                       ContextMenu="{StaticResource WorkspaceContextMenu}"
                                       DoubleTapped="Workspace_DoubleTapped">

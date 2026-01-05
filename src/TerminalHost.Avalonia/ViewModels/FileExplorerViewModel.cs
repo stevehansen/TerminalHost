@@ -95,12 +95,55 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         await RefreshGitStatusAsync();
     }
 
-    private Task RefreshIgnoredFilesAsync()
+    private async Task RefreshIgnoredFilesAsync()
     {
-        // GetIgnoredFilesAsync is not available in Core interface
-        // For now, just reset to empty - gitignore filtering will be disabled
         _ignoredFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return Task.CompletedTask;
+
+        if (string.IsNullOrEmpty(RootPath) || !_fileSystem.DirectoryExists(RootPath))
+            return;
+
+        try
+        {
+            // Use git status --ignored --porcelain to get all ignored files AND directories
+            // Output format: !! path/to/ignored/item
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "status --ignored --porcelain",
+                WorkingDirectory = RootPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(psi);
+            if (process == null) return;
+
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0) return;
+
+            // Parse the output - ignored files start with "!! "
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                // Ignored files start with "!! "
+                if (!line.StartsWith("!! ")) continue;
+
+                var relativePath = line.Substring(3).Trim().TrimEnd('/');
+                if (string.IsNullOrEmpty(relativePath)) continue;
+
+                // Convert to full path
+                var fullPath = Path.GetFullPath(Path.Combine(RootPath, relativePath));
+                _ignoredFiles.Add(fullPath);
+            }
+        }
+        catch
+        {
+            // Silently fail - gitignore filtering will just be disabled
+        }
     }
 
     /// <summary>
@@ -111,18 +154,20 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         if (!HideGitIgnoredFiles || _ignoredFiles.Count == 0)
             return false;
 
+        // Normalize to full path for comparison
+        var normalizedPath = Path.GetFullPath(fullPath);
+
         // Check if the exact path is ignored
-        if (_ignoredFiles.Contains(fullPath))
+        if (_ignoredFiles.Contains(normalizedPath))
             return true;
 
-        // Check if any parent directory is ignored (for nested files)
-        foreach (var ignoredPath in _ignoredFiles)
+        // Check if any parent directory is ignored
+        var parent = Path.GetDirectoryName(normalizedPath);
+        while (!string.IsNullOrEmpty(parent) && parent.Length >= RootPath.Length)
         {
-            if (fullPath.StartsWith(ignoredPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-                fullPath.StartsWith(ignoredPath + "/", StringComparison.OrdinalIgnoreCase))
-            {
+            if (_ignoredFiles.Contains(parent))
                 return true;
-            }
+            parent = Path.GetDirectoryName(parent);
         }
 
         return false;
@@ -721,16 +766,16 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         {
             if (SelectedNode.IsDirectory)
             {
-                _processService.Start("explorer.exe", SelectedNode.FullPath);
+                _processService.OpenFolder(SelectedNode.FullPath);
             }
             else
             {
-                _processService.Start("explorer.exe", $"/select,\"{SelectedNode.FullPath}\"");
+                _processService.RevealInFolder(SelectedNode.FullPath);
             }
         }
         catch
         {
-            // Ignore explorer errors
+            // Ignore file manager errors
         }
     }
 

@@ -33,7 +33,7 @@
                             FontSize="{StaticResource FontSizeLarge}"
                             Padding="8,2"/>
                     <Button DockPanel.Dock="Right"
-                            Content="Γ£Å∩╕Å Edit"
+                            Content="✏ Edit"
                             Classes="TerminalSwitchButton"
                             Command="{Binding OpenInEditorCommand}"
                             ToolTip.Tip="Open file in editor"

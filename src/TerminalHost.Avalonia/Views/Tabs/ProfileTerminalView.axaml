@@ -37,8 +37,8 @@
 
                     <!-- Quick Actions -->
                     <Button Content="📁"
-                            ToolTip.Tip="Open Working Directory in Explorer"
-                            AutomationProperties.Name="Open in Explorer"
+                            ToolTip.Tip="Open Working Directory in Finder"
+                            AutomationProperties.Name="Open in Finder"
                             Classes="TerminalSwitch"
                             Click="OpenInExplorer_Click"
                             Margin="0,0,4,0"/>

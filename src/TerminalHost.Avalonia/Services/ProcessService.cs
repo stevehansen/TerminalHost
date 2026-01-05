@@ -47,4 +47,32 @@ public class ProcessService : IProcessService
             Process.Start("xdg-open", path);
         }
     }
+
+    /// <summary>
+    /// Opens the folder containing the specified file and selects it.
+    /// </summary>
+    public void RevealInFolder(string filePath)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            // -R flag reveals the file in Finder
+            Process.Start("open", $"-R \"{filePath}\"");
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"")
+            {
+                UseShellExecute = true
+            });
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            // Linux doesn't have a standard way to select, just open the folder
+            var directory = System.IO.Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Process.Start("xdg-open", directory);
+            }
+        }
+    }
 }

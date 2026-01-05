@@ -67,7 +67,7 @@
 
             <!-- Footer -->
             <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8" CornerRadius="0,0,6,6">
-                <TextBlock Text="Enter to save ΓÇó Esc to cancel"
+                <TextBlock Text="Enter to save • Esc to cancel"
                            Foreground="{StaticResource TextDimmedBrush}"
                            FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"/>

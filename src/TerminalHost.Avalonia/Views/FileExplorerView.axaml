@@ -24,12 +24,12 @@
             <MenuItem Header="Edit" Command="{Binding EditInViewerCommand}"
                       InputGesture="F4">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ£Å∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="✏" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Open in New Window" Command="{Binding PopOutViewerCommand}">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γºë" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="⧉" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
@@ -50,7 +50,7 @@
                     <TextBlock Text="🚀" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Show in Explorer" Command="{Binding ExploreInExplorerCommand}">
+            <MenuItem Header="Show in Finder" Command="{Binding ExploreInExplorerCommand}">
                 <MenuItem.Icon>
                     <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
@@ -71,7 +71,7 @@
             <MenuItem Header="Rename" Command="{Binding RenameCommand}"
                       InputGesture="F2">
                 <MenuItem.Icon>
-                    <TextBlock Text="Γ£Å∩╕Å" FontSize="{StaticResource FontSizeSmall}"/>
+                    <TextBlock Text="✏" FontSize="{StaticResource FontSizeSmall}"/>
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Delete" Command="{Binding DeleteCommand}"
@@ -136,56 +136,9 @@
 
         <!-- Header -->
         <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-            <DockPanel>
-                <!-- Right buttons -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <ToggleButton IsChecked="{Binding HideGitIgnoredFiles}"
-                                  Content="💻"
-                                  ToolTip.Tip="Hide gitignored files"
-                                  Background="Transparent"
-                                  Foreground="{StaticResource TextSecondaryBrush}"
-                                  BorderThickness="0"
-                                  Padding="6,2"
-                                  Cursor="Hand"
-                                  CornerRadius="3"
-                                  Margin="0,0,4,0"/>
-                    <ToggleButton IsChecked="{Binding ShowHiddenFiles}"
-                                  Content="👁"
-                                  ToolTip.Tip="Show hidden files"
-                                  Classes="HiddenFilesToggle"
-                                  Margin="0,0,4,0"/>
-                    <Button Content="📁+"
-                            Command="{Binding NewFileCommand}"
-                            Classes="TerminalSwitchButton"
-                            ToolTip.Tip="New File"
-                            Padding="6,2"
-                            Margin="0,0,4,0"/>
-                    <Button Content="📁+"
-                            Command="{Binding NewFolderCommand}"
-                            Classes="TerminalSwitchButton"
-                            ToolTip.Tip="New Folder"
-                            Padding="6,2"
-                            Margin="0,0,4,0"/>
-                    <Grid>
-                        <Button Content="Γƒ│"
-                                Command="{Binding RefreshCommand}"
-                                Classes="TerminalSwitchButton"
-                                ToolTip.Tip="Refresh"
-                                Padding="6,2"/>
-                        <!-- Pending changes indicator dot (yellow dot when files changed) -->
-                        <Ellipse Width="6" Height="6"
-                                 Fill="{StaticResource SyntaxYellowBrush}"
-                                 HorizontalAlignment="Right"
-                                 VerticalAlignment="Top"
-                                 Margin="0,-2,-2,0"
-                                 IsVisible="{Binding HasPendingChanges}"
-                                 ToolTip.Tip="{Binding LastChangedFile, StringFormat='Changed: {0}'}"
-                                 IsHitTestVisible="True"/>
-                    </Grid>
-                </StackPanel>
-
+            <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Title -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="📁"
                                Foreground="{StaticResource SyntaxCyanBrush}"
                                FontSize="{StaticResource FontSizeCode}"
@@ -197,7 +150,72 @@
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-            </DockPanel>
+
+                <!-- Right buttons - all use Border with fixed height for consistency -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ToggleButton IsChecked="{Binding HideGitIgnoredFiles}"
+                                  ToolTip.Tip="Hide gitignored files"
+                                  Classes="TerminalSwitchButton"
+                                  Margin="0,0,4,0"
+                                  Padding="6,0">
+                        <Border Height="20">
+                            <TextBlock Text="⊘" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ToggleButton>
+                    <ToggleButton IsChecked="{Binding ShowHiddenFiles}"
+                                  ToolTip.Tip="Show hidden files"
+                                  Classes="TerminalSwitchButton"
+                                  Margin="0,0,4,0"
+                                  Padding="6,0">
+                        <Border Height="20">
+                            <TextBlock Text="◉" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ToggleButton>
+                    <Button Command="{Binding NewFileCommand}"
+                            Classes="TerminalSwitchButton"
+                            ToolTip.Tip="New File"
+                            Margin="0,0,4,0"
+                            Padding="6,0">
+                        <Border Height="20">
+                            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="📄" FontSize="{StaticResource FontSizeSmaller}" VerticalAlignment="Center"/>
+                                <TextBlock Text="+" FontSize="{StaticResource FontSizeSmall}" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    <Button Command="{Binding NewFolderCommand}"
+                            Classes="TerminalSwitchButton"
+                            ToolTip.Tip="New Folder"
+                            Margin="0,0,4,0"
+                            Padding="6,0">
+                        <Border Height="20">
+                            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="📁" FontSize="{StaticResource FontSizeSmaller}" VerticalAlignment="Center"/>
+                                <TextBlock Text="+" FontSize="{StaticResource FontSizeSmall}" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    <Grid>
+                        <Button Command="{Binding RefreshCommand}"
+                                Classes="TerminalSwitchButton"
+                                ToolTip.Tip="Refresh"
+                                Padding="6,0">
+                            <Border Height="20">
+                                <TextBlock Text="↻" FontSize="{StaticResource FontSizeSmall}" VerticalAlignment="Center"/>
+                            </Border>
+                        </Button>
+                        <!-- Pending changes indicator dot (yellow dot when files changed) -->
+                        <Ellipse Width="6" Height="6"
+                                 Fill="{StaticResource SyntaxYellowBrush}"
+                                 HorizontalAlignment="Right"
+                                 VerticalAlignment="Top"
+                                 Margin="0,-2,-2,0"
+                                 IsVisible="{Binding HasPendingChanges}"
+                                 ToolTip.Tip="{Binding LastChangedFile, StringFormat='Changed: {0}'}"
+                                 IsHitTestVisible="True"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- TreeView -->
@@ -218,7 +236,7 @@
                           ToolTip.Tip="{Binding FullPath}">
                         <StackPanel Orientation="Horizontal">
                             <!-- Loading indicator -->
-                            <TextBlock Text="ΓÅ│"
+                            <TextBlock Text="◌"
                                        IsVisible="{Binding IsLoading}"
                                        Foreground="{StaticResource TextDimmedBrush}"
                                        Margin="0,0,4,0"/>

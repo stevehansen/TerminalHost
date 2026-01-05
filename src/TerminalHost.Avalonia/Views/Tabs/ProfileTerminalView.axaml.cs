@@ -31,7 +31,7 @@ public partial class ProfileTerminalView : UserControl
                 }
                 catch
                 {
-                    // Ignore errors opening explorer
+                    // Ignore errors opening Finder
                 }
             }
         }

@@ -41,13 +41,13 @@
                                 FontSize="{StaticResource FontSizeLarge}"
                                 Padding="8,2"/>
                         <Button DockPanel.Dock="Right"
-                                Content="Γƒ│ Pull"
+                                Content="↻ Pull"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding PullCommand}"
                                 ToolTip.Tip="Pull current branch"
                                 Margin="0,0,8,0"/>
                         <Button DockPanel.Dock="Right"
-                                Content="Γåô Fetch"
+                                Content="↓ Fetch"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding FetchAllCommand}"
                                 ToolTip.Tip="Fetch all remotes"
@@ -166,7 +166,7 @@
                                     Command="{Binding DeleteBranchCommand}"
                                     ToolTip.Tip="Delete selected branch"
                                     Margin="0,0,4,0"/>
-                            <Button Content="Γ£ô Switch"
+                            <Button Content="✔ Switch"
                                     Classes="TerminalSwitchButton"
                                     Command="{Binding CheckoutBranchCommand}"
                                     ToolTip.Tip="Switch to selected branch"/>

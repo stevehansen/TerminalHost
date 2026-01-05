@@ -938,8 +938,10 @@ public partial class MainViewModel : ObservableObject
             UpdateRecentFolders(workingDirectory);
 
             // Track workspace for sidebar
-            // TrackWorkspace method not in Core interface - stubbed
-            // TODO: Add workspace tracking to Core
+            if (SidebarViewModel != null)
+            {
+                _ = SidebarViewModel.TrackWorkspaceOpenedAsync(workingDirectory);
+            }
 
             // Fetch git status for the new tab
             _ = RefreshTabGitStatusAsync(tabViewModel);
@@ -1517,8 +1519,32 @@ public partial class MainViewModel : ObservableObject
             tab.RefreshAvailableAiAssistants(enabledAssistants);
         }
 
+        // Refresh run configurations for all terminal tabs
+        RefreshAllRunConfigurations();
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshAllRunConfigurations()
+    {
+        var config = _configService.Load();
+
+        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        {
+            var workingDirectory = tab.WorkingDirectory;
+            var dirKey = workingDirectory.ToLowerInvariant();
+
+            // Get directory settings for this tab
+            DirectorySettings? dirSettings = null;
+            if (config.DirectorySettings.TryGetValue(dirKey, out var settings))
+            {
+                dirSettings = settings;
+            }
+
+            // Reinitialize run configurations
+            InitializeRunConfigurations(tab, workingDirectory, dirSettings);
+        }
     }
 
     /// <summary>
@@ -1592,7 +1618,7 @@ public partial class MainViewModel : ObservableObject
         var folder = terminalTab.Pair.WorkingDirectory;
         if (_fileSystem.DirectoryExists(folder))
         {
-            _processService.Start("explorer.exe", folder);
+            _processService.OpenFolder(folder);
         }
     }
 
@@ -1815,9 +1841,9 @@ public partial class MainViewModel : ObservableObject
             },
             new() {
                 Id = "open-explorer",
-                Name = "Open in Explorer",
-                Description = "Open folder in file explorer",
-                Shortcut = "Ctrl+E",
+                Name = "Open in Finder",
+                Description = "Open folder in Finder",
+                Shortcut = "⌘E",
                 Icon = "📂",
                 Category = "File",
                 Execute = () => OpenInExplorerCommand.Execute(null),

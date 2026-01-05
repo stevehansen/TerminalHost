@@ -238,13 +238,13 @@ public partial class GitFilesViewModel : ObservableObject
         {
             if (_fileSystem.FileExists(fullPath))
             {
-                // Open explorer and select the file
-                _processService.Start("explorer.exe", $"/select,\"{fullPath}\"");
+                // Reveal the file in the file manager
+                _processService.RevealInFolder(fullPath);
             }
             else
             {
-                // Open folder in explorer
-                _processService.Start("explorer.exe", directory!);
+                // Open folder in file manager
+                _processService.OpenFolder(directory!);
             }
         }
     }

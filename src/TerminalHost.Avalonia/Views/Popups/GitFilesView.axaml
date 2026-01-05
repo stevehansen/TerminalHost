@@ -56,7 +56,7 @@
                                     <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                         <DockPanel>
                                             <Button DockPanel.Dock="Right"
-                                                    Content="ΓêÆ"
+                                                    Content="↑"
                                                     Classes="TerminalSwitchButton"
                                                     Command="{Binding UnstageAllCommand}"
                                                     ToolTip.Tip="Unstage all"
@@ -122,7 +122,7 @@
 
                                                         <!-- Unstage button -->
                                                         <Button Grid.Column="2" Grid.RowSpan="2"
-                                                                Content="ΓêÆ"
+                                                                Content="↑"
                                                                 Classes="TerminalSwitchButton"
                                                                 Command="{Binding $parent[UserControl].((vm:GitFilesViewModel)DataContext).UnstageFileCommand}"
                                                                 CommandParameter="{Binding}"
@@ -225,7 +225,7 @@
                                                                     MinWidth="22"
                                                                     Padding="4,2"
                                                                     Margin="0,0,2,0"/>
-                                                            <Button Content="Γå⌐"
+                                                            <Button Content="→"
                                                                     Classes="TerminalSwitchButton"
                                                                     Command="{Binding $parent[UserControl].((vm:GitFilesViewModel)DataContext).DiscardChangesCommand}"
                                                                     CommandParameter="{Binding}"
@@ -376,7 +376,7 @@
                                                 Command="{Binding PreviewFileCommand}"
                                                 ToolTip.Tip="Open file preview"
                                                 Margin="0,0,4,0"/>
-                                        <Button Content="Γ£Å∩╕Å Edit"
+                                        <Button Content="✏ Edit"
                                                 Classes="TerminalSwitchButton"
                                                 Command="{Binding EditFileCommand}"
                                                 ToolTip.Tip="Open file in editor"
