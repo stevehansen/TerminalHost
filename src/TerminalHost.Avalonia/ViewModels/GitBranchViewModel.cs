@@ -233,7 +233,7 @@ public partial class GitBranchViewModel : ObservableObject
             if (result.Success)
             {
                 toast.Complete($"Switched to {branchToCheckout.ShortName}");
-                IsOpen = false;
+                await RefreshGitBranchesAsync();
                 await RefreshTerminalGitStatusAsync();
             }
             else
