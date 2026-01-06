@@ -252,11 +252,11 @@
                         </ToggleButton.Styles>
                     </ToggleButton>
 
-                    <!-- Toggle Finder/Explorer Visibility -->
+                    <!-- Toggle Explorer Visibility -->
                     <ToggleButton IsChecked="{Binding IsExplorerVisible}"
                                   Content="📂"
-                                  ToolTip.Tip="Finder (⌘⇧ F)"
-                                  AutomationProperties.Name="Toggle Finder"
+                                  ToolTip.Tip="Explorer (⌘⇧ F)"
+                                  AutomationProperties.Name="Toggle Explorer"
                                   Margin="0,0,8,0">
                         <ToggleButton.Styles>
                             <Style Selector="ToggleButton">
