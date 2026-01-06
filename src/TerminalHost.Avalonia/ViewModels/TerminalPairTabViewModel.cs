@@ -926,10 +926,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <param name="linkDetectionService">The link detection service to use.</param>
     public void UpdateDetectedLinks(ILinkDetectionService linkDetectionService)
     {
-        // Get recent output from both terminals
+        // Get recent output from all terminals (including run terminal if present)
         var customOutput = Pair.CustomTerminal.GetRecentOutput(10000);
         var shellOutput = Pair.ShellTerminal.GetRecentOutput(10000);
-        var combinedOutput = customOutput + "\n" + shellOutput;
+        var runOutput = Pair.RunTerminal?.GetRecentOutput(10000) ?? string.Empty;
+        var combinedOutput = customOutput + "\n" + shellOutput + "\n" + runOutput;
 
         // Detect links from current buffer
         var newLinks = linkDetectionService.DetectAllLinks(combinedOutput, Pair.WorkingDirectory, MaxCachedLinks);
