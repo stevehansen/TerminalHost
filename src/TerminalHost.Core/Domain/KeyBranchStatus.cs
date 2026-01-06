@@ -1,4 +1,4 @@
-namespace TerminalHost.Domain;
+namespace TerminalHost.Core.Domain;
 
 /// <summary>
 /// Represents the status of the current branch relative to a key branch (e.g., development, production).

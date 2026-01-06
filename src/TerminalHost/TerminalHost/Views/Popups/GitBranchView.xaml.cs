@@ -72,6 +72,39 @@ public partial class GitBranchView : UserControl
             viewModel.CloseCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.Key == Key.Delete)
+        {
+            // Delete selected branch
+            viewModel.DeleteBranchCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            // Fetch all remotes (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.FetchAllCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.P && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            // Pull current branch (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.PullCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            // Compare with current branch (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.CompareWithSelectedBranchCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
     }
 
     private void GitBranchList_MouseDoubleClick(object sender, MouseButtonEventArgs e)

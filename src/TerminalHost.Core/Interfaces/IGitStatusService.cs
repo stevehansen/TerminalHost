@@ -90,4 +90,13 @@ public interface IGitStatusService
     /// <param name="compareTo">The branch to compare against (typically a key branch).</param>
     /// <returns>Tuple of (ahead count, behind count) where ahead = commits in branch not in compareTo.</returns>
     Task<(int Ahead, int Behind)> GetAheadBehindAsync(string workingDirectory, string branch, string compareTo);
+
+    /// <summary>
+    /// Moves a local branch pointer to a target reference without checkout.
+    /// Uses 'git branch -f {branchName} {targetRef}'.
+    /// </summary>
+    /// <param name="workingDirectory">The repository path.</param>
+    /// <param name="branchName">The branch to update (must not be the current branch).</param>
+    /// <param name="targetRef">The commit/branch to point to.</param>
+    Task<GitOperationResult> UpdateBranchPointerAsync(string workingDirectory, string branchName, string targetRef);
 }

@@ -89,13 +89,23 @@
 
                                 <!-- Action buttons -->
                                 <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="FF"
-                                            ToolTip="Fast-forward current branch to this"
+                                    <Button Content="↓ Pull"
+                                            ToolTip="Fast-forward current branch to this (pull changes from this branch)"
                                             Style="{StaticResource TerminalSwitchButton}"
                                             Command="{Binding DataContext.FastForwardToKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
                                             Visibility="{Binding CanFastForward, Converter={StaticResource BoolToVisibilityConverter}}"
-                                            Padding="6,2"
+                                            Padding="10,4"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Margin="0,0,4,0"/>
+                                    <Button Content="↑ Push"
+                                            ToolTip="Fast-forward this branch to current (push changes to this branch)"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.FastForwardKeyBranchToCurrentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanFastForwardKeyToCurrent, Converter={StaticResource BoolToVisibilityConverter}}"
+                                            Foreground="{StaticResource SyntaxGreenBrush}"
+                                            Padding="10,4"
                                             FontSize="{StaticResource FontSizeTiny}"
                                             Margin="0,0,4,0"/>
                                     <Button Content="Reset"
@@ -104,7 +114,7 @@
                                             Command="{Binding DataContext.ResetToKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
                                             Foreground="{StaticResource AccentOrangeBrush}"
-                                            Padding="6,2"
+                                            Padding="10,4"
                                             FontSize="{StaticResource FontSizeTiny}"
                                             Margin="0,0,4,0"/>
                                     <Button Content="Compare"
@@ -112,7 +122,7 @@
                                             Style="{StaticResource TerminalSwitchButton}"
                                             Command="{Binding DataContext.CompareWithKeyBranchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
-                                            Padding="6,2"
+                                            Padding="10,4"
                                             FontSize="{StaticResource FontSizeTiny}"/>
                                 </StackPanel>
                             </Grid>
@@ -145,6 +155,10 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid Margin="8,4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="20"/>
                             <ColumnDefinition Width="*"/>
@@ -153,7 +167,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Current branch indicator -->
-                        <TextBlock Grid.Column="0"
+                        <TextBlock Grid.Row="0" Grid.Column="0"
                                    Text="{Binding Icon}"
                                    Foreground="{Binding StatusColor}"
                                    FontSize="{StaticResource FontSizeSmall}"
@@ -161,7 +175,7 @@
                                    VerticalAlignment="Center"/>
 
                         <!-- Branch name -->
-                        <TextBlock Grid.Column="1"
+                        <TextBlock Grid.Row="0" Grid.Column="1"
                                    Text="{Binding DisplayName}"
                                    Foreground="{Binding StatusColor}"
                                    FontSize="{StaticResource FontSizeSmall}"
@@ -169,7 +183,7 @@
                                    TextTrimming="CharacterEllipsis"/>
 
                         <!-- Issue number -->
-                        <TextBlock Grid.Column="2"
+                        <TextBlock Grid.Row="0" Grid.Column="2"
                                    Text="{Binding IssueNumber}"
                                    Foreground="{StaticResource SyntaxBlueBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
@@ -178,13 +192,23 @@
                                    Visibility="{Binding IssueNumber, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                         <!-- Ahead/Behind status -->
-                        <TextBlock Grid.Column="3"
+                        <TextBlock Grid.Row="0" Grid.Column="3"
                                    Text="{Binding StatusDisplay}"
                                    Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"
                                    Margin="8,0,0,0"
                                    Visibility="{Binding StatusDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <!-- Last commit info (second row) -->
+                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                                   Text="{Binding LastCommitDisplay}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,0,0"
+                                   Visibility="{Binding LastCommitDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

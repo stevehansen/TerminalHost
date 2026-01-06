@@ -13,6 +13,12 @@ public partial class GitBranch
     public int? AheadCount { get; set; }
     public int? BehindCount { get; set; }
 
+    // Last commit info
+    public string? LastCommitHash { get; set; }
+    public string? LastCommitMessage { get; set; }
+    public string? LastCommitRelativeDate { get; set; }
+    public DateTimeOffset? LastCommitDate { get; set; }
+
     // Display helpers
     public string DisplayName => IsRemote ? Name : ShortName;
 
@@ -81,6 +87,23 @@ public partial class GitBranch
     }
 
     public string StatusColor => IsCurrent ? "#4EC9B0" : (IsRemote ? "#808080" : "#CCCCCC");
+
+    /// <summary>
+    /// Display string for last commit info (e.g., "fix: button styling • 2 hours ago")
+    /// </summary>
+    public string? LastCommitDisplay
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(LastCommitMessage))
+                return null;
+
+            if (string.IsNullOrEmpty(LastCommitRelativeDate))
+                return LastCommitMessage;
+
+            return $"{LastCommitMessage} • {LastCommitRelativeDate}";
+        }
+    }
 
     public string Icon => IsCurrent ? "●" : (IsRemote ? "○" : "○");
 

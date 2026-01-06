@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using TerminalHost.Core.Domain;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views.Popups;
@@ -79,6 +80,39 @@ public partial class GitBranchView : UserControl
         {
             viewModel.CloseCommand.Execute(null);
             e.Handled = true;
+        }
+        else if (e.Key == Key.Delete)
+        {
+            // Delete selected branch
+            viewModel.DeleteBranchCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F && e.KeyModifiers == KeyModifiers.None)
+        {
+            // Fetch all remotes (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.FetchAllCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.P && e.KeyModifiers == KeyModifiers.None)
+        {
+            // Pull current branch (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.PullCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.C && e.KeyModifiers == KeyModifiers.None)
+        {
+            // Compare with current branch (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.CompareWithSelectedBranchCommand.Execute(null);
+                e.Handled = true;
+            }
         }
     }
 

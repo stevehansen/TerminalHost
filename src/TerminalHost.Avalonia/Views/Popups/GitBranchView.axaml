@@ -17,14 +17,15 @@
                 BorderThickness="1"
                 CornerRadius="6"
                 Padding="0"
-                MinWidth="400"
-                MaxWidth="550"
-                MaxHeight="500"
+                MinWidth="500"
+                MaxWidth="650"
+                MaxHeight="600"
                 Width="{Binding Width, Mode=TwoWay}"
                 Height="{Binding Height, Mode=TwoWay}"
                 BoxShadow="0 5 20 0 #80000000">
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
@@ -44,13 +45,13 @@
                                 Content="↻ Pull"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding PullCommand}"
-                                ToolTip.Tip="Pull current branch"
+                                ToolTip.Tip="Pull current branch (P)"
                                 Margin="0,0,8,0"/>
                         <Button DockPanel.Dock="Right"
                                 Content="↓ Fetch"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding FetchAllCommand}"
-                                ToolTip.Tip="Fetch all remotes"
+                                ToolTip.Tip="Fetch all remotes (F)"
                                 Margin="0,0,4,0"/>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌿" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -63,10 +64,114 @@
                     </DockPanel>
                 </Border>
 
+                <!-- Key Branches Section -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8"
+                        IsVisible="{Binding HasKeyBranches}">
+                    <StackPanel>
+                        <!-- Current branch header -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Current:"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding CurrentBranch.ShortName}"
+                                       Foreground="{StaticResource SyntaxGreenBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Key branch comparisons -->
+                        <ItemsControl ItemsSource="{Binding KeyBranchStatuses}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="domain:KeyBranchStatus">
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- "vs" label -->
+                                        <TextBlock Grid.Column="0"
+                                                   Text="vs"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+
+                                        <!-- Key branch name -->
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Branch.ShortName}"
+                                                   Foreground="{StaticResource SyntaxCyanBrush}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,12,0"/>
+
+                                        <!-- Status display -->
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding StatusDisplay}"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="{StaticResource FontSizeTiny}">
+                                            <TextBlock.Styles>
+                                                <Style Selector="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                </Style>
+                                            </TextBlock.Styles>
+                                        </TextBlock>
+
+                                        <!-- Action buttons -->
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Content="↓ Pull"
+                                                    ToolTip.Tip="Fast-forward current branch to this (pull changes from this branch)"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:GitBranchViewModel)DataContext).FastForwardToKeyBranchCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    IsVisible="{Binding CanFastForward}"
+                                                    Padding="10,4"
+                                                    FontSize="{StaticResource FontSizeTiny}"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="↑ Push"
+                                                    ToolTip.Tip="Fast-forward this branch to current (push changes to this branch)"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:GitBranchViewModel)DataContext).FastForwardKeyBranchToCurrentCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    IsVisible="{Binding CanFastForwardKeyToCurrent}"
+                                                    Foreground="{StaticResource SyntaxGreenBrush}"
+                                                    Padding="10,4"
+                                                    FontSize="{StaticResource FontSizeTiny}"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="Reset"
+                                                    ToolTip.Tip="Reset current branch to this (destructive)"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:GitBranchViewModel)DataContext).ResetToKeyBranchCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Foreground="{StaticResource AccentOrangeBrush}"
+                                                    Padding="10,4"
+                                                    FontSize="{StaticResource FontSizeTiny}"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="Compare"
+                                                    ToolTip.Tip="Compare with current branch"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding $parent[ItemsControl].((viewModels:GitBranchViewModel)DataContext).CompareWithKeyBranchCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,4"
+                                                    FontSize="{StaticResource FontSizeTiny}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- Search Box -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
                     <TextBox x:Name="GitBranchSearchBox"
                              Text="{Binding SearchText}"
+                             Watermark="Search branches..."
                              Background="{StaticResource BackgroundMediumBrush}"
                              Foreground="{StaticResource TextPrimaryBrush}"
                              CaretBrush="{StaticResource TextPrimaryBrush}"
@@ -78,16 +183,19 @@
 
                 <!-- Branch List -->
                 <ListBox x:Name="GitBranchList"
-                         Grid.Row="2"
+                         Grid.Row="3"
                          ItemsSource="{Binding Branches}"
                          SelectedItem="{Binding SelectedBranch}"
                          Background="Transparent"
                          BorderThickness="0"
-                         MaxHeight="350"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="domain:GitBranch">
                             <Grid Margin="8,4">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="20"/>
                                     <ColumnDefinition Width="*"/>
@@ -96,7 +204,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Current branch indicator -->
-                                <TextBlock Grid.Column="0"
+                                <TextBlock Grid.Row="0" Grid.Column="0"
                                            Text="{Binding Icon}"
                                            Foreground="{Binding StatusColor}"
                                            FontSize="{StaticResource FontSizeSmall}"
@@ -104,7 +212,7 @@
                                            VerticalAlignment="Center"/>
 
                                 <!-- Branch name -->
-                                <TextBlock Grid.Column="1"
+                                <TextBlock Grid.Row="0" Grid.Column="1"
                                            Text="{Binding DisplayName}"
                                            Foreground="{Binding StatusColor}"
                                            FontSize="{StaticResource FontSizeSmall}"
@@ -112,7 +220,7 @@
                                            TextTrimming="CharacterEllipsis"/>
 
                                 <!-- Issue number (for branches like issues/#123) -->
-                                <TextBlock Grid.Column="2"
+                                <TextBlock Grid.Row="0" Grid.Column="2"
                                            Text="{Binding IssueNumber}"
                                            Foreground="{StaticResource SyntaxBlueBrush}"
                                            FontSize="{StaticResource FontSizeTiny}"
@@ -121,13 +229,23 @@
                                            IsVisible="{Binding IssueNumber, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                                 <!-- Ahead/Behind status -->
-                                <TextBlock Grid.Column="3"
+                                <TextBlock Grid.Row="0" Grid.Column="3"
                                            Text="{Binding StatusDisplay}"
                                            Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="{StaticResource FontSizeTiny}"
                                            VerticalAlignment="Center"
                                            Margin="8,0,0,0"
                                            IsVisible="{Binding StatusDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                <!-- Last commit info (second row) -->
+                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                                           Text="{Binding LastCommitDisplay}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,0"
+                                           IsVisible="{Binding LastCommitDisplay, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -148,7 +266,7 @@
 
                 <!-- Empty state -->
                 <TextBlock x:Name="GitBranchEmptyState"
-                           Grid.Row="2"
+                           Grid.Row="3"
                            Text="{Binding StatusMessage}"
                            Foreground="{StaticResource TextMutedBrush}"
                            FontSize="{StaticResource FontSizeSmall}"
@@ -158,18 +276,23 @@
                            IsVisible="{Binding Branches.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
 
                 <!-- Footer with action buttons -->
-                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Compare"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CompareWithSelectedBranchCommand}"
+                                    ToolTip.Tip="Compare with current branch (C)"
+                                    Margin="0,0,4,0"/>
                             <Button Content="🗑 Delete"
                                     Classes="TerminalSwitchButton"
                                     Command="{Binding DeleteBranchCommand}"
-                                    ToolTip.Tip="Delete selected branch"
+                                    ToolTip.Tip="Delete selected branch (Del)"
                                     Margin="0,0,4,0"/>
                             <Button Content="✔ Switch"
                                     Classes="TerminalSwitchButton"
                                     Command="{Binding CheckoutBranchCommand}"
-                                    ToolTip.Tip="Switch to selected branch"/>
+                                    ToolTip.Tip="Switch to selected branch (Enter)"/>
                         </StackPanel>
                         <Button Content="+ New Branch"
                                 Classes="TerminalSwitchButton"

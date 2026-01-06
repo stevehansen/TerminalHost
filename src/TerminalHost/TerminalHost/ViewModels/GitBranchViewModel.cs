@@ -244,21 +244,26 @@ public partial class GitBranchViewModel : ObservableObject
         if (SelectedBranch == null || SelectedBranch.IsCurrent || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
             return;
 
+        var branchToCheckout = SelectedBranch;
+        using var toast = _toastService.ShowProgress($"Switching to {branchToCheckout.ShortName}...");
+
         IsLoading = true;
         try
         {
             var result = await _gitStatusService.CheckoutBranchAsync(
                 CurrentBranchWorkingDirectory,
-                SelectedBranch.Name,
-                SelectedBranch.IsRemote);
+                branchToCheckout.Name,
+                branchToCheckout.IsRemote);
 
             if (result.Success)
             {
+                toast.Complete($"Switched to {branchToCheckout.ShortName}");
                 IsOpen = false;
                 await RefreshTerminalGitStatusAsync();
             }
             else
             {
+                toast.Fail("Checkout failed");
                 _dialogService.ShowWarning(string.Format("Failed to switch branch:\n{0}", result.Error), "Git Checkout");
             }
         }
@@ -331,6 +336,7 @@ public partial class GitBranchViewModel : ObservableObject
                     "Delete Remote Branch"))
                     return;
 
+                using var toast = _toastService.ShowProgress($"Deleting {branchToDelete.ShortName}...");
                 var remoteName = branchToDelete.RemoteName ?? "origin";
                 var result = await _gitStatusService.DeleteRemoteBranchAsync(
                     CurrentBranchWorkingDirectory,
@@ -339,11 +345,13 @@ public partial class GitBranchViewModel : ObservableObject
 
                 if (result.Success)
                 {
-                    IsOpen = false;
+                    toast.Complete($"Deleted {branchToDelete.ShortName}");
+                    await RefreshGitBranchesAsync();
                     await RefreshTerminalGitStatusAsync();
                 }
                 else
                 {
+                    toast.Fail("Delete failed");
                     _dialogService.ShowWarning(string.Format("Failed to delete remote branch:\n{0}", result.Error), "Git Branch");
                 }
             }
@@ -354,26 +362,32 @@ public partial class GitBranchViewModel : ObservableObject
                     "Delete Branch"))
                     return;
 
+                using var toast = _toastService.ShowProgress($"Deleting {branchToDelete.ShortName}...");
                 var result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, branchToDelete.Name);
 
                 if (!result.Success && result.Error?.Contains("not fully merged") == true)
                 {
+                    toast.Close();
                     if (_dialogService.ShowConfirmation(
                         string.Format("Branch '{0}' is not fully merged.\n\nDo you want to force delete it? This may result in lost commits.", branchToDelete.Name),
                         "Force Delete?"))
                     {
                         result = await _gitStatusService.DeleteBranchAsync(CurrentBranchWorkingDirectory, branchToDelete.Name, force: true);
+                        if (result.Success)
+                        {
+                            _toastService.Show($"Deleted {branchToDelete.ShortName} (force)", ToastType.Success);
+                        }
                     }
                 }
 
                 if (result.Success)
                 {
-                    IsOpen = false;
+                    await RefreshGitBranchesAsync();
                     await RefreshTerminalGitStatusAsync();
                 }
                 else if (result.Error?.Contains("not fully merged") != true)
                 {
-                    _dialogService.ShowWarning(string.Format("Failed to delete branch:\n{0}", result.Error), "Git Branch");
+                    _toastService.Show($"Delete failed: {result.Error}", ToastType.Error);
                 }
             }
         }
@@ -391,6 +405,8 @@ public partial class GitBranchViewModel : ObservableObject
         if (string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
             return;
 
+        using var toast = _toastService.ShowProgress("Fetching all remotes...");
+
         IsLoading = true;
         try
         {
@@ -398,12 +414,13 @@ public partial class GitBranchViewModel : ObservableObject
 
             if (result.Success)
             {
+                toast.Complete("Fetch complete");
                 await RefreshGitBranchesAsync();
                 await RefreshTerminalGitStatusAsync();
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to fetch:\n{0}", result.Error), "Git Fetch");
+                toast.Fail($"Fetch failed: {result.Error}");
             }
         }
         finally
@@ -418,6 +435,8 @@ public partial class GitBranchViewModel : ObservableObject
         if (string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
             return;
 
+        using var toast = _toastService.ShowProgress("Pulling changes...");
+
         IsLoading = true;
         try
         {
@@ -425,13 +444,13 @@ public partial class GitBranchViewModel : ObservableObject
 
             if (result.Success)
             {
+                toast.Complete("Pull complete");
                 await RefreshGitBranchesAsync();
                 await RefreshTerminalGitStatusAsync();
-                IsOpen = false; // Close after successful pull
             }
             else
             {
-                _dialogService.ShowWarning(string.Format("Failed to pull:\n{0}", result.Error), "Git Pull");
+                toast.Fail($"Pull failed: {result.Error}");
             }
         }
         finally
@@ -740,6 +759,60 @@ public partial class GitBranchViewModel : ObservableObject
             CurrentBranchWorkingDirectory,
             CurrentBranch.ShortName,
             keyBranchStatus.Branch.ShortName));
+    }
+
+    /// <summary>
+    /// Fast-forward the key branch to match current branch (push key branch forward).
+    /// This is the inverse of FastForwardToKeyBranch - it updates the key branch to include commits from current.
+    /// </summary>
+    [RelayCommand]
+    private async Task FastForwardKeyBranchToCurrentAsync(KeyBranchStatus keyBranchStatus)
+    {
+        if (keyBranchStatus?.Branch == null || CurrentBranch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        if (!keyBranchStatus.CanFastForwardKeyToCurrent)
+        {
+            _dialogService.ShowWarning(
+                $"Cannot fast-forward {keyBranchStatus.Branch.ShortName} to {CurrentBranch.ShortName}:\n\n" +
+                $"{keyBranchStatus.Branch.ShortName} has {keyBranchStatus.BehindCount} commit(s) not in {CurrentBranch.ShortName}.\n\n" +
+                "The branches have diverged. Use Reset to forcefully update the branch.",
+                "Fast-Forward Not Possible");
+            return;
+        }
+
+        var message = $"Fast-forward '{keyBranchStatus.Branch.ShortName}' to '{CurrentBranch.ShortName}'?\n\n" +
+                      $"This will move {keyBranchStatus.Branch.ShortName} forward by {keyBranchStatus.AheadCount} commit(s) to match {CurrentBranch.ShortName}.";
+
+        if (!_dialogService.ShowConfirmation(message, "Fast-Forward Branch"))
+            return;
+
+        using var toast = _toastService.ShowProgress($"Updating {keyBranchStatus.Branch.ShortName}...");
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UpdateBranchPointerAsync(
+                CurrentBranchWorkingDirectory,
+                keyBranchStatus.Branch.Name,
+                CurrentBranch.Name);
+
+            if (result.Success)
+            {
+                toast.Complete($"{keyBranchStatus.Branch.ShortName} updated to {CurrentBranch.ShortName}");
+                await RefreshGitBranchesAsync();
+                await RefreshTerminalGitStatusAsync();
+            }
+            else
+            {
+                toast.Fail("Update failed");
+                _dialogService.ShowWarning($"Failed to update {keyBranchStatus.Branch.ShortName}: {result.Error}", "Git Branch Update");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     #endregion

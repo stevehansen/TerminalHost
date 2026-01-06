@@ -256,10 +256,10 @@ public sealed class GitStatusService : IGitStatusService
         var currentBranch = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD");
         currentBranch = currentBranch?.Trim();
 
-        // Get all branches with tracking info
-        // Format: refname|HEAD indicator|upstream|track info
+        // Get all branches with tracking info and last commit info
+        // Format: refname|HEAD indicator|upstream|track info|commit hash|relative date|subject
         var output = await _gitRunner.RunGitCommandAsync(workingDirectory,
-            "branch -a --format=\"%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)\" ");
+            "branch -a --format=\"%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)|%(objectname:short)|%(committerdate:relative)|%(subject)\" ");
 
         if (string.IsNullOrEmpty(output))
             return branches;
@@ -274,6 +274,9 @@ public sealed class GitStatusService : IGitStatusService
             var isCurrent = parts[1].Trim() == "*";
             var upstream = parts.Length > 2 ? parts[2].Trim() : null;
             var trackInfo = parts.Length > 3 ? parts[3].Trim() : null;
+            var commitHash = parts.Length > 4 ? parts[4].Trim() : null;
+            var relativeDate = parts.Length > 5 ? parts[5].Trim() : null;
+            var subject = parts.Length > 6 ? string.Join("|", parts.Skip(6)).Trim() : null; // Subject may contain |
 
             // Skip HEAD reference
             if (name == "HEAD" || name.Contains("HEAD detached"))
@@ -337,7 +340,10 @@ public sealed class GitStatusService : IGitStatusService
                 RemoteName = remoteName,
                 TrackingBranch = string.IsNullOrEmpty(upstream) ? null : upstream,
                 AheadCount = ahead,
-                BehindCount = behind
+                BehindCount = behind,
+                LastCommitHash = string.IsNullOrEmpty(commitHash) ? null : commitHash,
+                LastCommitMessage = string.IsNullOrEmpty(subject) ? null : subject,
+                LastCommitRelativeDate = string.IsNullOrEmpty(relativeDate) ? null : relativeDate
             });
         }
 
@@ -1403,6 +1409,15 @@ public sealed class GitStatusService : IGitStatusService
         }
 
         return (ahead, behind);
+    }
+
+    public async Task<GitOperationResult> UpdateBranchPointerAsync(string workingDirectory, string branchName, string targetRef)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory not found" };
+
+        // Use 'git branch -f' to move the branch pointer without checkout
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"branch -f \"{branchName}\" \"{targetRef}\"");
     }
 
     #endregion
