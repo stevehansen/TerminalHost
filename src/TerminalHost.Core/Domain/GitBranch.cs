@@ -12,6 +12,17 @@ public partial class GitBranch
     public string? TrackingBranch { get; set; }  // e.g., "origin/main"
     public int? AheadCount { get; set; }
     public int? BehindCount { get; set; }
+    public bool IsGone { get; set; }  // Tracking branch was deleted on remote
+
+    /// <summary>
+    /// Local branch that has never been pushed (no tracking branch configured)
+    /// </summary>
+    public bool IsLocalOnly => !IsRemote && string.IsNullOrEmpty(TrackingBranch);
+
+    /// <summary>
+    /// Local branch whose remote tracking branch has been deleted (e.g., after squash merge)
+    /// </summary>
+    public bool IsStale => !IsRemote && IsGone;
 
     // Last commit info
     public string? LastCommitHash { get; set; }
@@ -75,14 +86,31 @@ public partial class GitBranch
     {
         get
         {
-            if (AheadCount == null && BehindCount == null)
-                return "";
-
             var parts = new List<string>();
+
+            // Show stale indicator for branches whose remote was deleted
+            if (IsStale) parts.Add("gone");
+
+            // Show local-only indicator (never pushed)
+            if (IsLocalOnly && !IsCurrent) parts.Add("local only");
+
             if (AheadCount > 0) parts.Add($"↑{AheadCount}");
             if (BehindCount > 0) parts.Add($"↓{BehindCount}");
 
             return parts.Count > 0 ? string.Join(" ", parts) : "";
+        }
+    }
+
+    /// <summary>
+    /// Color for the status badge based on branch state
+    /// </summary>
+    public string StatusBadgeColor
+    {
+        get
+        {
+            if (IsStale) return "#E06C75";  // Red for stale/gone
+            if (IsLocalOnly && !IsCurrent) return "#E5C07B";  // Yellow for local-only
+            return "#ABB2BF";  // Default gray
         }
     }
 

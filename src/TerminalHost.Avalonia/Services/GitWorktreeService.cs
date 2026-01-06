@@ -299,6 +299,7 @@ internal sealed class GitWorktreeService : IGitWorktreeService
                     var trackInfo = parts.Length > 2 ? parts[2].Trim() : null;
 
                     int? ahead = null, behind = null;
+                    var isGone = false;
                     if (!string.IsNullOrEmpty(trackInfo))
                     {
                         // Parse [ahead N, behind M] or [ahead N] or [behind M]
@@ -306,6 +307,9 @@ internal sealed class GitWorktreeService : IGitWorktreeService
                         if (match.Success) ahead = int.Parse(match.Groups[1].Value);
                         match = System.Text.RegularExpressions.Regex.Match(trackInfo, @"behind (\d+)");
                         if (match.Success) behind = int.Parse(match.Groups[1].Value);
+
+                        // Check for [gone] status - remote tracking branch was deleted
+                        isGone = trackInfo.Contains("gone", StringComparison.OrdinalIgnoreCase);
                     }
 
                     branches.Add(new GitBranch
@@ -316,7 +320,8 @@ internal sealed class GitWorktreeService : IGitWorktreeService
                         IsRemote = false,
                         TrackingBranch = string.IsNullOrEmpty(tracking) ? null : tracking,
                         AheadCount = ahead,
-                        BehindCount = behind
+                        BehindCount = behind,
+                        IsGone = isGone
                     });
                 }
             }

@@ -322,13 +322,18 @@ public sealed class GitStatusService : IGitStatusService
                 continue;
 
             // Parse ahead/behind from track info like "[ahead 2, behind 1]" or "[ahead 2]"
+            // Also detect "[gone]" when the remote tracking branch has been deleted
             int? ahead = null, behind = null;
+            var isGone = false;
             if (!string.IsNullOrEmpty(trackInfo))
             {
                 var aheadMatch = Regex.Match(trackInfo, @"ahead (\d+)");
                 var behindMatch = Regex.Match(trackInfo, @"behind (\d+)");
                 if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value);
                 if (behindMatch.Success) behind = int.Parse(behindMatch.Groups[1].Value);
+
+                // Check for [gone] status - remote tracking branch was deleted
+                isGone = trackInfo.Contains("gone", StringComparison.OrdinalIgnoreCase);
             }
 
             branches.Add(new GitBranch
@@ -341,6 +346,7 @@ public sealed class GitStatusService : IGitStatusService
                 TrackingBranch = string.IsNullOrEmpty(upstream) ? null : upstream,
                 AheadCount = ahead,
                 BehindCount = behind,
+                IsGone = isGone,
                 LastCommitHash = string.IsNullOrEmpty(commitHash) ? null : commitHash,
                 LastCommitMessage = string.IsNullOrEmpty(subject) ? null : subject,
                 LastCommitRelativeDate = string.IsNullOrEmpty(relativeDate) ? null : relativeDate

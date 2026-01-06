@@ -143,14 +143,15 @@ public class MainViewModelTests
         _mockFileSystem.Setup(fs => fs.DirectoryExists(It.IsAny<string>())).Returns(true);
 
         // Setup ViewModelFactory to return working ViewModels
-        _mockViewModelFactory.Setup(f => f.CreateWorkspaceSidebar()).Returns(() => 
+        _mockViewModelFactory.Setup(f => f.CreateWorkspaceSidebar()).Returns(() =>
             new WorkspaceSidebarViewModel(
                 _mockConfigService.Object,
                 _mockGitWorktreeService.Object,
                 _mockGitStatusService.Object,
                 _mockDialogService.Object,
                 _mockFileSystem.Object,
-                _mockStatisticsService.Object));
+                _mockStatisticsService.Object,
+                _mockToastService.Object));
 
         _mockViewModelFactory.Setup(f => f.CreateFileExplorer(It.IsAny<string>())).Returns((string path) =>
         {
