@@ -9,6 +9,8 @@
   &nbsp;|&nbsp;
   <a href="{{ site.baseurl }}/feature-tour">Feature Tour</a>
   &nbsp;|&nbsp;
+  <a href="{{ site.baseurl }}/features">Features</a>
+  &nbsp;|&nbsp;
   <a href="{{ site.baseurl }}/developer">Developer</a>
   &nbsp;|&nbsp;
   <a href="https://github.com/stevehansen/TerminalHost">GitHub</a>
