@@ -12,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -48,6 +49,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
 
+    // Emoji overlay system - TextBlocks for emoji since DrawingContext doesn't support emoji fallback
+    private readonly List<TextBlock> _emojiOverlays = new();
+    private readonly List<(double x, double y, string emoji, IBrush foreground)> _pendingEmojis = new();
+
     // Cursor blinking
     private bool _cursorVisible = true;
     private DispatcherTimer? _cursorTimer;
@@ -55,7 +60,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Selection state
     private bool _isSelecting;
     private TextPosition? _selectionStart;
-    private TextRange? _selection;
+    private VtNetCore.VirtualTerminal.TextRange? _selection;
 
     // Scroll state
     private int _scrollOffset;
@@ -122,8 +127,8 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public MacTerminalControl()
     {
-        // Use Menlo on macOS
-        _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
+        // Use Cascadia Code NF (Nerd Font with icons built-in) - system or embedded
+        _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
         _fallbackTypeface = new Typeface(new FontFamily("STIX Two Math, Arial, Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
 
         // Get glyph typeface for the primary font to check glyph availability
@@ -514,10 +519,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public override void Render(DrawingContext context)
     {
+        // Clear pending emojis from previous render
+        _pendingEmojis.Clear();
+
         context.FillRectangle(DefaultBackgroundBrush, new Rect(Bounds.Size));
 
         if (_terminalController == null || _viewPort == null)
+        {
+            Dispatcher.UIThread.Post(UpdateEmojiOverlays, DispatcherPriority.Render);
             return;
+        }
 
         var rows = GetVisibleRows();
         var cursorPos = GetCursorPosition();
@@ -552,6 +563,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                     var fontWeight = span.Bold ? FontWeight.Bold : FontWeight.Normal;
                     var typeface = new Typeface(_typeface.FontFamily, fontStyle, fontWeight);
                     var foregroundBrush = GetCachedBrush(foreground);
+
+                    // Scan for emoji (surrogate pairs) in span text and collect them for overlay
+                    var spanX = x;
+                    var text = span.Text;
+                    for (int i = 0; i < text.Length; i++)
+                    {
+                        if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+                        {
+                            var emoji = text.Substring(i, 2);
+                            _pendingEmojis.Add((spanX + i * _charWidth, y, emoji, foregroundBrush));
+                        }
+                    }
 
                     RenderTextWithFallback(context, span.Text, x, y, typeface, foregroundBrush);
 
@@ -602,6 +625,66 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
             context.DrawText(formattedIndicator, new Point(indicatorX, indicatorY));
         }
+
+        // Schedule emoji overlay update after render pass completes
+        // (Can't modify controls during Render - causes InvalidOperationException)
+        Dispatcher.UIThread.Post(UpdateEmojiOverlays, DispatcherPriority.Render);
+    }
+
+    /// <summary>
+    /// Updates TextBlock overlays for emoji rendering.
+    /// TextBlock correctly handles emoji font fallback, while DrawingContext doesn't.
+    /// Must be called after render pass, not during.
+    /// </summary>
+    private void UpdateEmojiOverlays()
+    {
+        // Remove excess overlays if we have fewer emojis now
+        while (_emojiOverlays.Count > _pendingEmojis.Count)
+        {
+            var overlay = _emojiOverlays[^1];
+            _emojiOverlays.RemoveAt(_emojiOverlays.Count - 1);
+            VisualChildren.Remove(overlay);
+            LogicalChildren.Remove(overlay);
+        }
+
+        // Update existing overlays and create new ones as needed
+        for (int i = 0; i < _pendingEmojis.Count; i++)
+        {
+            var (x, y, emoji, foreground) = _pendingEmojis[i];
+
+            TextBlock overlay;
+            if (i < _emojiOverlays.Count)
+            {
+                // Reuse existing overlay
+                overlay = _emojiOverlays[i];
+            }
+            else
+            {
+                // Create new overlay
+                overlay = new TextBlock
+                {
+                    FontSize = _fontSize,
+                    // No FontFamily - let system handle emoji fallback
+                };
+                _emojiOverlays.Add(overlay);
+                VisualChildren.Add(overlay);
+                LogicalChildren.Add(overlay);
+            }
+
+            // Update overlay properties
+            overlay.Text = emoji;
+            overlay.Foreground = foreground;
+
+            // Position the overlay using RenderTransform for absolute positioning
+            overlay.RenderTransform = new TranslateTransform(x, y);
+        }
+
+        // Force layout update for new overlays
+        if (_pendingEmojis.Count > 0)
+        {
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
     }
 
     private Color ParseColor(string? colorString, Color defaultColor)
@@ -647,7 +730,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         "STIX Two Math",      // Mathematical symbols
         "Arial Unicode MS",   // Wide Unicode coverage
         "Apple Symbols",      // macOS symbols
-        "Menlo",              // Primary terminal font (retry in case it has the glyph)
+        "Menlo",              // Fallback terminal font
         "LastResort",         // Ultimate fallback
     };
 
@@ -680,13 +763,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     private static bool NeedsFallbackFont(char c)
     {
-        // Only use fallback for characters that Menlo definitely doesn't have
-        // Most Unicode symbols should render fine with Menlo for consistent metrics
+        // Use fallback for Nerd Font icons and emoji (surrogate pairs)
         if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts icons)
-        if (char.IsHighSurrogate(c)) return true; // Surrogate pairs (emoji and other non-BMP characters)
-        if (char.IsLowSurrogate(c)) return true; // Low surrogates are part of emoji pairs
+        if (char.IsHighSurrogate(c)) return true; // Emoji and other non-BMP characters
+        if (char.IsLowSurrogate(c)) return true;
         return false;
     }
+
 
     private static bool ContainsFallbackCharacters(string text)
     {
@@ -710,12 +793,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         uint codepoint = c;
 
-        // For box-drawing and block element characters, strongly prefer the primary font (Menlo)
-        // as it renders them with correct cell alignment for connected lines.
-        // Note: Braille patterns are NOT included here - they need specialized fonts.
-        bool isBoxDrawingOrBlock = (c >= '\u2500' && c <= '\u257F') || // Box Drawing
-                                   (c >= '\u2580' && c <= '\u259F');   // Block Elements
-        if (isBoxDrawingOrBlock && _primaryGlyphTypeface != null)
+        // Always check primary font first (Cascadia Code NF has Nerd Font glyphs built-in)
+        // This also handles box-drawing and block element characters with correct cell alignment.
+        if (_primaryGlyphTypeface != null)
         {
             try
             {
@@ -758,15 +838,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     {
         if (!ContainsFallbackCharacters(text))
         {
-            // Fast path: no fallback needed, render entire string at once
-            var formattedText = new FormattedText(
+            // Fast path: use TextLayout which has proper font fallback for emoji
+            var textLayout = new TextLayout(
                 text,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
                 primaryTypeface,
                 _fontSize,
-                foregroundBrush);
-            context.DrawText(formattedText, new Point(x, y));
+                foregroundBrush,
+                TextAlignment.Left);
+            textLayout.Draw(context, new Point(x, y));
             return;
         }
 
@@ -785,36 +864,63 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
                 if (currentRunNeedsFallback)
                 {
-                    // Render fallback characters one at a time with the best available font
-                    // This path is mainly for Nerd Font icons (Private Use Area)
-                    foreach (char c in run)
+                    // Render fallback characters with proper handling for surrogate pairs (emoji)
+                    // and single-char icons (Nerd Font Private Use Area)
+                    for (int j = 0; j < run.Length; j++)
                     {
-                        var charTypeface = GetTypefaceForCharacter(c);
-                        var formattedText = new FormattedText(
-                            c.ToString(),
-                            CultureInfo.CurrentCulture,
-                            FlowDirection.LeftToRight,
-                            charTypeface,
-                            _fontSize,
-                            foregroundBrush);
+                        char c = run[j];
 
-                        // Render at the standard position - no centering adjustments
-                        // The Nerd Font glyphs are designed to fit standard terminal cells
-                        context.DrawText(formattedText, new Point(currentX, y));
-                        currentX += _charWidth;
+                        if (char.IsHighSurrogate(c) && j + 1 < run.Length && char.IsLowSurrogate(run[j + 1]))
+                        {
+                            // Surrogate pair (emoji) - collect for TextBlock overlay
+                            // TextBlock renders emoji correctly, DrawingContext doesn't
+                            var emojiStr = run.Substring(j, 2);
+                            j++; // Skip the low surrogate
+
+                            // Add to pending emojis for overlay creation after render
+                            _pendingEmojis.Add((currentX, y, emojiStr, foregroundBrush));
+                            currentX += _charWidth * 2; // Emoji = 2 cells
+                        }
+                        else if (char.IsHighSurrogate(c))
+                        {
+                            // Orphaned high surrogate - look ahead in the NEXT character position
+                            // This handles the case where the pair is split across runs
+                            // Just skip it here and collect it with the span-level detection
+                            currentX += _charWidth;
+                        }
+                        else if (char.IsLowSurrogate(c))
+                        {
+                            // Orphaned low surrogate - skip, it was part of a pair
+                            currentX += _charWidth;
+                        }
+                        else
+                        {
+                            // Single character (Nerd Font icon or other)
+                            var charStr = c.ToString();
+                            var charTypeface = GetTypefaceForCharacter(c);
+
+                            var formattedText = new FormattedText(
+                                charStr,
+                                CultureInfo.CurrentCulture,
+                                FlowDirection.LeftToRight,
+                                charTypeface,
+                                _fontSize,
+                                foregroundBrush);
+                            context.DrawText(formattedText, new Point(currentX, y));
+                            currentX += _charWidth;
+                        }
                     }
                 }
                 else
                 {
-                    // Render normal text run
-                    var formattedText = new FormattedText(
+                    // Render normal text run with TextLayout for proper font fallback
+                    var textLayout = new TextLayout(
                         run,
-                        CultureInfo.CurrentCulture,
-                        FlowDirection.LeftToRight,
                         primaryTypeface,
                         _fontSize,
-                        foregroundBrush);
-                    context.DrawText(formattedText, new Point(currentX, y));
+                        foregroundBrush,
+                        TextAlignment.Left);
+                    textLayout.Draw(context, new Point(currentX, y));
                     currentX += run.Length * _charWidth;
                 }
 
@@ -970,7 +1076,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     private void SetSelection(TextPosition start, TextPosition end)
     {
-        _selection = new TextRange { Start = start, End = end };
+        _selection = new VtNetCore.VirtualTerminal.TextRange { Start = start, End = end };
         InvalidateVisual();
     }
 
@@ -1138,11 +1244,28 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        // Measure all visual children (emoji overlays)
+        foreach (var child in VisualChildren)
+        {
+            if (child is Control control)
+            {
+                control.Measure(availableSize);
+            }
+        }
         return availableSize;
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        // Arrange all visual children (emoji overlays)
+        foreach (var child in VisualChildren)
+        {
+            if (child is Control control)
+            {
+                control.Arrange(new Rect(finalSize));
+            }
+        }
+
         UpdateTerminalSize(finalSize);
         return finalSize;
     }

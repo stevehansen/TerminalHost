@@ -237,8 +237,8 @@
                                 <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
-                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
+                                <Setter Property="Padding" Value="8,6"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="CornerRadius" Value="3"/>
                             </Style>
@@ -252,19 +252,19 @@
                         </ToggleButton.Styles>
                     </ToggleButton>
 
-                    <!-- Toggle Explorer Visibility -->
+                    <!-- Toggle Finder/Explorer Visibility -->
                     <ToggleButton IsChecked="{Binding IsExplorerVisible}"
                                   Content="📂"
-                                  ToolTip.Tip="File Explorer (Ctrl+Shift+F)"
-                                  AutomationProperties.Name="Toggle File Explorer"
+                                  ToolTip.Tip="Finder (⌘⇧ F)"
+                                  AutomationProperties.Name="Toggle Finder"
                                   Margin="0,0,8,0">
                         <ToggleButton.Styles>
                             <Style Selector="ToggleButton">
                                 <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="{DynamicResource FontSizeTiny}"/>
-                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
+                                <Setter Property="Padding" Value="8,6"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="CornerRadius" Value="3"/>
                             </Style>

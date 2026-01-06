@@ -149,8 +149,19 @@ namespace VtNetCore.XTermParser
             return result;
         }
 
+        // Buffer for high surrogate from 4-byte UTF-8 sequences (emoji)
+        private char? _pendingHighSurrogate;
+
         public char ReadUtf8()
         {
+            // If we have a pending high surrogate from a previous 4-byte read, return the low surrogate now
+            if (_pendingHighSurrogate.HasValue)
+            {
+                var lowSurrogate = _pendingHighSurrogate.Value;
+                _pendingHighSurrogate = null;
+                return lowSurrogate;
+            }
+
             int first = PeekAhead(0);
             if ((first & 0x80) == 0x00)
             {
@@ -179,7 +190,7 @@ namespace VtNetCore.XTermParser
                 )
                 {
                     Position += 3;
-                    return (char)(((first & 0x1F) << 12) | ((second & 0x3F) << 6) | (third & 0x3F));
+                    return (char)(((first & 0x0F) << 12) | ((second & 0x3F) << 6) | (third & 0x3F));
                 }
             }
 
@@ -196,7 +207,17 @@ namespace VtNetCore.XTermParser
                 )
                 {
                     Position += 4;
-                    return (char)(((first & 0x1F) << 18) | ((second & 0x3F) << 12) | ((third & 0x3F) << 6) | (fourth & 0x3F));
+                    // 4-byte UTF-8 decodes to codepoints > 0xFFFF, need surrogate pair
+                    int codepoint = ((first & 0x07) << 18) | ((second & 0x3F) << 12) | ((third & 0x3F) << 6) | (fourth & 0x3F);
+
+                    // Convert to surrogate pair
+                    codepoint -= 0x10000;
+                    char highSurrogate = (char)(0xD800 + (codepoint >> 10));
+                    char lowSurrogate = (char)(0xDC00 + (codepoint & 0x3FF));
+
+                    // Store low surrogate to return on next call
+                    _pendingHighSurrogate = lowSurrogate;
+                    return highSurrogate;
                 }
             }
 
