@@ -7,10 +7,17 @@ title: TerminalHost
 
 # TerminalHost
 
-**TerminalHost** (`host.exe`) is a **WPF desktop application** that manages **terminal pairs per project directory**.
-Each project tab contains a **custom command terminal** (Claude Code by default) and a **shell terminal** (PowerShell),
+**TerminalHost** is a **cross-platform desktop application** that manages **terminal pairs per project directory**.
+Each project tab contains a **custom command terminal** (Claude Code by default) and a **shell terminal**,
 so you can switch between "AI assistant" and "regular shell" workflows without losing context.
 A third **Run terminal** is available for dev server output.
+
+| Platform | Executable | UI Framework | Default Shell |
+|----------|------------|--------------|---------------|
+| **Windows** | `host.exe` | WPF (.NET 8) | PowerShell |
+| **macOS** | `host` | Avalonia (.NET 8) | zsh |
+
+Both versions share the same core functionality, configuration format, and keyboard shortcuts.
 
 ## Key ideas
 
@@ -22,7 +29,8 @@ A third **Run terminal** is available for dev server output.
 ## Quick links
 
 - [Getting Started](getting-started)
+- [Features](features) - Comprehensive feature reference
+- [Feature Tour](feature-tour) - Workflow-based guide
 - [Usage (CLI + configuration)](usage)
 - [Keyboard Shortcuts](shortcuts)
-- [Feature Tour](feature-tour)
 - [Developer notes](developer)
