@@ -1003,6 +1003,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     /// <summary>
+    /// Focuses the active terminal control (Custom or Shell based on FocusedTerminal state).
+    /// Call this after tab selection to ensure keyboard input goes to the terminal.
+    /// </summary>
+    public void FocusActiveTerminal()
+    {
+        var session = FocusedTerminal == ActiveTerminal.Custom
+            ? Pair.CustomTerminal
+            : Pair.ShellTerminal;
+        session.Focus();
+    }
+
+    /// <summary>
     /// Sends a cd command to the shell terminal for the specified path.
     /// </summary>
     public void SendCdToShell(string path)

@@ -2239,6 +2239,18 @@ public partial class MainViewModel : ObservableObject
     private void OnWorkspaceSidebarOpenTabRequested(object? sender, string path)
     {
         OpenProjectTab(path);
+
+        // Focus the terminal after tab selection
+        // Use Dispatcher to ensure UI has updated before focusing
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Input,
+            () =>
+            {
+                if (SelectedTab is TerminalPairTabViewModel terminalTab)
+                {
+                    terminalTab.FocusActiveTerminal();
+                }
+            });
     }
 
     /// <summary>
@@ -2248,7 +2260,18 @@ public partial class MainViewModel : ObservableObject
     {
         // Open the project tab for the intent's worktree
         OpenProjectTab(args.WorktreePath);
-        // TODO: If there's an initial prompt, we could send it to the terminal after focus
+
+        // Focus the terminal after tab selection
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Input,
+            () =>
+            {
+                if (SelectedTab is TerminalPairTabViewModel terminalTab)
+                {
+                    terminalTab.FocusActiveTerminal();
+                    // TODO: If there's an initial prompt, we could send it to the terminal after focus
+                }
+            });
     }
 
     /// <summary>
@@ -2257,6 +2280,17 @@ public partial class MainViewModel : ObservableObject
     private void OnWorkspaceSidebarDuplicateTabRequested(object? sender, string path)
     {
         OpenProjectTab(path, forceNew: true);
+
+        // Focus the terminal after tab selection
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Input,
+            () =>
+            {
+                if (SelectedTab is TerminalPairTabViewModel terminalTab)
+                {
+                    terminalTab.FocusActiveTerminal();
+                }
+            });
     }
 
     /// <summary>
