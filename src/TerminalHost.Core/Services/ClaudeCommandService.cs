@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -7,7 +8,8 @@ namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Service for detecting and managing Claude Code custom slash commands from .md files.
-/// Scans ~/.claude/commands/ for global commands and .claude/commands/ for project commands.
+/// Scans ~/.claude/commands/ for global commands, .claude/commands/ for project commands,
+/// and ~/.claude/plugins/ for plugin commands.
 /// </summary>
 public sealed partial class ClaudeCommandService : IClaudeCommandService, IDisposable
 {
@@ -15,12 +17,16 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
     private readonly IProfileRegistry _profileRegistry;
 
     private List<ClaudeCommand> _globalCommands = [];
+    private List<ClaudeCommand> _pluginCommands = [];
     private readonly Dictionary<string, List<ClaudeCommand>> _projectCommandsCache = new(StringComparer.OrdinalIgnoreCase);
 
     private IDisposable? _globalWatcher;
+    private IDisposable? _pluginsWatcher;
     private readonly Dictionary<string, IDisposable> _projectWatchers = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly string _globalCommandsPath;
+    private readonly string _pluginsPath;
+    private readonly string _installedPluginsPath;
 
     public ClaudeCommandService(IFileSystem fileSystem, IProfileRegistry profileRegistry)
     {
@@ -31,12 +37,20 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _globalCommandsPath = Path.Combine(userProfile, ".claude", "commands");
 
-        // Load global commands on startup
+        // Plugins path: ~/.claude/plugins/
+        _pluginsPath = Path.Combine(userProfile, ".claude", "plugins");
+        _installedPluginsPath = Path.Combine(_pluginsPath, "installed_plugins.json");
+
+        // Load commands on startup
         RefreshGlobalCommands();
+        RefreshPluginCommands();
         StartGlobalWatcher();
+        StartPluginsWatcher();
     }
 
     public IReadOnlyList<ClaudeCommand> GlobalCommands => _globalCommands.AsReadOnly();
+
+    public IReadOnlyList<ClaudeCommand> PluginCommands => _pluginCommands.AsReadOnly();
 
     public IReadOnlyList<ClaudeCommand> GetProjectCommands(string workingDirectory)
     {
@@ -72,6 +86,9 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
             result.AddRange(projectCommands);
         }
 
+        // Add plugin commands (these use namespaced names like "dcg:create_for_issue")
+        result.AddRange(_pluginCommands);
+
         return result.AsReadOnly();
     }
 
@@ -89,12 +106,136 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
         CommandsChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void RefreshPluginCommands()
+    {
+        _pluginCommands = LoadPluginCommands();
+        CommandsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public event EventHandler? CommandsChanged;
 
     private List<ClaudeCommand> LoadProjectCommands(string workingDirectory)
     {
         var projectCommandsPath = Path.Combine(workingDirectory, ".claude", "commands");
         return LoadCommands(projectCommandsPath, ClaudeCommandSource.Project);
+    }
+
+    private List<ClaudeCommand> LoadPluginCommands()
+    {
+        var commands = new List<ClaudeCommand>();
+
+        if (!_fileSystem.FileExists(_installedPluginsPath))
+            return commands;
+
+        try
+        {
+            var json = _fileSystem.ReadAllText(_installedPluginsPath);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("plugins", out var pluginsElement))
+                return commands;
+
+            foreach (var pluginEntry in pluginsElement.EnumerateObject())
+            {
+                // Plugin key format: "pluginName@marketplace" (e.g., "dcg@decronosgroep-plugins")
+                var pluginKey = pluginEntry.Name;
+                var pluginName = pluginKey.Split('@')[0]; // Extract just the plugin name
+
+                // Get the latest installed version (first element in array)
+                var versions = pluginEntry.Value;
+                if (versions.GetArrayLength() == 0)
+                    continue;
+
+                var latestVersion = versions[0];
+                if (!latestVersion.TryGetProperty("installPath", out var installPathElement))
+                    continue;
+
+                var installPath = installPathElement.GetString();
+                if (string.IsNullOrEmpty(installPath))
+                    continue;
+
+                // Look for commands directory in the plugin
+                var commandsPath = Path.Combine(installPath, "commands");
+                if (!_fileSystem.DirectoryExists(commandsPath))
+                    continue;
+
+                // Load commands from this plugin
+                var pluginCmds = LoadPluginCommandsFromDirectory(commandsPath, pluginName);
+                commands.AddRange(pluginCmds);
+            }
+        }
+        catch
+        {
+            // Error reading plugins file - return empty list
+        }
+
+        return commands.OrderBy(c => c.FullName, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private List<ClaudeCommand> LoadPluginCommandsFromDirectory(string directoryPath, string pluginName)
+    {
+        var commands = new List<ClaudeCommand>();
+
+        try
+        {
+            var mdFiles = _fileSystem.GetFiles(directoryPath, "*.md", SearchOption.TopDirectoryOnly);
+
+            foreach (var filePath in mdFiles)
+            {
+                try
+                {
+                    var command = ParsePluginCommandFile(filePath, pluginName);
+                    if (command != null)
+                    {
+                        commands.Add(command);
+                    }
+                }
+                catch
+                {
+                    // Skip files that can't be read
+                }
+            }
+        }
+        catch
+        {
+            // Directory access error - return empty list
+        }
+
+        return commands;
+    }
+
+    private ClaudeCommand? ParsePluginCommandFile(string filePath, string pluginName)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return null;
+
+        string? description = null;
+
+        try
+        {
+            var content = _fileSystem.ReadAllText(filePath);
+            description = ExtractDescription(content);
+        }
+        catch
+        {
+            // Can't read file content - use filename as description
+        }
+
+        // Look up shortcut from config (using full namespaced name)
+        var fullName = $"{pluginName}:{fileName}";
+        var shortcut = GetShortcutForCommand(fullName);
+
+        return new ClaudeCommand
+        {
+            Id = $"plugin-{pluginName}-{fileName}",
+            Name = fileName,
+            FilePath = filePath,
+            Description = description,
+            Shortcut = shortcut,
+            Source = ClaudeCommandSource.Plugin,
+            PluginName = pluginName
+        };
     }
 
     private List<ClaudeCommand> LoadCommands(string directoryPath, ClaudeCommandSource source)
@@ -289,6 +430,32 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
         }
     }
 
+    private void StartPluginsWatcher()
+    {
+        if (!_fileSystem.DirectoryExists(_pluginsPath))
+            return;
+
+        try
+        {
+            // Watch the installed_plugins.json file for changes (plugin install/uninstall)
+            var watcher = new FileSystemWatcher(_pluginsPath, "installed_plugins.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+                EnableRaisingEvents = true
+            };
+
+            watcher.Changed += (_, _) => RefreshPluginCommands();
+            watcher.Created += (_, _) => RefreshPluginCommands();
+            watcher.Deleted += (_, _) => RefreshPluginCommands();
+
+            _pluginsWatcher = new FileWatcherDisposable(watcher);
+        }
+        catch
+        {
+            // Can't watch directory - plugin commands will be static
+        }
+    }
+
     private static string NormalizePath(string path)
     {
         return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
@@ -297,6 +464,7 @@ public sealed partial class ClaudeCommandService : IClaudeCommandService, IDispo
     public void Dispose()
     {
         _globalWatcher?.Dispose();
+        _pluginsWatcher?.Dispose();
 
         foreach (var watcher in _projectWatchers.Values)
         {

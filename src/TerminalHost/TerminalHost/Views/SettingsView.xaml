@@ -1676,7 +1676,7 @@
                                         </Hyperlink>
                                         <Run Text=" (global commands)" Foreground="{StaticResource TextMutedBrush}"/>
                                     </TextBlock>
-                                    <TextBlock>
+                                    <TextBlock Margin="0,0,0,4">
                                         <Hyperlink Click="ProjectCommandsFolder_Click"
                                                    Foreground="{StaticResource SyntaxCyanBrush}"
                                                    TextDecorations="None"
@@ -1694,6 +1694,25 @@
                                             .claude/commands/
                                         </Hyperlink>
                                         <Run Text=" (project commands)" Foreground="{StaticResource TextMutedBrush}"/>
+                                    </TextBlock>
+                                    <TextBlock>
+                                        <Hyperlink Click="PluginsFolder_Click"
+                                                   Foreground="{StaticResource SyntaxCyanBrush}"
+                                                   TextDecorations="None"
+                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontSize="{StaticResource FontSizeCode}">
+                                            <Hyperlink.Style>
+                                                <Style TargetType="Hyperlink">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="TextDecorations" Value="Underline"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Hyperlink.Style>
+                                            ~/.claude/plugins/
+                                        </Hyperlink>
+                                        <Run Text=" (installed plugins)" Foreground="{StaticResource TextMutedBrush}"/>
                                     </TextBlock>
                                 </StackPanel>
 

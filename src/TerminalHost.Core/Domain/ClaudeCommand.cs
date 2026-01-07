@@ -31,9 +31,21 @@ public class ClaudeCommand
     public string? Shortcut { get; init; }
 
     /// <summary>
-    /// Whether this is a global or project-specific command.
+    /// Whether this is a global, project-specific, or plugin command.
     /// </summary>
     public ClaudeCommandSource Source { get; init; }
+
+    /// <summary>
+    /// For plugin commands, the name of the plugin (e.g., "dcg").
+    /// Null for global and project commands.
+    /// </summary>
+    public string? PluginName { get; init; }
+
+    /// <summary>
+    /// Gets the full command name including plugin prefix if applicable.
+    /// E.g., "create_for_issue" becomes "dcg:create_for_issue" for plugin commands.
+    /// </summary>
+    public string FullName => PluginName != null ? $"{PluginName}:{Name}" : Name;
 }
 
 /// <summary>
@@ -49,5 +61,10 @@ public enum ClaudeCommandSource
     /// <summary>
     /// Project-specific command from .claude/commands/
     /// </summary>
-    Project
+    Project,
+
+    /// <summary>
+    /// Plugin command from ~/.claude/plugins/
+    /// </summary>
+    Plugin
 }

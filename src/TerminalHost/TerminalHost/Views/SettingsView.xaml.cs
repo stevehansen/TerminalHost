@@ -175,6 +175,29 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void PluginsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var pluginsPath = Path.Combine(userProfile, ".claude", "plugins");
+
+        if (Directory.Exists(pluginsPath))
+        {
+            // Open folder in Explorer
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{pluginsPath}\"",
+                UseShellExecute = true
+            });
+        }
+        else
+        {
+            GetDialogService()?.ShowInfo(
+                "The plugins folder does not exist yet.\n\nInstall plugins using Claude Code's plugin system to see them here.",
+                "No Plugins Installed");
+        }
+    }
+
     private void OpenOrCreateFolder(string path, string folderDescription)
     {
         if (Directory.Exists(path))

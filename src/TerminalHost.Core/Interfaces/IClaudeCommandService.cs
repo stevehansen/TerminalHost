@@ -13,12 +13,17 @@ public interface IClaudeCommandService
     IReadOnlyList<ClaudeCommand> GlobalCommands { get; }
 
     /// <summary>
+    /// Gets plugin commands from installed Claude Code plugins.
+    /// </summary>
+    IReadOnlyList<ClaudeCommand> PluginCommands { get; }
+
+    /// <summary>
     /// Gets project-specific commands from .claude/commands/ in the specified directory.
     /// </summary>
     IReadOnlyList<ClaudeCommand> GetProjectCommands(string workingDirectory);
 
     /// <summary>
-    /// Gets all commands (global + project) for a working directory.
+    /// Gets all commands (global + project + plugins) for a working directory.
     /// Project commands override global commands with the same name.
     /// </summary>
     IReadOnlyList<ClaudeCommand> GetAllCommands(string? workingDirectory);
@@ -32,6 +37,11 @@ public interface IClaudeCommandService
     /// Refreshes project commands for a specific working directory.
     /// </summary>
     void RefreshProjectCommands(string workingDirectory);
+
+    /// <summary>
+    /// Refreshes plugin commands by rescanning installed plugins.
+    /// </summary>
+    void RefreshPluginCommands();
 
     /// <summary>
     /// Raised when commands change (files added, removed, or modified).

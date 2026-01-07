@@ -2122,21 +2122,31 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // Add Claude commands (from ~/.claude/commands/ and .claude/commands/)
+        // Add Claude commands (from ~/.claude/commands/, .claude/commands/, and plugins)
         var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
         var claudeCommands = _claudeCommandService.GetAllCommands(currentWorkingDir);
 
         foreach (var cmd in claudeCommands)
         {
-            var commandName = $"Claude: /{cmd.Name}";
+            var commandName = $"Claude: /{cmd.FullName}";
             var matchesSearch = string.IsNullOrEmpty(searchText) ||
                                commandName.ToLower().Contains(searchText) ||
                                (cmd.Description?.ToLower().Contains(searchText) ?? false) ||
-                               "claude".Contains(searchText);
+                               (cmd.PluginName?.ToLower().Contains(searchText) ?? false) ||
+                               "claude".Contains(searchText) ||
+                               "plugin".Contains(searchText);
 
             if (matchesSearch)
             {
                 var capturedCmd = cmd; // Capture for closure
+                var category = cmd.Source switch
+                {
+                    ClaudeCommandSource.Global => "Claude (Global)",
+                    ClaudeCommandSource.Project => "Claude (Project)",
+                    ClaudeCommandSource.Plugin => $"Claude (Plugin: {cmd.PluginName})",
+                    _ => "Claude"
+                };
+
                 allCommands.Add(new PaletteCommand
                 {
                     Id = $"claude-cmd-{cmd.Id}",
@@ -2144,7 +2154,7 @@ public partial class MainViewModel : ObservableObject
                     Description = cmd.Description ?? cmd.FilePath,
                     Shortcut = cmd.Shortcut ?? "",
                     Icon = "🤖",
-                    Category = cmd.Source == ClaudeCommandSource.Global ? "Claude (Global)" : "Claude (Project)",
+                    Category = category,
                     Execute = () => ExecuteClaudeCommand(capturedCmd)
                 });
             }
@@ -2219,9 +2229,9 @@ public partial class MainViewModel : ObservableObject
         // Switch to Custom terminal
         tab.ShowCustomTerminalCommand.Execute(null);
 
-        // Send the slash command to Claude Code
+        // Send the slash command to Claude Code (use FullName for plugin commands)
         tab.Pair.CustomTerminal.SendText(
-            $"/{command.Name}",
+            $"/{command.FullName}",
             appendNewline: true,
             newlineChar: "\r",
             useUserInput: true  // Important for Claude Code to properly receive the command
