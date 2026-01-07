@@ -554,46 +554,44 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
-                                                <Grid Margin="4,2">
+                                                <Grid Margin="0,2">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"
                                                                FontSize="{StaticResource FontSizeSmall}"
                                                                Foreground="{StaticResource AccentPrimaryBrush}"
                                                                FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"
-                                                               Margin="0,0,8,0"/>
+                                                               VerticalAlignment="Top"
+                                                               Margin="0,2,8,0"/>
                                                     <StackPanel Grid.Column="1">
                                                         <TextBlock Text="{Binding Name}"
                                                                    Foreground="{StaticResource TextPrimaryBrush}"
                                                                    FontSize="{StaticResource FontSizeSmall}"/>
-                                                        <TextBlock Text="{Binding Command}"
+                                                        <TextBlock Text="{Binding Command, Converter={StaticResource CommandToFileNameConverter}}"
                                                                    Foreground="{StaticResource TextDimmedBrush}"
                                                                    FontSize="{StaticResource FontSizeTiny}"
                                                                    TextTrimming="CharacterEllipsis"/>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                                        <Border Background="{StaticResource StatusSuccessBrush}"
-                                                                CornerRadius="2"
-                                                                Padding="4,1"
-                                                                Margin="4,0,0,0"
-                                                                Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <TextBlock Text="Default"
-                                                                       Foreground="{StaticResource TextBrightBrush}"
-                                                                       FontSize="{StaticResource FontSizeTiny}"/>
-                                                        </Border>
-                                                        <Border Background="{StaticResource AccentPrimaryBrush}"
-                                                                CornerRadius="2"
-                                                                Padding="4,1"
-                                                                Margin="4,0,0,0"
-                                                                Visibility="{Binding Enabled, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <TextBlock Text="Enabled"
-                                                                       Foreground="{StaticResource TextBrightBrush}"
-                                                                       FontSize="{StaticResource FontSizeTiny}"/>
-                                                        </Border>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                            <Border Background="{StaticResource StatusSuccessBrush}"
+                                                                    CornerRadius="2"
+                                                                    Padding="4,1"
+                                                                    Margin="0,0,4,0"
+                                                                    Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="Default"
+                                                                           Foreground="{StaticResource TextBrightBrush}"
+                                                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                                            </Border>
+                                                            <Border Background="{StaticResource AccentPrimaryBrush}"
+                                                                    CornerRadius="2"
+                                                                    Padding="4,1"
+                                                                    Visibility="{Binding Enabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="Enabled"
+                                                                           Foreground="{StaticResource TextBrightBrush}"
+                                                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                                            </Border>
+                                                        </StackPanel>
                                                     </StackPanel>
                                                 </Grid>
                                             </DataTemplate>
@@ -696,7 +694,7 @@
                                     <TextBlock Text="Select an AI assistant to edit"
                                                Foreground="{StaticResource TextMutedBrush}"
                                                FontStyle="Italic"
-                                               Visibility="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                               Visibility="{Binding SelectedAiAssistant, Converter={StaticResource NullToVisibleConverter}}"/>
                                 </StackPanel>
                             </Border>
                         </Grid>

@@ -44,6 +44,7 @@
         <local:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
         <local:EqualityConverter x:Key="EqualityConverter"/>
         <local:BoolToStringConverter x:Key="BoolToStringConverter"/>
+        <local:CommandToFileNameConverter x:Key="CommandToFileNameConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

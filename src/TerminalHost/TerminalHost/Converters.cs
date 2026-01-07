@@ -810,3 +810,33 @@ public class RelativeTimeConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Extracts the executable filename from a command string.
+/// E.g., "%USERPROFILE%\.local\bin\claude.exe -c" becomes "claude.exe"
+/// </summary>
+public class CommandToFileNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not string command || string.IsNullOrWhiteSpace(command))
+            return value ?? "";
+
+        // Split by space to separate executable from arguments
+        var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return command;
+
+        var executablePath = parts[0];
+
+        // Extract just the filename from the path
+        var fileName = System.IO.Path.GetFileName(executablePath.TrimEnd('\\', '/'));
+
+        return string.IsNullOrEmpty(fileName) ? executablePath : fileName;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
