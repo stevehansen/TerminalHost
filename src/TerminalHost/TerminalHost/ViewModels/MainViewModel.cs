@@ -256,6 +256,7 @@ public partial class MainViewModel : ObservableObject
         WorkspaceSidebar.OpenTabRequested += OnWorkspaceSidebarOpenTabRequested;
         WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
         WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
+        WorkspaceSidebar.GitStatusRefreshed += OnWorkspaceSidebarGitStatusRefreshed;
 
         // Initialize help view model
         HelpViewModel = new HelpViewModel(this);
@@ -2310,6 +2311,29 @@ public partial class MainViewModel : ObservableObject
         if (tab != null)
         {
             CloseTabCommand.Execute(tab);
+        }
+    }
+
+    /// <summary>
+    /// Handles the GitStatusRefreshed event from the workspace sidebar.
+    /// Updates the corresponding tab's git status to keep sidebar and tab in sync.
+    /// </summary>
+    private async void OnWorkspaceSidebarGitStatusRefreshed(object? sender, string path)
+    {
+        var tab = Tabs.OfType<TerminalPairTabViewModel>()
+            .FirstOrDefault(t => string.Equals(t.Pair.WorkingDirectory, path, StringComparison.OrdinalIgnoreCase));
+
+        if (tab != null)
+        {
+            try
+            {
+                var status = await _gitStatusService.GetGitStatusAsync(path);
+                tab.GitStatus = status;
+            }
+            catch
+            {
+                // Silently ignore git status errors
+            }
         }
     }
 

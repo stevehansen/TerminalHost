@@ -141,6 +141,11 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     public bool CanPush => AheadCount > 0;
 
     /// <summary>
+    /// Header text for Git Push menu item, includes count when available.
+    /// </summary>
+    public string GitPushHeader => AheadCount > 0 ? $"Git Push (↑{AheadCount})" : "Git Push";
+
+    /// <summary>
     /// Ahead/behind display string.
     /// </summary>
     public string? AheadBehindDisplay
@@ -167,6 +172,7 @@ public partial class WorkspaceEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDirty));
         OnPropertyChanged(nameof(AheadCount));
         OnPropertyChanged(nameof(CanPush));
+        OnPropertyChanged(nameof(GitPushHeader));
         OnPropertyChanged(nameof(AheadBehindDisplay));
     }
 

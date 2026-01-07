@@ -10,6 +10,15 @@
              Background="{StaticResource BackgroundDarkBrush}">
 
     <UserControl.Resources>
+        <!-- Disabled MenuItem style for better visibility -->
+        <Style x:Key="DisabledAwareMenuItemStyle" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Expand/Collapse Toggle Style -->
         <Style x:Key="ExpandCollapseToggleStyle" TargetType="ToggleButton">
             <Setter Property="Focusable" Value="False"/>
@@ -101,10 +110,11 @@
                         <MenuItem Header="Git Pull (Rebase)"
                                   Command="{Binding DataContext.GitPullRebaseCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
-                        <MenuItem Header="Git Push"
+                        <MenuItem Header="{Binding GitPushHeader}"
                                   Command="{Binding DataContext.GitPushCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"
-                                  IsEnabled="{Binding CanPush}"/>
+                                  IsEnabled="{Binding CanPush}"
+                                  Style="{StaticResource DisabledAwareMenuItemStyle}"/>
                         <Separator/>
                         <MenuItem Header="Open in Explorer"
                                   Command="{Binding DataContext.OpenInExplorerCommand, Source={x:Reference SidebarRoot}}"

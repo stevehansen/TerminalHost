@@ -18,6 +18,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
     private readonly IConfigurationService _configurationService;
+    private readonly MainViewModel _mainViewModel;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -91,12 +92,14 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IToastService toastService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        MainViewModel mainViewModel)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
         _configurationService = configurationService;
+        _mainViewModel = mainViewModel;
 
         // Default to Popup state
         DisplayState = PanelDisplayState.Popup;
@@ -338,6 +341,12 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         {
             var status = await _gitStatusService.GetGitStatusAsync(_currentTerminalTab.Pair.WorkingDirectory);
             _currentTerminalTab.GitStatus = status;
+
+            // Also refresh workspace sidebar to keep it in sync
+            if (_mainViewModel.WorkspaceSidebar != null)
+            {
+                await _mainViewModel.WorkspaceSidebar.RefreshGitStatusAsync(_currentTerminalTab.Pair.WorkingDirectory);
+            }
         }
         catch
         {

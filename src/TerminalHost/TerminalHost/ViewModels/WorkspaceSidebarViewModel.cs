@@ -68,6 +68,12 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public event EventHandler? WorkspacesChanged;
 
+    /// <summary>
+    /// Event raised when git status is refreshed for a workspace (after git operations).
+    /// Used to sync tab git status with sidebar.
+    /// </summary>
+    public event EventHandler<string>? GitStatusRefreshed;
+
     public WorkspaceSidebarViewModel(
         IConfigurationService configurationService,
         IGitWorktreeService gitWorktreeService,
@@ -678,6 +684,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            GitStatusRefreshed?.Invoke(this, workspace.Path);
             toast.Complete("Fetch complete");
         }
         else
@@ -699,6 +706,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            GitStatusRefreshed?.Invoke(this, workspace.Path);
             toast.Complete("Pull complete");
         }
         else
@@ -720,6 +728,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (result.Success)
         {
             await workspace.RefreshGitStatusAsync();
+            GitStatusRefreshed?.Invoke(this, workspace.Path);
             toast.Complete("Push complete");
         }
         else

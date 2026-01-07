@@ -831,6 +831,12 @@ public partial class GitBranchViewModel : ObservableObject
             {
                 var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
                 terminalTab.GitStatus = status;
+
+                // Also refresh workspace sidebar to keep it in sync
+                if (_mainViewModel.WorkspaceSidebar != null)
+                {
+                    await _mainViewModel.WorkspaceSidebar.RefreshGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+                }
             }
             catch
             {

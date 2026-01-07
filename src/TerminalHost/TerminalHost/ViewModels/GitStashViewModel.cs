@@ -313,6 +313,12 @@ public partial class GitStashViewModel : ObservableObject
             {
                 var status = await _gitStatusService.GetGitStatusAsync(_currentTerminalTab.Pair.WorkingDirectory);
                 _currentTerminalTab.GitStatus = status;
+
+                // Also refresh workspace sidebar to keep it in sync
+                if (_mainViewModel.WorkspaceSidebar != null)
+                {
+                    await _mainViewModel.WorkspaceSidebar.RefreshGitStatusAsync(_currentTerminalTab.Pair.WorkingDirectory);
+                }
             }
             catch
             {
