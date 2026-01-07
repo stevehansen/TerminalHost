@@ -198,6 +198,7 @@ public partial class App : Application
         services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
         services.AddSingleton<IGitIgnoreService, GitIgnoreService>();
         services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
+        services.AddSingleton<IInputPromptDetectionService, InputPromptDetectionService>();
         services.AddSingleton<IRunUrlDetectionService, RunUrlDetectionService>();
         services.AddSingleton<IProjectDetectionService, ProjectDetectionService>();
         services.AddSingleton<IFileEditService, FileEditService>();

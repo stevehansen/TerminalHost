@@ -37,6 +37,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFolderPickerService _folderPickerService;
     private readonly IViewModelFactory _viewModelFactory;
     private readonly ITimelineService _timelineService;
+    private readonly IInputPromptDetectionService _inputPromptDetectionService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -220,7 +221,8 @@ public partial class MainViewModel : ObservableObject
         IDispatcherService dispatcherService,
         IFolderPickerService folderPickerService,
         IViewModelFactory viewModelFactory,
-        ITimelineService timelineService)
+        ITimelineService timelineService,
+        IInputPromptDetectionService inputPromptDetectionService)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -244,6 +246,7 @@ public partial class MainViewModel : ObservableObject
         _folderPickerService = folderPickerService;
         _viewModelFactory = viewModelFactory;
         _timelineService = timelineService;
+        _inputPromptDetectionService = inputPromptDetectionService;
 
         // Subscribe to timeline events
         _timelineService.OpenProjectRequested += OnTimelineOpenProjectRequested;
@@ -515,18 +518,21 @@ public partial class MainViewModel : ObservableObject
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.UpdateActivityState();
+            tab.UpdateWaitingState(_inputPromptDetectionService);
 
             // Sync activity state to workspace sidebar
             WorkspaceSidebar?.UpdateActivity(
                 tab.Pair.WorkingDirectory,
                 tab.IsAnyTerminalActive,
-                tab.HasUnreadActivity);
+                tab.HasUnreadActivity,
+                tab.IsWaitingForInput);
         }
 
         // Also update profile terminal tabs
         foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
         {
             tab.UpdateActivityState();
+            tab.UpdateWaitingState(_inputPromptDetectionService);
         }
     }
 

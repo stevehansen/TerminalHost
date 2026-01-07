@@ -543,6 +543,12 @@ public class AppSettings
     [JsonPropertyName("customPaths")]
     public List<string> CustomPaths { get; set; } = [];
 
+    /// <summary>
+    /// Input prompt detection settings (for "waiting for input" indicator).
+    /// </summary>
+    [JsonPropertyName("inputPrompt")]
+    public InputPromptSettings InputPrompt { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",

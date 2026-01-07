@@ -35,6 +35,10 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     [ObservableProperty]
     private bool _hasUnreadActivity;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWaitingIndicator))]
+    private bool _isWaitingForInput;
+
     // Track previous activity state to detect transitions
     private bool _wasActive;
 
@@ -67,7 +71,8 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
 
     public bool IsAnyTerminalActive => IsActive;
     public bool ShowActivitySpinner => IsActive;
-    public bool ShowCompletedIndicator => HasUnreadActivity && !IsActive;
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsActive && !IsWaitingForInput;
+    public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
     public bool IsTerminalInitialized => Session?.TerminalControl != null;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
 
@@ -152,6 +157,39 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     {
         Session.CheckActivityState();
         IsActive = Session.IsActive;
+    }
+
+    /// <summary>
+    /// Updates the waiting for input state by checking terminal output against patterns.
+    /// </summary>
+    public void UpdateWaitingState(IInputPromptDetectionService inputPromptDetectionService)
+    {
+        if (!inputPromptDetectionService.IsEnabled)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // If terminal is active, it's not waiting
+        if (IsActive)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // Check if we've been idle long enough
+        var lastOutputTime = Session.LastOutputTime;
+        if (lastOutputTime.HasValue)
+        {
+            var idleTimeMs = (DateTime.Now - lastOutputTime.Value).TotalMilliseconds;
+            if (idleTimeMs < inputPromptDetectionService.MinIdleTimeMs)
+            {
+                return;
+            }
+        }
+
+        var recentOutput = Session.GetRecentOutput(2000);
+        IsWaitingForInput = inputPromptDetectionService.IsWaitingForInput(recentOutput);
     }
 
     [RelayCommand]

@@ -41,6 +41,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     public string DisplayTitle => Title;
     public bool ShowActivitySpinner => false;
     public bool ShowCompletedIndicator => false;
+    public bool IsWaitingForInput => false;
+    public bool ShowWaitingIndicator => false;
     public bool IsTerminalInitialized => true;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
 

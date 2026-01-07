@@ -238,13 +238,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// <summary>
     /// Updates activity state for a workspace based on terminal activity.
     /// </summary>
-    public void UpdateActivity(string path, bool isActive, bool hasUnreadActivity)
+    public void UpdateActivity(string path, bool isActive, bool hasUnreadActivity, bool isWaitingForInput = false)
     {
         var workspace = FindWorkspaceByPath(path);
         if (workspace != null)
         {
             workspace.IsActive = isActive;
             workspace.HasUnreadActivity = hasUnreadActivity;
+            workspace.IsWaitingForInput = isWaitingForInput;
         }
     }
 

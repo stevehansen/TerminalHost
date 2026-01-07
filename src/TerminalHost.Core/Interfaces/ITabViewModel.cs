@@ -51,6 +51,17 @@ public interface ITabViewModel : INotifyPropertyChanged
     bool ShowCompletedIndicator { get; }
 
     /// <summary>
+    /// Whether the terminal is waiting for user input (detected via patterns).
+    /// </summary>
+    bool IsWaitingForInput { get; }
+
+    /// <summary>
+    /// Whether to show the waiting for input indicator on the tab.
+    /// True when waiting for input AND tab is NOT selected.
+    /// </summary>
+    bool ShowWaitingIndicator { get; }
+
+    /// <summary>
     /// Whether the terminal(s) for this tab have been initialized.
     /// Used for lazy initialization - terminals are only created when the tab is first selected.
     /// </summary>

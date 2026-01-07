@@ -182,14 +182,59 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <!-- Completed indicator (green dot) when activity finished but not viewed -->
+                        <!-- Completed indicator (green dot) when activity finished but not viewed and not waiting -->
                         <TextBlock Text="●"
-                                   Foreground="{StaticResource SyntaxGreenBrush}"
-                                   FontSize="8"
+                                   Foreground="#22C55E"
+                                   FontSize="12"
                                    FontWeight="Bold"
                                    VerticalAlignment="Center"
-                                   Margin="4,0,0,0"
-                                   Visibility="{Binding HasUnreadActivity, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                   Margin="6,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding HasUnreadActivity}" Value="True"/>
+                                                <Condition Binding="{Binding IsWaitingForInput}" Value="False"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- Waiting for input indicator (pulsing orange dot) -->
+                        <TextBlock x:Name="WaitingIndicator"
+                                   Text="●"
+                                   Foreground="#F59E0B"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="WaitingPulseStoryboard">
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                         From="1" To="0.3" Duration="0:0:0.8"
+                                                                         AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="WaitingPulseStoryboard"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>

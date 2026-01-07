@@ -194,6 +194,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _hasUnreadActivity;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWaitingIndicator))]
+    private bool _isWaitingForInput;
+
     // Track previous activity state to detect transitions
     private bool _wasAnyTerminalActive;
 
@@ -268,8 +272,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     /// <summary>
     /// True if completed indicator should be shown.
+    /// Shows when activity finished but NOT when waiting for input (waiting takes precedence).
     /// </summary>
-    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive;
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsWaitingForInput;
+
+    /// <summary>
+    /// True if waiting for input indicator should be shown.
+    /// Shows when terminal is waiting for user input and tab is NOT selected.
+    /// </summary>
+    public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
 
     /// <summary>
     /// True if terminals have been initialized.
@@ -786,6 +797,47 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         // Update properties
         IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
         IsShellTerminalActive = Pair.ShellTerminal.IsActive;
+    }
+
+    /// <summary>
+    /// Updates the waiting for input state by checking terminal output against patterns.
+    /// Called periodically when the terminal is idle.
+    /// </summary>
+    /// <param name="inputPromptDetectionService">The service to detect input prompts.</param>
+    public void UpdateWaitingState(IInputPromptDetectionService inputPromptDetectionService)
+    {
+        // Only check for waiting state if:
+        // 1. Detection is enabled
+        // 2. Custom terminal is not actively producing output
+        // 3. Custom terminal has been idle for the minimum time
+        if (!inputPromptDetectionService.IsEnabled)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // If terminal is actively producing output, it's not waiting
+        if (IsCustomTerminalActive)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // Check if we've been idle long enough
+        var lastOutputTime = Pair.CustomTerminal.LastOutputTime;
+        if (lastOutputTime.HasValue)
+        {
+            var idleTimeMs = (DateTime.Now - lastOutputTime.Value).TotalMilliseconds;
+            if (idleTimeMs < inputPromptDetectionService.MinIdleTimeMs)
+            {
+                // Not idle long enough yet - keep current state
+                return;
+            }
+        }
+
+        // Get recent output from the custom terminal (AI assistant)
+        var recentOutput = Pair.CustomTerminal.GetRecentOutput(2000);
+        IsWaitingForInput = inputPromptDetectionService.IsWaitingForInput(recentOutput);
     }
 
     public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)

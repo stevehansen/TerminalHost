@@ -27,6 +27,8 @@ namespace TerminalHost.Core.ViewModels
         private bool _isSelected;
         public bool ShowActivitySpinner => false;
         public bool ShowCompletedIndicator => false;
+        public bool IsWaitingForInput => false;
+        public bool ShowWaitingIndicator => false;
         public bool IsTerminalInitialized => true;
         public Task InitializeTerminalsAsync() => Task.CompletedTask;
         public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { }

@@ -84,11 +84,22 @@
                                DockPanel.Dock="Right"
                                Text="●"
                                AutomationProperties.HelpText="Terminal activity completed"
-                               Foreground="{StaticResource SyntaxGreenBrush}"
-                               FontSize="{StaticResource FontSizeSmall}"
+                               Foreground="#22C55E"
+                               FontSize="14"
                                FontWeight="Bold"
                                VerticalAlignment="Center"
-                               Margin="0,0,6,0"
+                               Margin="4,0,6,0"
+                               Visibility="Collapsed"/>
+                    <!-- Waiting for input indicator - pulsing orange dot when terminal is waiting for user input -->
+                    <TextBlock x:Name="WaitingIndicator"
+                               DockPanel.Dock="Right"
+                               Text="●"
+                               AutomationProperties.HelpText="Waiting for user input"
+                               Foreground="#F59E0B"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Margin="4,0,6,0"
                                Visibility="Collapsed"/>
                     <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"
@@ -119,14 +130,36 @@
                         <StopStoryboard BeginStoryboardName="SpinnerStoryboard"/>
                     </MultiDataTrigger.ExitActions>
                 </MultiDataTrigger>
-                <!-- Show green indicator when activity completed (not active) AND has unread activity AND tab is NOT selected -->
+                <!-- Show green indicator when activity completed (not active) AND has unread activity AND tab is NOT selected AND not waiting for input -->
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding HasUnreadActivity}" Value="True"/>
                         <Condition Binding="{Binding IsAnyTerminalActive}" Value="False"/>
+                        <Condition Binding="{Binding IsWaitingForInput}" Value="False"/>
                         <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="False"/>
                     </MultiDataTrigger.Conditions>
                     <Setter TargetName="CompletedIndicator" Property="Visibility" Value="Visible"/>
+                </MultiDataTrigger>
+                <!-- Show pulsing blue indicator when waiting for input AND tab is NOT selected -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsWaitingForInput}" Value="True"/>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="WaitingIndicator" Property="Visibility" Value="Visible"/>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="PulseStoryboard">
+                            <Storyboard RepeatBehavior="Forever">
+                                <DoubleAnimation Storyboard.TargetName="WaitingIndicator"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 From="1" To="0.3" Duration="0:0:0.8"
+                                                 AutoReverse="True"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                    <MultiDataTrigger.ExitActions>
+                        <StopStoryboard BeginStoryboardName="PulseStoryboard"/>
+                    </MultiDataTrigger.ExitActions>
                 </MultiDataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>

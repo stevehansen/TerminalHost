@@ -32,6 +32,9 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _hasUnreadActivity;
 
     [ObservableProperty]
+    private bool _isWaitingForInput;
+
+    [ObservableProperty]
     private GitStatus? _gitStatus;
 
     [ObservableProperty]
