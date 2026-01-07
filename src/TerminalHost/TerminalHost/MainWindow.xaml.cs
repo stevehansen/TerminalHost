@@ -330,14 +330,17 @@ public partial class MainWindow : Window
         var height = Math.Max(300, state.Height);
 
         // Ensure window is visible on at least one monitor
+        // Allow small negative values (-16px) since Windows 10/11 positions snapped/docked
+        // windows slightly off-screen to hide window borders
+        const int borderMargin = 16;
         var virtualLeft = SystemParameters.VirtualScreenLeft;
         var virtualTop = SystemParameters.VirtualScreenTop;
         var virtualWidth = SystemParameters.VirtualScreenWidth;
         var virtualHeight = SystemParameters.VirtualScreenHeight;
 
-        if (left < virtualLeft || left > virtualLeft + virtualWidth - 100)
+        if (left < virtualLeft - borderMargin || left > virtualLeft + virtualWidth - 100)
             left = 100;
-        if (top < virtualTop || top > virtualTop + virtualHeight - 100)
+        if (top < virtualTop - borderMargin || top > virtualTop + virtualHeight - 100)
             top = 100;
 
         Left = left;
