@@ -1,4 +1,15 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Control styles placeholder - to be implemented -->
+
+    <!-- Icon Text Style - Use for single-char/emoji icons in lists -->
+    <!-- Monospace font ensures consistent width for all characters -->
+    <Style Selector="TextBlock.iconText">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
 </Styles>

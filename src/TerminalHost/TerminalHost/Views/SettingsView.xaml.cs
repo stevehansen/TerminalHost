@@ -298,4 +298,50 @@ public partial class SettingsView : UserControl
 
         return _dialogService;
     }
+
+    #region Icon Picker Event Handlers
+
+    private void ShowQcIconPicker_Click(object sender, RoutedEventArgs e)
+    {
+        QcIconPickerPopup.IsOpen = true;
+    }
+
+    private void QcIconPicker_IconSelected(object? sender, string icon)
+    {
+        if (_currentViewModel != null)
+        {
+            _currentViewModel.EditQcIcon = icon;
+        }
+        QcIconPickerPopup.IsOpen = false;
+    }
+
+    private void ShowAiIconPicker_Click(object sender, RoutedEventArgs e)
+    {
+        AiIconPickerPopup.IsOpen = true;
+    }
+
+    private void AiIconPicker_IconSelected(object? sender, string icon)
+    {
+        if (_currentViewModel != null)
+        {
+            _currentViewModel.EditAiIcon = icon;
+        }
+        AiIconPickerPopup.IsOpen = false;
+    }
+
+    private void ShowProfileIconPicker_Click(object sender, RoutedEventArgs e)
+    {
+        ProfileIconPickerPopup.IsOpen = true;
+    }
+
+    private void ProfileIconPicker_IconSelected(object? sender, string icon)
+    {
+        if (_currentViewModel != null)
+        {
+            _currentViewModel.EditProfileIcon = icon;
+        }
+        ProfileIconPickerPopup.IsOpen = false;
+    }
+
+    #endregion
 }

@@ -246,6 +246,17 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected;
 
     /// <summary>
+    /// Whether the terminal is waiting for user input.
+    /// Not yet implemented in Avalonia version.
+    /// </summary>
+    public bool IsWaitingForInput => false;
+
+    /// <summary>
+    /// Whether to show the waiting indicator on the tab.
+    /// </summary>
+    public bool ShowWaitingIndicator => false;
+
+    /// <summary>
     /// Collection of detected links from terminal output.
     /// </summary>
     public ObservableCollection<DetectedLink> DetectedLinks { get; } = [];

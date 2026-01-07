@@ -58,6 +58,8 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     public bool IsVisibleInFocusMode => true;
     public bool ShowActivitySpinner => false;
     public bool ShowCompletedIndicator => false;
+    public bool IsWaitingForInput => false;
+    public bool ShowWaitingIndicator => false;
     public bool IsTerminalInitialized => true;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
     public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { }

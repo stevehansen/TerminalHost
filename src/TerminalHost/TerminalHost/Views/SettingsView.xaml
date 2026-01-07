@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:vm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             xmlns:controls="clr-namespace:TerminalHost.Views.Controls"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="800"
              AutomationProperties.AutomationId="SettingsView"
@@ -648,10 +649,21 @@
                                                    Style="{StaticResource HelpText}"/>
 
                                         <TextBlock Text="Icon" Style="{StaticResource FieldLabel}" Margin="0,12,0,0"/>
-                                        <TextBox Text="{Binding EditAiIcon, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource FormTextBox}"
-                                                 Width="80"
-                                                 HorizontalAlignment="Left"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox x:Name="AiIconTextBox"
+                                                     Text="{Binding EditAiIcon, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}"
+                                                     Width="80"
+                                                     FontSize="{StaticResource FontSizeLarge}"/>
+                                            <Button Content="..." Style="{StaticResource SmallButton}"
+                                                    ToolTip="Pick icon" Margin="4,0,0,0"
+                                                    Click="ShowAiIconPicker_Click"/>
+                                            <Popup x:Name="AiIconPickerPopup" StaysOpen="False"
+                                                   Placement="Bottom" PlacementTarget="{Binding ElementName=AiIconTextBox}">
+                                                <controls:IconPickerPopup x:Name="AiIconPicker"
+                                                                          IconSelected="AiIconPicker_IconSelected"/>
+                                            </Popup>
+                                        </StackPanel>
                                         <TextBlock Text="Short text or emoji shown in the UI"
                                                    Style="{StaticResource HelpText}"/>
 
@@ -846,11 +858,21 @@
                                                    Style="{StaticResource HelpText}"/>
 
                                         <TextBlock Text="Icon" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding EditProfileIcon, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource FormTextBox}"
-                                                 Width="60"
-                                                 HorizontalAlignment="Left"
-                                                 FontSize="{StaticResource FontSizeLarge}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox x:Name="ProfileIconTextBox"
+                                                     Text="{Binding EditProfileIcon, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}"
+                                                     Width="60"
+                                                     FontSize="{StaticResource FontSizeLarge}"/>
+                                            <Button Content="..." Style="{StaticResource SmallButton}"
+                                                    ToolTip="Pick icon" Margin="4,0,0,0"
+                                                    Click="ShowProfileIconPicker_Click"/>
+                                            <Popup x:Name="ProfileIconPickerPopup" StaysOpen="False"
+                                                   Placement="Bottom" PlacementTarget="{Binding ElementName=ProfileIconTextBox}">
+                                                <controls:IconPickerPopup x:Name="ProfileIconPicker"
+                                                                          IconSelected="ProfileIconPicker_IconSelected"/>
+                                            </Popup>
+                                        </StackPanel>
                                         <TextBlock Text="Single emoji character shown in menus."
                                                    Style="{StaticResource HelpText}"/>
 
@@ -1058,11 +1080,21 @@
                                                    Style="{StaticResource HelpText}"/>
 
                                         <TextBlock Text="Icon" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding EditQcIcon, UpdateSourceTrigger=PropertyChanged}"
-                                                 Style="{StaticResource FormTextBox}"
-                                                 Width="60"
-                                                 HorizontalAlignment="Left"
-                                                 FontSize="{StaticResource FontSizeLarge}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox x:Name="QcIconTextBox"
+                                                     Text="{Binding EditQcIcon, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}"
+                                                     Width="60"
+                                                     FontSize="{StaticResource FontSizeLarge}"/>
+                                            <Button Content="..." Style="{StaticResource SmallButton}"
+                                                    ToolTip="Pick icon" Margin="4,0,0,0"
+                                                    Click="ShowQcIconPicker_Click"/>
+                                            <Popup x:Name="QcIconPickerPopup" StaysOpen="False"
+                                                   Placement="Bottom" PlacementTarget="{Binding ElementName=QcIconTextBox}">
+                                                <controls:IconPickerPopup x:Name="QcIconPicker"
+                                                                          IconSelected="QcIconPicker_IconSelected"/>
+                                            </Popup>
+                                        </StackPanel>
                                         <TextBlock Text="Single emoji or character shown on the button."
                                                    Style="{StaticResource HelpText}"/>
 

@@ -1,0 +1,61 @@
+<UserControl x:Class="TerminalHost.Views.Controls.IconPickerPopup"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="280">
+
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource BorderDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Category tabs -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                <RadioButton x:Name="CommonTab" Content="Common" IsChecked="True"
+                             Style="{StaticResource PopupModeTabButton}" GroupName="IconCategory" Margin="0,0,2,0"/>
+                <RadioButton x:Name="SymbolsTab" Content="Symbols"
+                             Style="{StaticResource PopupModeTabButton}" GroupName="IconCategory" Margin="0,0,2,0"/>
+                <RadioButton x:Name="LettersTab" Content="Letters"
+                             Style="{StaticResource PopupModeTabButton}" GroupName="IconCategory" Margin="0,0,2,0"/>
+                <RadioButton x:Name="NerdTab" Content="Nerd"
+                             Style="{StaticResource PopupModeTabButton}" GroupName="IconCategory"
+                             ToolTip="Nerd Font icons (requires Cascadia Code NF)"/>
+            </StackPanel>
+
+            <!-- Icon grid -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="220">
+                <ItemsControl x:Name="IconGrid" ItemsSource="{Binding CurrentIcons}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource IconButton}"
+                                    ToolTip="{Binding Name}"
+                                    Click="IconButton_Click"
+                                    Tag="{Binding Icon}"
+                                    Width="32" Height="32"
+                                    Margin="2">
+                                <TextBlock Text="{Binding Icon}"
+                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                           FontSize="16"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

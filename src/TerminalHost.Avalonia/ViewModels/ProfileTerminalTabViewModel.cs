@@ -102,6 +102,17 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     /// </summary>
     public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected;
 
+    /// <summary>
+    /// Whether the terminal is waiting for user input.
+    /// Not yet implemented in Avalonia version.
+    /// </summary>
+    public bool IsWaitingForInput => false;
+
+    /// <summary>
+    /// Whether to show the waiting indicator on the tab.
+    /// </summary>
+    public bool ShowWaitingIndicator => false;
+
     public Profile Profile { get; }
     public TerminalSession Session { get; }
 

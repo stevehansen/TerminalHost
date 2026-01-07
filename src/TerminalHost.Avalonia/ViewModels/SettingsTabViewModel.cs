@@ -353,6 +353,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public bool IsVisibleInFocusMode => true; // Settings always visible
     public bool ShowActivitySpinner => false; // No terminal activity
     public bool ShowCompletedIndicator => false; // No terminal activity
+    public bool IsWaitingForInput => false; // No terminal
+    public bool ShowWaitingIndicator => false; // No terminal
     public bool IsTerminalInitialized => true; // No terminal to initialize
     public Task InitializeTerminalsAsync() => Task.CompletedTask; // No-op
     public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { } // No-op, always visible
