@@ -6,6 +6,10 @@ namespace TerminalHost.Services;
 
 public static class JsonSyntaxHighlighter
 {
+    // Skip syntax highlighting for files larger than this (characters)
+    // Large files with thousands of tokens make RichTextBox very slow
+    private const int MaxHighlightingSize = 50_000;
+
     // Colors matching VS Code dark theme
     private static readonly SolidColorBrush KeyBrush = new(Color.FromRgb(0x9C, 0xDC, 0xFE));      // Light blue for keys
     private static readonly SolidColorBrush StringBrush = new(Color.FromRgb(0xCE, 0x91, 0x78));   // Orange for strings
@@ -38,6 +42,14 @@ public static class JsonSyntaxHighlighter
         };
 
         var paragraph = new Paragraph();
+
+        // Skip syntax highlighting for large files - too many tokens makes RichTextBox very slow
+        if (json.Length > MaxHighlightingSize)
+        {
+            paragraph.Inlines.Add(new Run(json) { Foreground = DefaultBrush });
+            document.Blocks.Add(paragraph);
+            return document;
+        }
 
         int lastIndex = 0;
         foreach (Match match in JsonTokenRegex.Matches(json))

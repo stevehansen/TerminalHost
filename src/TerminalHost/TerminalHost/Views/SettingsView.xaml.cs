@@ -16,6 +16,7 @@ namespace TerminalHost.Views;
 public partial class SettingsView : UserControl
 {
     private bool _isUpdatingDocument;
+    private bool _needsDocumentRefresh;
     private SettingsTabViewModel? _currentViewModel;
     private IDialogService? _dialogService;
 
@@ -30,7 +31,15 @@ public partial class SettingsView : UserControl
     {
         if (DataContext is SettingsTabViewModel viewModel)
         {
-            LoadDocumentFromText(viewModel.JsonText);
+            // Only load document if in Raw mode, otherwise defer until needed
+            if (viewModel.ViewMode == SettingsViewMode.Raw)
+            {
+                LoadDocumentFromTextAsync(viewModel.JsonText);
+            }
+            else
+            {
+                _needsDocumentRefresh = true;
+            }
         }
     }
 
@@ -40,6 +49,7 @@ public partial class SettingsView : UserControl
         if (_currentViewModel != null)
         {
             _currentViewModel.JsonTextReloaded -= OnJsonTextReloaded;
+            _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
         // Subscribe to new view model
@@ -47,7 +57,17 @@ public partial class SettingsView : UserControl
         {
             _currentViewModel = viewModel;
             viewModel.JsonTextReloaded += OnJsonTextReloaded;
-            LoadDocumentFromText(viewModel.JsonText);
+            viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+            // Only load document if in Raw mode
+            if (viewModel.ViewMode == SettingsViewMode.Raw)
+            {
+                LoadDocumentFromTextAsync(viewModel.JsonText);
+            }
+            else
+            {
+                _needsDocumentRefresh = true;
+            }
         }
         else
         {
@@ -55,20 +75,41 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // When switching to Raw mode, load the document if needed
+        if (e.PropertyName == nameof(SettingsTabViewModel.ViewMode) &&
+            _currentViewModel?.ViewMode == SettingsViewMode.Raw &&
+            _needsDocumentRefresh)
+        {
+            LoadDocumentFromTextAsync(_currentViewModel.JsonText);
+        }
+    }
+
     private void OnJsonTextReloaded(object? sender, EventArgs e)
     {
         if (_currentViewModel != null)
         {
-            LoadDocumentFromText(_currentViewModel.JsonText);
+            // Only update document if in Raw mode
+            if (_currentViewModel.ViewMode == SettingsViewMode.Raw)
+            {
+                LoadDocumentFromTextAsync(_currentViewModel.JsonText);
+            }
+            else
+            {
+                _needsDocumentRefresh = true;
+            }
         }
     }
 
-    private void LoadDocumentFromText(string jsonText)
+    private void LoadDocumentFromTextAsync(string jsonText)
     {
         _isUpdatingDocument = true;
+        _needsDocumentRefresh = false;
+
         try
         {
-            // Create a new FlowDocument each time (avoids the "document belongs to another RichTextBox" error)
+            // Create FlowDocument (syntax highlighting is skipped for large files)
             var document = JsonSyntaxHighlighter.CreateHighlightedDocument(jsonText);
             JsonEditor.Document = document;
         }
@@ -80,9 +121,9 @@ public partial class SettingsView : UserControl
 
     private void JsonEditor_Loaded(object sender, RoutedEventArgs e)
     {
-        if (DataContext is SettingsTabViewModel viewModel)
+        if (DataContext is SettingsTabViewModel viewModel && viewModel.ViewMode == SettingsViewMode.Raw)
         {
-            LoadDocumentFromText(viewModel.JsonText);
+            LoadDocumentFromTextAsync(viewModel.JsonText);
         }
     }
 
