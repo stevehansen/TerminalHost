@@ -556,15 +556,12 @@
                                             <DataTemplate>
                                                 <Grid Margin="0,2">
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="24"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"
-                                                               FontSize="{StaticResource FontSizeSmall}"
-                                                               Foreground="{StaticResource AccentPrimaryBrush}"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Top"
-                                                               Margin="0,2,8,0"/>
+                                                               Style="{StaticResource IconText}"
+                                                               Margin="0,2,4,0"/>
                                                     <StackPanel Grid.Column="1">
                                                         <TextBlock Text="{Binding Name}"
                                                                    Foreground="{StaticResource TextPrimaryBrush}"
@@ -764,8 +761,7 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Icon}"
-                                                               FontSize="{StaticResource FontSizeNormal}"
-                                                               VerticalAlignment="Center"/>
+                                                               Style="{StaticResource IconText}"/>
                                                     <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                                         <TextBlock Text="{Binding Name}"
                                                                    Foreground="{StaticResource TextPrimaryBrush}"
@@ -987,8 +983,7 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding DisplayText}"
-                                                               FontSize="{StaticResource FontSizeNormal}"
-                                                               VerticalAlignment="Center"/>
+                                                               Style="{StaticResource IconText}"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Label}"
                                                                Foreground="{StaticResource TextPrimaryBrush}"
                                                                FontSize="{StaticResource FontSizeSmall}"

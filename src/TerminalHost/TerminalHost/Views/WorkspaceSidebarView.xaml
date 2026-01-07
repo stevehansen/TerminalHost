@@ -134,7 +134,7 @@
 
                     <!-- Icon and Name -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="4,0,0,0">
-                        <TextBlock Text="{Binding Icon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding Icon}" Style="{StaticResource IconText}" Margin="0,0,4,0"/>
                         <TextBlock Text="{Binding Name}"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    FontFamily="{StaticResource FontFamilyMonospace}"
@@ -502,7 +502,7 @@
                         </Border.Style>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="24"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -510,9 +510,7 @@
                             <!-- Icon -->
                             <TextBlock Grid.Column="0"
                                        Text="{Binding TabIcon}"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,6,0"/>
+                                       Style="{StaticResource IconText}"/>
 
                             <!-- Title -->
                             <TextBlock Grid.Column="1"
