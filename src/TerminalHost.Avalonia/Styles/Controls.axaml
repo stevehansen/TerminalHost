@@ -4,9 +4,9 @@
     <!-- Icon Text Style - Use for single-char/emoji icons in lists -->
     <!-- Monospace font ensures consistent width for all characters -->
     <Style Selector="TextBlock.iconText">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="FontFamily" Value="{DynamicResource FontFamilyMonospace}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Width" Value="20"/>
         <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
