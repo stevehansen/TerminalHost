@@ -6,6 +6,7 @@
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:domain="clr-namespace:TerminalHost.Domain"
              d:DataContext="{d:DesignInstance viewModels:FileExplorerViewModel}"
+             Focusable="True"
              mc:Ignorable="d">
 
     <UserControl.Resources>

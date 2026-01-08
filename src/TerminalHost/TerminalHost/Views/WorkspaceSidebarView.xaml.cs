@@ -15,6 +15,31 @@ public partial class WorkspaceSidebarView : UserControl
     public WorkspaceSidebarView()
     {
         InitializeComponent();
+
+        // Handle context menu opening to fix airspace issue with terminal controls
+        ContextMenuOpening += OnContextMenuOpening;
+    }
+
+    private void OnContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        // Force keyboard focus to the sidebar to release terminal's focus grip
+        // This fixes context menus immediately closing when terminal has focus (WPF airspace issue)
+        if (e.OriginalSource is DependencyObject source)
+        {
+            var focusable = FindFocusableAncestor(source) ?? this;
+            Keyboard.Focus(focusable);
+        }
+    }
+
+    private static IInputElement? FindFocusableAncestor(DependencyObject current)
+    {
+        while (current != null)
+        {
+            if (current is UIElement element && element.Focusable)
+                return element;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 
     private WorkspaceSidebarViewModel? ViewModel => DataContext as WorkspaceSidebarViewModel;

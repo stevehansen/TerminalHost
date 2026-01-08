@@ -7,6 +7,7 @@
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              d:DataContext="{d:DesignInstance viewModels:WorkspaceSidebarViewModel}"
              mc:Ignorable="d"
+             Focusable="True"
              Background="{StaticResource BackgroundDarkBrush}">
 
     <UserControl.Resources>

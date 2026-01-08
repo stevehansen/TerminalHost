@@ -112,7 +112,9 @@ public partial class FileExplorerView : UserControl
             var treeViewItem = FindAncestor<TreeViewItem>(source);
             if (treeViewItem != null)
             {
-                treeViewItem.Focus();
+                // Force keyboard focus to the WPF control to release terminal's focus grip
+                // This fixes the context menu immediately closing when terminal has focus (airspace issue)
+                Keyboard.Focus(treeViewItem);
                 treeViewItem.IsSelected = true;
                 // Don't set e.Handled = true, let the context menu show
             }
