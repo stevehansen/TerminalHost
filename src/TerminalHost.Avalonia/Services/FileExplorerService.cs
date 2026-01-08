@@ -30,8 +30,10 @@ public class FileExplorerService : IFileExplorerService
                 {
                     var dirName = Path.GetFileName(dir);
 
-                    // Skip hidden directories unless requested
-                    if (!showHidden && (dirName.StartsWith('.') || IsHiddenSafe(dir)))
+                    // Skip OS-hidden directories unless requested
+                    // Note: We don't skip dotfiles (like .github, .gitignore) since they're
+                    // important for developers - only skip files with the OS hidden attribute
+                    if (!showHidden && IsHiddenSafe(dir))
                         continue;
 
                     var node = new FileSystemNode
@@ -55,8 +57,10 @@ public class FileExplorerService : IFileExplorerService
                 {
                     var fileName = Path.GetFileName(file);
 
-                    // Skip hidden files unless requested
-                    if (!showHidden && (fileName.StartsWith('.') || IsHiddenSafe(file)))
+                    // Skip OS-hidden files unless requested
+                    // Note: We don't skip dotfiles (like .gitignore, .env) since they're
+                    // important for developers - only skip files with the OS hidden attribute
+                    if (!showHidden && IsHiddenSafe(file))
                         continue;
 
                     var node = new FileSystemNode
@@ -88,11 +92,11 @@ public class FileExplorerService : IFileExplorerService
         try
         {
             var dirs = _fileSystem.GetDirectories(directoryPath);
-            if (dirs.Any(d => showHidden || (!Path.GetFileName(d).StartsWith('.') && !IsHiddenSafe(d))))
+            if (dirs.Any(d => showHidden || !IsHiddenSafe(d)))
                 return true;
 
             var files = _fileSystem.GetFiles(directoryPath);
-            return files.Any(f => showHidden || (!Path.GetFileName(f).StartsWith('.') && !IsHiddenSafe(f)));
+            return files.Any(f => showHidden || !IsHiddenSafe(f));
         }
         catch
         {

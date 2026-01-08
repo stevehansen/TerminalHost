@@ -252,8 +252,10 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             var isIgnored = _ignoredPaths.Contains(child.FullPath);
             child.IsGitIgnored = isIgnored;
 
-            // Skip ignored files unless ShowIgnoredFiles is enabled
-            if (isIgnored && !ShowIgnoredFiles)
+            // Skip ignored FILES unless ShowIgnoredFiles is enabled
+            // Always show directories (even if marked ignored) so users can navigate into them
+            // - this handles cases like ".claude/user_*.md" where only some files are ignored
+            if (isIgnored && !ShowIgnoredFiles && !child.IsDirectory)
                 continue;
 
             child.Parent = node;
@@ -340,8 +342,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             var isIgnored = _ignoredPaths.Contains(child.FullPath);
             child.IsGitIgnored = isIgnored;
 
-            // Skip ignored files unless ShowIgnoredFiles is enabled
-            if (isIgnored && !ShowIgnoredFiles)
+            // Skip ignored FILES unless ShowIgnoredFiles is enabled
+            // Always show directories (even if marked ignored) so users can navigate into them
+            if (isIgnored && !ShowIgnoredFiles && !child.IsDirectory)
                 continue;
 
             child.Parent = node;

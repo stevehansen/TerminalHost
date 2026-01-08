@@ -298,8 +298,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         node.Children.Clear();
         foreach (var child in children)
         {
-            // Skip files/folders that are ignored by .gitignore
-            if (IsIgnored(child.FullPath))
+            // Skip ignored FILES but always show directories so users can navigate into them
+            // This handles cases like ".claude/user_*.md" where only some files are ignored
+            if (IsIgnored(child.FullPath) && !child.IsDirectory)
                 continue;
 
             child.Parent = node;
@@ -382,8 +383,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
         foreach (var child in children)
         {
-            // Skip files/folders that are ignored by .gitignore
-            if (IsIgnored(child.FullPath))
+            // Skip ignored FILES but always show directories so users can navigate into them
+            if (IsIgnored(child.FullPath) && !child.IsDirectory)
                 continue;
 
             child.Parent = node;
