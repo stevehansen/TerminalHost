@@ -121,7 +121,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Corrected porcelain format for staged delete: "D  DeletedFile.md"
         var statusOutput = " M MyFile.cs\nA  AnotherFile.txt\nD  DeletedFile.md\n?? UntrackedFile.json\nR  OldFile.cs -> RenamedFile.cs\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act
@@ -143,7 +143,7 @@ public class GitStatusServiceTests
     {
         // Arrange
         var workingDirectory = "P:\\TestRepo";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync("");
 
         // Act
@@ -198,10 +198,13 @@ public class GitStatusServiceTests
         // Arrange
         var workingDirectory = "P:\\TestRepo";
         // Fixed: Changed 'feature/branch' to 'dev' to avoid it being misidentified as remote by current implementation logic
-        var branchOutput = "main|*|origin/main|[ahead 1, behind 2]\ndev|||\nremotes/origin/main|||\n"; 
+        // Format: refname|HEAD indicator|upstream|track info|commit hash|relative date|subject
+        var branchOutput = "main|*|origin/main|[ahead 1, behind 2]|abc1234|2 days ago|Initial commit\ndev||||def5678|1 day ago|Feature work\nremotes/origin/main||||ghi9012|2 days ago|Initial commit\n";
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "remote"))
+                             .ReturnsAsync("origin\n"); // Mock remotes list
         _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD"))
                              .ReturnsAsync("main\n"); // Explicit current branch
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "branch -a --format=\"%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)\" ")) 
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "branch -a --format=\"%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)|%(objectname:short)|%(committerdate:relative)|%(subject)\" "))
                              .ReturnsAsync(branchOutput);
 
 
@@ -376,7 +379,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Git porcelain format with quoted paths containing spaces
         var statusOutput = " M \"My File.cs\"\nA  \"File with Spaces.txt\"\nD  \"Deleted File.md\"\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act
@@ -403,7 +406,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Git porcelain format with quoted paths containing spaces in directory names
         var statusOutput = " M \"My Project/Test File.cs\"\nA  \"Src/Components/My Component.tsx\"\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act
@@ -424,7 +427,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Git porcelain format with renamed files that have spaces
         var statusOutput = "R  \"Old Test File.cs\" -> \"New Test File.cs\"\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act
@@ -447,7 +450,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Regular files without spaces (should not be quoted by git)
         var statusOutput = " M RegularFile.cs\nA  AnotherFile.txt\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act
@@ -468,7 +471,7 @@ public class GitStatusServiceTests
         var workingDirectory = "P:\\TestRepo";
         // Mix of quoted (with spaces) and unquoted (without spaces) paths
         var statusOutput = " M RegularFile.cs\nA  \"File with Spaces.txt\"\nD  DeletedFile.md\nR  \"Old File.cs\" -> \"New File.cs\"\n";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
+        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all"))
                              .ReturnsAsync(statusOutput);
 
         // Act

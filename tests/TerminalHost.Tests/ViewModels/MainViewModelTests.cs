@@ -38,6 +38,7 @@ public class MainViewModelTests
     private readonly Mock<IGitWorktreeService> _mockGitWorktreeService;
     private readonly Mock<IViewModelFactory> _mockViewModelFactory;
     private readonly Mock<ITimelineService> _mockTimelineService;
+    private readonly Mock<IInputPromptDetectionService> _mockInputPromptDetectionService;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -70,6 +71,7 @@ public class MainViewModelTests
         _mockGitWorktreeService = new Mock<IGitWorktreeService>();
         _mockViewModelFactory = new Mock<IViewModelFactory>();
         _mockTimelineService = new Mock<ITimelineService>();
+        _mockInputPromptDetectionService = new Mock<IInputPromptDetectionService>();
 
         // Setup timer service to return a mock timer
         _mockTimerService.Setup(ts => ts.CreateTimer(It.IsAny<TimeSpan>(), It.IsAny<Action>()))
@@ -188,7 +190,8 @@ public class MainViewModelTests
             _mockDispatcherService.Object,
             _mockFolderPickerService.Object,
             _mockViewModelFactory.Object,
-            _mockTimelineService.Object);
+            _mockTimelineService.Object,
+            _mockInputPromptDetectionService.Object);
     }
 
     // Helper to run tests in STA thread
