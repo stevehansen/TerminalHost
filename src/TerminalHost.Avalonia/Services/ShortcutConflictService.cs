@@ -24,8 +24,8 @@ public static class ShortcutConflictService
         { "Cmd+7", "Jump to Tab 7" },
         { "Cmd+8", "Jump to Tab 8" },
         { "Cmd+9", "Jump to Tab 9" },
-        { "Ctrl+Tab", "Next Tab" },
-        { "Ctrl+Shift+Tab", "Previous Tab" },
+        { "Cmd+Alt+Left", "Previous Tab" },
+        { "Cmd+Alt+Right", "Next Tab" },
 
         // Application
         { "Cmd+N", "Open New Project" },
@@ -55,6 +55,10 @@ public static class ShortcutConflictService
 
         // Terminal
         { "Cmd+`", "Switch Terminal" },
+
+        // File Operations
+        { "Cmd+E", "Open Folder in Finder" },
+        { "Cmd+P", "Open Profiles" },
 
         // Run
         { "F5", "Start/Stop Run" },

@@ -136,6 +136,7 @@ public partial class MainWindow : Window
         // Event handlers
         Opened += OnOpened;
         Closing += OnClosing;
+
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -699,6 +700,34 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+P for profiles
+        if (e.Key == Key.P && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.OpenProfilesCommand.CanExecute(null))
+                _mainViewModel.OpenProfilesCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+E for Open in Finder/Explorer
+        if (e.Key == Key.E && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.OpenInExplorerCommand.CanExecute(null))
+                _mainViewModel.OpenInExplorerCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+` for terminal switching (may not work on all keyboard layouts)
+        // Try multiple key codes for backtick: OemTilde, Oem3 (varies by keyboard layout)
+        if ((e.Key == Key.OemTilde || e.Key == Key.Oem3) && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.SwitchActiveTerminalCommand.CanExecute(null))
+                _mainViewModel.SwitchActiveTerminalCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+Shift+P for command palette
         if (e.Key == Key.P && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
@@ -853,7 +882,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Ctrl+Tab for next tab
+        // Handle Ctrl+Tab for next tab (kept for compatibility, may not work when terminal focused)
         if (e.Key == Key.Tab && e.KeyModifiers == KeyModifiers.Control)
         {
             if (_mainViewModel.CycleTabCommand.CanExecute(true))
@@ -889,7 +918,15 @@ public partial class MainWindow : Window
 
             if (TryParseShortcut(command.Shortcut, out var expectedKey, out var expectedModifiers))
             {
-                if (key == expectedKey && modifiers == expectedModifiers)
+                // On macOS, also accept Meta (Cmd) when the shortcut specifies Control (Ctrl)
+                // This allows shortcuts defined as "Ctrl+Shift+X" to work with Cmd+Shift+X on macOS
+                var platformModifiers = expectedModifiers;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && expectedModifiers.HasFlag(KeyModifiers.Control))
+                {
+                    platformModifiers = (expectedModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
+                }
+
+                if (key == expectedKey && (modifiers == expectedModifiers || modifiers == platformModifiers))
                 {
                     _mainViewModel.ExecuteQuickCommandCommand.Execute(command);
                     return true;

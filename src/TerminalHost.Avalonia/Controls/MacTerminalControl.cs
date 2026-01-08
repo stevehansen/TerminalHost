@@ -1093,6 +1093,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     {
         base.OnKeyDown(e);
 
+        // Skip if already handled by window-level shortcuts
+        if (e.Handled)
+            return;
+
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var meta = e.KeyModifiers.HasFlag(KeyModifiers.Meta);

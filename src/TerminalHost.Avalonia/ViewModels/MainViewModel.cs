@@ -1647,6 +1647,12 @@ public partial class MainViewModel : ObservableObject
         SelectedTab = Tabs[newIndex];
     }
 
+    [RelayCommand]
+    private void CycleTabForward() => CycleTab(true);
+
+    [RelayCommand]
+    private void CycleTabBackward() => CycleTab(false);
+
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;

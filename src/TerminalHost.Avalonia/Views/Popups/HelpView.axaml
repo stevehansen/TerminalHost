@@ -61,20 +61,17 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+Tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Next tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Shift+Tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Previous tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘ 1-9" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="⌘⇧ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="⌘ W" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close current tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Middle-click tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Close tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘⌥ ← / ⌘⌥ →" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Previous / Next tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ 1-9" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘⇧ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="⌘ W" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Close current tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Middle-click tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- Terminal -->

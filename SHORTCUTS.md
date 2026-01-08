@@ -14,8 +14,8 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+P` | Open profiles | Global | |
 | `Ctrl+N` | New project (folder picker) | Global | |
 | `Ctrl+W` | Close current tab | Global | |
-| `Ctrl+PageDown` | Next tab | Global | |
-| `Ctrl+PageUp` | Previous tab | Global | |
+| `Ctrl+Shift+Down` | Next tab | Global | Windows only |
+| `Ctrl+Shift+Up` | Previous tab | Global | Windows only |
 | `Ctrl+1-9` | Jump to tab 1-9 | Global | |
 | `Ctrl+Shift+T` | Open tab switcher | Global | Search and switch tabs |
 | `Ctrl+Shift+P` | Open command palette | Global | |
@@ -25,7 +25,9 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
-| `Ctrl+`` ` | Switch Custom/Shell terminal | Terminal tab | Oem3 key |
+| `Ctrl+`` ` | Switch Custom/Shell terminal | Terminal tab | Oem3/OemTilde key |
+| `Ctrl+Shift+Left` | Switch terminal | Terminal tab | Windows only |
+| `Ctrl+Shift+Right` | Switch terminal | Terminal tab | Windows only |
 | `Ctrl+V` | Paste to terminal | Terminal focused | |
 | `Ctrl+C` | Copy from terminal (if selection) | Terminal focused | Falls through if no selection |
 | `Tab` | Send tab character | Terminal focused | |
@@ -111,9 +113,44 @@ These are user-configurable in settings. Default shortcuts:
 
 ---
 
+## macOS Platform Notes
+
+On macOS, all `Ctrl+` shortcuts in this document are automatically converted to `Cmd+` (⌘) equivalents. The application handles this conversion internally.
+
+### macOS-Specific Behavior
+
+| Windows Shortcut | macOS Equivalent | Notes |
+|------------------|------------------|-------|
+| `Ctrl+1-9` | `Cmd+1-9` | Tab jumping |
+| `Ctrl+`` ` | `Cmd+`` ` | Terminal switching (may not work on all keyboards) |
+| All other `Ctrl+` | `Cmd+` | Standard conversion |
+| N/A | `Cmd+Alt+Left` | Previous tab (macOS only) |
+| N/A | `Cmd+Alt+Right` | Next tab (macOS only) |
+
+### macOS System Conflicts (Unavoidable)
+
+| Shortcut | macOS System Function | Workaround |
+|----------|----------------------|------------|
+| `Cmd+M` | Minimize window | Use Command Palette instead |
+| `Cmd+H` | Hide application | Use `Cmd+Shift+H` for Commit History |
+| `Cmd+Tab` | App switching | Use `Cmd+Alt+Left/Right` for tab cycling |
+| `Cmd+Shift+Q` | Log out | Avoid using this combination |
+| `Ctrl+Tab` | Does not work when terminal focused | Use `Cmd+Alt+Left/Right` instead |
+| `Cmd+Shift+Arrow` | Conflicts with terminal | Use `Cmd+Alt+Left/Right` for tabs |
+
+### Middle-Click Alternative
+
+macOS trackpads don't have a middle-click button. To close tabs:
+- Use `Cmd+W` to close the current tab
+- Right-click on a tab and select "Close"
+
+---
+
 ## Reserved/Unavailable Shortcuts
 
 These shortcuts are reserved by the system or have special meaning:
+
+### Windows
 
 | Shortcut | Reason |
 |----------|--------|
@@ -121,6 +158,17 @@ These shortcuts are reserved by the system or have special meaning:
 | `Alt+Tab` | System window switching |
 | `Alt+F4` | Close window (system) |
 | `Ctrl+Shift+Escape` | Task Manager (system) |
+
+### macOS
+
+| Shortcut | Reason |
+|----------|--------|
+| `Cmd+Tab` | Application switching |
+| `Cmd+H` | Hide application |
+| `Cmd+M` | Minimize window |
+| `Cmd+Q` | Quit application |
+| `Cmd+Shift+Q` | Log out |
+| `Cmd+Space` | Spotlight search |
 
 ---
 
@@ -211,4 +259,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2025-12-29*
+*Last updated: 2026-01-08*
