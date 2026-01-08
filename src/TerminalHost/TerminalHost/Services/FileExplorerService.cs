@@ -43,11 +43,9 @@ public class FileExplorerService : IFileExplorerService
                         ChildrenLoaded = false
                     };
 
-                    // Add a dummy child if the directory has children (for lazy loading)
-                    if (HasChildren(dir, showHidden))
-                    {
-                        node.Children.Add(FileSystemNode.CreateDummy());
-                    }
+                    // Note: Dummy children for lazy loading are added by the ViewModel
+                    // (LoadChildrenAsync and RefreshNodeChildrenAsync), not here.
+                    // This avoids double-adding dummies.
 
                     nodes.Add(node);
                 }

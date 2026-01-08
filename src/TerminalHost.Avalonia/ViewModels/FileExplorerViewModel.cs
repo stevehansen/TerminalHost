@@ -307,7 +307,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
             // Restore expanded state
             if (child.IsDirectory && expandedPaths.Contains(child.FullPath))
             {
-                await LoadChildrenAsync(child);
+                // Set ChildrenLoaded so RefreshNodeChildrenAsync will process this node
+                // (it returns early if ChildrenLoaded is false)
+                child.ChildrenLoaded = true;
                 child.IsExpanded = true;
                 await RefreshNodeChildrenAsync(child);
             }
@@ -366,7 +368,9 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
     public async Task LoadChildrenAsync(FileSystemNode node)
     {
-        if (!node.IsDirectory || node.ChildrenLoaded)
+        // Guard against concurrent calls - check both ChildrenLoaded and IsLoading
+        // to prevent race conditions when the Expanded event fires multiple times
+        if (!node.IsDirectory || node.ChildrenLoaded || node.IsLoading)
             return;
 
         node.IsLoading = true;
