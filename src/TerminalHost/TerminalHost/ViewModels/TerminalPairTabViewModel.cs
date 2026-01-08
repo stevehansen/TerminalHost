@@ -451,6 +451,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _statisticsService = statisticsService;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
+
+        // Subscribe to panel collection changes for safety
+        RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
     }
 
     public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0)
@@ -470,6 +473,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             AvailableAiAssistants.Add(assistant);
         }
+
+        // Subscribe to panel collection changes for safety
+        RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
     }
 
     partial void OnSelectedAiAssistantChanged(AiAssistant? oldValue, AiAssistant? newValue)
@@ -783,6 +789,19 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     {
         OnPropertyChanged(nameof(LeftPanelColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Handles changes to the right panels collection.
+    /// Ensures IsExplorerVisible is false when collection becomes empty.
+    /// </summary>
+    private void OnRightPanelsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // Safety net: if all panels are removed, ensure panel area is hidden
+        if (RightPanels.Count == 0 && IsExplorerVisible)
+        {
+            IsExplorerVisible = false;
+        }
     }
 
     /// <summary>

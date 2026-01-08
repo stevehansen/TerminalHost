@@ -19,23 +19,49 @@ public partial class TerminalPairView : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Subscribe to PanelHost events
+        // Subscribe to PanelHost events (unsubscribe first to prevent duplicates)
         if (RightPanelHost != null)
         {
+            RightPanelHost.PanelCloseRequested -= OnPanelCloseRequested;
+            RightPanelHost.PanelUndockRequested -= OnPanelUndockRequested;
+            RightPanelHost.PanelDetachRequested -= OnPanelDetachRequested;
+
             RightPanelHost.PanelCloseRequested += OnPanelCloseRequested;
             RightPanelHost.PanelUndockRequested += OnPanelUndockRequested;
             RightPanelHost.PanelDetachRequested += OnPanelDetachRequested;
         }
 
-        // Subscribe to PanelPopup events
+        // Subscribe to PanelPopup events (unsubscribe first to prevent duplicates)
         if (PanelPopupHost != null)
         {
+            PanelPopupHost.DockRequested -= OnPopupDockRequested;
+            PanelPopupHost.PopOutRequested -= OnPopupPopOutRequested;
+
             PanelPopupHost.DockRequested += OnPopupDockRequested;
             PanelPopupHost.PopOutRequested += OnPopupPopOutRequested;
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        // Unsubscribe from PanelHost events
+        if (RightPanelHost != null)
+        {
+            RightPanelHost.PanelCloseRequested -= OnPanelCloseRequested;
+            RightPanelHost.PanelUndockRequested -= OnPanelUndockRequested;
+            RightPanelHost.PanelDetachRequested -= OnPanelDetachRequested;
+        }
+
+        // Unsubscribe from PanelPopup events
+        if (PanelPopupHost != null)
+        {
+            PanelPopupHost.DockRequested -= OnPopupDockRequested;
+            PanelPopupHost.PopOutRequested -= OnPopupPopOutRequested;
         }
     }
 
@@ -75,6 +101,9 @@ public partial class TerminalPairView : UserControl
 
         // Remove panel from the docked collection
         _currentViewModel.RemovePanel(panel);
+
+        // Mark panel as closed (consistent with TogglePanel behavior)
+        panel.IsOpen = false;
 
         // Only hide the panel area if no panels remain
         if (_currentViewModel.RightPanels.Count == 0)
