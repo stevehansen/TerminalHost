@@ -636,13 +636,31 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     [RelayCommand]
-    private void SetCustomFullLayout() => LayoutMode = TerminalLayoutMode.CustomFull;
+    private void SetCustomFullLayout()
+    {
+        LayoutMode = TerminalLayoutMode.CustomFull;
+        // Focus custom terminal when switching to full view
+        FocusedTerminal = ActiveTerminal.Custom;
+        Pair.CustomTerminal.Focus();
+    }
 
     [RelayCommand]
-    private void SetHorizontalSplitLayout() => LayoutMode = TerminalLayoutMode.HorizontalSplit;
+    private void SetHorizontalSplitLayout()
+    {
+        LayoutMode = TerminalLayoutMode.HorizontalSplit;
+        // Focus shell terminal when switching to split view (shell is being revealed)
+        FocusedTerminal = ActiveTerminal.Shell;
+        Pair.ShellTerminal.Focus();
+    }
 
     [RelayCommand]
-    private void SetVerticalSplitLayout() => LayoutMode = TerminalLayoutMode.VerticalSplit;
+    private void SetVerticalSplitLayout()
+    {
+        LayoutMode = TerminalLayoutMode.VerticalSplit;
+        // Focus shell terminal when switching to split view (shell is being revealed)
+        FocusedTerminal = ActiveTerminal.Shell;
+        Pair.ShellTerminal.Focus();
+    }
 
     partial void OnLayoutModeChanged(TerminalLayoutMode value)
     {
