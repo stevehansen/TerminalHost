@@ -64,6 +64,9 @@ public sealed class GitStatusService : IGitStatusService
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return files;
 
+        // Get list of submodule paths for detection
+        var submodulePaths = await GetSubmodulePathsAsync(workingDirectory);
+
         // Get status in porcelain v1 format: XY PATH or XY ORIG -> PATH for renames
         // Use --untracked-files=all to show individual files in new directories (not just directory names)
         var output = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain --untracked-files=all");
@@ -106,18 +109,51 @@ public sealed class GitStatusService : IGitStatusService
             var statusChar = workTreeStatus != ' ' ? workTreeStatus : indexStatus;
             var isStaged = indexStatus != ' ' && indexStatus != '?';
 
+            // Check if this path is a submodule
+            var isSubmodule = submodulePaths.Contains(path.Replace('\\', '/'));
+
             var fileStatus = new GitFileStatus
             {
                 FilePath = path,
                 Status = ParseStatusChar(statusChar),
                 IsStaged = isStaged,
-                OriginalPath = originalPath
+                OriginalPath = originalPath,
+                IsSubmodule = isSubmodule
             };
 
             files.Add(fileStatus);
         }
 
         return files;
+    }
+
+    private async Task<HashSet<string>> GetSubmodulePathsAsync(string workingDirectory)
+    {
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Get submodule paths from .gitmodules config
+        // Format: submodule.name.path value
+        var output = await _gitRunner.RunGitCommandAsync(
+            workingDirectory,
+            "config --file .gitmodules --get-regexp path",
+            TimeSpan.FromSeconds(5));
+
+        if (string.IsNullOrEmpty(output))
+            return paths;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            // Each line is "submodule.<name>.path <value>"
+            var parts = line.Split(' ', 2);
+            if (parts.Length == 2)
+            {
+                var submodulePath = parts[1].Trim();
+                paths.Add(submodulePath);
+            }
+        }
+
+        return paths;
     }
 
     private static GitFileStatusType ParseStatusChar(char status) => status switch

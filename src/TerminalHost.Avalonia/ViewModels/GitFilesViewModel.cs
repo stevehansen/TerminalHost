@@ -183,6 +183,13 @@ public partial class GitFilesViewModel : ObservableObject
             return;
         }
 
+        // Handle submodules specially - don't try to load a diff as it can hang
+        if (file.IsSubmodule)
+        {
+            DiffText = $"Submodule: {file.FilePath}\n\nDiff preview is not available for submodules.\n\nTo view submodule changes, navigate to the submodule directory\nand use git commands directly.";
+            return;
+        }
+
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
         var diff = await _gitStatusService.GetFileDiffAsync(workingDirectory, file.FilePath, file.IsStaged);
 
@@ -203,7 +210,7 @@ public partial class GitFilesViewModel : ObservableObject
         ExploreFileCommand.NotifyCanExecuteChanged();
     }
 
-    public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
+    public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted && !SelectedGitFile.IsSubmodule;
     [RelayCommand(CanExecute = nameof(CanPreviewFile))]
     private void PreviewFile()
     {
@@ -214,7 +221,7 @@ public partial class GitFilesViewModel : ObservableObject
         Close();
     }
 
-    public bool CanEditFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
+    public bool CanEditFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted && !SelectedGitFile.IsSubmodule;
     [RelayCommand(CanExecute = nameof(CanEditFile))]
     private void EditFile()
     {

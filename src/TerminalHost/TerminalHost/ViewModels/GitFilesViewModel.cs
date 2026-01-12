@@ -256,7 +256,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         }
     }
 
-    public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
+    public bool CanPreviewFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted && !SelectedGitFile.IsSubmodule;
 
     [RelayCommand(CanExecute = nameof(CanPreviewFile))]
     private void PreviewFile()
@@ -268,7 +268,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         OnClose();
     }
 
-    public bool CanEditFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted;
+    public bool CanEditFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted && !SelectedGitFile.IsSubmodule;
 
     [RelayCommand(CanExecute = nameof(CanEditFile))]
     private void EditFile()
@@ -537,6 +537,13 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null)
         {
             DiffText = "";
+            return;
+        }
+
+        // Handle submodules specially - don't try to load a diff as it can hang
+        if (file.IsSubmodule)
+        {
+            DiffText = $"Submodule: {file.FilePath}\n\nDiff preview is not available for submodules.\n\nTo view submodule changes, navigate to the submodule directory\nand use git commands directly.";
             return;
         }
 

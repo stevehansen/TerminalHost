@@ -6,7 +6,14 @@ namespace TerminalHost.Core.Services;
 
 public sealed class GitProcessRunner : IGitProcessRunner
 {
-    public async Task<string?> RunGitCommandAsync(string workingDirectory, string arguments)
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+
+    public Task<string?> RunGitCommandAsync(string workingDirectory, string arguments)
+    {
+        return RunGitCommandAsync(workingDirectory, arguments, DefaultTimeout, CancellationToken.None);
+    }
+
+    public async Task<string?> RunGitCommandAsync(string workingDirectory, string arguments, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -26,10 +33,35 @@ public sealed class GitProcessRunner : IGitProcessRunner
 
             process.Start();
 
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
+            // Use a combined cancellation token with timeout
+            using var timeoutCts = new CancellationTokenSource(timeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
-            return process.ExitCode == 0 ? output : null;
+            try
+            {
+                var outputTask = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
+                await process.WaitForExitAsync(linkedCts.Token);
+                var output = await outputTask;
+
+                return process.ExitCode == 0 ? output : null;
+            }
+            catch (OperationCanceledException)
+            {
+                // Kill the process if it's still running
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // Ignore errors when killing
+                }
+
+                return null;
+            }
         }
         catch
         {

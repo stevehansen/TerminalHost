@@ -24,7 +24,10 @@ public class GitFileStatus
     // For renamed files
     public string? OriginalPath { get; set; }
 
-    public string StatusIcon => Status switch
+    // For submodules
+    public bool IsSubmodule { get; set; }
+
+    public string StatusIcon => IsSubmodule ? "S" : Status switch
     {
         GitFileStatusType.Modified => "M",
         GitFileStatusType.Added => "A",
@@ -38,7 +41,7 @@ public class GitFileStatus
         _ => "?"
     };
 
-    public string StatusColor => Status switch
+    public string StatusColor => IsSubmodule ? "#9CDCFE" : Status switch // Light blue for submodules
     {
         GitFileStatusType.Modified => "#E2C08D",   // Yellow/orange
         GitFileStatusType.Added => "#4EC9B0",      // Green
@@ -52,7 +55,7 @@ public class GitFileStatus
         _ => "#CCCCCC"
     };
 
-    public string StatusDescription => Status switch
+    public string StatusDescription => IsSubmodule ? "Submodule" : Status switch
     {
         GitFileStatusType.Modified => "Modified",
         GitFileStatusType.Added => "Added",
