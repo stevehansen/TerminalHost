@@ -682,6 +682,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(TitleWithGit));
         OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(GitStatusDisplay));
+
+        // Refresh file explorer's git status when tab git status changes
+        if (ExplorerViewModel != null)
+        {
+            _ = ExplorerViewModel.RefreshGitStatusAsync();
+        }
     }
 
     partial void OnIsCustomTerminalActiveChanged(bool value)

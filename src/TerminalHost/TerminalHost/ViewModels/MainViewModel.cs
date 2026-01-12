@@ -493,6 +493,12 @@ public partial class MainViewModel : ObservableObject
             terminalTab.GitStatus = status;
             // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
+
+            // Also refresh sidebar git status for the current workspace
+            if (WorkspaceSidebar != null)
+            {
+                await WorkspaceSidebar.RefreshGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+            }
         }
         catch
         {
