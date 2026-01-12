@@ -840,3 +840,135 @@ public class CommandToFileNameConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts TouchMode boolean to Thickness for padding.
+/// Parameter format: "normalPadding|touchPadding" e.g., "8,4|12,8" or "8,4,8,4|16,8,16,8"
+/// </summary>
+public class TouchModeToPaddingConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (parameter is not string paddingParam)
+            return new Thickness(8, 4, 8, 4);
+
+        var isTouchMode = value is bool b && b;
+        var parts = paddingParam.Split('|');
+
+        if (parts.Length != 2)
+            return new Thickness(8, 4, 8, 4);
+
+        var paddingStr = isTouchMode ? parts[1] : parts[0];
+        return ParseThickness(paddingStr);
+    }
+
+    private static Thickness ParseThickness(string value)
+    {
+        var nums = value.Split(',').Select(s => double.TryParse(s.Trim(), out var d) ? d : 0).ToArray();
+        return nums.Length switch
+        {
+            1 => new Thickness(nums[0]),
+            2 => new Thickness(nums[0], nums[1], nums[0], nums[1]),
+            4 => new Thickness(nums[0], nums[1], nums[2], nums[3]),
+            _ => new Thickness(8, 4, 8, 4)
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts TouchMode boolean to double for sizes (min-height, font-size, etc.).
+/// Parameter format: "normalValue|touchValue" e.g., "24|36" or "11|14"
+/// </summary>
+public class TouchModeToDoubleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (parameter is not string sizeParam)
+            return 24.0;
+
+        var isTouchMode = value is bool b && b;
+        var parts = sizeParam.Split('|');
+
+        if (parts.Length != 2)
+            return 24.0;
+
+        var sizeStr = isTouchMode ? parts[1] : parts[0];
+        return double.TryParse(sizeStr, out var size) ? size : 24.0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts TouchMode boolean to Thickness for margin.
+/// Parameter format: "normalMargin|touchMargin" e.g., "0,0,2,0|0,0,4,0"
+/// </summary>
+public class TouchModeToMarginConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (parameter is not string marginParam)
+            return new Thickness(0);
+
+        var isTouchMode = value is bool b && b;
+        var parts = marginParam.Split('|');
+
+        if (parts.Length != 2)
+            return new Thickness(0);
+
+        var marginStr = isTouchMode ? parts[1] : parts[0];
+        return ParseThickness(marginStr);
+    }
+
+    private static Thickness ParseThickness(string value)
+    {
+        var nums = value.Split(',').Select(s => double.TryParse(s.Trim(), out var d) ? d : 0).ToArray();
+        return nums.Length switch
+        {
+            1 => new Thickness(nums[0]),
+            2 => new Thickness(nums[0], nums[1], nums[0], nums[1]),
+            4 => new Thickness(nums[0], nums[1], nums[2], nums[3]),
+            _ => new Thickness(0)
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converts TouchMode boolean to GridLength for min-width.
+/// Parameter format: "normalWidth|touchWidth" e.g., "100|140"
+/// </summary>
+public class TouchModeToGridLengthConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (parameter is not string widthParam)
+            return new GridLength(100);
+
+        var isTouchMode = value is bool b && b;
+        var parts = widthParam.Split('|');
+
+        if (parts.Length != 2)
+            return new GridLength(100);
+
+        var widthStr = isTouchMode ? parts[1] : parts[0];
+        return double.TryParse(widthStr, out var width) ? new GridLength(width) : new GridLength(100);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

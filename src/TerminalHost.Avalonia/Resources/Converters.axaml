@@ -52,4 +52,9 @@
     <!-- Time Converter -->
     <conv:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
 
+    <!-- Touch Mode Converters -->
+    <conv:TouchModeToPaddingConverter x:Key="TouchModeToPaddingConverter"/>
+    <conv:TouchModeToDoubleConverter x:Key="TouchModeToDoubleConverter"/>
+    <conv:TouchModeToMarginConverter x:Key="TouchModeToMarginConverter"/>
+
 </ResourceDictionary>

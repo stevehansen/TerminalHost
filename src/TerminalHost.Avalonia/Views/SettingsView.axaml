@@ -410,6 +410,13 @@
                         <TextBlock Text="When enabled, the application minimizes to the system tray instead of the taskbar."
                                    Classes="HelpText"/>
 
+                        <CheckBox Content="Touch-friendly mode"
+                                  IsChecked="{Binding TouchMode}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Enable larger touch targets for mobile remote desktop usage."/>
+                        <TextBlock Text="When enabled, UI elements have larger touch targets and more padding for easier use on touch devices or remote desktop from mobile."
+                                   Classes="HelpText"/>
+
                         <!-- Separator -->
                         <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
 

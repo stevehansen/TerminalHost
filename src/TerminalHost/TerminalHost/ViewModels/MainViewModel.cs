@@ -154,6 +154,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHelpOpen;
 
+    /// <summary>
+    /// Whether touch-friendly mode is enabled for larger touch targets and padding.
+    /// </summary>
+    [ObservableProperty]
+    private bool _touchMode;
+
     // Command Palette Properties
     [ObservableProperty]
     private bool _isCommandPaletteOpen;
@@ -260,6 +266,9 @@ public partial class MainViewModel : ObservableObject
 
         // Initialize help view model
         HelpViewModel = new HelpViewModel(this);
+
+        // Initialize touch mode from config
+        TouchMode = configService.Load().Settings.TouchMode;
 
         // Subscribe to Tabs collection changes for NonProjectTabs updates
         _tabs.CollectionChanged += (s, e) =>
@@ -1568,6 +1577,20 @@ public partial class MainViewModel : ObservableObject
     {
         // Reload quick commands when config is saved
         LoadQuickCommands();
+
+        // Reload touch mode setting and adjust sidebar width
+        var newTouchMode = _configService.Load().Settings.TouchMode;
+        if (newTouchMode != TouchMode)
+        {
+            TouchMode = newTouchMode;
+            // Adjust sidebar width for touch mode (narrower for more content space)
+            if (WorkspaceSidebar != null)
+            {
+                WorkspaceSidebar.Width = newTouchMode ? 180 : 250;
+                OnPropertyChanged(nameof(SidebarWidth));
+                OnPropertyChanged(nameof(SidebarColumnWidth));
+            }
+        }
 
         // Reload AI assistants and update all terminal tabs
         _aiAssistantService.Reload();

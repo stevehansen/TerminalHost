@@ -410,6 +410,13 @@
                                   ToolTip="Automatically sort workspaces in sidebar by recent usage."/>
                         <TextBlock Text="When enabled, workspaces in the sidebar are sorted by combined focus time and activity from the last 7 days."
                                    Style="{StaticResource HelpText}"/>
+
+                        <CheckBox Content="Touch-friendly mode"
+                                  IsChecked="{Binding TouchMode}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  ToolTip="Enable larger touch targets for mobile remote desktop usage."/>
+                        <TextBlock Text="When enabled, UI elements have larger touch targets and more padding for easier use on touch devices or remote desktop from mobile."
+                                   Style="{StaticResource HelpText}"/>
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->

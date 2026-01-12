@@ -363,18 +363,29 @@
                 Padding="8,6">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
+                <!-- Collapse/Hide Button -->
+                <Button Grid.Column="0"
+                        Content="◀"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='4,2|10,6'}"
+                        FontSize="10"
+                        ToolTip="Hide Sidebar (Ctrl+L)"
+                        Command="{Binding DataContext.ToggleLayoutModeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Margin="0,0,6,0"/>
+
+                <TextBlock Grid.Column="1"
                            Text="WORKSPACES"
                            Foreground="{StaticResource TextMutedBrush}"
                            FontSize="11"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="+"
                             Style="{StaticResource TerminalSwitchButton}"
                             Padding="6,2"

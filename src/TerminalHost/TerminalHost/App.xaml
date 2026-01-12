@@ -45,6 +45,10 @@
         <local:EqualityConverter x:Key="EqualityConverter"/>
         <local:BoolToStringConverter x:Key="BoolToStringConverter"/>
         <local:CommandToFileNameConverter x:Key="CommandToFileNameConverter"/>
+        <local:TouchModeToPaddingConverter x:Key="TouchModeToPaddingConverter"/>
+        <local:TouchModeToDoubleConverter x:Key="TouchModeToDoubleConverter"/>
+        <local:TouchModeToMarginConverter x:Key="TouchModeToMarginConverter"/>
+        <local:TouchModeToGridLengthConverter x:Key="TouchModeToGridLengthConverter"/>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- COLOR PALETTE - All colors should be defined here               -->

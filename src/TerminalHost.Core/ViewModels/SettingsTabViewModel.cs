@@ -86,6 +86,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _workspaceAutoSort;
 
     [ObservableProperty]
+    private bool _touchMode;
+
+    [ObservableProperty]
     private string _customCommand = "";
 
     [ObservableProperty]
@@ -390,6 +393,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
             WorkspaceAutoSort = config.Settings.WorkspaceAutoSort;
+            TouchMode = config.Settings.TouchMode;
 
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
@@ -441,6 +445,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
             config.Settings.WorkspaceAutoSort = WorkspaceAutoSort;
+            config.Settings.TouchMode = TouchMode;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -526,6 +531,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnWorkspaceAutoSortChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

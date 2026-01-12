@@ -36,6 +36,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **AI Assistant Support**: Multi-AI CLI support (Claude, Gemini, etc.) with per-project selection.
 - [x] **GitHub Integration**: Dashboard (Ctrl+Shift+H), PR Review Mode (Ctrl+Shift+R).
 - [x] **UI Enhancements**: Toast notifications, themed dialogs, system tray support, Markdown preview (Ctrl+M).
+- [x] **Touch Mode**: Touch-friendly UI mode with larger touch targets, icon-only toolbar, narrower sidebar, and sidebar collapse button. Ideal for mobile RDP and demos.
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
 
 ### Deferred Features
@@ -479,6 +480,7 @@ Config file location:
   "settings": {
     "confirmOnClose": true,
     "showInSystemTray": false,
+    "touchMode": false,
     "customCommand": "C:\\Users\\Administrator\\.local\\bin\\claude.exe",
     "customCommandName": "Claude Code",
     "customCommandIcon": "🤖",

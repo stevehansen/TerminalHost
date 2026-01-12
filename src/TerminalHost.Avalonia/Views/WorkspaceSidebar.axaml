@@ -129,20 +129,30 @@
         <Border Grid.Row="0" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid RowDefinitions="Auto,Auto">
                 <!-- Title and toggle button -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                    <TextBlock Grid.Column="0"
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                    <!-- Collapse Button (more prominent for touch) -->
+                    <Button Grid.Column="0"
+                            Command="{Binding MainViewModel.ToggleLayoutModeCommand}"
+                            ToolTip.Tip="Hide Sidebar (Cmd+Shift+L)"
+                            Classes="TerminalSwitchButton"
+                            Padding="{Binding MainViewModel.TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='4,2|10,6'}"
+                            Margin="0,0,6,0">
+                        <TextBlock Text="◀" FontSize="10"/>
+                    </Button>
+                    <TextBlock Grid.Column="1"
                                Text="WORKSPACES"
                                FontFamily="{StaticResource FontFamilyStandard}"
                                FontSize="{StaticResource FontSizeSmall}"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"/>
-                    <Button Grid.Column="1"
+                    <Button Grid.Column="2"
                             Command="{Binding MainViewModel.ToggleLayoutModeCommand}"
                             ToolTip.Tip="Switch to Tabs (Cmd+Shift+L)"
                             Background="Transparent"
                             Foreground="{StaticResource TextSecondaryBrush}"
-                            Padding="4,2">
+                            Padding="4,2"
+                            IsVisible="{Binding !MainViewModel.TouchMode}">
                         <TextBlock Text="☰" FontSize="{StaticResource FontSizeSmall}"/>
                     </Button>
                 </Grid>

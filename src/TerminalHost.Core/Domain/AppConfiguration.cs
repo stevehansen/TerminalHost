@@ -531,6 +531,13 @@ public class AppSettings
     public bool WorkspaceAutoSort { get; set; } = false;
 
     /// <summary>
+    /// Whether touch-friendly mode is enabled (larger touch targets, more padding).
+    /// Useful for remote desktop from mobile devices.
+    /// </summary>
+    [JsonPropertyName("touchMode")]
+    public bool TouchMode { get; set; } = false;
+
+    /// <summary>
     /// Branch names to track for quick access in Git operations.
     /// These are auto-detected in each repo, matching by short name.
     /// </summary>

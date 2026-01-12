@@ -104,6 +104,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHelpOpen;
 
+    /// <summary>
+    /// Whether touch-friendly mode is enabled for larger touch targets and padding.
+    /// </summary>
+    [ObservableProperty]
+    private bool _touchMode;
+
     // Command Palette Properties
     [ObservableProperty]
     private bool _isCommandPaletteOpen;
@@ -274,6 +280,9 @@ public partial class MainViewModel : ObservableObject
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
         _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
+
+        // Initialize touch mode from config
+        TouchMode = configService.Load().Settings.TouchMode;
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -1513,6 +1522,16 @@ public partial class MainViewModel : ObservableObject
 
         // Reload quick commands when config is saved
         LoadQuickCommands();
+
+        // Reload touch mode setting and adjust sidebar width
+        var newTouchMode = _configService.Load().Settings.TouchMode;
+        if (newTouchMode != TouchMode)
+        {
+            TouchMode = newTouchMode;
+            // Adjust sidebar width for touch mode (narrower for more content space)
+            SidebarWidth = newTouchMode ? 180 : 250;
+            OnPropertyChanged(nameof(SidebarColumnWidth));
+        }
 
         // Reload AI assistants and update all terminal tabs
         _aiAssistantService.Reload();

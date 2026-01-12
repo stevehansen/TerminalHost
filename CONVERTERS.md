@@ -64,6 +64,17 @@ Quick reference for all converters defined in `src/TerminalHost/TerminalHost/Con
 | `RunStateToIconConverter` | `RunState` | icon string (▶/⏹/⏳) | - |
 | `RunStateToTooltipConverter` | `RunState` | tooltip string | - |
 
+## Touch Mode Converters
+
+These converters adjust UI elements based on the touch mode setting, making them larger/smaller for mobile RDP usage and demos.
+
+| Converter | Input | Output | Parameter |
+|-----------|-------|--------|-----------|
+| `TouchModeToPaddingConverter` | `bool` | `Thickness` | `"normalPadding\|touchPadding"` e.g., `"8,4\|14,8"` |
+| `TouchModeToDoubleConverter` | `bool` | `double` | `"normalValue\|touchValue"` e.g., `"11\|14"` |
+| `TouchModeToMarginConverter` | `bool` | `Thickness` | `"normalMargin\|touchMargin"` e.g., `"0,0,2,0\|0,0,4,0"` |
+| `TouchModeToGridLengthConverter` | `bool` | `GridLength` | `"normalWidth\|touchWidth"` e.g., `"100\|140"` |
+
 ## Multi-Value Converters
 
 | Converter | Inputs | Output | Notes |
@@ -103,6 +114,14 @@ Quick reference for all converters defined in `src/TerminalHost/TerminalHost/Con
         <Binding Path="."/>
     </MultiBinding>
 </Border.Background>
+
+<!-- Touch mode adaptive padding -->
+<Button Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter},
+        ConverterParameter='8,4|14,8'}"/>
+
+<!-- Touch mode adaptive font size -->
+<TextBlock FontSize="{Binding TouchMode, Converter={StaticResource TouchModeToDoubleConverter},
+           ConverterParameter='11|14'}"/>
 ```
 
 ## Common Mistakes

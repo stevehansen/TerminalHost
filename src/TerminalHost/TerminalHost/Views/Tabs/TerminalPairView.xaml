@@ -26,14 +26,14 @@
                     <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
                                   Command="{Binding SetCustomFullLayoutCommand}"
                                   ToolTip="Custom terminal only (full view)"
-                                  AutomationProperties.AutomationId="CustomFullLayoutButton">
+                                  AutomationProperties.AutomationId="CustomFullLayoutButton"
+                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                                 <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
@@ -64,14 +64,14 @@
                     <ToggleButton IsChecked="{Binding IsHorizontalSplitMode, Mode=OneWay}"
                                   Command="{Binding SetHorizontalSplitLayoutCommand}"
                                   ToolTip="Horizontal split (side by side)"
-                                  AutomationProperties.AutomationId="HorizontalSplitLayoutButton">
+                                  AutomationProperties.AutomationId="HorizontalSplitLayoutButton"
+                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                                 <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
@@ -103,14 +103,14 @@
                                   Command="{Binding SetVerticalSplitLayoutCommand}"
                                   ToolTip="Vertical split (stacked)"
                                   AutomationProperties.AutomationId="VerticalSplitLayoutButton"
-                                  Margin="0,0,8,0">
+                                  Margin="0,0,8,0"
+                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
                                 <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                                 <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Padding" Value="8,4"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
@@ -165,6 +165,7 @@
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenDetectedLinksCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Visibility="{Binding HasDetectedLinks, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔗" Margin="0,0,4,0"/>
@@ -179,24 +180,28 @@
                             AutomationProperties.Name="Open in Explorer"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenInExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="📝"
                             ToolTip="Scratch Pad (Ctrl+Shift+N)"
                             AutomationProperties.Name="Scratch Pad"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="📋"
                             ToolTip="Git Changes (Ctrl+G)"
                             AutomationProperties.Name="Git Changes"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="❓"
                             ToolTip="Help &amp; Shortcuts (F1)"
                             AutomationProperties.Name="Help"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenHelpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
 
                     <!-- Run Controls Separator -->
@@ -216,6 +221,7 @@
                             AutomationProperties.Name="Toggle Project Run"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding ToggleRunCommand}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"
                             Visibility="{Binding HasAnyRunConfiguration, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -240,6 +246,7 @@
                             Style="{StaticResource TerminalSwitchButton}"
                             Click="OpenDetectedRunUrl_Click"
                             Visibility="{Binding DetectedRunUrl, Converter={StaticResource NullToCollapsedConverter}}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌐" Margin="0,0,4,0"/>

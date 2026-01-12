@@ -18,9 +18,9 @@
             <Border x:Name="TabBorder"
                     Background="{StaticResource BackgroundLightBrush}"
                     CornerRadius="4,4,0,0"
-                    Padding="8,4"
+                    Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                     Margin="0,0,2,0"
-                    MinWidth="100"
+                    MinWidth="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='100|140'}"
                     AllowDrop="True"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                     PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"
@@ -61,6 +61,8 @@
                             AutomationProperties.Name="Close tab"
                             AutomationProperties.AutomationId="CloseTabButton"
                             Style="{StaticResource TabCloseButton}"
+                            Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='4,0|10,4'}"
+                            FontSize="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='12|16'}"
                             Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding}"/>
                     <!-- Activity spinner - rotates when terminal is active (hidden for selected tab) -->
@@ -168,29 +170,51 @@
         <DockPanel>
             <!-- New Project Button -->
             <Button DockPanel.Dock="Right"
-                    Content="+ New Project"
                     AutomationProperties.AutomationId="NewProjectButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenNewProjectCommand}"
-                    Margin="8,0,4,0"/>
+                    ToolTip="New Project (Ctrl+N)"
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
+                    FontSize="{Binding TouchMode, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='11|14'}"
+                    Margin="8,0,4,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="+" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Text=" New Project" VerticalAlignment="Center"
+                               Visibility="{Binding TouchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </Button>
 
             <!-- Settings Button -->
             <Button DockPanel.Dock="Right"
-                    Content="Settings"
                     AutomationProperties.AutomationId="SettingsButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenSettingsCommand}"
                     ToolTip="Settings (Ctrl+,)"
-                    Margin="0,0,4,0"/>
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
+                    FontSize="{Binding TouchMode, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='11|14'}"
+                    Margin="0,0,4,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⚙" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Text=" Settings" VerticalAlignment="Center"
+                               Visibility="{Binding TouchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </Button>
 
             <!-- Statistics Button -->
             <Button DockPanel.Dock="Right"
-                    Content="Statistics"
                     AutomationProperties.AutomationId="StatisticsButton"
                     Style="{StaticResource TerminalSwitchButton}"
                     Command="{Binding OpenStatisticsCommand}"
                     ToolTip="View Usage Statistics"
-                    Margin="0,0,4,0"/>
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
+                    FontSize="{Binding TouchMode, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='11|14'}"
+                    Margin="0,0,4,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📊" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text=" Statistics" VerticalAlignment="Center"
+                               Visibility="{Binding TouchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </Button>
 
 
 
@@ -203,7 +227,7 @@
                     Click="ScrollRight_Click"
                     ToolTip="Scroll right"
                     Visibility="Collapsed"
-                    Padding="6,4"
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='6,4|12,8'}"
                     Margin="0,0,2,0"/>
 
             <!-- Scroll Left Button -->
@@ -215,7 +239,7 @@
                     Click="ScrollLeft_Click"
                     ToolTip="Scroll left"
                     Visibility="Collapsed"
-                    Padding="6,4"
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='6,4|12,8'}"
                     Margin="0,0,2,0"/>
 
             <!-- Tab Dropdown Button (shows all tabs when there's overflow) -->
@@ -227,7 +251,7 @@
                     Command="{Binding DataContext.OpenTabDropdownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                     ToolTip="All tabs (Ctrl+Shift+T)"
                     Visibility="Collapsed"
-                    Padding="6,4"
+                    Padding="{Binding TouchMode, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='6,4|12,8'}"
                     Margin="0,0,2,0"/>
 
             <!-- Tab List -->
