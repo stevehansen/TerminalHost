@@ -21,10 +21,10 @@ A visual three-way merge interface for resolving conflicts during merge, rebase,
 - **Features**: Side-by-side view (Ours/Result/Theirs), quick actions (Accept Ours/Theirs/Both), manual editing.
 - **Status**: Planned.
 
-### 2. Submodule Support (Low Priority)
+### 2. Submodule Support (Low Priority) ✅
 Basic management of git submodules.
-- **Features**: Indicator in file explorer, status display, init/update actions.
-- **Status**: Planned.
+- **Features**: Indicator in file explorer (📦 icon), status display (clean/modified/uninitialized), init/update/update-to-latest actions via context menu.
+- **Status**: Completed.
 
 ### 3. Tags Management (Low Priority)
 View and manage git tags.
@@ -36,5 +36,5 @@ View and manage git tags.
 | Priority | Feature | Status |
 |----------|---------|--------|
 | **Low** | Tags Management | Planned |
-| **Low** | Submodule Support | Planned |
+| **Low** | Submodule Support | **Completed** |
 | **Low** | Merge Conflict Resolution | Planned |

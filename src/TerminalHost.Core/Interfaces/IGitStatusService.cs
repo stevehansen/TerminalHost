@@ -99,4 +99,25 @@ public interface IGitStatusService
     /// <param name="branchName">The branch to update (must not be the current branch).</param>
     /// <param name="targetRef">The commit/branch to point to.</param>
     Task<GitOperationResult> UpdateBranchPointerAsync(string workingDirectory, string branchName, string targetRef);
+
+    // Submodule operations
+    /// <summary>
+    /// Gets the list of submodules with their current status.
+    /// </summary>
+    Task<List<SubmoduleInfo>> GetSubmodulesAsync(string workingDirectory);
+
+    /// <summary>
+    /// Initializes a submodule.
+    /// </summary>
+    Task<GitOperationResult> InitializeSubmoduleAsync(string workingDirectory, string submodulePath);
+
+    /// <summary>
+    /// Updates a submodule to the tracked commit.
+    /// </summary>
+    Task<GitOperationResult> UpdateSubmoduleAsync(string workingDirectory, string submodulePath);
+
+    /// <summary>
+    /// Updates a submodule to the latest commit from remote (--remote).
+    /// </summary>
+    Task<GitOperationResult> UpdateSubmoduleToLatestAsync(string workingDirectory, string submodulePath);
 }

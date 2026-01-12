@@ -38,6 +38,11 @@ public interface IFileExplorerService
     void ApplyGitStatus(IEnumerable<FileSystemNode> nodes, IEnumerable<GitFileStatus> gitFiles, string workingDirectory);
 
     /// <summary>
+    /// Applies submodule information to a collection of nodes by matching paths.
+    /// </summary>
+    void ApplySubmoduleStatus(IEnumerable<FileSystemNode> nodes, IEnumerable<SubmoduleInfo> submodules, string workingDirectory);
+
+    /// <summary>
     /// Starts watching a directory for changes. Returns a disposable to stop watching.
     /// </summary>
     IDisposable WatchDirectory(string path, Action<FileSystemWatcherEventArgs> onChange);

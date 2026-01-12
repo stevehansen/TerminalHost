@@ -547,7 +547,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 
 | Spec | Description | Status | Notes |
 |------|-------------|--------|-------|
-| [GitAdvanced.md](docs/specs/GitAdvanced.md) | Commit history, staging, stash, blame, reflog, cherry-pick, branch compare | **Partial** | Tags, submodules, merge conflicts remaining |
+| [GitAdvanced.md](docs/specs/GitAdvanced.md) | Commit history, staging, stash, blame, reflog, cherry-pick, branch compare, submodules | **Partial** | Tags, merge conflicts remaining |
 | [WorkspaceLayout.md](docs/specs/WorkspaceLayout.md) | Sidebar layout, git worktree management, playgrounds | **Partial** | Active ports detection remaining |
 | [SearchAndProductivity.md](docs/specs/SearchAndProductivity.md) | File search (Ctrl+F3), snippets, session management | **Partial** | Search implemented; snippets/sessions draft |
 | [MultiAiAssistants.md](docs/specs/MultiAiAssistants.md) | Claude, Gemini, Codex, Copilot support per-project | **Completed** | Full per-project AI selection |
@@ -571,7 +571,6 @@ All specifications are documented in `docs/specs/`. Status legend:
 |----------|---------|------|
 | **Medium** | Active Ports Detection | RemainingFeatures.md |
 | **Low** | Tags Management | GitAdvanced.md |
-| **Low** | Submodule Support | GitAdvanced.md |
 | **Low** | Merge Conflict Resolution | GitAdvanced.md |
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |

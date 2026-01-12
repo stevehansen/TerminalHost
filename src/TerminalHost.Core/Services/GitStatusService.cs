@@ -1463,4 +1463,107 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Submodule Operations
+
+    public async Task<List<SubmoduleInfo>> GetSubmodulesAsync(string workingDirectory)
+    {
+        var submodules = new List<SubmoduleInfo>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return submodules;
+
+        // git submodule status output format:
+        //  abc1234 path/to/submodule (v1.0.0)    <- initialized, clean (space prefix)
+        // -abc1234 path/to/submodule             <- not initialized (- prefix)
+        // +abc1234 path/to/submodule (v1.0.0)    <- modified (+ prefix)
+        // Uabc1234 path/to/submodule             <- merge conflict (U prefix)
+        var output = await _gitRunner.RunGitCommandAsync(
+            workingDirectory,
+            "submodule status",
+            TimeSpan.FromSeconds(10));
+
+        if (string.IsNullOrEmpty(output))
+            return submodules;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            if (line.Length < 2) continue;
+
+            var statusChar = line[0];
+            var rest = line.Substring(1).Trim();
+
+            // Parse: "abc1234 path/to/submodule (description)"
+            var parts = rest.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) continue;
+
+            var commit = parts[0];
+            var pathAndDesc = parts[1];
+
+            // Extract path and optional description (in parentheses)
+            string path;
+            string? description = null;
+
+            var parenIndex = pathAndDesc.IndexOf(" (");
+            if (parenIndex > 0)
+            {
+                path = pathAndDesc.Substring(0, parenIndex);
+                description = pathAndDesc.Substring(parenIndex + 2).TrimEnd(')');
+            }
+            else
+            {
+                path = pathAndDesc;
+            }
+
+            var status = statusChar switch
+            {
+                '-' => SubmoduleStatus.Uninitialized,
+                '+' => SubmoduleStatus.Modified,
+                'U' => SubmoduleStatus.Modified, // Merge conflict treated as modified
+                _ => SubmoduleStatus.Clean
+            };
+
+            submodules.Add(new SubmoduleInfo
+            {
+                Path = path,
+                CurrentCommit = commit,
+                Status = status,
+                Description = description
+            });
+        }
+
+        return submodules;
+    }
+
+    public async Task<GitOperationResult> InitializeSubmoduleAsync(string workingDirectory, string submodulePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // Initialize and update the submodule
+        var initResult = await _gitRunner.RunGitOperationAsync(workingDirectory, $"submodule init \"{submodulePath}\"");
+        if (!initResult.Success)
+            return initResult;
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"submodule update \"{submodulePath}\"");
+    }
+
+    public async Task<GitOperationResult> UpdateSubmoduleAsync(string workingDirectory, string submodulePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"submodule update \"{submodulePath}\"");
+    }
+
+    public async Task<GitOperationResult> UpdateSubmoduleToLatestAsync(string workingDirectory, string submodulePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"submodule update --remote \"{submodulePath}\"");
+    }
+
+    #endregion
 }

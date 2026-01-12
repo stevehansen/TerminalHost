@@ -414,7 +414,7 @@ Visual three-way merge for resolving conflicts.
 | ~~Medium~~ | ~~Create Worktree Dialog~~ | ~~Low~~ | ✅ Implemented |
 | ~~Medium~~ | ~~Manage Worktrees Panel~~ | ~~Low~~ | ✅ Implemented |
 | ~~Low~~ | ~~Reflog Access~~ | ~~Low~~ | ✅ Implemented |
-| **Low** | Submodule Support | Medium | Only needed for repos with submodules |
+| ~~Low~~ | ~~Submodule Support~~ | ~~Medium~~ | ✅ Implemented |
 | ~~Low~~ | ~~Cherry-pick UI~~ | ~~Low~~ | ✅ Implemented |
 | ~~Low~~ | ~~Revert Commit UI~~ | ~~Low~~ | ✅ Implemented |
 | **Low** | Merge Conflict Resolution | High | Complex UI, can use external tools |

@@ -163,7 +163,8 @@ public class MainViewModelTests
                 _mockGitIgnoreService.Object,
                 _mockDialogService.Object,
                 _mockFileSystem.Object,
-                _mockProcessService.Object);
+                _mockProcessService.Object,
+                _mockToastService.Object);
             vm.InitializeAsync(path).GetAwaiter().GetResult();
             return vm;
         });

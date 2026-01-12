@@ -914,7 +914,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService, _dispatcherService, _clipboardService);
+            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService, _dispatcherService, _clipboardService, _toastService);
             tabViewModel.ExplorerViewModel = explorerViewModel;
 
             // Restore explorer settings

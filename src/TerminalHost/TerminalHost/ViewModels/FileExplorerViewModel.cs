@@ -49,13 +49,16 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isLoading;
 
+    private readonly IToastService _toastService;
+
     public FileExplorerViewModel(
         IFileExplorerService fileExplorerService,
         IGitStatusService gitStatusService,
         IGitIgnoreService gitIgnoreService,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IProcessService processService)
+        IProcessService processService,
+        IToastService toastService)
     {
         _fileExplorerService = fileExplorerService;
         _gitStatusService = gitStatusService;
@@ -63,6 +66,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _toastService = toastService;
     }
 
     public async Task InitializeAsync(string workingDirectory)
@@ -398,11 +402,15 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
 
         try
         {
+            var allNodes = GetAllNodes(RootNode).ToList();
+
+            // Apply git file status
             var gitFiles = await _gitStatusService.GetModifiedFilesAsync(RootPath);
-            _fileExplorerService.ApplyGitStatus(
-                GetAllNodes(RootNode),
-                gitFiles,
-                RootPath);
+            _fileExplorerService.ApplyGitStatus(allNodes, gitFiles, RootPath);
+
+            // Apply submodule status
+            var submodules = await _gitStatusService.GetSubmodulesAsync(RootPath);
+            _fileExplorerService.ApplySubmoduleStatus(allNodes, submodules, RootPath);
         }
         catch
         {
@@ -736,6 +744,78 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         });
     }
 
+    // Submodule commands
+    public bool CanOpenSubmoduleAsProject => SelectedNode?.IsSubmodule == true;
+    [RelayCommand(CanExecute = nameof(CanOpenSubmoduleAsProject))]
+    private void OpenSubmoduleAsProject()
+    {
+        if (SelectedNode?.IsSubmodule != true) return;
+        OpenSubmoduleRequested?.Invoke(this, SelectedNode.FullPath);
+    }
+
+    public bool CanInitializeSubmodule => SelectedNode?.IsSubmodule == true && SelectedNode.SubmoduleStatus == SubmoduleStatus.Uninitialized;
+    [RelayCommand(CanExecute = nameof(CanInitializeSubmodule))]
+    private async Task InitializeSubmoduleAsync()
+    {
+        if (SelectedNode?.IsSubmodule != true || string.IsNullOrEmpty(RootPath)) return;
+
+        var relativePath = Path.GetRelativePath(RootPath, SelectedNode.FullPath);
+        using var toast = _toastService.ShowProgress($"Initializing {SelectedNode.Name}...");
+
+        var result = await _gitStatusService.InitializeSubmoduleAsync(RootPath, relativePath);
+        if (result.Success)
+        {
+            toast.Complete($"Initialized {SelectedNode.Name}");
+            await RefreshGitStatusAsync();
+        }
+        else
+        {
+            toast.Fail(result.Error ?? "Failed to initialize submodule");
+        }
+    }
+
+    public bool CanUpdateSubmodule => SelectedNode?.IsSubmodule == true && SelectedNode.SubmoduleStatus != SubmoduleStatus.Uninitialized;
+    [RelayCommand(CanExecute = nameof(CanUpdateSubmodule))]
+    private async Task UpdateSubmoduleAsync()
+    {
+        if (SelectedNode?.IsSubmodule != true || string.IsNullOrEmpty(RootPath)) return;
+
+        var relativePath = Path.GetRelativePath(RootPath, SelectedNode.FullPath);
+        using var toast = _toastService.ShowProgress($"Updating {SelectedNode.Name}...");
+
+        var result = await _gitStatusService.UpdateSubmoduleAsync(RootPath, relativePath);
+        if (result.Success)
+        {
+            toast.Complete($"Updated {SelectedNode.Name}");
+            await RefreshGitStatusAsync();
+        }
+        else
+        {
+            toast.Fail(result.Error ?? "Failed to update submodule");
+        }
+    }
+
+    public bool CanUpdateSubmoduleToLatest => SelectedNode?.IsSubmodule == true && SelectedNode.SubmoduleStatus != SubmoduleStatus.Uninitialized;
+    [RelayCommand(CanExecute = nameof(CanUpdateSubmoduleToLatest))]
+    private async Task UpdateSubmoduleToLatestAsync()
+    {
+        if (SelectedNode?.IsSubmodule != true || string.IsNullOrEmpty(RootPath)) return;
+
+        var relativePath = Path.GetRelativePath(RootPath, SelectedNode.FullPath);
+        using var toast = _toastService.ShowProgress($"Updating {SelectedNode.Name} to latest...");
+
+        var result = await _gitStatusService.UpdateSubmoduleToLatestAsync(RootPath, relativePath);
+        if (result.Success)
+        {
+            toast.Complete($"Updated {SelectedNode.Name} to latest");
+            await RefreshGitStatusAsync();
+        }
+        else
+        {
+            toast.Fail(result.Error ?? "Failed to update submodule");
+        }
+    }
+
     public bool CanExploreInExplorer => SelectedNode != null;
     [RelayCommand(CanExecute = nameof(CanExploreInExplorer))]
     private void ExploreInExplorer()
@@ -800,6 +880,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         ExploreInExplorerCommand.NotifyCanExecuteChanged();
         ViewHistoryCommand.NotifyCanExecuteChanged();
         ViewBlameCommand.NotifyCanExecuteChanged();
+        // Submodule commands
+        OpenSubmoduleAsProjectCommand.NotifyCanExecuteChanged();
+        InitializeSubmoduleCommand.NotifyCanExecuteChanged();
+        UpdateSubmoduleCommand.NotifyCanExecuteChanged();
+        UpdateSubmoduleToLatestCommand.NotifyCanExecuteChanged();
     }
 
     // Events
@@ -809,6 +894,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     public event EventHandler<FileSystemNode>? RenameRequested;
     public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
     public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
+    public event EventHandler<string>? OpenSubmoduleRequested;
 
     public void Dispose()
     {

@@ -36,12 +36,43 @@ public partial class FileSystemNode : ObservableObject
     [ObservableProperty]
     private bool _isGitIgnored;
 
+    // Submodule support
+    [ObservableProperty]
+    private bool _isSubmodule;
+
+    [ObservableProperty]
+    private SubmoduleStatus _submoduleStatus = SubmoduleStatus.None;
+
     public ObservableCollection<FileSystemNode> Children { get; } = [];
 
     // Computed properties
     public string Extension => IsDirectory ? "" : System.IO.Path.GetExtension(FullPath).ToLowerInvariant();
 
-    public string Icon => FileIconMapper.GetIcon(FullPath, IsDirectory, IsExpanded);
+    public string Icon => IsSubmodule ? "📦" : FileIconMapper.GetIcon(FullPath, IsDirectory, IsExpanded);
+
+    public string SubmoduleStatusIcon => SubmoduleStatus switch
+    {
+        SubmoduleStatus.Clean => "✓",
+        SubmoduleStatus.Modified => "●",
+        SubmoduleStatus.Uninitialized => "○",
+        _ => ""
+    };
+
+    public string SubmoduleStatusColor => SubmoduleStatus switch
+    {
+        SubmoduleStatus.Clean => "#4EC9B0",      // Green
+        SubmoduleStatus.Modified => "#E2C08D",   // Yellow/orange
+        SubmoduleStatus.Uninitialized => "#808080", // Gray
+        _ => "#CCCCCC"
+    };
+
+    public string SubmoduleTooltip => SubmoduleStatus switch
+    {
+        SubmoduleStatus.Clean => "Submodule (clean)",
+        SubmoduleStatus.Modified => "Submodule (modified)",
+        SubmoduleStatus.Uninitialized => "Submodule (not initialized)",
+        _ => ""
+    };
 
     public string GitStatusIcon => GitStatus switch
     {
@@ -95,6 +126,19 @@ public partial class FileSystemNode : ObservableObject
         OnPropertyChanged(nameof(GitStatusIcon));
         OnPropertyChanged(nameof(GitStatusColor));
         OnPropertyChanged(nameof(RowBackgroundHex));
+    }
+
+    partial void OnIsSubmoduleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(Icon));
+        OnPropertyChanged(nameof(SubmoduleTooltip));
+    }
+
+    partial void OnSubmoduleStatusChanged(SubmoduleStatus value)
+    {
+        OnPropertyChanged(nameof(SubmoduleStatusIcon));
+        OnPropertyChanged(nameof(SubmoduleStatusColor));
+        OnPropertyChanged(nameof(SubmoduleTooltip));
     }
 
     public static FileSystemNode CreateDummy()

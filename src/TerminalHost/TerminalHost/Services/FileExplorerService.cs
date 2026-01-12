@@ -214,6 +214,40 @@ public class FileExplorerService : IFileExplorerService
         ApplyGitStatusRecursive(nodes, gitFileDict, workingDirectory);
     }
 
+    public void ApplySubmoduleStatus(IEnumerable<FileSystemNode> nodes, IEnumerable<SubmoduleInfo> submodules, string workingDirectory)
+    {
+        var submoduleDict = submodules.ToDictionary(
+            sm => Path.GetFullPath(Path.Combine(workingDirectory, sm.Path)).ToLowerInvariant(),
+            sm => sm.Status);
+
+        ApplySubmoduleStatusRecursive(nodes, submoduleDict);
+    }
+
+    private void ApplySubmoduleStatusRecursive(IEnumerable<FileSystemNode> nodes, Dictionary<string, SubmoduleStatus> submoduleDict)
+    {
+        foreach (var node in nodes)
+        {
+            var normalizedPath = node.FullPath.ToLowerInvariant();
+
+            if (submoduleDict.TryGetValue(normalizedPath, out var status))
+            {
+                node.IsSubmodule = true;
+                node.SubmoduleStatus = status;
+            }
+            else
+            {
+                node.IsSubmodule = false;
+                node.SubmoduleStatus = SubmoduleStatus.None;
+            }
+
+            // Check children as well
+            if (node.IsDirectory && node.Children.Any(c => !c.IsLoading))
+            {
+                ApplySubmoduleStatusRecursive(node.Children.Where(c => !c.IsLoading), submoduleDict);
+            }
+        }
+    }
+
     private void ApplyGitStatusRecursive(IEnumerable<FileSystemNode> nodes, Dictionary<string, GitFileStatusType> gitFileDict, string workingDirectory)
     {
         foreach (var node in nodes)

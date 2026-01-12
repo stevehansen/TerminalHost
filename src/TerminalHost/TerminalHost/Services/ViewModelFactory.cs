@@ -18,14 +18,15 @@ public class ViewModelFactory : IViewModelFactory
 
     public FileExplorerViewModel CreateFileExplorer(string rootPath)
     {
-        // FileExplorerViewModel has 6 dependencies
+        // FileExplorerViewModel has 7 dependencies
         return new FileExplorerViewModel(
             _serviceProvider.GetRequiredService<IFileExplorerService>(),
             _serviceProvider.GetRequiredService<IGitStatusService>(),
             _serviceProvider.GetRequiredService<IGitIgnoreService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
             _serviceProvider.GetRequiredService<IFileSystem>(),
-            _serviceProvider.GetRequiredService<IProcessService>()
+            _serviceProvider.GetRequiredService<IProcessService>(),
+            _serviceProvider.GetRequiredService<IToastService>()
         )
         {
             // Initialize with the path
