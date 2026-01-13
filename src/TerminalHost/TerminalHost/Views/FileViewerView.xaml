@@ -167,7 +167,10 @@
 
             <!-- Markdown preview mode: WebView2-based rich rendering (only in Preview mode, not SideBySide) -->
             <controls:MarkdownViewer
+                x:Name="PreviewMarkdownViewer"
                 HtmlContent="{Binding RenderedHtml}"
+                BasePath="{Binding MarkdownBasePath}"
+                MarkdownLinkClicked="MarkdownViewer_LinkClicked"
                 Visibility="{Binding IsMarkdownPreviewMode, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!-- Image preview mode -->
@@ -296,7 +299,10 @@
 
                 <!-- Right: Markdown Preview -->
                 <controls:MarkdownViewer Grid.Column="2"
-                                         HtmlContent="{Binding RenderedHtml}"/>
+                                         x:Name="SideBySideMarkdownViewer"
+                                         HtmlContent="{Binding RenderedHtml}"
+                                         BasePath="{Binding MarkdownBasePath}"
+                                         MarkdownLinkClicked="MarkdownViewer_LinkClicked"/>
             </Grid>
 
             <!-- Empty state -->

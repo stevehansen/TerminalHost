@@ -1,7 +1,13 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using ColorCode;
 using Markdig;
+using Markdig.Extensions.Yaml;
+using Markdig.Renderers.Html;
 using Markdig.SyntaxHighlighting;
+using Markdig.Syntax;
 using TerminalHost.Core.Interfaces;
+using YamlDotNet.Serialization;
 using CCColor = ColorCode.Styling.Color;
 
 namespace TerminalHost.Core.Services;
@@ -107,6 +113,47 @@ public class MarkdownService : IMarkdownService
         .task-list-item input {
             margin-right: 0.5em;
         }
+        /* Frontmatter table styling */
+        .frontmatter {
+            background-color: #252526;
+            border: 1px solid #3c3c3c;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            font-size: 0.9em;
+        }
+        .frontmatter table {
+            margin: 0;
+            width: auto;
+        }
+        .frontmatter th {
+            background: none;
+            color: #9cdcfe;
+            font-weight: normal;
+            text-align: right;
+            padding-right: 16px;
+            border: none;
+            white-space: nowrap;
+        }
+        .frontmatter td {
+            border: none;
+            color: #ce9178;
+        }
+        .frontmatter td a {
+            color: #569cd6;
+        }
+        /* Mermaid diagram styling */
+        .mermaid {
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
     ";
 
     public MarkdownService(IFileSystem fileSystem)
@@ -121,33 +168,206 @@ public class MarkdownService : IMarkdownService
             .Build();
     }
 
-    public string ConvertToHtml(string markdown)
+    public string ConvertToHtml(string markdown, string? basePath = null)
     {
         if (string.IsNullOrEmpty(markdown))
-            return WrapHtml("");
+            return WrapHtml("", basePath);
 
-        var html = Markdown.ToHtml(markdown, _pipeline);
-        return WrapHtml(html);
+        // Parse the document to extract frontmatter
+        var document = Markdown.Parse(markdown, _pipeline);
+
+        // Extract and render frontmatter as table
+        var frontmatterHtml = ExtractAndRenderFrontmatter(document, markdown);
+
+        // Convert markdown to HTML
+        var html = Markdown.ToHtml(document, _pipeline);
+
+        // Convert mermaid code blocks to mermaid divs
+        html = ConvertMermaidBlocks(html);
+
+        // Combine frontmatter and content
+        var fullHtml = frontmatterHtml + html;
+
+        return WrapHtml(fullHtml, basePath);
     }
 
     public async Task<string> ConvertFileToHtmlAsync(string filePath)
     {
         if (string.IsNullOrEmpty(filePath) || !_fileSystem.FileExists(filePath))
-            return WrapHtml("<p style='color: #f44747;'>File not found</p>");
+            return WrapHtml("<p style='color: #f44747;'>File not found</p>", null);
 
         try
         {
             var markdown = await _fileSystem.ReadAllTextAsync(filePath);
-            return ConvertToHtml(markdown);
+            var basePath = Path.GetDirectoryName(filePath);
+            return ConvertToHtml(markdown, basePath);
         }
         catch (Exception ex)
         {
-            return WrapHtml($"<p style='color: #f44747;'>Error reading file: {ex.Message}</p>");
+            return WrapHtml($"<p style='color: #f44747;'>Error reading file: {ex.Message}</p>", null);
         }
     }
 
-    private static string WrapHtml(string content)
+    private string ExtractAndRenderFrontmatter(MarkdownDocument document, string markdown)
     {
+        var yamlBlock = document.Descendants<YamlFrontMatterBlock>().FirstOrDefault();
+        if (yamlBlock == null)
+            return "";
+
+        try
+        {
+            // Extract the YAML content from the original markdown
+            var yamlContent = markdown.Substring(yamlBlock.Span.Start, yamlBlock.Span.Length);
+
+            // Remove the --- delimiters
+            yamlContent = yamlContent.Trim();
+            if (yamlContent.StartsWith("---"))
+                yamlContent = yamlContent.Substring(3);
+            if (yamlContent.EndsWith("---"))
+                yamlContent = yamlContent.Substring(0, yamlContent.Length - 3);
+            yamlContent = yamlContent.Trim();
+
+            if (string.IsNullOrWhiteSpace(yamlContent))
+                return "";
+
+            // Parse YAML to dictionary
+            var deserializer = new DeserializerBuilder().Build();
+            var yamlObject = deserializer.Deserialize<Dictionary<string, object>>(yamlContent);
+
+            if (yamlObject == null || yamlObject.Count == 0)
+                return "";
+
+            // Render as HTML table
+            var sb = new StringBuilder();
+            sb.AppendLine("<div class='frontmatter'>");
+            sb.AppendLine("<table>");
+
+            foreach (var kvp in yamlObject)
+            {
+                var key = FormatFrontmatterKey(kvp.Key);
+                var value = FormatFrontmatterValue(kvp.Value);
+                sb.AppendLine($"<tr><th>{HtmlEncode(key)}</th><td>{value}</td></tr>");
+            }
+
+            sb.AppendLine("</table>");
+            sb.AppendLine("</div>");
+
+            return sb.ToString();
+        }
+        catch
+        {
+            // If YAML parsing fails, skip frontmatter rendering
+            return "";
+        }
+    }
+
+    private static string FormatFrontmatterKey(string key)
+    {
+        // Convert snake_case to Title Case
+        return string.Join(" ", key.Split('_')
+            .Select(word => char.ToUpper(word[0]) + word.Substring(1).ToLower()));
+    }
+
+    private static string FormatFrontmatterValue(object? value)
+    {
+        if (value == null)
+            return "<em>N/A</em>";
+
+        var strValue = value.ToString() ?? "";
+
+        // Handle arrays/lists
+        if (value is IList<object> list)
+            strValue = string.Join(", ", list);
+
+        // Auto-link URLs
+        if (strValue.StartsWith("http://") || strValue.StartsWith("https://"))
+            return $"<a href='{HtmlEncode(strValue)}' target='_blank'>{HtmlEncode(strValue)}</a>";
+
+        // Handle N/A values
+        if (strValue.Equals("N/A", StringComparison.OrdinalIgnoreCase))
+            return "<em>N/A</em>";
+
+        return HtmlEncode(strValue);
+    }
+
+    private static string HtmlEncode(string text)
+    {
+        return System.Net.WebUtility.HtmlEncode(text);
+    }
+
+    private static string ConvertMermaidBlocks(string html)
+    {
+        // Markdig.SyntaxHighlighting renders fenced code blocks as: <div class="lang-xxx editor-colors">content</div>
+        var pattern = @"<div class=""lang-mermaid[^""]*"">([\s\S]*?)</div>";
+
+        return Regex.Replace(html, pattern, match =>
+        {
+            var content = match.Groups[1].Value;
+            // Decode HTML entities that Markdig may have encoded
+            content = System.Net.WebUtility.HtmlDecode(content);
+            return $"<pre class=\"mermaid\">{content}</pre>";
+        }, RegexOptions.IgnoreCase);
+    }
+
+    private static string ConvertRelativeLinks(string html, string basePath)
+    {
+        if (string.IsNullOrEmpty(basePath))
+            return html;
+
+        // Convert relative href links to absolute file:// URLs
+        // Match href="..." where the value doesn't start with http://, https://, mailto:, #, or file://
+        var hrefPattern = @"href=""(?!https?://|mailto:|#|file://|javascript:)([^""]+)""";
+
+        html = Regex.Replace(html, hrefPattern, match =>
+        {
+            var relativePath = match.Groups[1].Value;
+            try
+            {
+                // Decode any HTML entities in the path
+                relativePath = System.Net.WebUtility.HtmlDecode(relativePath);
+
+                // Combine with base path and normalize
+                var absolutePath = Path.GetFullPath(Path.Combine(basePath, relativePath));
+                var fileUrl = new Uri(absolutePath).AbsoluteUri;
+                return $"href=\"{fileUrl}\"";
+            }
+            catch
+            {
+                // If path processing fails, leave the link as-is
+                return match.Value;
+            }
+        }, RegexOptions.IgnoreCase);
+
+        // Also convert relative src for images
+        var srcPattern = @"src=""(?!https?://|data:|file://)([^""]+)""";
+
+        html = Regex.Replace(html, srcPattern, match =>
+        {
+            var relativePath = match.Groups[1].Value;
+            try
+            {
+                relativePath = System.Net.WebUtility.HtmlDecode(relativePath);
+                var absolutePath = Path.GetFullPath(Path.Combine(basePath, relativePath));
+                var fileUrl = new Uri(absolutePath).AbsoluteUri;
+                return $"src=\"{fileUrl}\"";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        }, RegexOptions.IgnoreCase);
+
+        return html;
+    }
+
+    private static string WrapHtml(string content, string? basePath)
+    {
+        // Convert relative links to absolute file:// URLs (more reliable than base tag)
+        if (!string.IsNullOrEmpty(basePath))
+        {
+            content = ConvertRelativeLinks(content, basePath);
+        }
+
         return $@"<!DOCTYPE html>
 <html>
 <head>
@@ -156,6 +376,64 @@ public class MarkdownService : IMarkdownService
 </head>
 <body>
 {content}
+<script>
+    // Intercept all link clicks and send to C# via WebView2 bridge
+    document.addEventListener('click', function(e) {{
+        var target = e.target;
+        while (target && target.tagName !== 'A') {{
+            target = target.parentElement;
+        }}
+        if (target && target.href) {{
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.chrome && window.chrome.webview) {{
+                window.chrome.webview.postMessage(target.href);
+            }}
+        }}
+    }}, true);
+
+    // Load mermaid dynamically and initialize when loaded
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+    script.onload = function() {{
+        mermaid.initialize({{
+            startOnLoad: false,
+            theme: 'dark',
+            themeVariables: {{
+                primaryColor: '#569cd6',
+                primaryTextColor: '#d4d4d4',
+                primaryBorderColor: '#3c3c3c',
+                lineColor: '#808080',
+                secondaryColor: '#2d2d2d',
+                tertiaryColor: '#252526',
+                background: '#1e1e1e',
+                mainBkg: '#2d2d2d',
+                secondBkg: '#252526',
+                border1: '#3c3c3c',
+                border2: '#3c3c3c',
+                arrowheadColor: '#808080',
+                fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif',
+                fontSize: '14px',
+                textColor: '#d4d4d4',
+                nodeTextColor: '#d4d4d4'
+            }},
+            flowchart: {{
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }},
+            sequence: {{
+                useMaxWidth: true,
+                mirrorActors: false
+            }},
+            c4: {{
+                useMaxWidth: true
+            }}
+        }});
+        mermaid.run();
+    }};
+    document.head.appendChild(script);
+</script>
 </body>
 </html>";
     }

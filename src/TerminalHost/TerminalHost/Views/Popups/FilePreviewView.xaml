@@ -43,7 +43,9 @@
                                               BorderThickness="0" />
 
                     <!-- Markdown Mode -->
-                    <controls:MarkdownViewer HtmlContent="{Binding RenderedHtml}" 
+                    <controls:MarkdownViewer HtmlContent="{Binding RenderedHtml}"
+                                             BasePath="{Binding MarkdownBasePath}"
+                                             MarkdownLinkClicked="MarkdownViewer_LinkClicked"
                                              Visibility="{Binding IsMarkdown, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                     <!-- Image Mode -->

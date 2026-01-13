@@ -105,6 +105,13 @@ public partial class FileViewerViewModel : ObservableObject
     [ObservableProperty]
     private string _renderedHtml = "";
 
+    /// <summary>
+    /// Base path for resolving relative resources in markdown (images, links).
+    /// </summary>
+    public string? MarkdownBasePath => string.IsNullOrEmpty(_currentFilePath)
+        ? null
+        : Path.GetDirectoryName(_currentFilePath);
+
     // Computed properties for tab selection (used by radio buttons)
     public bool IsPreviewModeSelected => Mode == FileViewerMode.Preview && !IsImageMode;
     public bool IsEditModeSelected => Mode == FileViewerMode.Edit && !IsImageMode;
@@ -167,8 +174,9 @@ public partial class FileViewerViewModel : ObservableObject
         FileName = Path.GetFileName(filePath);
         Title = FileName;
 
-        // Notify that ShowSideBySideTab may have changed
+        // Notify that computed properties may have changed
         OnPropertyChanged(nameof(ShowSideBySideTab));
+        OnPropertyChanged(nameof(MarkdownBasePath));
 
         // Check if it's an image file
         var extension = Path.GetExtension(filePath);
@@ -279,7 +287,8 @@ public partial class FileViewerViewModel : ObservableObject
             if (extension == ".md" || extension == ".markdown")
             {
                 IsMarkdownMode = true;
-                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "");
+                var basePath = Path.GetDirectoryName(_currentFilePath);
+                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "", basePath);
             }
             else
             {
@@ -354,7 +363,8 @@ public partial class FileViewerViewModel : ObservableObject
 
         // Keep markdown mode true for side-by-side to show MarkdownViewer
         IsMarkdownMode = true;
-        RenderedHtml = _markdownService.ConvertToHtml(EditContent);
+        var basePath = Path.GetDirectoryName(_currentFilePath);
+        RenderedHtml = _markdownService.ConvertToHtml(EditContent, basePath);
 
         Title = result.FileName + (IsReadOnly ? " (Read-only)" : "");
         UpdateEditInfo(result.LineCount, result.FileSize, result.IsReadOnly);
@@ -443,10 +453,11 @@ public partial class FileViewerViewModel : ObservableObject
     {
         _markdownDebounceTimer?.Stop();
         _markdownDebounceTimer?.Dispose();
+        var basePath = Path.GetDirectoryName(_currentFilePath);
         _markdownDebounceTimer = _timerService.CreateTimer(TimeSpan.FromMilliseconds(MarkdownDebounceMs), () =>
         {
             _markdownDebounceTimer?.Stop();
-            RenderedHtml = _markdownService.ConvertToHtml(markdown);
+            RenderedHtml = _markdownService.ConvertToHtml(markdown, basePath);
         });
         _markdownDebounceTimer.Start();
     }
@@ -540,6 +551,7 @@ public partial class FileViewerViewModel : ObservableObject
         PreviewDocument = CreateInfoDocument("Select a file to view.");
         Title = "File Viewer";
         Info = "";
+        OnPropertyChanged(nameof(MarkdownBasePath));
 
         // Reset image mode
         IsImageMode = false;

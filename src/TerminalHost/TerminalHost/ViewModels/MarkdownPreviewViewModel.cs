@@ -75,6 +75,13 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         ? "Markdown Preview"
         : $"{Path.GetFileName(FilePath)} - Markdown Preview";
 
+    /// <summary>
+    /// Base path for resolving relative resources in markdown (images, links).
+    /// </summary>
+    public string? MarkdownBasePath => string.IsNullOrEmpty(FilePath)
+        ? null
+        : Path.GetDirectoryName(FilePath);
+
     #endregion
 
     #region Events
@@ -113,6 +120,7 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         OnPropertyChanged(nameof(FileName));
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(PanelTitle));
+        OnPropertyChanged(nameof(MarkdownBasePath));
 
         await RefreshAsync();
         SetupFileWatcher();

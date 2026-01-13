@@ -212,6 +212,14 @@ public partial class FileViewerPopup : UserControl
 
     #endregion
 
+    private void MarkdownViewer_LinkClicked(object? sender, string filePath)
+    {
+        if (DataContext is FileViewerViewModel vm)
+        {
+            vm.Open(filePath);
+        }
+    }
+
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
     {
         if (parent == null) return null;

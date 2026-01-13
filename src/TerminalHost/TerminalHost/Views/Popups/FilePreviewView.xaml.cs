@@ -74,6 +74,14 @@ public partial class FilePreviewView : UserControl
         }), System.Windows.Threading.DispatcherPriority.Background);
     }
 
+    private void MarkdownViewer_LinkClicked(object? sender, string filePath)
+    {
+        if (DataContext is FilePreviewViewModel vm)
+        {
+            vm.Open(filePath);
+        }
+    }
+
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
     {
         if (parent == null) return null;

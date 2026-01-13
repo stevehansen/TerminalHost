@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="800"
@@ -11,9 +11,11 @@
              d:DataContext="{d:DesignInstance Type=vm:MarkdownPreviewViewModel}">
 
     <Grid>
-        <!-- WebView2 Content -->
-        <wv2:WebView2 x:Name="WebView"
-                      DefaultBackgroundColor="#FF1E1E1E"/>
+        <!-- Use MarkdownViewer control for consistent link handling and error toasts -->
+        <controls:MarkdownViewer x:Name="MarkdownViewer"
+                                 HtmlContent="{Binding RenderedHtml}"
+                                 BasePath="{Binding MarkdownBasePath}"
+                                 MarkdownLinkClicked="OnMarkdownLinkClicked"/>
 
         <!-- Loading overlay -->
         <Border Background="#CC1E1E1E"

@@ -43,6 +43,13 @@ public partial class FilePreviewViewModel : ObservableObject
     [ObservableProperty]
     private bool _isImage;
 
+    /// <summary>
+    /// Base path for resolving relative resources in markdown (images, links).
+    /// </summary>
+    public string? MarkdownBasePath => string.IsNullOrEmpty(_currentFilePath)
+        ? null
+        : Path.GetDirectoryName(_currentFilePath);
+
     [ObservableProperty]
     private double _width = 900;
 
@@ -74,7 +81,8 @@ public partial class FilePreviewViewModel : ObservableObject
     public void Open(string filePath, int? highlightLine = null)
     {
         _currentFilePath = filePath;
-        
+        OnPropertyChanged(nameof(MarkdownBasePath));
+
         var extension = Path.GetExtension(filePath).ToLowerInvariant();
         
         IsText = false;
@@ -116,7 +124,8 @@ public partial class FilePreviewViewModel : ObservableObject
             if (extension == ".md")
             {
                 IsMarkdown = true;
-                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "");
+                var basePath = Path.GetDirectoryName(filePath);
+                RenderedHtml = _markdownService.ConvertToHtml(result.Content ?? "", basePath);
             }
             else
             {
@@ -168,6 +177,7 @@ public partial class FilePreviewViewModel : ObservableObject
     {
         IsOpen = false;
         _currentFilePath = null;
+        OnPropertyChanged(nameof(MarkdownBasePath));
         Content = CreateInfoDocument("Select a file to preview.");
         RenderedHtml = "";
         ImageSource = "";

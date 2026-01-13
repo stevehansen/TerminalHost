@@ -82,4 +82,12 @@ public partial class FileViewerView : UserControl
             vm.UpdateCursorInfo(SideBySideEditTextBox.CaretIndex);
         }
     }
+
+    private void MarkdownViewer_LinkClicked(object? sender, string filePath)
+    {
+        if (DataContext is FileViewerViewModel vm)
+        {
+            vm.Open(filePath);
+        }
+    }
 }
