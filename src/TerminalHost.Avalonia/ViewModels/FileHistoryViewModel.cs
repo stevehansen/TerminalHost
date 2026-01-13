@@ -89,10 +89,21 @@ public partial class FileHistoryViewModel : ObservableObject
 
         try
         {
-            // GetFileHistoryAsync not in Core interface - feature not available
-            // TODO: Add GetFileHistoryAsync to Core IGitStatusService
-            var commits = new List<GitCommit>();
-            HasMoreCommits = false;
+            // Use GetCommitHistoryAsync with filePath parameter to get file-specific history
+            var commits = await _gitStatusService.GetCommitHistoryAsync(
+                WorkingDirectory,
+                _currentSkip + PageSize,
+                author: null,
+                filePath: FilePath);
+
+            // Add new commits that aren't already in the list
+            foreach (var commit in commits.Skip(_currentSkip))
+            {
+                Commits.Add(commit);
+            }
+
+            _currentSkip = Commits.Count;
+            HasMoreCommits = commits.Count >= _currentSkip;
         }
         finally
         {
@@ -119,12 +130,22 @@ public partial class FileHistoryViewModel : ObservableObject
         }
     }
 
-    private Task LoadDiffAsync(GitCommit commit)
+    private async Task LoadDiffAsync(GitCommit commit)
     {
-        // GetFileDiffInCommitAsync not in Core interface - feature not available
-        // TODO: Add GetFileDiffInCommitAsync to Core IGitStatusService
-        FileDiff = "// File history diff not available - feature requires Core interface extension";
-        return Task.CompletedTask;
+        try
+        {
+            // Get diff for this specific file in this commit
+            var diff = await _gitStatusService.GetCommitDiffAsync(
+                WorkingDirectory,
+                commit.Hash,
+                FilePath);
+
+            FileDiff = diff ?? "";
+        }
+        catch
+        {
+            FileDiff = "// Failed to load diff";
+        }
     }
 
     [RelayCommand]

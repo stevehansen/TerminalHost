@@ -2,8 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TerminalHost.Core.Interfaces;
-using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
@@ -32,7 +31,7 @@ public partial class FileBlameViewModel : ObservableObject
     private string _workingDirectory = "";
 
     [ObservableProperty]
-    private GitBlameLine? _selectedLine;
+    private BlameLineViewModel? _selectedLine;
 
     [ObservableProperty]
     private GitCommitDetails? _selectedCommitDetails;
@@ -40,7 +39,12 @@ public partial class FileBlameViewModel : ObservableObject
     [ObservableProperty]
     private bool _colorByAuthor = true;
 
-    public ObservableCollection<GitBlameLine> BlameLines { get; } = [];
+    [ObservableProperty]
+    private GitBlameResult? _blameResult;
+
+    public ObservableCollection<BlameLineViewModel> BlameLines { get; } = [];
+
+    public int UniqueAuthorCount => BlameResult?.UniqueAuthors.Count ?? 0;
 
     public FileBlameViewModel(
         IGitStatusService gitStatusService,
@@ -84,17 +88,24 @@ public partial class FileBlameViewModel : ObservableObject
 
         try
         {
-            var result = await _gitStatusService.GetFileBlameAsync(WorkingDirectory, FilePath);
+            BlameResult = await _gitStatusService.GetFileBlameAsync(WorkingDirectory, FilePath);
 
             BlameLines.Clear();
 
-            if (result != null)
+            if (BlameResult != null)
             {
-                foreach (var line in result.Lines)
+                foreach (var line in BlameResult.Lines)
                 {
-                    BlameLines.Add(line);
+                    // Get author color from the result
+                    var authorColor = BlameResult.AuthorColors.TryGetValue(line.Author, out var color)
+                        ? color
+                        : "#808080";
+
+                    BlameLines.Add(new BlameLineViewModel(line, authorColor));
                 }
             }
+
+            OnPropertyChanged(nameof(UniqueAuthorCount));
         }
         catch (Exception ex)
         {
@@ -106,15 +117,26 @@ public partial class FileBlameViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedLineChanged(GitBlameLine? value)
+    partial void OnSelectedLineChanged(BlameLineViewModel? value)
     {
         if (value != null)
         {
-            _ = LoadCommitDetailsAsync(value.CommitHash);
+            _ = LoadCommitDetailsAsync(value.Line.CommitHash);
         }
         else
         {
             SelectedCommitDetails = null;
+        }
+    }
+
+    partial void OnColorByAuthorChanged(bool value)
+    {
+        // Refresh colors when toggle changes
+        if (BlameResult == null) return;
+
+        foreach (var lineVm in BlameLines)
+        {
+            lineVm.UpdateColor(value, BlameResult.AuthorColors);
         }
     }
 
@@ -137,7 +159,7 @@ public partial class FileBlameViewModel : ObservableObject
 
         try
         {
-            await _clipboardService.SetTextAsync(SelectedLine.CommitHash);
+            await _clipboardService.SetTextAsync(SelectedLine.Line.CommitHash);
             _toastService.Show("Hash copied to clipboard", ToastType.Success);
         }
         catch
@@ -156,5 +178,62 @@ public partial class FileBlameViewModel : ObservableObject
     private void ToggleColorByAuthor()
     {
         ColorByAuthor = !ColorByAuthor;
+    }
+}
+
+/// <summary>
+/// Wrapper ViewModel for GitBlameLine that includes author-specific coloring.
+/// </summary>
+public partial class BlameLineViewModel : ObservableObject
+{
+    public GitBlameLine Line { get; }
+
+    [ObservableProperty]
+    private string _gutterColor;
+
+    // Expose line properties for binding
+    public int LineNumber => Line.LineNumber;
+    public string CommitHash => Line.CommitHash;
+    public string ShortHash => Line.ShortHash;
+    public string Author => Line.Author;
+    public string AuthorEmail => Line.AuthorEmail;
+    public DateTimeOffset CommitDate => Line.CommitDate;
+    public string RelativeDate => Line.RelativeDate;
+    public string Summary => Line.Summary;
+    public string LineContent => Line.LineContent;
+    public bool IsFirstInGroup => Line.IsFirstInGroup;
+    public int GroupSize => Line.GroupSize;
+
+    private readonly string _authorColor;
+
+    public BlameLineViewModel(GitBlameLine line, string authorColor)
+    {
+        Line = line;
+        _authorColor = authorColor;
+        _gutterColor = authorColor; // Default to author color
+    }
+
+    /// <summary>
+    /// Updates the gutter color based on color mode.
+    /// </summary>
+    public void UpdateColor(bool colorByAuthor, Dictionary<string, string> authorColors)
+    {
+        if (colorByAuthor)
+        {
+            GutterColor = _authorColor;
+        }
+        else
+        {
+            // Color by recency - more recent = brighter
+            var age = DateTimeOffset.Now - Line.CommitDate;
+            GutterColor = age.TotalDays switch
+            {
+                < 7 => "#4EC9B0",    // Teal (very recent)
+                < 30 => "#9CDCFE",   // Light blue (recent)
+                < 90 => "#DCDCAA",   // Yellow (moderate)
+                < 365 => "#CE9178",  // Orange (older)
+                _ => "#808080"       // Gray (very old)
+            };
+        }
     }
 }

@@ -125,7 +125,7 @@
 
                                         <!-- Author -->
                                         <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                                   Text="{Binding Author}"
+                                                   Text="{Binding AuthorName}"
                                                    Foreground="{StaticResource TextMutedBrush}"
                                                    FontSize="{StaticResource FontSizeTiny}"
                                                    Margin="0,2,0,0"/>

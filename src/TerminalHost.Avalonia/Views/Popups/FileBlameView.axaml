@@ -4,10 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
-             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             xmlns:converters="clr-namespace:TerminalHost.Converters"
              d:DataContext="{d:DesignInstance viewModels:FileBlameViewModel}"
              mc:Ignorable="d"
              IsVisible="{Binding IsOpen}">
+
+    <UserControl.Resources>
+        <converters:HexToBrushConverter x:Key="HexToBrushConverter"/>
+    </UserControl.Resources>
 
     <!-- Overlay panel centered in parent -->
     <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -41,12 +45,37 @@
                                 Command="{Binding RefreshCommand}"
                                 ToolTip.Tip="Refresh blame"
                                 Margin="0,0,8,0"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Text="Authors: "
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding UniqueAuthorCount}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
                         <ToggleButton DockPanel.Dock="Right"
-                                      Content="Colors"
                                       Classes="TerminalSwitchButton"
                                       IsChecked="{Binding ColorByAuthor}"
-                                      ToolTip.Tip="Color by author"
-                                      Margin="0,0,8,0"/>
+                                      Margin="0,0,8,0">
+                            <ToggleButton.Content>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="🎨"/>
+                                    <TextBlock Text="By Author" IsVisible="{Binding ColorByAuthor}"/>
+                                    <TextBlock Text="By Age" IsVisible="{Binding !ColorByAuthor}"/>
+                                </StackPanel>
+                            </ToggleButton.Content>
+                            <ToolTip.Tip>
+                                <TextBlock>
+                                    <Run Text="Toggle color mode:"/>
+                                    <LineBreak/>
+                                    <Run Text="• By Author: Each author gets a unique color"/>
+                                    <LineBreak/>
+                                    <Run Text="• By Age: Recent changes are brighter"/>
+                                </TextBlock>
+                            </ToolTip.Tip>
+                        </ToggleButton>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="File Blame - "
@@ -80,55 +109,71 @@
                              BorderThickness="0"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
-                            <DataTemplate DataType="domain:GitBlameLine">
-                                <Grid>
+                            <DataTemplate DataType="viewModels:BlameLineViewModel">
+                                <Grid Height="20">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="70"/>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="60"/>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="4"/>   <!-- Color bar -->
+                                        <ColumnDefinition Width="70"/>  <!-- Short hash -->
+                                        <ColumnDefinition Width="100"/> <!-- Author -->
+                                        <ColumnDefinition Width="60"/>  <!-- Date -->
+                                        <ColumnDefinition Width="50"/>  <!-- Line number -->
+                                        <ColumnDefinition Width="*"/>   <!-- Content -->
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Short hash -->
-                                    <TextBlock Grid.Column="0"
+                                    <!-- Author color bar -->
+                                    <Border Grid.Column="0"
+                                            Background="{Binding GutterColor, Converter={StaticResource HexToBrushConverter}}"/>
+
+                                    <!-- Gutter background for first line in group -->
+                                    <Border Grid.Column="1" Grid.ColumnSpan="3"
+                                            Background="{StaticResource BackgroundMediumBrush}"
+                                            IsVisible="{Binding IsFirstInGroup}"/>
+
+                                    <!-- Short hash (only show for first line in group) -->
+                                    <TextBlock Grid.Column="1"
                                                Text="{Binding ShortHash}"
                                                Foreground="{StaticResource SyntaxCyanBrush}"
                                                FontSize="{StaticResource FontSizeTiny}"
                                                FontFamily="{StaticResource FontFamilyMonospace}"
                                                Padding="4,2"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsFirstInGroup}"
+                                               ToolTip.Tip="{Binding CommitHash}"/>
 
-                                    <!-- Author -->
-                                    <TextBlock Grid.Column="1"
+                                    <!-- Author (only show for first line in group) -->
+                                    <TextBlock Grid.Column="2"
                                                Text="{Binding Author}"
                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                FontSize="{StaticResource FontSizeTiny}"
                                                TextTrimming="CharacterEllipsis"
                                                Padding="4,2"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsFirstInGroup}"
+                                               ToolTip.Tip="{Binding AuthorEmail}"/>
 
-                                    <!-- Relative date -->
-                                    <TextBlock Grid.Column="2"
+                                    <!-- Relative date (only show for first line in group) -->
+                                    <TextBlock Grid.Column="3"
                                                Text="{Binding RelativeDate}"
                                                Foreground="{StaticResource TextDimmedBrush}"
                                                FontSize="{StaticResource FontSizeTiny}"
                                                Padding="4,2"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsFirstInGroup}"/>
 
                                     <!-- Line number -->
-                                    <TextBlock Grid.Column="3"
+                                    <TextBlock Grid.Column="4"
                                                Text="{Binding LineNumber}"
                                                Foreground="{StaticResource TextMutedBrush}"
                                                FontSize="{StaticResource FontSizeTiny}"
                                                FontFamily="{StaticResource FontFamilyMonospace}"
                                                TextAlignment="Right"
                                                Padding="4,2"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               Background="{StaticResource BackgroundMediumBrush}"/>
 
                                     <!-- Content -->
-                                    <TextBlock Grid.Column="4"
-                                               Text="{Binding Content}"
+                                    <TextBlock Grid.Column="5"
+                                               Text="{Binding LineContent}"
                                                Foreground="{StaticResource TextPrimaryBrush}"
                                                FontSize="{StaticResource FontSizeSmall}"
                                                FontFamily="{StaticResource FontFamilyMonospace}"
@@ -184,7 +229,7 @@
                                         <TextBlock Text="Author"
                                                    Foreground="{StaticResource TextMutedBrush}"
                                                    FontSize="{StaticResource FontSizeTiny}"/>
-                                        <TextBlock Text="{Binding Author}"
+                                        <TextBlock Text="{Binding AuthorName}"
                                                    Foreground="{StaticResource TextPrimaryBrush}"
                                                    FontSize="{StaticResource FontSizeSmall}"/>
                                         <TextBlock Text="{Binding AuthorEmail}"
@@ -197,7 +242,7 @@
                                         <TextBlock Text="Date"
                                                    Foreground="{StaticResource TextMutedBrush}"
                                                    FontSize="{StaticResource FontSizeTiny}"/>
-                                        <TextBlock Text="{Binding Date, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                        <TextBlock Text="{Binding CommitDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
                                                    Foreground="{StaticResource TextPrimaryBrush}"
                                                    FontSize="{StaticResource FontSizeSmall}"/>
                                     </StackPanel>
@@ -216,7 +261,7 @@
                                                    FontSize="{StaticResource FontSizeTiny}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,4,0,0"
-                                                   IsVisible="{Binding Body, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                   IsVisible="{Binding Body, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                     </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
