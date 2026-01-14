@@ -100,11 +100,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private static readonly SolidColorBrush ScrollIndicatorTextBrush = new(Color.Parse("#888888"));
     private static readonly SolidColorBrush ScrollIndicatorBackgroundBrush = new(Color.Parse("#333333"));
     private static readonly Dictionary<Color, SolidColorBrush> BrushCache = new();
+    private const int MaxBrushCacheSize = 512; // Limit cache to prevent unbounded growth with true color
 
-    // Render throttling
+    // Render throttling - 33ms (~30fps) is sufficient for terminal display
     private bool _renderPending;
     private DateTime _lastRenderRequest;
-    private static readonly TimeSpan RenderThrottleInterval = TimeSpan.FromMilliseconds(16);
+    private static readonly TimeSpan RenderThrottleInterval = TimeSpan.FromMilliseconds(33);
+
+    // Typeface cache to avoid creating new Typeface objects on every render
+    private Typeface? _cachedNormalTypeface;
+    private Typeface? _cachedBoldTypeface;
+    private Typeface? _cachedItalicTypeface;
+    private Typeface? _cachedBoldItalicTypeface;
 
     #region ITerminalControl Properties
 
@@ -147,10 +154,36 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         if (!BrushCache.TryGetValue(color, out var brush))
         {
+            // Prevent unbounded cache growth - clear when too large
+            // This is a simple strategy; a proper LRU would be more sophisticated
+            if (BrushCache.Count >= MaxBrushCacheSize)
+            {
+                BrushCache.Clear();
+            }
             brush = new SolidColorBrush(color);
             BrushCache[color] = brush;
         }
         return brush;
+    }
+
+    /// <summary>
+    /// Gets a cached Typeface for the given style, avoiding allocation on every render.
+    /// </summary>
+    private Typeface GetCachedTypeface(bool bold, bool italic)
+    {
+        if (bold && italic)
+        {
+            return _cachedBoldItalicTypeface ??= new Typeface(_typeface.FontFamily, FontStyle.Italic, FontWeight.Bold);
+        }
+        if (bold)
+        {
+            return _cachedBoldTypeface ??= new Typeface(_typeface.FontFamily, FontStyle.Normal, FontWeight.Bold);
+        }
+        if (italic)
+        {
+            return _cachedItalicTypeface ??= new Typeface(_typeface.FontFamily, FontStyle.Italic, FontWeight.Normal);
+        }
+        return _cachedNormalTypeface ??= _typeface;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -278,12 +311,15 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 if (bytesRead == 0)
                     break;
 
-                // Process through VtNetCore
-                _dataConsumer?.Push(buffer.AsSpan(0, bytesRead).ToArray());
+                // Process through VtNetCore - use overload to avoid array copy
+                _dataConsumer?.Push(buffer, 0, bytesRead);
 
-                // Notify listeners
-                var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                OutputReceived?.Invoke(text);
+                // Notify listeners only if there are subscribers (avoid string creation otherwise)
+                if (OutputReceived != null)
+                {
+                    var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    OutputReceived.Invoke(text);
+                }
 
                 // Request redraw
                 RequestRender();
@@ -559,23 +595,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                             new Rect(x, y, spanWidth, _charHeight));
                     }
 
-                    var fontStyle = span.Italic ? FontStyle.Italic : FontStyle.Normal;
-                    var fontWeight = span.Bold ? FontWeight.Bold : FontWeight.Normal;
-                    var typeface = new Typeface(_typeface.FontFamily, fontStyle, fontWeight);
+                    var typeface = GetCachedTypeface(span.Bold, span.Italic);
                     var foregroundBrush = GetCachedBrush(foreground);
 
-                    // Scan for emoji (surrogate pairs) in span text and collect them for overlay
-                    var spanX = x;
-                    var text = span.Text;
-                    for (int i = 0; i < text.Length; i++)
-                    {
-                        if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                        {
-                            var emoji = text.Substring(i, 2);
-                            _pendingEmojis.Add((spanX + i * _charWidth, y, emoji, foregroundBrush));
-                        }
-                    }
-
+                    // RenderTextWithFallback handles emoji detection and adds to _pendingEmojis
                     RenderTextWithFallback(context, span.Text, x, y, typeface, foregroundBrush);
 
                     if (span.Underline)
@@ -638,6 +661,12 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     /// </summary>
     private void UpdateEmojiOverlays()
     {
+        // Skip if no changes needed
+        if (_pendingEmojis.Count == 0 && _emojiOverlays.Count == 0)
+            return;
+
+        bool needsLayoutUpdate = false;
+
         // Remove excess overlays if we have fewer emojis now
         while (_emojiOverlays.Count > _pendingEmojis.Count)
         {
@@ -645,6 +674,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             _emojiOverlays.RemoveAt(_emojiOverlays.Count - 1);
             VisualChildren.Remove(overlay);
             LogicalChildren.Remove(overlay);
+            needsLayoutUpdate = true;
         }
 
         // Update existing overlays and create new ones as needed
@@ -655,8 +685,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             TextBlock overlay;
             if (i < _emojiOverlays.Count)
             {
-                // Reuse existing overlay
+                // Reuse existing overlay - only update if changed
                 overlay = _emojiOverlays[i];
+                if (overlay.Text != emoji)
+                {
+                    overlay.Text = emoji;
+                }
+                if (overlay.Foreground != foreground)
+                {
+                    overlay.Foreground = foreground;
+                }
             }
             else
             {
@@ -664,28 +702,30 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 overlay = new TextBlock
                 {
                     FontSize = _fontSize,
-                    // No FontFamily - let system handle emoji fallback
+                    Text = emoji,
+                    Foreground = foreground
                 };
                 _emojiOverlays.Add(overlay);
                 VisualChildren.Add(overlay);
                 LogicalChildren.Add(overlay);
+                needsLayoutUpdate = true;
             }
-
-            // Update overlay properties
-            overlay.Text = emoji;
-            overlay.Foreground = foreground;
 
             // Position the overlay using RenderTransform for absolute positioning
             overlay.RenderTransform = new TranslateTransform(x, y);
         }
 
-        // Force layout update for new overlays
-        if (_pendingEmojis.Count > 0)
+        // Only force layout update if overlays were added/removed
+        if (needsLayoutUpdate)
         {
             InvalidateMeasure();
             InvalidateArrange();
         }
     }
+
+    // Cache for parsed hex colors to avoid repeated parsing
+    private static readonly Dictionary<string, Color> ParsedColorCache = new(StringComparer.OrdinalIgnoreCase);
+    private const int MaxParsedColorCacheSize = 256;
 
     private Color ParseColor(string? colorString, Color defaultColor)
     {
@@ -697,9 +737,20 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         if (colorString.StartsWith("#"))
         {
+            // Check cache first
+            if (ParsedColorCache.TryGetValue(colorString, out var cachedColor))
+                return cachedColor;
+
             try
             {
-                return Color.Parse(colorString);
+                var color = Color.Parse(colorString);
+                // Cache the result
+                if (ParsedColorCache.Count >= MaxParsedColorCacheSize)
+                {
+                    ParsedColorCache.Clear();
+                }
+                ParsedColorCache[colorString] = color;
+                return color;
             }
             catch
             {
@@ -760,6 +811,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     // Cache for character -> typeface mapping to avoid repeated lookups
     private static readonly Dictionary<char, Typeface?> CharacterTypefaceCache = new();
+    private const int MaxCharacterTypefaceCacheSize = 1024; // Limit cache size
 
     private static bool NeedsFallbackFont(char c)
     {
@@ -789,6 +841,12 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         if (CharacterTypefaceCache.TryGetValue(c, out var cachedTypeface))
         {
             return cachedTypeface ?? _fallbackTypeface;
+        }
+
+        // Prevent unbounded cache growth
+        if (CharacterTypefaceCache.Count >= MaxCharacterTypefaceCacheSize)
+        {
+            CharacterTypefaceCache.Clear();
         }
 
         uint codepoint = c;
@@ -833,9 +891,35 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return _fallbackTypeface;
     }
 
+    /// <summary>
+    /// Quick check if text is pure ASCII (no special characters needed).
+    /// </summary>
+    private static bool IsPureAscii(string text)
+    {
+        foreach (var c in text)
+        {
+            if (c >= 0x80) return false;
+        }
+        return true;
+    }
+
     private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
         Typeface primaryTypeface, IBrush foregroundBrush)
     {
+        // Ultra-fast path for pure ASCII text (most common case)
+        if (IsPureAscii(text))
+        {
+            var formattedText = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                primaryTypeface,
+                _fontSize,
+                foregroundBrush);
+            context.DrawText(formattedText, new Point(x, y));
+            return;
+        }
+
         if (!ContainsFallbackCharacters(text))
         {
             // Fast path: use TextLayout which has proper font fallback for emoji
@@ -1318,10 +1402,33 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             return;
 
         _disposed = true;
+
+        // Stop the cursor timer first
         StopCursorBlink();
+
+        // Cancel and dispose the read task
         _readCts?.Cancel();
         _readCts?.Dispose();
-        _ptyService?.Dispose();
+        _readCts = null;
+
+        // Unsubscribe from PTY events before disposing
+        if (_ptyService != null)
+        {
+            _ptyService.ProcessExited -= OnProcessExited;
+            _ptyService.Dispose();
+            _ptyService = null;
+        }
+
+        // Unsubscribe from terminal controller events
+        if (_terminalController != null)
+        {
+            _terminalController.SendData -= OnTerminalSendData;
+            _terminalController = null;
+        }
+
+        // Clear other references
+        _dataConsumer = null;
+        _viewPort = null;
     }
 
     #endregion

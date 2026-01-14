@@ -67,7 +67,21 @@ namespace VtNetCore.XTermParser
         /// </remarks>
         public void Push(byte[] data)
         {
-            InputBuffer.Add(data);
+            Push(data, 0, data?.Length ?? 0);
+        }
+
+        /// <summary>
+        /// Consume raw byte data from a buffer segment without creating intermediate array copies.
+        /// </summary>
+        /// <param name="data">Buffer containing the data.</param>
+        /// <param name="offset">Start offset in the buffer.</param>
+        /// <param name="count">Number of bytes to consume.</param>
+        public void Push(byte[] data, int offset, int count)
+        {
+            if (data == null || count == 0)
+                return;
+
+            InputBuffer.Add(data, offset, count);
 
             Controller.ClearChanges();
             while (!InputBuffer.AtEnd)

@@ -2,11 +2,14 @@ namespace VtNetCore.XTermParser
 {
     using System;
     using System.Collections.Generic;
-    using System.Linq;
 
     public class XTermInputBuffer
     {
-        public byte [] Buffer { get; private set; }
+        // Use a dynamically growing buffer instead of constant array reallocation
+        private byte[] _buffer = Array.Empty<byte>();
+        private int _length;
+
+        public byte[] Buffer => _buffer;
 
         private class StreamState
         {
@@ -29,21 +32,55 @@ namespace VtNetCore.XTermParser
 
         public EMode Mode { get; set; } = EMode.UTF8;
 
-        public byte [] Stacked
+        public byte[] Stacked
         {
             get
             {
-                var first = StateStack.First();
-                return Buffer.Take(Position).Skip(first.Position).ToArray();
+                if (StateStack.Count == 0)
+                    return Array.Empty<byte>();
+                var first = StateStack[0];
+                var count = Position - first.Position;
+                if (count <= 0)
+                    return Array.Empty<byte>();
+                var result = new byte[count];
+                Array.Copy(_buffer, first.Position, result, 0, count);
+                return result;
             }
         }
 
-        public void Add(byte [] data)
+        public void Add(byte[] data)
         {
-            if (Buffer == null)
-                Buffer = data;
-            else
-                Buffer = Buffer.Concat(data).ToArray();
+            if (data == null || data.Length == 0)
+                return;
+            Add(data, 0, data.Length);
+        }
+
+        /// <summary>
+        /// Adds data to the buffer without creating intermediate array copies.
+        /// </summary>
+        public void Add(byte[] data, int offset, int count)
+        {
+            if (data == null || count == 0)
+                return;
+
+            // Ensure capacity
+            var requiredLength = _length + count;
+            if (requiredLength > _buffer.Length)
+            {
+                // Grow by doubling or to required size, whichever is larger
+                var newSize = Math.Max(_buffer.Length * 2, requiredLength);
+                // Cap at a reasonable size to avoid excessive memory
+                newSize = Math.Min(newSize, Math.Max(requiredLength, 1024 * 1024)); // 1MB max
+                var newBuffer = new byte[newSize];
+                if (_length > 0)
+                {
+                    Array.Copy(_buffer, 0, newBuffer, 0, _length);
+                }
+                _buffer = newBuffer;
+            }
+
+            Array.Copy(data, offset, _buffer, _length, count);
+            _length += count;
         }
 
         public void PushState()
@@ -107,7 +144,18 @@ namespace VtNetCore.XTermParser
             if (StateStack.Count > 0)
                 throw new Exception("The buffer should not be flushed when it is holding a state");
 
-            Buffer = Buffer.Skip(Position).ToArray();
+            // Efficiently compact the buffer by shifting remaining data to the start
+            if (Position > 0 && Position < _length)
+            {
+                var remaining = _length - Position;
+                Array.Copy(_buffer, Position, _buffer, 0, remaining);
+                _length = remaining;
+            }
+            else if (Position >= _length)
+            {
+                // All data consumed, just reset
+                _length = 0;
+            }
             Position = 0;
         }
 
@@ -115,7 +163,7 @@ namespace VtNetCore.XTermParser
         {
             get
             {
-                return Buffer == null ? true : (Position >= Buffer.Length);
+                return _length == 0 || Position >= _length;
             }
         }
 
@@ -123,7 +171,7 @@ namespace VtNetCore.XTermParser
         {
             get
             {
-                return Buffer == null ? 0 : (Buffer.Length - Position);
+                return _length - Position;
             }
         }
 

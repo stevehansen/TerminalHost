@@ -102,6 +102,9 @@ public class TerminalSession : IDisposable
 
     public void SetTerminalControl(ITerminalControl control)
     {
+        // Unsubscribe from old control to prevent memory leaks
+        UnsubscribeFromTerminalControl();
+
         _terminalControl = control;
         TerminalControl = control.NativeControl;
 
@@ -110,6 +113,21 @@ public class TerminalSession : IDisposable
         control.MouseClicked += OnTerminalMouseClicked;
         control.ProcessExited += OnProcessExited;
         control.Resized += OnTerminalResized;
+    }
+
+    /// <summary>
+    /// Unsubscribes from the current terminal control's events.
+    /// </summary>
+    private void UnsubscribeFromTerminalControl()
+    {
+        if (_terminalControl != null)
+        {
+            _terminalControl.Loaded -= OnTerminalLoaded;
+            _terminalControl.OutputReceived -= OnTerminalOutput;
+            _terminalControl.MouseClicked -= OnTerminalMouseClicked;
+            _terminalControl.ProcessExited -= OnProcessExited;
+            _terminalControl.Resized -= OnTerminalResized;
+        }
     }
 
     private void OnTerminalResized(object? sender, EventArgs e)
@@ -307,13 +325,11 @@ public class TerminalSession : IDisposable
         {
             _outputBuffer.Append(output);
 
-            // Trim if too large (keep last half)
+            // Trim if too large (keep last half) - use Remove to avoid string allocation
             if (_outputBuffer.Length > MaxOutputBufferSize)
             {
-                var keepFrom = _outputBuffer.Length - (MaxOutputBufferSize / 2);
-                var kept = _outputBuffer.ToString(keepFrom, _outputBuffer.Length - keepFrom);
-                _outputBuffer.Clear();
-                _outputBuffer.Append(kept);
+                var removeCount = _outputBuffer.Length - (MaxOutputBufferSize / 2);
+                _outputBuffer.Remove(0, removeCount);
             }
         }
     }
@@ -526,6 +542,22 @@ public class TerminalSession : IDisposable
 
     public void Dispose()
     {
+        UnsubscribeFromTerminalControl();
         Terminate();
+
+        // Dispose the terminal control if it implements IDisposable
+        // This is critical - MacTerminalControl holds PTY processes, timers, and buffers
+        if (_terminalControl is IDisposable disposableControl)
+        {
+            disposableControl.Dispose();
+        }
+        _terminalControl = null;
+
+        // Clear all event subscribers to prevent memory leaks
+        // (MainViewModel subscribes to LinkClicked, etc.)
+        ActivityChanged = null;
+        TitleChanged = null;
+        LinkClicked = null;
+        ProcessExited = null;
     }
 }

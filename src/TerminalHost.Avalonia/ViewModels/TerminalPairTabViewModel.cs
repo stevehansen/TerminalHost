@@ -128,6 +128,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     // Terminal factory for lazy initialization
     private readonly ITerminalControlFactory _terminalFactory;
 
+    // Event handler delegates for proper cleanup (to fix memory leaks)
+    private EventHandler? _customActivityHandler;
+    private EventHandler? _shellActivityHandler;
+    private EventHandler? _runActivityHandler;
+    private EventHandler<string>? _customTitleHandler;
+    private EventHandler<string>? _shellTitleHandler;
+    private EventHandler<string>? _runTitleHandler;
+
     /// <summary>
     /// Whether the terminal controls have been created (lazy initialization).
     /// </summary>
@@ -510,25 +518,29 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         Pair.CustomTerminal.SetTerminalControl(customControl);
         Pair.ShellTerminal.SetTerminalControl(shellControl);
 
+        // Unsubscribe old handlers to prevent memory leaks
+        if (_customActivityHandler != null)
+            Pair.CustomTerminal.ActivityChanged -= _customActivityHandler;
+        if (_shellActivityHandler != null)
+            Pair.ShellTerminal.ActivityChanged -= _shellActivityHandler;
+        if (_customTitleHandler != null)
+            Pair.CustomTerminal.TitleChanged -= _customTitleHandler;
+        if (_shellTitleHandler != null)
+            Pair.ShellTerminal.TitleChanged -= _shellTitleHandler;
+
+        // Create and store new handlers
+        _customActivityHandler = (s, e) => { IsCustomTerminalActive = Pair.CustomTerminal.IsActive; };
+        _shellActivityHandler = (s, e) => { IsShellTerminalActive = Pair.ShellTerminal.IsActive; };
+        _customTitleHandler = (s, title) => { CustomTerminalTitle = title; };
+        _shellTitleHandler = (s, title) => { ShellTerminalTitle = title; };
+
         // Subscribe to activity changes for immediate UI updates
-        Pair.CustomTerminal.ActivityChanged += (s, e) =>
-        {
-            IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
-        };
-        Pair.ShellTerminal.ActivityChanged += (s, e) =>
-        {
-            IsShellTerminalActive = Pair.ShellTerminal.IsActive;
-        };
+        Pair.CustomTerminal.ActivityChanged += _customActivityHandler;
+        Pair.ShellTerminal.ActivityChanged += _shellActivityHandler;
 
         // Subscribe to title changes
-        Pair.CustomTerminal.TitleChanged += (s, title) =>
-        {
-            CustomTerminalTitle = title;
-        };
-        Pair.ShellTerminal.TitleChanged += (s, title) =>
-        {
-            ShellTerminalTitle = title;
-        };
+        Pair.CustomTerminal.TitleChanged += _customTitleHandler;
+        Pair.ShellTerminal.TitleChanged += _shellTitleHandler;
 
         // Note: Focus tracking for clipboard operations is handled in TerminalPairView.xaml.cs
         // via MouseDown handlers on the Grid containers (works better with HWND-hosted controls)
@@ -542,20 +554,24 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public void SetCustomTerminalControl(ITerminalControl newControl)
     {
+        // Unsubscribe old handlers to prevent memory leaks
+        if (_customActivityHandler != null)
+            Pair.CustomTerminal.ActivityChanged -= _customActivityHandler;
+        if (_customTitleHandler != null)
+            Pair.CustomTerminal.TitleChanged -= _customTitleHandler;
+
         CustomTerminalContent = newControl.NativeControl as Control;
         Pair.CustomTerminal.SetTerminalControl(newControl);
 
+        // Create and store new handlers
+        _customActivityHandler = (s, e) => { IsCustomTerminalActive = Pair.CustomTerminal.IsActive; };
+        _customTitleHandler = (s, title) => { CustomTerminalTitle = title; };
+
         // Subscribe to activity changes
-        Pair.CustomTerminal.ActivityChanged += (s, e) =>
-        {
-            IsCustomTerminalActive = Pair.CustomTerminal.IsActive;
-        };
+        Pair.CustomTerminal.ActivityChanged += _customActivityHandler;
 
         // Subscribe to title changes
-        Pair.CustomTerminal.TitleChanged += (s, title) =>
-        {
-            CustomTerminalTitle = title;
-        };
+        Pair.CustomTerminal.TitleChanged += _customTitleHandler;
 
         // Reset title for new terminal
         CustomTerminalTitle = string.Empty;
@@ -568,20 +584,24 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public void SetShellTerminalControl(ITerminalControl newControl)
     {
+        // Unsubscribe old handlers to prevent memory leaks
+        if (_shellActivityHandler != null)
+            Pair.ShellTerminal.ActivityChanged -= _shellActivityHandler;
+        if (_shellTitleHandler != null)
+            Pair.ShellTerminal.TitleChanged -= _shellTitleHandler;
+
         ShellTerminalContent = newControl.NativeControl as Control;
         Pair.ShellTerminal.SetTerminalControl(newControl);
 
+        // Create and store new handlers
+        _shellActivityHandler = (s, e) => { IsShellTerminalActive = Pair.ShellTerminal.IsActive; };
+        _shellTitleHandler = (s, title) => { ShellTerminalTitle = title; };
+
         // Subscribe to activity changes
-        Pair.ShellTerminal.ActivityChanged += (s, e) =>
-        {
-            IsShellTerminalActive = Pair.ShellTerminal.IsActive;
-        };
+        Pair.ShellTerminal.ActivityChanged += _shellActivityHandler;
 
         // Subscribe to title changes
-        Pair.ShellTerminal.TitleChanged += (s, title) =>
-        {
-            ShellTerminalTitle = title;
-        };
+        Pair.ShellTerminal.TitleChanged += _shellTitleHandler;
 
         // Reset title for new terminal
         ShellTerminalTitle = string.Empty;
@@ -1202,23 +1222,30 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public void SetRunTerminalControl(ITerminalControl runControl)
     {
+        // Unsubscribe old handlers to prevent memory leaks
+        if (Pair.RunTerminal != null)
+        {
+            if (_runActivityHandler != null)
+                Pair.RunTerminal.ActivityChanged -= _runActivityHandler;
+            if (_runTitleHandler != null)
+                Pair.RunTerminal.TitleChanged -= _runTitleHandler;
+        }
+
         RunTerminalContent = runControl.NativeControl as Control;
 
         if (Pair.RunTerminal != null)
         {
             Pair.RunTerminal.SetTerminalControl(runControl);
 
+            // Create and store new handlers
+            _runActivityHandler = (s, e) => { IsRunTerminalActive = Pair.RunTerminal.IsActive; };
+            _runTitleHandler = (s, title) => { RunTerminalTitle = title; };
+
             // Subscribe to activity changes
-            Pair.RunTerminal.ActivityChanged += (s, e) =>
-            {
-                IsRunTerminalActive = Pair.RunTerminal.IsActive;
-            };
+            Pair.RunTerminal.ActivityChanged += _runActivityHandler;
 
             // Subscribe to title changes
-            Pair.RunTerminal.TitleChanged += (s, title) =>
-            {
-                RunTerminalTitle = title;
-            };
+            Pair.RunTerminal.TitleChanged += _runTitleHandler;
         }
 
         // Reset title for new terminal
