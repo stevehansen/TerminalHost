@@ -52,6 +52,20 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Emoji overlay system - TextBlocks for emoji since DrawingContext doesn't support emoji fallback
     private readonly List<TextBlock> _emojiOverlays = new();
     private readonly List<(double x, double y, string emoji, IBrush foreground)> _pendingEmojis = new();
+    private int _lastEmojiHash; // Track if emoji state changed to avoid unnecessary layout updates
+
+    // Intel Mac detection - Intel Macs have significant performance issues with complex rendering
+    private static readonly bool IsIntelMac = DetectIntelMac();
+
+    private static bool DetectIntelMac()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return false;
+
+        // Check if running on Intel (x64) vs Apple Silicon (arm64)
+        return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture ==
+               System.Runtime.InteropServices.Architecture.X64;
+    }
 
     // Cursor blinking
     private bool _cursorVisible = true;
@@ -102,10 +116,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private static readonly Dictionary<Color, SolidColorBrush> BrushCache = new();
     private const int MaxBrushCacheSize = 512; // Limit cache to prevent unbounded growth with true color
 
-    // Render throttling - 33ms (~30fps) is sufficient for terminal display
+    // Render throttling - adjust based on platform for optimal performance
+    // Intel Mac needs lower frame rate due to Rosetta overhead
     private bool _renderPending;
     private DateTime _lastRenderRequest;
-    private static readonly TimeSpan RenderThrottleInterval = TimeSpan.FromMilliseconds(33);
+    private static readonly TimeSpan RenderThrottleInterval = TimeSpan.FromMilliseconds(IsIntelMac ? 50 : 33);
 
     // Typeface cache to avoid creating new Typeface objects on every render
     private Typeface? _cachedNormalTypeface;
@@ -134,9 +149,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public MacTerminalControl()
     {
-        // Use Cascadia Code NF (Nerd Font with icons built-in) - system or embedded
-        _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
-        _fallbackTypeface = new Typeface(new FontFamily("STIX Two Math, Arial, Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+        // On Intel Mac, use Menlo for better performance (no embedded font loading, no Rosetta overhead)
+        // On Apple Silicon, use Cascadia Code NF (Nerd Font with icons built-in)
+        if (IsIntelMac)
+        {
+            _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
+            _fallbackTypeface = new Typeface(new FontFamily("Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+        }
+        else
+        {
+            _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
+            _fallbackTypeface = new Typeface(new FontFamily("STIX Two Math, Arial, Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+        }
 
         // Get glyph typeface for the primary font to check glyph availability
         FontManager.Current.TryGetGlyphTypeface(_typeface, out _primaryGlyphTypeface);
@@ -246,6 +270,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         _charWidth = formattedText.Width;
         _charHeight = formattedText.Height;
+
+        // Menlo has tighter line spacing than Cascadia Code NF
+        // Add padding to match expected terminal line height
+        if (IsIntelMac)
+        {
+            _charHeight = Math.Ceiling(_charHeight * 1.15); // ~15% increase for proper line spacing
+        }
 
         if (_charWidth <= 0) _charWidth = 8;
         if (_charHeight <= 0) _charHeight = 16;
@@ -661,6 +692,20 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     /// </summary>
     private void UpdateEmojiOverlays()
     {
+        // On Intel Mac, skip emoji overlays entirely for performance
+        // (Emoji will show as tofu/placeholder but terminal remains responsive)
+        if (IsIntelMac)
+        {
+            ClearAllEmojiOverlays();
+            return;
+        }
+
+        // Compute a hash to detect if emoji state actually changed
+        var currentHash = ComputeEmojiHash();
+        if (currentHash == _lastEmojiHash && _pendingEmojis.Count == _emojiOverlays.Count)
+            return;
+        _lastEmojiHash = currentHash;
+
         // Skip if no changes needed
         if (_pendingEmojis.Count == 0 && _emojiOverlays.Count == 0)
             return;
@@ -723,6 +768,37 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         }
     }
 
+    private int ComputeEmojiHash()
+    {
+        if (_pendingEmojis.Count == 0)
+            return 0;
+
+        unchecked
+        {
+            int hash = 17;
+            foreach (var (x, y, emoji, _) in _pendingEmojis)
+            {
+                hash = hash * 31 + x.GetHashCode();
+                hash = hash * 31 + y.GetHashCode();
+                hash = hash * 31 + emoji.GetHashCode();
+            }
+            return hash;
+        }
+    }
+
+    private void ClearAllEmojiOverlays()
+    {
+        if (_emojiOverlays.Count == 0)
+            return;
+
+        foreach (var overlay in _emojiOverlays)
+        {
+            VisualChildren.Remove(overlay);
+            LogicalChildren.Remove(overlay);
+        }
+        _emojiOverlays.Clear();
+    }
+
     // Cache for parsed hex colors to avoid repeated parsing
     private static readonly Dictionary<string, Color> ParsedColorCache = new(StringComparer.OrdinalIgnoreCase);
     private const int MaxParsedColorCacheSize = 256;
@@ -761,53 +837,79 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     }
 
     // Fallback font names in order of preference
-    private static readonly string[] FallbackFontNames =
-    {
-        // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
-        // These must come before standard fonts to ensure Private Use Area glyphs render correctly
-        "avares://host/Assets/Fonts#Symbols Nerd Font Mono", // Embedded Nerd Font (bundled with app)
-        "JetBrainsMono Nerd Font",
-        "JetBrainsMono NF",
-        "FiraCode Nerd Font",
-        "Hack Nerd Font",
-        "MesloLGS NF",
-        "Symbols Nerd Font Mono",
-        "Symbols Nerd Font",
-        // macOS monospace fonts - for Unicode characters Nerd Fonts don't cover
-        "SF Mono",            // Apple's modern monospace font with good Unicode coverage
-        "Monaco",             // Classic macOS monospace
-        // Standard fonts
-        "Apple Color Emoji",  // Emoji support
-        "STIX Two Math",      // Mathematical symbols
-        "Arial Unicode MS",   // Wide Unicode coverage
-        "Apple Symbols",      // macOS symbols
-        "Menlo",              // Fallback terminal font
-        "LastResort",         // Ultimate fallback
-    };
-
-    // Cache for typeface/glyphTypeface pairs
-    private static readonly Lazy<List<(Typeface typeface, IGlyphTypeface glyphTypeface)>> FallbackFonts = new(() =>
-    {
-        var result = new List<(Typeface, IGlyphTypeface)>();
-        var fontManager = FontManager.Current;
-
-        foreach (var fontName in FallbackFontNames)
+    // On Intel Mac, we use a minimal list for performance
+    private static readonly string[] FallbackFontNames = IsIntelMac
+        ? new[]
         {
-            try
+            // Minimal list for Intel Mac - just the essentials
+            "Menlo",              // Primary terminal font
+            "Apple Symbols",      // macOS symbols
+            "LastResort",         // Ultimate fallback
+        }
+        : new[]
+        {
+            // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
+            // These must come before standard fonts to ensure Private Use Area glyphs render correctly
+            "avares://host/Assets/Fonts#Symbols Nerd Font Mono", // Embedded Nerd Font (bundled with app)
+            "JetBrainsMono Nerd Font",
+            "JetBrainsMono NF",
+            "FiraCode Nerd Font",
+            "Hack Nerd Font",
+            "MesloLGS NF",
+            "Symbols Nerd Font Mono",
+            "Symbols Nerd Font",
+            // macOS monospace fonts - for Unicode characters Nerd Fonts don't cover
+            "SF Mono",            // Apple's modern monospace font with good Unicode coverage
+            "Monaco",             // Classic macOS monospace
+            // Standard fonts
+            "Apple Color Emoji",  // Emoji support
+            "STIX Two Math",      // Mathematical symbols
+            "Arial Unicode MS",   // Wide Unicode coverage
+            "Apple Symbols",      // macOS symbols
+            "Menlo",              // Fallback terminal font
+            "LastResort",         // Ultimate fallback
+        };
+
+    // Cache for typeface/glyphTypeface pairs - initialized lazily
+    private static List<(Typeface typeface, IGlyphTypeface glyphTypeface)>? _fallbackFontsCache;
+    private static readonly object _fallbackFontsLock = new();
+
+    private static List<(Typeface typeface, IGlyphTypeface glyphTypeface)> FallbackFonts
+    {
+        get
+        {
+            if (_fallbackFontsCache != null)
+                return _fallbackFontsCache;
+
+            lock (_fallbackFontsLock)
             {
-                var typeface = new Typeface(new FontFamily(fontName), FontStyle.Normal, FontWeight.Normal);
-                if (fontManager.TryGetGlyphTypeface(typeface, out var glyphTypeface))
+                if (_fallbackFontsCache != null)
+                    return _fallbackFontsCache;
+
+                var result = new List<(Typeface, IGlyphTypeface)>();
+                var fontManager = FontManager.Current;
+
+                foreach (var fontName in FallbackFontNames)
                 {
-                    result.Add((typeface, glyphTypeface!));
+                    try
+                    {
+                        var typeface = new Typeface(new FontFamily(fontName), FontStyle.Normal, FontWeight.Normal);
+                        if (fontManager.TryGetGlyphTypeface(typeface, out var glyphTypeface))
+                        {
+                            result.Add((typeface, glyphTypeface!));
+                        }
+                    }
+                    catch
+                    {
+                        // Font not available, skip
+                    }
                 }
-            }
-            catch
-            {
-                // Font not available, skip
+
+                _fallbackFontsCache = result;
+                return result;
             }
         }
-        return result;
-    });
+    }
 
     // Cache for character -> typeface mapping to avoid repeated lookups
     private static readonly Dictionary<char, Typeface?> CharacterTypefaceCache = new();
@@ -870,7 +972,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         }
 
         // Try each fallback font to find one that has the glyph
-        foreach (var (typeface, glyphTypeface) in FallbackFonts.Value)
+        foreach (var (typeface, glyphTypeface) in FallbackFonts)
         {
             try
             {
@@ -906,6 +1008,21 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
         Typeface primaryTypeface, IBrush foregroundBrush)
     {
+        // On Intel Mac, use the simplest possible rendering path for performance
+        // This sacrifices emoji and nerd font icons but keeps the terminal responsive
+        if (IsIntelMac)
+        {
+            var formattedText = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                primaryTypeface,
+                _fontSize,
+                foregroundBrush);
+            context.DrawText(formattedText, new Point(x, y));
+            return;
+        }
+
         // Ultra-fast path for pure ASCII text (most common case)
         if (IsPureAscii(text))
         {
