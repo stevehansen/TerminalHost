@@ -14,6 +14,7 @@ public class TimelineService : ITimelineService
     private readonly IGitWorktreeService _worktreeService;
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
+    private readonly IClaudeTaskFileService? _taskFileService;
     private readonly string _userDataDirectory;
     private readonly object _lock = new();
     private TimelineState _state;
@@ -26,17 +27,26 @@ public class TimelineService : ITimelineService
         IGitWorktreeService worktreeService,
         IGitProcessRunner gitRunner,
         IFileSystem fileSystem,
+        IClaudeTaskFileService? taskFileService = null,
         string? userDataDir = null)
     {
         _configService = configService;
         _worktreeService = worktreeService;
         _gitRunner = gitRunner;
         _fileSystem = fileSystem;
+        _taskFileService = taskFileService;
         _userDataDirectory = userDataDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "TerminalHost");
         _state = LoadState();
         LoadSessions();
+        PopulateSessionTasks();
+
+        // Subscribe to task file changes to keep sessions in sync
+        if (_taskFileService != null)
+        {
+            _taskFileService.TasksChanged += (s, e) => PopulateSessionTasks();
+        }
     }
 
     // Events
@@ -123,6 +133,44 @@ public class TimelineService : ITimelineService
         // Clear the legacy sessions list and save config
         _state.Sessions = null;
         SaveState();
+    }
+
+    /// <summary>
+    /// Populates Tasks collection for all sessions from ClaudeTaskFileService.
+    /// This links persisted Claude Code tasks with Timeline sessions.
+    /// </summary>
+    private void PopulateSessionTasks()
+    {
+        if (_taskFileService == null)
+            return;
+
+        lock (_lock)
+        {
+            foreach (var session in _sessions)
+            {
+                // Get tasks for this session from the file service
+                var tasks = _taskFileService.GetSessionTasks(session.Id);
+
+                // Convert FocusTask to ClaudeTaskSnapshot
+                session.Tasks.Clear();
+                foreach (var task in tasks)
+                {
+                    var snapshot = new ClaudeTaskSnapshot
+                    {
+                        Id = task.Id.ToString(),
+                        Title = task.Title,
+                        ActiveForm = task.ActiveForm,
+                        Status = task.Status,
+                        StartedAt = task.StartedAt,
+                        CompletedAt = task.CompletedAt
+                    };
+                    session.Tasks.Add(snapshot);
+                }
+            }
+        }
+
+        // Notify that sessions have changed
+        SessionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void SaveSessionFile(ClaudeSession session)

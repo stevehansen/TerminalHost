@@ -138,6 +138,7 @@ public partial class App : Application
 
         // Feature Services
         services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();
+        services.AddSingleton<IClaudeTaskFileService, TerminalHost.Core.Services.ClaudeTaskFileService>();
         services.AddSingleton<IClaudeTaskDetectionService, TerminalHost.Core.Services.ClaudeTaskDetectionService>();
         services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
