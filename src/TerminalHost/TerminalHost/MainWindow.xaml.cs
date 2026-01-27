@@ -44,11 +44,14 @@ public partial class MainWindow : Window
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
+    private readonly ITaskbarProgressService? _taskbarProgressService;
     private bool _isExiting;
+    private bool _isWindowActivated = true;
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
+    private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -76,6 +79,7 @@ public partial class MainWindow : Window
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
+        _taskbarProgressService = taskbarProgressService;
         DataContext = viewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         GitStashViewControl.DataContext = gitStashViewModel;
@@ -390,6 +394,20 @@ public partial class MainWindow : Window
         _toastWindow = new Views.ToastWindow();
         _toastWindow.Initialize(this, _toastService);
         _toastWindow.Show();
+
+        // Initialize taskbar progress service with window handle
+        if (_taskbarProgressService is TerminalHost.Windows.Services.TaskbarProgressService taskbarService)
+        {
+            var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(this);
+            taskbarService.Initialize(windowInteropHelper.Handle);
+        }
+
+        // Subscribe to window activation events to clear glow when focused
+        Activated += OnWindowActivated;
+        Deactivated += OnWindowDeactivated;
+
+        // Subscribe to tab selection changes to monitor terminal activity
+        _viewModel.PropertyChanged += OnViewModelPropertyChangedForTaskbar;
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -1445,6 +1463,113 @@ public partial class MainWindow : Window
         }
 
         return false;
+    }
+
+    #endregion
+
+    #region Taskbar Progress/Glow
+
+    /// <summary>
+    /// Called when window becomes active (gains focus).
+    /// Clears taskbar glow since user is now looking at the app.
+    /// </summary>
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        _isWindowActivated = true;
+        _taskbarProgressService?.ClearGlow();
+    }
+
+    /// <summary>
+    /// Called when window becomes inactive (loses focus).
+    /// Enables taskbar notifications for terminal activity.
+    /// </summary>
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        _isWindowActivated = false;
+        // Update taskbar state immediately based on current terminal activity
+        UpdateTaskbarGlow();
+    }
+
+    /// <summary>
+    /// Monitors ViewModel property changes to update taskbar glow when terminals change state.
+    /// </summary>
+    private void OnViewModelPropertyChangedForTaskbar(object? sender, PropertyChangedEventArgs e)
+    {
+        // Monitor selected tab changes (terminal activity indicators are tab-specific)
+        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
+        {
+            // Unsubscribe from previous tab
+            if (_previousSelectedTerminalTab != null)
+            {
+                _previousSelectedTerminalTab.PropertyChanged -= OnTerminalTabPropertyChanged;
+            }
+
+            // Subscribe to new tab if it's a terminal tab
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab)
+            {
+                newTab.PropertyChanged += OnTerminalTabPropertyChanged;
+                _previousSelectedTerminalTab = newTab;
+            }
+            else
+            {
+                _previousSelectedTerminalTab = null;
+            }
+
+            UpdateTaskbarGlow();
+        }
+    }
+
+    /// <summary>
+    /// Monitors terminal tab property changes (activity state, waiting state, etc.)
+    /// </summary>
+    private void OnTerminalTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Update taskbar glow when activity indicators change
+        if (e.PropertyName == nameof(TerminalPairTabViewModel.IsWaitingForInput) ||
+            e.PropertyName == nameof(TerminalPairTabViewModel.HasUnreadActivity) ||
+            e.PropertyName == nameof(TerminalPairTabViewModel.IsAnyTerminalActive))
+        {
+            UpdateTaskbarGlow();
+        }
+    }
+
+    /// <summary>
+    /// Updates the taskbar glow based on current terminal activity state.
+    /// Only shows glow when window is NOT active (user is in another app).
+    /// </summary>
+    private void UpdateTaskbarGlow()
+    {
+        if (_taskbarProgressService == null || _isWindowActivated)
+        {
+            // No service or window is active - no glow needed
+            return;
+        }
+
+        // Check the selected tab's terminal activity state
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            // Priority: Waiting for input (amber) > Completed activity (green) > No glow
+            if (terminalTab.IsWaitingForInput)
+            {
+                // Amber glow: Claude is waiting for user input
+                _taskbarProgressService.ShowAmberGlow();
+            }
+            else if (terminalTab.HasUnreadActivity && !terminalTab.IsAnyTerminalActive)
+            {
+                // Green glow: Terminal activity completed
+                _taskbarProgressService.ShowGreenGlow();
+            }
+            else
+            {
+                // No activity to notify about
+                _taskbarProgressService.ClearGlow();
+            }
+        }
+        else
+        {
+            // Non-terminal tab selected (settings, dashboard, etc.)
+            _taskbarProgressService.ClearGlow();
+        }
     }
 
     #endregion
