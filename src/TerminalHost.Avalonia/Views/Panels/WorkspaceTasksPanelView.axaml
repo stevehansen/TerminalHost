@@ -1,0 +1,210 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:TerminalHost.Core.ViewModels"
+             xmlns:domain="using:TerminalHost.Core.Domain"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+             x:Class="TerminalHost.Views.Panels.WorkspaceTasksPanelView"
+             x:DataType="vm:WorkspaceTasksPanelViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Border.task-section">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+
+        <Style Selector="TextBlock.section-header">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style Selector="Border.task-item">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style Selector="Border.task-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightBaseMediumBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.task-title">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style Selector="TextBlock.task-meta">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <Style Selector="TextBlock.empty-state">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <!-- Main Content -->
+        <ScrollViewer IsVisible="{Binding IsVisible}"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="12">
+                <!-- Header -->
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Padding="12"
+                        Margin="0,0,0,12"
+                        CornerRadius="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Workspace Tasks"
+                                       FontWeight="Bold"
+                                       FontSize="14"/>
+                            <TextBlock Text="Claude tasks for this workspace"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                Content="×"
+                                FontSize="20"
+                                Command="{Binding HideCommand}"
+                                Padding="8,0"
+                                VerticalAlignment="Top"/>
+                    </Grid>
+                </Border>
+
+                <!-- Empty State -->
+                <Border IsVisible="{Binding !HasAnyTasks}"
+                        Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Padding="24"
+                        CornerRadius="6">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="🤖"
+                                   FontSize="48"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,12"/>
+                        <TextBlock Text="No tasks yet"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Tasks will appear here as Claude Code works"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- In Progress Section -->
+                <Border Classes="task-section" IsVisible="{Binding HasInProgressTasks}">
+                    <StackPanel>
+                        <TextBlock Classes="section-header">
+                            <Run Text="🔄 In Progress"/>
+                            <Run Text="{Binding InProgressCount, StringFormat=' ({0})'}"
+                                 Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </TextBlock>
+
+                        <ItemsControl ItemsSource="{Binding InProgressTasks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="domain:FocusTask">
+                                    <Border Classes="task-item">
+                                        <StackPanel>
+                                            <TextBlock Classes="task-title"
+                                                       Text="{Binding ActiveForm, TargetNullValue={Binding Title}}"
+                                                       FontWeight="Medium"/>
+                                            <TextBlock Classes="task-meta"
+                                                       Text="{Binding ElapsedTimeDisplay, StringFormat='⏱ {0}'}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- TODO Section -->
+                <Border Classes="task-section" IsVisible="{Binding HasTodoTasks}">
+                    <StackPanel>
+                        <TextBlock Classes="section-header">
+                            <Run Text="📋 TODO"/>
+                            <Run Text="{Binding TodoCount, StringFormat=' ({0})'}"
+                                 Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </TextBlock>
+
+                        <ItemsControl ItemsSource="{Binding TodoTasks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="domain:FocusTask">
+                                    <Border Classes="task-item">
+                                        <StackPanel>
+                                            <TextBlock Classes="task-title"
+                                                       Text="{Binding Title}"/>
+                                            <TextBlock Classes="task-meta"
+                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Text="{Binding Description}"
+                                                       MaxLines="2"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Completed Section -->
+                <Border Classes="task-section" IsVisible="{Binding HasCompletedTasks}">
+                    <StackPanel>
+                        <TextBlock Classes="section-header">
+                            <Run Text="✅ Completed"/>
+                            <Run Text="{Binding CompletedCount, StringFormat=' ({0})'}"
+                                 Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </TextBlock>
+
+                        <ItemsControl ItemsSource="{Binding CompletedTasks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="domain:FocusTask">
+                                    <Border Classes="task-item" Opacity="0.7">
+                                        <StackPanel>
+                                            <TextBlock Classes="task-title"
+                                                       Text="{Binding Title}"
+                                                       TextDecorations="Strikethrough"/>
+                                            <TextBlock Classes="task-meta"
+                                                       Text="{Binding CompletedAt, StringFormat='Completed {0:h:mm tt}'}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Footer Actions -->
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Padding="12"
+                        Margin="0,12,0,0"
+                        CornerRadius="6"
+                        IsVisible="{Binding HasAnyTasks}">
+                    <Button Content="Open Task Panel"
+                            Command="{Binding OpenTaskPanelCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"/>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Panel>
+</UserControl>
