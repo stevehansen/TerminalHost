@@ -127,6 +127,9 @@ public partial class MainViewModel : ObservableObject
     // Task Panel
     public TaskPanelViewModel? TaskPanelViewModel { get; set; }
 
+    // Claude Tasks Panel
+    public ClaudeTasksPanelViewModel? ClaudeTasksPanelViewModel { get; set; }
+
     // Quick Capture
     [ObservableProperty]
     private bool _isQuickTaskOpen;
@@ -1676,6 +1679,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
     public event EventHandler? TaskPanelRequested;
+    public event EventHandler? ClaudeTasksPanelRequested;
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
 
@@ -1701,6 +1705,12 @@ public partial class MainViewModel : ObservableObject
     private void OpenTaskPanel()
     {
         TaskPanelRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void OpenClaudeTasksPanel()
+    {
+        ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
@@ -1938,6 +1948,15 @@ public partial class MainViewModel : ObservableObject
                 Icon = "📋",
                 Category = "Tools",
                 Execute = () => OpenTaskPanelCommand.Execute(null)
+            },
+            new() {
+                Id = "claude-tasks-panel",
+                Name = "Claude Tasks",
+                Description = "Monitor Claude Code task activity",
+                Shortcut = "Ctrl+Shift+K",
+                Icon = "🤖",
+                Category = "Tools",
+                Execute = () => OpenClaudeTasksPanelCommand.Execute(null)
             },
             new() {
                 Id = "quick-task",

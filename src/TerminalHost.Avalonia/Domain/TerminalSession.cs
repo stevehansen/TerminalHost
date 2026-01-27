@@ -84,6 +84,12 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
+    /// <summary>
+    /// Fired when output is received from the terminal.
+    /// The string parameter is the output text (may contain ANSI escape sequences).
+    /// </summary>
+    public event EventHandler<string>? OutputReceived;
+
     public TerminalSession(
         Profile profile,
         IStatisticsService statisticsService,
@@ -149,6 +155,9 @@ public class TerminalSession : IDisposable
     {
         // Increment character count for statistics
         _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, output.Length);
+
+        // Fire output received event for external subscribers (e.g., Claude task detection)
+        OutputReceived?.Invoke(this, output);
 
         // Only trigger activity for output that contains visible characters
         // This prevents invisible escape sequences (cursor updates, title changes, etc.)

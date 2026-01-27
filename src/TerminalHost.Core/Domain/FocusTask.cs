@@ -74,6 +74,23 @@ public class FocusTask
     [JsonPropertyName("prDetails")]
     public GitPrDetails? PrDetails { get; set; }
 
+    // Claude Code Integration
+    /// <summary>Indicates if this task was created by Claude Code CLI.</summary>
+    [JsonPropertyName("isClaudeTask")]
+    public bool IsClaudeTask { get; set; }
+
+    /// <summary>Claude's internal task ID (e.g., "task-abc123") for tracking.</summary>
+    [JsonPropertyName("claudeTaskId")]
+    public string? ClaudeTaskId { get; set; }
+
+    /// <summary>Terminal session ID that created this Claude task.</summary>
+    [JsonPropertyName("claudeSessionId")]
+    public string? ClaudeSessionId { get; set; }
+
+    /// <summary>Active form text shown while task is in progress (e.g., "Fixing bug...").</summary>
+    [JsonPropertyName("activeForm")]
+    public string? ActiveForm { get; set; }
+
     // Computed properties
 
     /// <summary>Whether this task has any PR/branch linking.</summary>

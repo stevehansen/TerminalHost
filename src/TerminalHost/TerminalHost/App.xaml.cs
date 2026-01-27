@@ -205,6 +205,7 @@ public partial class App : Application
         services.AddSingleton<IFilePreviewService, FilePreviewService>();
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
+        services.AddSingleton<IClaudeTaskDetectionService, ClaudeTaskDetectionService>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();

@@ -14,6 +14,7 @@ namespace TerminalHost.ViewModels;
 public partial class TaskPanelViewModel : ObservableObject
 {
     private readonly ITaskService _taskService;
+    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly MainViewModel _mainViewModel;
 
     [ObservableProperty]
@@ -57,6 +58,13 @@ public partial class TaskPanelViewModel : ObservableObject
     public ObservableCollection<FocusTask> BacklogTasks { get; } = [];
     public ObservableCollection<FocusTask> CompletedTodayTasks { get; } = [];
     public ObservableCollection<QuickNote> QuickNotes { get; } = [];
+    public ObservableCollection<FocusTask> ClaudeTasks { get; } = [];
+
+    // Claude tasks state
+    [ObservableProperty]
+    private FocusTask? _currentClaudeTask;
+
+    public bool HasClaudeTasks => ClaudeTasks.Count > 0;
 
     // Focus mode state
     public FocusTask? CurrentTask => _taskService.GetCurrentTask();
@@ -91,16 +99,23 @@ public partial class TaskPanelViewModel : ObservableObject
     public bool HasSelectedTask => SelectedTask != null && IsEditingTask;
     public IReadOnlyList<string> SelectedTaskProjects => SelectedTask?.ProjectPaths ?? [];
 
-    public TaskPanelViewModel(ITaskService taskService, MainViewModel mainViewModel)
+    public TaskPanelViewModel(ITaskService taskService, MainViewModel mainViewModel, IClaudeTaskDetectionService? claudeTaskDetectionService = null)
     {
         _taskService = taskService;
         _mainViewModel = mainViewModel;
+        _claudeTaskDetectionService = claudeTaskDetectionService;
 
         // Subscribe to task service events
         _taskService.TasksChanged += (s, e) => RefreshTasks();
         _taskService.NotesChanged += (s, e) => RefreshNotes();
         _taskService.CurrentTaskChanged += (s, e) => RefreshCurrentTask();
         _taskService.FocusModeChanged += (s, e) => RefreshFocusMode();
+
+        // Subscribe to Claude task detection events
+        if (_claudeTaskDetectionService != null)
+        {
+            _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
+        }
 
         // Subscribe to main view model events
         _mainViewModel.TaskPanelRequested += (s, e) => Open();
@@ -404,6 +419,7 @@ public partial class TaskPanelViewModel : ObservableObject
         RefreshNotes();
         RefreshCurrentTask();
         RefreshFocusMode();
+        RefreshClaudeTasks();
     }
 
     private void RefreshTasks()
@@ -456,6 +472,77 @@ public partial class TaskPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(FocusModeIcon));
         OnPropertyChanged(nameof(CanToggleFocusMode));
         OnPropertyChanged(nameof(FocusModeTooltip));
+    }
+
+    private void RefreshClaudeTasks()
+    {
+        if (_claudeTaskDetectionService == null)
+            return;
+
+        ClaudeTasks.Clear();
+        foreach (var task in _claudeTaskDetectionService.GetAllClaudeTasks())
+        {
+            ClaudeTasks.Add(task);
+        }
+
+        // Update current Claude task (the one in progress)
+        CurrentClaudeTask = ClaudeTasks.FirstOrDefault(t => t.Status == FocusTaskStatus.InProgress);
+
+        OnPropertyChanged(nameof(ClaudeTasks));
+        OnPropertyChanged(nameof(HasClaudeTasks));
+    }
+
+    private void OnClaudeTaskChanged(object? sender, ClaudeTaskEventArgs e)
+    {
+        // Update Claude tasks collection on the UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            switch (e.EventType)
+            {
+                case ClaudeTaskEventType.Created:
+                    ClaudeTasks.Add(e.Task);
+                    if (e.Task.Status == FocusTaskStatus.InProgress)
+                        CurrentClaudeTask = e.Task;
+                    OnPropertyChanged(nameof(HasClaudeTasks));
+                    break;
+
+                case ClaudeTaskEventType.Updated:
+                    var existing = ClaudeTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (existing != null)
+                    {
+                        var index = ClaudeTasks.IndexOf(existing);
+                        ClaudeTasks[index] = e.Task;
+                    }
+                    if (e.Task.Status == FocusTaskStatus.InProgress)
+                        CurrentClaudeTask = e.Task;
+                    else if (CurrentClaudeTask?.Id == e.Task.Id)
+                        CurrentClaudeTask = null;
+                    break;
+
+                case ClaudeTaskEventType.Completed:
+                    // Keep completed tasks briefly, or remove them immediately
+                    var completedTask = ClaudeTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (completedTask != null)
+                    {
+                        ClaudeTasks.Remove(completedTask);
+                    }
+                    if (CurrentClaudeTask?.Id == e.Task.Id)
+                        CurrentClaudeTask = null;
+                    OnPropertyChanged(nameof(HasClaudeTasks));
+                    break;
+
+                case ClaudeTaskEventType.Deleted:
+                    var deletedTask = ClaudeTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (deletedTask != null)
+                    {
+                        ClaudeTasks.Remove(deletedTask);
+                    }
+                    if (CurrentClaudeTask?.Id == e.Task.Id)
+                        CurrentClaudeTask = null;
+                    OnPropertyChanged(nameof(HasClaudeTasks));
+                    break;
+            }
+        });
     }
 
     #endregion

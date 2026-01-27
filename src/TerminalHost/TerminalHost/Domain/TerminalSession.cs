@@ -71,6 +71,12 @@ public class TerminalSession : IDisposable
     /// </summary>
     public event EventHandler<string>? LinkClicked;
 
+    /// <summary>
+    /// Fired when output is received from the terminal.
+    /// The string parameter is the output text (may contain ANSI escape sequences).
+    /// </summary>
+    public event EventHandler<string>? OutputReceived;
+
     public TerminalSession(Profile profile, IStatisticsService statisticsService, string terminalType)
     {
         Id = Guid.NewGuid();
@@ -175,6 +181,13 @@ public class TerminalSession : IDisposable
     {
         // Increment character count for statistics
         _statisticsService.IncrementCharCount(_workingDirectory, _terminalType, str.Length);
+
+        // Fire output received event for external subscribers (e.g., Claude task detection)
+        // Note: This allocates a string copy - only fire if there are subscribers
+        if (OutputReceived != null)
+        {
+            OutputReceived.Invoke(this, str.ToString());
+        }
 
         // Don't modify the output, just track timing
         _lastOutputTime = DateTime.Now;

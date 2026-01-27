@@ -138,6 +138,7 @@ public partial class App : Application
 
         // Feature Services
         services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();
+        services.AddSingleton<IClaudeTaskDetectionService, TerminalHost.Core.Services.ClaudeTaskDetectionService>();
         services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
@@ -159,6 +160,7 @@ public partial class App : Application
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();
+        services.AddSingleton<ClaudeTasksPanelViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
         services.AddSingleton<SearchAcrossFilesViewModel>();
         services.AddSingleton<FileHistoryViewModel>();
