@@ -14,8 +14,11 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 {
     private readonly IFileSystem _fileSystem;
     private readonly string _tasksRootPath;
+    private readonly string _projectsRootPath;
     private readonly Dictionary<string, List<FocusTask>> _sessionTasksCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _sessionToProjectPathCache = new(StringComparer.OrdinalIgnoreCase);
     private FileSystemWatcher? _fileWatcher;
+    private FileSystemWatcher? _projectsWatcher;
     private readonly object _lock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -33,12 +36,17 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         // Tasks root path: ~/.claude/tasks/
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _tasksRootPath = Path.Combine(userProfile, ".claude", "tasks");
+        _projectsRootPath = Path.Combine(userProfile, ".claude", "projects");
+
+        // Load session-to-project mappings
+        RefreshSessionProjectMappings();
 
         // Load tasks on startup
         Refresh();
 
         // Start watching for changes
         StartFileWatcher();
+        StartProjectsWatcher();
     }
 
     public IReadOnlyList<FocusTask> GetSessionTasks(string sessionId)
@@ -98,6 +106,9 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
     {
         lock (_lock)
         {
+            // Refresh session-to-project mappings first
+            RefreshSessionProjectMappings();
+
             _sessionTasksCache.Clear();
 
             var sessions = GetActiveSessions();
@@ -156,7 +167,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         return tasks;
     }
 
-    private static FocusTask MapToFocusTask(ClaudeTaskDto dto, string sessionId, string filePath)
+    private FocusTask MapToFocusTask(ClaudeTaskDto dto, string sessionId, string filePath)
     {
         // Generate consistent Guid from session + task ID
         var guidSeed = $"{sessionId}:{dto.Id}";
@@ -182,6 +193,13 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             createdAt = DateTime.UtcNow;
         }
 
+        // Get project path for this session
+        var projectPaths = new List<string>();
+        if (_sessionToProjectPathCache.TryGetValue(sessionId, out var projectPath))
+        {
+            projectPaths.Add(projectPath);
+        }
+
         return new FocusTask
         {
             Id = guid.ToString(),
@@ -190,7 +208,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             ActiveForm = dto.ActiveForm ?? string.Empty,
             Status = status,
             Priority = 0, // Not in Claude task files
-            ProjectPaths = [], // Will be populated by linking with session
+            ProjectPaths = projectPaths,
             CreatedAt = createdAt,
             StartedAt = status == FocusTaskStatus.InProgress ? createdAt : null,
             CompletedAt = status == FocusTaskStatus.Completed ? createdAt : null,
@@ -240,9 +258,107 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         Task.Delay(500).ContinueWith(_ => Refresh());
     }
 
+    private void StartProjectsWatcher()
+    {
+        if (!_fileSystem.DirectoryExists(_projectsRootPath))
+            return;
+
+        try
+        {
+            _projectsWatcher = new FileSystemWatcher(_projectsRootPath, "*.jsonl")
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
+                IncludeSubdirectories = true,
+                EnableRaisingEvents = true
+            };
+
+            _projectsWatcher.Created += OnProjectFileChanged;
+            _projectsWatcher.Changed += OnProjectFileChanged;
+            _projectsWatcher.Deleted += OnProjectFileChanged;
+        }
+        catch
+        {
+            // File watcher not critical - continue without it
+        }
+    }
+
+    private void OnProjectFileChanged(object? sender, FileSystemEventArgs e)
+    {
+        // Debounce: wait a bit to batch multiple rapid changes
+        Task.Delay(500).ContinueWith(_ => Refresh());
+    }
+
+    /// <summary>
+    /// Scans ~/.claude/projects/ to build a map of session IDs to project paths.
+    /// Project directories are named with encoded paths (e.g., "P--W-Memoreaz-MobileApp" for "P:\W\Memoreaz.MobileApp").
+    /// Each project directory contains .jsonl files named after session IDs.
+    /// </summary>
+    private void RefreshSessionProjectMappings()
+    {
+        _sessionToProjectPathCache.Clear();
+
+        if (!_fileSystem.DirectoryExists(_projectsRootPath))
+            return;
+
+        try
+        {
+            var projectDirs = _fileSystem.GetDirectories(_projectsRootPath);
+
+            foreach (var projectDir in projectDirs)
+            {
+                var projectDirName = Path.GetFileName(projectDir);
+                if (string.IsNullOrEmpty(projectDirName))
+                    continue;
+
+                // Decode the project directory name to get the actual path
+                // Format: "P--W-Memoreaz-MobileApp" → "P:\W\Memoreaz.MobileApp"
+                var projectPath = DecodeProjectPath(projectDirName);
+
+                // Get all .jsonl session files in this project directory
+                try
+                {
+                    var sessionFiles = _fileSystem.GetFiles(projectDir, "*.jsonl", SearchOption.TopDirectoryOnly);
+
+                    foreach (var sessionFile in sessionFiles)
+                    {
+                        var sessionFileName = Path.GetFileNameWithoutExtension(sessionFile);
+                        if (!string.IsNullOrEmpty(sessionFileName))
+                        {
+                            // Map session ID to project path
+                            _sessionToProjectPathCache[sessionFileName] = projectPath;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Skip project directories that can't be read
+                }
+            }
+        }
+        catch
+        {
+            // If we can't read the projects directory, continue with empty cache
+        }
+    }
+
+    /// <summary>
+    /// Decodes a project directory name to the actual file path.
+    /// Format: "P--W-Memoreaz-MobileApp" → "P:\W\Memoreaz.MobileApp"
+    /// </summary>
+    private static string DecodeProjectPath(string encodedPath)
+    {
+        if (string.IsNullOrEmpty(encodedPath))
+            return string.Empty;
+
+        // Replace -- with the appropriate path separator for this OS
+        var separator = Path.DirectorySeparatorChar.ToString();
+        return encodedPath.Replace("--", separator);
+    }
+
     public void Dispose()
     {
         _fileWatcher?.Dispose();
+        _projectsWatcher?.Dispose();
     }
 
     /// <summary>
