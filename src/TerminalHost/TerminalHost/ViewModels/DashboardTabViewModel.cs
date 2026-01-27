@@ -43,6 +43,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     public bool ShowCompletedIndicator => false;
     public bool IsWaitingForInput => false;
     public bool ShowWaitingIndicator => false;
+    public bool ShowClaudeTaskIndicator => false;  // Not a project tab
     public bool IsTerminalInitialized => true;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
 

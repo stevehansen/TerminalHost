@@ -283,6 +283,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
 
     /// <summary>
+    /// True if Claude task indicator (blue robot) should be shown.
+    /// Shows when there are active Claude tasks for this workspace.
+    /// WPF implementation - feature not yet implemented.
+    /// </summary>
+    public bool ShowClaudeTaskIndicator => false;  // TODO: Implement for WPF
+
+    /// <summary>
     /// True if terminals have been initialized.
     /// </summary>
     public bool IsTerminalInitialized => Pair?.CustomTerminal?.TerminalControl != null;

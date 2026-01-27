@@ -73,6 +73,7 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     public bool ShowActivitySpinner => IsActive;
     public bool ShowCompletedIndicator => HasUnreadActivity && !IsActive && !IsWaitingForInput;
     public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
+    public bool ShowClaudeTaskIndicator => false;  // Not a project tab with Claude tasks
     public bool IsTerminalInitialized => Session?.TerminalControl != null;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
 
