@@ -282,12 +282,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowClaudeTaskIndicator))]
+    private bool _hasActiveClaudeTasks;
+
     /// <summary>
     /// True if Claude task indicator (blue robot) should be shown.
     /// Shows when there are active Claude tasks for this workspace.
-    /// WPF implementation - feature not yet implemented.
     /// </summary>
-    public bool ShowClaudeTaskIndicator => false;  // TODO: Implement for WPF
+    public bool ShowClaudeTaskIndicator => HasActiveClaudeTasks;
 
     /// <summary>
     /// True if terminals have been initialized.
@@ -438,6 +441,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public TerminalPair Pair { get; }
     private readonly IStatisticsService _statisticsService;
+    private readonly ITaskService? _taskService;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -449,21 +453,29 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
         CustomIcon = customIcon;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
         // Subscribe to panel collection changes for safety
         RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
+
+        // Subscribe to task changes for Claude task indicator
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged += OnTasksChanged;
+            RefreshClaudeTaskIndicator();
+        }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -472,6 +484,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         CustomIcon = activeAiAssistant.DisplayLabel;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
@@ -483,6 +496,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         // Subscribe to panel collection changes for safety
         RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
+
+        // Subscribe to task changes for Claude task indicator
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged += OnTasksChanged;
+            RefreshClaudeTaskIndicator();
+        }
     }
 
     partial void OnSelectedAiAssistantChanged(AiAssistant? oldValue, AiAssistant? newValue)
@@ -1471,6 +1491,74 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (total > 0)
         {
             LeftPanelSplitRatio = leftWidth / total;
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the Claude task indicator state by checking for active Claude tasks in this workspace.
+    /// </summary>
+    private void RefreshClaudeTaskIndicator()
+    {
+        if (_taskService == null)
+        {
+            HasActiveClaudeTasks = false;
+            return;
+        }
+
+        // Normalize workspace path for comparison
+        var normalizedWorkspace = NormalizePath(Pair.WorkingDirectory);
+
+        // Get all tasks and check if any are active Claude tasks for this workspace
+        var allTasks = _taskService.GetAllTasks();
+        var hasActiveTasks = allTasks.Any(t =>
+            t.Status == Core.Domain.FocusTaskStatus.InProgress &&
+            t.IsClaudeTask &&
+            t.ProjectPaths.Any(p => NormalizePath(p) == normalizedWorkspace));
+
+        HasActiveClaudeTasks = hasActiveTasks;
+    }
+
+    /// <summary>
+    /// Normalizes a file path for consistent comparison.
+    /// Removes trailing separators and converts to lowercase.
+    /// </summary>
+    private static string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
+
+        return path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+            .ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Called when tasks change in the task service.
+    /// </summary>
+    private void OnTasksChanged(object? sender, EventArgs e)
+    {
+        RefreshClaudeTaskIndicator();
+    }
+
+    /// <summary>
+    /// Cleanup method to unsubscribe from events.
+    /// Call this when the tab is being closed.
+    /// </summary>
+    public void Cleanup()
+    {
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged -= OnTasksChanged;
+        }
+
+        // Cleanup panel event subscriptions
+        if (ExplorerPanelViewModel != null)
+        {
+            ExplorerPanelViewModel.StateChangeRequested -= OnPanelStateChangeRequested;
+        }
+
+        foreach (var panel in _registeredPanels.Values)
+        {
+            panel.StateChangeRequested -= OnPanelStateChangeRequested;
         }
     }
 }
