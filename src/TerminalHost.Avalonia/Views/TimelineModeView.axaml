@@ -251,7 +251,8 @@
                                                                 Padding="10"
                                                                 CornerRadius="4"
                                                                 Cursor="Hand"
-                                                                BorderThickness="2">
+                                                                BorderThickness="2"
+                                                                ToolTip.Tip="{Binding TooltipText}">
                                                             <Border.Background>
                                                                 <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}" Opacity="0.1"/>
                                                             </Border.Background>
@@ -263,7 +264,7 @@
                                                                     <Setter Property="Opacity" Value="0.9"/>
                                                                 </Style>
                                                             </Border.Styles>
-                                                            <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                                                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                                                 <!-- Title -->
                                                                 <TextBlock Grid.Row="0"
                                                                            Text="{Binding DisplayTitle}"
@@ -290,8 +291,19 @@
                                                                            Margin="0,2,0,0"
                                                                            IsVisible="{Binding HasFilesChanged}"/>
 
+                                                                <!-- Tasks Indicator -->
+                                                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0"
+                                                                            IsVisible="{Binding HasTasks}">
+                                                                    <TextBlock Text="🤖"
+                                                                               FontSize="11"
+                                                                               Margin="0,0,4,0"/>
+                                                                    <TextBlock Text="{Binding TasksSummary}"
+                                                                               FontSize="11"
+                                                                               Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                                </StackPanel>
+
                                                                 <!-- Status & Actions -->
-                                                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
+                                                                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,6,0,0">
                                                                     <TextBlock Text="{Binding StatusIcon}" FontSize="12">
                                                                         <TextBlock.Foreground>
                                                                             <SolidColorBrush Color="{Binding StatusColorHex, Converter={StaticResource HexToColorConverter}}"/>

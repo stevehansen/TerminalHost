@@ -78,6 +78,38 @@ public partial class SessionBlockViewModel : ObservableObject
     public bool IsAbandoned => Status == ClaudeSessionStatus.Abandoned;
 
     /// <summary>
+    /// Whether this session has associated Claude tasks.
+    /// </summary>
+    public bool HasTasks => _session.Tasks.Any();
+
+    /// <summary>
+    /// Number of Claude tasks in this session.
+    /// </summary>
+    public int TaskCount => _session.Tasks.Count;
+
+    /// <summary>
+    /// Summary of tasks (e.g., "3 tasks: 2 completed, 1 in progress")
+    /// </summary>
+    public string TasksSummary
+    {
+        get
+        {
+            if (!HasTasks) return string.Empty;
+
+            var completed = _session.Tasks.Count(t => t.Status == FocusTaskStatus.Completed);
+            var inProgress = _session.Tasks.Count(t => t.Status == FocusTaskStatus.InProgress);
+            var pending = _session.Tasks.Count(t => t.Status == FocusTaskStatus.NotStarted);
+
+            var parts = new List<string>();
+            if (completed > 0) parts.Add($"{completed} completed");
+            if (inProgress > 0) parts.Add($"{inProgress} in progress");
+            if (pending > 0) parts.Add($"{pending} pending");
+
+            return $"{TaskCount} task{(TaskCount > 1 ? "s" : "")}: {string.Join(", ", parts)}";
+        }
+    }
+
+    /// <summary>
     /// Number of files changed in this session.
     /// </summary>
     public int FileCount => _session.FilesChanged.Count;
@@ -105,6 +137,54 @@ public partial class SessionBlockViewModel : ObservableObject
                 return TruncateTitle(InitialPrompt);
 
             return "Claude Code";
+        }
+    }
+
+    /// <summary>
+    /// Display title with optional task indicator.
+    /// </summary>
+    public string DisplayTitle => HasTasks ? $"🤖 {BlockTitle}" : BlockTitle;
+
+    /// <summary>
+    /// Tooltip text showing session and task details.
+    /// </summary>
+    public string TooltipText
+    {
+        get
+        {
+            var lines = new List<string>();
+
+            // Session info
+            lines.Add($"Session: {BlockTitle}");
+            lines.Add($"Time: {TimeRangeDisplay}");
+            lines.Add($"Duration: {DurationDisplay}");
+            lines.Add($"Status: {StatusText}");
+
+            if (HasCommit)
+                lines.Add($"Commit: {ShortCommitHash}");
+
+            if (FileCount > 0)
+                lines.Add($"Files: {FileCount} changed");
+
+            // Task info
+            if (HasTasks)
+            {
+                lines.Add("");
+                lines.Add($"Tasks ({TaskCount}):");
+                foreach (var task in _session.Tasks)
+                {
+                    var statusIcon = task.Status switch
+                    {
+                        FocusTaskStatus.NotStarted => "⚪",
+                        FocusTaskStatus.InProgress => "🔵",
+                        FocusTaskStatus.Completed => "✅",
+                        _ => "❓"
+                    };
+                    lines.Add($"  {statusIcon} {task.Title}");
+                }
+            }
+
+            return string.Join("\n", lines);
         }
     }
 
@@ -146,6 +226,22 @@ public partial class SessionBlockViewModel : ObservableObject
             if (FileCount > 0)
                 parts.Add($"{FileCount} files");
             return string.Join(" • ", parts);
+        }
+    }
+
+    /// <summary>
+    /// Summary of files and tasks changed (e.g., "3 files, 2 tasks")
+    /// </summary>
+    public string FilesSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (FileCount > 0)
+                parts.Add($"{FileCount} file{(FileCount > 1 ? "s" : "")}");
+            if (TaskCount > 0)
+                parts.Add($"{TaskCount} task{(TaskCount > 1 ? "s" : "")}");
+            return string.Join(", ", parts);
         }
     }
 
