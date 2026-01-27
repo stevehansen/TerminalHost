@@ -13,20 +13,32 @@ public sealed class TimelineService : ITimelineService
     private readonly IConfigurationService _configService;
     private readonly IGitWorktreeService _worktreeService;
     private readonly IGitProcessRunner _gitRunner;
+    private readonly IFileSystem _fileSystem;
+    private readonly string _userDataDirectory;
     private readonly object _lock = new();
 
     // Cached state (loaded from config)
     private TimelineState _state = new();
 
+    // In-memory sessions collection (loaded from individual files)
+    private readonly List<ClaudeSession> _sessions = new();
+
     public TimelineService(
         IConfigurationService configService,
         IGitWorktreeService worktreeService,
-        IGitProcessRunner gitRunner)
+        IGitProcessRunner gitRunner,
+        IFileSystem fileSystem,
+        string? userDataDir = null)
     {
         _configService = configService;
         _worktreeService = worktreeService;
         _gitRunner = gitRunner;
+        _fileSystem = fileSystem;
+        _userDataDirectory = userDataDir ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost");
         LoadFromConfig();
+        LoadSessions();
     }
 
     #region Events
@@ -96,8 +108,123 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             LoadFromConfig();
+            LoadSessions();
         }
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gets the session storage directory path.
+    /// </summary>
+    private string GetSessionsDirectory()
+    {
+        return Path.Combine(_userDataDirectory, "timeline", "sessions");
+    }
+
+    /// <summary>
+    /// Loads sessions from individual files.
+    /// Performs migration from legacy Sessions list if needed.
+    /// </summary>
+    private void LoadSessions()
+    {
+        // Check if migration is needed (legacy Sessions list exists)
+        if (_state.Sessions != null && _state.Sessions.Count > 0)
+        {
+            MigrateLegacySessions();
+            return;
+        }
+
+        // Load from individual session files
+        var sessionsDir = GetSessionsDirectory();
+        if (!_fileSystem.DirectoryExists(sessionsDir))
+        {
+            return; // No sessions yet
+        }
+
+        _sessions.Clear();
+        var sessionFiles = _fileSystem.GetFiles(sessionsDir, "session-*.json", SearchOption.TopDirectoryOnly);
+
+        foreach (var filePath in sessionFiles)
+        {
+            try
+            {
+                var json = _fileSystem.ReadAllText(filePath);
+                var session = System.Text.Json.JsonSerializer.Deserialize<ClaudeSession>(json);
+                if (session != null)
+                {
+                    _sessions.Add(session);
+                }
+            }
+            catch
+            {
+                // Ignore corrupted session files
+            }
+        }
+    }
+
+    /// <summary>
+    /// Migrates sessions from legacy TimelineState.Sessions list to individual files.
+    /// </summary>
+    private void MigrateLegacySessions()
+    {
+        if (_state.Sessions == null || _state.Sessions.Count == 0)
+            return;
+
+        var sessionsDir = GetSessionsDirectory();
+        _fileSystem.CreateDirectory(sessionsDir);
+
+        // Migrate each session to individual file
+        _sessions.Clear();
+        foreach (var session in _state.Sessions)
+        {
+            try
+            {
+                SaveSessionFile(session);
+                _sessions.Add(session);
+            }
+            catch
+            {
+                // Continue migration even if one session fails
+            }
+        }
+
+        // Clear legacy list and save config
+        _state.Sessions = null;
+        SaveToConfig();
+    }
+
+    /// <summary>
+    /// Saves a session to its individual file.
+    /// </summary>
+    private void SaveSessionFile(ClaudeSession session)
+    {
+        var sessionsDir = GetSessionsDirectory();
+        _fileSystem.CreateDirectory(sessionsDir);
+
+        var fileName = $"session-{session.Id}.json";
+        var filePath = Path.Combine(sessionsDir, fileName);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(session, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        _fileSystem.WriteAllText(filePath, json);
+    }
+
+    /// <summary>
+    /// Deletes a session file.
+    /// </summary>
+    private void DeleteSessionFile(string sessionId)
+    {
+        var sessionsDir = GetSessionsDirectory();
+        var fileName = $"session-{sessionId}.json";
+        var filePath = Path.Combine(sessionsDir, fileName);
+
+        if (_fileSystem.FileExists(filePath))
+        {
+            _fileSystem.DeleteFile(filePath);
+        }
     }
 
     #endregion
@@ -382,9 +509,17 @@ public sealed class TimelineService : ITimelineService
             }
         }
 
-        // Always delete the intent from state
+        // Always delete the intent from state and its sessions
         lock (_lock)
         {
+            // Delete all session files for this intent
+            var sessionsToDelete = _sessions.Where(s => s.IntentId == intentId).ToList();
+            foreach (var session in sessionsToDelete)
+            {
+                DeleteSessionFile(session.Id);
+                _sessions.Remove(session);
+            }
+
             _state.RemoveIntent(intentId);
             SaveToConfig();
         }
@@ -467,12 +602,15 @@ public sealed class TimelineService : ITimelineService
             session = ClaudeSession.Create(intentId);
             session.InitialPrompt = initialPrompt;
 
-            _state.AddSession(session);
+            // Add to in-memory collection and save to file
+            _sessions.Add(session);
+            SaveSessionFile(session);
 
-            // Update intent's last active time and get worktree path
+            // Update intent's session list and last active time
             var intent = _state.GetIntent(intentId);
             if (intent != null)
             {
+                intent.AddSession(session.Id);
                 intent.LastActiveAt = DateTime.UtcNow;
                 worktreePath = intent.WorktreePath;
             }
@@ -498,7 +636,7 @@ public sealed class TimelineService : ITimelineService
 
         lock (_lock)
         {
-            parentSession = _state.GetSession(parentSessionId);
+            parentSession = _sessions.FirstOrDefault(s => s.Id == parentSessionId);
             if (parentSession == null) return null;
 
             intent = _state.GetIntent(parentSession.IntentId);
@@ -523,7 +661,12 @@ public sealed class TimelineService : ITimelineService
             forkedSession = ClaudeSession.Create(parentSession.IntentId, parentSessionId);
             forkedSession.InitialPrompt = initialPrompt;
 
-            _state.AddSession(forkedSession);
+            // Add to in-memory collection and save to file
+            _sessions.Add(forkedSession);
+            SaveSessionFile(forkedSession);
+
+            // Update intent's session list (intent was already fetched above)
+            intent?.AddSession(forkedSession.Id);
             SaveToConfig();
         }
 
@@ -535,7 +678,7 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            return _state.GetSession(sessionId);
+            return _sessions.FirstOrDefault(s => s.Id == sessionId);
         }
     }
 
@@ -543,7 +686,7 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            return _state.Sessions.ToList();
+            return _sessions.ToList();
         }
     }
 
@@ -551,7 +694,7 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            return _state.GetSessionsForIntent(intentId).ToList();
+            return _sessions.Where(s => s.IntentId == intentId).ToList();
         }
     }
 
@@ -559,7 +702,7 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            return _state.Sessions
+            return _sessions
                 .Where(s => s.Status == ClaudeSessionStatus.Running)
                 .ToList();
         }
@@ -569,12 +712,12 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            var existing = _state.Sessions.FirstOrDefault(s => s.Id == session.Id);
+            var existing = _sessions.FirstOrDefault(s => s.Id == session.Id);
             if (existing != null)
             {
-                var index = _state.Sessions.IndexOf(existing);
-                _state.Sessions[index] = session;
-                SaveToConfig();
+                var index = _sessions.IndexOf(existing);
+                _sessions[index] = session;
+                SaveSessionFile(session);
             }
         }
         OnSessionsChanged();
@@ -585,11 +728,11 @@ public sealed class TimelineService : ITimelineService
         ClaudeSession? session;
         lock (_lock)
         {
-            session = _state.GetSession(sessionId);
+            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.MarkSuccess(commitHash, commitMessage, agentNotes);
-            SaveToConfig();
+            SaveSessionFile(session);
         }
         OnSessionsChanged();
         OnSessionStatusChanged(session);
@@ -600,11 +743,11 @@ public sealed class TimelineService : ITimelineService
         ClaudeSession? session;
         lock (_lock)
         {
-            session = _state.GetSession(sessionId);
+            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.MarkFailed(agentNotes);
-            SaveToConfig();
+            SaveSessionFile(session);
         }
         OnSessionsChanged();
         OnSessionStatusChanged(session);
@@ -615,11 +758,11 @@ public sealed class TimelineService : ITimelineService
         ClaudeSession? session;
         lock (_lock)
         {
-            session = _state.GetSession(sessionId);
+            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.MarkAbandoned();
-            SaveToConfig();
+            SaveSessionFile(session);
         }
         OnSessionsChanged();
         OnSessionStatusChanged(session);
@@ -629,11 +772,11 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            var session = _state.GetSession(sessionId);
+            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.AddFileChange(filePath, additions, deletions);
-            SaveToConfig();
+            SaveSessionFile(session);
         }
         OnSessionsChanged();
     }
@@ -642,11 +785,11 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            var session = _state.GetSession(sessionId);
+            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.AddCommand(command);
-            SaveToConfig();
+            SaveSessionFile(session);
         }
     }
 
@@ -654,11 +797,11 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            var session = _state.GetSession(sessionId);
+            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.ContinueSessionId = continueId;
-            SaveToConfig();
+            SaveSessionFile(session);
         }
     }
 
@@ -678,7 +821,7 @@ public sealed class TimelineService : ITimelineService
                 .ToLowerInvariant();
 
             // Find running sessions, match by intent's main repo path
-            return _state.Sessions
+            return _sessions
                 .Where(s => s.Status == ClaudeSessionStatus.Running)
                 .Select(s => new
                 {
@@ -709,11 +852,11 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            var session = _state.GetSession(sessionId);
+            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session == null) return;
 
             session.AddOrUpdateTask(task);
-            SaveToConfig();
+            SaveSessionFile(session);
         }
         OnSessionsChanged();
     }
@@ -774,7 +917,12 @@ public sealed class TimelineService : ITimelineService
             orphan.IsAssigned = true;
             orphan.AssignedSessionId = session.Id;
 
-            _state.AddSession(session);
+            // Add to in-memory collection and save to file
+            _sessions.Add(session);
+            SaveSessionFile(session);
+
+            // Update intent's session list (intent was already fetched above)
+            intent.AddSession(session.Id);
             SaveToConfig();
         }
 
@@ -793,12 +941,21 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             var orphans = _state.GetOrphanSessionsForCwd(cwd).ToList();
+            var intent = _state.GetIntent(intentId);
+
             foreach (var orphan in orphans)
             {
                 var session = orphan.ToClaudeSession(intentId);
                 orphan.IsAssigned = true;
                 orphan.AssignedSessionId = session.Id;
-                _state.AddSession(session);
+
+                // Add to in-memory collection and save to file
+                _sessions.Add(session);
+                SaveSessionFile(session);
+
+                // Update intent's session list
+                intent?.AddSession(session.Id);
+
                 assigned.Add(session);
             }
 

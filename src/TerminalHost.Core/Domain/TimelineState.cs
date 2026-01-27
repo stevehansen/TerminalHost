@@ -52,9 +52,11 @@ public class TimelineState
 
     /// <summary>
     /// All Claude Code sessions across all intents.
+    /// LEGACY: Nullable for migration detection. New installations use individual session files.
+    /// If not null on load, sessions are migrated to separate files and this is set to null.
     /// </summary>
     [JsonPropertyName("sessions")]
-    public List<ClaudeSession> Sessions { get; set; } = [];
+    public List<ClaudeSession>? Sessions { get; set; } = null;
 
     /// <summary>
     /// Order of intent IDs for display (allows reordering).
@@ -121,21 +123,24 @@ public class TimelineState
 
     /// <summary>
     /// Gets the count of running sessions.
+    /// LEGACY: Returns 0 after migration. Use TimelineService.GetRunningSessions().Count instead.
     /// </summary>
     [JsonIgnore]
-    public int RunningSessionCount => Sessions.Count(s => s.Status == ClaudeSessionStatus.Running);
+    public int RunningSessionCount => Sessions?.Count(s => s.Status == ClaudeSessionStatus.Running) ?? 0;
 
     /// <summary>
     /// Gets the count of forked sessions.
+    /// LEGACY: Returns 0 after migration. Use TimelineService for session counts.
     /// </summary>
     [JsonIgnore]
-    public int ForkCount => Sessions.Count(s => s.IsFork);
+    public int ForkCount => Sessions?.Count(s => s.IsFork) ?? 0;
 
     /// <summary>
     /// Gets the total commit count (successful sessions with commits).
+    /// LEGACY: Returns 0 after migration. Use TimelineService for session counts.
     /// </summary>
     [JsonIgnore]
-    public int CommitCount => Sessions.Count(s => !string.IsNullOrEmpty(s.CommitHash));
+    public int CommitCount => Sessions?.Count(s => !string.IsNullOrEmpty(s.CommitHash)) ?? 0;
 
     /// <summary>
     /// Gets the status bar summary.
@@ -183,15 +188,17 @@ public class TimelineState
 
     /// <summary>
     /// Gets a session by ID.
+    /// LEGACY: Only works with old data before migration. Use TimelineService for session access.
     /// </summary>
     public ClaudeSession? GetSession(string sessionId) =>
-        Sessions.FirstOrDefault(s => s.Id == sessionId);
+        Sessions?.FirstOrDefault(s => s.Id == sessionId);
 
     /// <summary>
     /// Gets all sessions for an intent.
+    /// LEGACY: Only works with old data before migration. Use TimelineService for session access.
     /// </summary>
     public IEnumerable<ClaudeSession> GetSessionsForIntent(string intentId) =>
-        Sessions.Where(s => s.IntentId == intentId);
+        Sessions?.Where(s => s.IntentId == intentId) ?? Enumerable.Empty<ClaudeSession>();
 
     /// <summary>
     /// Gets intents in display order.
@@ -236,8 +243,8 @@ public class TimelineState
         var intent = GetIntent(intentId);
         if (intent != null)
         {
-            // Remove associated sessions
-            Sessions.RemoveAll(s => s.IntentId == intentId);
+            // Remove associated sessions (only for legacy data)
+            Sessions?.RemoveAll(s => s.IntentId == intentId);
 
             // Remove from lists
             Intents.Remove(intent);
