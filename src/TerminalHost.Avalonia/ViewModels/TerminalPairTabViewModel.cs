@@ -396,6 +396,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly ITimelineService? _timelineService;
 
+    /// <summary>
+    /// ViewModel for the workspace tasks panel (shows Claude tasks for this workspace).
+    /// </summary>
+    public Core.ViewModels.WorkspaceTasksPanelViewModel? WorkspaceTasksPanel { get; }
+
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
     public Control? CurrentTerminalContent => ActiveTerminal == ActiveTerminal.Custom
@@ -406,7 +411,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -418,6 +423,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _timelineService = timelineService;
         ActiveTerminal = pair.ActiveTerminal;
 
+        // Initialize workspace tasks panel
+        if (taskService != null)
+        {
+            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService);
+            WorkspaceTasksPanel.ShowForWorkspace(pair.WorkingDirectory);
+        }
+
         // Subscribe to Claude task events to link tasks with Timeline sessions
         if (_claudeTaskDetectionService != null && _timelineService != null)
         {
@@ -425,7 +437,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -438,6 +450,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _timelineService = timelineService;
         ActiveTerminal = pair.ActiveTerminal;
+
+        // Initialize workspace tasks panel
+        if (taskService != null)
+        {
+            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService);
+            WorkspaceTasksPanel.ShowForWorkspace(pair.WorkingDirectory);
+        }
 
         // Subscribe to Claude task events to link tasks with Timeline sessions
         if (_claudeTaskDetectionService != null && _timelineService != null)

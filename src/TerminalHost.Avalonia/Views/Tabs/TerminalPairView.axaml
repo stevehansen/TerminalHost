@@ -6,6 +6,7 @@
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              xmlns:views="clr-namespace:TerminalHost.Views"
+             xmlns:panels="clr-namespace:TerminalHost.Views.Panels"
              mc:Ignorable="d"
              d:DesignWidth="1024" d:DesignHeight="600"
              x:DataType="vm:TerminalPairTabViewModel">
@@ -257,7 +258,34 @@
                                   Content="📂"
                                   ToolTip.Tip="Explorer (⌘⇧ F)"
                                   AutomationProperties.Name="Toggle Explorer"
-                                  Margin="0,0,8,0">
+                                  Margin="0,0,4,0">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"/>
+                                <Setter Property="Padding" Value="8,6"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="CornerRadius" Value="3"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource BackgroundHoverBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+
+                    <!-- Toggle Workspace Tasks Panel -->
+                    <ToggleButton IsChecked="{Binding WorkspaceTasksPanel.IsVisible}"
+                                  Content="🤖"
+                                  ToolTip.Tip="Workspace Tasks"
+                                  AutomationProperties.Name="Toggle Workspace Tasks"
+                                  Margin="0,0,8,0"
+                                  IsVisible="{Binding WorkspaceTasksPanel, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <ToggleButton.Styles>
                             <Style Selector="ToggleButton">
                                 <Setter Property="Background" Value="{DynamicResource BackgroundMediumBrush}"/>
@@ -452,6 +480,18 @@
             <views:FileExplorerView Grid.Column="2"
                                     DataContext="{Binding ExplorerViewModel}"
                                     IsVisible="{Binding IsExplorerVisible}"/>
+
+            <!-- Workspace Tasks Panel Overlay - right side overlay -->
+            <Border Grid.Column="2" Grid.ColumnSpan="1"
+                    Background="{DynamicResource BackgroundDarkBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1,0,0,0"
+                    IsVisible="{Binding WorkspaceTasksPanel.IsVisible}"
+                    Width="300"
+                    HorizontalAlignment="Right"
+                    ZIndex="100">
+                <panels:WorkspaceTasksPanelView DataContext="{Binding WorkspaceTasksPanel}"/>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>
