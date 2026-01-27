@@ -1,14 +1,14 @@
 using System.IO;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
-using TerminalHost.Domain;
 
-namespace TerminalHost.Services;
+namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Service for managing focus tasks and quick notes.
 /// Persists data through ConfigurationService.
 /// </summary>
-internal sealed class TaskService : ITaskService
+public sealed class TaskService : ITaskService
 {
     private readonly IConfigurationService _configService;
     private readonly IGitPrService _gitPrService;

@@ -38,6 +38,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IViewModelFactory _viewModelFactory;
     private readonly ITimelineService _timelineService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
+    private readonly ITaskService? _taskService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -228,7 +229,8 @@ public partial class MainViewModel : ObservableObject
         IFolderPickerService folderPickerService,
         IViewModelFactory viewModelFactory,
         ITimelineService timelineService,
-        IInputPromptDetectionService inputPromptDetectionService)
+        IInputPromptDetectionService inputPromptDetectionService,
+        ITaskService? taskService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -253,6 +255,7 @@ public partial class MainViewModel : ObservableObject
         _viewModelFactory = viewModelFactory;
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
+        _taskService = taskService;
 
         // Subscribe to timeline events
         _timelineService.OpenProjectRequested += OnTimelineOpenProjectRequested;
@@ -866,7 +869,7 @@ public partial class MainViewModel : ObservableObject
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
             // Create view model with AI assistant info
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, duplicateIndex);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, duplicateIndex, _taskService);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
