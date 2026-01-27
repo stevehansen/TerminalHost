@@ -523,6 +523,50 @@ public class TimelineService : ITimelineService
         // STUB: macOS version doesn't track orphan sessions yet
     }
 
+    public ClaudeSession? GetActiveClaudeSession(string projectPath)
+    {
+        lock (_lock)
+        {
+            // Normalize path for comparison
+            var normalizedPath = Path.GetFullPath(projectPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToLowerInvariant();
+
+            // Find running sessions, match by intent's main repo path
+            return _state.Sessions
+                .Where(s => s.Status == ClaudeSessionStatus.Running)
+                .Select(s => new
+                {
+                    Session = s,
+                    Intent = _state.GetIntent(s.IntentId)
+                })
+                .Where(x => x.Intent != null)
+                .Where(x =>
+                {
+                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        .ToLowerInvariant();
+                    return intentPath == normalizedPath;
+                })
+                .OrderByDescending(x => x.Session.StartTime)
+                .Select(x => x.Session)
+                .FirstOrDefault();
+        }
+    }
+
+    public void AddTaskToSession(string sessionId, FocusTask task)
+    {
+        lock (_lock)
+        {
+            var session = _state.GetSession(sessionId);
+            if (session == null) return;
+
+            session.AddOrUpdateTask(task);
+            SaveState();
+        }
+        SessionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     // Persistence
 
     private TimelineState LoadState()

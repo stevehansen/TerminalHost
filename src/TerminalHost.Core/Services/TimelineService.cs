@@ -662,6 +662,62 @@ public sealed class TimelineService : ITimelineService
         }
     }
 
+    /// <summary>
+    /// Gets the currently active (running) Claude session for a specific project path.
+    /// Returns the most recent running session if multiple exist.
+    /// </summary>
+    /// <param name="projectPath">The project directory path</param>
+    /// <returns>Active session or null if none found</returns>
+    public ClaudeSession? GetActiveClaudeSession(string projectPath)
+    {
+        lock (_lock)
+        {
+            // Normalize path for comparison
+            var normalizedPath = Path.GetFullPath(projectPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToLowerInvariant();
+
+            // Find running sessions, match by intent's main repo path
+            return _state.Sessions
+                .Where(s => s.Status == ClaudeSessionStatus.Running)
+                .Select(s => new
+                {
+                    Session = s,
+                    Intent = _state.GetIntent(s.IntentId)
+                })
+                .Where(x => x.Intent != null)
+                .Where(x =>
+                {
+                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath)
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        .ToLowerInvariant();
+                    return intentPath == normalizedPath;
+                })
+                .OrderByDescending(x => x.Session.StartTime)
+                .Select(x => x.Session)
+                .FirstOrDefault();
+        }
+    }
+
+    /// <summary>
+    /// Adds or updates a Claude task in the specified session.
+    /// Creates a snapshot of the task and stores it in the session's task list.
+    /// </summary>
+    /// <param name="sessionId">The session ID to add the task to</param>
+    /// <param name="task">The FocusTask to add/update</param>
+    public void AddTaskToSession(string sessionId, FocusTask task)
+    {
+        lock (_lock)
+        {
+            var session = _state.GetSession(sessionId);
+            if (session == null) return;
+
+            session.AddOrUpdateTask(task);
+            SaveToConfig();
+        }
+        OnSessionsChanged();
+    }
+
     #endregion
 
     #region Orphan Sessions

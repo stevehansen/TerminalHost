@@ -70,6 +70,13 @@ public class ClaudeSession
     public List<string> CommandsExecuted { get; set; } = [];
 
     /// <summary>
+    /// Claude Code tasks worked on during this session.
+    /// Tracks what Claude was working on and for how long.
+    /// </summary>
+    [JsonPropertyName("tasks")]
+    public List<ClaudeTaskSnapshot> Tasks { get; set; } = [];
+
+    /// <summary>
     /// Agent's notes/summary of work done.
     /// </summary>
     [JsonPropertyName("agentNotes")]
@@ -143,6 +150,38 @@ public class ClaudeSession
     /// </summary>
     [JsonIgnore]
     public bool HasCommands => CommandsExecuted.Count > 0;
+
+    /// <summary>
+    /// Whether this session has any Claude tasks.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasTasks => Tasks.Count > 0;
+
+    /// <summary>
+    /// Total number of Claude tasks in this session.
+    /// </summary>
+    [JsonIgnore]
+    public int TaskCount => Tasks.Count;
+
+    /// <summary>
+    /// Number of completed Claude tasks in this session.
+    /// </summary>
+    [JsonIgnore]
+    public int CompletedTaskCount => Tasks.Count(t => t.Status == FocusTaskStatus.Completed);
+
+    /// <summary>
+    /// Gets the tasks summary for compact display (e.g., "3 tasks", "2/3 completed").
+    /// </summary>
+    [JsonIgnore]
+    public string TasksSummary
+    {
+        get
+        {
+            if (TaskCount == 0) return "";
+            if (CompletedTaskCount == TaskCount) return $"{TaskCount} task{(TaskCount == 1 ? "" : "s")}";
+            return $"{CompletedTaskCount}/{TaskCount} completed";
+        }
+    }
 
     /// <summary>
     /// Whether this session is currently running.
@@ -375,6 +414,30 @@ public class ClaudeSession
     /// </summary>
     public void RecordActivity()
     {
+        LastActivityTime = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Adds or updates a Claude task in this session.
+    /// If a task with the same ID exists, it's updated; otherwise, a new snapshot is added.
+    /// </summary>
+    public void AddOrUpdateTask(FocusTask task)
+    {
+        var existing = Tasks.FirstOrDefault(t => t.Id == task.Id);
+        if (existing != null)
+        {
+            // Update existing snapshot
+            existing.Title = task.Title;
+            existing.ActiveForm = task.ActiveForm;
+            existing.Status = task.Status;
+            existing.StartedAt = task.StartedAt;
+            existing.CompletedAt = task.CompletedAt;
+        }
+        else
+        {
+            // Add new snapshot
+            Tasks.Add(ClaudeTaskSnapshot.FromFocusTask(task));
+        }
         LastActivityTime = DateTime.UtcNow;
     }
 }

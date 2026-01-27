@@ -394,6 +394,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public TerminalPair Pair { get; }
     private readonly IStatisticsService _statisticsService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly ITimelineService? _timelineService;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -405,7 +406,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -414,10 +415,17 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _statisticsService = statisticsService;
         _terminalFactory = terminalFactory;
         _claudeTaskDetectionService = claudeTaskDetectionService;
+        _timelineService = timelineService;
         ActiveTerminal = pair.ActiveTerminal;
+
+        // Subscribe to Claude task events to link tasks with Timeline sessions
+        if (_claudeTaskDetectionService != null && _timelineService != null)
+        {
+            _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
+        }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -428,7 +436,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _statisticsService = statisticsService;
         _terminalFactory = terminalFactory;
         _claudeTaskDetectionService = claudeTaskDetectionService;
+        _timelineService = timelineService;
         ActiveTerminal = pair.ActiveTerminal;
+
+        // Subscribe to Claude task events to link tasks with Timeline sessions
+        if (_claudeTaskDetectionService != null && _timelineService != null)
+        {
+            _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
+        }
 
         // Populate available assistants
         foreach (var assistant in enabledAssistants)
@@ -1338,6 +1353,41 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             Pair.RunTerminal.CheckActivityState();
             IsRunTerminalActive = Pair.RunTerminal.IsActive;
+        }
+    }
+
+    /// <summary>
+    /// Handles Claude task changes and links them to the active Timeline session.
+    /// </summary>
+    private void OnClaudeTaskChanged(object? sender, Core.Interfaces.ClaudeTaskEventArgs e)
+    {
+        if (_timelineService == null) return;
+
+        // Find the currently active Claude session for this project
+        var activeSession = _timelineService.GetActiveClaudeSession(Pair.WorkingDirectory);
+        if (activeSession != null)
+        {
+            // Add or update the task in the session
+            _timelineService.AddTaskToSession(activeSession.Id, e.Task);
+        }
+    }
+
+    /// <summary>
+    /// Cleanup method called when tab is closed.
+    /// Unsubscribes from events to prevent memory leaks.
+    /// </summary>
+    public void Cleanup()
+    {
+        // Unsubscribe from Claude task events
+        if (_claudeTaskDetectionService != null)
+        {
+            _claudeTaskDetectionService.ClaudeTaskChanged -= OnClaudeTaskChanged;
+        }
+
+        // Stop monitoring if we're tracking this terminal
+        if (_claudeTaskDetectionService != null && Pair.CustomTerminal != null)
+        {
+            _claudeTaskDetectionService.StopMonitoring(Pair.CustomTerminal.Id);
         }
     }
 }

@@ -201,6 +201,20 @@ public interface ITimelineService
     /// </summary>
     void SetContinueSessionId(string sessionId, string continueId);
 
+    /// <summary>
+    /// Gets the currently active (running) Claude session for a specific project path.
+    /// </summary>
+    /// <param name="projectPath">The project directory path</param>
+    /// <returns>Active session or null if none found</returns>
+    ClaudeSession? GetActiveClaudeSession(string projectPath);
+
+    /// <summary>
+    /// Adds or updates a Claude task in the specified session.
+    /// </summary>
+    /// <param name="sessionId">The session ID to add the task to</param>
+    /// <param name="task">The FocusTask to add/update</param>
+    void AddTaskToSession(string sessionId, FocusTask task);
+
     #endregion
 
     #region Cherry-pick
