@@ -236,6 +236,28 @@
                                                 </Style>
                                             </TextBlock.Styles>
                                         </TextBlock>
+                                        <!-- Claude task indicator (blue robot) -->
+                                        <TextBlock x:Name="ClaudeTaskIndicator" Text="🤖"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   IsVisible="{Binding ShowClaudeTaskIndicator}">
+                                            <TextBlock.Styles>
+                                                <Style Selector="TextBlock#ClaudeTaskIndicator[IsVisible=True]">
+                                                    <Style.Animations>
+                                                        <Animation Duration="0:0:1.5" IterationCount="INFINITE">
+                                                            <KeyFrame Cue="0%">
+                                                                <Setter Property="Opacity" Value="1"/>
+                                                            </KeyFrame>
+                                                            <KeyFrame Cue="50%">
+                                                                <Setter Property="Opacity" Value="0.4"/>
+                                                            </KeyFrame>
+                                                            <KeyFrame Cue="100%">
+                                                                <Setter Property="Opacity" Value="1"/>
+                                                            </KeyFrame>
+                                                        </Animation>
+                                                    </Style.Animations>
+                                                </Style>
+                                            </TextBlock.Styles>
+                                        </TextBlock>
                                         <!-- Completed indicator (green) -->
                                         <TextBlock Text="●"
                                                    FontSize="{StaticResource FontSizeSmall}"

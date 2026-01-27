@@ -265,6 +265,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool ShowWaitingIndicator => false;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowClaudeTaskIndicator))]
+    private bool _hasActiveClaudeTasks;
+
+    /// <summary>
+    /// Whether to show the Claude task indicator (blue robot) on the tab.
+    /// True when there are active Claude tasks for this workspace.
+    /// </summary>
+    public bool ShowClaudeTaskIndicator => HasActiveClaudeTasks;
+
     /// <summary>
     /// Collection of detected links from terminal output.
     /// </summary>
@@ -395,6 +405,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private readonly IStatisticsService _statisticsService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly ITimelineService? _timelineService;
+    private readonly ITaskService? _taskService;
 
     /// <summary>
     /// ViewModel for the workspace tasks panel (shows Claude tasks for this workspace).
@@ -421,6 +432,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _terminalFactory = terminalFactory;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _timelineService = timelineService;
+        _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
 
         // Initialize workspace tasks panel
@@ -434,6 +446,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (_claudeTaskDetectionService != null && _timelineService != null)
         {
             _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
+        }
+
+        // Subscribe to task changes to update Claude task indicator
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged += OnTasksChanged;
+            RefreshClaudeTaskIndicator();
         }
     }
 
@@ -449,6 +468,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _terminalFactory = terminalFactory;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _timelineService = timelineService;
+        _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
 
         // Initialize workspace tasks panel
@@ -462,6 +482,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (_claudeTaskDetectionService != null && _timelineService != null)
         {
             _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
+        }
+
+        // Subscribe to task changes to update Claude task indicator
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged += OnTasksChanged;
+            RefreshClaudeTaskIndicator();
         }
 
         // Populate available assistants
@@ -1392,6 +1419,58 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     /// <summary>
+    /// Handles task changes and updates the Claude task activity indicator.
+    /// </summary>
+    private void OnTasksChanged(object? sender, EventArgs e)
+    {
+        RefreshClaudeTaskIndicator();
+    }
+
+    /// <summary>
+    /// Updates the Claude task indicator based on whether there are active Claude tasks for this workspace.
+    /// </summary>
+    private void RefreshClaudeTaskIndicator()
+    {
+        if (_taskService == null)
+        {
+            HasActiveClaudeTasks = false;
+            return;
+        }
+
+        // Normalize the workspace path for comparison
+        var normalizedWorkspace = NormalizePath(Pair.WorkingDirectory);
+
+        // Check if there are any in-progress Claude tasks for this workspace
+        var allTasks = _taskService.GetAllTasks();
+        var hasActiveTasks = allTasks.Any(t =>
+            t.Status == Core.Domain.FocusTaskStatus.InProgress &&
+            t.IsClaudeTask &&
+            t.ProjectPaths.Any(p => NormalizePath(p) == normalizedWorkspace));
+
+        HasActiveClaudeTasks = hasActiveTasks;
+    }
+
+    /// <summary>
+    /// Normalizes a file path for comparison.
+    /// </summary>
+    private static string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
+
+        try
+        {
+            return System.IO.Path.GetFullPath(path)
+                .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                .ToLowerInvariant();
+        }
+        catch
+        {
+            return path.ToLowerInvariant();
+        }
+    }
+
+    /// <summary>
     /// Cleanup method called when tab is closed.
     /// Unsubscribes from events to prevent memory leaks.
     /// </summary>
@@ -1401,6 +1480,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (_claudeTaskDetectionService != null)
         {
             _claudeTaskDetectionService.ClaudeTaskChanged -= OnClaudeTaskChanged;
+        }
+
+        // Unsubscribe from task changes
+        if (_taskService != null)
+        {
+            _taskService.TasksChanged -= OnTasksChanged;
         }
 
         // Stop monitoring if we're tracking this terminal

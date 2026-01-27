@@ -339,6 +339,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public bool ShowCompletedIndicator => false;
     public bool IsWaitingForInput => false;
     public bool ShowWaitingIndicator => false;
+    public bool ShowClaudeTaskIndicator => false;
     public bool IsTerminalInitialized => true;
     public Task InitializeTerminalsAsync() => Task.CompletedTask;
     public void UpdateFocusModeVisibility(bool isFocusModeEnabled, IReadOnlyList<string> currentTaskProjects) { } // No-op, always visible

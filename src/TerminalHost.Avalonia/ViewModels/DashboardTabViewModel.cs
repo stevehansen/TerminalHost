@@ -40,6 +40,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     public bool ShowCompletedIndicator => false;  // No terminal activity
     public bool IsWaitingForInput => false;  // No terminal
     public bool ShowWaitingIndicator => false;  // No terminal
+    public bool ShowClaudeTaskIndicator => false;  // Not a project tab
     public bool IsTerminalInitialized => true;  // No terminal to initialize
     public Task InitializeTerminalsAsync() => Task.CompletedTask;  // No-op
     public string DisplayTitle => Title;

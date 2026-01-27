@@ -62,6 +62,12 @@ public interface ITabViewModel : INotifyPropertyChanged
     bool ShowWaitingIndicator { get; }
 
     /// <summary>
+    /// Whether to show the Claude task indicator (blue robot) on the tab.
+    /// True when there are active Claude tasks for this workspace.
+    /// </summary>
+    bool ShowClaudeTaskIndicator { get; }
+
+    /// <summary>
     /// Whether the terminal(s) for this tab have been initialized.
     /// Used for lazy initialization - terminals are only created when the tab is first selected.
     /// </summary>

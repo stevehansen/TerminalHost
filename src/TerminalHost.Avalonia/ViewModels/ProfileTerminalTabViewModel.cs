@@ -113,6 +113,11 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     /// </summary>
     public bool ShowWaitingIndicator => false;
 
+    /// <summary>
+    /// Whether to show the Claude task indicator (blue robot) on the tab.
+    /// </summary>
+    public bool ShowClaudeTaskIndicator => false; // Not a project tab with Claude tasks
+
     public Profile Profile { get; }
     public TerminalSession Session { get; }
 
