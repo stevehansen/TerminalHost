@@ -6,9 +6,8 @@ using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
-using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 

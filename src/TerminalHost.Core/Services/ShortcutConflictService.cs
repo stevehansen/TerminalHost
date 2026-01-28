@@ -1,24 +1,36 @@
-using TerminalHost.Core.Domain;
+using System.Linq;
 using System.Text.RegularExpressions;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Service for detecting keyboard shortcut conflicts.
-/// Single source of truth for all built-in keyboard shortcuts.
+/// Single source of truth for all built-in keyboard shortcuts across all platforms.
+///
+/// IMPORTANT: When adding shortcuts, consider platform availability:
+/// - Use ShortcutPlatform.All for shortcuts that work on both Windows and macOS
+/// - Use ShortcutPlatform.Windows for Windows-only shortcuts
+/// - Use ShortcutPlatform.MacOS for macOS-only shortcuts
+/// - If a shortcut is reserved on one platform, it should be reserved on both
+///   (to maintain consistency and avoid conflicts when porting features)
 /// </summary>
 public static class ShortcutConflictService
 {
     /// <summary>
     /// All built-in keyboard shortcuts organized by section.
     /// This is the authoritative source - used by both Help view and conflict detection.
+    /// Shortcuts use Ctrl+ prefix (converted to Cmd/⌘ for macOS display).
     /// </summary>
     public static readonly List<ShortcutSection> BuiltInShortcutSections =
     [
         new("Tab Navigation",
         [
-            new("Ctrl+PageDown", "Next tab"),
-            new("Ctrl+PageUp", "Previous tab"),
+            // Windows uses PageDown/PageUp, macOS uses Cmd+Alt+Arrow
+            new("Ctrl+PageDown", "Next tab", ShortcutPlatform.Windows),
+            new("Ctrl+PageUp", "Previous tab", ShortcutPlatform.Windows),
+            new("Ctrl+Alt+Right", "Next tab", ShortcutPlatform.MacOS),
+            new("Ctrl+Alt+Left", "Previous tab", ShortcutPlatform.MacOS),
             new("Ctrl+1-9", "Jump to tab 1-9"),
             new("Ctrl+Shift+T", "Open tab switcher (search tabs)"),
             new("Ctrl+W", "Close current tab"),
@@ -54,6 +66,7 @@ public static class ShortcutConflictService
             new("Ctrl+Shift+N", "Open scratch pad (notes)"),
             new("Ctrl+Shift+O", "Repository quick access"),
             new("Ctrl+Shift+I", "Timeline Mode"),
+            new("Ctrl+Shift+K", "Claude Tasks Panel", ShortcutPlatform.MacOS),  // Reserved for both, implemented in macOS only currently
             new("F1", "Show this help window"),
             new("Ctrl+M", "Markdown preview"),
         ]),
@@ -94,6 +107,19 @@ public static class ShortcutConflictService
             new("Ctrl+Alt+F", "Fork from session"),
         ]),
     ];
+
+    /// <summary>
+    /// Gets shortcut sections filtered for the specified platform.
+    /// </summary>
+    /// <param name="isMacOS">True for macOS, false for Windows.</param>
+    /// <returns>Sections with only platform-applicable shortcuts.</returns>
+    public static List<ShortcutSection> GetSectionsForPlatform(bool isMacOS)
+    {
+        return BuiltInShortcutSections
+            .Select(section => new ShortcutSection(section.Name, section.GetItemsForPlatform(isMacOS)))
+            .Where(section => section.Items.Count > 0)
+            .ToList();
+    }
 
     /// <summary>
     /// Flat dictionary of built-in shortcuts for quick conflict lookup.
@@ -185,7 +211,8 @@ public static class ShortcutConflictService
     }
 
     /// <summary>
-    /// Normalize a shortcut string for comparison (handles variations like "Ctrl+Shift+C" vs "CTRL+SHIFT+C")
+    /// Normalize a shortcut string for comparison.
+    /// Handles variations like "Ctrl+Shift+C" vs "CTRL+SHIFT+C" and Cmd vs Ctrl.
     /// </summary>
     public static string NormalizeShortcut(string shortcut)
     {
@@ -198,12 +225,12 @@ public static class ShortcutConflictService
             var trimmed = part.Trim();
             var lower = trimmed.ToLowerInvariant();
 
-            // Normalize modifier names
-            if (lower == "ctrl" || lower == "control")
+            // Normalize modifier names (Cmd/Command maps to Ctrl for cross-platform comparison)
+            if (lower == "ctrl" || lower == "control" || lower == "cmd" || lower == "command")
                 normalized.Add("Ctrl");
             else if (lower == "shift")
                 normalized.Add("Shift");
-            else if (lower == "alt")
+            else if (lower == "alt" || lower == "opt" || lower == "option")
                 normalized.Add("Alt");
             else
                 normalized.Add(trimmed);
@@ -251,5 +278,126 @@ public static class ShortcutConflictService
             return "Shortcut should include a modifier (Ctrl, Shift, or Alt)";
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks if a shortcut conflicts with built-in shortcuts, other quick commands, or profiles.
+    /// </summary>
+    /// <param name="shortcut">The shortcut to check (e.g., "Ctrl+Shift+C")</param>
+    /// <param name="quickCommands">All quick commands to check against</param>
+    /// <param name="profiles">All profiles to check against</param>
+    /// <param name="excludeQuickCommandId">Optional ID of quick command to exclude from check (for self-editing)</param>
+    /// <param name="excludeProfileName">Optional name of profile to exclude from check (for self-editing)</param>
+    /// <returns>Conflict description or null if no conflict</returns>
+    public static string? GetConflict(
+        string? shortcut,
+        IEnumerable<QuickCommand>? quickCommands = null,
+        IEnumerable<Profile>? profiles = null,
+        string? excludeQuickCommandId = null,
+        string? excludeProfileName = null)
+    {
+        if (string.IsNullOrWhiteSpace(shortcut))
+            return null;
+
+        var normalized = NormalizeShortcut(shortcut);
+
+        // Check built-in shortcuts
+        if (BuiltInShortcuts.TryGetValue(normalized, out var builtInDescription))
+        {
+            return $"Conflicts with built-in shortcut: {builtInDescription}";
+        }
+
+        // Check other quick commands
+        if (quickCommands != null)
+        {
+            foreach (var command in quickCommands)
+            {
+                if (!string.IsNullOrEmpty(excludeQuickCommandId) && command.Id == excludeQuickCommandId)
+                    continue;
+
+                if (!string.IsNullOrEmpty(command.Shortcut))
+                {
+                    var cmdNormalized = NormalizeShortcut(command.Shortcut);
+                    if (string.Equals(cmdNormalized, normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"Conflicts with Quick Command: {command.Label}";
+                    }
+                }
+            }
+        }
+
+        // Check profiles
+        if (profiles != null)
+        {
+            foreach (var profile in profiles)
+            {
+                if (!string.IsNullOrEmpty(excludeProfileName) && profile.Name == excludeProfileName)
+                    continue;
+
+                if (!string.IsNullOrEmpty(profile.Shortcut))
+                {
+                    var profileNormalized = NormalizeShortcut(profile.Shortcut);
+                    if (string.Equals(profileNormalized, normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"Conflicts with Profile: {profile.Name}";
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets all conflicts for a configuration (for validation on save).
+    /// </summary>
+    /// <param name="quickCommands">Quick commands to check</param>
+    /// <param name="profiles">Profiles to check</param>
+    /// <returns>List of warning messages for conflicts</returns>
+    public static List<string> GetAllConflicts(
+        IEnumerable<QuickCommand>? quickCommands,
+        IEnumerable<Profile>? profiles)
+    {
+        var warnings = new List<string>();
+        var quickCommandsList = quickCommands?.ToList() ?? [];
+        var profilesList = profiles?.ToList() ?? [];
+
+        // Check each quick command for conflicts
+        foreach (var command in quickCommandsList)
+        {
+            if (string.IsNullOrEmpty(command.Shortcut))
+                continue;
+
+            var conflict = GetConflict(
+                command.Shortcut,
+                quickCommandsList,
+                profilesList,
+                excludeQuickCommandId: command.Id);
+
+            if (conflict != null)
+            {
+                warnings.Add($"Quick Command '{command.Label}': {conflict}");
+            }
+        }
+
+        // Check each profile for conflicts
+        foreach (var profile in profilesList)
+        {
+            if (string.IsNullOrEmpty(profile.Shortcut))
+                continue;
+
+            var conflict = GetConflict(
+                profile.Shortcut,
+                quickCommandsList,
+                profilesList,
+                excludeProfileName: profile.Name);
+
+            if (conflict != null)
+            {
+                warnings.Add($"Profile '{profile.Name}': {conflict}");
+            }
+        }
+
+        return warnings;
     }
 }

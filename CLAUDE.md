@@ -32,7 +32,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **File Tools**: File explorer panel (Ctrl+Shift+F), syntax-highlighted preview (Ctrl+O), built-in editor (Ctrl+Shift+E).
 - [x] **Productivity**: Command palette (Ctrl+Shift+P), Tab switcher (Ctrl+Shift+T), Scratch pad (Ctrl+Shift+N).
 - [x] **Project Runner**: F5 to run projects with auto-detection and dedicated run terminal.
-- [x] **Task & Focus Mode**: Hierarchical tasks, time tracking, and PR integration (Ctrl+T).
+- [x] **Timeline Mode**: Visual timeline of AI development sessions, intents, and worktrees (Ctrl+Shift+I).
 - [x] **AI Assistant Support**: Multi-AI CLI support (Claude, Gemini, etc.) with per-project selection.
 - [x] **GitHub Integration**: Dashboard (Ctrl+Shift+H), PR Review Mode (Ctrl+Shift+R).
 - [x] **UI Enhancements**: Toast notifications, themed dialogs, system tray support, Markdown preview (Ctrl+M).
@@ -456,7 +456,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+H`: Open commit history viewer
 - `Ctrl+F3`: Search across files (full-text search with replace)
 - `Ctrl+B`: Open git branch switcher
-- `Ctrl+T`: Open task panel (focus mode)
+- `Ctrl+Shift+I`: Open Timeline Mode (visual timeline of AI development)
 - `F1`: Show help window
 
 ### Project Runner
