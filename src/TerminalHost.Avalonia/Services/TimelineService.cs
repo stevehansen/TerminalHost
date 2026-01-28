@@ -15,6 +15,7 @@ public class TimelineService : ITimelineService
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
     private readonly IClaudeTaskFileService? _taskFileService;
+    private readonly IClaudeSessionIndexService? _sessionIndexService;
     private readonly string _userDataDirectory;
     private readonly object _lock = new();
     private TimelineState _state;
@@ -28,6 +29,7 @@ public class TimelineService : ITimelineService
         IGitProcessRunner gitRunner,
         IFileSystem fileSystem,
         IClaudeTaskFileService? taskFileService = null,
+        IClaudeSessionIndexService? sessionIndexService = null,
         string? userDataDir = null)
     {
         _configService = configService;
@@ -35,6 +37,7 @@ public class TimelineService : ITimelineService
         _gitRunner = gitRunner;
         _fileSystem = fileSystem;
         _taskFileService = taskFileService;
+        _sessionIndexService = sessionIndexService;
         _userDataDirectory = userDataDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "TerminalHost");

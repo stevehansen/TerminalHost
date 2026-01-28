@@ -15,6 +15,7 @@ public sealed class TimelineService : ITimelineService
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
     private readonly IClaudeTaskFileService? _taskFileService;
+    private readonly IClaudeSessionIndexService? _sessionIndexService;
     private readonly string _userDataDirectory;
     private readonly object _lock = new();
 
@@ -30,6 +31,7 @@ public sealed class TimelineService : ITimelineService
         IGitProcessRunner gitRunner,
         IFileSystem fileSystem,
         IClaudeTaskFileService? taskFileService = null,
+        IClaudeSessionIndexService? sessionIndexService = null,
         string? userDataDir = null)
     {
         _configService = configService;
@@ -37,17 +39,25 @@ public sealed class TimelineService : ITimelineService
         _gitRunner = gitRunner;
         _fileSystem = fileSystem;
         _taskFileService = taskFileService;
+        _sessionIndexService = sessionIndexService;
         _userDataDirectory = userDataDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "TerminalHost");
         LoadFromConfig();
         LoadSessions();
         PopulateSessionTasks();
+        EnrichSessionsFromIndex();
 
         // Subscribe to task file changes to keep sessions in sync
         if (_taskFileService != null)
         {
             _taskFileService.TasksChanged += (s, e) => PopulateSessionTasks();
+        }
+
+        // Subscribe to session index changes to enrich sessions with metadata
+        if (_sessionIndexService != null)
+        {
+            _sessionIndexService.SessionsChanged += (s, e) => EnrichSessionsFromIndex();
         }
     }
 
@@ -239,6 +249,102 @@ public sealed class TimelineService : ITimelineService
 
         // Notify that sessions have changed
         SessionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Enriches Timeline sessions with metadata from Claude Code's sessions-index.json.
+    /// Adds summary, gitBranch, messageCount, and timestamps from the session index.
+    /// </summary>
+    private void EnrichSessionsFromIndex()
+    {
+        if (_sessionIndexService == null)
+            return;
+
+        var enrichedAny = false;
+
+        lock (_lock)
+        {
+            foreach (var session in _sessions)
+            {
+                // Try to find matching entry in the session index
+                // First, try the ContinueSessionId (which is the Claude Code session ID)
+                ClaudeSessionIndexEntry? indexEntry = null;
+
+                if (!string.IsNullOrEmpty(session.ContinueSessionId))
+                {
+                    indexEntry = _sessionIndexService.GetSessionById(session.ContinueSessionId);
+                }
+
+                // If no ContinueSessionId, try matching by transcript path filename
+                if (indexEntry == null && !string.IsNullOrEmpty(session.TranscriptPath))
+                {
+                    var sessionId = Path.GetFileNameWithoutExtension(session.TranscriptPath);
+                    if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        indexEntry = _sessionIndexService.GetSessionById(sessionId);
+                    }
+                }
+
+                if (indexEntry != null)
+                {
+                    // Enrich session with metadata from the index
+                    var changed = false;
+
+                    // Only update if we don't already have the value (prefer existing data)
+                    if (string.IsNullOrEmpty(session.Summary) && !string.IsNullOrEmpty(indexEntry.Summary))
+                    {
+                        session.Summary = indexEntry.Summary;
+                        changed = true;
+                    }
+
+                    if (string.IsNullOrEmpty(session.GitBranch) && !string.IsNullOrEmpty(indexEntry.GitBranch))
+                    {
+                        session.GitBranch = indexEntry.GitBranch;
+                        changed = true;
+                    }
+
+                    if (!session.MessageCount.HasValue && indexEntry.MessageCount > 0)
+                    {
+                        session.MessageCount = indexEntry.MessageCount;
+                        changed = true;
+                    }
+
+                    if (string.IsNullOrEmpty(session.InitialPrompt) && !string.IsNullOrEmpty(indexEntry.FirstPrompt))
+                    {
+                        session.InitialPrompt = indexEntry.FirstPrompt;
+                        changed = true;
+                    }
+
+                    // Update timestamps from index if our data is less precise
+                    if (indexEntry.Created.HasValue)
+                    {
+                        // If index has more precise created time, use it
+                        var indexCreated = indexEntry.Created.Value;
+                        if (Math.Abs((session.StartTime - indexCreated).TotalSeconds) > 60)
+                        {
+                            // Index time differs significantly - prefer it for new sessions
+                            if (session.StartTime == DateTime.MinValue || session.StartTime == default)
+                            {
+                                session.StartTime = indexCreated;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        enrichedAny = true;
+                        SaveSessionFile(session);
+                    }
+                }
+            }
+        }
+
+        // Only notify if we actually changed something
+        if (enrichedAny)
+        {
+            SessionsChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>

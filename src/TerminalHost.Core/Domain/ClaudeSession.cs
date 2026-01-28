@@ -119,6 +119,27 @@ public class ClaudeSession
     [JsonPropertyName("lastActivityTime")]
     public DateTime? LastActivityTime { get; set; }
 
+    /// <summary>
+    /// AI-generated summary of the session from sessions-index.json.
+    /// Populated from Claude Code's session index when available.
+    /// </summary>
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    /// <summary>
+    /// Git branch at the time of this session.
+    /// Populated from Claude Code's sessions-index.json when available.
+    /// </summary>
+    [JsonPropertyName("gitBranch")]
+    public string? GitBranch { get; set; }
+
+    /// <summary>
+    /// Number of messages in the Claude Code conversation.
+    /// Populated from sessions-index.json when available.
+    /// </summary>
+    [JsonPropertyName("messageCount")]
+    public int? MessageCount { get; set; }
+
     // Computed properties
 
     /// <summary>
@@ -138,6 +159,18 @@ public class ClaudeSession
     /// </summary>
     [JsonIgnore]
     public bool HasNotes => !string.IsNullOrEmpty(AgentNotes);
+
+    /// <summary>
+    /// Whether this session has an AI-generated summary.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasSummary => !string.IsNullOrEmpty(Summary);
+
+    /// <summary>
+    /// Whether this session has git branch information.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasGitBranch => !string.IsNullOrEmpty(GitBranch);
 
     /// <summary>
     /// Whether this session has any files changed.
@@ -197,9 +230,10 @@ public class ClaudeSession
 
     /// <summary>
     /// Gets a display title for the session.
+    /// Uses the AI-generated summary if available, otherwise falls back to duration.
     /// </summary>
     [JsonIgnore]
-    public string DisplayTitle => ShortDuration;
+    public string DisplayTitle => HasSummary ? Summary! : ShortDuration;
 
     /// <summary>
     /// Duration of the session.
