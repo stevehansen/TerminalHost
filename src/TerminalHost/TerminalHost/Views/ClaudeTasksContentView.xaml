@@ -134,36 +134,21 @@
 
         <!-- Completed task item template -->
         <DataTemplate x:Key="CompletedTaskItemTemplate" DataType="{x:Type domain:FocusTask}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" Opacity="0.7">
-                    <TextBlock Text="{Binding Title}"
-                               Foreground="#E2E8F0"
-                               FontWeight="SemiBold"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Foreground="#94A3B8" FontSize="{StaticResource FontSizeMicro}" Opacity="0.6">
-                        <Run Text="&#x2713; Completed "/>
-                        <Run Text="{Binding CompletedAt, StringFormat='{}{0:HH:mm:ss}', Mode=OneWay}"/>
-                    </TextBlock>
-                    <TextBlock Text="{Binding Notes}"
-                               Foreground="#10B981"
-                               FontSize="{StaticResource FontSizeMicro}"
-                               Visibility="{Binding Notes, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                </StackPanel>
-
-                <Button Grid.Column="1"
-                        Style="{StaticResource TaskActionButton}"
-                        Content="&#x1F5D1;"
-                        ToolTip="Delete"
-                        VerticalAlignment="Center"
-                        Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}"/>
-            </Grid>
+            <StackPanel VerticalAlignment="Center" Opacity="0.7">
+                <TextBlock Text="{Binding Title}"
+                           Foreground="#E2E8F0"
+                           FontWeight="SemiBold"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock Foreground="#94A3B8" FontSize="{StaticResource FontSizeMicro}" Opacity="0.6">
+                    <Run Text="&#x2713; Completed "/>
+                    <Run Text="{Binding CompletedAt, StringFormat='{}{0:HH:mm:ss}', Mode=OneWay}"/>
+                </TextBlock>
+                <TextBlock Text="{Binding Notes}"
+                           Foreground="#10B981"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           Visibility="{Binding Notes, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -382,7 +367,7 @@
                 </Border>
 
                 <!-- Active Tasks Section -->
-                <StackPanel Visibility="{Binding ActiveTasks.Count, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Visibility="{Binding ActiveTasks.Count, Converter={StaticResource CountToVisibilityConverter}}">
                     <TextBlock Text="ACTIVE TASKS"
                                Foreground="#CBD5E1"
                                FontWeight="SemiBold"
@@ -398,12 +383,13 @@
                                  ItemContainerStyle="{StaticResource TaskListBoxItemStyle}"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                     </Border>
                 </StackPanel>
 
                 <!-- Pending Tasks Section -->
-                <StackPanel Visibility="{Binding PendingTasks.Count, Converter={StaticResource BoolToVisibilityConverter}}"
+                <StackPanel Visibility="{Binding PendingTasks.Count, Converter={StaticResource CountToVisibilityConverter}}"
                             Margin="0,12,0,0">
                     <TextBlock Text="PENDING TASKS"
                                Foreground="#CBD5E1"
@@ -420,14 +406,15 @@
                                  ItemContainerStyle="{StaticResource TaskListBoxItemStyle}"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                     </Border>
                 </StackPanel>
 
                 <!-- Completed Tasks Section -->
-                <StackPanel Visibility="{Binding CompletedTasks.Count, Converter={StaticResource BoolToVisibilityConverter}}"
+                <StackPanel Visibility="{Binding CompletedTasks.Count, Converter={StaticResource CountToVisibilityConverter}}"
                             Margin="0,12,0,0">
-                    <TextBlock Text="COMPLETED TODAY"
+                    <TextBlock Text="COMPLETED"
                                Foreground="#CBD5E1"
                                FontWeight="SemiBold"
                                FontSize="12"
@@ -442,7 +429,8 @@
                                  ItemContainerStyle="{StaticResource TaskListBoxItemStyle}"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
                     </Border>
                 </StackPanel>
 
