@@ -65,6 +65,12 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private ObservableCollection<FocusTask> _activeTasks = [];
 
     /// <summary>
+    /// Pending (not started) Claude tasks.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<FocusTask> _pendingTasks = [];
+
+    /// <summary>
     /// Completed Claude tasks (today).
     /// </summary>
     [ObservableProperty]
@@ -298,6 +304,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         // Clear and reload all tasks
         ClaudeTasks.Clear();
         ActiveTasks.Clear();
+        PendingTasks.Clear();
         CompletedTasks.Clear();
 
         var allTasks = new List<FocusTask>();
@@ -335,6 +342,10 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
             if (task.Status == FocusTaskStatus.InProgress)
             {
                 ActiveTasks.Add(task);
+            }
+            else if (task.Status == FocusTaskStatus.NotStarted)
+            {
+                PendingTasks.Add(task);
             }
             else if (task.Status == FocusTaskStatus.Completed &&
                      task.CompletedAt?.Date == DateTime.Today)

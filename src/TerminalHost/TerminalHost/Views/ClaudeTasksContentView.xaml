@@ -93,6 +93,45 @@
             </Grid>
         </DataTemplate>
 
+        <!-- Pending task item template -->
+        <DataTemplate x:Key="PendingTaskItemTemplate" DataType="{x:Type domain:FocusTask}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="☐"
+                           Foreground="#64748B"
+                           FontSize="14"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="#CBD5E1"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Description}"
+                               Foreground="#64748B"
+                               FontSize="{StaticResource FontSizeMicro}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="300"
+                               Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Style="{StaticResource TaskActionButton}"
+                        Content="&#x1F5D1;"
+                        ToolTip="Delete"
+                        VerticalAlignment="Center"
+                        Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}"/>
+            </Grid>
+        </DataTemplate>
+
         <!-- Completed task item template -->
         <DataTemplate x:Key="CompletedTaskItemTemplate" DataType="{x:Type domain:FocusTask}">
             <Grid>
@@ -356,6 +395,28 @@
                         <ListBox ItemsSource="{Binding ActiveTasks}"
                                  SelectedItem="{Binding SelectedTask}"
                                  ItemTemplate="{StaticResource ActiveTaskItemTemplate}"
+                                 ItemContainerStyle="{StaticResource TaskListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- Pending Tasks Section -->
+                <StackPanel Visibility="{Binding PendingTasks.Count, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Margin="0,12,0,0">
+                    <TextBlock Text="PENDING TASKS"
+                               Foreground="#CBD5E1"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               Margin="0,8,0,4"/>
+                    <Border Background="#0A0E1A"
+                            BorderBrush="#475569"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <ListBox ItemsSource="{Binding PendingTasks}"
+                                 SelectedItem="{Binding SelectedTask}"
+                                 ItemTemplate="{StaticResource PendingTaskItemTemplate}"
                                  ItemContainerStyle="{StaticResource TaskListBoxItemStyle}"
                                  Background="Transparent"
                                  BorderThickness="0"
