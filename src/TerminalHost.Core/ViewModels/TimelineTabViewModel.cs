@@ -285,44 +285,63 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
 
     private void UpdateTimeMarkers()
     {
-        TimeMarkers.Clear();
-
-        // Determine marker interval based on scale
-        TimeSpan interval = CurrentTimeScale switch
+        try
         {
-            TimeScale.Minutes => TimeSpan.FromMinutes(5),
-            TimeScale.Hours => TimeSpan.FromHours(1),
-            TimeScale.Days => TimeSpan.FromDays(1), // Show only day boundaries
-            _ => TimeSpan.FromHours(1)
-        };
+            // Build new markers first to minimize collection modification time
+            var newMarkers = new List<TimeMarker>();
 
-        var current = ViewStartTime;
-        // Round to interval
-        var totalMinutes = (int)interval.TotalMinutes;
-        var minutes = (int)current.TimeOfDay.TotalMinutes;
-        var roundedMinutes = (minutes / totalMinutes) * totalMinutes;
-        current = current.Date.AddMinutes(roundedMinutes);
-
-        while (current <= ViewEndTime)
-        {
-            var x = (current - ViewStartTime).TotalMinutes * PixelsPerMinute;
-            var isMajor = CurrentTimeScale switch
+            // Determine marker interval based on scale
+            TimeSpan interval = CurrentTimeScale switch
             {
-                TimeScale.Minutes => current.Minute == 0,
-                TimeScale.Hours => current.Minute == 0,
-                TimeScale.Days => current.Hour == 0,
-                _ => false
+                TimeScale.Minutes => TimeSpan.FromMinutes(5),
+                TimeScale.Hours => TimeSpan.FromHours(1),
+                TimeScale.Days => TimeSpan.FromDays(1), // Show only day boundaries
+                _ => TimeSpan.FromHours(1)
             };
 
-            TimeMarkers.Add(new TimeMarker
-            {
-                Time = current,
-                XPosition = x,
-                Label = FormatTimeMarker(current),
-                IsMajor = isMajor
-            });
+            var current = ViewStartTime;
+            // Round to interval
+            var totalMinutes = (int)interval.TotalMinutes;
+            var minutes = (int)current.TimeOfDay.TotalMinutes;
+            var roundedMinutes = (minutes / totalMinutes) * totalMinutes;
+            current = current.Date.AddMinutes(roundedMinutes);
 
-            current = current.Add(interval);
+            while (current <= ViewEndTime)
+            {
+                var x = (current - ViewStartTime).TotalMinutes * PixelsPerMinute;
+                var isMajor = CurrentTimeScale switch
+                {
+                    TimeScale.Minutes => current.Minute == 0,
+                    TimeScale.Hours => current.Minute == 0,
+                    TimeScale.Days => current.Hour == 0,
+                    _ => false
+                };
+
+                newMarkers.Add(new TimeMarker
+                {
+                    Time = current,
+                    XPosition = x,
+                    Label = FormatTimeMarker(current),
+                    IsMajor = isMajor
+                });
+
+                current = current.Add(interval);
+            }
+
+            // Now update the collection
+            TimeMarkers.Clear();
+            foreach (var marker in newMarkers)
+            {
+                TimeMarkers.Add(marker);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Collection was modified during enumeration by UI, skip this update
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // Collection index out of range during concurrent access, skip this update
         }
     }
 
