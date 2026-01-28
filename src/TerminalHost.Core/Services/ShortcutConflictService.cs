@@ -66,7 +66,7 @@ public static class ShortcutConflictService
             new("Ctrl+Shift+N", "Open scratch pad (notes)"),
             new("Ctrl+Shift+O", "Repository quick access"),
             new("Ctrl+Shift+I", "Timeline Mode"),
-            new("Ctrl+Shift+K", "Claude Tasks Panel", ShortcutPlatform.MacOS),  // Reserved for both, implemented in macOS only currently
+            new("Ctrl+Shift+K", "Claude Tasks Panel"),
             new("F1", "Show this help window"),
             new("Ctrl+M", "Markdown preview"),
         ]),

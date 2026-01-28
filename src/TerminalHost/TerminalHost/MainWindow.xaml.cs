@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
     private readonly BranchComparisonViewModel _branchComparisonViewModel;
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
+    private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -51,7 +52,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -76,6 +77,7 @@ public partial class MainWindow : Window
         _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
         _branchComparisonViewModel = branchComparisonViewModel;
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
+        _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -92,6 +94,7 @@ public partial class MainWindow : Window
         PrReviewViewControl.DataContext = prReviewViewModel;
         BranchComparisonViewControl.DataContext = branchComparisonViewModel;
         UnifiedGitPanelViewControl.DataContext = unifiedGitPanelViewModel;
+        ClaudeTasksPanelViewControl.DataContext = claudeTasksPanelViewModel;
 
         // Git Files, Commit History, and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
 
@@ -104,6 +107,7 @@ public partial class MainWindow : Window
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
         _branchComparisonViewModel.ShowRequested += OnPanelShowRequested;
+        _claudeTasksPanelViewModel.ShowRequested += OnPanelShowRequested;
 
         // Subscribe to branch comparison events
         _gitBranchViewModel.CompareBranchesRequested += OnCompareBranchesRequested;
@@ -502,6 +506,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (_claudeTasksPanelViewModel.IsOpen)
+            {
+                _claudeTasksPanelViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (_viewModel.IsHelpOpen)
             {
                 _viewModel.IsHelpOpen = false;
@@ -817,6 +827,12 @@ public partial class MainWindow : Window
             _viewModel.OpenTimelineCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+K: Open Claude Tasks Panel
+        else if (e.Key == Key.K && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            OpenClaudeTasksPanel();
+            e.Handled = true;
+        }
         // Ctrl+M: Open Markdown Preview
         else if (e.Key == Key.M && Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -1096,6 +1112,54 @@ public partial class MainWindow : Window
         // Not open yet - set display state to Panel for docked display
         _scratchPadViewModel.DisplayState = PanelDisplayState.Panel;
         _scratchPadViewModel.Open();
+    }
+
+    #endregion
+
+    #region Claude Tasks Panel
+
+    private void OpenClaudeTasksPanel()
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        var workspacePath = currentTab?.WorkingDirectory;
+
+        // Ensure the tab has the panel reference
+        if (currentTab != null)
+        {
+            currentTab.SetPanel(_claudeTasksPanelViewModel);
+        }
+
+        // Update workspace path for filtering
+        _claudeTasksPanelViewModel.SetWorkspace(workspacePath);
+
+        // If already open, use toggle behavior
+        if (_claudeTasksPanelViewModel.IsOpen)
+        {
+            // Refresh with new workspace if it changed
+            _claudeTasksPanelViewModel.OnOpened();
+
+            // If in window state, close the window
+            if (_claudeTasksPanelViewModel.DisplayState == PanelDisplayState.Window)
+            {
+                _panelWindowManager?.CloseWindow(_claudeTasksPanelViewModel.PanelId);
+                _claudeTasksPanelViewModel.IsOpen = false;
+                return;
+            }
+
+            // If in popup state, close the popup
+            if (_claudeTasksPanelViewModel.DisplayState == PanelDisplayState.Popup)
+            {
+                _claudeTasksPanelViewModel.IsOpen = false;
+                return;
+            }
+
+            // Otherwise, toggle the docked panel (handles focus/visibility)
+            currentTab?.TogglePanel(_claudeTasksPanelViewModel);
+            return;
+        }
+
+        // Not open yet - open with workspace path (defaults to docked Panel mode)
+        _claudeTasksPanelViewModel.Open(workspacePath);
     }
 
     #endregion

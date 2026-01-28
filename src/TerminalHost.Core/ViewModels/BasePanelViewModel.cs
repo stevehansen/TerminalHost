@@ -115,7 +115,11 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     protected virtual void OnDock(PanelSide? side)
     {
         var dockSide = side ?? PreferredSide;
+        PreferredSide = dockSide;
+        DisplayState = PanelDisplayState.Panel;
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
+        // After state change, request to show in docked position
+        RequestShow();
     }
 
     /// <summary>

@@ -457,6 +457,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+F3`: Search across files (full-text search with replace)
 - `Ctrl+B`: Open git branch switcher
 - `Ctrl+Shift+I`: Open Timeline Mode (visual timeline of AI development)
+- `Ctrl+Shift+K`: Open Claude Tasks Panel (view Claude Code task activity)
 - `F1`: Show help window
 
 ### Project Runner

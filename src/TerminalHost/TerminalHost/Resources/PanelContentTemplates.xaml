@@ -48,4 +48,9 @@
         <views:BranchComparisonContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for ClaudeTasksPanelViewModel -->
+    <DataTemplate DataType="{x:Type vm:ClaudeTasksPanelViewModel}">
+        <views:ClaudeTasksContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

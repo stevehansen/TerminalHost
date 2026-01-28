@@ -243,6 +243,7 @@ public partial class App : Application
         services.AddSingleton<SearchAcrossFilesViewModel>();
         services.AddSingleton<BranchComparisonViewModel>();
         services.AddSingleton<UnifiedGitPanelViewModel>();
+        services.AddSingleton<ClaudeTasksPanelViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

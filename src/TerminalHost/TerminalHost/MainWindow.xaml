@@ -160,6 +160,9 @@
         <!-- Branch Comparison View (Ctrl+Alt+B) -->
         <popups:BranchComparisonView x:Name="BranchComparisonViewControl" />
 
+        <!-- Claude Tasks Panel View (Ctrl+Shift+K) -->
+        <popups:ClaudeTasksPanelView x:Name="ClaudeTasksPanelViewControl" />
+
         <!-- Unified Git Panel View (Alt+G) -->
         <popups:UnifiedGitPanelView x:Name="UnifiedGitPanelViewControl" />
     </Grid>

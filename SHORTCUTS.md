@@ -44,7 +44,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+F3` | Search across files | Project tab | Full-text search with replace |
 | `Ctrl+M` | Open Markdown preview | Project tab | |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
-| `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | macOS only (reserved for future WPF) |
+| `Ctrl+Shift+K` | Claude Tasks Panel | Global | View Claude Code task activity |
 
 ### Git & GitHub Shortcuts (Requires Project Tab Selected)
 
@@ -194,7 +194,6 @@ These shortcuts are reserved by the system or have special meaning:
 ### Unused Ctrl+Shift+Key combinations:
 - `Ctrl+Shift+A` - Available
 - `Ctrl+Shift+J` - Available
-- `Ctrl+Shift+K` - **Used on macOS** (Claude Tasks Panel) - reserved for future WPF implementation
 - `Ctrl+Shift+M` - Available (freed from Quick Note removal)
 - `Ctrl+Shift+Q` - Available (freed from Quick Task removal)
 - `Ctrl+Shift+W` - Available
