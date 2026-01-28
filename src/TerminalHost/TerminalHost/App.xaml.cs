@@ -207,6 +207,7 @@ public partial class App : Application
         services.AddSingleton<IClaudeCommandService, ClaudeCommandService>();
         services.AddSingleton<IClaudeTaskDetectionService, ClaudeTaskDetectionService>();
         services.AddSingleton<IClaudeSessionIndexService, ClaudeSessionIndexService>();
+        services.AddSingleton<IClaudeTaskFileService, ClaudeTaskFileService>();
         services.AddSingleton<ITaskbarProgressService, TerminalHost.Windows.Services.TaskbarProgressService>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();

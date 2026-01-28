@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,10 +12,12 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for Claude Tasks panel (Ctrl+Shift+K) - shows Claude Code task activity in real-time.
 /// Supports Panel, Popup, and Window display states.
 /// Provides manual task creation and real-time progress monitoring.
+/// Reads tasks from Claude Code's ~/.claude/tasks/ folder.
 /// </summary>
 public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 {
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly ITaskService _taskService;
     private readonly IDispatcherService _dispatcherService;
 
@@ -160,10 +163,12 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
     public ClaudeTasksPanelViewModel(
         IClaudeTaskDetectionService? claudeTaskDetectionService,
+        IClaudeTaskFileService? claudeTaskFileService,
         ITaskService taskService,
         IDispatcherService dispatcherService)
     {
         _claudeTaskDetectionService = claudeTaskDetectionService;
+        _claudeTaskFileService = claudeTaskFileService;
         _taskService = taskService;
         _dispatcherService = dispatcherService;
 
@@ -177,6 +182,20 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         {
             _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
         }
+
+        // Subscribe to file-based task changes
+        if (_claudeTaskFileService != null)
+        {
+            _claudeTaskFileService.TasksChanged += OnFileTasksChanged;
+        }
+    }
+
+    /// <summary>
+    /// Handles file-based task changes (tasks read from ~/.claude/tasks/).
+    /// </summary>
+    private void OnFileTasksChanged(object? sender, EventArgs e)
+    {
+        _dispatcherService.BeginInvoke(RefreshTasks);
     }
 
     #region Event Handlers
@@ -270,21 +289,41 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     #region Commands
 
     /// <summary>
-    /// Refreshes the task list from the detection service.
+    /// Refreshes the task list from the file service and detection service.
     /// Filters by current workspace if set.
     /// </summary>
     [RelayCommand]
     private void RefreshTasks()
     {
-        if (_claudeTaskDetectionService == null)
-            return;
-
         // Clear and reload all tasks
         ClaudeTasks.Clear();
         ActiveTasks.Clear();
         CompletedTasks.Clear();
 
-        var allTasks = _claudeTaskDetectionService.GetAllClaudeTasks();
+        var allTasks = new List<FocusTask>();
+
+        // Primarily load from file service (reads ~/.claude/tasks/)
+        if (_claudeTaskFileService != null)
+        {
+            allTasks.AddRange(_claudeTaskFileService.GetAllTasks());
+        }
+
+        // Also include detection-based tasks (from terminal output)
+        if (_claudeTaskDetectionService != null)
+        {
+            var detectedTasks = _claudeTaskDetectionService.GetAllClaudeTasks();
+            // Only add detected tasks that aren't already loaded from files
+            var existingIds = new HashSet<string>(allTasks.Select(t => t.ClaudeTaskId ?? t.Id));
+            foreach (var task in detectedTasks)
+            {
+                var taskId = task.ClaudeTaskId ?? task.Id;
+                if (!existingIds.Contains(taskId))
+                {
+                    allTasks.Add(task);
+                    existingIds.Add(taskId);
+                }
+            }
+        }
 
         // Filter based on current view settings
         var filteredTasks = allTasks.Where(ShouldShowTask).ToList();
