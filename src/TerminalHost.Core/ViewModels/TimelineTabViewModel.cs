@@ -217,11 +217,15 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         var today = now.Date;
 
         // Find earliest session time to include it in view (convert UTC to local)
+        // Take a snapshot of intents to avoid collection modified during enumeration
         DateTime? earliestSession = null;
-        foreach (var intent in Intents)
+        var intentsSnapshot = Intents.ToList();
+        foreach (var intent in intentsSnapshot)
         {
-            foreach (var session in intent.Sessions)
+            if (intent?.Sessions == null) continue;
+            foreach (var session in intent.Sessions.ToList())
             {
+                if (session == null) continue;
                 var localTime = session.StartTime.ToLocalTime();
                 if (earliestSession == null || localTime < earliestSession)
                     earliestSession = localTime;
@@ -268,12 +272,13 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         // Generate time markers
         UpdateTimeMarkers();
 
-        // Update session positions
-        foreach (var intent in Intents)
+        // Update session positions (use snapshot to avoid collection modified during enumeration)
+        foreach (var intent in intentsSnapshot)
         {
-            foreach (var session in intent.Sessions)
+            if (intent?.Sessions == null) continue;
+            foreach (var session in intent.Sessions.ToList())
             {
-                session.UpdatePosition(ViewStartTime, ViewEndTime, PixelsPerMinute);
+                session?.UpdatePosition(ViewStartTime, ViewEndTime, PixelsPerMinute);
             }
         }
     }

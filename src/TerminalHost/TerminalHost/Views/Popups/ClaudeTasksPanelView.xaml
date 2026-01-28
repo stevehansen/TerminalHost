@@ -130,7 +130,7 @@
     </UserControl.Resources>
 
     <controls:DraggablePopup
-        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        IsOpen="{Binding IsPopupVisible, Mode=OneWay}"
         PopupWidth="{Binding Width, Mode=TwoWay}"
         PopupHeight="{Binding Height, Mode=TwoWay}"
         HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
