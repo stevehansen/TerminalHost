@@ -191,7 +191,22 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Column widths are now bound in XAML, no code-behind sync needed
+        // Update Claude Tasks panel workspace when selected tab changes
+        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
+        {
+            if (_claudeTasksPanelViewModel.IsOpen)
+            {
+                // Always update workspace path so it's correct when toggling to "Current Workspace"
+                var workspacePath = (_viewModel.SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory;
+                _claudeTasksPanelViewModel.SetWorkspace(workspacePath);
+
+                // Only refresh if filtering by current workspace (global shows all anyway)
+                if (!_claudeTasksPanelViewModel.ShowGlobalTasks)
+                {
+                    _claudeTasksPanelViewModel.OnOpened();
+                }
+            }
+        }
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
