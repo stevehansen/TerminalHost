@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance viewModels:WorkspaceSidebarViewModel}"
              mc:Ignorable="d"
              Focusable="True"
@@ -82,6 +83,10 @@
                                   Command="{Binding DataContext.DuplicateWorkspaceCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
                         <Separator/>
+                        <MenuItem Header="{Binding PinToggleHeader}"
+                                  Command="{Binding DataContext.TogglePinCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"/>
+                        <Separator/>
                         <MenuItem Header="Move Up"
                                   Command="{Binding DataContext.MoveWorkspaceUpCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
@@ -121,7 +126,10 @@
                                   Command="{Binding DataContext.OpenInExplorerCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
                         <Separator/>
-                        <MenuItem Header="Close"
+                        <MenuItem Header="Close Tab"
+                                  Command="{Binding DataContext.CloseTabOnlyCommand, Source={x:Reference SidebarRoot}}"
+                                  CommandParameter="{Binding}"/>
+                        <MenuItem Header="Remove from Sidebar"
                                   Command="{Binding DataContext.CloseWorkspaceCommand, Source={x:Reference SidebarRoot}}"
                                   CommandParameter="{Binding}"/>
                     </ContextMenu>
@@ -133,9 +141,16 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Icon and Name -->
+                    <!-- Icon (with pin overlay) and Name -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="4,0,0,0">
-                        <TextBlock Text="{Binding Icon}" Style="{StaticResource IconText}" Margin="0,0,4,0"/>
+                        <Grid Width="16" Margin="0,0,4,0">
+                            <!-- Regular icon when not pinned -->
+                            <TextBlock Text="{Binding Icon}" Style="{StaticResource IconText}"
+                                       Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <!-- Pin icon when pinned -->
+                            <TextBlock Text="📌" Style="{StaticResource IconText}"
+                                       Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </Grid>
                         <TextBlock Text="{Binding Name}"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    FontFamily="{StaticResource FontFamilyMonospace}"
@@ -350,6 +365,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -386,23 +402,41 @@
                            VerticalAlignment="Center"/>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="↓↓"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Padding="6,2"
+                            FontSize="12"
+                            ToolTip="Pull All Repos"
+                            Command="{Binding PullAllCommand}"
+                            IsEnabled="{Binding IsPullAllInProgress, Converter={StaticResource InverseBoolConverter}}"/>
+                    <Button Content="○"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Padding="6,2"
+                            FontSize="12"
+                            ToolTip="Clear All Activity Indicators"
+                            Command="{Binding ClearAllIndicatorsCommand}"
+                            Margin="4,0,0,0"/>
                     <Button Content="+"
                             Style="{StaticResource TerminalSwitchButton}"
                             Padding="6,2"
                             FontSize="14"
                             ToolTip="Add Workspaces (multi-select)"
-                            Click="AddWorkspace_Click"/>
+                            Click="AddWorkspace_Click"
+                            Margin="4,0,0,0"/>
                     <Button Content="{Binding SortToggleIcon}"
                             Padding="6,2"
                             FontSize="12"
                             ToolTip="{Binding SortToggleToolTip}"
-                            Command="{Binding ToggleAutoSortCommand}"
+                            Command="{Binding CycleSortModeCommand}"
                             Margin="4,0,0,0">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource TerminalSwitchButton}">
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsAutoSortEnabled}" Value="True">
+                                    <DataTrigger Binding="{Binding SortMode}" Value="Usage">
                                         <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SortMode}" Value="Alphabetical">
+                                        <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -419,8 +453,37 @@
             </Grid>
         </Border>
 
+        <!-- Filter Box -->
+        <Grid Grid.Row="1" Margin="8,6,8,6">
+            <TextBox x:Name="FilterTextBox"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                     Background="{StaticResource BackgroundDarkBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                     BorderThickness="1"
+                     Padding="6,4,24,4"
+                     FontSize="12"
+                     VerticalContentAlignment="Center"/>
+            <TextBlock Text="Filter workspaces..."
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="12"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       IsHitTestVisible="False"
+                       Visibility="{Binding FilterText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
+            <Button Content="×"
+                    Style="{StaticResource TerminalSwitchButton}"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Padding="4,0"
+                    Margin="0,0,2,0"
+                    FontSize="14"
+                    Command="{Binding ClearFilterCommand}"
+                    Visibility="{Binding HasFilterText, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </Grid>
+
         <!-- Workspaces List -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer Grid.Row="2"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
@@ -444,7 +507,7 @@
         </ScrollViewer>
 
         <!-- Playground Section Header -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Background="{StaticResource BackgroundDarkestBrush}"
                 Padding="8,6"
                 Visibility="{Binding Playgrounds.Count, Converter={StaticResource CountToVisibilityConverter}}">
@@ -455,7 +518,7 @@
         </Border>
 
         <!-- Playgrounds List -->
-        <ScrollViewer Grid.Row="3"
+        <ScrollViewer Grid.Row="4"
                       MaxHeight="150"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
@@ -471,7 +534,7 @@
         </ScrollViewer>
 
         <!-- Open Tabs Section Header (non-project tabs like Settings, Statistics, Dashboard) -->
-        <Border Grid.Row="4"
+        <Border Grid.Row="5"
                 Background="{StaticResource BackgroundDarkestBrush}"
                 Padding="8,6"
                 Visibility="{Binding DataContext.HasNonProjectTabs, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -482,7 +545,7 @@
         </Border>
 
         <!-- Open Tabs List -->
-        <ItemsControl Grid.Row="5"
+        <ItemsControl Grid.Row="6"
                       ItemsSource="{Binding DataContext.NonProjectTabs, RelativeSource={RelativeSource AncestorType=Window}}"
                       Visibility="{Binding DataContext.HasNonProjectTabs, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
             <ItemsControl.ItemTemplate>
@@ -550,7 +613,7 @@
         </ItemsControl>
 
         <!-- Loading Indicator -->
-        <Border Grid.Row="1" Grid.RowSpan="5"
+        <Border Grid.Row="2" Grid.RowSpan="5"
                 Background="#80000000"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
             <TextBlock Text="Loading..."

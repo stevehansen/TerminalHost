@@ -106,6 +106,28 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Whether the workspace is pinned to the top of its section.
+    /// </summary>
+    public bool IsPinned
+    {
+        get => _workspace.IsPinned;
+        set
+        {
+            if (_workspace.IsPinned != value)
+            {
+                _workspace.IsPinned = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(PinToggleHeader));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Text for context menu to toggle pin status.
+    /// </summary>
+    public string PinToggleHeader => IsPinned ? "Unpin" : "Pin to Top";
+
+    /// <summary>
     /// Gets the underlying workspace model.
     /// </summary>
     public Workspace Workspace => _workspace;

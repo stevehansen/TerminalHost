@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
@@ -20,6 +21,11 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private readonly IStatisticsService _statisticsService;
     private readonly IToastService _toastService;
 
+    // Internal unfiltered collections
+    private List<WorkspaceEntryViewModel> _allWorkspaces = [];
+    private List<WorkspaceEntryViewModel> _allPlaygrounds = [];
+
+    // Filtered/sorted collections for display
     [ObservableProperty]
     private ObservableCollection<WorkspaceEntryViewModel> _workspaces = [];
 
@@ -44,19 +50,41 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SortToggleIcon))]
     [NotifyPropertyChangedFor(nameof(SortToggleToolTip))]
-    private bool _isAutoSortEnabled;
+    private WorkspaceSortMode _sortMode = WorkspaceSortMode.Manual;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFilterText))]
+    private string _filterText = "";
+
+    [ObservableProperty]
+    private bool _isPullAllInProgress;
+
+    /// <summary>
+    /// Whether there is filter text entered.
+    /// </summary>
+    public bool HasFilterText => !string.IsNullOrEmpty(FilterText);
 
     /// <summary>
     /// Icon for the sort toggle button.
     /// </summary>
-    public string SortToggleIcon => IsAutoSortEnabled ? "⇅" : "↕";
+    public string SortToggleIcon => SortMode switch
+    {
+        WorkspaceSortMode.Manual => "↕",
+        WorkspaceSortMode.Usage => "⇅",
+        WorkspaceSortMode.Alphabetical => "AZ",
+        _ => "↕"
+    };
 
     /// <summary>
     /// Tooltip for the sort toggle button.
     /// </summary>
-    public string SortToggleToolTip => IsAutoSortEnabled
-        ? "Auto-sorted by usage (click for manual)"
-        : "Manual order (click for auto-sort)";
+    public string SortToggleToolTip => SortMode switch
+    {
+        WorkspaceSortMode.Manual => "Manual order (click to sort by usage)",
+        WorkspaceSortMode.Usage => "Sorted by usage (click to sort alphabetically)",
+        WorkspaceSortMode.Alphabetical => "Sorted alphabetically (click for manual order)",
+        _ => "Click to change sort mode"
+    };
 
     /// <summary>
     /// Event raised when a workspace or worktree should be opened as a terminal tab.
@@ -103,7 +131,10 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             var config = _configurationService.Load();
             Width = config.Settings.SidebarWidth;
             IsCollapsed = config.Settings.SidebarCollapsed;
+            FilterText = config.Settings.WorkspaceFilterText;
 
+            _allWorkspaces.Clear();
+            _allPlaygrounds.Clear();
             Workspaces.Clear();
             Playgrounds.Clear();
 
@@ -112,16 +143,19 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 var vm = CreateWorkspaceEntryViewModel(workspace);
 
                 if (workspace.Section == "playground")
-                    Playgrounds.Add(vm);
+                    _allPlaygrounds.Add(vm);
                 else
-                    Workspaces.Add(vm);
+                    _allWorkspaces.Add(vm);
 
                 // Load worktrees in background
                 _ = vm.LoadAsync();
             }
 
-            // Set auto-sort after workspaces are loaded so the change handler can sort them
-            IsAutoSortEnabled = config.Settings.WorkspaceAutoSort;
+            // Set sort mode after workspaces are loaded so the change handler can sort them
+            SortMode = config.Settings.WorkspaceSortMode;
+
+            // Apply filter and sort
+            ApplyFilterAndSort();
         }
         finally
         {
@@ -137,9 +171,9 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (!_fileSystem.DirectoryExists(path))
             return null;
 
-        // Check if workspace already exists
-        var existingWorkspaces = section == "playground" ? Playgrounds : Workspaces;
-        var existing = existingWorkspaces.FirstOrDefault(w =>
+        // Check if workspace already exists in internal collections
+        var existingInternal = section == "playground" ? _allPlaygrounds : _allWorkspaces;
+        var existing = existingInternal.FirstOrDefault(w =>
             string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
 
         if (existing != null)
@@ -152,19 +186,20 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             Name = Path.GetFileName(path) ?? path,
             Path = path,
             Section = section,
-            Order = existingWorkspaces.Count,
+            Order = existingInternal.Count,
             IsExpanded = true
         };
 
         var vm = CreateWorkspaceEntryViewModel(workspace);
 
         if (section == "playground")
-            Playgrounds.Add(vm);
+            _allPlaygrounds.Add(vm);
         else
-            Workspaces.Add(vm);
+            _allWorkspaces.Add(vm);
 
         await vm.LoadAsync();
         SaveWorkspaces();
+        ApplyFilterAndSort();
 
         return vm;
     }
@@ -199,6 +234,13 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public void RemoveWorkspace(WorkspaceEntryViewModel workspace)
     {
+        // Remove from internal collections
+        if (workspace.Section == "playground")
+            _allPlaygrounds.Remove(workspace);
+        else
+            _allWorkspaces.Remove(workspace);
+
+        // Remove from display collections
         if (workspace.Section == "playground")
             Playgrounds.Remove(workspace);
         else
@@ -213,9 +255,9 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public async Task SyncWithOpenTabAsync(string path)
     {
-        // Check if workspace exists in either section
-        var exists = Workspaces.Any(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase)) ||
-                     Playgrounds.Any(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
+        // Check if workspace exists in internal collections
+        var exists = _allWorkspaces.Any(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase)) ||
+                     _allPlaygrounds.Any(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
 
         if (!exists)
         {
@@ -272,7 +314,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public void UpdateCurrentTab(string? currentPath)
     {
-        foreach (var workspace in Workspaces.Concat(Playgrounds))
+        foreach (var workspace in _allWorkspaces.Concat(_allPlaygrounds))
         {
             workspace.IsCurrentTab = !string.IsNullOrEmpty(currentPath) &&
                 string.Equals(workspace.Path, currentPath, StringComparison.OrdinalIgnoreCase);
@@ -284,7 +326,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public async Task RefreshAllGitStatusAsync()
     {
-        var tasks = Workspaces.Concat(Playgrounds)
+        var tasks = _allWorkspaces.Concat(_allPlaygrounds)
             .Select(w => w.RefreshGitStatusAsync());
         await Task.WhenAll(tasks);
     }
@@ -295,7 +337,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public async Task FetchAllAsync()
     {
-        var tasks = Workspaces.Concat(Playgrounds)
+        var tasks = _allWorkspaces.Concat(_allPlaygrounds)
             .Select(async w =>
             {
                 try
@@ -325,8 +367,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
     private WorkspaceEntryViewModel? FindWorkspaceByPath(string path)
     {
-        return Workspaces.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase)) ??
-               Playgrounds.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
+        return _allWorkspaces.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase)) ??
+               _allPlaygrounds.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
     }
 
     private WorkspaceEntryViewModel CreateWorkspaceEntryViewModel(Workspace workspace)
@@ -352,16 +394,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         var config = _configurationService.Load();
         config.Workspaces.Clear();
 
-        // Add main workspaces
+        // Add main workspaces from internal collection
         var order = 0;
-        foreach (var vm in Workspaces)
+        foreach (var vm in _allWorkspaces)
         {
             vm.Order = order++;
             config.Workspaces.Add(vm.Workspace);
         }
 
-        // Add playgrounds
-        foreach (var vm in Playgrounds)
+        // Add playgrounds from internal collection
+        foreach (var vm in _allPlaygrounds)
         {
             vm.Order = order++;
             config.Workspaces.Add(vm.Workspace);
@@ -369,6 +411,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         config.Settings.SidebarWidth = Width;
         config.Settings.SidebarCollapsed = IsCollapsed;
+        config.Settings.WorkspaceSortMode = SortMode;
+        config.Settings.WorkspaceFilterText = FilterText;
 
         _configurationService.Save(config);
         WorkspacesChanged?.Invoke(this, EventArgs.Empty);
@@ -431,12 +475,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var collection = workspace.Section == "playground" ? _allPlaygrounds : _allWorkspaces;
         var index = collection.IndexOf(workspace);
         if (index > 0)
         {
-            collection.Move(index, index - 1);
+            collection.RemoveAt(index);
+            collection.Insert(index - 1, workspace);
             SaveWorkspaces();
+            ApplyFilterAndSort();
         }
     }
 
@@ -448,12 +494,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var collection = workspace.Section == "playground" ? _allPlaygrounds : _allWorkspaces;
         var index = collection.IndexOf(workspace);
         if (index >= 0 && index < collection.Count - 1)
         {
-            collection.Move(index, index + 1);
+            collection.RemoveAt(index);
+            collection.Insert(index + 1, workspace);
             SaveWorkspaces();
+            ApplyFilterAndSort();
         }
     }
 
@@ -465,12 +513,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var collection = workspace.Section == "playground" ? _allPlaygrounds : _allWorkspaces;
         var index = collection.IndexOf(workspace);
         if (index > 0)
         {
-            collection.Move(index, 0);
+            collection.RemoveAt(index);
+            collection.Insert(0, workspace);
             SaveWorkspaces();
+            ApplyFilterAndSort();
         }
     }
 
@@ -482,12 +532,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        var collection = workspace.Section == "playground" ? Playgrounds : Workspaces;
+        var collection = workspace.Section == "playground" ? _allPlaygrounds : _allWorkspaces;
         var index = collection.IndexOf(workspace);
         if (index >= 0 && index < collection.Count - 1)
         {
-            collection.Move(index, collection.Count - 1);
+            collection.RemoveAt(index);
+            collection.Add(workspace);
             SaveWorkspaces();
+            ApplyFilterAndSort();
         }
     }
 
@@ -499,14 +551,15 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     {
         if (workspace == null) return;
 
-        var fromCollection = workspace.Section == "playground" ? Playgrounds : Workspaces;
-        var toCollection = workspace.Section == "playground" ? Workspaces : Playgrounds;
+        var fromCollection = workspace.Section == "playground" ? _allPlaygrounds : _allWorkspaces;
+        var toCollection = workspace.Section == "playground" ? _allWorkspaces : _allPlaygrounds;
         var newSection = workspace.Section == "playground" ? "main" : "playground";
 
         fromCollection.Remove(workspace);
         workspace.Workspace.Section = newSection;
         toCollection.Add(workspace);
         SaveWorkspaces();
+        ApplyFilterAndSort();
     }
 
     /// <summary>
@@ -756,53 +809,161 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Toggles the auto-sort by usage feature.
+    /// Cycles through sort modes: Manual -> Usage -> Alphabetical -> Manual.
     /// </summary>
     [RelayCommand]
-    private void ToggleAutoSort()
+    private void CycleSortMode()
     {
-        IsAutoSortEnabled = !IsAutoSortEnabled;
+        SortMode = SortMode switch
+        {
+            WorkspaceSortMode.Manual => WorkspaceSortMode.Usage,
+            WorkspaceSortMode.Usage => WorkspaceSortMode.Alphabetical,
+            WorkspaceSortMode.Alphabetical => WorkspaceSortMode.Manual,
+            _ => WorkspaceSortMode.Manual
+        };
     }
 
-    partial void OnIsAutoSortEnabledChanged(bool value)
+    /// <summary>
+    /// Clears the filter text.
+    /// </summary>
+    [RelayCommand]
+    private void ClearFilter()
+    {
+        FilterText = "";
+    }
+
+    /// <summary>
+    /// Toggles pin status for a workspace.
+    /// </summary>
+    [RelayCommand]
+    private void TogglePin(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        workspace.IsPinned = !workspace.IsPinned;
+        SaveWorkspaces();
+        ApplyFilterAndSort();
+    }
+
+    /// <summary>
+    /// Pulls all repositories with git pull --rebase.
+    /// </summary>
+    [RelayCommand]
+    private async Task PullAll()
+    {
+        if (IsPullAllInProgress) return;
+
+        IsPullAllInProgress = true;
+        var allWorkspaces = _allWorkspaces.Concat(_allPlaygrounds).ToList();
+
+        using var toast = _toastService.ShowProgress($"Pulling {allWorkspaces.Count} repos...");
+
+        var successCount = 0;
+        var failCount = 0;
+
+        var tasks = allWorkspaces.Select(async w =>
+        {
+            try
+            {
+                var result = await _gitStatusService.PullRebaseAsync(w.Path);
+                if (result.Success)
+                {
+                    await w.RefreshGitStatusAsync();
+                    Interlocked.Increment(ref successCount);
+                }
+                else
+                {
+                    Interlocked.Increment(ref failCount);
+                }
+            }
+            catch
+            {
+                Interlocked.Increment(ref failCount);
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        IsPullAllInProgress = false;
+
+        if (failCount == 0)
+            toast.Complete($"Pulled {successCount} repos");
+        else
+            toast.Fail($"Pulled {successCount}, failed {failCount}");
+    }
+
+    /// <summary>
+    /// Closes the tab for a workspace but keeps the workspace in the sidebar.
+    /// </summary>
+    [RelayCommand]
+    private void CloseTabOnly(WorkspaceEntryViewModel? workspace)
+    {
+        if (workspace == null) return;
+
+        // Clear activity indicators
+        workspace.HasUnreadActivity = false;
+        workspace.IsActive = false;
+        workspace.IsWaitingForInput = false;
+
+        // Close the tab (but don't remove from sidebar)
+        CloseTabRequested?.Invoke(this, workspace.Path);
+    }
+
+    /// <summary>
+    /// Clears all activity indicators (green dots) across all workspaces.
+    /// </summary>
+    [RelayCommand]
+    private void ClearAllIndicators()
+    {
+        foreach (var workspace in _allWorkspaces.Concat(_allPlaygrounds))
+        {
+            workspace.HasUnreadActivity = false;
+        }
+    }
+
+    partial void OnSortModeChanged(WorkspaceSortMode value)
     {
         // Don't save during initial load
         if (!IsLoading)
         {
             var config = _configurationService.Load();
-            config.Settings.WorkspaceAutoSort = value;
+            config.Settings.WorkspaceSortMode = value;
             _configurationService.Save(config);
         }
 
-        // Apply appropriate sort
-        if (value)
+        ApplyFilterAndSort();
+    }
+
+    partial void OnFilterTextChanged(string value)
+    {
+        // Don't save during initial load
+        if (!IsLoading)
         {
-            ApplyUsageSort();
+            var config = _configurationService.Load();
+            config.Settings.WorkspaceFilterText = value;
+            _configurationService.Save(config);
         }
-        else
-        {
-            ApplyManualSort();
-        }
+
+        ApplyFilterAndSort();
     }
 
     /// <summary>
-    /// Sorts workspaces by usage score (focus time + char count).
+    /// Applies both filtering and sorting to workspaces.
     /// </summary>
-    private void ApplyUsageSort()
+    private void ApplyFilterAndSort()
     {
-        // Sort main workspaces
-        var sortedWorkspaces = Workspaces
-            .OrderByDescending(w => CalculateUsageScore(w.Path))
-            .ToList();
+        // Filter workspaces
+        var filteredWorkspaces = FilterWorkspaces(_allWorkspaces);
+        var filteredPlaygrounds = FilterWorkspaces(_allPlaygrounds);
 
+        // Sort with pinned items first
+        var sortedWorkspaces = ApplySortWithPinned(filteredWorkspaces);
+        var sortedPlaygrounds = ApplySortWithPinned(filteredPlaygrounds);
+
+        // Update display collections
         Workspaces.Clear();
         foreach (var w in sortedWorkspaces)
             Workspaces.Add(w);
-
-        // Sort playgrounds
-        var sortedPlaygrounds = Playgrounds
-            .OrderByDescending(w => CalculateUsageScore(w.Path))
-            .ToList();
 
         Playgrounds.Clear();
         foreach (var w in sortedPlaygrounds)
@@ -810,19 +971,45 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Sorts workspaces by manual order.
+    /// Filters workspaces by name or branch name (case-insensitive).
     /// </summary>
-    private void ApplyManualSort()
+    private List<WorkspaceEntryViewModel> FilterWorkspaces(List<WorkspaceEntryViewModel> workspaces)
     {
-        var sortedWorkspaces = Workspaces.OrderBy(w => w.Order).ToList();
-        Workspaces.Clear();
-        foreach (var w in sortedWorkspaces)
-            Workspaces.Add(w);
+        if (string.IsNullOrWhiteSpace(FilterText))
+            return workspaces.ToList();
 
-        var sortedPlaygrounds = Playgrounds.OrderBy(w => w.Order).ToList();
-        Playgrounds.Clear();
-        foreach (var w in sortedPlaygrounds)
-            Playgrounds.Add(w);
+        var filter = FilterText.Trim();
+        return workspaces.Where(w =>
+            w.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+            (w.CurrentBranch?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Sorts workspaces with pinned items first, then applies current sort mode.
+    /// </summary>
+    private List<WorkspaceEntryViewModel> ApplySortWithPinned(List<WorkspaceEntryViewModel> workspaces)
+    {
+        var pinned = workspaces.Where(w => w.IsPinned);
+        var unpinned = workspaces.Where(w => !w.IsPinned);
+
+        var sortedPinned = ApplyCurrentSort(pinned);
+        var sortedUnpinned = ApplyCurrentSort(unpinned);
+
+        return sortedPinned.Concat(sortedUnpinned).ToList();
+    }
+
+    /// <summary>
+    /// Applies the current sort mode to a collection of workspaces.
+    /// </summary>
+    private IEnumerable<WorkspaceEntryViewModel> ApplyCurrentSort(IEnumerable<WorkspaceEntryViewModel> workspaces)
+    {
+        return SortMode switch
+        {
+            WorkspaceSortMode.Usage => workspaces.OrderByDescending(w => CalculateUsageScore(w.Path)),
+            WorkspaceSortMode.Alphabetical => workspaces.OrderBy(w => w.Name, StringComparer.OrdinalIgnoreCase),
+            _ => workspaces.OrderBy(w => w.Order) // Manual
+        };
     }
 
     /// <summary>

@@ -24,6 +24,27 @@ public enum TerminalLayoutMode
 }
 
 /// <summary>
+/// Defines the sort mode for workspaces in the sidebar.
+/// </summary>
+public enum WorkspaceSortMode
+{
+    /// <summary>
+    /// Manual order based on user arrangement.
+    /// </summary>
+    Manual,
+
+    /// <summary>
+    /// Sorted by usage (focus time + character count) over the last 7 days.
+    /// </summary>
+    Usage,
+
+    /// <summary>
+    /// Sorted alphabetically by name.
+    /// </summary>
+    Alphabetical
+}
+
+/// <summary>
 /// Defines behavior when launching the app while another instance is running.
 /// </summary>
 public enum SingleInstanceBehavior
@@ -525,10 +546,17 @@ public class AppSettings
     public int GitAutoFetchIntervalSeconds { get; set; } = 60;
 
     /// <summary>
-    /// Whether to auto-sort workspaces in the sidebar by recent usage.
+    /// Sort mode for workspaces in the sidebar.
     /// </summary>
-    [JsonPropertyName("workspaceAutoSort")]
-    public bool WorkspaceAutoSort { get; set; } = false;
+    [JsonPropertyName("workspaceSortMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public WorkspaceSortMode WorkspaceSortMode { get; set; } = WorkspaceSortMode.Manual;
+
+    /// <summary>
+    /// Filter text for workspaces in the sidebar.
+    /// </summary>
+    [JsonPropertyName("workspaceFilterText")]
+    public string WorkspaceFilterText { get; set; } = "";
 
     /// <summary>
     /// Whether touch-friendly mode is enabled (larger touch targets, more padding).

@@ -83,7 +83,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _showInSystemTray;
 
     [ObservableProperty]
-    private bool _workspaceAutoSort;
+    private WorkspaceSortMode _workspaceSortMode;
 
     [ObservableProperty]
     private bool _touchMode;
@@ -393,7 +393,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
-            WorkspaceAutoSort = config.Settings.WorkspaceAutoSort;
+            WorkspaceSortMode = config.Settings.WorkspaceSortMode;
             TouchMode = config.Settings.TouchMode;
 
             // Terminal settings
@@ -445,7 +445,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
-            config.Settings.WorkspaceAutoSort = WorkspaceAutoSort;
+            config.Settings.WorkspaceSortMode = WorkspaceSortMode;
             config.Settings.TouchMode = TouchMode;
 
             // Terminal settings
@@ -531,7 +531,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     // Property change handlers for rich mode - mark dirty
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
-    partial void OnWorkspaceAutoSortChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnWorkspaceSortModeChanged(WorkspaceSortMode value) => MarkDirtyFromRichMode();
     partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();

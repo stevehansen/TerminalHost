@@ -48,4 +48,10 @@ public class Workspace
     /// </summary>
     [JsonPropertyName("order")]
     public int Order { get; set; }
+
+    /// <summary>
+    /// Whether the workspace is pinned to the top of its section.
+    /// </summary>
+    [JsonPropertyName("isPinned")]
+    public bool IsPinned { get; set; } = false;
 }
