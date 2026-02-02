@@ -165,6 +165,13 @@
                                    Foreground="{StaticResource TextMutedBrush}"
                                    FontSize="10"
                                    VerticalAlignment="Center"/>
+                        <TextBlock Text="*"
+                                   Foreground="{StaticResource AccentOrangeBrush}"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   ToolTip="Has uncommitted changes"
+                                   Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <TextBlock Text="{Binding AheadBehindDisplay}"
                                    Foreground="{StaticResource AccentOrangeBrush}"
                                    FontSize="10"
