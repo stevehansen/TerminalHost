@@ -15,6 +15,14 @@ public sealed class ToastService : IToastService
     private readonly Queue<ToastViewModel> _queue = new();
     private readonly Dictionary<string, DispatcherTimer> _autoCloseTimers = new();
     private readonly object _lock = new();
+    private readonly ISoundService? _soundService;
+
+    public ToastService() { }
+
+    public ToastService(ISoundService soundService)
+    {
+        _soundService = soundService;
+    }
 
     public ObservableCollection<ToastViewModel> Toasts { get; } = [];
 
@@ -123,9 +131,32 @@ public sealed class ToastService : IToastService
 
         Toasts.Add(toast);
 
+        // Play sound based on toast type
+        PlaySoundForToast(toast.Type);
+
         if (toast.AutoClose)
         {
             StartAutoCloseTimer(toast);
+        }
+    }
+
+    private void PlaySoundForToast(ToastType type)
+    {
+        if (_soundService == null) return;
+
+        var soundType = type switch
+        {
+            ToastType.Success => SoundType.Success,
+            ToastType.Error => SoundType.Error,
+            ToastType.Warning => SoundType.Warning,
+            ToastType.Info => SoundType.Info,
+            ToastType.Progress => (SoundType?)null, // No sound for progress start
+            _ => null
+        };
+
+        if (soundType.HasValue)
+        {
+            _soundService.Play(soundType.Value);
         }
     }
 
@@ -256,6 +287,9 @@ public sealed class ToastService : IToastService
                 _toast.Icon = ToastViewModel.GetDefaultIcon(type);
                 _toast.Type = type;
                 _toast.AutoClose = true;
+
+                // Play completion sound
+                _service.PlaySoundForToast(type);
 
                 _service.StartAutoCloseTimer(_toast);
             });

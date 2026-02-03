@@ -88,6 +88,25 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _touchMode;
 
+    // Sound settings
+    [ObservableProperty]
+    private bool _soundsEnabled;
+
+    [ObservableProperty]
+    private bool _soundsOnlyWhenUnfocused = true;
+
+    [ObservableProperty]
+    private string _successSound = "Asterisk";
+
+    [ObservableProperty]
+    private string _errorSound = "Hand";
+
+    [ObservableProperty]
+    private string _warningSound = "Exclamation";
+
+    [ObservableProperty]
+    private string _infoSound = "";
+
     [ObservableProperty]
     private string _customCommand = "";
 
@@ -396,6 +415,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             WorkspaceSortMode = config.Settings.WorkspaceSortMode;
             TouchMode = config.Settings.TouchMode;
 
+            // Sound settings
+            SoundsEnabled = config.Settings.Sounds.Enabled;
+            SoundsOnlyWhenUnfocused = config.Settings.Sounds.OnlyWhenUnfocused;
+            SuccessSound = config.Settings.Sounds.SuccessSound;
+            ErrorSound = config.Settings.Sounds.ErrorSound;
+            WarningSound = config.Settings.Sounds.WarningSound;
+            InfoSound = config.Settings.Sounds.InfoSound;
+
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
             CustomCommandName = config.Settings.CustomCommandName;
@@ -447,6 +474,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.ShowInSystemTray = ShowInSystemTray;
             config.Settings.WorkspaceSortMode = WorkspaceSortMode;
             config.Settings.TouchMode = TouchMode;
+
+            // Sound settings
+            config.Settings.Sounds.Enabled = SoundsEnabled;
+            config.Settings.Sounds.OnlyWhenUnfocused = SoundsOnlyWhenUnfocused;
+            config.Settings.Sounds.SuccessSound = SuccessSound;
+            config.Settings.Sounds.ErrorSound = ErrorSound;
+            config.Settings.Sounds.WarningSound = WarningSound;
+            config.Settings.Sounds.InfoSound = InfoSound;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -533,6 +568,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnWorkspaceSortModeChanged(WorkspaceSortMode value) => MarkDirtyFromRichMode();
     partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnSoundsEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnSoundsOnlyWhenUnfocusedChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnSuccessSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnErrorSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnWarningSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnInfoSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

@@ -46,13 +46,14 @@ public partial class MainWindow : Window
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
     private readonly ITaskbarProgressService? _taskbarProgressService;
+    private readonly ISoundService? _soundService;
     private bool _isExiting;
     private bool _isWindowActivated = true;
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -82,6 +83,7 @@ public partial class MainWindow : Window
         _fileSystem = fileSystem;
         _toastService = toastService;
         _taskbarProgressService = taskbarProgressService;
+        _soundService = soundService;
         DataContext = viewModel;
         GitBranchViewControl.DataContext = gitBranchViewModel;
         GitStashViewControl.DataContext = gitStashViewModel;
@@ -1556,6 +1558,7 @@ public partial class MainWindow : Window
     {
         _isWindowActivated = true;
         _taskbarProgressService?.ClearGlow();
+        _soundService?.SetAppFocused(true);
     }
 
     /// <summary>
@@ -1565,6 +1568,7 @@ public partial class MainWindow : Window
     private void OnWindowDeactivated(object? sender, EventArgs e)
     {
         _isWindowActivated = false;
+        _soundService?.SetAppFocused(false);
         // Update taskbar state immediately based on current terminal activity
         UpdateTaskbarGlow();
     }

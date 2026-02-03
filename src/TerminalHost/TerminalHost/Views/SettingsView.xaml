@@ -404,10 +404,10 @@
                         <TextBlock Text="When enabled, the application minimizes to the system tray instead of the taskbar."
                                    Style="{StaticResource HelpText}"/>
 
-                        <TextBlock Text="WORKSPACE SORT MODE" Style="{StaticResource FormLabel}" Margin="0,12,0,4"/>
+                        <TextBlock Text="WORKSPACE SORT MODE" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
                         <ComboBox SelectedValue="{Binding WorkspaceSortMode}"
                                   SelectedValuePath="Tag"
-                                  Style="{StaticResource FormComboBox}"
+                                  Style="{StaticResource DarkComboBox}"
                                   Width="200"
                                   HorizontalAlignment="Left"
                                   ToolTip="How workspaces are sorted in the sidebar.">
@@ -423,6 +423,98 @@
                                   Style="{StaticResource FormCheckBox}"
                                   ToolTip="Enable larger touch targets for mobile remote desktop usage."/>
                         <TextBlock Text="When enabled, UI elements have larger touch targets and more padding for easier use on touch devices or remote desktop from mobile."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <!-- Sound Settings -->
+                        <TextBlock Text="SOUND NOTIFICATIONS"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,12"/>
+
+                        <CheckBox Content="Enable sound notifications"
+                                  IsChecked="{Binding SoundsEnabled}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  ToolTip="Play sounds for toast notifications."/>
+                        <TextBlock Text="Play audio notifications for success, error, and warning messages."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <CheckBox Content="Only when app is unfocused"
+                                  IsChecked="{Binding SoundsOnlyWhenUnfocused}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  IsEnabled="{Binding SoundsEnabled}"
+                                  ToolTip="Only play sounds when you're not looking at the app."/>
+                        <TextBlock Text="Sounds will only play when the TerminalHost window is not focused, so you get notified while working in other apps."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <Grid Margin="0,8,0,0" IsEnabled="{Binding SoundsEnabled}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*" MaxWidth="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Success:" Grid.Row="0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1"
+                                      Text="{Binding SuccessSound, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEditable="True"
+                                      Style="{StaticResource DarkComboBox}"
+                                      Margin="0,0,0,8">
+                                <ComboBoxItem Content="Asterisk"/>
+                                <ComboBoxItem Content="Beep"/>
+                                <ComboBoxItem Content="Exclamation"/>
+                                <ComboBoxItem Content="Hand"/>
+                                <ComboBoxItem Content="Question"/>
+                                <ComboBoxItem Content=""/>
+                            </ComboBox>
+
+                            <TextBlock Text="Error:" Grid.Row="1" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1"
+                                      Text="{Binding ErrorSound, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEditable="True"
+                                      Style="{StaticResource DarkComboBox}"
+                                      Margin="0,0,0,8">
+                                <ComboBoxItem Content="Asterisk"/>
+                                <ComboBoxItem Content="Beep"/>
+                                <ComboBoxItem Content="Exclamation"/>
+                                <ComboBoxItem Content="Hand"/>
+                                <ComboBoxItem Content="Question"/>
+                                <ComboBoxItem Content=""/>
+                            </ComboBox>
+
+                            <TextBlock Text="Warning:" Grid.Row="2" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="2" Grid.Column="1"
+                                      Text="{Binding WarningSound, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEditable="True"
+                                      Style="{StaticResource DarkComboBox}"
+                                      Margin="0,0,0,8">
+                                <ComboBoxItem Content="Asterisk"/>
+                                <ComboBoxItem Content="Beep"/>
+                                <ComboBoxItem Content="Exclamation"/>
+                                <ComboBoxItem Content="Hand"/>
+                                <ComboBoxItem Content="Question"/>
+                                <ComboBoxItem Content=""/>
+                            </ComboBox>
+
+                            <TextBlock Text="Info:" Grid.Row="3" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="3" Grid.Column="1"
+                                      Text="{Binding InfoSound, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEditable="True"
+                                      Style="{StaticResource DarkComboBox}">
+                                <ComboBoxItem Content="Asterisk"/>
+                                <ComboBoxItem Content="Beep"/>
+                                <ComboBoxItem Content="Exclamation"/>
+                                <ComboBoxItem Content="Hand"/>
+                                <ComboBoxItem Content="Question"/>
+                                <ComboBoxItem Content=""/>
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock Text="System sounds: Asterisk, Beep, Exclamation, Hand, Question. Leave empty to disable. You can also enter a path to a .wav file."
                                    Style="{StaticResource HelpText}"/>
                     </StackPanel>
 

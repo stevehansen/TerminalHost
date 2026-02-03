@@ -216,6 +216,7 @@ public partial class App : Application
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
+        services.AddSingleton<ISoundService, SoundService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
         services.AddSingleton<ITimerService, TimerService>();

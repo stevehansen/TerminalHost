@@ -584,6 +584,12 @@ public class AppSettings
     [JsonPropertyName("inputPrompt")]
     public InputPromptSettings InputPrompt { get; set; } = new();
 
+    /// <summary>
+    /// Sound notification settings.
+    /// </summary>
+    [JsonPropertyName("sounds")]
+    public SoundSettings Sounds { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",
@@ -760,4 +766,60 @@ public class MarkdownSettings
     /// </summary>
     [JsonPropertyName("syncScroll")]
     public bool SyncScroll { get; set; } = true;
+}
+
+/// <summary>
+/// Settings for sound notifications.
+/// </summary>
+public class SoundSettings
+{
+    /// <summary>
+    /// Whether sound notifications are enabled.
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>
+    /// Only play sounds when the application window is not focused.
+    /// </summary>
+    [JsonPropertyName("onlyWhenUnfocused")]
+    public bool OnlyWhenUnfocused { get; set; } = true;
+
+    /// <summary>
+    /// Sound to play on successful completion (toast success).
+    /// Can be a system sound name or path to a .wav file.
+    /// System sounds: Asterisk, Beep, Exclamation, Hand, Question
+    /// </summary>
+    [JsonPropertyName("successSound")]
+    public string SuccessSound { get; set; } = "Asterisk";
+
+    /// <summary>
+    /// Sound to play on error/failure (toast error).
+    /// </summary>
+    [JsonPropertyName("errorSound")]
+    public string ErrorSound { get; set; } = "Hand";
+
+    /// <summary>
+    /// Sound to play on warning notifications.
+    /// </summary>
+    [JsonPropertyName("warningSound")]
+    public string WarningSound { get; set; } = "Exclamation";
+
+    /// <summary>
+    /// Sound to play on informational notifications.
+    /// </summary>
+    [JsonPropertyName("infoSound")]
+    public string InfoSound { get; set; } = "";
+
+    /// <summary>
+    /// Sound to play when terminal is waiting for input (requires input prompt detection).
+    /// </summary>
+    [JsonPropertyName("inputWaitingSound")]
+    public string InputWaitingSound { get; set; } = "";
+
+    /// <summary>
+    /// Volume level (0.0 to 1.0). Only applies to custom .wav files.
+    /// </summary>
+    [JsonPropertyName("volume")]
+    public double Volume { get; set; } = 1.0;
 }
