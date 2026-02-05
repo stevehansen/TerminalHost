@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
+    private readonly GitTagsViewModel _gitTagsViewModel;
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
@@ -53,7 +54,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -68,6 +69,7 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
+        _gitTagsViewModel = gitTagsViewModel;
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
         _fileViewerViewModel = fileViewerViewModel;
@@ -759,8 +761,8 @@ public partial class MainWindow : Window
             }
             e.Handled = true;
         }
-        // Ctrl+G: Open unified Git panel on Changes tab
-        else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
+        // Alt+G: Open unified Git panel on Changes tab (Ctrl+G reserved by Claude Code)
+        else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Alt)
         {
             await OpenUnifiedGitPanelAsync(GitPanelTab.Changes);
             e.Handled = true;

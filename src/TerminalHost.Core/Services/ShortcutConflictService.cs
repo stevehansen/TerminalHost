@@ -73,8 +73,7 @@ public static class ShortcutConflictService
 
         new("Git & GitHub",
         [
-            new("Alt+G", "Unified Git panel (tabs for all Git features)"),
-            new("Ctrl+G", "Git changes panel"),
+            new("Alt+G", "Git changes panel (unified Git panel)"),
             new("Ctrl+H", "Commit history"),
             new("Ctrl+B", "Branch switcher"),
             new("Ctrl+Shift+D", "Git Pull (stash, pull --rebase, pop)"),

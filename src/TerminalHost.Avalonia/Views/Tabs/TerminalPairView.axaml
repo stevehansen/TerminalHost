@@ -162,7 +162,7 @@
                             Command="{Binding $parent[Window].DataContext.OpenScratchPadCommand}"
                             Margin="0,0,4,0"/>
                     <Button Content="📋"
-                            ToolTip.Tip="Git Changes (Ctrl+G)"
+                            ToolTip.Tip="Git Changes (Alt+G)"
                             AutomationProperties.Name="Git Changes"
                             Classes="terminalSwitch"
                             Command="{Binding $parent[Window].DataContext.OpenGitChangesCommand}"

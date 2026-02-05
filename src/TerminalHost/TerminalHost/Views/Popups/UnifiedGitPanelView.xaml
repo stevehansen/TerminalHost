@@ -96,6 +96,11 @@
                                  IsChecked="{Binding IsStashTabActive, Mode=OneWay}"
                                  Command="{Binding SwitchToTabCommand}"
                                  CommandParameter="{x:Static viewModels:GitPanelTab.Stash}"/>
+                        <RadioButton Content="Tags"
+                                 Style="{StaticResource GitPanelTabButton}"
+                                 IsChecked="{Binding IsTagsTabActive, Mode=OneWay}"
+                                 Command="{Binding SwitchToTabCommand}"
+                                 CommandParameter="{x:Static viewModels:GitPanelTab.Tags}"/>
                         <RadioButton Content="Compare"
                                  Style="{StaticResource GitPanelTabButton}"
                                  IsChecked="{Binding IsComparisonTabActive, Mode=OneWay}"
@@ -124,6 +129,11 @@
                     <!-- Stash Tab Content -->
                     <ContentControl Visibility="{Binding IsStashTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
                         <views:GitStashContentView DataContext="{Binding StashVM}"/>
+                    </ContentControl>
+
+                    <!-- Tags Tab Content -->
+                    <ContentControl Visibility="{Binding IsTagsTabActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <views:GitTagsContentView DataContext="{Binding TagsVM}"/>
                     </ContentControl>
 
                     <!-- Comparison Tab Content -->

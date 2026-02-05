@@ -15,13 +15,14 @@ public enum GitPanelTab
     Changes,
     History,
     Stash,
+    Tags,
     Comparison
 }
 
 /// <summary>
 /// Unified Git Panel ViewModel.
 /// Consolidates all Git functionality into a single tabbed panel.
-/// Shortcuts like Ctrl+B, Ctrl+G, Ctrl+H open this panel on the appropriate tab.
+/// Shortcuts like Ctrl+B, Alt+G, Ctrl+H open this panel on the appropriate tab.
 /// </summary>
 public partial class UnifiedGitPanelViewModel : BasePanelViewModel
 {
@@ -34,6 +35,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
     public GitFilesViewModel ChangesVM { get; }
     public CommitHistoryViewModel HistoryVM { get; }
     public GitStashViewModel StashVM { get; }
+    public GitTagsViewModel TagsVM { get; }
     public BranchComparisonViewModel ComparisonVM { get; }
 
     private TerminalPairTabViewModel? _currentTerminalTab;
@@ -76,6 +78,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
     public bool IsChangesTabActive => ActiveTab == GitPanelTab.Changes;
     public bool IsHistoryTabActive => ActiveTab == GitPanelTab.History;
     public bool IsStashTabActive => ActiveTab == GitPanelTab.Stash;
+    public bool IsTagsTabActive => ActiveTab == GitPanelTab.Tags;
     public bool IsComparisonTabActive => ActiveTab == GitPanelTab.Comparison;
 
     #endregion
@@ -88,6 +91,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         GitFilesViewModel changesVM,
         CommitHistoryViewModel historyVM,
         GitStashViewModel stashVM,
+        GitTagsViewModel tagsVM,
         BranchComparisonViewModel comparisonVM)
     {
         _gitStatusService = gitStatusService;
@@ -98,6 +102,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         ChangesVM = changesVM;
         HistoryVM = historyVM;
         StashVM = stashVM;
+        TagsVM = tagsVM;
         ComparisonVM = comparisonVM;
 
         // Default to Popup state with large size
@@ -112,6 +117,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         OnPropertyChanged(nameof(IsChangesTabActive));
         OnPropertyChanged(nameof(IsHistoryTabActive));
         OnPropertyChanged(nameof(IsStashTabActive));
+        OnPropertyChanged(nameof(IsTagsTabActive));
         OnPropertyChanged(nameof(IsComparisonTabActive));
     }
 
@@ -188,6 +194,10 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
                     await StashVM.LoadDataAsync(_currentTerminalTab);
                     break;
 
+                case GitPanelTab.Tags:
+                    await TagsVM.LoadDataAsync(_currentTerminalTab);
+                    break;
+
                 case GitPanelTab.Comparison:
                     await ComparisonVM.LoadDataAsync(_currentTerminalTab);
                     break;
@@ -210,6 +220,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         ChangesVM.IsOpen = false;
         HistoryVM.IsOpen = false;
         StashVM.IsOpen = false;
+        TagsVM.IsOpen = false;
         ComparisonVM.IsOpen = false;
 
         _currentTerminalTab = null;

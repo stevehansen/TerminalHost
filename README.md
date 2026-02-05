@@ -54,7 +54,7 @@ Layout modes: Custom Full, Horizontal Split, Vertical Split (toggle in toolbar).
 | Switch Custom/Shell focus | `Ctrl+\`` |
 | Start/Stop project run | `F5` |
 | Command palette | `Ctrl+Shift+P` |
-| Git changes | `Ctrl+G` |
+| Git changes | `Alt+G` |
 | File explorer | `Ctrl+Shift+F` |
 | Settings | `Ctrl+,` |
 | Help | `F1` |
@@ -93,7 +93,7 @@ Layout modes: Custom Full, Horizontal Split, Vertical Split (toggle in toolbar).
 **GitHub Integration**
 - `Ctrl+Shift+H` - GitHub Dashboard (PRs, reviews, issues)
 - `Ctrl+B` - Branch switcher with fetch/pull/delete
-- `Ctrl+G` - Git changes with inline diffs
+- `Alt+G` - Git changes with inline diffs
 
 **File Tools**
 - `Ctrl+O` - File preview with syntax highlighting
@@ -163,7 +163,7 @@ host --user-data-dir "C:\Path"  # Override configuration path (or -data)
 | Ctrl+W           | Close current tab                   |
 | Ctrl+`           | Switch between Custom/Shell terminal|
 | Ctrl+Shift+P     | Open command palette                |
-| Ctrl+G           | Open git changes panel              |
+| Alt+G            | Open git changes panel              |
 | F5               | Start/Stop project run              |
 
 ## Configuration

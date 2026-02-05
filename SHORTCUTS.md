@@ -50,8 +50,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
-| `Alt+G` | Unified Git panel | Project tab | Tabbed panel with all Git features (Changes, Branches, History, Stash, Comparison) |
-| `Ctrl+G` | Git changes panel | Project tab | Staging + commit UI |
+| `Alt+G` | Unified Git panel (Changes tab) | Project tab | Tabbed panel with all Git features (Changes, Branches, History, Stash, Tags, Comparison). Ctrl+G is reserved by Claude Code. |
 | `Ctrl+H` | Commit history | Project tab | |
 | `Ctrl+B` | Branch switcher | Project tab | |
 | `Ctrl+Shift+D` | Git Pull | Project tab | Stash, pull --rebase, pop |
@@ -159,6 +158,12 @@ These shortcuts are reserved by the system or have special meaning:
 | `Alt+Tab` | System window switching |
 | `Alt+F4` | Close window (system) |
 | `Ctrl+Shift+Escape` | Task Manager (system) |
+
+### AI Assistant Conflicts
+
+| Shortcut | Reserved By | Notes |
+|----------|-------------|-------|
+| `Ctrl+G` | Claude Code | Opens multi-line prompt editor in Claude Code. Use `Alt+G` for Git changes instead. |
 
 ### macOS
 

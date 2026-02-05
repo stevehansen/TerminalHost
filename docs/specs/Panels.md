@@ -46,7 +46,7 @@ The file explorer respects `.gitignore` rules to keep the tree uncluttered.
 |----------|----------|
 | **Ctrl+Shift+F** | Toggle File Explorer panel |
 | **Ctrl+M** | Toggle Markdown Preview (opens README.md if not open) |
-| **Ctrl+G** | Toggle Git Changes panel |
+| **Alt+G** | Toggle Git Changes panel |
 | **Ctrl+Shift+N** | Toggle Scratch Pad panel |
 
 ## 5. Popup & Window Sizing

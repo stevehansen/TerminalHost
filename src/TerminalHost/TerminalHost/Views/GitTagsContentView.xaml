@@ -1,0 +1,241 @@
+<UserControl x:Class="TerminalHost.Views.GitTagsContentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:GitTagsViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Create Tag Section -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Row="0" Grid.Column="0"
+                         Text="{Binding NewTagName, UpdateSourceTrigger=PropertyChanged}"
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,4"
+                         FontSize="{StaticResource FontSizeMicro}"
+                         Margin="0,0,8,4">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Setter Property="Tag" Value="Tag name (e.g. v1.0.0)"/>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+
+                <Button Grid.Row="0" Grid.Column="1"
+                        Content="Create"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding CreateTagCommand}"
+                        Padding="12,4"
+                        FontSize="{StaticResource FontSizeMicro}"
+                        VerticalAlignment="Top"/>
+
+                <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                         Text="{Binding NewTagMessage, UpdateSourceTrigger=PropertyChanged}"
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,4"
+                         FontSize="{StaticResource FontSizeMicro}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Setter Property="Tag" Value="Message (optional, creates annotated tag)"/>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Grid>
+        </Border>
+
+        <!-- Search -->
+        <Border Grid.Row="1" Background="{StaticResource BackgroundDarkBrush}" Padding="12,6">
+            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     Background="{StaticResource BackgroundMediumBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     CaretBrush="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                     BorderThickness="1"
+                     Padding="8,4"
+                     FontSize="{StaticResource FontSizeMicro}">
+                <TextBox.Style>
+                    <Style TargetType="TextBox">
+                        <Setter Property="Tag" Value="Search tags..."/>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+        </Border>
+
+        <!-- Tag List -->
+        <ListBox Grid.Row="2"
+                 ItemsSource="{Binding Tags}"
+                 SelectedItem="{Binding SelectedTag}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="8,4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Tag icon -->
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="🏷"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+
+                        <!-- Tag name -->
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding Name}"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+
+                        <!-- Hash -->
+                        <TextBlock Grid.Row="0" Grid.Column="2"
+                                   Text="{Binding ShortHash}"
+                                   Foreground="#569CD6"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontSize="{StaticResource FontSizeMicro}"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+
+                        <!-- Message / commit subject -->
+                        <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    Margin="0,2,0,0">
+                            <Border CornerRadius="2" Padding="4,1" Margin="0,0,6,0"
+                                    Visibility="{Binding IsAnnotated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Border.Background>
+                                    <SolidColorBrush Color="#2D3A4A"/>
+                                </Border.Background>
+                                <TextBlock Text="annotated"
+                                           Foreground="{StaticResource SyntaxCyanBrush}"
+                                           FontSize="9"/>
+                            </Border>
+                            <TextBlock Text="{Binding CommitSubject}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Padding" Value="4,2"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu Background="{StaticResource BackgroundDarkBrush}"
+                                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}">
+                                <MenuItem Header="Push Tag"
+                                          Command="{Binding DataContext.PushTagCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Delete Local Tag"
+                                          Command="{Binding DataContext.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <MenuItem Header="Delete Remote Tag"
+                                          Command="{Binding DataContext.DeleteRemoteTagCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Foreground="{StaticResource AccentOrangeBrush}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="ItemBorder"
+                                        Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+
+        <!-- Footer with action buttons -->
+        <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Push All"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding PushAllTagsCommand}"
+                            ToolTip="Push all tags to remote"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Push"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding PushTagCommand}"
+                            ToolTip="Push selected tag"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Delete"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DeleteTagCommand}"
+                            ToolTip="Delete selected tag"/>
+                </StackPanel>
+                <TextBlock Text="{Binding Tags.Count, StringFormat='{}{0} tag(s)'}"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Empty state -->
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource TextMutedBrush}"
+                   FontSize="{StaticResource FontSizeSmall}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Padding="20"
+                   Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
+    </Grid>
+</UserControl>

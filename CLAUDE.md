@@ -28,7 +28,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **CLI & Single Instance**: `host .` support with named pipe IPC and duplicate tab detection.
 - [x] **Terminal Features**: ANSI colors, Interactive CLI support, Nerd Font (Cascadia Code NF), Activity indicators.
 - [x] **Settings & Persistence**: Form-based (Rich) and JSON (Raw) settings editor (Ctrl+,), window/session state persistence.
-- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff (Ctrl+G), Stash manager (Ctrl+Shift+S).
+- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff (Alt+G), Stash manager (Ctrl+Shift+S).
 - [x] **File Tools**: File explorer panel (Ctrl+Shift+F), syntax-highlighted preview (Ctrl+O), built-in editor (Ctrl+Shift+E).
 - [x] **Productivity**: Command palette (Ctrl+Shift+P), Tab switcher (Ctrl+Shift+T), Scratch pad (Ctrl+Shift+N).
 - [x] **Project Runner**: F5 to run projects with auto-detection and dedicated run terminal.
@@ -399,7 +399,7 @@ TerminalHost/
             ├── CommandPaletteView.xaml(.cs)  # Command palette (Ctrl+Shift+P)
             ├── HelpView.xaml(.cs)            # Help/shortcuts popup (F1)
             ├── GitBranchView.xaml(.cs)       # Git branch switcher (Ctrl+B)
-            ├── GitFilesView.xaml(.cs)        # Git changes panel (Ctrl+G)
+            ├── GitFilesView.xaml(.cs)        # Git changes panel (Alt+G)
             ├── DetectedLinksView.xaml(.cs)   # Detected links popup
             └── FileViewerPopup.xaml(.cs)     # Unified file viewer popup (Ctrl+O/Ctrl+Shift+E)
 ```
@@ -452,7 +452,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+P`: Open settings (Profiles section)
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
-- `Ctrl+G`: Open git changes panel (modified files + diffs + staging + commit UI)
+- `Alt+G`: Open git changes panel (modified files + diffs + staging + commit UI)
 - `Ctrl+H`: Open commit history viewer
 - `Ctrl+F3`: Search across files (full-text search with replace)
 - `Ctrl+B`: Open git branch switcher

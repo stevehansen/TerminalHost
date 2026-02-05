@@ -759,8 +759,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Cmd/Ctrl+G for Git Changes panel
-        if (e.Key == Key.G && e.KeyModifiers == primaryModifier)
+        // Handle Alt+G for Git Changes panel (Ctrl+G reserved by Claude Code)
+        if (e.Key == Key.G && e.KeyModifiers == KeyModifiers.Alt)
         {
             if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
             {

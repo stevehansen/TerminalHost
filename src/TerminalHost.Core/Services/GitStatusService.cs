@@ -1571,4 +1571,117 @@ public sealed class GitStatusService : IGitStatusService
     }
 
     #endregion
+
+    #region Tag Operations
+
+    public async Task<List<GitTag>> GetTagsAsync(string workingDirectory)
+    {
+        var tags = new List<GitTag>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return tags;
+
+        // Use for-each-ref to get tag info in a single command
+        // Format: refname:short | objectname:short | objectname | objecttype | subject | taggername | taggerdate | contents:subject
+        var output = await _gitRunner.RunGitCommandAsync(
+            workingDirectory,
+            "for-each-ref --sort=-version:refname refs/tags/ --format=\"%(refname:short)|%(objectname:short)|%(*objectname:short)|%(objecttype)|%(subject)|%(taggername)|%(taggerdate:relative)\"",
+            TimeSpan.FromSeconds(10));
+
+        if (string.IsNullOrEmpty(output))
+            return tags;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|');
+            if (parts.Length < 7) continue;
+
+            var name = parts[0].Trim();
+            var tagHash = parts[1].Trim();
+            var derefHash = parts[2].Trim();
+            var objectType = parts[3].Trim();
+            var subject = parts[4].Trim();
+            var taggerName = parts[5].Trim();
+            var taggerDate = parts[6].Trim();
+
+            var isAnnotated = objectType == "tag";
+            // For annotated tags, the dereferenced hash points to the commit
+            var commitHash = isAnnotated && !string.IsNullOrEmpty(derefHash) ? derefHash : tagHash;
+
+            tags.Add(new GitTag
+            {
+                Name = name,
+                Hash = commitHash,
+                ShortHash = commitHash,
+                IsAnnotated = isAnnotated,
+                Message = isAnnotated ? subject : null,
+                CommitSubject = subject,
+                TaggerName = isAnnotated ? taggerName : null,
+                TaggerDate = isAnnotated ? taggerDate : null
+            });
+        }
+
+        return tags;
+    }
+
+    public async Task<GitOperationResult> CreateTagAsync(string workingDirectory, string tagName, string? message = null, string? commitHash = null)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        string command;
+        if (!string.IsNullOrEmpty(message))
+        {
+            // Annotated tag
+            var escapedMessage = message.Replace("\"", "\\\"");
+            command = $"tag -a \"{tagName}\" -m \"{escapedMessage}\"";
+        }
+        else
+        {
+            // Lightweight tag
+            command = $"tag \"{tagName}\"";
+        }
+
+        if (!string.IsNullOrEmpty(commitHash))
+        {
+            command += $" {commitHash}";
+        }
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, command);
+    }
+
+    public async Task<GitOperationResult> DeleteTagAsync(string workingDirectory, string tagName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"tag -d \"{tagName}\"");
+    }
+
+    public async Task<GitOperationResult> PushTagAsync(string workingDirectory, string tagName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"push origin \"{tagName}\"");
+    }
+
+    public async Task<GitOperationResult> PushAllTagsAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "push origin --tags");
+    }
+
+    public async Task<GitOperationResult> DeleteRemoteTagAsync(string workingDirectory, string tagName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"push origin --delete \"{tagName}\"");
+    }
+
+    #endregion
 }

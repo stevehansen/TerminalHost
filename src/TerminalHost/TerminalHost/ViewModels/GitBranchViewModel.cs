@@ -44,6 +44,12 @@ public partial class GitBranchViewModel : ObservableObject
     private bool _isLoading;
 
     [ObservableProperty]
+    private bool _isTreeView;
+
+    [ObservableProperty]
+    private ObservableCollection<BranchTreeNode> _branchTree = [];
+
+    [ObservableProperty]
     private string _title = "Git Branches";
 
     [ObservableProperty]
@@ -214,6 +220,12 @@ public partial class GitBranchViewModel : ObservableObject
 
         Branches = new ObservableCollection<GitBranch>(view.Cast<GitBranch>());
 
+        // Build tree view if active
+        if (IsTreeView)
+        {
+            BuildBranchTree(filtered.ToList());
+        }
+
         // Show/hide empty state
         StatusMessage = Branches.Any() ? string.Empty : "No branches found matching your search.";
 
@@ -221,6 +233,106 @@ public partial class GitBranchViewModel : ObservableObject
         SelectedBranch = Branches.FirstOrDefault(b => b.IsCurrent) ?? Branches.FirstOrDefault();
 
         UpdateBranchButtonsCanExecute();
+    }
+
+    [RelayCommand]
+    private void ToggleTreeView()
+    {
+        IsTreeView = !IsTreeView;
+        if (IsTreeView)
+        {
+            var searchTextLower = SearchText.ToLower();
+            IEnumerable<GitBranch> filtered = _allBranches;
+            if (!string.IsNullOrEmpty(searchTextLower))
+            {
+                filtered = _allBranches.Where(b =>
+                    b.Name.ToLower().Contains(searchTextLower) ||
+                    b.ShortName.ToLower().Contains(searchTextLower) ||
+                    (b.IssueNumber?.ToLower().Contains(searchTextLower) ?? false));
+            }
+            BuildBranchTree(filtered.ToList());
+        }
+    }
+
+    private void BuildBranchTree(List<GitBranch> branches)
+    {
+        var rootNodes = new List<BranchTreeNode>();
+
+        // Group by TypeGroup first (Current, Local, Remote)
+        var groups = branches.GroupBy(b => b.TypeGroup).OrderBy(g => g.Key switch
+        {
+            "Current" => 0,
+            "Local" => 1,
+            "Remote" => 2,
+            _ => 3
+        });
+
+        foreach (var group in groups)
+        {
+            var groupNode = new BranchTreeNode
+            {
+                Name = group.Key,
+                FullPath = group.Key,
+                IsFolder = true,
+                IsExpanded = true,
+                BranchCount = group.Count()
+            };
+
+            // Build subtree from branch names split on '/'
+            foreach (var branch in group)
+            {
+                var parts = branch.ShortName.Split('/');
+                InsertBranchIntoTree(groupNode, parts, 0, branch);
+            }
+
+            rootNodes.Add(groupNode);
+        }
+
+        BranchTree = new ObservableCollection<BranchTreeNode>(rootNodes);
+    }
+
+    private static void InsertBranchIntoTree(BranchTreeNode parent, string[] parts, int index, GitBranch branch)
+    {
+        if (index >= parts.Length) return;
+
+        if (index == parts.Length - 1)
+        {
+            // Leaf node - the branch itself
+            parent.Children.Add(new BranchTreeNode
+            {
+                Name = parts[index],
+                FullPath = branch.Name,
+                IsFolder = false,
+                Branch = branch
+            });
+            return;
+        }
+
+        // Intermediate folder
+        var folderName = parts[index];
+        var existingFolder = parent.Children.FirstOrDefault(c => c.IsFolder && c.Name == folderName);
+        if (existingFolder == null)
+        {
+            existingFolder = new BranchTreeNode
+            {
+                Name = folderName,
+                FullPath = string.Join("/", parts.Take(index + 1)),
+                IsFolder = true,
+                IsExpanded = true
+            };
+            parent.Children.Add(existingFolder);
+        }
+
+        InsertBranchIntoTree(existingFolder, parts, index + 1, branch);
+
+        // Update branch count
+        existingFolder.BranchCount = CountBranches(existingFolder);
+    }
+
+    private static int CountBranches(BranchTreeNode node)
+    {
+        if (!node.IsFolder) return 1;
+        return node.Children.Sum(c => CountBranches(c));
     }
 
     partial void OnSelectedBranchChanged(GitBranch? value)

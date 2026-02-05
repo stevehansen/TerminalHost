@@ -69,7 +69,7 @@ Quick Commands are configurable shortcuts that send predefined text to a termina
 
 Every project tab shows the current Git branch name and status in the tab header and status bar. You'll see indicators for uncommitted changes, ahead/behind counts relative to the remote, and whether you're in a detached HEAD state. This information updates automatically as you work.
 
-### Git Changes Panel (Ctrl+G)
+### Git Changes Panel (Alt+G)
 
 Open the Git Changes panel to see all modified, staged, and untracked files with inline diffs. Stage or unstage individual files by clicking the checkbox, or use the "Stage All" button. The panel includes a commit message editor with character count warnings and support for multi-line messages. After staging, write your message and click Commit without leaving the panel.
 

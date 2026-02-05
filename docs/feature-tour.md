@@ -68,7 +68,7 @@ This page walks through the primary workflows supported by **TerminalHost**: a W
 **Goal:** Review changes without leaving the project context.
 
 **Panels**
-- `Ctrl+G` opens the **Git changes** panel.
+- `Alt+G` opens the **Git changes** panel.
 - `Ctrl+B` opens the **Git branch** switcher.
 - `Ctrl+Shift+F` opens the **File explorer** panel.
 

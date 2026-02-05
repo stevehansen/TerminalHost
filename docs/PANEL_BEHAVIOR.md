@@ -49,11 +49,11 @@ Different panels have different default display states based on their usage patt
 | Ctrl+M | Docked (not active) | Make markdown the active tab |
 | Ctrl+M | Popup | Focus popup |
 | Ctrl+M | Window | Focus window |
-| Ctrl+G | Not open | Open git changes as **popup** (default state) |
-| Ctrl+G | Docked (active) | Remove from panels (toggle off) |
-| Ctrl+G | Docked (not active) | Make git changes the active tab |
-| Ctrl+G | Popup | Close popup (toggle off) |
-| Ctrl+G | Window | Close window (toggle off) |
+| Alt+G | Not open | Open git changes as **popup** (default state) |
+| Alt+G | Docked (active) | Remove from panels (toggle off) |
+| Alt+G | Docked (not active) | Make git changes the active tab |
+| Alt+G | Popup | Close popup (toggle off) |
+| Alt+G | Window | Close window (toggle off) |
 | Ctrl+Shift+N | Not open | Open scratch pad, add to panels, make active |
 | Ctrl+Shift+N | Docked (active) | Remove from panels (toggle off) |
 | Ctrl+Shift+N | Docked (not active) | Make scratch pad the active tab |

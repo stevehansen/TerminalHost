@@ -24,20 +24,40 @@
                 <!-- Short hash -->
                 <TextBlock Grid.Column="0" Grid.RowSpan="2"
                            Text="{Binding ShortHash}"
-                           Foreground="#569CD6"
                            FontFamily="{StaticResource FontFamilyMonospace}"
                            FontSize="{StaticResource FontSizeSmall}"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"
-                           ToolTip="{Binding Hash}"/>
+                           ToolTip="{Binding Hash}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#569CD6"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsWipEntry}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource AccentOrangeBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
                 <!-- Subject with decorations -->
                 <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
                     <TextBlock Text="{Binding Subject}"
-                               Foreground="{StaticResource TextPrimaryBrush}"
                                FontSize="{StaticResource FontSizeSmall}"
                                TextTrimming="CharacterEllipsis"
-                               MaxWidth="280"/>
+                               MaxWidth="280">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWipEntry}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <ItemsControl ItemsSource="{Binding ParsedDecorations}"
                                   Margin="6,0,0,0"
                                   VerticalAlignment="Center"
@@ -68,6 +88,88 @@
                     <Run Text=" - "/>
                     <Run Text="{Binding RelativeDate, Mode=OneWay}"/>
                 </TextBlock>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Compact commit item template (single-row table view) -->
+        <DataTemplate x:Key="CompactCommitItemTemplate">
+            <Grid Margin="2,1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="80"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding ShortHash}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#569CD6"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsWipEntry}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource AccentOrangeBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                    <TextBlock Text="{Binding Subject}"
+                               FontSize="{StaticResource FontSizeMicro}"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWipEntry}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding ParsedDecorations}"
+                                  Margin="4,0,0,0"
+                                  VerticalAlignment="Center"
+                                  Visibility="{Binding ParsedDecorations.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="2" Padding="3,0" Margin="1,0"
+                                        Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
+                                    <TextBlock Text="{Binding DisplayText}"
+                                               Foreground="White"
+                                               FontSize="9"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding AuthorName}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="3"
+                           Text="{Binding RelativeDate}"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           Margin="4,0,0,0"/>
             </Grid>
         </DataTemplate>
 
@@ -192,9 +294,20 @@
 
                             <!-- Header -->
                             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                <TextBlock Text="{Binding Commits.Count, StringFormat='{}{0} commits'}"
-                                           Foreground="{StaticResource TextDimmedBrush}"
-                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Content="≡"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding ToggleCompactViewCommand}"
+                                            ToolTip="Toggle compact view"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            Padding="6,2"
+                                            Margin="4,0,0,0"/>
+                                    <TextBlock Text="{Binding Commits.Count, StringFormat='{}{0} commits'}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
                             </Border>
 
                             <!-- Filter bar -->
@@ -231,11 +344,21 @@
                             <ListBox Grid.Row="2"
                                      ItemsSource="{Binding Commits}"
                                      SelectedItem="{Binding SelectedCommit}"
-                                     ItemTemplate="{StaticResource CommitItemTemplate}"
                                      ItemContainerStyle="{StaticResource CommitListBoxItemStyle}"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.Style>
+                                    <Style TargetType="ListBox">
+                                        <Setter Property="ItemTemplate" Value="{StaticResource CommitItemTemplate}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCompactView}" Value="True">
+                                                <Setter Property="ItemTemplate" Value="{StaticResource CompactCommitItemTemplate}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.Style>
+                            </ListBox>
 
                             <!-- Load more button -->
                             <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"

@@ -202,7 +202,7 @@
                             Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="📋"
-                            ToolTip="Git Changes (Ctrl+G)"
+                            ToolTip="Git Changes (Alt+G)"
                             AutomationProperties.Name="Git Changes"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"

@@ -9,7 +9,7 @@ using TerminalHost.Services;
 namespace TerminalHost.ViewModels;
 
 /// <summary>
-/// ViewModel for Git Changes panel (Ctrl+G).
+/// ViewModel for Git Changes panel (Alt+G).
 /// Supports Panel, Popup, and Window display states.
 /// Provides interactive staging, unstaging, and commit functionality.
 /// </summary>

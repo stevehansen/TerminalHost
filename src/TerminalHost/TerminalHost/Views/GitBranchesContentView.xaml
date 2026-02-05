@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance viewModels:GitBranchViewModel}"
              mc:Ignorable="d"
              Background="{StaticResource BackgroundDarkBrush}">
@@ -132,26 +133,95 @@
             </Grid>
         </Border>
 
-        <!-- Search Box -->
+        <!-- Search Box with Tree Toggle -->
         <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
-            <TextBox x:Name="BranchSearchBox"
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     Background="{StaticResource BackgroundMediumBrush}"
-                     Foreground="{StaticResource TextPrimaryBrush}"
-                     CaretBrush="{StaticResource TextPrimaryBrush}"
-                     BorderBrush="{StaticResource BorderSubtleBrush}"
-                     BorderThickness="1"
-                     Padding="8,6"
-                     FontSize="{StaticResource FontSizeCode}"/>
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding ToggleTreeViewCommand}"
+                        ToolTip="Toggle tree/list view"
+                        Padding="6,4"
+                        Margin="8,0,0,0"
+                        FontSize="{StaticResource FontSizeSmall}">
+                    <Button.Content>
+                        <TextBlock Text="🌳">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsTreeView}" Value="True">
+                                            <Setter Property="Text" Value="☰"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+                <TextBox x:Name="BranchSearchBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,6"
+                         FontSize="{StaticResource FontSizeCode}"/>
+            </DockPanel>
         </Border>
 
-        <!-- Branch List -->
+        <!-- Branch Tree View (visible when IsTreeView) -->
+        <TreeView Grid.Row="2"
+                  ItemsSource="{Binding BranchTree}"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Foreground="{StaticResource TextPrimaryBrush}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type domain:BranchTreeNode}" ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal" Margin="2,2">
+                        <TextBlock Text="{Binding DisplayIcon}" Margin="0,0,6,0" FontSize="{StaticResource FontSizeSmall}"/>
+                        <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSmall}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="{Binding CountDisplay}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.Resources>
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
+
+        <!-- Branch List (hidden when IsTreeView) -->
         <ListBox Grid.Row="2"
                  ItemsSource="{Binding Branches}"
                  SelectedItem="{Binding SelectedBranch}"
                  Background="Transparent"
                  BorderThickness="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid Margin="8,4">

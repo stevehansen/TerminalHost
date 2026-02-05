@@ -40,7 +40,7 @@ title: Keyboard Shortcuts
 | Shortcut | Action |
 |---|---|
 | `Ctrl+Shift+P` | Command palette |
-| `Ctrl+G` | Git changes panel |
+| `Alt+G` | Git changes panel |
 | `Ctrl+B` | Git branch switcher |
 | `Ctrl+T` | Task panel (focus mode) |
 | `Ctrl+Shift+N` | Scratch pad (notes) |

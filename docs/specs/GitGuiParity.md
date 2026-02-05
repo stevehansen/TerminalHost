@@ -39,11 +39,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | Partial |
-| **What exists** | Flat searchable branch list in GitBranchViewModel (Ctrl+B). Local/remote branches listed together with filters. Full checkout, create, delete, rename support. |
-| **Gap** | No hierarchical tree view grouping by folder prefix (e.g., `feature/`, `bugfix/`, `hotfix/`). GitKraken shows branches in a collapsible tree with counts. |
+| **Status** | Done |
+| **What exists** | Flat searchable branch list in GitBranchViewModel (Ctrl+B). Local/remote branches listed together with filters. Full checkout, create, delete, rename support. Tree/list toggle button groups branches by folder prefix (e.g., `feature/`, `bugfix/`) with collapsible hierarchy and branch counts. |
+| **Gap** | None. |
 | **RICE** | R:4 I:2 C:0.8 E:2 → **3.2** |
-| **Notes** | Low visual impact — flat list with search is arguably faster for most users. Tree view mainly benefits repos with 50+ branches. |
+| **Notes** | Tree view toggle added in Phase 2. Groups by TypeGroup (Current/Local/Remote), then splits on `/` for folder hierarchy. |
 
 ### 1.2 Remote Branches (Tree View)
 
@@ -89,11 +89,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | Planned |
-| **What exists** | Tags mentioned in GitAdvanced.md as planned. No implementation yet. Branch comparison can compare tags (as refs). Commit decorations show tag names. |
-| **Gap** | No tag listing, creation, deletion, or push UI. No tag count. No "create tag from commit" in history view. |
+| **Status** | Done |
+| **What exists** | Tags tab in Unified Git Panel (Alt+G → Tags). Full tag management: list, search, create (lightweight or annotated), delete local, push, push all, delete remote. Context menu on tags. |
+| **Gap** | No "create tag from commit" in history view (would require right-click context menu on commit items). |
 | **RICE** | R:3 I:2 C:0.8 E:2 → **2.4** |
-| **Notes** | Already planned in GitAdvanced.md. Moderate value for release-oriented workflows. Implementation is straightforward via `git tag` commands. |
+| **Notes** | Implemented in Phase 2. GitTagsViewModel + GitTagsContentView with full CRUD operations via IGitStatusService. |
 
 ### 1.7 Teams
 
@@ -147,11 +147,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | Partial |
-| **What exists** | Commit items show hash, subject, author, relative date — but in a card-style layout, not a table with resizable columns. |
-| **Gap** | GitKraken uses a proper table with sortable/resizable columns: Branch/Tag, Graph, Commit Message, Author, Date/Time, SHA. |
+| **Status** | Done |
+| **What exists** | Commit items show hash, subject, author, relative date. Toggle between card-style and compact single-row table view via "≡" button. Compact view shows Hash(60px) | Subject+Decorations(*) | Author(100px) | Date(80px) in a dense row layout. |
+| **Gap** | No sortable/resizable columns. |
 | **RICE** | R:3 I:2 C:0.8 E:2 → **2.4** |
-| **Notes** | Table layout gives better information density for scanning many commits. Could offer a "compact" vs "card" view toggle. |
+| **Notes** | Compact view toggle implemented in Phase 2. |
 
 ### 2.5 Commit Search/Filter
 
@@ -167,11 +167,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | Nothing — uncommitted changes are in the separate Git Changes panel. |
-| **Gap** | GitKraken shows a "// WIP" entry at the top of the graph representing uncommitted changes, seamlessly connecting working directory state to commit history. |
+| **Status** | Done |
+| **What exists** | Synthetic "✎ Working Changes" entry at top of commit history when repo is dirty. Shows modified file count. Styled with yellow subject and orange hash. Selecting it clears the details pane (no commit details to show). |
+| **Gap** | None. |
 | **RICE** | R:3 I:2 C:0.7 E:2 → **2.1** |
-| **Notes** | Nice UX touch that unifies the working directory with history. Could add a synthetic "Working Changes" entry at top of commit list that links to the Git Changes panel. |
+| **Notes** | Implemented in Phase 2. Uses `IsWipEntry` flag on GitCommit to identify the synthetic entry. |
 
 ---
 
@@ -376,7 +376,7 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 | # | Feature | RICE | Effort | Status |
 |---|---------|------|--------|--------|
 | 3.3 | File change count summary header | 3.6 | <1 wk | **Done** |
-| 1.1 | Branch tree view (folder grouping) | 3.2 | 2 wk | Enhance |
+| 1.1 | Branch tree view (folder grouping) | 3.2 | 2 wk | **Done** |
 | 5.5 | Diff viewer enhancements (side-by-side, navigation) | 2.8 | 3 wk | Enhance |
 | 1.3 | Stash count in sidebar | 2.7 | <1 wk | **Done** |
 | 4.4 | Quick stash/pop toolbar buttons | 2.7 | <1 wk | Enhance |
@@ -385,13 +385,13 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | # | Feature | RICE | Effort | Status |
 |---|---------|------|--------|--------|
-| 1.6 | Tags management | 2.4 | 2 wk | Planned |
-| 1.2 | Remote branch tree view | 2.4 | 2 wk | Enhance |
-| 2.4 | Commit table columns layout | 2.4 | 2 wk | Enhance |
+| 1.6 | Tags management | 2.4 | 2 wk | **Done** |
+| 1.2 | Remote branch tree view | 2.4 | 2 wk | **Done** |
+| 2.4 | Commit table columns layout | 2.4 | 2 wk | **Done** |
 | 2.5 | Advanced commit search (file, date) | 2.4 | 2 wk | Enhance |
 | 3.4 | Path/Tree view toggle for changed files | 2.4 | 2 wk | New |
 | 1.4 | PR sidebar section | 2.1 | 3 wk | Enhance |
-| 2.6 | WIP entry in commit history | 2.1 | 2 wk | New |
+| 2.6 | WIP entry in commit history | 2.1 | 2 wk | **Done** |
 | 5.1 | Unified git sidebar panel | 1.8 | 4 wk | New |
 | 5.2 | Hunk-level staging | 1.8 | 4 wk | New |
 | 2.1 | Visual commit graph | 1.6 | 5+ wk | New |
@@ -426,14 +426,14 @@ All quick wins implemented:
 3. ~~**File change count header** in Git Changes panel (3.3)~~ ✅
 4. ~~**Stash count** in workspace sidebar with configurable setting (1.3)~~ ✅
 
-### Phase 2: Enhanced Navigation (~4 weeks)
+### Phase 2: Enhanced Navigation — ✅ COMPLETE
 
-Improve how users navigate branches and history:
+All navigation enhancements implemented:
 
-1. **Branch tree view** with folder grouping and counts (1.1, 1.2)
-2. **Tags management** — list, create, delete, push (1.6)
-3. **WIP entry** at top of commit history (2.6)
-4. **Compact table view** option for commit history (2.4)
+1. ~~**Branch tree view** with folder grouping and counts (1.1, 1.2)~~ ✅
+2. ~~**Tags management** — list, create, delete, push in Unified Git Panel tab (1.6)~~ ✅
+3. ~~**WIP entry** at top of commit history with file count (2.6)~~ ✅
+4. ~~**Compact table view** option for commit history with toggle button (2.4)~~ ✅
 
 ### Phase 3: Advanced Staging & Diff (~5 weeks)
 
@@ -463,8 +463,9 @@ High-effort features to evaluate based on user demand:
 | 2026-02-05 | Skip AI commits, cloud patches, teams | Not aligned with TerminalHost's terminal-centric approach |
 | 2026-02-05 | Prioritize quick wins over graph visualization | Graph is high effort with uncertain ROI given terminal access to `git log --graph` |
 | 2026-02-05 | Phase 1 complete | All 4 quick wins implemented. Pull uses stash/rebase/pop flow. Old shell quick commands replaced with built-in shortcuts. |
+| 2026-02-05 | Phase 2 complete | Branch tree view, tags management, WIP entry, compact commit view all implemented. |
 
 ---
 
-*Document Version: 1.1*
+*Document Version: 1.2*
 *Created: 2026-02-05*

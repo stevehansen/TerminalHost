@@ -100,6 +100,14 @@ public interface IGitStatusService
     /// <param name="targetRef">The commit/branch to point to.</param>
     Task<GitOperationResult> UpdateBranchPointerAsync(string workingDirectory, string branchName, string targetRef);
 
+    // Tag operations
+    Task<List<GitTag>> GetTagsAsync(string workingDirectory);
+    Task<GitOperationResult> CreateTagAsync(string workingDirectory, string tagName, string? message = null, string? commitHash = null);
+    Task<GitOperationResult> DeleteTagAsync(string workingDirectory, string tagName);
+    Task<GitOperationResult> PushTagAsync(string workingDirectory, string tagName);
+    Task<GitOperationResult> PushAllTagsAsync(string workingDirectory);
+    Task<GitOperationResult> DeleteRemoteTagAsync(string workingDirectory, string tagName);
+
     // Submodule operations
     /// <summary>
     /// Gets the list of submodules with their current status.

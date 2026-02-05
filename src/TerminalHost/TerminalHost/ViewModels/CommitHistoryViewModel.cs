@@ -67,6 +67,9 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     [ObservableProperty]
     private string _authorFilter = "";
 
+    [ObservableProperty]
+    private bool _isCompactView;
+
     public bool HasSelectedCommit => SelectedCommit != null;
     public bool HasCommits => Commits.Count > 0;
 
@@ -154,6 +157,22 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
             var commits = await _gitStatusService.GetCommitHistoryAsync(workingDirectory, DefaultCommitCount, author);
 
             Commits = new ObservableCollection<GitCommit>(commits);
+
+            // Insert WIP entry at top if repo is dirty
+            if (_currentTerminalTab.GitStatus?.IsDirty == true)
+            {
+                var modifiedFiles = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+                var count = modifiedFiles.Count;
+                Commits.Insert(0, new GitCommit
+                {
+                    IsWipEntry = true,
+                    ShortHash = "\u270e",
+                    Subject = "Working Changes",
+                    AuthorName = "",
+                    RelativeDate = $"{count} file(s) modified"
+                });
+            }
+
             OnPropertyChanged(nameof(HasCommits));
 
             // Select first commit
@@ -216,6 +235,12 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private async Task ApplyAuthorFilterAsync()
     {
         await RefreshCommitsAsync();
+    }
+
+    [RelayCommand]
+    private void ToggleCompactView()
+    {
+        IsCompactView = !IsCompactView;
     }
 
     [RelayCommand]
@@ -296,6 +321,15 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private async void LoadCommitDetailsAsync(GitCommit? commit)
     {
         if (commit == null || _currentTerminalTab?.Pair.WorkingDirectory == null)
+        {
+            CommitDetails = null;
+            SelectedFile = null;
+            DiffText = "";
+            return;
+        }
+
+        // Skip loading details for WIP entry
+        if (commit.IsWipEntry)
         {
             CommitDetails = null;
             SelectedFile = null;

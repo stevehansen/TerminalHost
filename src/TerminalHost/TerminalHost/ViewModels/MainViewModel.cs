@@ -1974,7 +1974,7 @@ public partial class MainViewModel : ObservableObject
                 Id = "git-changes",
                 Name = "Git Changes",
                 Description = "View modified files and diffs",
-                Shortcut = "Ctrl+G",
+                Shortcut = "Alt+G",
                 Icon = "📋",
                 Category = "Git",
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.Changes),

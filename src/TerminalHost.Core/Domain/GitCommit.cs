@@ -25,6 +25,7 @@ public class GitCommit
     public string? Body { get; set; }
     public string? Decorations { get; set; }
     public List<string> ParentHashes { get; set; } = [];
+    public bool IsWipEntry { get; set; }
 
     /// <summary>
     /// Display format for the author - shows name only or name with email.
