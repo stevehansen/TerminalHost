@@ -556,6 +556,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [ToastNotifications.md](docs/specs/ToastNotifications.md) | Non-intrusive toast notifications with progress support | **Completed** | WPF airspace workaround included |
 | [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
 | [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
+| [GitGuiParity.md](docs/specs/GitGuiParity.md) | Git GUI feature parity (vs GitKraken/Fork) | **Partial** | Phase 1 complete; Phase 2-4 remaining |
 
 ### Architecture Specifications
 
