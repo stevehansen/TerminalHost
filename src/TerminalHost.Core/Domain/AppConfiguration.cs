@@ -232,27 +232,7 @@ public class AppConfiguration
             UseUserInput = true,
             Shortcut = "Ctrl+Shift+V"
         },
-        // Git commands
-        new QuickCommand
-        {
-            Id = "git-pull",
-            Label = "Pull",
-            Icon = "↓",
-            Text = "git pull --rebase",
-            Target = QuickCommandTarget.Shell,
-            AppendNewline = true,
-            Shortcut = "Ctrl+Shift+D"  // D for Download
-        },
-        new QuickCommand
-        {
-            Id = "git-push",
-            Label = "Push",
-            Icon = "↑",
-            Text = "git push",
-            Target = QuickCommandTarget.Shell,
-            AppendNewline = true,
-            Shortcut = "Ctrl+Shift+U"  // U for Upload
-        },
+        // Git pull/push are now toolbar buttons (not quick commands)
         // Dev tool commands
         new QuickCommand
         {
@@ -544,6 +524,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("gitAutoFetchIntervalSeconds")]
     public int GitAutoFetchIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Whether to show stash count in the workspace sidebar.
+    /// </summary>
+    [JsonPropertyName("showStashCount")]
+    public bool ShowStashCount { get; set; } = true;
 
     /// <summary>
     /// Sort mode for workspaces in the sidebar.

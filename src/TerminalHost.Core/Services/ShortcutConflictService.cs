@@ -77,6 +77,8 @@ public static class ShortcutConflictService
             new("Ctrl+G", "Git changes panel"),
             new("Ctrl+H", "Commit history"),
             new("Ctrl+B", "Branch switcher"),
+            new("Ctrl+Shift+D", "Git Pull (stash, pull --rebase, pop)"),
+            new("Ctrl+Shift+U", "Git Push"),
             new("Ctrl+Shift+S", "Stash manager"),
             new("Ctrl+Shift+G", "Reflog"),
             new("Ctrl+Alt+B", "Branch comparison"),

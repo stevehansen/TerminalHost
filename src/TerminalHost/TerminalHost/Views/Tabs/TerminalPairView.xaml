@@ -155,6 +155,18 @@
                     <TextBlock Foreground="{StaticResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding GitStatusDisplay}"/>
 
+                    <!-- Git Pull/Push Buttons -->
+                    <Button Content="↓" ToolTip="Git Pull (Ctrl+Shift+D)" AutomationProperties.Name="Git Pull"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding GitPullCommand}"
+                            Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Padding="6,2" Margin="8,0,2,0"/>
+                    <Button Content="↑" ToolTip="Git Push (Ctrl+Shift+U)" AutomationProperties.Name="Git Push"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding GitPushCommand}"
+                            Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Padding="6,2" Margin="0,0,4,0"/>
+
                     <!-- Quick Commands Separator -->
                     <Border Width="1" Background="{StaticResource BorderSubtleBrush}" Margin="16,2,8,2"/>
 

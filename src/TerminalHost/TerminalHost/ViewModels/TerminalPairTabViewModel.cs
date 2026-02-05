@@ -475,6 +475,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public TerminalPair Pair { get; }
     private readonly IStatisticsService _statisticsService;
     private readonly ITaskService? _taskService;
+    private readonly IGitStatusService? _gitStatusService;
+    private readonly IToastService? _toastService;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -486,13 +488,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0, ITaskService? taskService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
         CustomIcon = customIcon;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _gitStatusService = gitStatusService;
+        _toastService = toastService;
         _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
@@ -508,7 +512,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, int duplicateIndex = 0, ITaskService? taskService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -517,6 +521,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         CustomIcon = activeAiAssistant.DisplayLabel;
         ShellIcon = shellIcon;
         _statisticsService = statisticsService;
+        _gitStatusService = gitStatusService;
+        _toastService = toastService;
         _taskService = taskService;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
@@ -720,6 +726,66 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         // Focus shell terminal when switching to split view (shell is being revealed)
         FocusedTerminal = ActiveTerminal.Shell;
         Pair.ShellTerminal.Focus();
+    }
+
+    [RelayCommand]
+    private async Task GitPullAsync()
+    {
+        if (GitStatus?.IsGitRepository != true || _gitStatusService == null || _toastService == null) return;
+        var workDir = Pair.WorkingDirectory;
+        var isDirty = GitStatus.IsDirty;
+        using var toast = _toastService.ShowProgress(isDirty ? "Stashing & pulling..." : "Pulling...");
+
+        // Stash if dirty to avoid pull failures
+        if (isDirty)
+        {
+            var stashResult = await _gitStatusService.CreateStashAsync(workDir, "auto-stash before pull", includeUntracked: true);
+            if (!stashResult.Success)
+            {
+                toast.Fail($"Stash failed: {stashResult.Error}");
+                return;
+            }
+        }
+
+        var result = await _gitStatusService.PullRebaseAsync(workDir);
+
+        // Pop stash if we stashed
+        if (isDirty)
+        {
+            var popResult = await _gitStatusService.PopStashAsync(workDir, 0);
+            if (!popResult.Success)
+            {
+                // Pull may have succeeded but pop failed (conflicts)
+                toast.Fail(result.Success
+                    ? $"Pull succeeded but stash pop failed: {popResult.Error}"
+                    : $"Pull failed: {result.Error}; stash pop also failed: {popResult.Error}");
+                GitStatus = await _gitStatusService.GetGitStatusAsync(workDir);
+                return;
+            }
+        }
+
+        if (result.Success)
+        {
+            toast.Complete("Pull complete");
+            GitStatus = await _gitStatusService.GetGitStatusAsync(workDir);
+        }
+        else
+            toast.Fail($"Pull failed: {result.Error}");
+    }
+
+    [RelayCommand]
+    private async Task GitPushAsync()
+    {
+        if (GitStatus?.IsGitRepository != true || _gitStatusService == null || _toastService == null) return;
+        using var toast = _toastService.ShowProgress("Pushing...");
+        var result = await _gitStatusService.PushAsync(Pair.WorkingDirectory);
+        if (result.Success)
+        {
+            toast.Complete("Push complete");
+            GitStatus = await _gitStatusService.GetGitStatusAsync(Pair.WorkingDirectory);
+        }
+        else
+            toast.Fail($"Push failed: {result.Error}");
     }
 
     partial void OnLayoutModeChanged(TerminalLayoutMode value)

@@ -27,7 +27,7 @@
 
                 <!-- File list header -->
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                    <TextBlock Text="{Binding GitFiles.Count, StringFormat='{}{0} files changed'}"
+                    <TextBlock Text="{Binding FileChangeSummary}"
                                Foreground="{StaticResource TextDimmedBrush}"
                                FontSize="{StaticResource FontSizeTiny}"/>
                 </Border>

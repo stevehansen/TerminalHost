@@ -466,8 +466,8 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 
 ### Default Quick Commands
 - `Ctrl+Shift+C`: Quick command - Commit (Claude Code)
-- `Ctrl+Shift+D`: Quick command - Git Pull (Shell)
-- `Ctrl+Shift+U`: Quick command - Git Push (Shell)
+- `Ctrl+Shift+D`: Git Pull (stash, pull --rebase, pop)
+- `Ctrl+Shift+U`: Git Push
 
 ## Configuration Schema
 

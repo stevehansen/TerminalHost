@@ -1,5 +1,15 @@
 namespace TerminalHost.Core.Domain;
 
+public enum GitDecorationType
+{
+    Head,
+    LocalBranch,
+    RemoteBranch,
+    Tag
+}
+
+public record GitDecoration(GitDecorationType Type, string DisplayText, string ColorHex);
+
 /// <summary>
 /// Represents a git commit in the commit history.
 /// </summary>
@@ -25,6 +35,50 @@ public class GitCommit
     /// Indicates if this commit is a merge commit (has multiple parents).
     /// </summary>
     public bool IsMergeCommit => ParentHashes.Count > 1;
+
+    /// <summary>
+    /// Parsed decoration badges with type-specific colors.
+    /// </summary>
+    public List<GitDecoration> ParsedDecorations
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(Decorations))
+                return [];
+
+            var result = new List<GitDecoration>();
+            var parts = Decorations.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var raw in parts)
+            {
+                var part = raw.Trim();
+                if (string.IsNullOrEmpty(part)) continue;
+
+                if (part.StartsWith("HEAD -> "))
+                {
+                    result.Add(new GitDecoration(GitDecorationType.Head, "HEAD", "#4EC9B0"));
+                    var branchName = part.Substring("HEAD -> ".Length).Trim();
+                    if (!string.IsNullOrEmpty(branchName))
+                        result.Add(new GitDecoration(GitDecorationType.LocalBranch, branchName, "#569CD6"));
+                }
+                else if (part.StartsWith("tag: "))
+                {
+                    var tagName = part.Substring("tag: ".Length).Trim();
+                    result.Add(new GitDecoration(GitDecorationType.Tag, tagName, "#DCDCAA"));
+                }
+                else if (part.Contains('/'))
+                {
+                    result.Add(new GitDecoration(GitDecorationType.RemoteBranch, part, "#C586C0"));
+                }
+                else
+                {
+                    result.Add(new GitDecoration(GitDecorationType.LocalBranch, part, "#569CD6"));
+                }
+            }
+
+            return result;
+        }
+    }
 }
 
 /// <summary>

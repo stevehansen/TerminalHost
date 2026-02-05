@@ -54,6 +54,11 @@ public sealed class GitStatusService : IGitStatusService
         if (behind != null && int.TryParse(behind.Trim(), out var behindCount))
             status.BehindCount = behindCount;
 
+        // Get stash count
+        var stashOutput = await _gitRunner.RunGitCommandAsync(workingDirectory, "stash list");
+        if (!string.IsNullOrEmpty(stashOutput))
+            status.StashCount = stashOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+
         return status;
     }
 

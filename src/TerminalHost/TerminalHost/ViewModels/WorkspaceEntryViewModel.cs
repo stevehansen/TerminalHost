@@ -41,6 +41,9 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _isLoading;
 
     [ObservableProperty]
+    private bool _showStashCount = true;
+
+    [ObservableProperty]
     private ObservableCollection<WorktreeEntryViewModel> _worktrees = [];
 
     /// <summary>
@@ -168,6 +171,11 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     public string GitPushHeader => AheadCount > 0 ? $"Git Push (↑{AheadCount})" : "Git Push";
 
     /// <summary>
+    /// Number of stashed change sets (returns 0 when ShowStashCount is disabled).
+    /// </summary>
+    public int StashCount => ShowStashCount ? (GitStatus?.StashCount ?? 0) : 0;
+
+    /// <summary>
     /// Ahead/behind display string.
     /// </summary>
     public string? AheadBehindDisplay
@@ -196,6 +204,7 @@ public partial class WorkspaceEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(CanPush));
         OnPropertyChanged(nameof(GitPushHeader));
         OnPropertyChanged(nameof(AheadBehindDisplay));
+        OnPropertyChanged(nameof(StashCount));
     }
 
     /// <summary>

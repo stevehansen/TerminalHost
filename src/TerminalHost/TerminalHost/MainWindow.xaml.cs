@@ -862,6 +862,20 @@ public partial class MainWindow : Window
             _viewModel.ToggleLayoutModeCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+D: Git Pull
+        else if (e.Key == Key.D && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel pullTab)
+                pullTab.GitPullCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+Shift+U: Git Push
+        else if (e.Key == Key.U && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel pushTab)
+                pushTab.GitPushCommand.Execute(null);
+            e.Handled = true;
+        }
         // Check quick command shortcuts
         else if (TryExecuteQuickCommandShortcut(e.Key, Keyboard.Modifiers))
         {

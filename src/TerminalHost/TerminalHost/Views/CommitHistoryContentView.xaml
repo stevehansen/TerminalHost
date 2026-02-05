@@ -37,12 +37,26 @@
                                FontSize="{StaticResource FontSizeSmall}"
                                TextTrimming="CharacterEllipsis"
                                MaxWidth="250"/>
-                    <TextBlock Text="{Binding Decorations}"
-                               Foreground="#4EC9B0"
-                               FontSize="{StaticResource FontSizeMicro}"
-                               Margin="6,0,0,0"
-                               VerticalAlignment="Center"
-                               Visibility="{Binding Decorations, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <ItemsControl ItemsSource="{Binding ParsedDecorations}"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  Visibility="{Binding ParsedDecorations.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="3" Padding="5,1" Margin="2,0"
+                                        Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
+                                    <TextBlock Text="{Binding DisplayText}"
+                                               Foreground="White"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
 
                 <TextBlock Grid.Column="1" Grid.Row="1"

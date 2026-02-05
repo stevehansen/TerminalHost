@@ -7,6 +7,7 @@ public class GitStatus
     public bool IsDirty { get; set; }
     public int AheadCount { get; set; }
     public int BehindCount { get; set; }
+    public int StashCount { get; set; }
 
     // Common branch name abbreviations
     private static readonly Dictionary<string, string> BranchAbbreviations = new(StringComparer.OrdinalIgnoreCase)

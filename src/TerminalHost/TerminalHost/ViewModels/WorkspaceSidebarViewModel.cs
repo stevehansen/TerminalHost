@@ -373,7 +373,9 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
     private WorkspaceEntryViewModel CreateWorkspaceEntryViewModel(Workspace workspace)
     {
+        var config = _configurationService.Load();
         var vm = new WorkspaceEntryViewModel(workspace, _gitWorktreeService, _gitStatusService);
+        vm.ShowStashCount = config.Settings.ShowStashCount;
         vm.OpenRequested += OnWorkspaceOpenRequested;
         vm.WorktreeOpenRequested += OnWorktreeOpenRequested;
         return vm;

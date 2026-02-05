@@ -98,6 +98,17 @@ public partial class GitFilesViewModel : BasePanelViewModel
     public bool IsSubjectTooLong => SubjectLength > 72;
     public bool HasStagedFiles => StagedFiles.Count > 0;
 
+    public string FileChangeSummary
+    {
+        get
+        {
+            var count = GitFiles.Count;
+            if (count == 0) return "No changes";
+            var branch = _currentTerminalTab?.GitStatus?.BranchName ?? "unknown";
+            return $"{count} file {(count == 1 ? "change" : "changes")} on {branch}";
+        }
+    }
+
     #endregion
 
     #region Events
@@ -213,6 +224,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         }
 
         OnPropertyChanged(nameof(HasStagedFiles));
+        OnPropertyChanged(nameof(FileChangeSummary));
         UpdateStagingButtonsState();
     }
 

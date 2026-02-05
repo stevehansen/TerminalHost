@@ -178,6 +178,13 @@
                                    Margin="4,0,0,0"
                                    VerticalAlignment="Center"
                                    Visibility="{Binding AheadBehindDisplay, Converter={StaticResource NullToCollapsedConverter}}"/>
+                        <TextBlock Text="{Binding StashCount, StringFormat='📦{0}'}"
+                                   Foreground="{StaticResource SyntaxYellowBrush}"
+                                   FontSize="10"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"
+                                   ToolTip="Stashed changes"
+                                   Visibility="{Binding StashCount, Converter={StaticResource CountToVisibilityConverter}}"/>
                     </StackPanel>
 
                     <!-- Activity Indicators -->

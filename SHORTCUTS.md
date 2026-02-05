@@ -54,6 +54,8 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+G` | Git changes panel | Project tab | Staging + commit UI |
 | `Ctrl+H` | Commit history | Project tab | |
 | `Ctrl+B` | Branch switcher | Project tab | |
+| `Ctrl+Shift+D` | Git Pull | Project tab | Stash, pull --rebase, pop |
+| `Ctrl+Shift+U` | Git Push | Project tab | |
 | `Ctrl+Shift+S` | Stash manager | Project tab | |
 | `Ctrl+Shift+G` | Reflog | Project tab | Recovery tool for lost commits |
 | `Ctrl+Alt+B` | Branch comparison | Project tab | Compare two branches side-by-side |
@@ -105,8 +107,6 @@ These are user-configurable in settings. Default shortcuts:
 | Shortcut | Action | Target | Notes |
 |----------|--------|--------|-------|
 | `Ctrl+Shift+C` | Commit | Custom terminal | Sends "commit" |
-| `Ctrl+Shift+D` | Git Pull | Shell terminal | Sends "git pull --rebase" |
-| `Ctrl+Shift+U` | Git Push | Shell terminal | Sends "git push" |
 | `Ctrl+Shift+L` | Launch IDE | Shell terminal | Sends "dev" |
 | `Ctrl+Shift+V` | Review PR | Custom terminal | Claude Code prompt |
 
@@ -201,7 +201,7 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+Y` - Available
 - `Ctrl+Shift+Z` - Available
 
-**Note:** `Ctrl+Shift+C`, `Ctrl+Shift+D`, `Ctrl+Shift+U`, `Ctrl+Shift+L`, `Ctrl+Shift+V` are used by default Quick Commands but are user-configurable.
+**Note:** `Ctrl+Shift+C`, `Ctrl+Shift+L`, `Ctrl+Shift+V` are used by default Quick Commands but are user-configurable. `Ctrl+Shift+D` (Git Pull) and `Ctrl+Shift+U` (Git Push) are built-in shortcuts.
 
 ### Unused Function Keys:
 - `F2` - Available

@@ -34,8 +34,6 @@ public partial class HelpViewModel : ObservableObject
         new("Default Quick Commands (configurable in Settings)",
         [
             new("Ctrl+Shift+C", "Commit - send 'commit' to Claude Code"),
-            new("Ctrl+Shift+D", "Pull - run 'git pull --rebase' in Shell"),
-            new("Ctrl+Shift+U", "Push - run 'git push' in Shell"),
             new("Ctrl+Shift+L", "Launch IDE - run 'dev' in Shell"),
             new("Ctrl+Shift+V", "Review PR - Claude Code prompt"),
         ]),

@@ -869,7 +869,7 @@ public partial class MainViewModel : ObservableObject
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
             // Create view model with AI assistant info
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, duplicateIndex, _taskService);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _gitStatusService, _toastService, duplicateIndex, _taskService);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
