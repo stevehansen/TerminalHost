@@ -125,8 +125,12 @@
                                     <Border Classes="task-item">
                                         <StackPanel>
                                             <TextBlock Classes="task-title"
-                                                       Text="{Binding ActiveForm, TargetNullValue={Binding Title}}"
+                                                       Text="{Binding Title}"
                                                        FontWeight="Medium"/>
+                                            <TextBlock Classes="task-meta"
+                                                       IsVisible="{Binding ActiveForm, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       Text="{Binding ActiveForm}"
+                                                       FontStyle="Italic"/>
                                             <TextBlock Classes="task-meta"
                                                        Text="{Binding ElapsedTimeDisplay, StringFormat='⏱ {0}'}"/>
                                         </StackPanel>
@@ -197,9 +201,8 @@
                 <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
                         Padding="12"
                         Margin="0,12,0,0"
-                        CornerRadius="6"
-                        IsVisible="{Binding HasAnyTasks}">
-                    <Button Content="Open Task Panel"
+                        CornerRadius="6">
+                    <Button Content="Open Claude Tasks"
                             Command="{Binding OpenTaskPanelCommand}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"/>

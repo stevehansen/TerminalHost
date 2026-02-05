@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -16,15 +17,36 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
     private readonly IFileSystem _fileSystem;
     private readonly IClaudeSessionIndexService _sessionIndexService;
     private readonly string _tasksRootPath;
+    private readonly string _claudeRootPath;
     private readonly Dictionary<string, List<FocusTask>> _sessionTasksCache = new(StringComparer.OrdinalIgnoreCase);
     private FileSystemWatcher? _fileWatcher;
+    private FileSystemWatcher? _directoryWatcher;
     private readonly object _lock = new();
+    private CancellationTokenSource? _debounceTokenSource;
+    private readonly object _debounceLock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    // Pattern to strip ANSI escape codes from text (cursor movement, colors, etc.)
+    private static readonly Regex AnsiEscapePattern = new(
+        @"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])",
+        RegexOptions.Compiled
+    );
+
+    /// <summary>
+    /// Strips ANSI escape codes from text.
+    /// </summary>
+    private static string StripAnsiCodes(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text ?? string.Empty;
+
+        return AnsiEscapePattern.Replace(text, string.Empty);
+    }
 
     public event EventHandler? TasksChanged;
 
@@ -33,9 +55,10 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         _fileSystem = fileSystem;
         _sessionIndexService = sessionIndexService;
 
-        // Tasks root path: ~/.claude/tasks/
+        // Paths: ~/.claude/ and ~/.claude/tasks/
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        _tasksRootPath = Path.Combine(userProfile, ".claude", "tasks");
+        _claudeRootPath = Path.Combine(userProfile, ".claude");
+        _tasksRootPath = Path.Combine(_claudeRootPath, "tasks");
 
         // Load tasks on startup
         Refresh();
@@ -44,7 +67,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         StartFileWatcher();
 
         // Subscribe to session index changes
-        _sessionIndexService.SessionsChanged += (_, _) => Refresh();
+        _sessionIndexService.SessionsChanged += (_, _) => DebounceRefresh();
     }
 
     public IReadOnlyList<FocusTask> GetSessionTasks(string sessionId)
@@ -151,12 +174,12 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
                 }
             }
 
-            // Sort by ID (which is typically numeric)
-            tasks = tasks.OrderBy(t => t.Id.ToString()).ToList();
+            // Sort by ClaudeTaskId (which is the numeric ID from JSON)
+            tasks = tasks.OrderBy(t => int.TryParse(t.ClaudeTaskId, out var n) ? n : int.MaxValue).ToList();
         }
         catch
         {
-            // Return empty list on error
+            // Skip sessions that fail to load
         }
 
         return tasks;
@@ -169,7 +192,8 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         var guid = GenerateGuidFromString(guidSeed);
 
         // Parse status
-        var status = dto.Status?.ToLowerInvariant() switch
+        var rawStatus = dto.Status;
+        var status = rawStatus?.ToLowerInvariant() switch
         {
             "completed" => FocusTaskStatus.Completed,
             "in_progress" or "in-progress" => FocusTaskStatus.InProgress,
@@ -199,9 +223,9 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         return new FocusTask
         {
             Id = guid.ToString(),
-            Title = dto.Subject ?? $"Task {dto.Id}",
-            Description = dto.Description ?? string.Empty,
-            ActiveForm = dto.ActiveForm ?? string.Empty,
+            Title = StripAnsiCodes(dto.Subject) is { Length: > 0 } subject ? subject : $"Task {dto.Id}",
+            Description = StripAnsiCodes(dto.Description),
+            ActiveForm = StripAnsiCodes(dto.ActiveForm),
             Status = status,
             Priority = 0, // Not in Claude task files
             ProjectPaths = projectPaths,
@@ -210,7 +234,9 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             CompletedAt = status == FocusTaskStatus.Completed ? createdAt : null,
             IsClaudeTask = true,
             ClaudeTaskId = dto.Id,
-            ClaudeSessionId = sessionId
+            ClaudeSessionId = sessionId,
+            Blocks = dto.Blocks ?? [],
+            BlockedBy = dto.BlockedBy ?? []
         };
     }
 
@@ -226,37 +252,101 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     private void StartFileWatcher()
     {
-        if (!_fileSystem.DirectoryExists(_tasksRootPath))
-            return;
-
-        try
+        // Watch for file changes if tasks directory exists
+        if (_fileSystem.DirectoryExists(_tasksRootPath))
         {
-            _fileWatcher = new FileSystemWatcher(_tasksRootPath, "*.json")
+            try
             {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
-                IncludeSubdirectories = true,
-                EnableRaisingEvents = true
-            };
+                _fileWatcher = new FileSystemWatcher(_tasksRootPath, "*.json")
+                {
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                    IncludeSubdirectories = true,
+                    EnableRaisingEvents = true
+                };
 
-            _fileWatcher.Created += OnFileChanged;
-            _fileWatcher.Changed += OnFileChanged;
-            _fileWatcher.Deleted += OnFileChanged;
+                _fileWatcher.Created += OnFileChanged;
+                _fileWatcher.Changed += OnFileChanged;
+                _fileWatcher.Deleted += OnFileChanged;
+            }
+            catch
+            {
+                // File watcher not critical - continue without it
+            }
         }
-        catch
+
+        // Also watch for new session directories being created in ~/.claude/
+        // This handles the case where tasks/ doesn't exist yet
+        if (_fileSystem.DirectoryExists(_claudeRootPath))
         {
-            // File watcher not critical - continue without it
+            try
+            {
+                _directoryWatcher = new FileSystemWatcher(_claudeRootPath)
+                {
+                    NotifyFilter = NotifyFilters.DirectoryName,
+                    IncludeSubdirectories = true,
+                    EnableRaisingEvents = true
+                };
+
+                _directoryWatcher.Created += OnDirectoryChanged;
+            }
+            catch
+            {
+                // Directory watcher not critical - continue without it
+            }
         }
     }
 
     private void OnFileChanged(object? sender, FileSystemEventArgs e)
     {
-        // Debounce: wait a bit to batch multiple rapid changes
-        Task.Delay(500).ContinueWith(_ => Refresh());
+        DebounceRefresh();
+    }
+
+    private void OnDirectoryChanged(object? sender, FileSystemEventArgs e)
+    {
+        // If a new directory was created under tasks/, refresh
+        if (e.FullPath.StartsWith(_tasksRootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            DebounceRefresh();
+        }
+        // If tasks/ directory was just created, start the file watcher
+        else if (e.FullPath.Equals(_tasksRootPath, StringComparison.OrdinalIgnoreCase) && _fileWatcher == null)
+        {
+            StartFileWatcher();
+            DebounceRefresh();
+        }
+    }
+
+    /// <summary>
+    /// Debounces refresh calls to batch multiple rapid file changes.
+    /// </summary>
+    private void DebounceRefresh()
+    {
+        lock (_debounceLock)
+        {
+            // Cancel any pending refresh
+            _debounceTokenSource?.Cancel();
+            _debounceTokenSource?.Dispose();
+            _debounceTokenSource = new CancellationTokenSource();
+
+            var token = _debounceTokenSource.Token;
+
+            // Schedule refresh after 300ms debounce
+            Task.Delay(300, token).ContinueWith(t =>
+            {
+                if (!t.IsCanceled)
+                {
+                    Refresh();
+                }
+            }, TaskScheduler.Default);
+        }
     }
 
     public void Dispose()
     {
         _fileWatcher?.Dispose();
+        _directoryWatcher?.Dispose();
+        _debounceTokenSource?.Cancel();
+        _debounceTokenSource?.Dispose();
     }
 
     /// <summary>

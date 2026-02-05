@@ -11,14 +11,17 @@ using TerminalHost.Core.ViewModels;
 namespace TerminalHost.ViewModels;
 
 /// <summary>
-/// ViewModel for Claude Tasks panel - shows Claude Code task activity in real-time.
+/// ViewModel for Claude Tasks panel (Cmd+Shift+K) - shows Claude Code task activity in real-time.
 /// Supports Panel, Popup, and Window display states.
 /// Provides manual task creation and real-time progress monitoring.
+/// Reads tasks from Claude Code's ~/.claude/tasks/ folder.
 /// </summary>
 public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 {
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly ITaskService _taskService;
+    private readonly IDispatcherService _dispatcherService;
 
     #region IPanelableViewModel Implementation
 
@@ -62,6 +65,12 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     /// </summary>
     [ObservableProperty]
     private ObservableCollection<FocusTask> _activeTasks = [];
+
+    /// <summary>
+    /// Pending (not started) Claude tasks.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<FocusTask> _pendingTasks = [];
 
     /// <summary>
     /// Completed Claude tasks (today).
@@ -128,10 +137,16 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private bool _isEmptyStateVisible = true;
 
     /// <summary>
+    /// Whether the popup should be visible (IsOpen AND DisplayState is Popup).
+    /// Used by the popup view to avoid showing when panel is docked.
+    /// </summary>
+    public bool IsPopupVisible => IsOpen && DisplayState == PanelDisplayState.Popup;
+
+    /// <summary>
     /// Text for manual task creation.
     /// </summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CreateManualTaskCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SubmitManualTaskCommand))]
     private string _manualTaskTitle = "";
 
     /// <summary>
@@ -140,18 +155,45 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _isCreateFormVisible;
 
+    /// <summary>
+    /// Whether to show all tasks globally or just the current workspace.
+    /// When true, shows all Claude tasks. When false, filters by current workspace.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilterModeText))]
+    private bool _showGlobalTasks;
+
+    /// <summary>
+    /// Display text for the current filter mode.
+    /// </summary>
+    public string FilterModeText => ShowGlobalTasks ? "All Workspaces" : "Current Workspace";
+
+    /// <summary>
+    /// Current workspace/project path to filter tasks by.
+    /// </summary>
+    private string? _currentWorkspacePath;
+
     #endregion
 
     private readonly MainViewModel _mainViewModel;
 
     public ClaudeTasksPanelViewModel(
         IClaudeTaskDetectionService? claudeTaskDetectionService,
+        IClaudeTaskFileService? claudeTaskFileService,
         ITaskService taskService,
+        IDispatcherService dispatcherService,
         MainViewModel mainViewModel)
     {
         _claudeTaskDetectionService = claudeTaskDetectionService;
+        _claudeTaskFileService = claudeTaskFileService;
         _taskService = taskService;
+        _dispatcherService = dispatcherService;
         _mainViewModel = mainViewModel;
+
+        // Set defaults - defaults to docked Panel
+        DisplayState = PanelDisplayState.Panel;
+        Width = 600;
+        Height = 500;
 
         // Subscribe to Claude task events if service is available
         if (_claudeTaskDetectionService != null)
@@ -159,8 +201,31 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
             _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
         }
 
-        // Subscribe to open panel requests
-        _mainViewModel.ClaudeTasksPanelRequested += (s, e) => Open();
+        // Subscribe to file-based task changes
+        if (_claudeTaskFileService != null)
+        {
+            _claudeTaskFileService.TasksChanged += OnFileTasksChanged;
+        }
+
+        // Subscribe to property changes to update IsPopupVisible
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(IsOpen) or nameof(DisplayState))
+            {
+                OnPropertyChanged(nameof(IsPopupVisible));
+            }
+        };
+
+        // Note: Panel is opened directly via ClaudeTasksPanelViewModel.Open() from MainViewModel
+        // with the workspace path, rather than through an event
+    }
+
+    /// <summary>
+    /// Handles file-based task changes (tasks read from ~/.claude/tasks/).
+    /// </summary>
+    private void OnFileTasksChanged(object? sender, EventArgs e)
+    {
+        _dispatcherService.BeginInvoke(RefreshTasks);
     }
 
     #region Event Handlers
@@ -170,58 +235,98 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     /// </summary>
     private void OnClaudeTaskChanged(object? sender, ClaudeTaskEventArgs e)
     {
-        // Marshal to UI thread if needed (platform-specific dispatcher will be used by views)
-        switch (e.EventType)
+        // Marshal to UI thread
+        _dispatcherService.BeginInvoke(() =>
         {
-            case ClaudeTaskEventType.Created:
-                ClaudeTasks.Add(e.Task);
-                if (e.Task.Status == FocusTaskStatus.InProgress)
-                {
-                    ActiveTasks.Add(e.Task);
-                    CurrentTask = e.Task;
-                }
-                break;
+            // Check if task is relevant to current view (workspace filter or global)
+            if (!ShouldShowTask(e.Task))
+                return;
 
-            case ClaudeTaskEventType.Updated:
-                // Task already in collection, just update CurrentTask if it's this one
-                if (e.Task.Status == FocusTaskStatus.InProgress && CurrentTask?.Id == e.Task.Id)
-                {
-                    CurrentTask = e.Task;
-                }
-                break;
+            switch (e.EventType)
+            {
+                case ClaudeTaskEventType.Created:
+                    ClaudeTasks.Add(e.Task);
+                    if (e.Task.Status == FocusTaskStatus.InProgress)
+                    {
+                        ActiveTasks.Add(e.Task);
+                        CurrentTask = e.Task;
+                    }
+                    else if (e.Task.Status == FocusTaskStatus.NotStarted)
+                    {
+                        PendingTasks.Add(e.Task);
+                    }
+                    break;
 
-            case ClaudeTaskEventType.Completed:
-                // Move from active to completed
-                ActiveTasks.Remove(e.Task);
-                CompletedTasks.Insert(0, e.Task); // Add to top of completed list
+                case ClaudeTaskEventType.Updated:
+                    // Task already in collection, just update CurrentTask if it's this one
+                    if (e.Task.Status == FocusTaskStatus.InProgress && CurrentTask?.Id == e.Task.Id)
+                    {
+                        CurrentTask = e.Task;
+                    }
+                    break;
 
-                // Update current task to next active task
-                if (CurrentTask?.Id == e.Task.Id)
-                {
-                    CurrentTask = ActiveTasks.FirstOrDefault();
-                }
-                break;
+                case ClaudeTaskEventType.Completed:
+                    // Move from active to completed
+                    var activeTask = ActiveTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (activeTask != null)
+                    {
+                        ActiveTasks.Remove(activeTask);
+                    }
+                    var pendingTask = PendingTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (pendingTask != null)
+                    {
+                        PendingTasks.Remove(pendingTask);
+                    }
+                    CompletedTasks.Insert(0, e.Task); // Add to top of completed list
 
-            case ClaudeTaskEventType.Deleted:
-                ClaudeTasks.Remove(e.Task);
-                ActiveTasks.Remove(e.Task);
-                CompletedTasks.Remove(e.Task);
+                    // Update current task to next active task
+                    if (CurrentTask?.Id == e.Task.Id)
+                    {
+                        CurrentTask = ActiveTasks.FirstOrDefault();
+                    }
+                    break;
 
-                if (CurrentTask?.Id == e.Task.Id)
-                {
-                    CurrentTask = ActiveTasks.FirstOrDefault();
-                }
-                break;
-        }
+                case ClaudeTaskEventType.Deleted:
+                    var taskToRemove = ClaudeTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (taskToRemove != null)
+                    {
+                        ClaudeTasks.Remove(taskToRemove);
+                    }
 
-        // Update counts and visibility
-        ActiveTasksCount = ActiveTasks.Count;
-        IsEmptyStateVisible = ClaudeTasks.Count == 0;
+                    var activeToRemove = ActiveTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (activeToRemove != null)
+                    {
+                        ActiveTasks.Remove(activeToRemove);
+                    }
 
-        // Notify computed properties
-        OnPropertyChanged(nameof(CurrentTaskProgress));
-        OnPropertyChanged(nameof(CurrentTaskElapsed));
-        OnPropertyChanged(nameof(StatusText));
+                    var pendingToRemove = PendingTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (pendingToRemove != null)
+                    {
+                        PendingTasks.Remove(pendingToRemove);
+                    }
+
+                    var completedToRemove = CompletedTasks.FirstOrDefault(t => t.Id == e.Task.Id);
+                    if (completedToRemove != null)
+                    {
+                        CompletedTasks.Remove(completedToRemove);
+                    }
+
+                    if (CurrentTask?.Id == e.Task.Id)
+                    {
+                        CurrentTask = ActiveTasks.FirstOrDefault();
+                    }
+                    break;
+            }
+
+            // Update counts and visibility
+            ActiveTasksCount = ActiveTasks.Count;
+            IsEmptyStateVisible = ClaudeTasks.Count == 0;
+
+            // Notify computed properties
+            OnPropertyChanged(nameof(CurrentTaskProgress));
+            OnPropertyChanged(nameof(CurrentTaskElapsed));
+            OnPropertyChanged(nameof(StatusText));
+        });
     }
 
     #endregion
@@ -229,27 +334,61 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     #region Commands
 
     /// <summary>
-    /// Refreshes the task list from the detection service.
+    /// Refreshes the task list from the file service and detection service.
+    /// Filters by current workspace if set.
     /// </summary>
     [RelayCommand]
-    private void RefreshTasks()
+    public void RefreshTasks()
     {
-        if (_claudeTaskDetectionService == null)
-            return;
-
         // Clear and reload all tasks
         ClaudeTasks.Clear();
         ActiveTasks.Clear();
+        PendingTasks.Clear();
         CompletedTasks.Clear();
 
-        var allTasks = _claudeTaskDetectionService.GetAllClaudeTasks();
-        foreach (var task in allTasks)
+        var allTasks = new List<FocusTask>();
+
+        // Primarily load from file service (reads ~/.claude/tasks/)
+        if (_claudeTaskFileService != null)
+        {
+            allTasks.AddRange(_claudeTaskFileService.GetAllTasks());
+        }
+
+        // Also include detection-based tasks (from terminal output)
+        if (_claudeTaskDetectionService != null)
+        {
+            var detectedTasks = _claudeTaskDetectionService.GetAllClaudeTasks();
+            // Only add detected tasks that aren't already loaded from files
+            // Use session ID + task ID as unique key (same ClaudeTaskId can exist in different sessions)
+            var existingIds = new HashSet<string>(allTasks.Select(t =>
+                t.ClaudeSessionId != null ? $"{t.ClaudeSessionId}:{t.ClaudeTaskId}" : t.ClaudeTaskId ?? t.Id));
+            foreach (var task in detectedTasks)
+            {
+                var taskId = task.ClaudeSessionId != null
+                    ? $"{task.ClaudeSessionId}:{task.ClaudeTaskId}"
+                    : task.ClaudeTaskId ?? task.Id;
+                if (!existingIds.Contains(taskId))
+                {
+                    allTasks.Add(task);
+                    existingIds.Add(taskId);
+                }
+            }
+        }
+
+        // Filter based on current view settings
+        var filteredTasks = allTasks.Where(ShouldShowTask).ToList();
+
+        foreach (var task in filteredTasks)
         {
             ClaudeTasks.Add(task);
 
             if (task.Status == FocusTaskStatus.InProgress)
             {
                 ActiveTasks.Add(task);
+            }
+            else if (task.Status == FocusTaskStatus.NotStarted)
+            {
+                PendingTasks.Add(task);
             }
             else if (task.Status == FocusTaskStatus.Completed &&
                      task.CompletedAt?.Date == DateTime.Today)
@@ -331,7 +470,16 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         _taskService.UpdateTask(task);
 
         // Move to completed
-        ActiveTasks.Remove(task);
+        var activeTask = ActiveTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (activeTask != null)
+        {
+            ActiveTasks.Remove(activeTask);
+        }
+        var pendingTask = PendingTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (pendingTask != null)
+        {
+            PendingTasks.Remove(pendingTask);
+        }
         CompletedTasks.Insert(0, task);
 
         if (CurrentTask?.Id == task.Id)
@@ -353,9 +501,29 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
         _taskService.DeleteTask(task.Id);
 
-        ClaudeTasks.Remove(task);
-        ActiveTasks.Remove(task);
-        CompletedTasks.Remove(task);
+        var taskToRemove = ClaudeTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (taskToRemove != null)
+        {
+            ClaudeTasks.Remove(taskToRemove);
+        }
+
+        var activeToRemove = ActiveTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (activeToRemove != null)
+        {
+            ActiveTasks.Remove(activeToRemove);
+        }
+
+        var pendingToRemove = PendingTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (pendingToRemove != null)
+        {
+            PendingTasks.Remove(pendingToRemove);
+        }
+
+        var completedToRemove = CompletedTasks.FirstOrDefault(t => t.Id == task.Id);
+        if (completedToRemove != null)
+        {
+            CompletedTasks.Remove(completedToRemove);
+        }
 
         if (CurrentTask?.Id == task.Id)
         {
@@ -379,17 +547,45 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         // Could open a detail view or expand inline details
     }
 
+    /// <summary>
+    /// Toggles between global and workspace-filtered view.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleFilterMode()
+    {
+        ShowGlobalTasks = !ShowGlobalTasks;
+    }
+
+    /// <summary>
+    /// Closes the panel.
+    /// </summary>
+    [RelayCommand]
+    private void Close()
+    {
+        OnClose();
+    }
+
     #endregion
 
     #region Lifecycle
 
     /// <summary>
-    /// Opens the Claude Tasks panel.
+    /// Sets the workspace path to filter tasks by.
     /// </summary>
-    public void Open()
+    public void SetWorkspace(string? workspacePath)
     {
+        _currentWorkspacePath = workspacePath;
+    }
+
+    /// <summary>
+    /// Opens the Claude Tasks panel for a specific workspace.
+    /// </summary>
+    public void Open(string? workspacePath = null)
+    {
+        _currentWorkspacePath = workspacePath;
         IsOpen = true;
         OnOpened();
+        RequestShow();
     }
 
     /// <summary>
@@ -406,6 +602,49 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     public void OnClosed()
     {
         // Cleanup if needed
+    }
+
+    /// <summary>
+    /// Checks if a task should be shown based on current filter settings.
+    /// </summary>
+    private bool ShouldShowTask(FocusTask task)
+    {
+        if (ShowGlobalTasks)
+            return true;
+
+        if (string.IsNullOrEmpty(_currentWorkspacePath))
+            return true;
+
+        return IsTaskForWorkspace(task, _currentWorkspacePath);
+    }
+
+    /// <summary>
+    /// Checks if a task belongs to the specified workspace.
+    /// </summary>
+    private static bool IsTaskForWorkspace(FocusTask task, string workspacePath)
+    {
+        if (task.ProjectPaths == null || task.ProjectPaths.Count == 0)
+            return true; // Tasks without project paths are shown everywhere
+
+        var normalizedWorkspace = System.IO.Path.GetFullPath(workspacePath).TrimEnd(System.IO.Path.DirectorySeparatorChar);
+        return task.ProjectPaths.Any(p =>
+        {
+            var normalizedPath = System.IO.Path.GetFullPath(p).TrimEnd(System.IO.Path.DirectorySeparatorChar);
+            return string.Equals(normalizedPath, normalizedWorkspace, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    /// <summary>
+    /// Called when ShowGlobalTasks changes - refresh the task list.
+    /// </summary>
+    partial void OnShowGlobalTasksChanged(bool value)
+    {
+        RefreshTasks();
+    }
+
+    protected override void OnClose()
+    {
+        base.OnClose();
     }
 
     #endregion

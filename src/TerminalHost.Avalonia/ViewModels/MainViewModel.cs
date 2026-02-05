@@ -41,6 +41,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
     private readonly ITimelineService _timelineService;
+    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly IClaudeTaskFileService? _claudeTaskFileService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _gitAutoFetchTimer;
@@ -246,7 +248,9 @@ public partial class MainViewModel : ObservableObject
         IFilePickerService filePickerService,
         ITimerService timerService,
         IDispatcherService dispatcherService,
-        ITimelineService timelineService)
+        ITimelineService timelineService,
+        IClaudeTaskDetectionService? claudeTaskDetectionService = null,
+        IClaudeTaskFileService? claudeTaskFileService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -276,6 +280,8 @@ public partial class MainViewModel : ObservableObject
         _timerService = timerService;
         _dispatcherService = dispatcherService;
         _timelineService = timelineService;
+        _claudeTaskDetectionService = claudeTaskDetectionService;
+        _claudeTaskFileService = claudeTaskFileService;
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -372,6 +378,17 @@ public partial class MainViewModel : ObservableObject
             if (IsSidebarMode)
             {
                 _ = SidebarViewModel?.RefreshWorktreesAsync();
+            }
+
+            // Update Claude Tasks panel workspace when tab changes
+            if (newValue is TerminalPairTabViewModel terminalTab && ClaudeTasksPanelViewModel != null)
+            {
+                ClaudeTasksPanelViewModel.SetWorkspace(terminalTab.WorkingDirectory);
+                // Refresh if panel is open and filtering by workspace
+                if (ClaudeTasksPanelViewModel.IsOpen && !ClaudeTasksPanelViewModel.ShowGlobalTasks)
+                {
+                    ClaudeTasksPanelViewModel.RefreshTasks();
+                }
             }
         }
     }
@@ -877,11 +894,13 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
             tabViewModel.CloseRequested += OnTabCloseRequested;
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
+            tabViewModel.TaskPanelRequested += (s, e) => OpenTaskPanel();
+            tabViewModel.ClaudeTasksPanelRequested += (s, e) => OpenClaudeTasksPanel();
 
             // Initialize available shell profiles
             tabViewModel.RefreshAvailableShellProfiles(_profileRegistry.Profiles);
@@ -1710,7 +1729,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenClaudeTasksPanel()
     {
-        ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
+        // Get the current workspace path from the selected tab
+        var workspacePath = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory;
+
+        // Set the workspace on the Claude Tasks panel before opening
+        ClaudeTasksPanelViewModel?.Open(workspacePath);
     }
 
     [RelayCommand]

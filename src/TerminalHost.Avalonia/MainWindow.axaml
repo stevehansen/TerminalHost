@@ -5,6 +5,7 @@
         xmlns:vm="using:TerminalHost.ViewModels"
         xmlns:views="using:TerminalHost.Views"
         xmlns:popups="using:TerminalHost.Views.Popups"
+        xmlns:panels="using:TerminalHost.Views.Panels"
         mc:Ignorable="d"
         x:Class="TerminalHost.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -182,6 +183,12 @@
                 <!-- Task Panel - Center -->
                 <popups:TaskPanelView
                     x:Name="TaskPanelPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Claude Tasks Panel - Center -->
+                <panels:ClaudeTasksPanelView
+                    x:Name="ClaudeTasksPanelPopup"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
 

@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
+    private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
     private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
         FileViewerViewModel fileViewerViewModel,
         DetectedLinksViewModel detectedLinksViewModel,
         TaskPanelViewModel taskPanelViewModel,
+        ClaudeTasksPanelViewModel claudeTasksPanelViewModel,
         SearchAcrossFilesViewModel searchAcrossFilesViewModel,
         FileHistoryViewModel fileHistoryViewModel,
         FileBlameViewModel fileBlameViewModel,
@@ -70,6 +72,7 @@ public partial class MainWindow : Window
         _fileViewerViewModel = fileViewerViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
         _taskPanelViewModel = taskPanelViewModel;
+        _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
         _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
@@ -82,6 +85,9 @@ public partial class MainWindow : Window
         // Wire up sidebar view model bidirectional reference
         _mainViewModel.SidebarViewModel = _workspaceSidebarViewModel;
         _workspaceSidebarViewModel.MainViewModel = _mainViewModel;
+
+        // Wire up Claude Tasks panel to MainViewModel
+        _mainViewModel.ClaudeTasksPanelViewModel = _claudeTasksPanelViewModel;
 
         DataContext = _mainViewModel;
 
@@ -97,6 +103,7 @@ public partial class MainWindow : Window
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
         TaskPanelPopup.DataContext = _taskPanelViewModel;
+        ClaudeTasksPanelPopup.DataContext = _claudeTasksPanelViewModel;
         SearchAcrossFilesPopup.DataContext = _searchAcrossFilesViewModel;
         FileHistoryPopup.DataContext = _fileHistoryViewModel;
         FileBlamePopup.DataContext = _fileBlameViewModel;
@@ -830,6 +837,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+K for Claude Tasks Panel
+        if (e.Key == Key.K && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _claudeTasksPanelViewModel.Open();
+            e.Handled = true;
+            return;
+        }
+
         // Handle Cmd/Ctrl+O for File Preview
         if (e.Key == Key.O && e.KeyModifiers == primaryModifier)
         {
@@ -1044,6 +1059,8 @@ public partial class MainWindow : Window
             _detectedLinksViewModel.CloseCommand.Execute(null);
         if (_taskPanelViewModel.CloseCommand.CanExecute(null))
             _taskPanelViewModel.CloseCommand.Execute(null);
+        if (_claudeTasksPanelViewModel.CloseCommand.CanExecute(null))
+            _claudeTasksPanelViewModel.CloseCommand.Execute(null);
         if (_searchAcrossFilesViewModel.CloseCommand.CanExecute(null))
             _searchAcrossFilesViewModel.CloseCommand.Execute(null);
         if (_fileHistoryViewModel.CloseCommand.CanExecute(null))

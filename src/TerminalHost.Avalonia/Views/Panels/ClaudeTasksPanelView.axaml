@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
              x:Class="TerminalHost.Views.Panels.ClaudeTasksPanelView"
              x:DataType="vm:ClaudeTasksPanelViewModel">
@@ -13,6 +14,13 @@
     <Style Selector="Border.claude-container">
       <Setter Property="Background" Value="#0A0E1A"/>
       <Setter Property="BorderBrush" Value="#2563EB"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="Border.claude-container-pending">
+      <Setter Property="Background" Value="#0A0E1A"/>
+      <Setter Property="BorderBrush" Value="#475569"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="4"/>
     </Style>
@@ -58,6 +66,11 @@
       <Setter Property="FontSize" Value="12"/>
     </Style>
 
+    <Style Selector="TextBlock.task-description">
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+
     <Style Selector="TextBlock.section-header">
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#CBD5E1"/>
@@ -75,128 +88,276 @@
     <Style Selector="Button.task-action:pointerover">
       <Setter Property="Background" Value="#334155"/>
     </Style>
+
+    <Style Selector="Button.filter-toggle">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="#475569"/>
+      <Setter Property="Padding" Value="6,3"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="CornerRadius" Value="3"/>
+    </Style>
+
+    <Style Selector="Button.filter-toggle:pointerover">
+      <Setter Property="Background" Value="#334155"/>
+    </Style>
+
+    <Style Selector="Button.primary-action">
+      <Setter Property="Background" Value="#2563EB"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.primary-action:pointerover">
+      <Setter Property="Background" Value="#3B82F6"/>
+    </Style>
+
+    <Style Selector="Button.primary-action:pressed">
+      <Setter Property="Background" Value="#1D4ED8"/>
+    </Style>
+
+    <Style Selector="Button.secondary-action">
+      <Setter Property="Background" Value="#475569"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.secondary-action:pointerover">
+      <Setter Property="Background" Value="#64748B"/>
+    </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*">
-    <!-- Current Task Section -->
-    <Border Grid.Row="0" Classes="current-task" Margin="12,12,12,8"
-            IsVisible="{Binding HasCurrentTask}">
-      <StackPanel Spacing="8">
-        <Grid ColumnDefinitions="Auto,*,Auto">
-          <TextBlock Grid.Column="0" Text="🤖" FontSize="24" VerticalAlignment="Center" Margin="0,0,8,0"/>
+  <!-- Use DraggablePopup for dragging and resizing -->
+  <controls:DraggablePopup
+      IsOpen="{Binding IsOpen, Mode=TwoWay}"
+      PopupWidth="{Binding Width, Mode=TwoWay}"
+      PopupHeight="{Binding Height, Mode=TwoWay}"
+      HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+      VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+      Title="🤖 Claude Tasks"
+      CloseCommand="{Binding CloseCommand}">
 
-          <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-            <TextBlock Text="{Binding CurrentTask.Title}" Classes="task-title"/>
-            <TextBlock Text="{Binding CurrentTaskProgress}" Classes="task-progress"
-                      IsVisible="{Binding CurrentTask.ActiveForm, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-          </StackPanel>
+    <controls:DraggablePopup.HeaderLeftContent>
+      <!-- Filter Mode Toggle -->
+      <Button Content="{Binding FilterModeText}"
+              Command="{Binding ToggleFilterModeCommand}"
+              ToolTip.Tip="Toggle between current workspace and all workspaces"
+              Classes="TerminalSwitchButton"/>
+    </controls:DraggablePopup.HeaderLeftContent>
 
-          <TextBlock Grid.Column="2" Text="{Binding CurrentTaskElapsed}" Classes="task-elapsed"
-                    VerticalAlignment="Center"/>
-        </Grid>
+    <controls:DraggablePopup.HeaderRightContent>
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <!-- Create Task Button -->
+        <Button Content="+ Create"
+                Command="{Binding CreateManualTaskCommand}"
+                ToolTip.Tip="Create manual task"
+                Classes="TerminalSwitchButton"/>
 
-        <!-- Progress indicator -->
-        <ProgressBar IsIndeterminate="True" Height="3" Foreground="#3B82F6"/>
+        <!-- Refresh Button -->
+        <Button Content="↻ Refresh"
+                Command="{Binding RefreshTasksCommand}"
+                ToolTip.Tip="Refresh task list"
+                Classes="TerminalSwitchButton"/>
       </StackPanel>
-    </Border>
+    </controls:DraggablePopup.HeaderRightContent>
 
-    <!-- Main Content -->
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-      <StackPanel Margin="12,0,12,12">
-
-        <!-- Empty State -->
-        <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center"
-                    IsVisible="{Binding IsEmptyStateVisible}" Margin="0,40,0,0">
-          <TextBlock Classes="robot-icon" Text="🤖"/>
-          <TextBlock Text="No Claude tasks detected" FontSize="16" Foreground="#94A3B8"
-                    HorizontalAlignment="Center"/>
-          <TextBlock Text="Tasks will appear here when Claude Code is working"
-                    FontSize="13" Foreground="#64748B" HorizontalAlignment="Center"
-                    TextWrapping="Wrap" MaxWidth="300" TextAlignment="Center"/>
-          <Button Content="Create Manual Task" Command="{Binding CreateManualTaskCommand}"
-                  HorizontalAlignment="Center" Margin="0,8,0,0"/>
-        </StackPanel>
-
-        <!-- Manual Task Creation Form -->
-        <Border Classes="claude-container" Padding="12" Margin="0,0,0,12"
-                IsVisible="{Binding IsCreateFormVisible}">
+    <controls:DraggablePopup.PopupContent>
+      <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Current Task Section -->
+        <Border Grid.Row="0" Classes="current-task" Margin="12,12,12,8"
+                IsVisible="{Binding HasCurrentTask}">
           <StackPanel Spacing="8">
-            <TextBlock Text="Create Manual Task" Classes="section-header"/>
-            <TextBox Text="{Binding ManualTaskTitle}" Watermark="Task title..."
-                    AcceptsReturn="False"/>
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-              <Button Content="Create" Command="{Binding SubmitManualTaskCommand}"/>
-              <Button Content="Cancel" Command="{Binding CancelManualTaskCommand}"/>
-            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Grid.Column="0" Text="🤖" FontSize="24" VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+              <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="{Binding CurrentTask.Title}" Classes="task-title"/>
+                <TextBlock Text="{Binding CurrentTaskProgress}" Classes="task-progress"
+                          IsVisible="{Binding CurrentTask.ActiveForm, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+              </StackPanel>
+
+              <TextBlock Grid.Column="2" Text="{Binding CurrentTaskElapsed}" Classes="task-elapsed"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Progress indicator -->
+            <ProgressBar IsIndeterminate="True" Height="3" Foreground="#3B82F6"/>
           </StackPanel>
         </Border>
 
-        <!-- Active Tasks Section -->
-        <StackPanel IsVisible="{Binding ActiveTasks.Count}">
-          <TextBlock Text="ACTIVE TASKS" Classes="section-header"/>
-          <Border Classes="claude-container" Padding="0">
-            <ItemsControl ItemsSource="{Binding ActiveTasks}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="domain:FocusTask">
-                  <Border Classes="task-item">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock Text="{Binding Title}" Classes="task-title"/>
-                        <TextBlock Text="{Binding ActiveForm}" Classes="task-progress"
-                                  IsVisible="{Binding ActiveForm, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                        <TextBlock Classes="task-elapsed">
-                          <Run Text="Started "/>
-                          <Run Text="{Binding StartedAt, StringFormat='{}{0:HH:mm:ss}'}"/>
-                        </TextBlock>
-                      </StackPanel>
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="12,0,12,12">
 
-                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                        <Button Classes="task-action" Content="✓" ToolTip.Tip="Complete"
-                                Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).CompleteTaskCommand}"
-                                CommandParameter="{Binding}"/>
-                        <Button Classes="task-action" Content="🗑" ToolTip.Tip="Delete"
+          <!-- Empty State -->
+          <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      IsVisible="{Binding IsEmptyStateVisible}" Margin="0,40,0,0">
+            <TextBlock Classes="robot-icon" Text="🤖"/>
+            <TextBlock Text="No Claude tasks detected" FontSize="16" Foreground="#94A3B8"
+                      HorizontalAlignment="Center"/>
+            <TextBlock Text="Tasks will appear here when Claude Code is working"
+                      FontSize="13" Foreground="#64748B" HorizontalAlignment="Center"
+                      TextWrapping="Wrap" MaxWidth="300" TextAlignment="Center"/>
+            <Button Content="Create Manual Task" Command="{Binding CreateManualTaskCommand}"
+                    HorizontalAlignment="Center" Margin="0,8,0,0"
+                    Classes="primary-action"/>
+          </StackPanel>
+
+          <!-- Manual Task Creation Form -->
+          <Border Classes="claude-container" Padding="12" Margin="0,0,0,12"
+                  IsVisible="{Binding IsCreateFormVisible}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Create Manual Task" Classes="section-header"/>
+              <TextBox Text="{Binding ManualTaskTitle}" Watermark="Task title..."
+                      AcceptsReturn="False"/>
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Create" Command="{Binding SubmitManualTaskCommand}"
+                        Classes="primary-action"/>
+                <Button Content="Cancel" Command="{Binding CancelManualTaskCommand}"
+                        Classes="secondary-action"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Active Tasks Section -->
+          <StackPanel IsVisible="{Binding ActiveTasks.Count, Converter={StaticResource CountToVisibilityConverter}}">
+            <TextBlock Text="ACTIVE TASKS" Classes="section-header"/>
+            <Border Classes="claude-container" Padding="0">
+              <ItemsControl ItemsSource="{Binding ActiveTasks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="domain:FocusTask">
+                    <Border Classes="task-item">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                          <TextBlock Text="{Binding Title}" Classes="task-title"/>
+                          <TextBlock Text="{Binding ActiveForm}" Classes="task-progress"
+                                    IsVisible="{Binding ActiveForm, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                          <TextBlock Classes="task-elapsed">
+                            <Run Text="Started "/>
+                            <Run Text="{Binding StartedAt, StringFormat='{}{0:HH:mm:ss}'}"/>
+                          </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                          <Button Classes="task-action" Content="✓" ToolTip.Tip="Complete"
+                                  Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).CompleteTaskCommand}"
+                                  CommandParameter="{Binding}"/>
+                          <Button Classes="task-action" Content="🗑" ToolTip.Tip="Delete"
+                                  Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).DeleteTaskCommand}"
+                                  CommandParameter="{Binding}"/>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </StackPanel>
+
+          <!-- Pending Tasks Section -->
+          <StackPanel IsVisible="{Binding PendingTasks.Count, Converter={StaticResource CountToVisibilityConverter}}" Margin="0,12,0,0">
+            <TextBlock Text="PENDING TASKS" Classes="section-header"/>
+            <Border Classes="claude-container-pending" Padding="0">
+              <ItemsControl ItemsSource="{Binding PendingTasks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="domain:FocusTask">
+                    <Border Classes="task-item">
+                      <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="☐"
+                                   Foreground="#64748B"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Title}" Foreground="#CBD5E1" FontSize="13"/>
+                          <TextBlock Text="{Binding Description}" Classes="task-description"
+                                    TextTrimming="CharacterEllipsis" MaxWidth="300"
+                                    IsVisible="{Binding Description, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                          <!-- Show blocked by info if task is blocked -->
+                          <StackPanel Orientation="Horizontal" Spacing="4"
+                                      IsVisible="{Binding IsBlocked}">
+                            <TextBlock Text="⏳" FontSize="10" Foreground="#F59E0B"/>
+                            <TextBlock Text="Blocked by:" FontSize="10" Foreground="#F59E0B"/>
+                            <TextBlock Text="{Binding BlockedBy.Count}" FontSize="10" Foreground="#F59E0B"/>
+                            <TextBlock Text="task(s)" FontSize="10" Foreground="#F59E0B"/>
+                          </StackPanel>
+                        </StackPanel>
+
+                        <Button Grid.Column="2"
+                                Classes="task-action"
+                                Content="🗑"
+                                ToolTip.Tip="Delete"
+                                VerticalAlignment="Center"
                                 Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).DeleteTaskCommand}"
                                 CommandParameter="{Binding}"/>
-                      </StackPanel>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </StackPanel>
+
+          <!-- Completed Tasks Section -->
+          <StackPanel IsVisible="{Binding CompletedTasks.Count, Converter={StaticResource CountToVisibilityConverter}}" Margin="0,12,0,0">
+            <TextBlock Text="COMPLETED TODAY" Classes="section-header"/>
+            <Border Classes="claude-container" Padding="0">
+              <ItemsControl ItemsSource="{Binding CompletedTasks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="domain:FocusTask">
+                    <Border Classes="task-item">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                          <TextBlock Text="{Binding Title}" Classes="task-title" Opacity="0.7"/>
+                          <TextBlock Classes="task-elapsed" Opacity="0.6">
+                            <Run Text="✓ Completed "/>
+                            <Run Text="{Binding CompletedAt, StringFormat='{}{0:HH:mm:ss}'}"/>
+                          </TextBlock>
+                          <TextBlock Text="{Binding ElapsedTimeDisplay}" Foreground="#10B981" FontSize="12"
+                                    IsVisible="{Binding ElapsedTime, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1" Classes="task-action" Content="🗑" ToolTip.Tip="Delete"
+                                Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).DeleteTaskCommand}"
+                                CommandParameter="{Binding}"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </StackPanel>
+
         </StackPanel>
+        </ScrollViewer>
 
-        <!-- Completed Tasks Section -->
-        <StackPanel IsVisible="{Binding CompletedTasks.Count}" Margin="0,16,0,0">
-          <TextBlock Text="COMPLETED TODAY" Classes="section-header"/>
-          <Border Classes="claude-container" Padding="0">
-            <ItemsControl ItemsSource="{Binding CompletedTasks}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="domain:FocusTask">
-                  <Border Classes="task-item">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock Text="{Binding Title}" Classes="task-title" Opacity="0.7"/>
-                        <TextBlock Classes="task-elapsed" Opacity="0.6">
-                          <Run Text="✓ Completed "/>
-                          <Run Text="{Binding CompletedAt, StringFormat='{}{0:HH:mm:ss}'}"/>
-                        </TextBlock>
-                        <TextBlock Text="{Binding Notes}" Foreground="#10B981" FontSize="12"
-                                  IsVisible="{Binding Notes, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                      </StackPanel>
-
-                      <Button Grid.Column="1" Classes="task-action" Content="🗑" ToolTip.Tip="Delete"
-                              Command="{Binding $parent[UserControl].((vm:ClaudeTasksPanelViewModel)DataContext).DeleteTaskCommand}"
-                              CommandParameter="{Binding}"/>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </Border>
-        </StackPanel>
-
-      </StackPanel>
-    </ScrollViewer>
-  </Grid>
+        <!-- Footer -->
+        <Border Grid.Row="2"
+                Background="{StaticResource BackgroundMediumBrush}"
+                Padding="12,6"
+                CornerRadius="0,0,6,6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="{Binding StatusText}"
+                       Foreground="{StaticResource TextDimmedBrush}"
+                       FontSize="11"
+                       VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1"
+                       Text="Press Escape to close"
+                       Foreground="{StaticResource TextDimmedBrush}"
+                       FontSize="11"
+                       VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+      </Grid>
+    </controls:DraggablePopup.PopupContent>
+  </controls:DraggablePopup>
 </UserControl>

@@ -327,22 +327,18 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
 
     /// <summary>
     /// Normalizes a path for consistent comparison.
+    /// Both Windows and macOS (default APFS) use case-insensitive filesystems.
     /// </summary>
     private static string NormalizePath(string path)
     {
         if (string.IsNullOrEmpty(path))
             return string.Empty;
 
-        // Normalize path separators and case (Windows paths are case-insensitive)
-        var normalized = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        // On Windows, normalize to lowercase for comparison
-        if (OperatingSystem.IsWindows())
-        {
-            normalized = normalized.ToLowerInvariant();
-        }
-
-        return normalized;
+        // Normalize path and always lowercase for case-insensitive comparison
+        // Both Windows and macOS (default APFS) use case-insensitive filesystems
+        return Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .ToLowerInvariant();
     }
 
     public void Dispose()

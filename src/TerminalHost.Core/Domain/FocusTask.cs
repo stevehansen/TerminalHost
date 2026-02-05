@@ -91,11 +91,27 @@ public class FocusTask
     [JsonPropertyName("activeForm")]
     public string? ActiveForm { get; set; }
 
+    /// <summary>Task IDs that this task blocks (cannot start until this task completes).</summary>
+    [JsonPropertyName("blocks")]
+    public List<string> Blocks { get; set; } = [];
+
+    /// <summary>Task IDs that block this task (this task cannot start until these complete).</summary>
+    [JsonPropertyName("blockedBy")]
+    public List<string> BlockedBy { get; set; } = [];
+
     // Computed properties
 
     /// <summary>Whether this task has any PR/branch linking.</summary>
     [JsonIgnore]
     public bool HasPrLink => !string.IsNullOrEmpty(LinkedPrNumber) || !string.IsNullOrEmpty(LinkedBranch);
+
+    /// <summary>Whether this task is blocked by other tasks.</summary>
+    [JsonIgnore]
+    public bool IsBlocked => BlockedBy.Count > 0;
+
+    /// <summary>Whether this task blocks other tasks.</summary>
+    [JsonIgnore]
+    public bool HasBlockedTasks => Blocks.Count > 0;
 
     /// <summary>Whether this is a root-level task (no parent).</summary>
     [JsonIgnore]

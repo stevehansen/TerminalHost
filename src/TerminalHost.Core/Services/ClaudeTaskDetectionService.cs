@@ -53,7 +53,24 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
         RegexOptions.Compiled | RegexOptions.IgnoreCase
     );
 
+    // Pattern to strip ANSI escape codes from terminal output
+    private static readonly Regex AnsiEscapePattern = new(
+        @"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])",
+        RegexOptions.Compiled
+    );
+
     public event EventHandler<ClaudeTaskEventArgs>? ClaudeTaskChanged;
+
+    /// <summary>
+    /// Strips ANSI escape codes from terminal output.
+    /// </summary>
+    private static string StripAnsiCodes(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        return AnsiEscapePattern.Replace(text, string.Empty);
+    }
 
     public ClaudeTaskDetectionService(ITaskService taskService)
     {
@@ -85,6 +102,12 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
         if (string.IsNullOrWhiteSpace(line))
             return;
 
+        // Strip ANSI escape codes from terminal output
+        line = StripAnsiCodes(line);
+
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+
         lock (_lock)
         {
             // Skip if not actively monitoring this session
@@ -95,7 +118,7 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
             var createMatch = TaskCreatePattern.Match(line);
             if (createMatch.Success)
             {
-                var subject = createMatch.Groups["subject"].Value.Trim();
+                var subject = StripAnsiCodes(createMatch.Groups["subject"].Value.Trim());
                 CreateClaudeTask(subject, sessionId);
                 return;
             }
@@ -184,6 +207,14 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
 
     private void CreateClaudeTask(string subject, Guid sessionId)
     {
+        // Validate subject - reject invalid titles (too short, only punctuation/whitespace, etc.)
+        if (string.IsNullOrWhiteSpace(subject) ||
+            subject.Length < 3 ||
+            !subject.Any(char.IsLetterOrDigit))
+        {
+            return; // Skip creating task with invalid title
+        }
+
         // Create a unique task using the service
         var task = _taskService.CreateTask(subject);
         task.IsClaudeTask = true;
