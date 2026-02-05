@@ -17,8 +17,6 @@ public sealed class ToastService : IToastService
     private readonly object _lock = new();
     private readonly ISoundService? _soundService;
 
-    public ToastService() { }
-
     public ToastService(ISoundService soundService)
     {
         _soundService = soundService;

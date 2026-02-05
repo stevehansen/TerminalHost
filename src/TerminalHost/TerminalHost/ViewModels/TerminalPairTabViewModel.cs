@@ -192,19 +192,50 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private bool _isRunTerminalActive;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCompletedIndicator))]
     private bool _hasUnreadActivity;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWaitingIndicator))]
+    [NotifyPropertyChangedFor(nameof(ShowCompletedIndicator))]
     private bool _isWaitingForInput;
 
     // Track previous activity state to detect transitions
     private bool _wasAnyTerminalActive;
 
+    // Activity tracking window state
+    private DateTime? _unfocusedAt;           // When tab was unfocused (switched away from)
+    private bool _isTrackingActivity;          // Whether we're in the tracking window
+    private const int GracePeriodSeconds = 5;  // Ignore activity for this long after unfocus
+    private const int TrackingWindowSeconds = 30; // Track for this long after grace period
+
     /// <summary>
     /// Whether this tab is currently selected. Set by MainViewModel.
     /// </summary>
-    public bool IsSelected { get; set; }
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            var wasSelected = _isSelected;
+            _isSelected = value;
+
+            if (wasSelected && !value)
+            {
+                // Tab was deselected - start tracking window
+                _unfocusedAt = DateTime.Now;
+                _isTrackingActivity = false;
+            }
+            else if (!wasSelected && value)
+            {
+                // Tab was selected - clear tracking state
+                _unfocusedAt = null;
+                _isTrackingActivity = false;
+            }
+        }
+    }
 
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
@@ -261,14 +292,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public ObservableCollection<RunConfiguration> RunConfigurations { get; } = [];
 
     /// <summary>
-    /// True if either terminal is currently producing output.
+    /// True if either custom or shell terminal is currently producing output.
+    /// Run terminal is excluded from activity tracking.
     /// </summary>
-    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive || IsRunTerminalActive;
+    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive;
 
     /// <summary>
     /// True if activity spinner should be shown.
+    /// Only shows when within the tracking window for unfocused tabs.
     /// </summary>
-    public bool ShowActivitySpinner => IsAnyTerminalActive;
+    public bool ShowActivitySpinner => IsAnyTerminalActive && (IsSelected || _isTrackingActivity);
 
     /// <summary>
     /// True if completed indicator should be shown.
@@ -738,49 +771,105 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     partial void OnIsCustomTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
         CheckActivityTransition();
     }
 
     partial void OnIsShellTerminalActiveChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAnyTerminalActive));
+        OnPropertyChanged(nameof(ShowCompletedIndicator));
         CheckActivityTransition();
     }
 
     partial void OnIsRunTerminalActiveChanged(bool value)
     {
-        OnPropertyChanged(nameof(IsAnyTerminalActive));
-        CheckActivityTransition();
+        // Run terminal is excluded from activity tracking - no need to update IsAnyTerminalActive
     }
 
     /// <summary>
     /// Checks for activity state transitions and updates HasUnreadActivity accordingly.
-    /// When activity stops (active → idle) on a non-selected tab, marks it as having unread activity.
+    /// Uses a tracking window to prevent false positives:
+    /// - 5 second grace period after unfocusing (ignores activity)
+    /// - 30 second tracking window after grace period
+    /// - After tracking window expires with no activity, stops tracking
     /// </summary>
     private void CheckActivityTransition()
     {
         var isCurrentlyActive = IsAnyTerminalActive;
 
-        // Transition from active to idle: mark as unread, but only if tab is NOT selected
-        // This prevents false positives from terminal focus/blur rendering events
-        if (_wasAnyTerminalActive && !isCurrentlyActive && !IsSelected)
+        // For selected tabs, just track transitions without setting unread
+        if (IsSelected)
         {
-            HasUnreadActivity = true;
+            _wasAnyTerminalActive = isCurrentlyActive;
+            OnPropertyChanged(nameof(ShowActivitySpinner));
+            return;
+        }
+
+        // For unfocused tabs, use the tracking window
+        if (_unfocusedAt.HasValue)
+        {
+            var elapsed = (DateTime.Now - _unfocusedAt.Value).TotalSeconds;
+
+            if (elapsed < GracePeriodSeconds)
+            {
+                // Within grace period - ignore all activity
+                _wasAnyTerminalActive = isCurrentlyActive;
+                return;
+            }
+
+            if (elapsed < GracePeriodSeconds + TrackingWindowSeconds)
+            {
+                // Within tracking window - track normally
+                if (isCurrentlyActive)
+                {
+                    _isTrackingActivity = true;
+                }
+
+                // Transition from active to idle: mark as unread
+                if (_wasAnyTerminalActive && !isCurrentlyActive)
+                {
+                    HasUnreadActivity = true;
+                }
+            }
+            else
+            {
+                // Past tracking window
+                if (!isCurrentlyActive)
+                {
+                    // No activity - stop tracking entirely
+                    _isTrackingActivity = false;
+                }
+                // If still active past the window, keep showing but don't start new tracking
+            }
+        }
+        else
+        {
+            // No unfocus timestamp (shouldn't happen for unselected tabs, but handle gracefully)
+            if (_wasAnyTerminalActive && !isCurrentlyActive)
+            {
+                HasUnreadActivity = true;
+            }
         }
 
         _wasAnyTerminalActive = isCurrentlyActive;
+        OnPropertyChanged(nameof(ShowActivitySpinner));
     }
 
     /// <summary>
     /// Clears the unread activity state. Called when the tab becomes focused/selected.
-    /// Also resets the transition tracking to prevent false positives from terminal
-    /// rendering/focus events that briefly trigger activity.
+    /// Also resets the transition tracking and tracking window state to prevent false
+    /// positives from terminal rendering/focus events that briefly trigger activity.
     /// </summary>
     public void ClearUnreadActivity()
     {
         HasUnreadActivity = false;
         // Sync tracking state to current state to avoid false transition detection
         _wasAnyTerminalActive = IsAnyTerminalActive;
+        // Reset tracking window state
+        _unfocusedAt = null;
+        _isTrackingActivity = false;
+        OnPropertyChanged(nameof(ShowActivitySpinner));
     }
 
     partial void OnIsRunTerminalVisibleChanged(bool value)

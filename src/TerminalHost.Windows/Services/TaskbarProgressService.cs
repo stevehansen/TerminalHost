@@ -77,6 +77,27 @@ public sealed class TaskbarProgressService : ITaskbarProgressService
         }
     }
 
+    public void ShowIndeterminate()
+    {
+        if (!_isEnabled || _taskbarList == null || _windowHandle == IntPtr.Zero)
+            return;
+
+        // Only update if state changed
+        if (_currentState == TaskbarProgressState.Indeterminate)
+            return;
+
+        try
+        {
+            // Set to indeterminate state (looping green progress animation)
+            _taskbarList.SetProgressState(_windowHandle, TBPFLAG.TBPF_INDETERMINATE);
+            _currentState = TaskbarProgressState.Indeterminate;
+        }
+        catch
+        {
+            // Ignore COM errors
+        }
+    }
+
     public void ShowGreenGlow()
     {
         if (!_isEnabled || _taskbarList == null || _windowHandle == IntPtr.Zero)
@@ -165,6 +186,7 @@ public sealed class TaskbarProgressService : ITaskbarProgressService
     private enum TaskbarProgressState
     {
         NoProgress,
+        Indeterminate,
         Normal,
         Paused
     }

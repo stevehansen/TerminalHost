@@ -1610,7 +1610,8 @@ public partial class MainWindow : Window
         // Update taskbar glow when activity indicators change
         if (e.PropertyName == nameof(TerminalPairTabViewModel.IsWaitingForInput) ||
             e.PropertyName == nameof(TerminalPairTabViewModel.HasUnreadActivity) ||
-            e.PropertyName == nameof(TerminalPairTabViewModel.IsAnyTerminalActive))
+            e.PropertyName == nameof(TerminalPairTabViewModel.IsAnyTerminalActive) ||
+            e.PropertyName == nameof(TerminalPairTabViewModel.ShowActivitySpinner))
         {
             UpdateTaskbarGlow();
         }
@@ -1631,11 +1632,16 @@ public partial class MainWindow : Window
         // Check the selected tab's terminal activity state
         if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
         {
-            // Priority: Waiting for input (amber) > Completed activity (green) > No glow
+            // Priority: Waiting for input (amber) > Active output (indeterminate) > Completed activity (green) > No glow
             if (terminalTab.IsWaitingForInput)
             {
                 // Amber glow: Claude is waiting for user input
                 _taskbarProgressService.ShowAmberGlow();
+            }
+            else if (terminalTab.ShowActivitySpinner)
+            {
+                // Looping progress: terminals are actively producing output
+                _taskbarProgressService.ShowIndeterminate();
             }
             else if (terminalTab.HasUnreadActivity && !terminalTab.IsAnyTerminalActive)
             {

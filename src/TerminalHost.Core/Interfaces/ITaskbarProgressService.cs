@@ -13,6 +13,12 @@ public interface ITaskbarProgressService
     void ShowAmberGlow();
 
     /// <summary>
+    /// Shows a looping indeterminate progress animation on the taskbar.
+    /// Used when terminals are actively producing output.
+    /// </summary>
+    void ShowIndeterminate();
+
+    /// <summary>
     /// Shows a green glow on the taskbar (normal/completed state).
     /// Used when terminal activity has completed.
     /// </summary>

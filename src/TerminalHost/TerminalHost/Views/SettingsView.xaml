@@ -461,57 +461,61 @@
 
                             <TextBlock Text="Success:" Grid.Row="0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <ComboBox Grid.Row="0" Grid.Column="1"
-                                      Text="{Binding SuccessSound, UpdateSourceTrigger=PropertyChanged}"
-                                      IsEditable="True"
+                                      SelectedValue="{Binding SuccessSound}"
+                                      SelectedValuePath="Tag"
                                       Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
                                       Margin="0,0,0,8">
-                                <ComboBoxItem Content="Asterisk"/>
-                                <ComboBoxItem Content="Beep"/>
-                                <ComboBoxItem Content="Exclamation"/>
-                                <ComboBoxItem Content="Hand"/>
-                                <ComboBoxItem Content="Question"/>
-                                <ComboBoxItem Content=""/>
+                                <ComboBoxItem Content="(None)" Tag=""/>
+                                <ComboBoxItem Content="Asterisk" Tag="Asterisk"/>
+                                <ComboBoxItem Content="Beep" Tag="Beep"/>
+                                <ComboBoxItem Content="Exclamation" Tag="Exclamation"/>
+                                <ComboBoxItem Content="Hand" Tag="Hand"/>
+                                <ComboBoxItem Content="Question" Tag="Question"/>
                             </ComboBox>
 
                             <TextBlock Text="Error:" Grid.Row="1" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <ComboBox Grid.Row="1" Grid.Column="1"
-                                      Text="{Binding ErrorSound, UpdateSourceTrigger=PropertyChanged}"
-                                      IsEditable="True"
+                                      SelectedValue="{Binding ErrorSound}"
+                                      SelectedValuePath="Tag"
                                       Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
                                       Margin="0,0,0,8">
-                                <ComboBoxItem Content="Asterisk"/>
-                                <ComboBoxItem Content="Beep"/>
-                                <ComboBoxItem Content="Exclamation"/>
-                                <ComboBoxItem Content="Hand"/>
-                                <ComboBoxItem Content="Question"/>
-                                <ComboBoxItem Content=""/>
+                                <ComboBoxItem Content="(None)" Tag=""/>
+                                <ComboBoxItem Content="Asterisk" Tag="Asterisk"/>
+                                <ComboBoxItem Content="Beep" Tag="Beep"/>
+                                <ComboBoxItem Content="Exclamation" Tag="Exclamation"/>
+                                <ComboBoxItem Content="Hand" Tag="Hand"/>
+                                <ComboBoxItem Content="Question" Tag="Question"/>
                             </ComboBox>
 
                             <TextBlock Text="Warning:" Grid.Row="2" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <ComboBox Grid.Row="2" Grid.Column="1"
-                                      Text="{Binding WarningSound, UpdateSourceTrigger=PropertyChanged}"
-                                      IsEditable="True"
+                                      SelectedValue="{Binding WarningSound}"
+                                      SelectedValuePath="Tag"
                                       Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
                                       Margin="0,0,0,8">
-                                <ComboBoxItem Content="Asterisk"/>
-                                <ComboBoxItem Content="Beep"/>
-                                <ComboBoxItem Content="Exclamation"/>
-                                <ComboBoxItem Content="Hand"/>
-                                <ComboBoxItem Content="Question"/>
-                                <ComboBoxItem Content=""/>
+                                <ComboBoxItem Content="(None)" Tag=""/>
+                                <ComboBoxItem Content="Asterisk" Tag="Asterisk"/>
+                                <ComboBoxItem Content="Beep" Tag="Beep"/>
+                                <ComboBoxItem Content="Exclamation" Tag="Exclamation"/>
+                                <ComboBoxItem Content="Hand" Tag="Hand"/>
+                                <ComboBoxItem Content="Question" Tag="Question"/>
                             </ComboBox>
 
                             <TextBlock Text="Info:" Grid.Row="3" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <ComboBox Grid.Row="3" Grid.Column="1"
-                                      Text="{Binding InfoSound, UpdateSourceTrigger=PropertyChanged}"
-                                      IsEditable="True"
-                                      Style="{StaticResource DarkComboBox}">
-                                <ComboBoxItem Content="Asterisk"/>
-                                <ComboBoxItem Content="Beep"/>
-                                <ComboBoxItem Content="Exclamation"/>
-                                <ComboBoxItem Content="Hand"/>
-                                <ComboBoxItem Content="Question"/>
-                                <ComboBoxItem Content=""/>
+                                      SelectedValue="{Binding InfoSound}"
+                                      SelectedValuePath="Tag"
+                                      Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                                <ComboBoxItem Content="(None)" Tag=""/>
+                                <ComboBoxItem Content="Asterisk" Tag="Asterisk"/>
+                                <ComboBoxItem Content="Beep" Tag="Beep"/>
+                                <ComboBoxItem Content="Exclamation" Tag="Exclamation"/>
+                                <ComboBoxItem Content="Hand" Tag="Hand"/>
+                                <ComboBoxItem Content="Question" Tag="Question"/>
                             </ComboBox>
                         </Grid>
                         <TextBlock Text="System sounds: Asterisk, Beep, Exclamation, Hand, Question. Leave empty to disable. You can also enter a path to a .wav file."
