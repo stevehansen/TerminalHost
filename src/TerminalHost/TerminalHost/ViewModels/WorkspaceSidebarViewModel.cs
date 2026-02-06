@@ -59,6 +59,31 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPullAllInProgress;
 
+    // Git sidebar section properties
+    [ObservableProperty]
+    private ObservableCollection<GitBranch> _sidebarBranches = [];
+
+    [ObservableProperty]
+    private ObservableCollection<GitTag> _sidebarTags = [];
+
+    [ObservableProperty]
+    private int _sidebarStashCount;
+
+    [ObservableProperty]
+    private bool _isGitSectionVisible;
+
+    [ObservableProperty]
+    private bool _isGitSectionExpanded = true;
+
+    [ObservableProperty]
+    private bool _isBranchesSectionExpanded = true;
+
+    [ObservableProperty]
+    private bool _isTagsSectionExpanded;
+
+    [ObservableProperty]
+    private string _currentBranchName = "";
+
     /// <summary>
     /// Whether there is filter text entered.
     /// </summary>
@@ -101,6 +126,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// Used to sync tab git status with sidebar.
     /// </summary>
     public event EventHandler<string>? GitStatusRefreshed;
+    public event EventHandler<string>? GitPanelRequested;
 
     public WorkspaceSidebarViewModel(
         IConfigurationService configurationService,
@@ -1031,5 +1057,68 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         var charThousands = charCount / 1000.0;
 
         return (focusMinutes * FOCUS_WEIGHT) + (charThousands * CHAR_WEIGHT);
+    }
+
+    /// <summary>
+    /// Refreshes git sidebar section for the currently active workspace.
+    /// </summary>
+    public async Task RefreshGitSidebarAsync(string? workingDirectory)
+    {
+        if (string.IsNullOrEmpty(workingDirectory))
+        {
+            IsGitSectionVisible = false;
+            return;
+        }
+
+        try
+        {
+            // Get branches (top 10 recent)
+            var branches = await _gitStatusService.GetBranchesAsync(workingDirectory);
+            var localBranches = branches.Where(b => !b.IsRemote).Take(10).ToList();
+            SidebarBranches = new ObservableCollection<GitBranch>(localBranches);
+            CurrentBranchName = branches.FirstOrDefault(b => b.IsCurrent)?.Name ?? "";
+
+            // Get tags (top 10)
+            var tags = await _gitStatusService.GetTagsAsync(workingDirectory);
+            SidebarTags = new ObservableCollection<GitTag>(tags.Take(10));
+
+            // Get stash count
+            var stashes = await _gitStatusService.GetStashListAsync(workingDirectory);
+            SidebarStashCount = stashes.Count;
+
+            IsGitSectionVisible = true;
+        }
+        catch
+        {
+            IsGitSectionVisible = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckoutSidebarBranchAsync(GitBranch? branch)
+    {
+        if (branch == null || SelectedWorkspace == null) return;
+
+        var result = await _gitStatusService.CheckoutBranchAsync(
+            SelectedWorkspace.Path, branch.Name);
+
+        if (result.Success)
+        {
+            _toastService.Show($"Checked out {branch.Name}", ToastType.Success);
+            await RefreshGitSidebarAsync(SelectedWorkspace.Path);
+        }
+        else
+        {
+            _toastService.Show($"Checkout failed: {result.Error}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenGitPanel()
+    {
+        if (SelectedWorkspace != null)
+        {
+            GitPanelRequested?.Invoke(this, SelectedWorkspace.Path);
+        }
     }
 }

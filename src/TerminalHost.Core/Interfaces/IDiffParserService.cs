@@ -21,4 +21,9 @@ public interface IDiffParserService
     /// Parse and convert a unified diff string directly to side-by-side format.
     /// </summary>
     List<SideBySideDiffRow> ParseToSideBySide(string unifiedDiff);
+
+    /// <summary>
+    /// Extract a single hunk as a valid patch from a parsed diff.
+    /// </summary>
+    string ExtractHunkPatch(ParsedDiff parsedDiff, int hunkIndex);
 }

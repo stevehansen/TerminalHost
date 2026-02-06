@@ -110,4 +110,50 @@ public sealed class GitProcessRunner : IGitProcessRunner
             };
         }
     }
+
+    public async Task<GitOperationResult> RunGitOperationWithStdinAsync(string workingDirectory, string arguments, string stdinContent)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = arguments,
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+
+            await process.StandardInput.WriteAsync(stdinContent);
+            process.StandardInput.Close();
+
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync();
+
+            return new GitOperationResult
+            {
+                Success = process.ExitCode == 0,
+                Output = await outputTask,
+                Error = await errorTask
+            };
+        }
+        catch (Exception ex)
+        {
+            return new GitOperationResult
+            {
+                Success = false,
+                Error = ex.Message
+            };
+        }
+    }
 }

@@ -5,6 +5,7 @@ using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
+using System.Globalization;
 
 namespace TerminalHost.ViewModels;
 
@@ -17,6 +18,7 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly ICommitGraphService _commitGraphService;
     private TerminalPairTabViewModel? _currentTerminalTab;
     private const int DefaultCommitCount = 50;
     private const int LoadMoreCount = 25;
@@ -70,6 +72,30 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _isCompactView;
 
+    [ObservableProperty]
+    private string _filePathFilter = "";
+
+    [ObservableProperty]
+    private DateTime? _afterDate;
+
+    [ObservableProperty]
+    private DateTime? _beforeDate;
+
+    [ObservableProperty]
+    private bool _isFilterExpanded;
+
+    [ObservableProperty]
+    private string _afterDateText = "";
+
+    [ObservableProperty]
+    private string _beforeDateText = "";
+
+    [ObservableProperty]
+    private List<GraphNode> _graphNodes = [];
+
+    [ObservableProperty]
+    private int _graphWidth;
+
     public bool HasSelectedCommit => SelectedCommit != null;
     public bool HasCommits => Commits.Count > 0;
 
@@ -78,11 +104,13 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     public CommitHistoryViewModel(
         IGitStatusService gitStatusService,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        ICommitGraphService commitGraphService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _commitGraphService = commitGraphService;
 
         // Set defaults - defaults to Popup
         DisplayState = PanelDisplayState.Popup;
@@ -146,6 +174,7 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         if (_currentTerminalTab?.Pair.WorkingDirectory == null)
         {
             Commits.Clear();
+            GraphNodes = [];
             return;
         }
 
@@ -154,7 +183,13 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         {
             var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
             var author = string.IsNullOrWhiteSpace(AuthorFilter) ? null : AuthorFilter;
-            var commits = await _gitStatusService.GetCommitHistoryAsync(workingDirectory, DefaultCommitCount, author);
+            var search = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+            var fileFilter = string.IsNullOrWhiteSpace(FilePathFilter) ? null : FilePathFilter;
+            DateTimeOffset? after = AfterDate.HasValue ? new DateTimeOffset(AfterDate.Value) : null;
+            DateTimeOffset? before = BeforeDate.HasValue ? new DateTimeOffset(BeforeDate.Value) : null;
+
+            var commits = await _gitStatusService.GetCommitHistoryAsync(
+                workingDirectory, DefaultCommitCount, author, fileFilter, search, after, before);
 
             Commits = new ObservableCollection<GitCommit>(commits);
 
@@ -172,6 +207,10 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
                     RelativeDate = $"{count} file(s) modified"
                 });
             }
+
+            // Compute commit graph
+            GraphNodes = _commitGraphService.ComputeGraph(Commits.ToList());
+            GraphWidth = (GraphNodes.Count > 0 ? GraphNodes.Max(n => n.Column) + 1 : 1) * 20;
 
             OnPropertyChanged(nameof(HasCommits));
 
@@ -197,8 +236,13 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         {
             var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
             var author = string.IsNullOrWhiteSpace(AuthorFilter) ? null : AuthorFilter;
+            var search = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+            var fileFilter = string.IsNullOrWhiteSpace(FilePathFilter) ? null : FilePathFilter;
+            DateTimeOffset? after = AfterDate.HasValue ? new DateTimeOffset(AfterDate.Value) : null;
+            DateTimeOffset? before = BeforeDate.HasValue ? new DateTimeOffset(BeforeDate.Value) : null;
             var totalCount = Commits.Count + LoadMoreCount;
-            var commits = await _gitStatusService.GetCommitHistoryAsync(workingDirectory, totalCount, author);
+            var commits = await _gitStatusService.GetCommitHistoryAsync(
+                workingDirectory, totalCount, author, fileFilter, search, after, before);
 
             // Add new commits that aren't already in the list
             foreach (var commit in commits.Skip(Commits.Count))
@@ -248,6 +292,44 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     {
         AuthorFilter = "";
         SearchText = "";
+        FilePathFilter = "";
+        AfterDate = null;
+        BeforeDate = null;
+        AfterDateText = "";
+        BeforeDateText = "";
+        await RefreshCommitsAsync();
+    }
+
+    [RelayCommand]
+    private void ToggleFilterExpanded()
+    {
+        IsFilterExpanded = !IsFilterExpanded;
+    }
+
+    [RelayCommand]
+    private async Task ApplyFiltersAsync()
+    {
+        // Parse date texts
+        if (!string.IsNullOrWhiteSpace(AfterDateText) &&
+            DateTime.TryParseExact(AfterDateText, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var after))
+        {
+            AfterDate = after;
+        }
+        else
+        {
+            AfterDate = null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(BeforeDateText) &&
+            DateTime.TryParseExact(BeforeDateText, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var before))
+        {
+            BeforeDate = before;
+        }
+        else
+        {
+            BeforeDate = null;
+        }
+
         await RefreshCommitsAsync();
     }
 

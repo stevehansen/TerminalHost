@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:controls="clr-namespace:TerminalHost.Controls"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance viewModels:GitFilesViewModel}"
              mc:Ignorable="d">
 
@@ -144,15 +145,56 @@
                                            VerticalAlignment="Center"/>
                             </Border>
 
-                            <!-- Summary header -->
+                            <!-- Summary header with tree toggle -->
                             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                <TextBlock Text="{Binding FileChangeSummary}"
-                                           Foreground="{StaticResource TextDimmedBrush}"
-                                           FontSize="{StaticResource FontSizeTiny}"/>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding ToggleTreeViewCommand}"
+                                            ToolTip="Toggle tree/list view"
+                                            FontSize="12" Padding="4,2">
+                                        <Button.Content>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="&#x1f332;"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsTreeView}" Value="True">
+                                                                <Setter Property="Text" Value="&#x2630;"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button.Content>
+                                    </Button>
+                                    <TextBlock Text="{Binding FileChangeSummary}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
                             </Border>
 
-                            <!-- Files area with staged and unstaged sections -->
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <!-- Merge conflict banner -->
+                            <Border Grid.Row="0" Margin="0,28,0,0"
+                                    Background="#33F14C4C" Padding="8,4"
+                                    Visibility="{Binding IsMergeInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Resolve"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding OpenMergeConflictResolverCommand}"
+                                            Foreground="#F14C4C" Padding="6,2"/>
+                                    <TextBlock Foreground="#F14C4C" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
+                                        <Run Text="Merge in progress —"/>
+                                        <Run Text="{Binding ConflictCount, Mode=OneWay}"/>
+                                        <Run Text="conflicts"/>
+                                    </TextBlock>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Files area with staged and unstaged sections (flat view) -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                 <StackPanel>
                                     <!-- Staged Changes Section -->
                                     <Border Background="{StaticResource BackgroundDarkBrush}"
@@ -243,6 +285,113 @@
                                 </StackPanel>
                             </ScrollViewer>
 
+                            <!-- Files area (tree view) -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <!-- Staged Tree Section -->
+                                    <Border Background="{StaticResource BackgroundDarkBrush}"
+                                            Visibility="{Binding StagedFiles.Count, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <Border Background="#1A4EC9B0" Padding="8,4">
+                                                <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Content="Unstage All"
+                                                            Style="{StaticResource SectionHeaderButton}"
+                                                            Command="{Binding UnstageAllCommand}"/>
+                                                    <TextBlock VerticalAlignment="Center">
+                                                        <Run Text="Staged Changes" FontWeight="SemiBold" Foreground="#4EC9B0"/>
+                                                        <Run Text=" (" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                        <Run Text="{Binding StagedFiles.Count, Mode=OneWay}" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                        <Run Text=")" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                    </TextBlock>
+                                                </DockPanel>
+                                            </Border>
+                                            <TreeView ItemsSource="{Binding StagedTree}"
+                                                      Background="Transparent" BorderThickness="0"
+                                                      MaxHeight="200"
+                                                      SelectedItemChanged="TreeView_SelectedItemChanged">
+                                                <TreeView.Resources>
+                                                    <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                                                        <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                                            <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding CountDisplay}"
+                                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                                       Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </HierarchicalDataTemplate>
+                                                </TreeView.Resources>
+                                                <TreeView.ItemContainerStyle>
+                                                    <Style TargetType="TreeViewItem">
+                                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                    </Style>
+                                                </TreeView.ItemContainerStyle>
+                                            </TreeView>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Unstaged Tree Section -->
+                                    <Border Background="{StaticResource BackgroundDarkBrush}"
+                                            Visibility="{Binding UnstagedFiles.Count, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <Border Background="#1AE2C08D" Padding="8,4">
+                                                <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Content="Stage All"
+                                                            Style="{StaticResource SectionHeaderButton}"
+                                                            Command="{Binding StageAllCommand}"/>
+                                                    <TextBlock VerticalAlignment="Center">
+                                                        <Run Text="Unstaged Changes" FontWeight="SemiBold" Foreground="#E2C08D"/>
+                                                        <Run Text=" (" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                        <Run Text="{Binding UnstagedFiles.Count, Mode=OneWay}" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                        <Run Text=")" Foreground="{StaticResource TextDimmedBrush}"/>
+                                                    </TextBlock>
+                                                </DockPanel>
+                                            </Border>
+                                            <TreeView ItemsSource="{Binding UnstagedTree}"
+                                                      Background="Transparent" BorderThickness="0"
+                                                      SelectedItemChanged="TreeView_SelectedItemChanged">
+                                                <TreeView.Resources>
+                                                    <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                                                        <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                                            <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding CountDisplay}"
+                                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                                       Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </HierarchicalDataTemplate>
+                                                </TreeView.Resources>
+                                                <TreeView.ItemContainerStyle>
+                                                    <Style TargetType="TreeViewItem">
+                                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                    </Style>
+                                                </TreeView.ItemContainerStyle>
+                                            </TreeView>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Empty state -->
+                                    <TextBlock Text="No changes"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeCode}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,40"
+                                               Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
                             <!-- Commit Section -->
                             <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8" BorderThickness="0,1,0,0" BorderBrush="#333">
                                 <Grid>
@@ -315,9 +464,24 @@
                                                   ToolTip="Amend the last commit"/>
                                     </DockPanel>
 
-                                    <!-- Commit button -->
-                                    <Button Grid.Row="3"
-                                            Margin="0,8,0,0"
+                                    <!-- Commit and Undo buttons -->
+                                    <Grid Grid.Row="3" Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Grid.Column="1"
+                                                Content="&#x21A9; Undo"
+                                                Style="{StaticResource TerminalSwitchButton}"
+                                                Command="{Binding UndoLastCommitCommand}"
+                                                ToolTip="Undo last commit (keeps changes staged)"
+                                                FontSize="{StaticResource FontSizeMicro}"
+                                                Foreground="{StaticResource TextMutedBrush}"
+                                                Padding="6,6"
+                                                Margin="4,0,0,0"/>
+
+                                    <Button Grid.Column="0"
                                             Command="{Binding CreateCommitCommand}"
                                             HorizontalAlignment="Stretch"
                                             Padding="8,6"
@@ -355,6 +519,7 @@
                                             <TextBlock Text=")" Visibility="{Binding HasStagedFiles, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </StackPanel>
                                     </Button>
+                                    </Grid>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -418,8 +583,11 @@
                                 </DockPanel>
                             </Border>
 
-                            <!-- Diff content -->
-                            <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}" />
+                            <!-- Diff content with hunk staging -->
+                            <controls:HunkStagingDiffViewer Grid.Row="1"
+                                DiffText="{Binding DiffText}"
+                                IsStaged="{Binding SelectedGitFile.IsStaged}"
+                                Loaded="HunkDiffViewer_Loaded"/>
                         </Grid>
                     </Border>
                 </Grid>

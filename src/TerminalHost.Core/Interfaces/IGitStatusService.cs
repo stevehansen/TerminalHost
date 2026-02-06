@@ -26,11 +26,18 @@ public interface IGitStatusService
     Task<GitOperationResult> DiscardChangesAsync(string workingDirectory, string filePath);
     Task<GitOperationResult> DiscardAllChangesAsync(string workingDirectory);
 
+    // Hunk-level staging
+    Task<GitOperationResult> StageHunkAsync(string workingDirectory, string patchContent);
+    Task<GitOperationResult> UnstageHunkAsync(string workingDirectory, string patchContent);
+
     // Commit operations
     Task<GitOperationResult> CreateCommitAsync(string workingDirectory, string message, bool amend = false);
+    Task<GitOperationResult> UndoLastCommitAsync(string workingDirectory);
 
     // Commit history
-    Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null, string? filePath = null);
+    Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null,
+        string? filePath = null, string? searchText = null,
+        DateTimeOffset? afterDate = null, DateTimeOffset? beforeDate = null);
     Task<GitCommitDetails?> GetCommitDetailsAsync(string workingDirectory, string hash);
     Task<string?> GetCommitDiffAsync(string workingDirectory, string hash, string? filePath = null);
 
@@ -128,4 +135,11 @@ public interface IGitStatusService
     /// Updates a submodule to the latest commit from remote (--remote).
     /// </summary>
     Task<GitOperationResult> UpdateSubmoduleToLatestAsync(string workingDirectory, string submodulePath);
+
+    // Merge conflict resolution
+    Task<bool> IsMergeInProgressAsync(string workingDirectory);
+    Task<ConflictInfo?> ParseConflictFileAsync(string workingDirectory, string filePath);
+    Task<GitOperationResult> MarkResolvedAsync(string workingDirectory, string filePath);
+    Task<GitOperationResult> MergeAbortAsync(string workingDirectory);
+    Task<GitOperationResult> MergeContinueAsync(string workingDirectory);
 }

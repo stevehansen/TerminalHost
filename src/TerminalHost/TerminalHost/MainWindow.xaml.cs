@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     private readonly BranchComparisonViewModel _branchComparisonViewModel;
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
+    private readonly MergeConflictViewModel _mergeConflictViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -54,7 +55,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -81,6 +82,7 @@ public partial class MainWindow : Window
         _branchComparisonViewModel = branchComparisonViewModel;
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
+        _mergeConflictViewModel = mergeConflictViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -112,14 +114,19 @@ public partial class MainWindow : Window
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
         _branchComparisonViewModel.ShowRequested += OnPanelShowRequested;
         _claudeTasksPanelViewModel.ShowRequested += OnPanelShowRequested;
+        _mergeConflictViewModel.ShowRequested += OnPanelShowRequested;
+
+        // Subscribe to merge conflict events from git files panel
+        _gitFilesViewModel.MergeConflictRequested += OnMergeConflictRequested;
 
         // Subscribe to branch comparison events
         _gitBranchViewModel.CompareBranchesRequested += OnCompareBranchesRequested;
 
-        // Subscribe to ManageWorktrees events
+        // Subscribe to ManageWorktrees events and Git panel events
         if (_viewModel.WorkspaceSidebar != null)
         {
             _viewModel.WorkspaceSidebar.ManageWorktreesRequested += OnManageWorktreesRequested;
+            _viewModel.WorkspaceSidebar.GitPanelRequested += OnSidebarGitPanelRequested;
         }
         _manageWorktreesViewModel.OpenWorktreeRequested += OnManageWorktreesOpenWorktree;
         _manageWorktreesViewModel.CreateWorktreeRequested += OnManageWorktreesCreateWorktree;
@@ -209,6 +216,13 @@ public partial class MainWindow : Window
                 {
                     _claudeTasksPanelViewModel.OnOpened();
                 }
+            }
+
+            // Refresh git sidebar when tab changes
+            if (_viewModel.WorkspaceSidebar != null)
+            {
+                var workDir = (_viewModel.SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory;
+                _ = _viewModel.WorkspaceSidebar.RefreshGitSidebarAsync(workDir);
             }
         }
     }
@@ -1105,6 +1119,21 @@ public partial class MainWindow : Window
 
         // Not open yet - use default DisplayState (Popup)
         await _gitFilesViewModel.OpenAsync(currentTab);
+    }
+
+    private async void OnSidebarGitPanelRequested(object? sender, string workspacePath)
+    {
+        // Open the unified git panel for the workspace
+        await OpenUnifiedGitPanelAsync(GitPanelTab.Changes);
+    }
+
+    private async void OnMergeConflictRequested(object? sender, EventArgs e)
+    {
+        var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null) return;
+
+        currentTab.SetPanel(_mergeConflictViewModel);
+        await _mergeConflictViewModel.OpenAsync(currentTab);
     }
 
     private async void OnUnifiedGitPanelRequested(object? sender, GitPanelTab tab)

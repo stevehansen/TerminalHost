@@ -590,6 +590,22 @@ public sealed class GitStatusService : IGitStatusService
         return await _gitRunner.RunGitOperationAsync(workingDirectory, "clean -fd");
     }
 
+    public async Task<GitOperationResult> StageHunkAsync(string workingDirectory, string patchContent)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationWithStdinAsync(workingDirectory, "apply --cached --recount --allow-empty", patchContent);
+    }
+
+    public async Task<GitOperationResult> UnstageHunkAsync(string workingDirectory, string patchContent)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationWithStdinAsync(workingDirectory, "apply --cached -R --recount --allow-empty", patchContent);
+    }
+
     #endregion
 
     #region Commit Operations
@@ -609,11 +625,21 @@ public sealed class GitStatusService : IGitStatusService
         return await _gitRunner.RunGitOperationAsync(workingDirectory, $"commit {amendFlag}-m \"{escapedMessage}\"");
     }
 
+    public async Task<GitOperationResult> UndoLastCommitAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "reset --soft HEAD~1");
+    }
+
     #endregion
 
     #region Commit History
 
-    public async Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null, string? filePath = null)
+    public async Task<List<GitCommit>> GetCommitHistoryAsync(string workingDirectory, int count = 50, string? author = null,
+        string? filePath = null, string? searchText = null,
+        DateTimeOffset? afterDate = null, DateTimeOffset? beforeDate = null)
     {
         var commits = new List<GitCommit>();
 
@@ -627,6 +653,15 @@ public sealed class GitStatusService : IGitStatusService
 
         if (!string.IsNullOrEmpty(author))
             args += $" --author=\"{author}\"";
+
+        if (!string.IsNullOrEmpty(searchText))
+            args += $" --grep=\"{searchText}\" -i";
+
+        if (afterDate.HasValue)
+            args += $" --after=\"{afterDate.Value:yyyy-MM-dd}\"";
+
+        if (beforeDate.HasValue)
+            args += $" --before=\"{beforeDate.Value:yyyy-MM-dd}\"";
 
         if (!string.IsNullOrEmpty(filePath))
             args += $" --follow -- \"{filePath}\"";
@@ -1681,6 +1716,118 @@ public sealed class GitStatusService : IGitStatusService
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
 
         return await _gitRunner.RunGitOperationAsync(workingDirectory, $"push origin --delete \"{tagName}\"");
+    }
+
+    #endregion
+
+    #region Merge Conflict Resolution
+
+    public async Task<bool> IsMergeInProgressAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return false;
+
+        var gitDir = Path.Combine(workingDirectory, ".git");
+        var mergeHeadPath = Path.Combine(gitDir, "MERGE_HEAD");
+        return _fileSystem.FileExists(mergeHeadPath);
+    }
+
+    public Task<ConflictInfo?> ParseConflictFileAsync(string workingDirectory, string filePath)
+    {
+        var fullPath = Path.Combine(workingDirectory, filePath);
+        if (!_fileSystem.FileExists(fullPath))
+            return Task.FromResult<ConflictInfo?>(null);
+
+        var content = _fileSystem.ReadAllText(fullPath);
+        var info = new ConflictInfo
+        {
+            FilePath = filePath,
+            FullContent = content,
+            Hunks = [],
+            ResolvedLines = []
+        };
+
+        var lines = content.Split('\n');
+        var currentOurs = new List<string>();
+        var currentTheirs = new List<string>();
+        bool inOurs = false, inTheirs = false;
+        int hunkStart = 0;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd('\r');
+
+            if (line.StartsWith("<<<<<<<"))
+            {
+                inOurs = true;
+                inTheirs = false;
+                currentOurs.Clear();
+                currentTheirs.Clear();
+                hunkStart = i;
+            }
+            else if (line.StartsWith("=======") && inOurs)
+            {
+                inOurs = false;
+                inTheirs = true;
+            }
+            else if (line.StartsWith(">>>>>>>") && inTheirs)
+            {
+                info.Hunks.Add(new ConflictHunk
+                {
+                    OursContent = string.Join("\n", currentOurs),
+                    TheirsContent = string.Join("\n", currentTheirs),
+                    StartLine = hunkStart,
+                    EndLine = i
+                });
+                inOurs = false;
+                inTheirs = false;
+                info.ResolvedLines.Add(string.Join("\n", currentOurs)); // Default to ours
+            }
+            else if (inOurs)
+            {
+                currentOurs.Add(line);
+            }
+            else if (inTheirs)
+            {
+                currentTheirs.Add(line);
+            }
+            else
+            {
+                // Non-conflict line
+            }
+        }
+
+        return Task.FromResult<ConflictInfo?>(info);
+    }
+
+    public async Task<GitOperationResult> MarkResolvedAsync(string workingDirectory, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"add -- \"{filePath}\"");
+    }
+
+    public async Task<GitOperationResult> MergeAbortAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, "merge --abort");
+    }
+
+    public async Task<GitOperationResult> MergeContinueAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // Use --continue if available, otherwise try committing (for when all conflicts resolved)
+        var result = await _gitRunner.RunGitOperationAsync(workingDirectory, "merge --continue");
+        if (!result.Success && result.Error?.Contains("--continue") == true)
+        {
+            result = await _gitRunner.RunGitOperationAsync(workingDirectory, "commit --no-edit");
+        }
+        return result;
     }
 
     #endregion

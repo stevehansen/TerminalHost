@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
@@ -21,6 +22,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
+    private readonly IDiffParserService _diffParserService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -80,6 +82,24 @@ public partial class GitFilesViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _isLoading;
 
+    [ObservableProperty]
+    private bool _isTreeView;
+
+    [ObservableProperty]
+    private ObservableCollection<FileTreeNode> _stagedTree = [];
+
+    [ObservableProperty]
+    private ObservableCollection<FileTreeNode> _unstagedTree = [];
+
+    [ObservableProperty]
+    private ParsedDiff? _currentParsedDiff;
+
+    [ObservableProperty]
+    private bool _isMergeInProgress;
+
+    [ObservableProperty]
+    private int _conflictCount;
+
     #endregion
 
     #region Commit Properties
@@ -124,7 +144,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IDialogService dialogService,
         IFileSystem fileSystem,
         IProcessService processService,
-        IToastService toastService)
+        IToastService toastService,
+        IDiffParserService diffParserService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
@@ -132,6 +153,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         _fileSystem = fileSystem;
         _processService = processService;
         _toastService = toastService;
+        _diffParserService = diffParserService;
 
         // Set defaults for git changes - defaults to Popup
         DisplayState = PanelDisplayState.Popup;
@@ -214,8 +236,19 @@ public partial class GitFilesViewModel : BasePanelViewModel
         UnstagedFiles = new ObservableCollection<GitFileStatus>(files.Where(f => !f.IsStaged));
         IsEmptyStateVisible = !GitFiles.Any();
 
+        // Build trees if tree view is active
+        if (IsTreeView)
+        {
+            BuildFileTrees();
+        }
+
+        // Check for merge in progress
+        IsMergeInProgress = await _gitStatusService.IsMergeInProgressAsync(workingDirectory);
+        ConflictCount = files.Count(f => f.Status == GitFileStatusType.Conflicted);
+
         SelectedGitFile = null;
         DiffText = "";
+        CurrentParsedDiff = null;
 
         // Preserve selection if possible, otherwise select first file
         if (GitFiles.Any())
@@ -532,6 +565,207 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     #endregion
 
+    #region Tree View
+
+    [RelayCommand]
+    private void ToggleTreeView()
+    {
+        IsTreeView = !IsTreeView;
+        if (IsTreeView)
+        {
+            BuildFileTrees();
+        }
+    }
+
+    private void BuildFileTrees()
+    {
+        StagedTree = new ObservableCollection<FileTreeNode>(BuildFileTree(StagedFiles));
+        UnstagedTree = new ObservableCollection<FileTreeNode>(BuildFileTree(UnstagedFiles));
+    }
+
+    private static List<FileTreeNode> BuildFileTree(IEnumerable<GitFileStatus> files)
+    {
+        var root = new List<FileTreeNode>();
+        var folderMap = new Dictionary<string, FileTreeNode>();
+
+        foreach (var file in files)
+        {
+            var parts = file.FilePath.Replace('\\', '/').Split('/');
+            var currentList = root;
+            var currentPath = "";
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                currentPath = string.IsNullOrEmpty(currentPath) ? part : $"{currentPath}/{part}";
+                bool isLeaf = i == parts.Length - 1;
+
+                if (isLeaf)
+                {
+                    currentList.Add(new FileTreeNode
+                    {
+                        Name = part,
+                        FullPath = file.FilePath,
+                        IsFolder = false,
+                        FileStatus = file
+                    });
+                }
+                else
+                {
+                    if (!folderMap.TryGetValue(currentPath, out var folder))
+                    {
+                        folder = new FileTreeNode
+                        {
+                            Name = part,
+                            FullPath = currentPath,
+                            IsFolder = true,
+                            IsExpanded = true
+                        };
+                        folderMap[currentPath] = folder;
+                        currentList.Add(folder);
+                    }
+                    currentList = folder.Children;
+                }
+            }
+        }
+
+        // Update file counts
+        UpdateFileCount(root);
+        return root;
+    }
+
+    private static int UpdateFileCount(List<FileTreeNode> nodes)
+    {
+        int count = 0;
+        foreach (var node in nodes)
+        {
+            if (node.IsFolder)
+            {
+                node.FileCount = UpdateFileCount(node.Children);
+                count += node.FileCount;
+            }
+            else
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    #endregion
+
+    #region Hunk Staging
+
+    [RelayCommand]
+    private async Task StageHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.StageHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk staged", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to stage hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UnstageHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UnstageHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk unstaged", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to unstage hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    #endregion
+
+    #region Undo Commit
+
+    [RelayCommand]
+    private async Task UndoLastCommitAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var confirmed = _dialogService.ShowConfirmation(
+            "Undo the last commit? Changes will be kept staged.",
+            "Undo Last Commit");
+        if (!confirmed) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UndoLastCommitAsync(
+                _currentTerminalTab.Pair.WorkingDirectory);
+
+            if (result.Success)
+            {
+                _toastService.Show("Last commit undone", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to undo commit: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    #endregion
+
+    #region Merge Conflict
+
+    public event EventHandler? MergeConflictRequested;
+
+    [RelayCommand]
+    private void OpenMergeConflictResolver()
+    {
+        MergeConflictRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    #endregion
+
     #region Event Handlers
 
     partial void OnSelectedGitFileChanged(GitFileStatus? value)
@@ -549,6 +783,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null)
         {
             DiffText = "";
+            CurrentParsedDiff = null;
             return;
         }
 
@@ -556,6 +791,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (file.IsSubmodule)
         {
             DiffText = $"Submodule: {file.FilePath}\n\nDiff preview is not available for submodules.\n\nTo view submodule changes, navigate to the submodule directory\nand use git commands directly.";
+            CurrentParsedDiff = null;
             return;
         }
 
@@ -565,10 +801,12 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (!string.IsNullOrEmpty(diff))
         {
             DiffText = diff;
+            CurrentParsedDiff = _diffParserService.Parse(diff);
         }
         else
         {
             DiffText = "";
+            CurrentParsedDiff = null;
         }
     }
 

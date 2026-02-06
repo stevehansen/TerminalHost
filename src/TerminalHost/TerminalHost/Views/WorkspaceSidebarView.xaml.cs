@@ -241,6 +241,15 @@ public partial class WorkspaceSidebarView : UserControl
         }
     }
 
+    private void SidebarBranch_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is Core.Domain.GitBranch branch)
+        {
+            ViewModel?.CheckoutSidebarBranchCommand.Execute(branch);
+            e.Handled = true;
+        }
+    }
+
     private void WorktreeGitPush_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem &&

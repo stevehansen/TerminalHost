@@ -258,4 +258,41 @@ public partial class DiffParserService : IDiffParserService
         var parsed = Parse(unifiedDiff);
         return ConvertToSideBySide(parsed);
     }
+
+    public string ExtractHunkPatch(ParsedDiff parsedDiff, int hunkIndex)
+    {
+        if (hunkIndex < 0 || hunkIndex >= parsedDiff.Hunks.Count)
+            return "";
+
+        var sb = new System.Text.StringBuilder();
+
+        // File headers
+        foreach (var header in parsedDiff.HeaderLines)
+        {
+            sb.AppendLine(header);
+        }
+
+        // Single hunk
+        var hunk = parsedDiff.Hunks[hunkIndex];
+        foreach (var line in hunk.Lines)
+        {
+            switch (line.Type)
+            {
+                case DiffLineType.HunkHeader:
+                    sb.AppendLine(line.Content);
+                    break;
+                case DiffLineType.Addition:
+                    sb.AppendLine("+" + line.Content);
+                    break;
+                case DiffLineType.Deletion:
+                    sb.AppendLine("-" + line.Content);
+                    break;
+                case DiffLineType.Context:
+                    sb.AppendLine(" " + line.Content);
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
 }

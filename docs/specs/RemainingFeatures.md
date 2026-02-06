@@ -38,10 +38,7 @@ This document consolidates remaining features from various PRDs into a single tr
 - Revert from Commit History - Right-click commit → Revert
 
 **Remaining:**
-1. Submodule Support
-2. Merge Conflict Resolution
-3. Tags Management
-4. Commit/Branch Comparison
+(All previously remaining items are now complete — Submodule Support, Merge Conflict Resolution, Tags Management, and Branch Comparison are all implemented.)
 
 ---
 
@@ -369,40 +366,9 @@ Similar to Cherry-pick:
 
 ---
 
-### 7. Merge Conflict Resolution (Low Priority)
+### 7. Merge Conflict Resolution ✅
 
-Visual three-way merge for resolving conflicts.
-
-#### When to Show
-- After merge with conflicts
-- After rebase with conflicts
-- After cherry-pick with conflicts
-- After stash apply with conflicts
-
-#### UI Design
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Resolve Conflict: src/App.cs                    [Skip] [Abort] │
-├───────────────────┬───────────────────┬─────────────────────────┤
-│ Ours (HEAD)       │ Result            │ Theirs (feature/x)      │
-├───────────────────┼───────────────────┼─────────────────────────┤
-│ public void Foo() │ public void Foo() │ public void Foo()       │
-│ {                 │ {                 │ {                       │
-│   return 1;       │ <<<CONFLICT>>>    │   return 2;             │
-│ }                 │ }                 │ }                       │
-├───────────────────┴───────────────────┴─────────────────────────┤
-│ [Accept Ours] [Accept Theirs] [Accept Both] [Mark as Resolved]  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Implementation Notes
-
-- Parse conflict markers from file content
-- Three-pane view with synchronized scrolling
-- Quick actions per conflict region
-- "Mark as Resolved" stages the file
-- Track operation type (merge/rebase/cherry-pick) for continue/abort
+Visual three-way merge for resolving conflicts. **Implemented** — MergeConflictViewer with three-panel layout (Ours/Theirs/Result), per-hunk Accept Ours/Theirs/Both buttons, Prev/Next navigation, Save & Mark Resolved, Abort/Continue merge.
 
 ---
 
@@ -417,7 +383,7 @@ Visual three-way merge for resolving conflicts.
 | ~~Low~~ | ~~Submodule Support~~ | ~~Medium~~ | ✅ Implemented |
 | ~~Low~~ | ~~Cherry-pick UI~~ | ~~Low~~ | ✅ Implemented |
 | ~~Low~~ | ~~Revert Commit UI~~ | ~~Low~~ | ✅ Implemented |
-| **Low** | Merge Conflict Resolution | High | Complex UI, can use external tools |
+| ~~Low~~ | ~~Merge Conflict Resolution~~ | ~~High~~ | ✅ Implemented |
 | **Low** | Playground Templates | Low | Nice to have |
 | **Low** | Playground Auto-cleanup | Low | Nice to have |
 | **Future** | Timeline IDE | Very High | Advanced mode - see TimelineIDE.md |

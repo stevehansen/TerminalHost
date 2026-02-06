@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
              xmlns:controls="clr-namespace:TerminalHost.Controls"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance viewModels:GitFilesViewModel}"
              mc:Ignorable="d"
              Background="{StaticResource BackgroundDarkBrush}">
@@ -27,18 +28,59 @@
 
                 <!-- File list header -->
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                    <TextBlock Text="{Binding FileChangeSummary}"
-                               Foreground="{StaticResource TextDimmedBrush}"
-                               FontSize="{StaticResource FontSizeTiny}"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding ToggleTreeViewCommand}"
+                                ToolTip="Toggle tree/list view"
+                                FontSize="12" Padding="4,2">
+                            <Button.Content>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x1f332;"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsTreeView}" Value="True">
+                                                    <Setter Property="Text" Value="&#x2630;"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button.Content>
+                        </Button>
+                        <TextBlock Text="{Binding FileChangeSummary}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
                 </Border>
 
-                <!-- File list -->
+                <!-- Merge conflict banner -->
+                <Border Grid.Row="0" Margin="0,28,0,0"
+                        Background="#33F14C4C" Padding="8,4"
+                        Visibility="{Binding IsMergeInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Resolve"
+                                Style="{StaticResource TerminalSwitchButton}"
+                                Command="{Binding OpenMergeConflictResolverCommand}"
+                                Foreground="#F14C4C" Padding="6,2"/>
+                        <TextBlock Foreground="#F14C4C" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
+                            <Run Text="Merge in progress —"/>
+                            <Run Text="{Binding ConflictCount, Mode=OneWay}"/>
+                            <Run Text="conflicts"/>
+                        </TextBlock>
+                    </DockPanel>
+                </Border>
+
+                <!-- File list (flat view) -->
                 <ListBox Grid.Row="1"
                          ItemsSource="{Binding GitFiles}"
                          SelectedItem="{Binding SelectedGitFile}"
                          Background="Transparent"
                          BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="4,3">
@@ -109,6 +151,38 @@
                     </ListBox.ItemContainerStyle>
                 </ListBox>
 
+                <!-- File tree (tree view) -->
+                <TreeView Grid.Row="1"
+                          ItemsSource="{Binding UnstagedTree}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}"
+                          SelectedItemChanged="TreeView_SelectedItemChanged">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding DisplayName}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding CountDisplay}"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="4,0,0,0"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+
                 <!-- Empty state -->
                 <TextBlock Grid.Row="1"
                            Text="No changes"
@@ -158,8 +232,11 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Diff content -->
-                <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}" />
+                <!-- Diff content with hunk staging -->
+                <controls:HunkStagingDiffViewer Grid.Row="1"
+                    x:Name="HunkDiffViewer"
+                    DiffText="{Binding DiffText}"
+                    IsStaged="{Binding SelectedGitFile.IsStaged}"/>
             </Grid>
         </Border>
     </Grid>

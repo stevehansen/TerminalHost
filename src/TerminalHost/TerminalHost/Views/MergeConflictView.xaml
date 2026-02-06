@@ -1,0 +1,136 @@
+<UserControl x:Class="TerminalHost.Views.MergeConflictView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             d:DataContext="{d:DesignInstance viewModels:MergeConflictViewModel}"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="ConflictFileListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Padding="{TemplateBinding Padding}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="#333333"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <controls:DraggablePopup
+        IsOpen="{Binding IsOpen, Mode=TwoWay}"
+        PopupWidth="{Binding Width, Mode=TwoWay}"
+        PopupHeight="{Binding Height, Mode=TwoWay}"
+        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+        Title="{Binding Title}"
+        CloseCommand="{Binding CloseCommand}">
+
+        <controls:DraggablePopup.PopupContent>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" MinWidth="150"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*" MinWidth="400"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Conflict file list -->
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <TextBlock Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}">
+                                    <Run Text="{Binding ConflictFiles.Count, Mode=OneWay}"/>
+                                    <Run Text=" conflicted files"/>
+                                </TextBlock>
+                            </Border>
+
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding ConflictFiles}"
+                                     SelectedItem="{Binding SelectedConflictFile}"
+                                     ItemContainerStyle="{StaticResource ConflictFileListBoxItemStyle}"
+                                     Background="Transparent"
+                                     BorderThickness="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="4,2">
+                                            <TextBlock Text="U" Foreground="#FF6B6B" FontWeight="Bold"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Width="16"/>
+                                            <TextBlock Text="{Binding FileName}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="{StaticResource FontSizeSmall}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                    <!-- Merge conflict viewer -->
+                    <controls:MergeConflictViewer Grid.Column="2" Loaded="ConflictViewer_Loaded"/>
+                </Grid>
+
+                <!-- Footer with actions -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Save &amp; Mark Resolved"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding SaveAndMarkResolvedCommand}"
+                                    Foreground="#4EC9B0"
+                                    Margin="0,0,8,0"/>
+                            <Button Content="Continue Merge"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding ContinueMergeCommand}"
+                                    Foreground="{StaticResource AccentBlueBrush}"
+                                    Margin="0,0,8,0"/>
+                            <Button Content="Abort Merge"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding AbortMergeCommand}"
+                                    Foreground="#F14C4C"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Info}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </controls:DraggablePopup.PopupContent>
+    </controls:DraggablePopup>
+</UserControl>

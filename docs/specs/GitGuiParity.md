@@ -117,11 +117,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | Flat commit list in CommitHistoryViewModel (Ctrl+H). Shows hash, subject, author, date. Paginated (50 at a time). Filter by author/message. |
-| **Gap** | No visual branch/merge graph lines. GitKraken shows colored lines connecting commits across branches, merge points, and branch divergence. This is the single most distinctive feature of Git GUI clients. |
+| **Status** | Done |
+| **What exists** | CommitGraphControl renders colored branch/merge lines alongside the commit list. CommitGraphService computes lane assignments using topological ordering. 10-color palette for lanes. Bezier curves for cross-lane merge edges, straight lines for same-lane connections. |
+| **Gap** | None. |
 | **RICE** | R:4 I:4 C:0.5 E:5 → **1.6** |
-| **Notes** | Very high effort. Requires custom graph layout algorithm, canvas rendering for lines/nodes, and scroll virtualization. The `git log --graph` ASCII art is an alternative but less polished. Consider: is a visual graph essential when users already have the terminal for `git log --graph --oneline`? |
+| **Notes** | Implemented in Phase 4. Graph column appears to the left of the commit list in both content and popup views. |
 
 ### 2.2 Inline Branch/Tag Labels on Commits
 
@@ -158,10 +158,10 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 | Field | Value |
 |-------|-------|
 | **Status** | Done |
-| **What exists** | Search by message text, filter by author. Paginated loading with "Load More". |
-| **Gap** | No filter by file path, date range, or commit hash. GitKraken has Ctrl+Alt+F with advanced filtering. |
+| **What exists** | Search by message text, filter by author, file path, and date range (after/before). Expandable filter panel with Apply/Clear buttons. Paginated loading with "Load More". |
+| **Gap** | None. |
 | **RICE** | R:3 I:2 C:0.8 E:2 → **2.4** |
-| **Notes** | File path filter exists in the service layer (not exposed in UI). Date range would be useful for large repos. |
+| **Notes** | Advanced filters implemented in Phase 3. |
 
 ### 2.6 WIP / Working Directory Entry
 
@@ -207,11 +207,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | Changed files shown as flat list (file path). |
-| **Gap** | GitKraken offers Path (flat) vs Tree (folder hierarchy) toggle for viewing changed files. Tree view groups files by directory. |
+| **Status** | Done |
+| **What exists** | Toggle button switches between flat list and directory-grouped tree view (HierarchicalDataTemplate with FileTreeNode). Tree view available in both content view and popup view. Separate trees for staged and unstaged files. |
+| **Gap** | None. |
 | **RICE** | R:3 I:2 C:0.8 E:2 → **2.4** |
-| **Notes** | Useful for PRs/commits touching many files across directories. Reuse FileSystemNode tree infrastructure from FileExplorerViewModel. |
+| **Notes** | Implemented in Phase 3. Uses recursive path splitting to build tree hierarchy. |
 
 ### 3.5 Stage All / Unstage All Buttons
 
@@ -264,11 +264,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | Reflog viewer (Ctrl+Shift+G) provides access to history and recovery. Individual operations (cherry-pick, revert) can be aborted. |
-| **Gap** | No one-click "undo last git operation" button. GitKraken tracks operation history and provides undo/redo. |
+| **Status** | Partial |
+| **What exists** | Reflog viewer (Ctrl+Shift+G) provides access to history and recovery. Individual operations (cherry-pick, revert) can be aborted. "Undo Commit" button in Git Changes panel performs `git reset --soft HEAD~1` (keeps changes staged). |
+| **Gap** | No general-purpose undo/redo for all git operations (only undo last commit). |
 | **RICE** | R:4 I:3 C:0.5 E:4 → **1.5** |
-| **Notes** | Complex to implement reliably — need to track operation types and their inverses (undo commit = reset HEAD~1, undo checkout = checkout previous branch, etc.). Reflog already provides the data; this would be a UX convenience layer. Risk of data loss if implemented incorrectly. |
+| **Notes** | Simple undo last commit implemented in Phase 4. Full undo/redo tracking would require significant infrastructure. |
 
 ### 4.2 Quick Pull Button
 
@@ -316,31 +316,31 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | Unified Git Panel (Alt+G) with tabs: Branches, Changes, History, Stash, Compare. This is a popup/panel, not a persistent sidebar. |
-| **Gap** | GitKraken has an always-visible left sidebar showing branches, remotes, stashes, PRs, issues, tags with counts — a persistent navigation tree. TerminalHost's git features are accessed via shortcuts/popups. |
+| **Status** | Done |
+| **What exists** | Unified Git Panel (Alt+G) with tabs: Branches, Changes, History, Stash, Tags, Compare. Collapsible Git section in workspace sidebar showing current branch, top 10 branches (click to checkout), top 10 tags, and stash count. "Open Git Panel" button in sidebar. |
+| **Gap** | None. |
 | **RICE** | R:4 I:3 C:0.6 E:4 → **1.8** |
-| **Notes** | Major architectural change. TerminalHost already has a workspace sidebar and file explorer panel. Adding a persistent git sidebar would compete for screen space. The popup/shortcut approach is arguably more terminal-centric. Consider: a collapsible git section in the existing workspace sidebar instead of a full separate panel. |
+| **Notes** | Implemented as collapsible section in existing workspace sidebar (Phase 4), avoiding layout redesign. Refreshes when active tab changes. |
 
 ### 5.2 Hunk-Level Staging (Partial Staging)
 
 | Field | Value |
 |-------|-------|
-| **Status** | New |
-| **What exists** | File-level staging only. Stage/unstage entire files. |
-| **Gap** | GitKraken (and VS Code, Fork, etc.) support staging individual hunks or even lines within a file. This allows committing part of a file's changes. |
+| **Status** | Done |
+| **What exists** | HunkStagingDiffViewer control with per-hunk Stage/Unstage buttons. DiffParserService.ExtractHunkPatch reconstructs valid single-hunk patches. Uses `git apply --cached` with stdin for staging and `git apply --cached -R` for unstaging. |
+| **Gap** | No line-level staging (only hunk-level). |
 | **RICE** | R:3 I:4 C:0.6 E:4 → **1.8** |
-| **Notes** | High-value for experienced git users who make atomic commits. Requires parsing diff hunks, rendering them interactively, and running `git add -p` equivalent programmatically. Could use `git add --patch` with stdin scripting or `git apply --cached` with individual hunks. |
+| **Notes** | Implemented in Phase 3. Replaces DiffViewer with HunkStagingDiffViewer in Git Changes panel. |
 
 ### 5.3 Merge Conflict Resolution
 
 | Field | Value |
 |-------|-------|
-| **Status** | Planned |
-| **What exists** | Specified in GitAdvanced.md and RemainingFeatures.md. Not implemented. Cherry-pick/revert/rebase have continue/abort support. |
-| **Gap** | No visual three-way merge editor. Conflicts must be resolved in terminal or external tool. |
+| **Status** | Done |
+| **What exists** | MergeConflictViewer with three-panel layout: Ours (read-only) | Theirs (read-only) | Result (editable). Per-hunk Accept Ours/Theirs/Both buttons with Prev/Next navigation. MergeConflictViewModel detects merge-in-progress state, parses conflict markers, and supports Save & Mark Resolved, Abort Merge, Continue Merge. Merge conflict banner in Git Changes panel. |
+| **Gap** | No diff3-style base content display. No syntax highlighting in merge panels. |
 | **RICE** | R:3 I:3 C:0.5 E:5 → **0.9** |
-| **Notes** | Very high effort for a proper three-way merge editor. Most users have preferred merge tools (VS Code, Beyond Compare, etc.). Could offer "open in merge tool" integration instead of building a custom merge UI. |
+| **Notes** | Implemented in Phase 4. Detects merge state via `.git/MERGE_HEAD` file existence. |
 
 ### 5.4 Fetch All Remotes
 
@@ -353,11 +353,11 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 
 | Field | Value |
 |-------|-------|
-| **Status** | Partial |
-| **What exists** | Syntax-highlighted diff in Git Changes, Commit History, Branch Comparison, PR Review. Side-by-side diff in PR Review. |
-| **Gap** | No inline diff annotations (e.g., word-level diff highlighting). No side-by-side diff in the Changes panel (only in PR Review). No diff navigation (next/previous change). |
+| **Status** | Done |
+| **What exists** | Syntax-highlighted diff in Git Changes, Commit History, Branch Comparison, PR Review. Side-by-side and unified toggle in DiffViewer and SideBySideDiffViewer. HunkStagingDiffViewer in Git Changes panel with per-hunk stage/unstage buttons. |
+| **Gap** | No word-level diff highlighting. |
 | **RICE** | R:4 I:3 C:0.7 E:3 → **2.8** |
-| **Notes** | Side-by-side diff in Changes panel would be a good enhancement. Word-level highlighting is visually helpful but adds complexity. |
+| **Notes** | Side-by-side diff and hunk-level staging implemented in Phase 3. |
 
 ---
 
@@ -377,7 +377,7 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 |---|---------|------|--------|--------|
 | 3.3 | File change count summary header | 3.6 | <1 wk | **Done** |
 | 1.1 | Branch tree view (folder grouping) | 3.2 | 2 wk | **Done** |
-| 5.5 | Diff viewer enhancements (side-by-side, navigation) | 2.8 | 3 wk | Enhance |
+| 5.5 | Diff viewer enhancements (side-by-side, hunk staging) | 2.8 | 3 wk | **Done** |
 | 1.3 | Stash count in sidebar | 2.7 | <1 wk | **Done** |
 | 4.4 | Quick stash/pop toolbar buttons | 2.7 | <1 wk | Enhance |
 
@@ -388,14 +388,14 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 | 1.6 | Tags management | 2.4 | 2 wk | **Done** |
 | 1.2 | Remote branch tree view | 2.4 | 2 wk | **Done** |
 | 2.4 | Commit table columns layout | 2.4 | 2 wk | **Done** |
-| 2.5 | Advanced commit search (file, date) | 2.4 | 2 wk | Enhance |
-| 3.4 | Path/Tree view toggle for changed files | 2.4 | 2 wk | New |
+| 2.5 | Advanced commit search (file, date) | 2.4 | 2 wk | **Done** |
+| 3.4 | Path/Tree view toggle for changed files | 2.4 | 2 wk | **Done** |
 | 1.4 | PR sidebar section | 2.1 | 3 wk | Enhance |
 | 2.6 | WIP entry in commit history | 2.1 | 2 wk | **Done** |
-| 5.1 | Unified git sidebar panel | 1.8 | 4 wk | New |
-| 5.2 | Hunk-level staging | 1.8 | 4 wk | New |
-| 2.1 | Visual commit graph | 1.6 | 5+ wk | New |
-| 4.1 | Undo/redo git operations | 1.5 | 4 wk | New |
+| 5.1 | Git sidebar section | 1.8 | 4 wk | **Done** |
+| 5.2 | Hunk-level staging | 1.8 | 4 wk | **Done** |
+| 2.1 | Visual commit graph | 1.6 | 5+ wk | **Done** |
+| 4.1 | Undo last commit | 1.5 | 4 wk | **Partial** |
 
 ### Tier 4: Low Priority (RICE < 1.5)
 
@@ -403,7 +403,7 @@ Tracks feature parity between TerminalHost's git integration and dedicated Git G
 |---|---------|------|--------|--------|
 | 2.3 | PR indicators on commits | 1.2 | 3 wk | New |
 | 1.5 | Issues sidebar section | 0.9 | 3 wk | Enhance |
-| 5.3 | Merge conflict resolution | 0.9 | 5+ wk | Planned |
+| 5.3 | Merge conflict resolution | 0.9 | 5+ wk | **Done** |
 
 ### Explicitly Skipped
 
@@ -435,23 +435,23 @@ All navigation enhancements implemented:
 3. ~~**WIP entry** at top of commit history with file count (2.6)~~ ✅
 4. ~~**Compact table view** option for commit history with toggle button (2.4)~~ ✅
 
-### Phase 3: Advanced Staging & Diff (~5 weeks)
+### Phase 3: Advanced Staging & Diff — ✅ COMPLETE
 
-Power user features for precise git workflows:
+All advanced staging and diff features implemented:
 
-1. **Side-by-side diff** in Git Changes panel (5.5)
-2. **Path/Tree toggle** for changed files (3.4)
-3. **Advanced commit filters** — file path, date range (2.5)
-4. **Hunk-level staging** (5.2) — if demand warrants
+1. ~~**Side-by-side diff** verification in Git Changes panel (5.5)~~ ✅
+2. ~~**Path/Tree toggle** for changed files with HierarchicalDataTemplate (3.4)~~ ✅
+3. ~~**Advanced commit filters** — message, author, file path, date range (2.5)~~ ✅
+4. ~~**Hunk-level staging** with per-hunk stage/unstage buttons (5.2)~~ ✅
 
-### Phase 4: Aspirational (~8+ weeks)
+### Phase 4: Aspirational — ✅ COMPLETE
 
-High-effort features to evaluate based on user demand:
+All aspirational features implemented:
 
-1. **Visual commit graph** (2.1) — signature feature of Git GUIs but massive effort
-2. **Undo/redo git operations** (4.1) — nice UX layer over reflog
-3. **Git sidebar panel** (5.1) — persistent navigation, requires layout redesign
-4. **Merge conflict resolution** (5.3) — consider "open in external merge tool" as alternative
+1. ~~**Visual commit graph** with colored branch lines and lane assignment (2.1)~~ ✅
+2. ~~**Undo last commit** button in Git Changes panel (4.1)~~ ✅ (simple undo; full undo/redo deferred)
+3. ~~**Git sidebar section** — collapsible branches, tags, stashes in workspace sidebar (5.1)~~ ✅
+4. ~~**Merge conflict resolution** with three-panel editor (5.3)~~ ✅
 
 ---
 
@@ -464,8 +464,10 @@ High-effort features to evaluate based on user demand:
 | 2026-02-05 | Prioritize quick wins over graph visualization | Graph is high effort with uncertain ROI given terminal access to `git log --graph` |
 | 2026-02-05 | Phase 1 complete | All 4 quick wins implemented. Pull uses stash/rebase/pop flow. Old shell quick commands replaced with built-in shortcuts. |
 | 2026-02-05 | Phase 2 complete | Branch tree view, tags management, WIP entry, compact commit view all implemented. |
+| 2026-02-06 | Phase 3 complete | Side-by-side diff verified, path/tree toggle, advanced commit filters, hunk-level staging all implemented. |
+| 2026-02-06 | Phase 4 complete | Visual commit graph, undo last commit, git sidebar section, merge conflict resolution all implemented. |
 
 ---
 
-*Document Version: 1.2*
+*Document Version: 1.3*
 *Created: 2026-02-05*

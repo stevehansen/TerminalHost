@@ -28,7 +28,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **CLI & Single Instance**: `host .` support with named pipe IPC and duplicate tab detection.
 - [x] **Terminal Features**: ANSI colors, Interactive CLI support, Nerd Font (Cascadia Code NF), Activity indicators.
 - [x] **Settings & Persistence**: Form-based (Rich) and JSON (Raw) settings editor (Ctrl+,), window/session state persistence.
-- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff (Alt+G), Stash manager (Ctrl+Shift+S).
+- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff and hunk staging (Alt+G), Stash manager (Ctrl+Shift+S), Commit graph, Merge conflict resolution, Tree view toggle, Advanced commit filters.
 - [x] **File Tools**: File explorer panel (Ctrl+Shift+F), syntax-highlighted preview (Ctrl+O), built-in editor (Ctrl+Shift+E).
 - [x] **Productivity**: Command palette (Ctrl+Shift+P), Tab switcher (Ctrl+Shift+T), Scratch pad (Ctrl+Shift+N).
 - [x] **Project Runner**: F5 to run projects with auto-detection and dedicated run terminal.
@@ -556,7 +556,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [ToastNotifications.md](docs/specs/ToastNotifications.md) | Non-intrusive toast notifications with progress support | **Completed** | WPF airspace workaround included |
 | [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
 | [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
-| [GitGuiParity.md](docs/specs/GitGuiParity.md) | Git GUI feature parity (vs GitKraken/Fork) | **Partial** | Phase 1 complete; Phase 2-4 remaining |
+| [GitGuiParity.md](docs/specs/GitGuiParity.md) | Git GUI feature parity (vs GitKraken/Fork) | **Completed** | Phase 1-4 all complete |
 
 ### Architecture Specifications
 
@@ -572,8 +572,6 @@ All specifications are documented in `docs/specs/`. Status legend:
 | Priority | Feature | Spec |
 |----------|---------|------|
 | **Medium** | Active Ports Detection | RemainingFeatures.md |
-| **Low** | Tags Management | GitAdvanced.md |
-| **Low** | Merge Conflict Resolution | GitAdvanced.md |
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |

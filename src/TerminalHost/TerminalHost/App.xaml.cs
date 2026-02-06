@@ -219,6 +219,7 @@ public partial class App : Application
         services.AddSingleton<ISoundService, SoundService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
+        services.AddSingleton<ICommitGraphService, CommitGraphService>();
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
@@ -247,6 +248,7 @@ public partial class App : Application
         services.AddSingleton<BranchComparisonViewModel>();
         services.AddSingleton<UnifiedGitPanelViewModel>();
         services.AddSingleton<ClaudeTasksPanelViewModel>();
+        services.AddSingleton<MergeConflictViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

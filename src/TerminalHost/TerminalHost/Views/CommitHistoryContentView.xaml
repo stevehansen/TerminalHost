@@ -247,12 +247,13 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Loading overlay -->
-                <Border Grid.RowSpan="3"
+                <Border Grid.RowSpan="4"
                         Background="#80000000"
                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
                         Panel.ZIndex="100">
@@ -265,14 +266,21 @@
                 <!-- Header -->
                 <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right"
-                                Content="≡"
-                                Style="{StaticResource TerminalSwitchButton}"
-                                Command="{Binding ToggleCompactViewCommand}"
-                                ToolTip="Toggle compact view"
-                                FontSize="{StaticResource FontSizeSmall}"
-                                Padding="6,2"
-                                Margin="4,0,0,0"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="🔍"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding ToggleFilterExpandedCommand}"
+                                    ToolTip="Toggle filters"
+                                    FontSize="{StaticResource FontSizeSmall}"
+                                    Padding="6,2"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="≡"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding ToggleCompactViewCommand}"
+                                    ToolTip="Toggle compact view"
+                                    FontSize="{StaticResource FontSizeSmall}"
+                                    Padding="6,2"/>
+                        </StackPanel>
                         <TextBlock Text="{Binding Commits.Count, StringFormat='{}{0} commits'}"
                                    Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
@@ -280,8 +288,94 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Commit list -->
-                <ListBox Grid.Row="1"
+                <!-- Filter panel (expandable) -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4"
+                        Visibility="{Binding IsFilterExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{StaticResource BackgroundDarkestBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="#444" Padding="6,4"
+                                 FontSize="{StaticResource FontSizeMicro}"
+                                 Margin="0,0,0,4"
+                                 Tag="Search message..."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding AuthorFilter, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="#444" Padding="6,4"
+                                     FontSize="{StaticResource FontSizeMicro}"
+                                     Tag="Author..."/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding FilePathFilter, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="#444" Padding="6,4"
+                                     FontSize="{StaticResource FontSizeMicro}"
+                                     Tag="File path..."/>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding AfterDateText, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="#444" Padding="6,4"
+                                     FontSize="{StaticResource FontSizeMicro}"
+                                     Tag="After (yyyy-MM-dd)"/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding BeforeDateText, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="#444" Padding="6,4"
+                                     FontSize="{StaticResource FontSizeMicro}"
+                                     Tag="Before (yyyy-MM-dd)"/>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="4,0,0,0">
+                                <Button Content="Apply"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding ApplyFiltersCommand}"
+                                        Padding="8,4" FontSize="{StaticResource FontSizeMicro}"
+                                        Margin="0,0,4,0"/>
+                                <Button Content="Clear"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding ClearFiltersCommand}"
+                                        Padding="8,4" FontSize="{StaticResource FontSizeMicro}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Commit list with graph -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Graph column -->
+                    <ScrollViewer Grid.Column="0" x:Name="GraphScrollViewer"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Width="{Binding GraphWidth}"
+                                  MinWidth="40">
+                        <controls:CommitGraphControl
+                            ItemsSource="{Binding GraphNodes}"
+                            ItemHeight="32"/>
+                    </ScrollViewer>
+
+                    <!-- Commit list -->
+                    <ListBox Grid.Column="1"
                          ItemsSource="{Binding Commits}"
                          SelectedItem="{Binding SelectedCommit}"
                          ItemContainerStyle="{StaticResource CommitListBoxItemStyle}"
@@ -300,8 +394,10 @@
                     </ListBox.Style>
                 </ListBox>
 
+                </Grid>
+
                 <!-- Load more button -->
-                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"
                         Visibility="{Binding HasCommits, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Button Content="Load More..."
                             Style="{StaticResource TerminalSwitchButton}"

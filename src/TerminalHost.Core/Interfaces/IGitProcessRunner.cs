@@ -7,4 +7,5 @@ public interface IGitProcessRunner
     Task<string?> RunGitCommandAsync(string workingDirectory, string arguments);
     Task<string?> RunGitCommandAsync(string workingDirectory, string arguments, TimeSpan timeout, CancellationToken cancellationToken = default);
     Task<GitOperationResult> RunGitOperationAsync(string workingDirectory, string arguments);
+    Task<GitOperationResult> RunGitOperationWithStdinAsync(string workingDirectory, string arguments, string stdinContent);
 }
