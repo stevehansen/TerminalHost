@@ -37,12 +37,21 @@ public partial class WorkspaceSidebarView : UserControl
         {
             if (current is UIElement element && element.Focusable)
                 return element;
-            current = VisualTreeHelper.GetParent(current);
+            // VisualTreeHelper.GetParent throws for non-Visual elements (e.g. Run, Inline),
+            // so fall back to LogicalTreeHelper for those
+            current = current is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(current)
+                : LogicalTreeHelper.GetParent(current);
         }
         return null;
     }
 
     private WorkspaceSidebarViewModel? ViewModel => DataContext as WorkspaceSidebarViewModel;
+
+    private void StashCount_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ViewModel?.OpenStashPanelCommand.Execute(null);
+    }
 
     private void Workspace_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
@@ -29,6 +30,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
 
     // Sub-ViewModels for each tab (injected)
     public GitBranchViewModel BranchesVM { get; }
@@ -87,6 +89,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IToastService toastService,
+        IConfigurationService configurationService,
         GitBranchViewModel branchesVM,
         GitFilesViewModel changesVM,
         CommitHistoryViewModel historyVM,
@@ -97,6 +100,7 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _configurationService = configurationService;
 
         BranchesVM = branchesVM;
         ChangesVM = changesVM;
@@ -132,6 +136,9 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         WorkingDirectory = terminalTab.Pair.WorkingDirectory;
         Title = $"Git - {terminalTab.Title}";
         ActiveTab = tab;
+
+        // Restore persisted settings
+        RestoreSettings();
 
         // Initialize the active tab's data
         await LoadTabDataAsync(tab);
@@ -215,6 +222,9 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
 
     protected override void OnClose()
     {
+        // Persist settings before closing
+        SaveSettings();
+
         // Close all sub-panels
         BranchesVM.IsOpen = false;
         ChangesVM.IsOpen = false;
@@ -225,6 +235,72 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
 
         _currentTerminalTab = null;
         base.OnClose();
+    }
+
+    #endregion
+
+    #region Settings Persistence
+
+    private DirectorySettings? GetDirectorySettings()
+    {
+        if (string.IsNullOrEmpty(WorkingDirectory)) return null;
+        var config = _configurationService.Load();
+        var normalizedPath = System.IO.Path.GetFullPath(WorkingDirectory)
+            .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+            .ToLowerInvariant();
+        return config.DirectorySettings.TryGetValue(normalizedPath, out var settings) ? settings : null;
+    }
+
+    private void RestoreSettings()
+    {
+        var settings = GetDirectorySettings();
+        if (settings == null) return;
+
+        // Restore panel size
+        if (settings.GitPanelWidth.HasValue) Width = settings.GitPanelWidth.Value;
+        if (settings.GitPanelHeight.HasValue) Height = settings.GitPanelHeight.Value;
+
+        // Restore sub-VM toggle states
+        HistoryVM.IsCompactView = settings.IsCompactHistoryView;
+        ChangesVM.IsTreeView = settings.IsGitFilesTreeView;
+        BranchesVM.IsTreeView = settings.IsGitBranchTreeView;
+    }
+
+    /// <summary>
+    /// Saves git panel settings. Can be called externally (e.g., on panel resize).
+    /// </summary>
+    public void SaveSettings()
+    {
+        if (string.IsNullOrEmpty(WorkingDirectory)) return;
+
+        try
+        {
+            var config = _configurationService.Load();
+            var normalizedPath = System.IO.Path.GetFullPath(WorkingDirectory)
+                .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                .ToLowerInvariant();
+
+            if (!config.DirectorySettings.TryGetValue(normalizedPath, out var settings))
+            {
+                settings = new DirectorySettings();
+            }
+
+            // Save panel size
+            settings.GitPanelWidth = Width;
+            settings.GitPanelHeight = Height;
+
+            // Save sub-VM toggle states
+            settings.IsCompactHistoryView = HistoryVM.IsCompactView;
+            settings.IsGitFilesTreeView = ChangesVM.IsTreeView;
+            settings.IsGitBranchTreeView = BranchesVM.IsTreeView;
+
+            config.DirectorySettings[normalizedPath] = settings;
+            _configurationService.Save(config);
+        }
+        catch
+        {
+            // Silently ignore save errors
+        }
     }
 
     #endregion

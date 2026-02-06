@@ -14,4 +14,10 @@ public class BranchTreeNode
     public bool IsCurrent => Branch?.IsCurrent == true;
     public string CountDisplay => IsFolder ? $"({BranchCount})" : "";
     public string StatusColor => Branch?.StatusColor ?? "#CCCCCC";
+
+    // Additional info from branch (for tree view parity with flat list)
+    public string? IssueNumber => Branch?.IssueNumber;
+    public string StatusDisplay => Branch?.StatusDisplay ?? "";
+    public string? LastCommitDisplay => Branch?.LastCommitDisplay;
+    public bool HasStatusInfo => !string.IsNullOrEmpty(StatusDisplay) || !string.IsNullOrEmpty(IssueNumber);
 }

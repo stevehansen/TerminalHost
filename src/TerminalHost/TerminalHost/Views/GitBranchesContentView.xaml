@@ -99,13 +99,22 @@
                                             Padding="10,4"
                                             FontSize="{StaticResource FontSizeTiny}"
                                             Margin="0,0,4,0"/>
-                                    <Button Content="↑ Push"
+                                    <Button Content="↑ FF"
                                             ToolTip="Fast-forward this branch to current (push changes to this branch)"
                                             Style="{StaticResource TerminalSwitchButton}"
                                             Command="{Binding DataContext.FastForwardKeyBranchToCurrentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
                                             Visibility="{Binding CanFastForwardKeyToCurrent, Converter={StaticResource BoolToVisibilityConverter}}"
                                             Foreground="{StaticResource SyntaxGreenBrush}"
+                                            Padding="10,4"
+                                            FontSize="{StaticResource FontSizeTiny}"
+                                            Margin="0,0,4,0"/>
+                                    <Button Content="↑ Push"
+                                            ToolTip="Push this branch to origin"
+                                            Style="{StaticResource TerminalSwitchButton}"
+                                            Command="{Binding DataContext.PushKeyBranchToOriginCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Foreground="#61AFEF"
                                             Padding="10,4"
                                             FontSize="{StaticResource FontSizeTiny}"
                                             Margin="0,0,4,0"/>
@@ -197,12 +206,38 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <!-- Folder count -->
                         <TextBlock Text="{Binding CountDisplay}"
                                    Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"
                                    Margin="6,0,0,0"
                                    Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <!-- Issue number -->
+                        <Border CornerRadius="3" Padding="4,0" Margin="6,0,0,0"
+                                Background="#2D3748"
+                                Visibility="{Binding IssueNumber, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="{Binding IssueNumber}"
+                                       Foreground="#61AFEF"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- Ahead/behind status -->
+                        <TextBlock Text="{Binding StatusDisplay}"
+                                   Foreground="{Binding StatusColor}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   Visibility="{Binding HasStatusInfo, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <!-- Last commit info -->
+                        <TextBlock Text="{Binding LastCommitDisplay}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="300"
+                                   Margin="8,0,0,0"
+                                   Visibility="{Binding LastCommitDisplay, Converter={StaticResource NullToVisibilityConverter}}"/>
                     </StackPanel>
                 </HierarchicalDataTemplate>
             </TreeView.Resources>

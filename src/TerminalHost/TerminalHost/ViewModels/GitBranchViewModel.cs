@@ -927,6 +927,41 @@ public partial class GitBranchViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Push a key branch to its remote origin after fast-forward.
+    /// </summary>
+    [RelayCommand]
+    private async Task PushKeyBranchToOriginAsync(KeyBranchStatus keyBranchStatus)
+    {
+        if (keyBranchStatus?.Branch == null || string.IsNullOrEmpty(CurrentBranchWorkingDirectory))
+            return;
+
+        using var toast = _toastService.ShowProgress($"Pushing {keyBranchStatus.Branch.ShortName} to origin...");
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.PushBranchAsync(
+                CurrentBranchWorkingDirectory,
+                keyBranchStatus.Branch.ShortName);
+
+            if (result.Success)
+            {
+                toast.Complete($"{keyBranchStatus.Branch.ShortName} pushed to origin");
+                await RefreshGitBranchesAsync();
+            }
+            else
+            {
+                toast.Fail("Push failed");
+                _dialogService.ShowWarning($"Failed to push {keyBranchStatus.Branch.ShortName}: {result.Error}", "Git Push");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
     #endregion
 
     [RelayCommand]

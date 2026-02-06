@@ -127,6 +127,7 @@ public partial class MainWindow : Window
         {
             _viewModel.WorkspaceSidebar.ManageWorktreesRequested += OnManageWorktreesRequested;
             _viewModel.WorkspaceSidebar.GitPanelRequested += OnSidebarGitPanelRequested;
+            _viewModel.WorkspaceSidebar.StashPanelRequested += OnSidebarStashPanelRequested;
         }
         _manageWorktreesViewModel.OpenWorktreeRequested += OnManageWorktreesOpenWorktree;
         _manageWorktreesViewModel.CreateWorktreeRequested += OnManageWorktreesCreateWorktree;
@@ -1125,6 +1126,11 @@ public partial class MainWindow : Window
     {
         // Open the unified git panel for the workspace
         await OpenUnifiedGitPanelAsync(GitPanelTab.Changes);
+    }
+
+    private async void OnSidebarStashPanelRequested(object? sender, EventArgs e)
+    {
+        await OpenUnifiedGitPanelAsync(GitPanelTab.Stash);
     }
 
     private async void OnMergeConflictRequested(object? sender, EventArgs e)

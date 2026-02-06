@@ -504,6 +504,14 @@ public sealed class GitStatusService : IGitStatusService
         return await _gitRunner.RunGitOperationAsync(workingDirectory, "push");
     }
 
+    public async Task<GitOperationResult> PushBranchAsync(string workingDirectory, string branchName)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        return await _gitRunner.RunGitOperationAsync(workingDirectory, $"push origin {branchName}");
+    }
+
     #endregion
 
     #region Staging Operations

@@ -553,16 +553,43 @@
                     <!-- Branches Subsection -->
                     <Border Padding="4,2">
                         <StackPanel>
-                            <DockPanel Margin="8,4">
-                                <ToggleButton IsChecked="{Binding IsBranchesSectionExpanded}"
-                                              Style="{StaticResource ExpandCollapseToggleStyle}"
-                                              Width="12" Height="12"
-                                              Margin="0,0,4,0"/>
+                            <ToggleButton IsChecked="{Binding IsBranchesSectionExpanded}"
+                                          Margin="8,4" Cursor="Hand"
+                                          Background="Transparent" BorderThickness="0">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent">
+                                            <DockPanel>
+                                                <Path x:Name="Arrow" DockPanel.Dock="Left"
+                                                      Data="M 0 0 L 4 4 L 8 0 Z"
+                                                      Fill="{StaticResource TextMutedBrush}"
+                                                      Width="10" Height="10"
+                                                      Stretch="Uniform"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,4,0"
+                                                      RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="-90"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Arrow" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
                                 <TextBlock Text="{Binding SidebarBranches.Count, StringFormat='Branches ({0})'}"
                                            Foreground="{StaticResource TextSecondaryBrush}"
-                                           FontSize="10"
-                                           VerticalAlignment="Center"/>
-                            </DockPanel>
+                                           FontSize="10"/>
+                            </ToggleButton>
                             <ItemsControl ItemsSource="{Binding SidebarBranches}"
                                           Visibility="{Binding IsBranchesSectionExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <ItemsControl.ItemTemplate>
@@ -602,16 +629,43 @@
                     <Border Padding="4,2"
                             Visibility="{Binding SidebarTags.Count, Converter={StaticResource CountToVisibilityConverter}}">
                         <StackPanel>
-                            <DockPanel Margin="8,4">
-                                <ToggleButton IsChecked="{Binding IsTagsSectionExpanded}"
-                                              Style="{StaticResource ExpandCollapseToggleStyle}"
-                                              Width="12" Height="12"
-                                              Margin="0,0,4,0"/>
+                            <ToggleButton IsChecked="{Binding IsTagsSectionExpanded}"
+                                          Margin="8,4" Cursor="Hand"
+                                          Background="Transparent" BorderThickness="0">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent">
+                                            <DockPanel>
+                                                <Path x:Name="Arrow" DockPanel.Dock="Left"
+                                                      Data="M 0 0 L 4 4 L 8 0 Z"
+                                                      Fill="{StaticResource TextMutedBrush}"
+                                                      Width="10" Height="10"
+                                                      Stretch="Uniform"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,4,0"
+                                                      RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="-90"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Arrow" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
                                 <TextBlock Text="{Binding SidebarTags.Count, StringFormat='Tags ({0})'}"
                                            Foreground="{StaticResource TextSecondaryBrush}"
-                                           FontSize="10"
-                                           VerticalAlignment="Center"/>
-                            </DockPanel>
+                                           FontSize="10"/>
+                            </ToggleButton>
                             <ItemsControl ItemsSource="{Binding SidebarTags}"
                                           Visibility="{Binding IsTagsSectionExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <ItemsControl.ItemTemplate>
@@ -630,7 +684,11 @@
 
                     <!-- Stash Count -->
                     <Border Padding="12,4"
-                            Visibility="{Binding SidebarStashCount, Converter={StaticResource CountToVisibilityConverter}}">
+                            Background="Transparent"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="StashCount_MouseLeftButtonDown"
+                            Visibility="{Binding SidebarStashCount, Converter={StaticResource CountToVisibilityConverter}}"
+                            ToolTip="Open stash manager">
                         <TextBlock Foreground="{StaticResource SyntaxYellowBrush}"
                                    FontSize="11">
                             <Run Text="📦"/>

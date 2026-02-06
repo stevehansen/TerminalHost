@@ -256,6 +256,23 @@ public class NullToVisibleConverter : IValueConverter
 }
 
 /// <summary>
+/// Converts null or empty string to Visible, non-empty to Collapsed.
+/// Used for placeholder text overlays on TextBox controls.
+/// </summary>
+public class NullOrEmptyToVisibleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return string.IsNullOrEmpty(value as string) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Converts null to true, non-null to false.
 /// </summary>
 public class NullToBoolConverter : IValueConverter

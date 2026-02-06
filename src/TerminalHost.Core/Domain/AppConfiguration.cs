@@ -368,6 +368,37 @@ public class DirectorySettings
     /// </summary>
     [JsonPropertyName("keyBranchOverrides")]
     public List<string>? KeyBranchOverrides { get; set; }
+
+    // Git panel settings
+    /// <summary>
+    /// Saved width of the unified Git panel popup.
+    /// </summary>
+    [JsonPropertyName("gitPanelWidth")]
+    public double? GitPanelWidth { get; set; }
+
+    /// <summary>
+    /// Saved height of the unified Git panel popup.
+    /// </summary>
+    [JsonPropertyName("gitPanelHeight")]
+    public double? GitPanelHeight { get; set; }
+
+    /// <summary>
+    /// Whether compact view is enabled in commit history.
+    /// </summary>
+    [JsonPropertyName("isCompactHistoryView")]
+    public bool IsCompactHistoryView { get; set; }
+
+    /// <summary>
+    /// Whether tree view is enabled in git changes panel.
+    /// </summary>
+    [JsonPropertyName("isGitFilesTreeView")]
+    public bool IsGitFilesTreeView { get; set; }
+
+    /// <summary>
+    /// Whether tree view is enabled in git branches panel.
+    /// </summary>
+    [JsonPropertyName("isGitBranchTreeView")]
+    public bool IsGitBranchTreeView { get; set; }
 }
 
 /// <summary>

@@ -410,19 +410,46 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
             return;
         }
 
-        // Skip loading details for WIP entry
-        if (commit.IsWipEntry)
-        {
-            CommitDetails = null;
-            SelectedFile = null;
-            DiffText = "";
-            return;
-        }
-
         IsLoadingDetails = true;
         try
         {
             var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+            // Load working changes for WIP entry
+            if (commit.IsWipEntry)
+            {
+                var modifiedFiles = await _gitStatusService.GetModifiedFilesAsync(workingDirectory);
+                var wipDetails = new GitCommitDetails
+                {
+                    IsWipEntry = true,
+                    ShortHash = "\u270e",
+                    Subject = "Working Changes",
+                    AuthorName = "",
+                    RelativeDate = $"{modifiedFiles.Count} file(s) modified",
+                    Files = modifiedFiles.Select(f => new GitCommitFile
+                    {
+                        FilePath = f.FilePath,
+                        Status = f.Status,
+                        Insertions = 0,
+                        Deletions = 0
+                    }).ToList(),
+                    TotalInsertions = 0,
+                    TotalDeletions = 0
+                };
+                CommitDetails = wipDetails;
+
+                if (CommitDetails.Files.Count > 0)
+                {
+                    SelectedFile = CommitDetails.Files[0];
+                }
+                else
+                {
+                    SelectedFile = null;
+                    DiffText = "No working changes.";
+                }
+                return;
+            }
+
             CommitDetails = await _gitStatusService.GetCommitDetailsAsync(workingDirectory, commit.Hash);
 
             // Select first file for diff
@@ -452,8 +479,17 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         }
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
-        var diff = await _gitStatusService.GetCommitDiffAsync(workingDirectory, SelectedCommit.Hash, file.FilePath);
-        DiffText = diff ?? "";
+
+        // For WIP entries, use working directory diff instead of commit diff
+        if (SelectedCommit.IsWipEntry)
+        {
+            var diff = await _gitStatusService.GetFileDiffAsync(workingDirectory, file.FilePath);
+            DiffText = diff ?? "";
+            return;
+        }
+
+        var commitDiff = await _gitStatusService.GetCommitDiffAsync(workingDirectory, SelectedCommit.Hash, file.FilePath);
+        DiffText = commitDiff ?? "";
     }
 
     #endregion

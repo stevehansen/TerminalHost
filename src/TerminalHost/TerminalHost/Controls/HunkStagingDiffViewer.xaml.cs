@@ -83,11 +83,17 @@ public partial class HunkStagingDiffViewer : UserControl
             {
                 Content = IsStaged ? "Unstage Hunk" : "Stage Hunk",
                 FontSize = 11,
-                Padding = new Thickness(8, 2, 8, 2),
+                FontWeight = FontWeights.SemiBold,
+                Padding = new Thickness(10, 4, 10, 4),
                 Cursor = System.Windows.Input.Cursors.Hand,
-                Background = IsStaged ? new SolidColorBrush(Color.FromRgb(0xE2, 0xC0, 0x8D)) : new SolidColorBrush(Color.FromRgb(0x4E, 0xC9, 0xB0)),
-                Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E)),
-                BorderThickness = new Thickness(0)
+                Background = IsStaged
+                    ? new SolidColorBrush(Color.FromRgb(0xB8, 0x86, 0x0B))
+                    : new SolidColorBrush(Color.FromRgb(0x2D, 0x8B, 0x6F)),
+                Foreground = new SolidColorBrush(Colors.White),
+                BorderBrush = IsStaged
+                    ? new SolidColorBrush(Color.FromRgb(0xD4, 0x9B, 0x1A))
+                    : new SolidColorBrush(Color.FromRgb(0x3A, 0xA8, 0x85)),
+                BorderThickness = new Thickness(1)
             };
             actionButton.Click += (s, e) =>
             {

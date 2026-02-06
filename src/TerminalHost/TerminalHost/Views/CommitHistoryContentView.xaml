@@ -237,7 +237,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320" MinWidth="200"/>
+            <ColumnDefinition Width="0.4*" MinWidth="200"/>
             <ColumnDefinition Width="4"/>
             <ColumnDefinition Width="*" MinWidth="300"/>
         </Grid.ColumnDefinitions>
@@ -292,34 +292,55 @@
                 <Border Grid.Row="1" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4"
                         Visibility="{Binding IsFilterExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
                     <StackPanel>
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="{StaticResource BackgroundDarkestBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="#444" Padding="6,4"
-                                 FontSize="{StaticResource FontSizeMicro}"
-                                 Margin="0,0,0,4"
-                                 Tag="Search message..."/>
+                        <!-- Search message -->
+                        <Grid Margin="0,0,0,4">
+                            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource BackgroundDarkestBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="#444" Padding="6,4"
+                                     FontSize="{StaticResource FontSizeMicro}"/>
+                            <TextBlock Text="Search message..."
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeMicro}"
+                                       Margin="8,5,0,0"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding SearchText, Converter={StaticResource NullOrEmptyToVisibleConverter}}"/>
+                        </Grid>
+                        <!-- Author + File path -->
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="4"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     Text="{Binding AuthorFilter, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource BackgroundDarkestBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     BorderBrush="#444" Padding="6,4"
-                                     FontSize="{StaticResource FontSizeMicro}"
-                                     Tag="Author..."/>
-                            <TextBox Grid.Column="2"
-                                     Text="{Binding FilePathFilter, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource BackgroundDarkestBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     BorderBrush="#444" Padding="6,4"
-                                     FontSize="{StaticResource FontSizeMicro}"
-                                     Tag="File path..."/>
+                            <Grid Grid.Column="0">
+                                <TextBox Text="{Binding AuthorFilter, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="{StaticResource BackgroundDarkestBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="#444" Padding="6,4"
+                                         FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="Author..."
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="8,5,0,0"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding AuthorFilter, Converter={StaticResource NullOrEmptyToVisibleConverter}}"/>
+                            </Grid>
+                            <Grid Grid.Column="2">
+                                <TextBox Text="{Binding FilePathFilter, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="{StaticResource BackgroundDarkestBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="#444" Padding="6,4"
+                                         FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="File path..."
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="8,5,0,0"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding FilePathFilter, Converter={StaticResource NullOrEmptyToVisibleConverter}}"/>
+                            </Grid>
                         </Grid>
+                        <!-- Dates + Apply/Clear -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -327,20 +348,32 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     Text="{Binding AfterDateText, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource BackgroundDarkestBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     BorderBrush="#444" Padding="6,4"
-                                     FontSize="{StaticResource FontSizeMicro}"
-                                     Tag="After (yyyy-MM-dd)"/>
-                            <TextBox Grid.Column="2"
-                                     Text="{Binding BeforeDateText, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource BackgroundDarkestBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     BorderBrush="#444" Padding="6,4"
-                                     FontSize="{StaticResource FontSizeMicro}"
-                                     Tag="Before (yyyy-MM-dd)"/>
+                            <Grid Grid.Column="0">
+                                <TextBox Text="{Binding AfterDateText, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="{StaticResource BackgroundDarkestBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="#444" Padding="6,4"
+                                         FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="After (yyyy-MM-dd)"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="8,5,0,0"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding AfterDateText, Converter={StaticResource NullOrEmptyToVisibleConverter}}"/>
+                            </Grid>
+                            <Grid Grid.Column="2">
+                                <TextBox Text="{Binding BeforeDateText, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="{StaticResource BackgroundDarkestBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="#444" Padding="6,4"
+                                         FontSize="{StaticResource FontSizeMicro}"/>
+                                <TextBlock Text="Before (yyyy-MM-dd)"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeMicro}"
+                                           Margin="8,5,0,0"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding BeforeDateText, Converter={StaticResource NullOrEmptyToVisibleConverter}}"/>
+                            </Grid>
                             <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="4,0,0,0">
                                 <Button Content="Apply"
                                         Style="{StaticResource TerminalSwitchButton}"

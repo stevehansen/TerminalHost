@@ -54,7 +54,7 @@
 
         <!-- Stash List -->
         <ListBox Grid.Row="1"
-                 ItemsSource="{Binding Stashes}"
+                 ItemsSource="{Binding StashEntries}"
                  SelectedItem="{Binding SelectedStash}"
                  Background="Transparent"
                  BorderThickness="0"
@@ -143,6 +143,6 @@
                    FontSize="{StaticResource FontSizeSmall}"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   Visibility="{Binding Stashes.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                   Visibility="{Binding StashEntries.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
     </Grid>
 </UserControl>

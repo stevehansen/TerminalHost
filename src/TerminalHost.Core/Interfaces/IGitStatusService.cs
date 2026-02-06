@@ -17,6 +17,7 @@ public interface IGitStatusService
     Task<GitOperationResult> PullAsync(string workingDirectory);
     Task<GitOperationResult> PullRebaseAsync(string workingDirectory);
     Task<GitOperationResult> PushAsync(string workingDirectory);
+    Task<GitOperationResult> PushBranchAsync(string workingDirectory, string branchName);
 
     // Staging operations
     Task<GitOperationResult> StageFileAsync(string workingDirectory, string filePath);

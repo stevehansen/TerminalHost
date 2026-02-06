@@ -127,6 +127,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     /// </summary>
     public event EventHandler<string>? GitStatusRefreshed;
     public event EventHandler<string>? GitPanelRequested;
+    public event EventHandler? StashPanelRequested;
 
     public WorkspaceSidebarViewModel(
         IConfigurationService configurationService,
@@ -1120,5 +1121,11 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         {
             GitPanelRequested?.Invoke(this, SelectedWorkspace.Path);
         }
+    }
+
+    [RelayCommand]
+    private void OpenStashPanel()
+    {
+        StashPanelRequested?.Invoke(this, EventArgs.Empty);
     }
 }

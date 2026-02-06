@@ -310,7 +310,6 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
         var fullPath = System.IO.Path.Combine(_currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
         FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = fullPath });
-        OnClose();
     }
 
     public bool CanEditFile => SelectedGitFile != null && SelectedGitFile.Status != GitFileStatusType.Deleted && !SelectedGitFile.IsSubmodule;
@@ -322,7 +321,6 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
         var fullPath = System.IO.Path.Combine(_currentTerminalTab.Pair.WorkingDirectory, SelectedGitFile.FilePath);
         FileEditRequested?.Invoke(this, new FileEditRequestedEventArgs { FilePath = fullPath });
-        OnClose();
     }
 
     public bool CanExploreFile => SelectedGitFile != null;
