@@ -1729,6 +1729,12 @@ public partial class MainViewModel : ObservableObject
         GitChangesRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    [RelayCommand]
+    private void OpenGitPanelFromToolbar()
+    {
+        UnifiedGitPanelRequested?.Invoke(this, GitPanelTab.Changes);
+    }
+
     private void OpenUnifiedGitPanel(GitPanelTab tab)
     {
         UnifiedGitPanelRequested?.Invoke(this, tab);

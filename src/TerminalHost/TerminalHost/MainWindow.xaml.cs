@@ -777,7 +777,8 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
         // Alt+G: Open unified Git panel on Changes tab (Ctrl+G reserved by Claude Code)
-        else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Alt)
+        // Note: Alt key combos come through as e.SystemKey in WPF (e.Key == Key.System)
+        else if (e.SystemKey == Key.G && Keyboard.Modifiers == ModifierKeys.Alt)
         {
             await OpenUnifiedGitPanelAsync(GitPanelTab.Changes);
             e.Handled = true;
@@ -811,7 +812,8 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
         // Ctrl+Alt+B: Open unified Git panel on Comparison tab
-        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
+        // Note: Alt key combos come through as e.SystemKey in WPF
+        else if (e.SystemKey == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
         {
             await OpenUnifiedGitPanelAsync(GitPanelTab.Comparison);
             e.Handled = true;

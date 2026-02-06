@@ -202,10 +202,10 @@
                             Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="📋"
-                            ToolTip="Git Changes (Alt+G)"
-                            AutomationProperties.Name="Git Changes"
+                            ToolTip="Git Panel (Alt+G)"
+                            AutomationProperties.Name="Git Panel"
                             Style="{StaticResource TerminalSwitchButton}"
-                            Command="{Binding DataContext.OpenGitChangesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Command="{Binding DataContext.OpenGitPanelFromToolbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                             Margin="0,0,4,0"/>
                     <Button Content="❓"

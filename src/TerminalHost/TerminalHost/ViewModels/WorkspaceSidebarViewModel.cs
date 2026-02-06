@@ -1117,10 +1117,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [RelayCommand]
     private void OpenGitPanel()
     {
-        if (SelectedWorkspace != null)
-        {
-            GitPanelRequested?.Invoke(this, SelectedWorkspace.Path);
-        }
+        var path = SelectedWorkspace?.Path ?? "";
+        GitPanelRequested?.Invoke(this, path);
     }
 
     [RelayCommand]
