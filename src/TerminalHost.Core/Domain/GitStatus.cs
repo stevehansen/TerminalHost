@@ -117,15 +117,6 @@ public class GitStatus
 
             var parts = new List<string> { $"🌿 {BranchName}" };
 
-            if (AheadCount > 0 || BehindCount > 0)
-            {
-                var sync = "";
-                if (AheadCount > 0) sync += $"{AheadCount}↑";
-                if (AheadCount > 0 && BehindCount > 0) sync += " ";
-                if (BehindCount > 0) sync += $"{BehindCount}↓";
-                parts.Add(sync);
-            }
-
             if (IsDirty)
                 parts.Add("modified");
 

@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -11,7 +13,7 @@ namespace TerminalHost.ViewModels;
 /// <summary>
 /// ViewModel for the PR Review Mode popup (Ctrl+Shift+R).
 /// </summary>
-public partial class PrReviewViewModel : ObservableObject
+public partial class PrReviewViewModel : BasePanelViewModel
 {
     private readonly IGitHubService _gitHubService;
     private readonly IDialogService _dialogService;
@@ -22,8 +24,10 @@ public partial class PrReviewViewModel : ObservableObject
     private readonly IMarkdownService _markdownService;
     private readonly IToastService _toastService;
 
-    [ObservableProperty]
-    private bool _isOpen;
+    public override string PanelId => "prReview";
+    public override string PanelTitle => "PR Review";
+    public override string PanelIcon => "🔍";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
     [ObservableProperty]
     private bool _isLoading;

@@ -106,8 +106,7 @@
             <popups:TabSwitcherView x:Name="TabSwitcherViewControl" DataContext="{Binding}" />
         </Popup>
 
-        <!-- Unified File Viewer Popup (Ctrl+O for preview, Ctrl+Shift+E for edit) -->
-        <popups:FileViewerPopup x:Name="FileViewerPopupControl" />
+        <!-- File Viewer - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
 
         <!-- Help Popup (F1) -->
         <Popup x:Name="HelpPopup"
@@ -133,11 +132,9 @@
 
         <!-- Git Files - no popup view here, handled via panel system like Markdown Preview -->
 
-        <!-- Git Branch View (Ctrl+B) -->
-        <popups:GitBranchView x:Name="GitBranchViewControl" />
+        <!-- Git Branch View - now accessed via Git GUI center panel Branches tab (Ctrl+B) -->
 
-        <!-- Git Stash View (Ctrl+Shift+S) -->
-        <popups:GitStashView x:Name="GitStashViewControl" />
+        <!-- Git Stash View - now accessed via Git GUI center panel Stash tab (Ctrl+Shift+S) -->
 
         <!-- Git Reflog View (Ctrl+Shift+G) -->
         <popups:ReflogView x:Name="ReflogViewControl" />
@@ -145,25 +142,19 @@
         <!-- Manage Worktrees View -->
         <popups:ManageWorktreesView x:Name="ManageWorktreesViewControl" />
 
-        <!-- Detected Links View -->
-        <popups:DetectedLinksView x:Name="DetectedLinksViewControl" />
+        <!-- Detected Links - now uses sidebar panel system via PanelContentTemplates -->
 
         <!-- Repository Switcher View (Ctrl+Shift+O) -->
         <popups:RepositorySwitcherView x:Name="RepositorySwitcherViewControl" />
 
-        <!-- Test Results View (F6) -->
-        <popups:TestResultsView x:Name="TestResultsViewControl" />
+        <!-- Test Results - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
 
-        <!-- PR Review View (Ctrl+Shift+R) -->
-        <popups:PrReviewView x:Name="PrReviewViewControl" />
+        <!-- PR Review - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
 
-        <!-- Branch Comparison View (Ctrl+Alt+B) -->
-        <popups:BranchComparisonView x:Name="BranchComparisonViewControl" />
+        <!-- Branch Comparison View - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
 
-        <!-- Claude Tasks Panel View (Ctrl+Shift+K) -->
-        <popups:ClaudeTasksPanelView x:Name="ClaudeTasksPanelViewControl" />
+        <!-- Claude Tasks Panel - now uses sidebar panel system via PanelContentTemplates -->
 
-        <!-- Unified Git Panel View (Alt+G) -->
-        <popups:UnifiedGitPanelView x:Name="UnifiedGitPanelViewControl" />
+        <!-- Unified Git Panel View - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
     </Grid>
 </Window>

@@ -89,18 +89,17 @@ public partial class MainWindow : Window
         _taskbarProgressService = taskbarProgressService;
         _soundService = soundService;
         DataContext = viewModel;
-        GitBranchViewControl.DataContext = gitBranchViewModel;
-        GitStashViewControl.DataContext = gitStashViewModel;
+        // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
         ManageWorktreesViewControl.DataContext = manageWorktreesViewModel;
-        DetectedLinksViewControl.DataContext = detectedLinksViewModel;
-        FileViewerPopupControl.DataContext = fileViewerViewModel;
+        // DetectedLinks popup removed - now uses sidebar panel system
+        // FileViewer popup removed - now rendered as center panel
         RepositorySwitcherViewControl.DataContext = repositorySwitcherViewModel;
-        TestResultsViewControl.DataContext = testResultsViewModel;
-        PrReviewViewControl.DataContext = prReviewViewModel;
-        BranchComparisonViewControl.DataContext = branchComparisonViewModel;
-        UnifiedGitPanelViewControl.DataContext = unifiedGitPanelViewModel;
-        ClaudeTasksPanelViewControl.DataContext = claudeTasksPanelViewModel;
+        // TestResults popup removed - now rendered as center panel
+        // PrReview popup removed - now rendered as center panel
+        // BranchComparisonViewModel is now rendered as center panel (no popup view)
+        // UnifiedGitPanelViewModel is now rendered as center panel (no popup view)
+        // ClaudeTasksPanel popup removed - now uses sidebar panel system
 
         // Git Files, Commit History, and Scratch Pad use panel system only (no popup views in XAML, like Markdown Preview)
 
@@ -113,6 +112,10 @@ public partial class MainWindow : Window
         _scratchPadViewModel.ShowRequested += OnPanelShowRequested;
         _searchAcrossFilesViewModel.ShowRequested += OnPanelShowRequested;
         _branchComparisonViewModel.ShowRequested += OnPanelShowRequested;
+        _fileViewerViewModel.ShowRequested += OnPanelShowRequested;
+        _prReviewViewModel.ShowRequested += OnPanelShowRequested;
+        _testResultsViewModel.ShowRequested += OnPanelShowRequested;
+        _detectedLinksViewModel.ShowRequested += OnPanelShowRequested;
         _claudeTasksPanelViewModel.ShowRequested += OnPanelShowRequested;
         _mergeConflictViewModel.ShowRequested += OnPanelShowRequested;
 
@@ -165,6 +168,8 @@ public partial class MainWindow : Window
         _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
         _viewModel.UnifiedGitPanelRequested += OnUnifiedGitPanelRequested;
+        _viewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
+        _viewModel.RightPanelRestoreRequested += OnRightPanelRestoreRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -489,21 +494,18 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Escape: Close popups if open
+        // Escape: Close center panel first, then popups
         if (e.Key == Key.Escape)
         {
-            if (_gitBranchViewModel.IsOpen)
+            // First priority: close active center panel (return to terminals)
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
             {
-                _gitBranchViewModel.IsOpen = false;
+                escTerminalTab.CloseCenterPanel();
                 e.Handled = true;
                 return;
             }
-            if (_gitStashViewModel.IsOpen)
-            {
-                _gitStashViewModel.IsOpen = false;
-                e.Handled = true;
-                return;
-            }
+
+            // GitBranch and GitStash popups removed - accessed via Git GUI center panel tabs
             if (_reflogViewModel.IsOpen)
             {
                 _reflogViewModel.IsOpen = false;
@@ -587,6 +589,11 @@ public partial class MainWindow : Window
         // F6: Run tests
         if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
         {
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel termTab)
+            {
+                termTab.SetPanel(_testResultsViewModel);
+                termTab.ShowCenterPanel(_testResultsViewModel);
+            }
             await _testResultsViewModel.RunAllTestsAsync();
             e.Handled = true;
             return;
@@ -725,24 +732,26 @@ public partial class MainWindow : Window
             _viewModel.IsTabSwitcherOpen = true;
             e.Handled = true;
         }
-        // Ctrl+O: Open file viewer (preview mode)
+        // Ctrl+O: Open file viewer (preview mode) as center panel
         else if (e.Key == Key.O && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            CenterFileViewerPopup();
             var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
                 ? terminalTab.Pair.WorkingDirectory
                 : string.Empty;
             _fileViewerViewModel.OpenDialogCommand.Execute(initialDir);
+            if (_fileViewerViewModel.IsOpen && _viewModel.SelectedTab is TerminalPairTabViewModel tab)
+            {
+                tab.SetPanel(_fileViewerViewModel);
+                tab.ShowCenterPanel(_fileViewerViewModel);
+            }
             e.Handled = true;
         }
-        // Ctrl+Shift+E: Open file viewer (edit mode)
+        // Ctrl+Shift+E: Open file viewer (edit mode) as center panel
         else if (e.Key == Key.E && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            CenterFileViewerPopup();
             var initialDir = _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab
                 ? terminalTab.Pair.WorkingDirectory
                 : string.Empty;
-            // Open dialog and switch to edit mode if a file is selected
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Select File to Edit",
@@ -752,6 +761,11 @@ public partial class MainWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 _fileViewerViewModel.Open(dialog.FileName, FileViewerMode.Edit);
+                if (_viewModel.SelectedTab is TerminalPairTabViewModel tab)
+                {
+                    tab.SetPanel(_fileViewerViewModel);
+                    tab.ShowCenterPanel(_fileViewerViewModel);
+                }
             }
             e.Handled = true;
         }
@@ -789,16 +803,22 @@ public partial class MainWindow : Window
             await OpenUnifiedGitPanelAsync(GitPanelTab.History);
             e.Handled = true;
         }
-        // Ctrl+F3: Open search across files
+        // Ctrl+F3: Open search across files (center panel)
         else if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.Control)
         {
             e.Handled = true;
             if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
             {
-                var windowPos = PointToScreen(new Point(0, 0));
-                _searchAcrossFilesViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _searchAcrossFilesViewModel.Width) / 2;
-                _searchAcrossFilesViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _searchAcrossFilesViewModel.Height) / 2;
-                await _searchAcrossFilesViewModel.OpenAsync(terminalTab);
+                terminalTab.SetPanel(_searchAcrossFilesViewModel);
+                if (_searchAcrossFilesViewModel.IsOpen && terminalTab.ActiveCenterPanel == _searchAcrossFilesViewModel)
+                {
+                    terminalTab.CloseCenterPanel();
+                }
+                else
+                {
+                    await _searchAcrossFilesViewModel.OpenAsync(terminalTab);
+                    terminalTab.ShowCenterPanel(_searchAcrossFilesViewModel);
+                }
             }
             else
             {
@@ -824,9 +844,11 @@ public partial class MainWindow : Window
             await OpenUnifiedGitPanelAsync(GitPanelTab.Stash);
             e.Handled = true;
         }
-        // Ctrl+Shift+G: Open git reflog
+        // Ctrl+Shift+G: Open git reflog (redirected to Git GUI)
         else if (e.Key == Key.G && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
+            // Open the unified Git panel with the Reflog shown via the Changes tab
+            // (Reflog is not a separate tab in the unified panel, so we open Changes)
             if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
             {
                 _reflogViewModel.SetTerminalTab(terminalTab);
@@ -847,13 +869,22 @@ public partial class MainWindow : Window
             await _viewModel.OpenDashboardCommand.ExecuteAsync(null);
             e.Handled = true;
         }
-        // Ctrl+Shift+R: Open PR Review Mode
+        // Ctrl+Shift+R: Open PR Review Mode (center panel)
         else if (e.Key == Key.R && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
             if (currentTab != null)
             {
-                await _prReviewViewModel.OpenAsync(currentTab.WorkingDirectory);
+                currentTab.SetPanel(_prReviewViewModel);
+                if (_prReviewViewModel.IsOpen && currentTab.ActiveCenterPanel == _prReviewViewModel)
+                {
+                    currentTab.CloseCenterPanel();
+                }
+                else
+                {
+                    await _prReviewViewModel.OpenAsync(currentTab.WorkingDirectory);
+                    currentTab.ShowCenterPanel(_prReviewViewModel);
+                }
             }
             e.Handled = true;
         }
@@ -1149,6 +1180,92 @@ public partial class MainWindow : Window
         await OpenUnifiedGitPanelAsync(tab);
     }
 
+    private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
+    {
+        switch (e.PanelId)
+        {
+            case "unifiedGit":
+                var gitTab = GitPanelTab.Changes;
+                if (e.GitPanelActiveTab != null && Enum.TryParse<GitPanelTab>(e.GitPanelActiveTab, out var parsedTab))
+                {
+                    gitTab = parsedTab;
+                }
+                e.Tab.SetPanel(_unifiedGitPanelViewModel);
+                await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
+                e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                break;
+            case "branchComparison":
+                e.Tab.SetPanel(_branchComparisonViewModel);
+                await _branchComparisonViewModel.OpenAsync(e.Tab);
+                e.Tab.ShowCenterPanel(_branchComparisonViewModel);
+                break;
+            case "searchFiles":
+                e.Tab.SetPanel(_searchAcrossFilesViewModel);
+                await _searchAcrossFilesViewModel.OpenAsync(e.Tab);
+                e.Tab.ShowCenterPanel(_searchAcrossFilesViewModel);
+                break;
+            case "markdownPreview":
+                e.Tab.SetPanel(_markdownPreviewViewModel);
+                _markdownPreviewViewModel.IsOpen = true;
+                e.Tab.ShowCenterPanel(_markdownPreviewViewModel);
+                break;
+            case "fileViewer":
+                e.Tab.SetPanel(_fileViewerViewModel);
+                _fileViewerViewModel.IsOpen = true;
+                e.Tab.ShowCenterPanel(_fileViewerViewModel);
+                break;
+            case "prReview":
+                e.Tab.SetPanel(_prReviewViewModel);
+                await _prReviewViewModel.OpenAsync(e.Tab.WorkingDirectory);
+                e.Tab.ShowCenterPanel(_prReviewViewModel);
+                break;
+            case "testResults":
+                e.Tab.SetPanel(_testResultsViewModel);
+                _testResultsViewModel.IsOpen = true;
+                e.Tab.ShowCenterPanel(_testResultsViewModel);
+                break;
+        }
+    }
+
+    private void OnRightPanelRestoreRequested(object? sender, RightPanelRestoreEventArgs e)
+    {
+        // Map panel IDs to ViewModel instances
+        IPanelableViewModel? GetPanelById(string panelId) => panelId switch
+        {
+            "fileExplorer" => e.Tab.ExplorerPanelViewModel,
+            "claudeTasks" => _claudeTasksPanelViewModel,
+            "detectedLinks" => _detectedLinksViewModel,
+            "scratchPad" => _scratchPadViewModel,
+            "gitChanges" => _gitFilesViewModel,
+            _ => null
+        };
+
+        foreach (var panelId in e.PanelIds)
+        {
+            var panel = GetPanelById(panelId);
+            if (panel != null)
+            {
+                e.Tab.SetPanel(panel);
+                panel.IsOpen = true;
+                e.Tab.AddPanel(panel, PanelSide.Right);
+            }
+        }
+
+        if (e.ActivePanelId != null)
+        {
+            var activePanel = GetPanelById(e.ActivePanelId);
+            if (activePanel != null)
+            {
+                e.Tab.ActiveRightPanel = activePanel;
+            }
+        }
+
+        if (e.PanelIds.Count > 0)
+        {
+            e.Tab.IsExplorerVisible = true;
+        }
+    }
+
     #endregion
 
     #region Scratch Pad Panel
@@ -1191,45 +1308,22 @@ public partial class MainWindow : Window
     private void OpenClaudeTasksPanel()
     {
         var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
-        var workspacePath = currentTab?.WorkingDirectory;
+        if (currentTab == null) return;
 
-        // Ensure the tab has the panel reference
-        if (currentTab != null)
-        {
-            currentTab.SetPanel(_claudeTasksPanelViewModel);
-        }
-
-        // Update workspace path for filtering
+        var workspacePath = currentTab.WorkingDirectory;
+        currentTab.SetPanel(_claudeTasksPanelViewModel);
         _claudeTasksPanelViewModel.SetWorkspace(workspacePath);
 
-        // If already open, use toggle behavior
+        // Toggle sidebar panel
         if (_claudeTasksPanelViewModel.IsOpen)
         {
-            // Refresh with new workspace if it changed
             _claudeTasksPanelViewModel.OnOpened();
-
-            // If in window state, close the window
-            if (_claudeTasksPanelViewModel.DisplayState == PanelDisplayState.Window)
-            {
-                _panelWindowManager?.CloseWindow(_claudeTasksPanelViewModel.PanelId);
-                _claudeTasksPanelViewModel.IsOpen = false;
-                return;
-            }
-
-            // If in popup state, close the popup
-            if (_claudeTasksPanelViewModel.DisplayState == PanelDisplayState.Popup)
-            {
-                _claudeTasksPanelViewModel.IsOpen = false;
-                return;
-            }
-
-            // Otherwise, toggle the docked panel (handles focus/visibility)
-            currentTab?.TogglePanel(_claudeTasksPanelViewModel);
-            return;
+            currentTab.TogglePanel(_claudeTasksPanelViewModel);
         }
-
-        // Not open yet - open with workspace path (defaults to docked Panel mode)
-        _claudeTasksPanelViewModel.Open(workspacePath);
+        else
+        {
+            _claudeTasksPanelViewModel.Open(workspacePath);
+        }
     }
 
     #endregion
@@ -1245,8 +1339,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Open comparison view with the specified branches
+        currentTab.SetPanel(_branchComparisonViewModel);
+        // Open comparison view with the specified branches in center panel
         await _branchComparisonViewModel.OpenWithBranchesAsync(currentTab, e.BaseBranch, e.CompareBranch);
+        currentTab.ShowCenterPanel(_branchComparisonViewModel);
     }
 
     private async Task OpenBranchComparisonAsync()
@@ -1258,14 +1354,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        // If already open, toggle off
-        if (_branchComparisonViewModel.IsOpen)
+        currentTab.SetPanel(_branchComparisonViewModel);
+
+        // If already open as center panel, toggle off
+        if (_branchComparisonViewModel.IsOpen && currentTab.ActiveCenterPanel == _branchComparisonViewModel)
         {
-            _branchComparisonViewModel.IsOpen = false;
+            currentTab.CloseCenterPanel();
             return;
         }
 
         await _branchComparisonViewModel.OpenAsync(currentTab);
+        currentTab.ShowCenterPanel(_branchComparisonViewModel);
     }
 
     private async Task OpenUnifiedGitPanelAsync(GitPanelTab? tab = null)
@@ -1277,8 +1376,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        // If already open, toggle off (or switch to requested tab)
-        if (_unifiedGitPanelViewModel.IsOpen)
+        // Register the panel with the tab
+        currentTab.SetPanel(_unifiedGitPanelViewModel);
+
+        // If already open as center panel, toggle off or switch tab
+        if (_unifiedGitPanelViewModel.IsOpen && currentTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
         {
             if (tab.HasValue && _unifiedGitPanelViewModel.ActiveTab != tab.Value)
             {
@@ -1286,16 +1388,14 @@ public partial class MainWindow : Window
                 _unifiedGitPanelViewModel.ActiveTab = tab.Value;
                 return;
             }
-            _unifiedGitPanelViewModel.IsOpen = false;
+            // Toggle off - return to terminals
+            currentTab.CloseCenterPanel();
             return;
         }
 
-        // Center the popup on screen
-        var windowPos = PointToScreen(new Point(0, 0));
-        _unifiedGitPanelViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _unifiedGitPanelViewModel.Width) / 2;
-        _unifiedGitPanelViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _unifiedGitPanelViewModel.Height) / 2;
-
+        // Open in center panel
         await _unifiedGitPanelViewModel.OpenOnTabAsync(currentTab, tab ?? GitPanelTab.Changes);
+        currentTab.ShowCenterPanel(_unifiedGitPanelViewModel);
     }
 
     #endregion
@@ -1341,7 +1441,7 @@ public partial class MainWindow : Window
         // Ensure the tab has the panel reference
         currentTab.SetPanel(_markdownPreviewViewModel);
 
-        // If preview is already open, use toggle behavior
+        // If preview is already open, toggle center panel behavior
         if (_markdownPreviewViewModel.IsOpen)
         {
             // If in window state, close the window
@@ -1352,8 +1452,22 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Otherwise, toggle the panel (handles focus/visibility)
-            currentTab.TogglePanel(_markdownPreviewViewModel);
+            // If it's the active center panel, close it (return to terminals)
+            if (currentTab.ActiveCenterPanel == _markdownPreviewViewModel)
+            {
+                currentTab.CloseCenterPanel();
+                return;
+            }
+
+            // If it's in the right sidebar, toggle it
+            if (currentTab.RightPanels.Contains(_markdownPreviewViewModel))
+            {
+                currentTab.TogglePanel(_markdownPreviewViewModel);
+                return;
+            }
+
+            // Otherwise close it
+            _markdownPreviewViewModel.IsOpen = false;
             return;
         }
 
@@ -1377,10 +1491,9 @@ public partial class MainWindow : Window
 
         if (filePath != null)
         {
-            // Set display state to Panel for docked display
-            _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(filePath);
-            currentTab.ShowPanel(_markdownPreviewViewModel);
+            // Default to center panel (user can dock to sidebar via button)
+            currentTab.ShowCenterPanel(_markdownPreviewViewModel);
         }
         else
         {
@@ -1393,10 +1506,9 @@ public partial class MainWindow : Window
 
             if (dialog.ShowDialog() == true)
             {
-                // Set display state to Panel for docked display
-                _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
                 await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
-                currentTab.ShowPanel(_markdownPreviewViewModel);
+                // Default to center panel
+                currentTab.ShowCenterPanel(_markdownPreviewViewModel);
             }
         }
     }
@@ -1405,24 +1517,26 @@ public partial class MainWindow : Window
 
     #region File Operation Handlers
 
-    private void CenterFileViewerPopup()
+    private void ShowFileViewerCenterPanel()
     {
-        var windowPos = PointToScreen(new Point(0, 0));
-        _fileViewerViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileViewerViewModel.Width) / 2;
-        _fileViewerViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileViewerViewModel.Height) / 2;
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel tab)
+        {
+            tab.SetPanel(_fileViewerViewModel);
+            tab.ShowCenterPanel(_fileViewerViewModel);
+        }
     }
 
     private void OnFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
-        CenterFileViewerPopup();
         var mode = e.OpenInEditMode ? FileViewerMode.Edit : FileViewerMode.Preview;
         _fileViewerViewModel.Open(e.FilePath, mode, e.Line);
+        ShowFileViewerCenterPanel();
     }
 
     private void OnFileEditRequested(object? sender, FileEditRequestedEventArgs e)
     {
-        CenterFileViewerPopup();
         _fileViewerViewModel.Open(e.FilePath, FileViewerMode.Edit);
+        ShowFileViewerCenterPanel();
     }
 
     private void OnFileViewerDetachRequested(object? sender, EventArgs e)

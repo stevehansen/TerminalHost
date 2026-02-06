@@ -53,4 +53,29 @@
         <views:ClaudeTasksContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for UnifiedGitPanelViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:UnifiedGitPanelViewModel}">
+        <views:UnifiedGitPanelContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for FileViewerViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:FileViewerViewModel}">
+        <views:FileViewerView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for PrReviewViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:PrReviewViewModel}">
+        <views:PrReviewContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for TestResultsViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:TestResultsViewModel}">
+        <views:TestResultsContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for DetectedLinksViewModel (sidebar panel) -->
+    <DataTemplate DataType="{x:Type vm:DetectedLinksViewModel}">
+        <views:DetectedLinksContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

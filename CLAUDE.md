@@ -38,6 +38,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **UI Enhancements**: Toast notifications, themed dialogs, system tray support, Markdown preview (Ctrl+M).
 - [x] **Touch Mode**: Touch-friendly UI mode with larger touch targets, icon-only toolbar, narrower sidebar, and sidebar collapse button. Ideal for mobile RDP and demos.
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
+- [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
 
 ### Deferred Features
 

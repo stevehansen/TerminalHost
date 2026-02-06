@@ -744,6 +744,19 @@ public partial class MainViewModel : ObservableObject
         settings.IsLeftPanelVisible = tab.IsLeftPanelVisible;
         settings.LeftPanelSplitRatio = tab.LeftPanelSplitRatio;
 
+        // Update center panel state
+        settings.ActiveCenterPanel = tab.ActiveCenterPanel?.PanelId;
+
+        // Save git panel active tab if the git panel is the center panel
+        if (tab.ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
+        {
+            settings.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
+        }
+
+        // Update right sidebar panel state
+        settings.OpenRightPanels = tab.RightPanels.Select(p => p.PanelId).ToList();
+        settings.ActiveRightPanel = tab.ActiveRightPanel?.PanelId;
+
         config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
     }
@@ -942,6 +955,28 @@ public partial class MainViewModel : ObservableObject
 
             // Sync with workspace sidebar
             _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
+
+            // Restore center panel state (fires event for MainWindow to handle)
+            if (dirSettings?.ActiveCenterPanel != null)
+            {
+                CenterPanelRestoreRequested?.Invoke(this, new CenterPanelRestoreEventArgs
+                {
+                    Tab = tabViewModel,
+                    PanelId = dirSettings.ActiveCenterPanel,
+                    GitPanelActiveTab = dirSettings.GitPanelActiveTab
+                });
+            }
+
+            // Restore right sidebar panel state
+            if (dirSettings?.OpenRightPanels?.Count > 0)
+            {
+                RightPanelRestoreRequested?.Invoke(this, new RightPanelRestoreEventArgs
+                {
+                    Tab = tabViewModel,
+                    PanelIds = dirSettings.OpenRightPanels,
+                    ActivePanelId = dirSettings.ActiveRightPanel
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -1710,6 +1745,8 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
     public event EventHandler<GitPanelTab>? UnifiedGitPanelRequested;
+    public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
+    public event EventHandler<RightPanelRestoreEventArgs>? RightPanelRestoreRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -2466,4 +2503,18 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required TerminalPairTabViewModel Tab { get; init; }
     public required RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
+}
+
+public class CenterPanelRestoreEventArgs : EventArgs
+{
+    public required TerminalPairTabViewModel Tab { get; init; }
+    public required string PanelId { get; init; }
+    public string? GitPanelActiveTab { get; init; }
+}
+
+public class RightPanelRestoreEventArgs : EventArgs
+{
+    public required TerminalPairTabViewModel Tab { get; init; }
+    public required List<string> PanelIds { get; init; }
+    public string? ActivePanelId { get; init; }
 }

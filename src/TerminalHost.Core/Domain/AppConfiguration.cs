@@ -369,6 +369,25 @@ public class DirectorySettings
     [JsonPropertyName("keyBranchOverrides")]
     public List<string>? KeyBranchOverrides { get; set; }
 
+    // Center panel settings
+    /// <summary>
+    /// ID of the active center panel (null = terminals visible).
+    /// </summary>
+    [JsonPropertyName("activeCenterPanel")]
+    public string? ActiveCenterPanel { get; set; }
+
+    /// <summary>
+    /// Panel IDs that are open in the right sidebar.
+    /// </summary>
+    [JsonPropertyName("openRightPanels")]
+    public List<string> OpenRightPanels { get; set; } = [];
+
+    /// <summary>
+    /// Active tab in the git panel (persisted across restarts).
+    /// </summary>
+    [JsonPropertyName("gitPanelActiveTab")]
+    public string? GitPanelActiveTab { get; set; }
+
     // Git panel settings
     /// <summary>
     /// Saved width of the unified Git panel popup.

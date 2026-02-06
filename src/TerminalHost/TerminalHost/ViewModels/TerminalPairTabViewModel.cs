@@ -112,6 +112,20 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private FileExplorerViewModel? _explorerViewModel;
 
+    // Center panel properties
+    /// <summary>
+    /// The panel currently displayed in the center area, replacing terminals.
+    /// Null means terminals are visible.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTerminalsVisible))]
+    private IPanelableViewModel? _activeCenterPanel;
+
+    /// <summary>
+    /// Whether the terminal pair is visible (no center panel active).
+    /// </summary>
+    public bool IsTerminalsVisible => ActiveCenterPanel == null;
+
     // Panel system properties
     /// <summary>
     /// Panels docked on the right side.
@@ -472,6 +486,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
+    public string GitPullButtonText => GitStatus?.BehindCount > 0 ? $"↓ {GitStatus.BehindCount}" : "↓";
+    public string GitPushButtonText => GitStatus?.AheadCount > 0 ? $"↑ {GitStatus.AheadCount}" : "↑";
+
     public TerminalPair Pair { get; }
     private readonly IStatisticsService _statisticsService;
     private readonly ITaskService? _taskService;
@@ -826,6 +843,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(TitleWithGit));
         OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(GitStatusDisplay));
+        OnPropertyChanged(nameof(GitPullButtonText));
+        OnPropertyChanged(nameof(GitPushButtonText));
 
         // Refresh file explorer's git status when tab git status changes
         if (ExplorerViewModel != null)
@@ -1618,6 +1637,48 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         {
             RemovePanel(panel);
         }
+    }
+
+    #endregion
+
+    #region Center Panel Methods
+
+    /// <summary>
+    /// Shows a panel in the center area, replacing terminals.
+    /// Terminals continue running in background.
+    /// </summary>
+    public void ShowCenterPanel(IPanelableViewModel panel)
+    {
+        ActiveCenterPanel = panel;
+        panel.IsOpen = true;
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Returns to terminals by closing the active center panel.
+    /// </summary>
+    [RelayCommand]
+    public void CloseCenterPanel()
+    {
+        if (ActiveCenterPanel != null)
+        {
+            ActiveCenterPanel.IsOpen = false;
+            ActiveCenterPanel = null;
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+            FocusActiveTerminal();
+        }
+    }
+
+    /// <summary>
+    /// Toggles a center panel: if it's the active center panel, close it (return to terminals);
+    /// if not, show it in the center area.
+    /// </summary>
+    public void ToggleCenterPanel(IPanelableViewModel panel)
+    {
+        if (ActiveCenterPanel == panel)
+            CloseCenterPanel();
+        else
+            ShowCenterPanel(panel);
     }
 
     #endregion

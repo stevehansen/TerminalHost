@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -10,7 +12,7 @@ namespace TerminalHost.ViewModels;
 /// <summary>
 /// ViewModel for the Test Results popup (F6).
 /// </summary>
-public partial class TestResultsViewModel : ObservableObject
+public partial class TestResultsViewModel : BasePanelViewModel
 {
     private readonly ITestRunnerService _testRunnerService;
     private readonly IProjectDetectionService _projectDetectionService;
@@ -20,8 +22,10 @@ public partial class TestResultsViewModel : ObservableObject
     private string _currentWorkingDirectory = string.Empty;
     private ProjectType? _currentProjectType;
 
-    [ObservableProperty]
-    private bool _isOpen;
+    public override string PanelId => "testResults";
+    public override string PanelTitle => Title;
+    public override string PanelIcon => "🧪";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
     [ObservableProperty]
     private bool _isRunning;
@@ -53,18 +57,6 @@ public partial class TestResultsViewModel : ObservableObject
     [ObservableProperty]
     private string _output = "";
 
-    // View properties for positioning/sizing the popup
-    [ObservableProperty]
-    private double _width = 700;
-
-    [ObservableProperty]
-    private double _height = 500;
-
-    [ObservableProperty]
-    private double _horizontalOffset;
-
-    [ObservableProperty]
-    private double _verticalOffset;
 
     public TestResultsViewModel(
         ITestRunnerService testRunnerService,
@@ -77,6 +69,8 @@ public partial class TestResultsViewModel : ObservableObject
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
 
+        Width = 700;
+        Height = 500;
         _testRunnerService.OutputReceived += OnOutputReceived;
         _testRunnerService.TestRunCompleted += OnTestRunCompleted;
     }

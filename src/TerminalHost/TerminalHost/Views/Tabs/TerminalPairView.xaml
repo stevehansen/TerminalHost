@@ -20,133 +20,136 @@
         <!-- Terminal Switcher Bar -->
         <Border Grid.Row="0" Background="{StaticResource BackgroundDarkBrush}" Padding="8,4">
             <DockPanel>
-                <!-- Layout Mode Toggle Buttons -->
                 <StackPanel Orientation="Horizontal">
-                    <!-- Custom Full Mode -->
-                    <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
-                                  Command="{Binding SetCustomFullLayoutCommand}"
-                                  ToolTip="Custom terminal only (full view)"
-                                  AutomationProperties.AutomationId="CustomFullLayoutButton"
-                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    CornerRadius="3,0,0,3"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
-                        <TextBlock Text="▣" FontSize="14" VerticalAlignment="Center"/>
-                    </ToggleButton>
+                    <!-- Terminal layout controls (hidden when center panel is active) -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsTerminalsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <!-- Custom Full Mode -->
+                        <ToggleButton IsChecked="{Binding IsCustomFullMode, Mode=OneWay}"
+                                      Command="{Binding SetCustomFullLayoutCommand}"
+                                      ToolTip="Custom terminal only (full view)"
+                                      AutomationProperties.AutomationId="CustomFullLayoutButton"
+                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                    <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="3,0,0,3"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                            <TextBlock Text="▣" FontSize="14" VerticalAlignment="Center"/>
+                        </ToggleButton>
 
-                    <!-- Horizontal Split Mode -->
-                    <ToggleButton IsChecked="{Binding IsHorizontalSplitMode, Mode=OneWay}"
-                                  Command="{Binding SetHorizontalSplitLayoutCommand}"
-                                  ToolTip="Horizontal split (side by side)"
-                                  AutomationProperties.AutomationId="HorizontalSplitLayoutButton"
-                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    CornerRadius="0"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
-                        <TextBlock Text="▥" FontSize="14" VerticalAlignment="Center"/>
-                    </ToggleButton>
+                        <!-- Horizontal Split Mode -->
+                        <ToggleButton IsChecked="{Binding IsHorizontalSplitMode, Mode=OneWay}"
+                                      Command="{Binding SetHorizontalSplitLayoutCommand}"
+                                      ToolTip="Horizontal split (side by side)"
+                                      AutomationProperties.AutomationId="HorizontalSplitLayoutButton"
+                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                    <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="0"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                            <TextBlock Text="▥" FontSize="14" VerticalAlignment="Center"/>
+                        </ToggleButton>
 
-                    <!-- Vertical Split Mode -->
-                    <ToggleButton IsChecked="{Binding IsVerticalSplitMode, Mode=OneWay}"
-                                  Command="{Binding SetVerticalSplitLayoutCommand}"
-                                  ToolTip="Vertical split (stacked)"
-                                  AutomationProperties.AutomationId="VerticalSplitLayoutButton"
-                                  Margin="0,0,8,0"
-                                  Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    CornerRadius="0,3,3,0"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
-                        <TextBlock Text="▤" FontSize="14" VerticalAlignment="Center"/>
-                    </ToggleButton>
+                        <!-- Vertical Split Mode -->
+                        <ToggleButton IsChecked="{Binding IsVerticalSplitMode, Mode=OneWay}"
+                                      Command="{Binding SetVerticalSplitLayoutCommand}"
+                                      ToolTip="Vertical split (stacked)"
+                                      AutomationProperties.AutomationId="VerticalSplitLayoutButton"
+                                      Margin="0,0,8,0"
+                                      Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                    <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="0,3,3,0"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                            <TextBlock Text="▤" FontSize="14" VerticalAlignment="Center"/>
+                        </ToggleButton>
 
-                    <!-- AI Assistant Selector (visible only when multiple assistants enabled) -->
-                    <ComboBox ItemsSource="{Binding AvailableAiAssistants}"
-                              SelectedItem="{Binding SelectedAiAssistant, Mode=TwoWay}"
-                              Visibility="{Binding HasMultipleAiAssistants, Converter={StaticResource BoolToVisibilityConverter}}"
-                              AutomationProperties.AutomationId="AiAssistantSelector"
-                              ToolTip="Switch AI Assistant"
-                              Margin="8,0,0,0"
-                              MinWidth="100"
-                              Style="{StaticResource DarkComboBox}"
-                              DisplayMemberPath="DisplayLabel"/>
+                        <!-- AI Assistant Selector (visible only when multiple assistants enabled) -->
+                        <ComboBox ItemsSource="{Binding AvailableAiAssistants}"
+                                  SelectedItem="{Binding SelectedAiAssistant, Mode=TwoWay}"
+                                  Visibility="{Binding HasMultipleAiAssistants, Converter={StaticResource BoolToVisibilityConverter}}"
+                                  AutomationProperties.AutomationId="AiAssistantSelector"
+                                  ToolTip="Switch AI Assistant"
+                                  Margin="8,0,0,0"
+                                  MinWidth="100"
+                                  Style="{StaticResource DarkComboBox}"
+                                  DisplayMemberPath="DisplayLabel"/>
+                    </StackPanel>
 
                     <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.WorkingDirectory}"/>
@@ -156,12 +159,12 @@
                                Text="{Binding GitStatusDisplay}"/>
 
                     <!-- Git Pull/Push Buttons -->
-                    <Button Content="↓" ToolTip="Git Pull (Ctrl+Shift+D)" AutomationProperties.Name="Git Pull"
+                    <Button Content="{Binding GitPullButtonText}" ToolTip="Git Pull (Ctrl+Shift+D)" AutomationProperties.Name="Git Pull"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding GitPullCommand}"
                             Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
                             Padding="6,2" Margin="8,0,2,0"/>
-                    <Button Content="↑" ToolTip="Git Push (Ctrl+Shift+U)" AutomationProperties.Name="Git Push"
+                    <Button Content="{Binding GitPushButtonText}" ToolTip="Git Push (Ctrl+Shift+U)" AutomationProperties.Name="Git Push"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding GitPushCommand}"
                             Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}"
@@ -377,7 +380,7 @@
         <!-- Terminal Content Area - Outer grid for Explorer only -->
         <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid.ColumnDefinitions>
-                <!-- Main content area (terminals + run) -->
+                <!-- Main content area (terminals + run OR center panel) -->
                 <ColumnDefinition Width="{Binding MainContentColumnWidth}"/>
                 <!-- Explorer splitter column (hidden when explorer not visible) -->
                 <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
@@ -385,8 +388,12 @@
                 <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Main Content Grid - contains terminals and run terminal -->
-            <Grid x:Name="MainContentGrid" Grid.Column="0">
+            <!-- Center Content Switcher (Column 0) -->
+            <Grid Grid.Column="0">
+
+                <!-- Terminal Pair (visible when no center panel) -->
+                <Grid x:Name="MainContentGrid"
+                      Visibility="{Binding IsTerminalsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Grid.ColumnDefinitions>
                     <!-- Main terminals area -->
                     <ColumnDefinition Width="{Binding MainTerminalsColumnWidth}"/>
@@ -507,7 +514,43 @@
                                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                 </Grid>
             </Grid>
-            <!-- End of MainContentGrid -->
+            <!-- End of MainContentGrid (terminals) -->
+
+                <!-- Center Panel (visible when a center panel is active) -->
+                <Grid Visibility="{Binding ActiveCenterPanel, Converter={StaticResource NullToCollapsedConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Center Panel Header Bar -->
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="×"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Command="{Binding CloseCenterPanelCommand}"
+                                    ToolTip="Back to Terminals (Escape)"/>
+                            <Button DockPanel.Dock="Left"
+                                    Style="{StaticResource TerminalSwitchButton}"
+                                    Command="{Binding CloseCenterPanelCommand}"
+                                    ToolTip="Back to Terminals (Escape)"
+                                    Padding="8,4">
+                                <TextBlock Text="← Terminals" FontSize="{StaticResource FontSizeSmall}"/>
+                            </Button>
+                            <TextBlock Text="{Binding ActiveCenterPanel.PanelIcon}" Margin="8,0,4,0"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding ActiveCenterPanel.PanelTitle}"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeNormal}"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Center Panel Content (uses DataTemplate from PanelContentTemplates.xaml) -->
+                    <ContentControl Grid.Row="1" Content="{Binding ActiveCenterPanel}"/>
+                </Grid>
+
+            </Grid>
+            <!-- End of Center Content Switcher -->
 
             <!-- Explorer Splitter (Column 1 of outer grid) - only visible when explorer is visible -->
             <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"

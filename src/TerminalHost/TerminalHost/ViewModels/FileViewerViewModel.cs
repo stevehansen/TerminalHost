@@ -7,11 +7,12 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class FileViewerViewModel : ObservableObject
+public partial class FileViewerViewModel : BasePanelViewModel
 {
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
@@ -32,6 +33,11 @@ public partial class FileViewerViewModel : ObservableObject
     {
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif"
     };
+
+    public override string PanelId => "fileViewer";
+    public override string PanelTitle => Title;
+    public override string PanelIcon => "📄";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
     [ObservableProperty]
     private string _title = "File Viewer";
@@ -69,24 +75,7 @@ public partial class FileViewerViewModel : ObservableObject
     private FileViewerMode _mode = FileViewerMode.Preview;
 
     [ObservableProperty]
-    private bool _isOpen;
-
-    [ObservableProperty]
     private bool _isDetached;
-
-    // For embedded viewer sizing
-    [ObservableProperty]
-    private double _width = 900;
-
-    [ObservableProperty]
-    private double _height = 600;
-
-    // For popup positioning
-    [ObservableProperty]
-    private double _horizontalOffset;
-
-    [ObservableProperty]
-    private double _verticalOffset;
 
     // Image mode
     [ObservableProperty]
@@ -164,6 +153,8 @@ public partial class FileViewerViewModel : ObservableObject
         _markdownService = markdownService;
         _timerService = timerService;
 
+        Width = 900;
+        Height = 600;
         _previewDocument = CreateInfoDocument("Select a file to view.");
     }
 

@@ -8,7 +8,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
-| `Escape` | Close popups/dialogs | Global | Closes any open popup |
+| `Escape` | Close center panel or popups | Global | Returns to terminals if center panel is active, then closes popups |
 | `F1` | Toggle help popup | Global | |
 | `Ctrl+,` | Open settings | Global | |
 | `Ctrl+P` | Open profiles | Global | |
@@ -38,35 +38,35 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
 | `Ctrl+E` | Open in Explorer | Project tab | |
-| `Ctrl+O` | Open file viewer (preview) | Project tab | |
-| `Ctrl+Shift+E` | Open file viewer (edit mode) | Project tab | |
-| `Ctrl+Shift+F` | Toggle file explorer panel | Project tab | Tree view with git status |
-| `Ctrl+F3` | Search across files | Project tab | Full-text search with replace |
-| `Ctrl+M` | Open Markdown preview | Project tab | |
+| `Ctrl+O` | Open file viewer (preview) | Project tab | Opens as center panel, replacing terminals |
+| `Ctrl+Shift+E` | Open file viewer (edit mode) | Project tab | Opens as center panel |
+| `Ctrl+Shift+F` | Toggle file explorer panel | Project tab | Tree view with git status (right sidebar) |
+| `Ctrl+F3` | Search across files | Project tab | Center panel, full-text search with replace |
+| `Ctrl+M` | Open Markdown preview | Project tab | Center panel |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
-| `Ctrl+Shift+K` | Claude Tasks Panel | Global | View Claude Code task activity |
+| `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
 
 ### Git & GitHub Shortcuts (Requires Project Tab Selected)
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
-| `Alt+G` | Unified Git panel (Changes tab) | Project tab | Tabbed panel with all Git features (Changes, Branches, History, Stash, Tags, Comparison). Ctrl+G is reserved by Claude Code. |
-| `Ctrl+H` | Commit history | Project tab | |
-| `Ctrl+B` | Branch switcher | Project tab | |
+| `Alt+G` | Git panel (Changes tab) | Project tab | Center panel with all Git features. Toggle: press again to return to terminals. |
+| `Ctrl+H` | Git panel (History tab) | Project tab | Center panel |
+| `Ctrl+B` | Git panel (Branches tab) | Project tab | Center panel |
 | `Ctrl+Shift+D` | Git Pull | Project tab | Stash, pull --rebase, pop |
 | `Ctrl+Shift+U` | Git Push | Project tab | |
-| `Ctrl+Shift+S` | Stash manager | Project tab | |
-| `Ctrl+Shift+G` | Reflog | Project tab | Recovery tool for lost commits |
-| `Ctrl+Alt+B` | Branch comparison | Project tab | Compare two branches side-by-side |
+| `Ctrl+Shift+S` | Git panel (Stash tab) | Project tab | Center panel |
+| `Ctrl+Shift+G` | Reflog | Project tab | Popup - recovery tool for lost commits |
+| `Ctrl+Alt+B` | Git panel (Comparison tab) | Project tab | Center panel |
 | `Ctrl+Shift+H` | GitHub Dashboard | Project tab | |
-| `Ctrl+Shift+R` | PR Review Mode | Project tab | |
+| `Ctrl+Shift+R` | PR Review Mode | Project tab | Center panel, toggle |
 
 ### Build & Test Shortcuts
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
 | `Ctrl+Shift+B` | Build | Project tab | Executes "dev-build" quick command |
-| `F6` | Run tests | Project tab | |
+| `F6` | Run tests | Project tab | Center panel |
 
 ### Timeline Mode Shortcuts (When Timeline Tab Focused)
 

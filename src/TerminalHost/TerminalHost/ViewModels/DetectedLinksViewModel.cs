@@ -3,15 +3,22 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class DetectedLinksViewModel : ObservableObject
+public partial class DetectedLinksViewModel : BasePanelViewModel
 {
     private readonly ILinkDetectionService _linkDetectionService;
     private readonly IFilePreviewService _filePreviewService;
-    
+
+    public override string PanelId => "detectedLinks";
+    public override string PanelTitle => "Detected Links";
+    public override string PanelIcon => "🔗";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Medium;
+
     [ObservableProperty]
     private ObservableCollection<DetectedLink> _links = [];
 
@@ -19,24 +26,7 @@ public partial class DetectedLinksViewModel : ObservableObject
     private DetectedLink? _selectedLink;
 
     [ObservableProperty]
-    private bool _isOpen;
-    
-    [ObservableProperty]
-    private bool _isDragging; // For popup dragging
-    
-    // View properties for positioning/sizing the popup
-    // We bind to these in XAML
-    [ObservableProperty]
-    private double _width = 600;
-    
-    [ObservableProperty]
-    private double _height = 400;
-    
-    [ObservableProperty]
-    private double _horizontalOffset;
-    
-    [ObservableProperty]
-    private double _verticalOffset;
+    private bool _isDragging;
 
     [ObservableProperty]
     private bool _isEmptyStateVisible;
@@ -61,11 +51,10 @@ public partial class DetectedLinksViewModel : ObservableObject
         IsOpen = true;
     }
 
-    [RelayCommand]
-    private void Close()
+    protected override void OnClose()
     {
         IsOpen = false;
-        SelectedLink = null; // Clear selection on close
+        SelectedLink = null;
     }
 
     [RelayCommand]
