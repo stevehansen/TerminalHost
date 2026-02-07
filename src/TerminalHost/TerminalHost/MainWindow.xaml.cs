@@ -1782,6 +1782,13 @@ public partial class MainWindow : Window
         {
             UpdateTaskbarGlow();
         }
+
+        // Play sound when terminal starts waiting for input
+        if (e.PropertyName == nameof(TerminalPairTabViewModel.IsWaitingForInput) &&
+            sender is TerminalPairTabViewModel tab && tab.IsWaitingForInput)
+        {
+            _soundService?.Play(SoundType.InputWaiting);
+        }
     }
 
     /// <summary>

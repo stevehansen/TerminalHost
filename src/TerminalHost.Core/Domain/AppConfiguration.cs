@@ -851,7 +851,7 @@ public class SoundSettings
     /// Sound to play when terminal is waiting for input (requires input prompt detection).
     /// </summary>
     [JsonPropertyName("inputWaitingSound")]
-    public string InputWaitingSound { get; set; } = "";
+    public string InputWaitingSound { get; set; } = "Exclamation";
 
     /// <summary>
     /// Volume level (0.0 to 1.0). Only applies to custom .wav files.

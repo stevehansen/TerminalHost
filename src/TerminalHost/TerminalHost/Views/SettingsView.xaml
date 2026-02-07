@@ -457,6 +457,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBlock Text="Success:" Grid.Row="0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
@@ -507,6 +508,21 @@
                             <TextBlock Text="Info:" Grid.Row="3" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <ComboBox Grid.Row="3" Grid.Column="1"
                                       SelectedValue="{Binding InfoSound}"
+                                      SelectedValuePath="Tag"
+                                      Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                                      Margin="0,0,0,8">
+                                <ComboBoxItem Content="(None)" Tag=""/>
+                                <ComboBoxItem Content="Asterisk" Tag="Asterisk"/>
+                                <ComboBoxItem Content="Beep" Tag="Beep"/>
+                                <ComboBoxItem Content="Exclamation" Tag="Exclamation"/>
+                                <ComboBoxItem Content="Hand" Tag="Hand"/>
+                                <ComboBoxItem Content="Question" Tag="Question"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Input Waiting:" Grid.Row="4" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="4" Grid.Column="1"
+                                      SelectedValue="{Binding InputWaitingSound}"
                                       SelectedValuePath="Tag"
                                       Style="{StaticResource DarkComboBox}"
                                       ItemContainerStyle="{StaticResource DarkComboBoxItem}">

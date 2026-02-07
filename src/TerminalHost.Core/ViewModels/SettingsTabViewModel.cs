@@ -108,6 +108,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private string _infoSound = "";
 
     [ObservableProperty]
+    private string _inputWaitingSound = "Exclamation";
+
+    [ObservableProperty]
     private string _customCommand = "";
 
     [ObservableProperty]
@@ -422,6 +425,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ErrorSound = config.Settings.Sounds.ErrorSound;
             WarningSound = config.Settings.Sounds.WarningSound;
             InfoSound = config.Settings.Sounds.InfoSound;
+            InputWaitingSound = config.Settings.Sounds.InputWaitingSound;
 
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
@@ -482,6 +486,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Sounds.ErrorSound = ErrorSound;
             config.Settings.Sounds.WarningSound = WarningSound;
             config.Settings.Sounds.InfoSound = InfoSound;
+            config.Settings.Sounds.InputWaitingSound = InputWaitingSound;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -574,6 +579,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnErrorSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnWarningSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnInfoSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnInputWaitingSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();
