@@ -1747,6 +1747,11 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler<GitPanelTab>? UnifiedGitPanelRequested;
     public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
     public event EventHandler<RightPanelRestoreEventArgs>? RightPanelRestoreRequested;
+    public event EventHandler? ReflogRequested;
+    public event EventHandler? RepositorySwitcherRequested;
+    public event EventHandler? SearchRequested;
+    public event EventHandler? ClaudeTasksRequested;
+    public event EventHandler? TestRunnerRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -2150,6 +2155,199 @@ public partial class MainViewModel : ObservableObject
                 Category = "Layout",
                 Execute = () => { LayoutMode = AppLayoutMode.WorkspaceSidebar; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
                 CanExecute = () => LayoutMode != AppLayoutMode.WorkspaceSidebar
+            },
+
+            // Git operations
+            new() {
+                Id = "git-pull",
+                Name = "Git Pull",
+                NameProvider = () => {
+                    var behind = (SelectedTab as TerminalPairTabViewModel)?.GitStatus?.BehindCount ?? 0;
+                    return behind > 0 ? $"Git Pull (↓{behind})" : "Git Pull";
+                },
+                Description = "Pull with auto-stash and rebase",
+                Shortcut = "Ctrl+Shift+D",
+                Icon = "⬇",
+                Category = "Git",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPullCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-push",
+                Name = "Git Push",
+                NameProvider = () => {
+                    var ahead = (SelectedTab as TerminalPairTabViewModel)?.GitStatus?.AheadCount ?? 0;
+                    return ahead > 0 ? $"Git Push (↑{ahead})" : "Git Push";
+                },
+                Description = "Push to remote",
+                Shortcut = "Ctrl+Shift+U",
+                Icon = "⬆",
+                Category = "Git",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPushCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-reflog",
+                Name = "Git Reflog",
+                Description = "View reference log",
+                Shortcut = "Ctrl+Shift+G",
+                Icon = "📋",
+                Category = "Git",
+                Execute = () => ReflogRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-repository-switcher",
+                Name = "Switch Repository",
+                Description = "Open repository switcher",
+                Shortcut = "Ctrl+Shift+O",
+                Icon = "🔄",
+                Category = "Git",
+                Execute = () => RepositorySwitcherRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Panel/Tool toggles
+            new() {
+                Id = "file-explorer",
+                Name = "File Explorer",
+                Description = "Toggle file explorer panel",
+                Shortcut = "Ctrl+Shift+F",
+                Icon = "📁",
+                Category = "Tools",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleExplorerCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "file-search",
+                Name = "Search in Files",
+                Description = "Search across files",
+                Shortcut = "Ctrl+F3",
+                Icon = "🔍",
+                Category = "Tools",
+                Execute = () => SearchRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "claude-tasks",
+                Name = "Claude Tasks",
+                Description = "View Claude Code task activity",
+                Shortcut = "Ctrl+Shift+K",
+                Icon = "🤖",
+                Category = "Tools",
+                Execute = () => ClaudeTasksRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "test-runner",
+                Name = "Run Tests",
+                Description = "Run project tests",
+                Shortcut = "F6",
+                Icon = "🧪",
+                Category = "Tools",
+                Execute = () => TestRunnerRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Terminal layout modes
+            new() {
+                Id = "layout-custom-full",
+                Name = "Layout: Custom Full",
+                Description = "Show only custom terminal",
+                Icon = "🖥",
+                Category = "Layout",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetCustomFullLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "layout-horizontal-split",
+                Name = "Layout: Horizontal Split",
+                Description = "Side-by-side terminals",
+                Icon = "⬜",
+                Category = "Layout",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetHorizontalSplitLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "layout-vertical-split",
+                Name = "Layout: Vertical Split",
+                Description = "Top-bottom terminals",
+                Icon = "⬛",
+                Category = "Layout",
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetVerticalSplitLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Settings toggles
+            new() {
+                Id = "toggle-sounds",
+                Name = "Toggle Sounds",
+                NameProvider = () => _configService.Load().Settings.Sounds.Enabled ? "Disable Sounds" : "Enable Sounds",
+                Description = "Sound notifications",
+                Icon = "🔊",
+                Category = "Settings",
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.Sounds.Enabled = !config.Settings.Sounds.Enabled;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.Sounds.Enabled ? "Sounds enabled" : "Sounds disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-touch-mode",
+                Name = "Toggle Touch Mode",
+                NameProvider = () => _configService.Load().Settings.TouchMode ? "Disable Touch Mode" : "Enable Touch Mode",
+                Description = "Touch-friendly UI with larger targets",
+                Icon = "👆",
+                Category = "Settings",
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.TouchMode = !config.Settings.TouchMode;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.TouchMode ? "Touch Mode enabled" : "Touch Mode disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-system-tray",
+                Name = "Toggle System Tray",
+                NameProvider = () => _configService.Load().Settings.ShowInSystemTray ? "Disable System Tray" : "Enable System Tray",
+                Description = "System tray icon",
+                Icon = "🔽",
+                Category = "Settings",
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.ShowInSystemTray ? "System tray enabled" : "System tray disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-confirm-close",
+                Name = "Toggle Confirm on Close",
+                NameProvider = () => _configService.Load().Settings.ConfirmOnClose ? "Disable Confirm on Close" : "Enable Confirm on Close",
+                Description = "Confirm before closing tabs",
+                Icon = "⚠",
+                Category = "Settings",
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.ConfirmOnClose = !config.Settings.ConfirmOnClose;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.ConfirmOnClose ? "Close confirmation enabled" : "Close confirmation disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-git-auto-fetch",
+                Name = "Toggle Git Auto-Fetch",
+                NameProvider = () => _configService.Load().Settings.GitAutoFetch ? "Disable Git Auto-Fetch" : "Enable Git Auto-Fetch",
+                Description = "Automatic fetch from remotes",
+                Icon = "🔄",
+                Category = "Settings",
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.GitAutoFetch = !config.Settings.GitAutoFetch;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.GitAutoFetch ? "Git auto-fetch enabled" : "Git auto-fetch disabled", ToastType.Info);
+                }
             }
         ];
     }

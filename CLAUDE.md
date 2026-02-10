@@ -54,6 +54,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
+- **When adding new actions**: Register them in `InitializeCommandPalette()` in `MainViewModel.cs`. The command palette must contain ALL invocable actions (toolbar buttons, keyboard shortcuts, context menu items, settings toggles).
 
 ## Important: Testing Requirements
 

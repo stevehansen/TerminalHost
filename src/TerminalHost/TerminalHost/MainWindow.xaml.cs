@@ -170,6 +170,11 @@ public partial class MainWindow : Window
         _viewModel.UnifiedGitPanelRequested += OnUnifiedGitPanelRequested;
         _viewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
         _viewModel.RightPanelRestoreRequested += OnRightPanelRestoreRequested;
+        _viewModel.ReflogRequested += OnReflogRequested;
+        _viewModel.RepositorySwitcherRequested += OnRepositorySwitcherRequested;
+        _viewModel.SearchRequested += OnSearchRequested;
+        _viewModel.ClaudeTasksRequested += OnClaudeTasksRequested;
+        _viewModel.TestRunnerRequested += OnTestRunnerRequested;
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -1324,6 +1329,57 @@ public partial class MainWindow : Window
         {
             _claudeTasksPanelViewModel.Open(workspacePath);
         }
+    }
+
+    #endregion
+
+    #region Palette Event Handlers
+
+    private async void OnReflogRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            _reflogViewModel.SetTerminalTab(terminalTab);
+            await _reflogViewModel.LoadAsync();
+            _reflogViewModel.IsOpen = true;
+        }
+    }
+
+    private async void OnRepositorySwitcherRequested(object? sender, EventArgs e)
+    {
+        await _repositorySwitcherViewModel.OpenAsync();
+    }
+
+    private async void OnSearchRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.SetPanel(_searchAcrossFilesViewModel);
+            if (_searchAcrossFilesViewModel.IsOpen && terminalTab.ActiveCenterPanel == _searchAcrossFilesViewModel)
+            {
+                terminalTab.CloseCenterPanel();
+            }
+            else
+            {
+                await _searchAcrossFilesViewModel.OpenAsync(terminalTab);
+                terminalTab.ShowCenterPanel(_searchAcrossFilesViewModel);
+            }
+        }
+    }
+
+    private void OnClaudeTasksRequested(object? sender, EventArgs e)
+    {
+        OpenClaudeTasksPanel();
+    }
+
+    private async void OnTestRunnerRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel termTab)
+        {
+            termTab.SetPanel(_testResultsViewModel);
+            termTab.ShowCenterPanel(_testResultsViewModel);
+        }
+        await _testResultsViewModel.RunAllTestsAsync();
     }
 
     #endregion
