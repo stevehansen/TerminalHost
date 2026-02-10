@@ -1547,8 +1547,9 @@ public partial class MainWindow : Window
 
         if (filePath != null)
         {
+            // Set display state BEFORE OpenAsync, which calls RequestShow() internally
+            _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(filePath);
-            // Default to center panel (user can dock to sidebar via button)
             currentTab.ShowCenterPanel(_markdownPreviewViewModel);
         }
         else
@@ -1562,8 +1563,9 @@ public partial class MainWindow : Window
 
             if (dialog.ShowDialog() == true)
             {
+                // Set display state BEFORE OpenAsync, which calls RequestShow() internally
+                _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
                 await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
-                // Default to center panel
                 currentTab.ShowCenterPanel(_markdownPreviewViewModel);
             }
         }

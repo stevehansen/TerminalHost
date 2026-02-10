@@ -23,6 +23,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
     private readonly IDiffParserService _diffParserService;
+    private readonly IConfigurationService _configurationService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -100,6 +101,27 @@ public partial class GitFilesViewModel : BasePanelViewModel
     [ObservableProperty]
     private int _conflictCount;
 
+    /// <summary>
+    /// View mode: "Working" for working directory changes, "Branch" for branch comparison.
+    /// </summary>
+    [ObservableProperty]
+    private string _changesViewMode = "Working";
+
+    [ObservableProperty]
+    private string _baseBranchName = "";
+
+    [ObservableProperty]
+    private ObservableCollection<GitFileStatus> _branchChangedFiles = [];
+
+    [ObservableProperty]
+    private GitFileStatus? _selectedBranchFile;
+
+    [ObservableProperty]
+    private string _branchDiffText = "";
+
+    public bool IsWorkingView => ChangesViewMode == "Working";
+    public bool IsBranchView => ChangesViewMode == "Branch";
+
     #endregion
 
     #region Commit Properties
@@ -145,7 +167,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IFileSystem fileSystem,
         IProcessService processService,
         IToastService toastService,
-        IDiffParserService diffParserService)
+        IDiffParserService diffParserService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
@@ -154,6 +177,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         _processService = processService;
         _toastService = toastService;
         _diffParserService = diffParserService;
+        _configurationService = configurationService;
 
         // Set defaults for git changes - defaults to Popup
         DisplayState = PanelDisplayState.Popup;
@@ -169,6 +193,11 @@ public partial class GitFilesViewModel : BasePanelViewModel
         DiffText = "";
         CommitMessage = "";
         AmendCommit = false;
+        ChangesViewMode = "Working";
+        BranchChangedFiles.Clear();
+        SelectedBranchFile = null;
+        BranchDiffText = "";
+        BaseBranchName = "";
         _currentTerminalTab = null;
         base.OnClose();
     }
@@ -770,6 +799,102 @@ public partial class GitFilesViewModel : BasePanelViewModel
     {
         UpdateButtonsEnabledState();
         LoadDiffForSelectedFileAsync(value);
+    }
+
+    partial void OnChangesViewModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsWorkingView));
+        OnPropertyChanged(nameof(IsBranchView));
+
+        if (value == "Branch")
+        {
+            _ = LoadBranchChangesAsync();
+        }
+    }
+
+    partial void OnSelectedBranchFileChanged(GitFileStatus? value)
+    {
+        LoadBranchFileDiffAsync(value);
+    }
+
+    #endregion
+
+    #region Branch Changes Mode
+
+    [RelayCommand]
+    private void SetChangesViewMode(string mode)
+    {
+        ChangesViewMode = mode;
+    }
+
+    private async Task LoadBranchChangesAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+        // Auto-detect base branch from key branches config
+        if (string.IsNullOrEmpty(BaseBranchName))
+        {
+            var config = _configurationService.Load();
+            var dirSettings = config.DirectorySettings.TryGetValue(workingDirectory.ToLowerInvariant(), out var ds) ? ds : null;
+            var keyBranchPatterns = dirSettings?.KeyBranchOverrides ?? config.Settings.KeyBranches;
+
+            var keyBranches = await _gitStatusService.GetKeyBranchesAsync(workingDirectory, keyBranchPatterns);
+            var currentBranch = _currentTerminalTab.GitStatus?.BranchName;
+
+            // Pick the closest key branch (fewest commits ahead = most likely parent)
+            var candidates = keyBranches.Where(b => b.ShortName != currentBranch).ToList();
+            string? bestBranch = null;
+            int bestDistance = int.MaxValue;
+
+            foreach (var branch in candidates)
+            {
+                var (ahead, _) = await _gitStatusService.GetAheadBehindAsync(workingDirectory, "HEAD", branch.Name);
+                if (ahead >= 0 && ahead < bestDistance)
+                {
+                    bestDistance = ahead;
+                    bestBranch = branch.ShortName;
+                }
+            }
+
+            BaseBranchName = bestBranch
+                ?? candidates.FirstOrDefault()?.ShortName
+                ?? keyBranches.FirstOrDefault()?.ShortName
+                ?? "main";
+        }
+
+        IsLoading = true;
+        try
+        {
+            var files = await _gitStatusService.GetChangedFilesBetweenBranchesAsync(
+                workingDirectory, BaseBranchName, "HEAD");
+            BranchChangedFiles = new ObservableCollection<GitFileStatus>(files);
+
+            SelectedBranchFile = BranchChangedFiles.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to load branch changes: {ex.Message}", ToastType.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async void LoadBranchFileDiffAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null || string.IsNullOrEmpty(BaseBranchName))
+        {
+            BranchDiffText = "";
+            return;
+        }
+
+        var diff = await _gitStatusService.GetFileDiffBetweenBranchesAsync(
+            _currentTerminalTab.Pair.WorkingDirectory, BaseBranchName, "HEAD", file.FilePath);
+
+        BranchDiffText = diff ?? "";
     }
 
     #endregion

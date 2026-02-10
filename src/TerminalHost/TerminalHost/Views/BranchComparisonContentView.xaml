@@ -4,12 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
              d:DataContext="{d:DesignInstance viewModels:BranchComparisonViewModel}"
              mc:Ignorable="d"
              Background="{StaticResource BackgroundDarkBrush}">
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -107,8 +109,33 @@
             </DockPanel>
         </Border>
 
-        <!-- Comparison Content - Two Column Layout -->
-        <Grid Grid.Row="2" Margin="0">
+        <!-- View Mode Toggle -->
+        <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,4"
+                Visibility="{Binding ComparisonResult, Converter={StaticResource NullToCollapsedConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Content="Commits" GroupName="CompareViewMode"
+                             IsChecked="{Binding IsCommitsView, Mode=OneWay}"
+                             Command="{Binding SetViewModeCommand}" CommandParameter="Commits"
+                             Style="{StaticResource PopupModeTabButton}"
+                             Margin="0,0,4,0"/>
+                <RadioButton GroupName="CompareViewMode"
+                             IsChecked="{Binding IsFilesView, Mode=OneWay}"
+                             Command="{Binding SetViewModeCommand}" CommandParameter="Files"
+                             Style="{StaticResource PopupModeTabButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Files"/>
+                        <TextBlock Text="{Binding ChangedFiles.Count, StringFormat=' ({0})'}"
+                                   Foreground="{StaticResource TextMutedBrush}"/>
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </Border>
+
+        <!-- Comparison Content -->
+        <Grid Grid.Row="3" Margin="0">
+
+            <!-- Commits View (two-column commit lists) -->
+            <Grid Visibility="{Binding IsCommitsView, Converter={StaticResource BoolToVisibilityConverter}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -336,15 +363,158 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
             </Border>
+            </Grid>
+            <!-- End of Commits View -->
+
+            <!-- Files View (file list + diff) -->
+            <Grid Visibility="{Binding IsFilesView, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" MinWidth="200"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="*" MinWidth="300"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- File List -->
+                <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                            <TextBlock Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}">
+                                <Run Text="{Binding ChangedFiles.Count, Mode=OneWay}"/>
+                                <Run Text="files changed"/>
+                            </TextBlock>
+                        </Border>
+
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding ChangedFiles}"
+                                 SelectedItem="{Binding SelectedFile}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="4,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                                   Text="{Binding StatusIcon}"
+                                                   Foreground="{Binding StatusColor}"
+                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   FontWeight="Bold"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip="{Binding StatusDescription}"/>
+
+                                        <TextBlock Grid.Column="1" Grid.Row="0"
+                                                   Text="{Binding FileName}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <TextBlock Grid.Column="1" Grid.Row="1"
+                                                   Text="{Binding Directory}"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Padding" Value="4,2"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Padding="{TemplateBinding Padding}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                    <Setter Property="Background" Value="#333333"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <ContentPresenter/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <!-- Empty state -->
+                        <TextBlock Grid.Row="1"
+                                   Text="No file changes"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding ChangedFiles.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Splitter -->
+                <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                <!-- Diff Area -->
+                <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                            <TextBlock Text="{Binding SelectedFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Border>
+
+                        <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+            <!-- End of Files View -->
 
             <!-- No comparison yet -->
-            <TextBlock Grid.ColumnSpan="2"
-                       Text="Select two branches and click Compare"
+            <TextBlock Text="Select two branches and click Compare"
                        Foreground="{StaticResource TextMutedBrush}"
                        FontSize="{StaticResource FontSizeSmall}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        Visibility="{Binding ComparisonResult, Converter={StaticResource NullToVisibleConverter}}"/>
+
+            <!-- Loading overlay -->
+            <Border Background="#80000000"
+                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                <TextBlock Text="Comparing branches..."
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeNormal}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>

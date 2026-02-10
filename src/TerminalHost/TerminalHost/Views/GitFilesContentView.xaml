@@ -10,234 +10,397 @@
              mc:Ignorable="d"
              Background="{StaticResource BackgroundDarkBrush}">
 
-    <!-- Content - Split view: File list on left, diff/preview on right -->
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300" MinWidth="200"/>
-            <ColumnDefinition Width="4"/>
-            <ColumnDefinition Width="*" MinWidth="300"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- File List -->
-        <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- File list header -->
-                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right"
-                                Style="{StaticResource TerminalSwitchButton}"
-                                Command="{Binding ToggleTreeViewCommand}"
-                                ToolTip="Toggle tree/list view"
-                                FontSize="12" Padding="4,2">
-                            <Button.Content>
-                                <TextBlock>
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="&#x1f332;"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsTreeView}" Value="True">
-                                                    <Setter Property="Text" Value="&#x2630;"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Button.Content>
-                        </Button>
-                        <TextBlock Text="{Binding FileChangeSummary}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Border>
-
-                <!-- Merge conflict banner -->
-                <Border Grid.Row="0" Margin="0,28,0,0"
-                        Background="#33F14C4C" Padding="8,4"
-                        Visibility="{Binding IsMergeInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Resolve"
-                                Style="{StaticResource TerminalSwitchButton}"
-                                Command="{Binding OpenMergeConflictResolverCommand}"
-                                Foreground="#F14C4C" Padding="6,2"/>
-                        <TextBlock Foreground="#F14C4C" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
-                            <Run Text="Merge in progress —"/>
-                            <Run Text="{Binding ConflictCount, Mode=OneWay}"/>
-                            <Run Text="conflicts"/>
-                        </TextBlock>
-                    </DockPanel>
-                </Border>
-
-                <!-- File list (flat view) -->
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding GitFiles}"
-                         SelectedItem="{Binding SelectedGitFile}"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="4,3">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- Status icon -->
-                                <TextBlock Grid.Column="0" Grid.RowSpan="2"
-                                           Text="{Binding StatusIcon}"
-                                           Foreground="{Binding StatusColor}"
-                                           FontFamily="{StaticResource FontFamilyMonospace}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           FontWeight="Bold"
-                                           VerticalAlignment="Center"
-                                           ToolTip="{Binding StatusDescription}"/>
-
-                                <!-- File name -->
-                                <TextBlock Grid.Column="1" Grid.Row="0"
-                                           Text="{Binding FileName}"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           TextTrimming="CharacterEllipsis"/>
-
-                                <!-- Directory path -->
-                                <TextBlock Grid.Column="1" Grid.Row="1"
-                                           Text="{Binding Directory}"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="{StaticResource FontSizeMicro}"
-                                           TextTrimming="CharacterEllipsis"
-                                           Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Padding" Value="4,2"/>
-                            <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Padding="{TemplateBinding Padding}">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                            <Setter Property="Background" Value="#333333"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <ContentPresenter/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                </ListBox>
-
-                <!-- File tree (tree view) -->
-                <TreeView Grid.Row="1"
-                          ItemsSource="{Binding UnstagedTree}"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}"
-                          SelectedItemChanged="TreeView_SelectedItemChanged">
-                    <TreeView.Resources>
-                        <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
-                                <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding DisplayName}"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontFamily="{StaticResource FontFamilyMonospace}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding CountDisplay}"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="{StaticResource FontSizeMicro}"
-                                           Margin="4,0,0,0"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </HierarchicalDataTemplate>
-                    </TreeView.Resources>
-                    <TreeView.ItemContainerStyle>
-                        <Style TargetType="TreeViewItem">
-                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-                        </Style>
-                    </TreeView.ItemContainerStyle>
-                </TreeView>
-
-                <!-- Empty state -->
-                <TextBlock Grid.Row="1"
-                           Text="No changes"
-                           Foreground="{StaticResource TextMutedBrush}"
-                           FontSize="{StaticResource FontSizeCode}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
-            </Grid>
+        <!-- View Mode Toggle -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="8,4">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Content="Working" GroupName="ChangesViewMode"
+                             IsChecked="{Binding IsWorkingView, Mode=OneWay}"
+                             Command="{Binding SetChangesViewModeCommand}" CommandParameter="Working"
+                             Style="{StaticResource PopupModeTabButton}"
+                             Margin="0,0,4,0"/>
+                <RadioButton GroupName="ChangesViewMode"
+                             IsChecked="{Binding IsBranchView, Mode=OneWay}"
+                             Command="{Binding SetChangesViewModeCommand}" CommandParameter="Branch"
+                             Style="{StaticResource PopupModeTabButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Branch"/>
+                        <TextBlock Text="{Binding BaseBranchName, StringFormat=' vs {0}'}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Visibility="{Binding BaseBranchName, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
         </Border>
 
-        <!-- Splitter -->
-        <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+        <!-- Working Changes View -->
+        <Grid Grid.Row="1" Visibility="{Binding IsWorkingView, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="200"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- Diff/Preview Area -->
-        <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <!-- File List -->
+            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <!-- Diff header with actions -->
-                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="👁 Preview"
+                    <!-- File list header -->
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
                                     Style="{StaticResource TerminalSwitchButton}"
-                                    Command="{Binding PreviewFileCommand}"
-                                    ToolTip="Open file preview"
-                                    Margin="0,0,4,0"/>
-                            <Button Content="✏️ Edit"
+                                    Command="{Binding ToggleTreeViewCommand}"
+                                    ToolTip="Toggle tree/list view"
+                                    FontSize="12" Padding="4,2">
+                                <Button.Content>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="&#x1f332;"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsTreeView}" Value="True">
+                                                        <Setter Property="Text" Value="&#x2630;"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button.Content>
+                            </Button>
+                            <TextBlock Text="{Binding FileChangeSummary}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Merge conflict banner -->
+                    <Border Grid.Row="0" Margin="0,28,0,0"
+                            Background="#33F14C4C" Padding="8,4"
+                            Visibility="{Binding IsMergeInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Resolve"
                                     Style="{StaticResource TerminalSwitchButton}"
-                                    Command="{Binding EditFileCommand}"
-                                    ToolTip="Open file in editor"
-                                    Margin="0,0,4,0"/>
-                            <Button Content="📂 Explorer"
-                                    Style="{StaticResource TerminalSwitchButton}"
-                                    Command="{Binding ExploreFileCommand}"
-                                    ToolTip="Open containing folder"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding SelectedGitFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                    Command="{Binding OpenMergeConflictResolverCommand}"
+                                    Foreground="#F14C4C" Padding="6,2"/>
+                            <TextBlock Foreground="#F14C4C" FontSize="{StaticResource FontSizeMicro}" VerticalAlignment="Center">
+                                <Run Text="Merge in progress —"/>
+                                <Run Text="{Binding ConflictCount, Mode=OneWay}"/>
+                                <Run Text="conflicts"/>
+                            </TextBlock>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- File list (flat view) -->
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding GitFiles}"
+                             SelectedItem="{Binding SelectedGitFile}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Status icon -->
+                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                               Text="{Binding StatusIcon}"
+                                               Foreground="{Binding StatusColor}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding StatusDescription}"/>
+
+                                    <!-- File name -->
+                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                               Text="{Binding FileName}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Directory path -->
+                                    <TextBlock Grid.Column="1" Grid.Row="1"
+                                               Text="{Binding Directory}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border Padding="{TemplateBinding Padding}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                <Setter Property="Background" Value="#333333"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <!-- File tree (tree view) -->
+                    <TreeView Grid.Row="1"
+                              ItemsSource="{Binding UnstagedTree}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}"
+                              SelectedItemChanged="TreeView_SelectedItemChanged">
+                        <TreeView.Resources>
+                            <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                    <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CountDisplay}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"
+                                               Margin="4,0,0,0"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
+                        </TreeView.Resources>
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
+
+                    <!-- Empty state -->
+                    <TextBlock Grid.Row="1"
+                               Text="No changes"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+            <!-- Diff/Preview Area -->
+            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Diff header with actions -->
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="&#x1f441; Preview"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding PreviewFileCommand}"
+                                        ToolTip="Open file preview"
+                                        Margin="0,0,4,0"/>
+                                <Button Content="&#x270f;&#xfe0f; Edit"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding EditFileCommand}"
+                                        ToolTip="Open file in editor"
+                                        Margin="0,0,4,0"/>
+                                <Button Content="&#x1f4c2; Explorer"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding ExploreFileCommand}"
+                                        ToolTip="Open containing folder"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding SelectedGitFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Diff content with hunk staging -->
+                    <controls:HunkStagingDiffViewer Grid.Row="1"
+                        x:Name="HunkDiffViewer"
+                        DiffText="{Binding DiffText}"
+                        IsStaged="{Binding SelectedGitFile.IsStaged}"/>
+                </Grid>
+            </Border>
+        </Grid>
+        <!-- End Working Changes View -->
+
+        <!-- Branch Changes View -->
+        <Grid Grid.Row="1" Visibility="{Binding IsBranchView, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="200"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Branch file list -->
+            <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                        <TextBlock Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}">
+                            <Run Text="{Binding BranchChangedFiles.Count, Mode=OneWay}"/>
+                            <Run Text="files changed vs"/>
+                            <Run Text="{Binding BaseBranchName, Mode=OneWay}" Foreground="{StaticResource SyntaxGreenBrush}"/>
+                        </TextBlock>
+                    </Border>
+
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding BranchChangedFiles}"
+                             SelectedItem="{Binding SelectedBranchFile}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                               Text="{Binding StatusIcon}"
+                                               Foreground="{Binding StatusColor}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding StatusDescription}"/>
+
+                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                               Text="{Binding FileName}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <TextBlock Grid.Column="1" Grid.Row="1"
+                                               Text="{Binding Directory}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border Padding="{TemplateBinding Padding}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                <Setter Property="Background" Value="#333333"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <!-- Empty state -->
+                    <TextBlock Grid.Row="1"
+                               Text="No file changes"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding BranchChangedFiles.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+            <!-- Branch diff area (read-only, no hunk staging) -->
+            <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                        <TextBlock Text="{Binding SelectedBranchFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
                                    Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="{StaticResource FontSizeTiny}"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis"/>
-                    </DockPanel>
-                </Border>
+                    </Border>
 
-                <!-- Diff content with hunk staging -->
-                <controls:HunkStagingDiffViewer Grid.Row="1"
-                    x:Name="HunkDiffViewer"
-                    DiffText="{Binding DiffText}"
-                    IsStaged="{Binding SelectedGitFile.IsStaged}"/>
-            </Grid>
-        </Border>
+                    <controls:DiffViewer Grid.Row="1" DiffText="{Binding BranchDiffText}"/>
+                </Grid>
+            </Border>
+        </Grid>
+        <!-- End Branch Changes View -->
     </Grid>
 </UserControl>

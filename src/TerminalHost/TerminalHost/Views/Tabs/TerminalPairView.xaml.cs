@@ -457,6 +457,19 @@ public partial class TerminalPairView : UserControl
         }
     }
 
+    private void PopOutCenterPanel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentViewModel?.ActiveCenterPanel == null) return;
+
+        var panel = _currentViewModel.ActiveCenterPanel;
+
+        // Close the center panel first
+        _currentViewModel.CloseCenterPanel();
+
+        // Show as detached window
+        ShowPanelWindow(panel);
+    }
+
     private void OpenDetectedRunUrl_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is TerminalPairTabViewModel terminalTab && !string.IsNullOrEmpty(terminalTab.DetectedRunUrl))

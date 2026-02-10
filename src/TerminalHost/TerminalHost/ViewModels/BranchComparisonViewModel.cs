@@ -86,6 +86,24 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     [ObservableProperty]
     private string _statusMessage = "";
 
+    /// <summary>
+    /// View mode: "Commits" shows commit lists, "Files" shows file diff view.
+    /// </summary>
+    [ObservableProperty]
+    private string _viewMode = "Commits";
+
+    [ObservableProperty]
+    private ObservableCollection<GitFileStatus> _changedFiles = [];
+
+    [ObservableProperty]
+    private GitFileStatus? _selectedFile;
+
+    [ObservableProperty]
+    private string _diffText = "";
+
+    public bool IsCommitsView => ViewMode == "Commits";
+    public bool IsFilesView => ViewMode == "Files";
+
     #endregion
 
     public BranchComparisonViewModel(
@@ -194,6 +212,11 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
 
             CommitsInBase = new ObservableCollection<GitCommit>(ComparisonResult.CommitsOnlyInBase);
             CommitsInCompare = new ObservableCollection<GitCommit>(ComparisonResult.CommitsOnlyInCompare);
+
+            // Fetch changed files for the Files view
+            var changedFiles = await _gitStatusService.GetChangedFilesBetweenBranchesAsync(
+                WorkingDirectory, BaseBranch.Name, CompareBranch.Name);
+            ChangedFiles = new ObservableCollection<GitFileStatus>(changedFiles);
 
             StatusMessage = ComparisonResult.Summary;
         }
@@ -331,6 +354,37 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
 
     #endregion
 
+    partial void OnViewModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCommitsView));
+        OnPropertyChanged(nameof(IsFilesView));
+    }
+
+    partial void OnSelectedFileChanged(GitFileStatus? value)
+    {
+        LoadFileDiffAsync(value);
+    }
+
+    private async void LoadFileDiffAsync(GitFileStatus? file)
+    {
+        if (file == null || BaseBranch == null || CompareBranch == null || string.IsNullOrEmpty(WorkingDirectory))
+        {
+            DiffText = "";
+            return;
+        }
+
+        var diff = await _gitStatusService.GetFileDiffBetweenBranchesAsync(
+            WorkingDirectory, BaseBranch.Name, CompareBranch.Name, file.FilePath);
+
+        DiffText = diff ?? "";
+    }
+
+    [RelayCommand]
+    private void SetViewMode(string mode)
+    {
+        ViewMode = mode;
+    }
+
     #region Helpers
 
     private async Task RefreshTerminalGitStatusAsync()
@@ -363,7 +417,11 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         ComparisonResult = null;
         CommitsInBase.Clear();
         CommitsInCompare.Clear();
+        ChangedFiles.Clear();
         SelectedCommit = null;
+        SelectedFile = null;
+        DiffText = "";
+        ViewMode = "Commits";
         StatusMessage = "";
         _currentTerminalTab = null;
         base.OnClose();

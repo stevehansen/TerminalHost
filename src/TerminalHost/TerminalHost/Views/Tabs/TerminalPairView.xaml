@@ -530,6 +530,11 @@
                                     Style="{StaticResource TabCloseButton}"
                                     Command="{Binding CloseCenterPanelCommand}"
                                     ToolTip="Back to Terminals (Escape)"/>
+                            <Button DockPanel.Dock="Right" Content="⊡"
+                                    Style="{StaticResource TabCloseButton}"
+                                    Click="PopOutCenterPanel_Click"
+                                    ToolTip="Pop out to window"
+                                    Margin="0,0,4,0"/>
                             <Button DockPanel.Dock="Left"
                                     Style="{StaticResource TerminalSwitchButton}"
                                     Command="{Binding CloseCenterPanelCommand}"

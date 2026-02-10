@@ -1459,6 +1459,66 @@ public sealed class GitStatusService : IGitStatusService
         return commits;
     }
 
+    public async Task<List<GitFileStatus>> GetChangedFilesBetweenBranchesAsync(string workingDirectory, string baseBranch, string compareBranch)
+    {
+        var files = new List<GitFileStatus>();
+
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return files;
+
+        // git diff --name-status base..compare (two-dot = actual difference between branch tips)
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff --name-status \"{baseBranch}\"..\"{compareBranch}\"");
+        if (string.IsNullOrEmpty(output))
+            return files;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            if (line.Length < 2) continue;
+
+            var statusChar = line[0];
+            var path = line.Substring(1).Trim();
+
+            // Handle renames: "R100\told\tnew"
+            string? originalPath = null;
+            if (statusChar == 'R' || statusChar == 'C')
+            {
+                var tabParts = path.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+                if (tabParts.Length >= 2)
+                {
+                    originalPath = tabParts[0];
+                    path = tabParts[tabParts.Length - 1];
+                }
+                // Strip numeric similarity index from status (e.g., R100 -> R)
+            }
+            else
+            {
+                // Remove any tabs (status\tpath format)
+                var tabIndex = path.IndexOf('\t');
+                if (tabIndex >= 0)
+                    path = path.Substring(tabIndex + 1);
+            }
+
+            files.Add(new GitFileStatus
+            {
+                FilePath = path.Trim(),
+                Status = ParseStatusChar(statusChar),
+                IsStaged = false,
+                OriginalPath = originalPath
+            });
+        }
+
+        return files;
+    }
+
+    public async Task<string?> GetFileDiffBetweenBranchesAsync(string workingDirectory, string baseBranch, string compareBranch, string filePath)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff \"{baseBranch}\"..\"{compareBranch}\" -- \"{filePath}\"");
+    }
+
     public async Task<List<GitBranch>> GetKeyBranchesAsync(string workingDirectory, IEnumerable<string> keyBranchPatterns)
     {
         var allBranches = await GetBranchesAsync(workingDirectory);

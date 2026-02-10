@@ -87,6 +87,16 @@ public interface IGitStatusService
     Task<BranchComparisonResult> CompareBranchesAsync(string workingDirectory, string baseBranch, string compareBranch);
     Task<List<GitCommit>> GetCommitsBetweenAsync(string workingDirectory, string fromRef, string toRef);
 
+    /// <summary>
+    /// Gets the list of changed files between two branches using git diff --name-status.
+    /// </summary>
+    Task<List<GitFileStatus>> GetChangedFilesBetweenBranchesAsync(string workingDirectory, string baseBranch, string compareBranch);
+
+    /// <summary>
+    /// Gets the diff for a specific file between two branches.
+    /// </summary>
+    Task<string?> GetFileDiffBetweenBranchesAsync(string workingDirectory, string baseBranch, string compareBranch, string filePath);
+
     // Key branches detection
     Task<List<GitBranch>> GetKeyBranchesAsync(string workingDirectory, IEnumerable<string> keyBranchPatterns);
 
