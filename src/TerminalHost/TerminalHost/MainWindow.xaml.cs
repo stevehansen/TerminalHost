@@ -507,10 +507,18 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Escape: Close center panel first, then popups
+        // Escape: Close voice bar first, then center panel, then popups
         if (e.Key == Key.Escape)
         {
-            // First priority: close active center panel (return to terminals)
+            // First priority: dismiss voice bar if visible
+            if (_viewModel.VoiceBar.IsVisible)
+            {
+                _viewModel.VoiceBar.Cancel();
+                e.Handled = true;
+                return;
+            }
+
+            // Second priority: close active center panel (return to terminals)
             if (_viewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
             {
                 escTerminalTab.CloseCenterPanel();
@@ -603,6 +611,14 @@ public partial class MainWindow : Window
             {
                 terminalTab.StopRunCommand.Execute(null);
             }
+            e.Handled = true;
+            return;
+        }
+
+        // F4: Toggle voice listening
+        if (e.Key == Key.F4 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            _viewModel.ToggleVoiceListening();
             e.Handled = true;
             return;
         }

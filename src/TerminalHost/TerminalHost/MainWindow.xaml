@@ -65,6 +65,12 @@
             </Grid>
         </Grid>
 
+        <!-- Voice Command Floating Bar (overlays top of content area) -->
+        <views:VoiceBarView Grid.Row="1" Grid.Column="2"
+                             VerticalAlignment="Top"
+                             Panel.ZIndex="100"
+                             DataContext="{Binding VoiceBar}"/>
+
         <!-- Tab Dropdown Popup -->
         <Popup x:Name="TabDropdownPopup"
                Placement="Center"

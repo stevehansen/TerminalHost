@@ -536,6 +536,52 @@
                         </Grid>
                         <TextBlock Text="System sounds: Asterisk, Beep, Exclamation, Hand, Question. Leave empty to disable. You can also enter a path to a .wav file."
                                    Style="{StaticResource HelpText}"/>
+
+                        <!-- Voice Command Settings -->
+                        <TextBlock Text="VOICE COMMANDS"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,12"/>
+
+                        <CheckBox Content="Enable voice commands"
+                                  IsChecked="{Binding VoiceEnabled}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  ToolTip="Enable hands-free control of TerminalHost using voice commands (F4)."/>
+                        <TextBlock Text="Press F4 to start/stop listening. Speak command names (e.g. 'git changes', 'settings') or say 'send to claude: ...' to type text into the AI terminal."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <CheckBox Content="Show transcript overlay"
+                                  IsChecked="{Binding VoiceShowTranscript}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  ToolTip="Show a floating bar with recognized speech text and matched command."/>
+                        <TextBlock Text="Displays a floating bar at the top showing what was heard, matched command preview, and countdown before execution."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <CheckBox Content="Feedback sounds"
+                                  IsChecked="{Binding VoiceFeedbackSounds}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  ToolTip="Play audio feedback when listening starts/stops and commands execute."/>
+                        <TextBlock Text="Audible feedback when voice listening starts, stops, or a command is recognized."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <TextBlock Text="CONFIDENCE THRESHOLD" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                        <StackPanel Orientation="Horizontal" IsEnabled="{Binding VoiceEnabled}">
+                            <Slider Width="200"
+                                    Minimum="0.3" Maximum="1.0"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding VoiceConfidenceThreshold}"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding VoiceConfidenceThreshold, StringFormat={}{0:P0}}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Minimum confidence required to match a command. Lower values match more loosely; higher values require closer matches. Commands below threshold show alternatives instead."
+                                   Style="{StaticResource HelpText}"/>
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->

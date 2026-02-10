@@ -40,6 +40,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
 - [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
 - [x] **What's New Page**: Empty state shows recently added features grouped by week with NEW badges. Also available as center panel via Ctrl+F1 or command palette. All palette commands have `IntroducedOn` dates.
+- [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Settings in Ctrl+, General section.
 
 ### Deferred Features
 
@@ -463,6 +464,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+K`: Open Claude Tasks Panel (view Claude Code task activity)
 - `F1`: Show help window
 - `Ctrl+F1`: What's New / Recent Features
+- `F4`: Toggle voice commands (start/stop listening)
 
 ### Project Runner
 - `F5`: Start/Stop project run

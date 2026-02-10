@@ -110,6 +110,19 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _inputWaitingSound = "Exclamation";
 
+    // Voice settings
+    [ObservableProperty]
+    private bool _voiceEnabled;
+
+    [ObservableProperty]
+    private float _voiceConfidenceThreshold = 0.8f;
+
+    [ObservableProperty]
+    private bool _voiceFeedbackSounds = true;
+
+    [ObservableProperty]
+    private bool _voiceShowTranscript = true;
+
     [ObservableProperty]
     private string _customCommand = "";
 
@@ -427,6 +440,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             InfoSound = config.Settings.Sounds.InfoSound;
             InputWaitingSound = config.Settings.Sounds.InputWaitingSound;
 
+            // Voice settings
+            VoiceEnabled = config.Settings.Voice.Enabled;
+            VoiceConfidenceThreshold = config.Settings.Voice.ConfidenceThreshold;
+            VoiceFeedbackSounds = config.Settings.Voice.FeedbackSounds;
+            VoiceShowTranscript = config.Settings.Voice.ShowTranscript;
+
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
             CustomCommandName = config.Settings.CustomCommandName;
@@ -487,6 +506,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Sounds.WarningSound = WarningSound;
             config.Settings.Sounds.InfoSound = InfoSound;
             config.Settings.Sounds.InputWaitingSound = InputWaitingSound;
+
+            // Voice settings
+            config.Settings.Voice.Enabled = VoiceEnabled;
+            config.Settings.Voice.ConfidenceThreshold = VoiceConfidenceThreshold;
+            config.Settings.Voice.FeedbackSounds = VoiceFeedbackSounds;
+            config.Settings.Voice.ShowTranscript = VoiceShowTranscript;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -580,6 +605,10 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnWarningSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnInfoSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnInputWaitingSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnVoiceEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceConfidenceThresholdChanged(float value) => MarkDirtyFromRichMode();
+    partial void OnVoiceFeedbackSoundsChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceShowTranscriptChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

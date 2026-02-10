@@ -39,6 +39,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimelineService _timelineService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly ITaskService? _taskService;
+    private readonly IVoiceCommandService? _voiceCommandService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -161,6 +162,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _touchMode;
 
+    /// <summary>
+    /// Voice command floating bar ViewModel.
+    /// </summary>
+    public VoiceBarViewModel VoiceBar { get; }
+
     // Command Palette Properties
     [ObservableProperty]
     private bool _isCommandPaletteOpen;
@@ -230,7 +236,8 @@ public partial class MainViewModel : ObservableObject
         IViewModelFactory viewModelFactory,
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
-        ITaskService? taskService = null)
+        ITaskService? taskService = null,
+        IVoiceCommandService? voiceCommandService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -256,6 +263,7 @@ public partial class MainViewModel : ObservableObject
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
         _taskService = taskService;
+        _voiceCommandService = voiceCommandService;
 
         // Subscribe to timeline events
         _timelineService.OpenProjectRequested += OnTimelineOpenProjectRequested;
@@ -266,6 +274,21 @@ public partial class MainViewModel : ObservableObject
         WorkspaceSidebar.DuplicateTabRequested += OnWorkspaceSidebarDuplicateTabRequested;
         WorkspaceSidebar.CloseTabRequested += OnWorkspaceSidebarCloseTabRequested;
         WorkspaceSidebar.GitStatusRefreshed += OnWorkspaceSidebarGitStatusRefreshed;
+
+        // Initialize voice command bar
+        VoiceBar = new VoiceBarViewModel(timerService);
+        VoiceBar.SendToAiRequested += OnVoiceSendToAi;
+        VoiceBar.StartListeningRequested += (_, _) => _voiceCommandService?.StartListening();
+        VoiceBar.StopListeningRequested += (_, _) => _voiceCommandService?.StopListening();
+        if (_voiceCommandService is not null)
+        {
+            _voiceCommandService.CommandRecognized += (_, e) => VoiceBar.OnRecognitionResult(e.Result);
+            _voiceCommandService.Error += (_, e) =>
+            {
+                _toastService.Show(e.Message, ToastType.Error);
+                if (e.IsFatal) VoiceBar.Cancel();
+            };
+        }
 
         // Initialize help view model
         HelpViewModel = new HelpViewModel(this);
@@ -291,6 +314,7 @@ public partial class MainViewModel : ObservableObject
 
         FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         InitializeCommandPalette(); // Initialize commands once
+        InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(5), async () => await RefreshSelectedTabGitStatusAsync());
@@ -2414,8 +2438,105 @@ public partial class MainViewModel : ObservableObject
                 Category = "Help",
                 IntroducedOn = new DateOnly(2026, 2, 10),
                 Execute = () => WhatsNewRequested?.Invoke(this, EventArgs.Empty)
+            },
+
+            // Voice Commands
+            new() {
+                Id = "toggle-voice",
+                Name = "Toggle Voice Commands",
+                NameProvider = () => VoiceBar.IsVisible ? "Stop Voice Listening" : "Start Voice Listening",
+                Description = "Control your terminal with voice (F4)",
+                Shortcut = "F4",
+                Icon = "🎙",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 2, 11),
+                Execute = () => ToggleVoiceListening()
+            },
+            new() {
+                Id = "toggle-voice-enabled",
+                Name = "Toggle Voice Commands Enabled",
+                NameProvider = () => _configService.Load().Settings.Voice.Enabled ? "Disable Voice Commands" : "Enable Voice Commands",
+                Description = "Enable or disable voice command feature",
+                Icon = "🎙",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2026, 2, 11),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.Voice.Enabled = !config.Settings.Voice.Enabled;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.Voice.Enabled ? "Voice commands enabled" : "Voice commands disabled", ToastType.Info);
+                }
             }
         ];
+    }
+
+    /// <summary>
+    /// Build voice command grammar from palette commands and quick commands.
+    /// Curated aliases map common speech phrases to command IDs.
+    /// </summary>
+    private void InitializeVoiceGrammar()
+    {
+        if (_voiceCommandService is null) return;
+
+        var aliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["new-project"] = ["open project", "new project"],
+            ["close-tab"] = ["close tab"],
+            ["switch-terminal"] = ["switch terminal", "toggle terminal"],
+            ["settings"] = ["settings", "open settings"],
+            ["command-palette"] = ["command palette", "commands"],
+            ["git-changes"] = ["git changes", "git status", "show changes"],
+            ["git-branches"] = ["branches", "switch branch"],
+            ["git-history"] = ["commit history", "git log"],
+            ["git-stash"] = ["git stash", "stash"],
+            ["file-explorer"] = ["file explorer", "files"],
+            ["scratch-pad"] = ["scratch pad", "notes"],
+            ["help"] = ["help", "what can I say"],
+            ["dashboard"] = ["dashboard"],
+            ["pr-review"] = ["review PR", "PR review"],
+            ["run-start"] = ["run", "start project"],
+            ["run-stop"] = ["stop", "stop project"],
+            ["timeline"] = ["timeline"],
+            ["file-search"] = ["search", "find in files"],
+            ["markdown-preview"] = ["markdown preview"],
+            ["whats-new"] = ["what's new", "recent features"],
+            ["toggle-voice"] = ["voice commands", "toggle voice", "stop listening"]
+        };
+
+        var entries = new List<VoiceCommandEntry>();
+
+        foreach (var cmd in _allPaletteCommands)
+        {
+            aliases.TryGetValue(cmd.Id, out var cmdAliases);
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = cmd.Id,
+                DisplayName = cmd.Name,
+                Shortcut = cmd.Shortcut,
+                PrimaryPhrase = cmd.Name.ToLowerInvariant(),
+                Aliases = cmdAliases ?? [],
+                Execute = cmd.Execute,
+                Category = cmd.Category
+            });
+        }
+
+        // Add quick commands
+        var config = _configService.Load();
+        foreach (var qc in config.QuickCommands)
+        {
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = $"qc-{qc.Id}",
+                DisplayName = qc.Label,
+                Shortcut = qc.Shortcut,
+                PrimaryPhrase = qc.Label.ToLowerInvariant(),
+                Aliases = [],
+                Execute = () => ExecuteQuickCommandCommand.Execute(qc),
+                Category = "Quick Command"
+            });
+        }
+
+        _voiceCommandService.UpdateGrammar(entries);
     }
 
     private void FilterPaletteCommands()
@@ -2684,6 +2805,41 @@ public partial class MainViewModel : ObservableObject
                 // Silently ignore git status errors
             }
         }
+    }
+
+    /// <summary>
+    /// Toggle voice listening on/off (F4 shortcut).
+    /// </summary>
+    public void ToggleVoiceListening()
+    {
+        var settings = _configService.Load().Settings.Voice;
+        if (!settings.Enabled)
+        {
+            _toastService.Show("Voice commands are disabled. Enable them in Settings → Voice.", ToastType.Info);
+            return;
+        }
+        if (_voiceCommandService is null || !_voiceCommandService.IsAvailable)
+        {
+            _toastService.Show("Voice commands are not available on this system.", ToastType.Warning);
+            return;
+        }
+
+        if (VoiceBar.IsVisible)
+            VoiceBar.Cancel();
+        else
+            VoiceBar.StartListening();
+    }
+
+    /// <summary>
+    /// Handles the SendToAiRequested event from the voice bar.
+    /// Sends unmatched voice transcript to the active custom terminal.
+    /// </summary>
+    private void OnVoiceSendToAi(object? sender, string text)
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab) return;
+
+        tab.Pair.CustomTerminal.SendText(text, appendNewline: false, newlineChar: "\r", useUserInput: true);
+        tab.Pair.CustomTerminal.Focus();
     }
 
     /// <summary>

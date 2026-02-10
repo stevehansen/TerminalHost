@@ -633,6 +633,12 @@ public class AppSettings
     [JsonPropertyName("sounds")]
     public SoundSettings Sounds { get; set; } = new();
 
+    /// <summary>
+    /// Voice command settings.
+    /// </summary>
+    [JsonPropertyName("voice")]
+    public VoiceSettings Voice { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",
@@ -865,4 +871,54 @@ public class SoundSettings
     /// </summary>
     [JsonPropertyName("volume")]
     public double Volume { get; set; } = 1.0;
+}
+
+/// <summary>
+/// Settings for voice commands.
+/// </summary>
+public class VoiceSettings
+{
+    /// <summary>
+    /// Whether voice commands are enabled (master toggle).
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>
+    /// Voice activation mode: push-to-talk (hold key) or toggle (press to start/stop).
+    /// </summary>
+    [JsonPropertyName("activationMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public VoiceActivationMode ActivationMode { get; set; } = VoiceActivationMode.Toggle;
+
+    /// <summary>
+    /// Keyboard shortcut to activate voice listening (default: F4).
+    /// </summary>
+    [JsonPropertyName("activationShortcut")]
+    public string ActivationShortcut { get; set; } = "F4";
+
+    /// <summary>
+    /// Minimum confidence (0.0–1.0) to auto-execute a matched command.
+    /// Below this threshold, alternatives are shown for the user to pick.
+    /// </summary>
+    [JsonPropertyName("confidenceThreshold")]
+    public float ConfidenceThreshold { get; set; } = 0.8f;
+
+    /// <summary>
+    /// Whether to play audio feedback when listening starts/stops.
+    /// </summary>
+    [JsonPropertyName("feedbackSounds")]
+    public bool FeedbackSounds { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show the recognized transcript in the toast notification.
+    /// </summary>
+    [JsonPropertyName("showTranscript")]
+    public bool ShowTranscript { get; set; } = true;
+
+    /// <summary>
+    /// Custom voice phrase → command ID mappings (user-defined aliases).
+    /// </summary>
+    [JsonPropertyName("customAliases")]
+    public Dictionary<string, string> CustomAliases { get; set; } = [];
 }

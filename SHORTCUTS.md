@@ -46,6 +46,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+M` | Open Markdown preview | Project tab | Center panel |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
+| `F4` | Toggle voice commands | Global | Start/stop voice listening |
 
 ### Git & GitHub Shortcuts (Requires Project Tab Selected)
 
@@ -212,7 +213,7 @@ These shortcuts are reserved by the system or have special meaning:
 ### Unused Function Keys:
 - `F2` - Available
 - `F3` - Available (F3/Shift+F3 often used for find next/prev)
-- `F4` - Available
+- `F4` - Voice commands (toggle listening)
 - `F7` - Available
 - `F8` - Available
 - `F9` - Available
@@ -264,4 +265,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2026-01-28*
+*Last updated: 2026-02-11*
