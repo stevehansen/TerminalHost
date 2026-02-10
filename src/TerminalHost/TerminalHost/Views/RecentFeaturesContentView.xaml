@@ -1,0 +1,139 @@
+<UserControl x:Class="TerminalHost.Views.RecentFeaturesContentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:RecentFeaturesViewModel}"
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkestBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Welcome Header -->
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,32,0,16">
+            <TextBlock Text="Welcome to TerminalHost"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,12"/>
+            <Button Content="+ Open Project"
+                    AutomationProperties.AutomationId="OpenProjectButton"
+                    Style="{StaticResource TerminalSwitchButton}"
+                    Command="{Binding DataContext.OpenNewProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    HorizontalAlignment="Center"
+                    Padding="20,10"/>
+        </StackPanel>
+
+        <!-- Feature List -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,0,24,24">
+            <StackPanel MaxWidth="700" HorizontalAlignment="Center">
+                <!-- Section Header -->
+                <TextBlock Text="What's New"
+                           Foreground="{StaticResource TextLightBrush}"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,16"/>
+
+                <!-- Week Groups -->
+                <ItemsControl ItemsSource="{Binding WeekGroups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,20">
+                                <!-- Week Header -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding WeekLabel}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                    <!-- NEW badge on week header -->
+                                    <Border Background="#2D7D46"
+                                            CornerRadius="3"
+                                            Padding="6,2"
+                                            Margin="8,0,0,0"
+                                            Visibility="{Binding HasNewFeatures, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="NEW"
+                                                   Foreground="White"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"/>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Feature Items -->
+                                <ItemsControl ItemsSource="{Binding Features}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource BackgroundDarkBrush}"
+                                                    CornerRadius="4"
+                                                    Padding="12,8"
+                                                    Margin="0,0,0,4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Icon -->
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Command.Icon}"
+                                                               FontSize="14"
+                                                               VerticalAlignment="Center"/>
+
+                                                    <!-- Name + Description -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,8,0">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding Command.Name}"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       FontSize="{StaticResource FontSizeNormal}"
+                                                                       FontWeight="Medium"/>
+                                                            <!-- NEW dot for individual items -->
+                                                            <Ellipse Width="6" Height="6"
+                                                                     Fill="#2D7D46"
+                                                                     Margin="6,0,0,0"
+                                                                     VerticalAlignment="Center"
+                                                                     Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Command.Description}"
+                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+
+                                                    <!-- Shortcut -->
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding Command.DisplayShortcut}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,8,0"/>
+
+                                                    <!-- Open Button -->
+                                                    <Button Grid.Column="3"
+                                                            Content="Open"
+                                                            Style="{StaticResource TerminalSwitchButton}"
+                                                            Command="{Binding DataContext.ExecuteFeatureCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding Command}"
+                                                            Padding="10,4"
+                                                            FontSize="{StaticResource FontSizeSmall}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -68,6 +68,7 @@ public static class ShortcutConflictService
             new("Ctrl+Shift+I", "Timeline Mode"),
             new("Ctrl+Shift+K", "Claude Tasks (right sidebar)"),
             new("F1", "Show this help window"),
+            new("Ctrl+F1", "What's New / Recent Features"),
             new("Ctrl+M", "Markdown preview (center panel)"),
         ]),
 

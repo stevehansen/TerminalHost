@@ -21,6 +21,7 @@ public class PaletteCommand
     public string? Shortcut { get; init; }
     public string? Icon { get; init; }
     public string Category { get; init; } = "General";
+    public DateOnly? IntroducedOn { get; init; }
     public required Action Execute { get; init; }
     public Func<bool>? CanExecute { get; init; }
 

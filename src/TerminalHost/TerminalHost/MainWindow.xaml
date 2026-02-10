@@ -58,31 +58,10 @@
 
             </ContentControl>
 
-            <!-- Empty State - Show a test terminal directly -->
-            <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8">
-                    <TextBlock Text="Test terminal below - " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center"/>
-                    <Button Content="+ Open Project"
-                            AutomationProperties.AutomationId="OpenProjectButton"
-                            Style="{StaticResource TerminalSwitchButton}"
-                            Command="{Binding OpenNewProjectCommand}"
-                            Padding="16,8"/>
-                </StackPanel>
-
-                <!-- Direct XAML terminal test -->
-                <term:EasyTerminalControl x:Name="TestTerminal"
-                                          Grid.Row="1"
-                                          StartupCommandLine="cmd.exe"
-                                          Focusable="True"
-                                          IsTabStop="True"
-                                          Margin="10"
-                                          GotFocus="TestTerminal_GotFocus"
-                                          MouseDown="TestTerminal_MouseDown"/>
+            <!-- Empty State - Show What's New / Recent Features -->
+            <Grid Visibility="{Binding SelectedTab, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                  Background="{StaticResource BackgroundDarkestBrush}">
+                <views:RecentFeaturesContentView x:Name="EmptyStateRecentFeatures" />
             </Grid>
         </Grid>
 

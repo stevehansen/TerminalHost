@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
     private readonly MergeConflictViewModel _mergeConflictViewModel;
+    private readonly RecentFeaturesViewModel _recentFeaturesViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -55,7 +56,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -83,6 +84,7 @@ public partial class MainWindow : Window
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
         _mergeConflictViewModel = mergeConflictViewModel;
+        _recentFeaturesViewModel = recentFeaturesViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -175,6 +177,12 @@ public partial class MainWindow : Window
         _viewModel.SearchRequested += OnSearchRequested;
         _viewModel.ClaudeTasksRequested += OnClaudeTasksRequested;
         _viewModel.TestRunnerRequested += OnTestRunnerRequested;
+        _viewModel.WhatsNewRequested += OnWhatsNewRequested;
+        _recentFeaturesViewModel.ShowRequested += OnPanelShowRequested;
+
+        // Set up the empty state Recent Features view
+        EmptyStateRecentFeatures.DataContext = _recentFeaturesViewModel;
+        _recentFeaturesViewModel.OnOpened();
 
         // Subscribe to run terminal events
         _viewModel.RunTerminalRequested += OnRunTerminalRequested;
@@ -561,8 +569,16 @@ public partial class MainWindow : Window
             }
         }
 
+        // Ctrl+F1: What's New / Recent Features
+        if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            OpenWhatsNewPanel();
+            e.Handled = true;
+            return;
+        }
+
         // F1: Toggle help popup
-        if (e.Key == Key.F1)
+        if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None)
         {
             _viewModel.IsHelpOpen = !_viewModel.IsHelpOpen;
             e.Handled = true;
@@ -1229,6 +1245,11 @@ public partial class MainWindow : Window
                 _testResultsViewModel.IsOpen = true;
                 e.Tab.ShowCenterPanel(_testResultsViewModel);
                 break;
+            case "recentFeatures":
+                e.Tab.SetPanel(_recentFeaturesViewModel);
+                _recentFeaturesViewModel.OnOpened();
+                e.Tab.ShowCenterPanel(_recentFeaturesViewModel);
+                break;
         }
     }
 
@@ -1329,6 +1350,27 @@ public partial class MainWindow : Window
         {
             _claudeTasksPanelViewModel.Open(workspacePath);
         }
+    }
+
+    #endregion
+
+    #region What's New / Recent Features
+
+    private void OnWhatsNewRequested(object? sender, EventArgs e)
+    {
+        OpenWhatsNewPanel();
+    }
+
+    private void OpenWhatsNewPanel()
+    {
+        // If no tab is selected, the empty state already shows What's New
+        if (_viewModel.SelectedTab is not TerminalPairTabViewModel currentTab)
+            return;
+
+        // Show as center panel
+        currentTab.SetPanel(_recentFeaturesViewModel);
+        _recentFeaturesViewModel.OnOpened();
+        currentTab.ShowCenterPanel(_recentFeaturesViewModel);
     }
 
     #endregion
@@ -1701,19 +1743,6 @@ public partial class MainWindow : Window
                 await _viewModel.WorkspaceSidebar.CreateWorktreeCommand.ExecuteAsync(workspace);
             }
         }
-    }
-
-    #endregion
-
-    #region Test Terminal (Empty State)
-
-    private void TestTerminal_GotFocus(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void TestTerminal_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        TestTerminal.Focus();
     }
 
     #endregion

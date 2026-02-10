@@ -1752,6 +1752,12 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? SearchRequested;
     public event EventHandler? ClaudeTasksRequested;
     public event EventHandler? TestRunnerRequested;
+    public event EventHandler? WhatsNewRequested;
+
+    /// <summary>
+    /// Returns the static palette commands for the Recent Features page.
+    /// </summary>
+    internal IReadOnlyList<PaletteCommand> GetPaletteCommandsForFeatures() => _allPaletteCommands;
 
     [RelayCommand]
     private void OpenSetup()
@@ -1841,6 +1847,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+N",
                 Icon = "📁",
                 Category = "Project",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenNewProjectCommand.Execute(null)
             },
             new() {
@@ -1850,6 +1857,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+W",
                 Icon = "✕",
                 Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
             },
             new() {
@@ -1859,6 +1867,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+T",
                 Icon = "🔍",
                 Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
                 Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
             },
             new() {
@@ -1867,6 +1876,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Open new tab for same directory",
                 Icon = "📋",
                 Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) DuplicateTabCommand.Execute(tab); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -1879,6 +1889,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+O",
                 Icon = "👁",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 19),
                 Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
             },
             new() {
@@ -1888,6 +1899,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+E",
                 Icon = "✏️",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 19),
                 Execute = () => { /* Needs to be improved */ }
             },
             new() {
@@ -1897,6 +1909,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+E",
                 Icon = "📂",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenInExplorerCommand.Execute(null),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -1909,6 +1922,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+`",
                 Icon = "⇄",
                 Category = "Terminal",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => SwitchActiveTerminalCommand.Execute(null),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -1921,6 +1935,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+,",
                 Icon = "⚙️",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenSettingsCommand.Execute(null)
             },
             new() {
@@ -1930,6 +1945,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+P",
                 Icon = "👤",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenProfilesCommand.Execute(null)
             },
             new() {
@@ -1938,6 +1954,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Check dependencies and setup",
                 Icon = "🔧",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenSetupCommand.Execute(null)
             },
 
@@ -1949,6 +1966,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "F1",
                 Icon = "❓",
                 Category = "Help",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => IsHelpOpen = true
             },
 
@@ -1960,6 +1978,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+N",
                 Icon = "📝",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 14),
                 Execute = () => OpenScratchPadCommand.Execute(null)
             },
 
@@ -1970,6 +1989,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "View usage statistics",
                 Icon = "📊",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => OpenStatisticsCommand.Execute(null)
             },
 
@@ -1981,6 +2001,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+I",
                 Icon = "⏱️",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 26),
                 Execute = () => OpenTimelineCommand.Execute(null)
             },
 
@@ -1992,6 +2013,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+H",
                 Icon = "🏠",
                 Category = "GitHub",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => OpenDashboardCommand.Execute(null)
             },
             new() {
@@ -2001,6 +2023,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+R",
                 Icon = "📝",
                 Category = "GitHub",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2013,6 +2036,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+M",
                 Icon = "📄",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2025,6 +2049,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Alt+G",
                 Icon = "📋",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.Changes),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2035,6 +2060,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+B",
                 Icon = "🌿",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.Branches),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2045,6 +2071,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+H",
                 Icon = "📜",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.History),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2055,6 +2082,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+S",
                 Icon = "📦",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.Stash),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2065,6 +2093,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Alt+B",
                 Icon = "🔀",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => OpenUnifiedGitPanel(GitPanelTab.Comparison),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2077,6 +2106,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "F5",
                 Icon = "▶",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
             },
@@ -2087,6 +2117,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Shift+F5",
                 Icon = "⏹",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
             },
@@ -2096,6 +2127,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Restart the running project",
                 Icon = "🔄",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
             },
@@ -2105,6 +2137,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Show/hide run terminal panel",
                 Icon = "📺",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2114,6 +2147,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Open detected localhost URL in browser",
                 Icon = "🌐",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
             },
@@ -2126,6 +2160,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+L",
                 Icon = "📐",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
                 Execute = () => ToggleLayoutModeCommand.Execute(null)
             },
             new() {
@@ -2135,6 +2170,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+L",
                 Icon = "📎",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
                 Execute = () => ToggleSidebarCommand.Execute(null),
                 CanExecute = () => LayoutMode == AppLayoutMode.WorkspaceSidebar
             },
@@ -2144,6 +2180,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Use traditional tab bar layout",
                 Icon = "🗂",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
                 Execute = () => { LayoutMode = AppLayoutMode.Tabs; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
                 CanExecute = () => LayoutMode != AppLayoutMode.Tabs
             },
@@ -2153,6 +2190,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Use workspace sidebar layout",
                 Icon = "📂",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
                 Execute = () => { LayoutMode = AppLayoutMode.WorkspaceSidebar; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
                 CanExecute = () => LayoutMode != AppLayoutMode.WorkspaceSidebar
             },
@@ -2169,6 +2207,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+D",
                 Icon = "⬇",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPullCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2183,6 +2222,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+U",
                 Icon = "⬆",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPushCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2193,6 +2233,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+G",
                 Icon = "📋",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => ReflogRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2203,6 +2244,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+O",
                 Icon = "🔄",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => RepositorySwitcherRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2215,6 +2257,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+F",
                 Icon = "📁",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 22),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleExplorerCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2225,6 +2268,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+F3",
                 Icon = "🔍",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 2, 7),
                 Execute = () => SearchRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2235,6 +2279,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+K",
                 Icon = "🤖",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 1, 27),
                 Execute = () => ClaudeTasksRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2245,6 +2290,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "F6",
                 Icon = "🧪",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 2, 5),
                 Execute = () => TestRunnerRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2256,6 +2302,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Show only custom terminal",
                 Icon = "🖥",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetCustomFullLayoutCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2265,6 +2312,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Side-by-side terminals",
                 Icon = "⬜",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetHorizontalSplitLayoutCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2274,6 +2322,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Top-bottom terminals",
                 Icon = "⬛",
                 Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetVerticalSplitLayoutCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2286,6 +2335,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Sound notifications",
                 Icon = "🔊",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => {
                     var config = _configService.Load();
                     config.Settings.Sounds.Enabled = !config.Settings.Sounds.Enabled;
@@ -2300,6 +2350,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Touch-friendly UI with larger targets",
                 Icon = "👆",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2026, 1, 12),
                 Execute = () => {
                     var config = _configService.Load();
                     config.Settings.TouchMode = !config.Settings.TouchMode;
@@ -2314,6 +2365,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "System tray icon",
                 Icon = "🔽",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => {
                     var config = _configService.Load();
                     config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
@@ -2328,6 +2380,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Confirm before closing tabs",
                 Icon = "⚠",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => {
                     var config = _configService.Load();
                     config.Settings.ConfirmOnClose = !config.Settings.ConfirmOnClose;
@@ -2342,12 +2395,25 @@ public partial class MainViewModel : ObservableObject
                 Description = "Automatic fetch from remotes",
                 Icon = "🔄",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2026, 1, 7),
                 Execute = () => {
                     var config = _configService.Load();
                     config.Settings.GitAutoFetch = !config.Settings.GitAutoFetch;
                     _configService.Save(config);
                     _toastService.Show(config.Settings.GitAutoFetch ? "Git auto-fetch enabled" : "Git auto-fetch disabled", ToastType.Info);
                 }
+            },
+
+            // What's New
+            new() {
+                Id = "whats-new",
+                Name = "What's New",
+                Description = "View recently added features",
+                Shortcut = "Ctrl+F1",
+                Icon = "✨",
+                Category = "Help",
+                IntroducedOn = new DateOnly(2026, 2, 10),
+                Execute = () => WhatsNewRequested?.Invoke(this, EventArgs.Empty)
             }
         ];
     }

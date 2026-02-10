@@ -39,6 +39,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Touch Mode**: Touch-friendly UI mode with larger touch targets, icon-only toolbar, narrower sidebar, and sidebar collapse button. Ideal for mobile RDP and demos.
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
 - [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
+- [x] **What's New Page**: Empty state shows recently added features grouped by week with NEW badges. Also available as center panel via Ctrl+F1 or command palette. All palette commands have `IntroducedOn` dates.
 
 ### Deferred Features
 
@@ -54,7 +55,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
-- **When adding new actions**: Register them in `InitializeCommandPalette()` in `MainViewModel.cs`. The command palette must contain ALL invocable actions (toolbar buttons, keyboard shortcuts, context menu items, settings toggles).
+- **When adding new actions**: Register them in `InitializeCommandPalette()` in `MainViewModel.cs`. The command palette must contain ALL invocable actions (toolbar buttons, keyboard shortcuts, context menu items, settings toggles). Set `IntroducedOn = new DateOnly(year, month, day)` to the current date so the feature appears in "What's New".
 
 ## Important: Testing Requirements
 
@@ -461,6 +462,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+I`: Open Timeline Mode (visual timeline of AI development)
 - `Ctrl+Shift+K`: Open Claude Tasks Panel (view Claude Code task activity)
 - `F1`: Show help window
+- `Ctrl+F1`: What's New / Recent Features
 
 ### Project Runner
 - `F5`: Start/Stop project run

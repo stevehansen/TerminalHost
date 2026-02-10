@@ -78,4 +78,9 @@
         <views:DetectedLinksContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for RecentFeaturesViewModel (center panel / empty state) -->
+    <DataTemplate DataType="{x:Type vm:RecentFeaturesViewModel}">
+        <views:RecentFeaturesContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

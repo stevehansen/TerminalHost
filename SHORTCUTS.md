@@ -10,6 +10,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 |----------|--------|-------|-------|
 | `Escape` | Close center panel or popups | Global | Returns to terminals if center panel is active, then closes popups |
 | `F1` | Toggle help popup | Global | |
+| `Ctrl+F1` | What's New / Recent Features | Global | Center panel when tab open, empty state when no tabs |
 | `Ctrl+,` | Open settings | Global | |
 | `Ctrl+P` | Open profiles | Global | |
 | `Ctrl+N` | New project (folder picker) | Global | |
@@ -220,7 +221,6 @@ These shortcuts are reserved by the system or have special meaning:
 - `F12` - Available (often dev tools)
 
 ### Unused Ctrl+Function Key combinations:
-- `Ctrl+F1` - Available
 - `Ctrl+F2` - Available
 - `Ctrl+F4` - Available (often close tab - may conflict)
 - `Ctrl+F5` - Available

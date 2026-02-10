@@ -249,6 +249,7 @@ public partial class App : Application
         services.AddSingleton<UnifiedGitPanelViewModel>();
         services.AddSingleton<ClaudeTasksPanelViewModel>();
         services.AddSingleton<MergeConflictViewModel>();
+        services.AddSingleton<RecentFeaturesViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

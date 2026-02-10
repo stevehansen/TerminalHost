@@ -545,6 +545,13 @@ public class AppSettings
     public DateTime? FirstRunDate { get; set; } = null;
 
     /// <summary>
+    /// The date when the user last viewed the "What's New" / Recent Features page.
+    /// Stored as ISO date string (e.g., "2026-02-10") since DateOnly lacks built-in JSON support.
+    /// </summary>
+    [JsonPropertyName("recentFeaturesLastViewedDate")]
+    public string? RecentFeaturesLastViewedDate { get; set; }
+
+    /// <summary>
     /// Application-wide layout mode for displaying projects.
     /// </summary>
     [JsonPropertyName("layoutMode")]
