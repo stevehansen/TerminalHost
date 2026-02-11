@@ -40,7 +40,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
 - [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
 - [x] **What's New Page**: Empty state shows recently added features grouped by week with NEW badges. Also available as center panel via Ctrl+F1 or command palette. All palette commands have `IntroducedOn` dates.
-- [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Settings in Ctrl+, General section.
+- [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Two engines: Windows Speech (default, zero setup) and Whisper (opt-in, open-vocabulary, multi-language via whisper.cpp). Settings in Ctrl+, General section.
 
 ### Deferred Features
 
@@ -218,7 +218,8 @@ dotnet build
 dotnet run --project src/TerminalHost/TerminalHost
 
 # Windows - Publish as single executable (~70MB)
-dotnet publish src/TerminalHost/TerminalHost -c Release -o publish
+# Note: Use -p:PublishDir with forward slashes (not -o) to ensure Whisper native DLLs are included
+dotnet publish src/TerminalHost/TerminalHost -c Release "-p:PublishDir=P:/TerminalHost/publish/"
 
 # macOS - Run the Avalonia application (on macOS)
 dotnet run --project src/TerminalHost.Avalonia

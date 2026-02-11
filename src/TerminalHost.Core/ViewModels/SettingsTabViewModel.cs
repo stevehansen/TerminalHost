@@ -124,6 +124,23 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _voiceShowTranscript = true;
 
     [ObservableProperty]
+    private int _voiceSpeechEngineIndex;
+
+    [ObservableProperty]
+    private int _voiceWhisperModelSizeIndex = 2; // Small
+
+    [ObservableProperty]
+    private string _voiceWhisperLanguage = "auto";
+
+    [ObservableProperty]
+    private string _voiceWhisperModelStatus = "Not downloaded";
+
+    /// <summary>
+    /// Whether the Whisper engine is selected (for conditional XAML visibility).
+    /// </summary>
+    public bool IsWhisperEngine => VoiceSpeechEngineIndex == 1;
+
+    [ObservableProperty]
     private string _customCommand = "";
 
     [ObservableProperty]
@@ -445,6 +462,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             VoiceConfidenceThreshold = config.Settings.Voice.ConfidenceThreshold;
             VoiceFeedbackSounds = config.Settings.Voice.FeedbackSounds;
             VoiceShowTranscript = config.Settings.Voice.ShowTranscript;
+            VoiceSpeechEngineIndex = (int)config.Settings.Voice.SpeechEngine;
+            VoiceWhisperModelSizeIndex = (int)config.Settings.Voice.WhisperModelSize;
+            VoiceWhisperLanguage = config.Settings.Voice.WhisperLanguage;
 
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
@@ -512,6 +532,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Voice.ConfidenceThreshold = VoiceConfidenceThreshold;
             config.Settings.Voice.FeedbackSounds = VoiceFeedbackSounds;
             config.Settings.Voice.ShowTranscript = VoiceShowTranscript;
+            config.Settings.Voice.SpeechEngine = (VoiceRecognitionEngine)VoiceSpeechEngineIndex;
+            config.Settings.Voice.WhisperModelSize = (WhisperModelSize)VoiceWhisperModelSizeIndex;
+            config.Settings.Voice.WhisperLanguage = VoiceWhisperLanguage;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -609,6 +632,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnVoiceConfidenceThresholdChanged(float value) => MarkDirtyFromRichMode();
     partial void OnVoiceFeedbackSoundsChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnVoiceShowTranscriptChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceSpeechEngineIndexChanged(int value) { OnPropertyChanged(nameof(IsWhisperEngine)); MarkDirtyFromRichMode(); }
+    partial void OnVoiceWhisperModelSizeIndexChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnVoiceWhisperLanguageChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

@@ -567,6 +567,56 @@
                         <TextBlock Text="Audible feedback when voice listening starts, stops, or a command is recognized."
                                    Style="{StaticResource HelpText}"/>
 
+                        <TextBlock Text="SPEECH ENGINE" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                        <ComboBox SelectedIndex="{Binding VoiceSpeechEngineIndex}"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  Style="{StaticResource DarkComboBox}"
+                                  ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                            <ComboBoxItem Content="Windows Speech (built-in, zero setup)"/>
+                            <ComboBoxItem Content="Whisper (enhanced, multi-language, requires model download)"/>
+                        </ComboBox>
+                        <TextBlock Text="Windows Speech uses constrained grammar for known commands. Whisper uses OpenAI's speech model for open-vocabulary transcription with better accuracy on free-form speech and multi-language support. Engine change takes effect on restart."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <!-- Whisper-specific settings -->
+                        <StackPanel Visibility="{Binding IsWhisperEngine, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="WHISPER MODEL" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                            <ComboBox SelectedIndex="{Binding VoiceWhisperModelSizeIndex}"
+                                      IsEnabled="{Binding VoiceEnabled}"
+                                      Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                                <ComboBoxItem Content="Tiny (~75 MB) — fastest, lower accuracy"/>
+                                <ComboBoxItem Content="Base (~142 MB) — good for simple commands"/>
+                                <ComboBoxItem Content="Small (~466 MB) — excellent accuracy (recommended)"/>
+                                <ComboBoxItem Content="Medium (~1.5 GB) — high accuracy, slower on CPU"/>
+                                <ComboBoxItem Content="Large V3 (~3 GB) — highest accuracy, requires significant RAM"/>
+                            </ComboBox>
+                            <TextBlock Text="Larger models are more accurate but use more memory and take longer to process. The Small model is recommended for most users. Model is downloaded on first use."
+                                       Style="{StaticResource HelpText}"/>
+
+                            <TextBlock Text="LANGUAGE" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                            <ComboBox SelectedValue="{Binding VoiceWhisperLanguage}"
+                                      SelectedValuePath="Tag"
+                                      IsEnabled="{Binding VoiceEnabled}"
+                                      Style="{StaticResource DarkComboBox}"
+                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                                <ComboBoxItem Content="Auto-detect" Tag="auto"/>
+                                <ComboBoxItem Content="English" Tag="en"/>
+                                <ComboBoxItem Content="Dutch" Tag="nl"/>
+                                <ComboBoxItem Content="German" Tag="de"/>
+                                <ComboBoxItem Content="French" Tag="fr"/>
+                                <ComboBoxItem Content="Spanish" Tag="es"/>
+                                <ComboBoxItem Content="Italian" Tag="it"/>
+                                <ComboBoxItem Content="Portuguese" Tag="pt"/>
+                                <ComboBoxItem Content="Japanese" Tag="ja"/>
+                                <ComboBoxItem Content="Chinese" Tag="zh"/>
+                                <ComboBoxItem Content="Korean" Tag="ko"/>
+                                <ComboBoxItem Content="Russian" Tag="ru"/>
+                            </ComboBox>
+                            <TextBlock Text="Set a specific language for better accuracy, or use Auto-detect for mixed-language use. Auto-detect works well with the Small model and above."
+                                       Style="{StaticResource HelpText}"/>
+                        </StackPanel>
+
                         <TextBlock Text="CONFIDENCE THRESHOLD" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
                         <StackPanel Orientation="Horizontal" IsEnabled="{Binding VoiceEnabled}">
                             <Slider Width="200"

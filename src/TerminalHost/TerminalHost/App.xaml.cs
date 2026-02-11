@@ -217,7 +217,19 @@ public partial class App : Application
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
         services.AddSingleton<ISoundService, SoundService>();
-        services.AddSingleton<IVoiceCommandService, VoiceCommandService>();
+        services.AddSingleton<WhisperModelManager>();
+        services.AddSingleton<IVoiceCommandService>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfigurationService>().Load();
+            if (config.Settings.Voice.SpeechEngine == VoiceRecognitionEngine.Whisper)
+                return new WhisperVoiceCommandService(
+                    sp.GetRequiredService<IConfigurationService>(),
+                    sp.GetRequiredService<IDispatcherService>(),
+                    sp.GetRequiredService<WhisperModelManager>());
+            return new VoiceCommandService(
+                sp.GetRequiredService<IConfigurationService>(),
+                sp.GetRequiredService<IDispatcherService>());
+        });
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
         services.AddSingleton<ICommitGraphService, CommitGraphService>();

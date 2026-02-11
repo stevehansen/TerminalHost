@@ -921,4 +921,24 @@ public class VoiceSettings
     /// </summary>
     [JsonPropertyName("customAliases")]
     public Dictionary<string, string> CustomAliases { get; set; } = [];
+
+    /// <summary>
+    /// Speech recognition engine: WindowsSpeech (default, zero setup) or Whisper (enhanced, requires model download).
+    /// </summary>
+    [JsonPropertyName("speechEngine")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public VoiceRecognitionEngine SpeechEngine { get; set; } = VoiceRecognitionEngine.WindowsSpeech;
+
+    /// <summary>
+    /// Whisper model size to use (only relevant when SpeechEngine is Whisper).
+    /// </summary>
+    [JsonPropertyName("whisperModelSize")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public WhisperModelSize WhisperModelSize { get; set; } = WhisperModelSize.Small;
+
+    /// <summary>
+    /// Language hint for Whisper transcription. ISO 639-1 code (e.g., "en", "nl", "de") or "auto" for auto-detection.
+    /// </summary>
+    [JsonPropertyName("whisperLanguage")]
+    public string WhisperLanguage { get; set; } = "auto";
 }

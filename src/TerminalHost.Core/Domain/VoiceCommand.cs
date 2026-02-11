@@ -1,6 +1,39 @@
 namespace TerminalHost.Core.Domain;
 
 /// <summary>
+/// Speech recognition engine to use for voice commands.
+/// </summary>
+public enum VoiceRecognitionEngine
+{
+    /// <summary>
+    /// Windows built-in System.Speech.Recognition (zero setup, constrained grammar).
+    /// </summary>
+    WindowsSpeech,
+
+    /// <summary>
+    /// OpenAI Whisper via whisper.cpp (open vocabulary, multi-language, requires model download).
+    /// </summary>
+    Whisper
+}
+
+/// <summary>
+/// Whisper model size options. Larger models are more accurate but slower and use more memory.
+/// </summary>
+public enum WhisperModelSize
+{
+    /// <summary>~75 MB, fastest, lower accuracy.</summary>
+    Tiny,
+    /// <summary>~142 MB, good balance for simple commands.</summary>
+    Base,
+    /// <summary>~466 MB, excellent accuracy for mixed-language use (recommended).</summary>
+    Small,
+    /// <summary>~1.5 GB, high accuracy, slower on CPU.</summary>
+    Medium,
+    /// <summary>~3 GB, highest accuracy, requires significant RAM.</summary>
+    LargeV3
+}
+
+/// <summary>
 /// Voice activation mode for triggering speech recognition.
 /// </summary>
 public enum VoiceActivationMode
