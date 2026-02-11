@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.ViewModels;
@@ -13,6 +14,9 @@ namespace TerminalHost.Views;
 /// </summary>
 public partial class GitFilesContentView : UserControl
 {
+    private bool _isSyncingSelection;
+    private GitFilesViewModel? _currentVm;
+
     public GitFilesContentView()
     {
         InitializeComponent();
@@ -21,8 +25,17 @@ public partial class GitFilesContentView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        // Unsubscribe from old events to prevent accumulation
+        if (_currentVm != null)
+        {
+            HunkDiffViewer.HunkStageRequested -= OnHunkStageRequested;
+            HunkDiffViewer.HunkUnstageRequested -= OnHunkUnstageRequested;
+        }
+
         if (e.NewValue is GitFilesViewModel vm)
         {
+            _currentVm = vm;
+
             // Wire up hunk staging events
             var diffParser = App.Current.Services.GetService(typeof(IDiffParserService)) as IDiffParserService;
             if (diffParser != null)
@@ -30,17 +43,72 @@ public partial class GitFilesContentView : UserControl
                 HunkDiffViewer.SetDiffParser(diffParser);
             }
 
-            HunkDiffViewer.HunkStageRequested += (s, hunkIndex) =>
-            {
-                if (vm.StageHunkCommand.CanExecute(hunkIndex))
-                    vm.StageHunkCommand.Execute(hunkIndex);
-            };
+            HunkDiffViewer.HunkStageRequested += OnHunkStageRequested;
+            HunkDiffViewer.HunkUnstageRequested += OnHunkUnstageRequested;
+        }
+        else
+        {
+            _currentVm = null;
+        }
+    }
 
-            HunkDiffViewer.HunkUnstageRequested += (s, hunkIndex) =>
+    private void OnHunkStageRequested(object? sender, int hunkIndex)
+    {
+        if (_currentVm?.StageHunkCommand.CanExecute(hunkIndex) == true)
+            _currentVm.StageHunkCommand.Execute(hunkIndex);
+    }
+
+    private void OnHunkUnstageRequested(object? sender, int hunkIndex)
+    {
+        if (_currentVm?.UnstageHunkCommand.CanExecute(hunkIndex) == true)
+            _currentVm.UnstageHunkCommand.Execute(hunkIndex);
+    }
+
+    private void StagedList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isSyncingSelection) return;
+        if (e.AddedItems.Count == 0) return;
+
+        _isSyncingSelection = true;
+        try
+        {
+            UnstagedList.SelectedItem = null;
+            if (DataContext is GitFilesViewModel vm)
+                vm.SelectedGitFile = e.AddedItems[0] as GitFileStatus;
+        }
+        finally
+        {
+            _isSyncingSelection = false;
+        }
+    }
+
+    private void UnstagedList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isSyncingSelection) return;
+        if (e.AddedItems.Count == 0) return;
+
+        _isSyncingSelection = true;
+        try
+        {
+            StagedList.SelectedItem = null;
+            if (DataContext is GitFilesViewModel vm)
+                vm.SelectedGitFile = e.AddedItems[0] as GitFileStatus;
+        }
+        finally
+        {
+            _isSyncingSelection = false;
+        }
+    }
+
+    private void CommitMessageBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (DataContext is GitFilesViewModel vm && vm.CreateCommitCommand.CanExecute(null))
             {
-                if (vm.UnstageHunkCommand.CanExecute(hunkIndex))
-                    vm.UnstageHunkCommand.Execute(hunkIndex);
-            };
+                vm.CreateCommitCommand.Execute(null);
+                e.Handled = true;
+            }
         }
     }
 

@@ -32,6 +32,7 @@ public interface IGitStatusService
     Task<GitOperationResult> UnstageHunkAsync(string workingDirectory, string patchContent);
 
     // Commit operations
+    Task<string?> GetStagedDiffAsync(string workingDirectory);
     Task<GitOperationResult> CreateCommitAsync(string workingDirectory, string message, bool amend = false);
     Task<GitOperationResult> UndoLastCommitAsync(string workingDirectory);
 

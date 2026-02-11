@@ -62,6 +62,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Alt+B` | Git panel (Comparison tab) | Project tab | Center panel |
 | `Ctrl+Shift+H` | GitHub Dashboard | Project tab | |
 | `Ctrl+Shift+R` | PR Review Mode | Project tab | Center panel, toggle |
+| `Ctrl+Enter` | Commit staged changes | Git Changes panel | When commit message box is focused |
 
 ### Build & Test Shortcuts
 

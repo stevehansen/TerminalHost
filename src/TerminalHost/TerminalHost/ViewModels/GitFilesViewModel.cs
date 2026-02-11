@@ -569,6 +569,11 @@ public partial class GitFilesViewModel : BasePanelViewModel
                 CommitMessage = "";
                 AmendCommit = false;
                 await RefreshGitFilesAsync();
+
+                // Also refresh the terminal tab's git status indicator
+                var status = await _gitStatusService.GetGitStatusAsync(
+                    _currentTerminalTab.Pair.WorkingDirectory);
+                _currentTerminalTab.GitStatus = status;
             }
             else
             {
@@ -588,6 +593,288 @@ public partial class GitFilesViewModel : BasePanelViewModel
         {
             CommitMessage = $"{prefix}: {CommitMessage}";
         }
+    }
+
+    #endregion
+
+    #region Inline File Commands
+
+    [RelayCommand]
+    private async Task StageItemAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.StageFileAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, file.FilePath);
+
+            if (result.Success)
+                await RefreshGitFilesAsync();
+            else
+                _toastService.Show($"Failed to stage: {result.Error}", ToastType.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UnstageItemAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UnstageFileAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, file.FilePath);
+
+            if (result.Success)
+                await RefreshGitFilesAsync();
+            else
+                _toastService.Show($"Failed to unstage: {result.Error}", ToastType.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DiscardItemAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var confirmed = _dialogService.ShowConfirmation(
+            $"Discard changes to '{file.FileName}'?\n\nThis cannot be undone.",
+            "Discard Changes");
+        if (!confirmed) return;
+
+        IsLoading = true;
+        try
+        {
+            var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+            if (file.Status == GitFileStatusType.Untracked)
+            {
+                var fullPath = System.IO.Path.Combine(workingDirectory, file.FilePath);
+                if (_fileSystem.FileExists(fullPath))
+                    _fileSystem.DeleteFile(fullPath);
+            }
+            else
+            {
+                var result = await _gitStatusService.DiscardChangesAsync(workingDirectory, file.FilePath);
+                if (!result.Success)
+                {
+                    _toastService.Show($"Failed to discard: {result.Error}", ToastType.Error);
+                    return;
+                }
+            }
+
+            await RefreshGitFilesAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    #endregion
+
+    #region Commit Message Generation
+
+    [ObservableProperty]
+    private bool _isGeneratingMessage;
+
+    [RelayCommand]
+    private async Task GenerateCommitMessageAsync()
+    {
+        if (!StagedFiles.Any()) return;
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+        // Try AI-powered generation first (via claude -p)
+        IsGeneratingMessage = true;
+        try
+        {
+            var aiMessage = await GenerateWithAiAsync(workingDirectory);
+            if (!string.IsNullOrWhiteSpace(aiMessage))
+            {
+                CommitMessage = aiMessage.Trim();
+                return;
+            }
+        }
+        catch
+        {
+            // AI unavailable, fall through to heuristic
+        }
+        finally
+        {
+            IsGeneratingMessage = false;
+        }
+
+        // Fallback: heuristic-based generation
+        GenerateHeuristicMessage();
+    }
+
+    private async Task<string?> GenerateWithAiAsync(string workingDirectory)
+    {
+        // Get the staged diff
+        var diff = await _gitStatusService.GetStagedDiffAsync(workingDirectory);
+        if (string.IsNullOrWhiteSpace(diff))
+            return null;
+
+        // Truncate very large diffs to avoid token limits
+        const int maxDiffLength = 20_000;
+        if (diff.Length > maxDiffLength)
+            diff = diff[..maxDiffLength] + "\n\n[... diff truncated ...]";
+
+        // Resolve the claude executable path from settings
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+
+        // Verify it looks like a claude command
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude"))
+            return null; // Not using Claude as custom command, skip AI generation
+
+        // Combine prompt + diff as stdin (claude -p reads from stdin when no prompt arg given)
+        var stdinContent = $"""
+            Generate a conventional commit message for the following git diff.
+            Format: type(scope): description
+
+            Rules:
+            - type: feat, fix, refactor, docs, chore, test, style, perf
+            - scope: optional, the main area of change (short, lowercase)
+            - description: imperative mood, lowercase, no period at end
+            - First line MUST be under 72 characters
+            - Add a blank line then a brief body (1-3 lines) only if the change is complex
+            - Output ONLY the commit message, no explanation or markdown
+
+            <diff>
+            {diff}
+            </diff>
+            """;
+
+        var (exitCode, output, _) = await _processService.RunAsync(
+            claudePath,
+            "-p --no-session-persistence",
+            workingDirectory,
+            stdin: stdinContent,
+            timeout: TimeSpan.FromSeconds(30));
+
+        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            return null;
+
+        // Clean up: remove markdown code fences if present
+        var message = output.Trim();
+        if (message.StartsWith("```"))
+        {
+            var lines = message.Split('\n');
+            message = string.Join('\n', lines
+                .SkipWhile(l => l.StartsWith("```"))
+                .TakeWhile(l => !l.StartsWith("```")));
+        }
+
+        return message.Trim();
+    }
+
+    private void GenerateHeuristicMessage()
+    {
+        if (!StagedFiles.Any()) return;
+
+        var files = StagedFiles.ToList();
+        var prefix = DetermineConventionalPrefix(files);
+        var scope = DetermineScope(files);
+        var description = BuildDescription(files);
+
+        CommitMessage = scope != null
+            ? $"{prefix}({scope}): {description}"
+            : $"{prefix}: {description}";
+    }
+
+    private static string DetermineConventionalPrefix(List<GitFileStatus> files)
+    {
+        if (files.All(f => IsTestFile(f.FilePath))) return "test";
+        if (files.All(f => IsDocFile(f.FilePath))) return "docs";
+        if (files.All(f => IsConfigFile(f.FilePath))) return "chore";
+        if (files.All(f => f.Status == GitFileStatusType.Added)) return "feat";
+        if (files.All(f => f.Status == GitFileStatusType.Deleted)) return "refactor";
+        if (files.Any(f => f.Status == GitFileStatusType.Added)) return "feat";
+        return "fix";
+    }
+
+    private static string? DetermineScope(List<GitFileStatus> files)
+    {
+        var directories = files
+            .Select(f => System.IO.Path.GetDirectoryName(f.FilePath)?.Replace('\\', '/'))
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Distinct()
+            .ToList();
+
+        if (directories.Count == 1)
+        {
+            var parts = directories[0]!.Split('/');
+            return parts.Last();
+        }
+
+        return null;
+    }
+
+    private static string BuildDescription(List<GitFileStatus> files)
+    {
+        if (files.Count == 1)
+        {
+            var file = files[0];
+            var verb = file.Status switch
+            {
+                GitFileStatusType.Added => "add",
+                GitFileStatusType.Deleted => "remove",
+                GitFileStatusType.Renamed => "rename",
+                _ => "update"
+            };
+            return $"{verb} {file.FileName}";
+        }
+
+        var added = files.Count(f => f.Status == GitFileStatusType.Added);
+        var modified = files.Count(f => f.Status == GitFileStatusType.Modified);
+        var deleted = files.Count(f => f.Status == GitFileStatusType.Deleted);
+
+        var parts = new List<string>();
+        if (added > 0) parts.Add($"add {added} file{(added > 1 ? "s" : "")}");
+        if (modified > 0) parts.Add($"update {modified} file{(modified > 1 ? "s" : "")}");
+        if (deleted > 0) parts.Add($"remove {deleted} file{(deleted > 1 ? "s" : "")}");
+
+        return string.Join(", ", parts);
+    }
+
+    private static bool IsTestFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        return lower.Contains("test") || lower.Contains("spec") ||
+               lower.Contains(".test.") || lower.Contains(".spec.");
+    }
+
+    private static bool IsDocFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        var ext = System.IO.Path.GetExtension(lower);
+        return ext is ".md" or ".txt" or ".rst" or ".adoc"
+            || lower.Contains("readme") || lower.Contains("doc/") || lower.Contains("docs/");
+    }
+
+    private static bool IsConfigFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        var ext = System.IO.Path.GetExtension(lower);
+        var name = System.IO.Path.GetFileName(lower);
+        return ext is ".json" or ".yml" or ".yaml" or ".toml" or ".ini" or ".cfg" or ".config" or ".xml" or ".props" or ".targets"
+            || name.StartsWith(".")
+            || name is "dockerfile" or "makefile" or ".gitignore" or ".editorconfig";
     }
 
     #endregion

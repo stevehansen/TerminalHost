@@ -85,6 +85,7 @@ public static class ShortcutConflictService
             new("Ctrl+Alt+B", "Git panel - Comparison tab (center panel)"),
             new("Ctrl+Shift+H", "GitHub Dashboard"),
             new("Ctrl+Shift+R", "PR Review (center panel)"),
+            new("Ctrl+Enter", "Commit staged changes (in Git Changes panel)"),
         ]),
 
         new("Build & Test",

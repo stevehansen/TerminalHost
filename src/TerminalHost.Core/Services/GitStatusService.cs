@@ -618,6 +618,14 @@ public sealed class GitStatusService : IGitStatusService
 
     #region Commit Operations
 
+    public async Task<string?> GetStagedDiffAsync(string workingDirectory)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return null;
+
+        return await _gitRunner.RunGitCommandAsync(workingDirectory, "diff --cached");
+    }
+
     public async Task<GitOperationResult> CreateCommitAsync(string workingDirectory, string message, bool amend = false)
     {
         if (!_fileSystem.DirectoryExists(workingDirectory))

@@ -2078,6 +2078,16 @@ public partial class MainViewModel : ObservableObject
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
             new() {
+                Id = "git-commit",
+                Name = "Git Commit",
+                Description = "Stage files, write message, and commit from the Changes panel (Alt+G)",
+                Icon = "💾",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2026, 2, 11),
+                Execute = () => OpenUnifiedGitPanel(GitPanelTab.Changes),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
                 Id = "git-branches",
                 Name = "Git Branches",
                 Description = "Switch, create, or delete branches",

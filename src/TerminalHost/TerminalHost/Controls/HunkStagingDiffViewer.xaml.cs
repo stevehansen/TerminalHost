@@ -56,8 +56,16 @@ public partial class HunkStagingDiffViewer : UserControl
     {
         HunksControl.Items.Clear();
 
-        if (string.IsNullOrEmpty(DiffText) || _diffParser == null)
+        if (string.IsNullOrEmpty(DiffText))
             return;
+
+        // Fallback: resolve parser from DI if not explicitly set
+        if (_diffParser == null)
+        {
+            _diffParser = App.Current?.Services?.GetService(typeof(IDiffParserService)) as IDiffParserService;
+            if (_diffParser == null)
+                return;
+        }
 
         var parsed = _diffParser.Parse(DiffText);
         if (parsed.Hunks.Count == 0)

@@ -10,6 +10,208 @@
              mc:Ignorable="d"
              Background="{StaticResource BackgroundDarkBrush}">
 
+    <UserControl.Resources>
+        <!-- Shared file row style for ListBoxItem (used in both staged and unstaged lists) -->
+        <Style x:Key="FileListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Padding="{TemplateBinding Padding}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="#333333"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Inline action button style (small, borderless, appears on hover) -->
+        <Style x:Key="InlineActionButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#444444"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Conventional commit prefix button style -->
+        <Style x:Key="PrefixChipButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="0,0,3,3"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3A3A3A"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Staged file item template (with unstage button on hover) -->
+        <DataTemplate x:Key="StagedFileTemplate">
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                           Text="{Binding StatusIcon}"
+                           Foreground="{Binding StatusColor}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding StatusDescription}"/>
+
+                <TextBlock Grid.Column="1" Grid.Row="0"
+                           Text="{Binding FileName}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <TextBlock Grid.Column="1" Grid.Row="1"
+                           Text="{Binding Directory}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Unstage button (visible on hover) -->
+                <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter Property="Opacity" Value="1"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Button Content="−" ToolTip="Unstage file"
+                            Style="{StaticResource InlineActionButton}"
+                            Command="{Binding DataContext.UnstageItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Unstaged file item template (with stage + discard buttons on hover) -->
+        <DataTemplate x:Key="UnstagedFileTemplate">
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                           Text="{Binding StatusIcon}"
+                           Foreground="{Binding StatusColor}"
+                           FontFamily="{StaticResource FontFamilyMonospace}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding StatusDescription}"/>
+
+                <TextBlock Grid.Column="1" Grid.Row="0"
+                           Text="{Binding FileName}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <TextBlock Grid.Column="1" Grid.Row="1"
+                           Text="{Binding Directory}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Stage + Discard buttons (visible on hover) -->
+                <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter Property="Opacity" Value="1"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Button Content="+" ToolTip="Stage file"
+                            Style="{StaticResource InlineActionButton}"
+                            Command="{Binding DataContext.StageItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}"/>
+                    <Button Content="↩" ToolTip="Discard changes"
+                            Style="{StaticResource InlineActionButton}"
+                            Command="{Binding DataContext.DiscardItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}"
+                            Foreground="#C74E4E"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -46,12 +248,13 @@
                 <ColumnDefinition Width="*" MinWidth="300"/>
             </Grid.ColumnDefinitions>
 
-            <!-- File List -->
+            <!-- File List + Commit Form -->
             <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- File list header -->
@@ -101,115 +304,176 @@
                         </DockPanel>
                     </Border>
 
-                    <!-- File list (flat view) -->
-                    <ListBox Grid.Row="1"
-                             ItemsSource="{Binding GitFiles}"
-                             SelectedItem="{Binding SelectedGitFile}"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="4,3">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="20"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
+                    <!-- File lists (flat view) -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IsTreeView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <!-- STAGED section header -->
+                            <Border Background="#1A3A1A3A" Padding="8,5"
+                                    Visibility="{Binding StagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="−"
+                                            Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding UnstageAllCommand}"
+                                            ToolTip="Unstage all files"
+                                            FontWeight="Bold" Padding="6,2"/>
+                                    <TextBlock Foreground="{StaticResource SyntaxGreenBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center">
+                                        <Run Text="Staged Changes ("/>
+                                        <Run Text="{Binding StagedFiles.Count, Mode=OneWay}"/>
+                                        <Run Text=")"/>
+                                    </TextBlock>
+                                </DockPanel>
+                            </Border>
 
-                                    <!-- Status icon -->
-                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
-                                               Text="{Binding StatusIcon}"
-                                               Foreground="{Binding StatusColor}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="{StaticResource FontSizeSmall}"
-                                               FontWeight="Bold"
-                                               VerticalAlignment="Center"
-                                               ToolTip="{Binding StatusDescription}"/>
+                            <!-- Staged files list -->
+                            <ListBox x:Name="StagedList"
+                                     ItemsSource="{Binding StagedFiles}"
+                                     ItemTemplate="{StaticResource StagedFileTemplate}"
+                                     ItemContainerStyle="{StaticResource FileListBoxItemStyle}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     SelectionChanged="StagedList_SelectionChanged"
+                                     Visibility="{Binding StagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <ListBox.Template>
+                                    <ControlTemplate TargetType="ListBox">
+                                        <ItemsPresenter/>
+                                    </ControlTemplate>
+                                </ListBox.Template>
+                            </ListBox>
 
-                                    <!-- File name -->
-                                    <TextBlock Grid.Column="1" Grid.Row="0"
-                                               Text="{Binding FileName}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontSize="{StaticResource FontSizeSmall}"
-                                               TextTrimming="CharacterEllipsis"/>
+                            <!-- UNSTAGED section header -->
+                            <Border Background="#1A3A1A3A" Padding="8,5"
+                                    Visibility="{Binding UnstagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="+"
+                                                Style="{StaticResource InlineActionButton}"
+                                                Command="{Binding StageAllCommand}"
+                                                ToolTip="Stage all files"
+                                                FontWeight="Bold" Padding="6,2"/>
+                                    </StackPanel>
+                                    <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center">
+                                        <Run Text="Changes ("/>
+                                        <Run Text="{Binding UnstagedFiles.Count, Mode=OneWay}"/>
+                                        <Run Text=")"/>
+                                    </TextBlock>
+                                </DockPanel>
+                            </Border>
 
-                                    <!-- Directory path -->
-                                    <TextBlock Grid.Column="1" Grid.Row="1"
-                                               Text="{Binding Directory}"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               FontSize="{StaticResource FontSizeMicro}"
-                                               TextTrimming="CharacterEllipsis"
-                                               Visibility="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="4,2"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border Padding="{TemplateBinding Padding}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                                <Setter Property="Background" Value="#333333"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <ContentPresenter/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                            <!-- Unstaged files list -->
+                            <ListBox x:Name="UnstagedList"
+                                     ItemsSource="{Binding UnstagedFiles}"
+                                     ItemTemplate="{StaticResource UnstagedFileTemplate}"
+                                     ItemContainerStyle="{StaticResource FileListBoxItemStyle}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     SelectionChanged="UnstagedList_SelectionChanged"
+                                     Visibility="{Binding UnstagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <ListBox.Template>
+                                    <ControlTemplate TargetType="ListBox">
+                                        <ItemsPresenter/>
+                                    </ControlTemplate>
+                                </ListBox.Template>
+                            </ListBox>
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <!-- File tree (tree view) -->
-                    <TreeView Grid.Row="1"
-                              ItemsSource="{Binding UnstagedTree}"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}"
-                              SelectedItemChanged="TreeView_SelectedItemChanged">
-                        <TreeView.Resources>
-                            <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
-                                    <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                    <TextBlock Text="{Binding DisplayName}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="{StaticResource FontSizeSmall}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding CountDisplay}"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               FontSize="{StaticResource FontSizeMicro}"
-                                               Margin="4,0,0,0"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </HierarchicalDataTemplate>
-                        </TreeView.Resources>
-                        <TreeView.ItemContainerStyle>
-                            <Style TargetType="TreeViewItem">
-                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-                            </Style>
-                        </TreeView.ItemContainerStyle>
-                    </TreeView>
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <!-- Staged tree section -->
+                            <Border Background="#1A3A1A3A" Padding="8,5"
+                                    Visibility="{Binding StagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <TextBlock Foreground="{StaticResource SyntaxGreenBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold">
+                                    <Run Text="Staged Changes ("/>
+                                    <Run Text="{Binding StagedFiles.Count, Mode=OneWay}"/>
+                                    <Run Text=")"/>
+                                </TextBlock>
+                            </Border>
+                            <TreeView ItemsSource="{Binding StagedTree}"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      SelectedItemChanged="TreeView_SelectedItemChanged"
+                                      Visibility="{Binding StagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <TreeView.Resources>
+                                    <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                                        <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                            <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding CountDisplay}"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.Resources>
+                                <TreeView.ItemContainerStyle>
+                                    <Style TargetType="TreeViewItem">
+                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                    </Style>
+                                </TreeView.ItemContainerStyle>
+                            </TreeView>
+
+                            <!-- Unstaged tree section -->
+                            <Border Background="#1A3A1A3A" Padding="8,5"
+                                    Visibility="{Binding UnstagedFiles.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold">
+                                    <Run Text="Changes ("/>
+                                    <Run Text="{Binding UnstagedFiles.Count, Mode=OneWay}"/>
+                                    <Run Text=")"/>
+                                </TextBlock>
+                            </Border>
+                            <TreeView ItemsSource="{Binding UnstagedTree}"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      SelectedItemChanged="TreeView_SelectedItemChanged">
+                                <TreeView.Resources>
+                                    <HierarchicalDataTemplate DataType="{x:Type domain:FileTreeNode}" ItemsSource="{Binding Children}">
+                                        <StackPanel Orientation="Horizontal" Margin="2" Cursor="Hand">
+                                            <TextBlock Text="{Binding DisplayIcon}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding CountDisplay}"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.Resources>
+                                <TreeView.ItemContainerStyle>
+                                    <Style TargetType="TreeViewItem">
+                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                    </Style>
+                                </TreeView.ItemContainerStyle>
+                            </TreeView>
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <!-- Empty state -->
                     <TextBlock Grid.Row="1"
@@ -219,6 +483,169 @@
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Visibility="{Binding IsEmptyStateVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- COMMIT FORM -->
+                    <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}"
+                            Padding="8,6" BorderBrush="#3F3F3F" BorderThickness="0,1,0,0">
+                        <StackPanel>
+                            <!-- Conventional commit prefix chips -->
+                            <WrapPanel Margin="0,0,0,4">
+                                <Button Content="feat" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="feat"/>
+                                <Button Content="fix" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="fix"/>
+                                <Button Content="refactor" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="refactor"/>
+                                <Button Content="docs" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="docs"/>
+                                <Button Content="chore" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="chore"/>
+                                <Button Content="test" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="test"/>
+                                <Button Content="style" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="style"/>
+                                <Button Content="perf" Style="{StaticResource PrefixChipButton}"
+                                        Command="{Binding InsertConventionalPrefixCommand}" CommandParameter="perf"/>
+                            </WrapPanel>
+
+                            <!-- Commit message input -->
+                            <Grid>
+                                <TextBox x:Name="CommitMessageBox"
+                                         Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="48"
+                                         MaxHeight="120"
+                                         VerticalScrollBarVisibility="Auto"
+                                         Background="#1E1E1E"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="#3F3F3F"
+                                         BorderThickness="1"
+                                         Padding="6,4"
+                                         FontSize="{StaticResource FontSizeTiny}"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         KeyDown="CommitMessageBox_KeyDown"/>
+                                <!-- Placeholder text -->
+                                <TextBlock Text="Commit message (Ctrl+Enter to commit)"
+                                           IsHitTestVisible="False"
+                                           Foreground="#555555"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                           Margin="8,6,0,0"
+                                           VerticalAlignment="Top">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CommitMessage}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+
+                            <!-- Subject length + Amend + Actions row -->
+                            <DockPanel Margin="0,5,0,0">
+                                <!-- Commit button (rightmost) -->
+                                <Button DockPanel.Dock="Right"
+                                        Content="Commit"
+                                        Command="{Binding CreateCommitCommand}"
+                                        Padding="10,4"
+                                        FontSize="11"
+                                        FontWeight="SemiBold"
+                                        Margin="4,0,0,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#2D5230"/>
+                                            <Setter Property="Foreground" Value="#6CCB5F"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="Cursor" Value="Hand"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                                Padding="{TemplateBinding Padding}"
+                                                                CornerRadius="3">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="#3D6240"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsEnabled" Value="False">
+                                                                <Setter Property="Background" Value="#252525"/>
+                                                                <Setter Property="Foreground" Value="#555555"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- Undo last commit button -->
+                                <Button DockPanel.Dock="Right"
+                                        Content="↩"
+                                        Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding UndoLastCommitCommand}"
+                                        ToolTip="Undo last commit (soft reset)"
+                                        FontSize="14" Padding="5,2"
+                                        Margin="2,0,0,0"/>
+
+                                <!-- Generate commit message button -->
+                                <Button DockPanel.Dock="Right"
+                                        Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding GenerateCommitMessageCommand}"
+                                        ToolTip="Generate commit message (AI-powered if Claude available)"
+                                        FontSize="13" Padding="5,2"
+                                        Margin="2,0,0,0">
+                                    <Button.Content>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="✦"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsGeneratingMessage}" Value="True">
+                                                            <Setter Property="Text" Value="···"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+
+                                <!-- Subject length indicator -->
+                                <TextBlock DockPanel.Dock="Left"
+                                           VerticalAlignment="Center"
+                                           FontSize="{StaticResource FontSizeMicro}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSubjectTooLong}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource StatusWarningBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <Run Text="{Binding SubjectLength, Mode=OneWay}"/><Run Text="/72"/>
+                                </TextBlock>
+
+                                <!-- Amend checkbox -->
+                                <CheckBox Content="Amend"
+                                          IsChecked="{Binding AmendCommit}"
+                                          Foreground="{StaticResource TextDimmedBrush}"
+                                          FontSize="{StaticResource FontSizeMicro}"
+                                          VerticalAlignment="Center"
+                                          Margin="8,0,0,0"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
