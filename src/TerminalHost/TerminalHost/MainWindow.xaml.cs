@@ -237,6 +237,13 @@ public partial class MainWindow : Window
                 }
             }
 
+            // Rebind unified git panel when switching to a tab that has it as center panel
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab &&
+                newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
+            {
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
+            }
+
             // Refresh git sidebar when tab changes
             if (_viewModel.WorkspaceSidebar != null)
             {
@@ -1099,13 +1106,10 @@ public partial class MainWindow : Window
         switch (panel.DisplayState)
         {
             case PanelDisplayState.Panel:
-                // Show in docked panel
-                ShowPanelInTab(panel);
-                break;
-
-            case PanelDisplayState.Popup:
-                // Show as floating popup
-                ShowPanelAsPopup(panel);
+                if (IsCenterPanel(panel))
+                    ShowCenterPanelInTab(panel);
+                else
+                    ShowPanelInTab(panel);
                 break;
 
             case PanelDisplayState.Window:
@@ -1116,7 +1120,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Shows a panel in the current tab's docked panel area.
+    /// Shows a panel in the current tab's right sidebar area.
     /// </summary>
     private void ShowPanelInTab(IPanelableViewModel panel)
     {
@@ -1128,14 +1132,21 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Shows a panel as a floating popup.
+    /// Shows a panel in the current tab's center area, replacing terminals.
+    /// If the panel is currently in a window, focuses the window instead.
     /// </summary>
-    private void ShowPanelAsPopup(IPanelableViewModel panel)
+    private void ShowCenterPanelInTab(IPanelableViewModel panel)
     {
+        if (panel.DisplayState == PanelDisplayState.Window)
+        {
+            _panelWindowManager?.GetWindow(panel.PanelId)?.Activate();
+            return;
+        }
+
         if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
         {
             currentTab.SetPanel(panel);
-            currentTab.ShowPanelAsPopup(panel);
+            currentTab.ShowCenterPanel(panel);
         }
     }
 
@@ -1146,8 +1157,29 @@ public partial class MainWindow : Window
     {
         _panelWindowManager?.CloseWindow(panel.PanelId);
         panel.DisplayState = PanelDisplayState.Panel;
-        ShowPanelInTab(panel);
+
+        // Check if this is a center-type panel that should return to center
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab && currentTab.ActiveCenterPanel == null && IsCenterPanel(panel))
+        {
+            currentTab.SetPanel(panel);
+            currentTab.ShowCenterPanel(panel);
+        }
+        else
+        {
+            ShowPanelInTab(panel);
+        }
     }
+
+    /// <summary>
+    /// Determines if a panel is typically shown in the center area.
+    /// </summary>
+    private static bool IsCenterPanel(IPanelableViewModel panel) => panel.PanelId switch
+    {
+        "unifiedGit" or "branchComparison" or "searchFiles" or "markdownPreview"
+            or "fileViewer" or "prReview" or "testResults" or "recentFeatures"
+            or "mergeConflict" or "fileHistory" or "fileBlame" => true,
+        _ => false
+    };
 
     #endregion
 
@@ -1176,19 +1208,12 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // If in popup state, close the popup
-            if (_gitFilesViewModel.DisplayState == PanelDisplayState.Popup)
-            {
-                _gitFilesViewModel.IsOpen = false;
-                return;
-            }
-
             // Otherwise, toggle the docked panel (handles focus/visibility)
             currentTab.TogglePanel(_gitFilesViewModel);
             return;
         }
 
-        // Not open yet - use default DisplayState (Popup)
+        // Not open yet - open and show
         await _gitFilesViewModel.OpenAsync(currentTab);
     }
 
@@ -1552,40 +1577,51 @@ public partial class MainWindow : Window
         var currentTab = _viewModel.SelectedTab as TerminalPairTabViewModel;
         if (currentTab == null) return;
 
-        // Ensure the tab has the panel reference
-        currentTab.SetPanel(_markdownPreviewViewModel);
+        // Cycle behavior:
+        //   FileViewer in center (with .md file) → move to sidebar as MarkdownPreview → close sidebar
 
-        // If preview is already open, toggle center panel behavior
-        if (_markdownPreviewViewModel.IsOpen)
+        // State 1: FileViewer is the active center panel showing a markdown file
+        if (currentTab.ActiveCenterPanel == _fileViewerViewModel &&
+            _fileViewerViewModel.IsOpen &&
+            !string.IsNullOrEmpty(_fileViewerViewModel.FilePath) &&
+            _fileViewerViewModel.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
         {
-            // If in window state, close the window
-            if (_markdownPreviewViewModel.DisplayState == PanelDisplayState.Window)
-            {
-                _panelWindowManager?.CloseWindow(_markdownPreviewViewModel.PanelId);
-                _markdownPreviewViewModel.OnWindowClosed();
-                return;
-            }
+            var mdPath = _fileViewerViewModel.FilePath;
 
-            // If it's the active center panel, close it (return to terminals)
-            if (currentTab.ActiveCenterPanel == _markdownPreviewViewModel)
-            {
-                currentTab.CloseCenterPanel();
-                return;
-            }
+            // Close center panel (FileViewer)
+            currentTab.CloseCenterPanel();
 
-            // If it's in the right sidebar, toggle it
-            if (currentTab.RightPanels.Contains(_markdownPreviewViewModel))
-            {
-                currentTab.TogglePanel(_markdownPreviewViewModel);
-                return;
-            }
-
-            // Otherwise close it
-            _markdownPreviewViewModel.IsOpen = false;
+            // Open MarkdownPreview in sidebar
+            currentTab.SetPanel(_markdownPreviewViewModel);
+            _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
+            await _markdownPreviewViewModel.OpenAsync(mdPath);
+            currentTab.ShowPanel(_markdownPreviewViewModel);
             return;
         }
 
-        // Not open yet - need to find a markdown file to open
+        // State 2: MarkdownPreview is open in sidebar → close it
+        if (_markdownPreviewViewModel.IsOpen && currentTab.RightPanels.Contains(_markdownPreviewViewModel))
+        {
+            currentTab.TogglePanel(_markdownPreviewViewModel);
+            return;
+        }
+
+        // State 2b: MarkdownPreview is the active center panel → close it
+        if (currentTab.ActiveCenterPanel == _markdownPreviewViewModel)
+        {
+            currentTab.CloseCenterPanel();
+            return;
+        }
+
+        // State 2c: MarkdownPreview is in window state → close the window
+        if (_markdownPreviewViewModel.IsOpen && _markdownPreviewViewModel.DisplayState == PanelDisplayState.Window)
+        {
+            _panelWindowManager?.CloseWindow(_markdownPreviewViewModel.PanelId);
+            _markdownPreviewViewModel.OnWindowClosed();
+            return;
+        }
+
+        // State 3: Nothing open → find a markdown file and open FileViewer in center
         var workingDir = currentTab.WorkingDirectory;
         if (string.IsNullOrEmpty(workingDir)) return;
 
@@ -1603,14 +1639,7 @@ public partial class MainWindow : Window
             }
         }
 
-        if (filePath != null)
-        {
-            // Set display state BEFORE OpenAsync, which calls RequestShow() internally
-            _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-            await _markdownPreviewViewModel.OpenAsync(filePath);
-            currentTab.ShowCenterPanel(_markdownPreviewViewModel);
-        }
-        else
+        if (filePath == null)
         {
             // Open file picker to select a markdown file
             var dialog = new Microsoft.Win32.OpenFileDialog
@@ -1621,11 +1650,16 @@ public partial class MainWindow : Window
 
             if (dialog.ShowDialog() == true)
             {
-                // Set display state BEFORE OpenAsync, which calls RequestShow() internally
-                _markdownPreviewViewModel.DisplayState = Core.Interfaces.PanelDisplayState.Panel;
-                await _markdownPreviewViewModel.OpenAsync(dialog.FileName);
-                currentTab.ShowCenterPanel(_markdownPreviewViewModel);
+                filePath = dialog.FileName;
             }
+        }
+
+        if (filePath != null)
+        {
+            // Open FileViewer in center (has edit/side-by-side capabilities)
+            _fileViewerViewModel.Open(filePath, FileViewerMode.Preview);
+            currentTab.SetPanel(_fileViewerViewModel);
+            currentTab.ShowCenterPanel(_fileViewerViewModel);
         }
     }
 
@@ -1635,6 +1669,13 @@ public partial class MainWindow : Window
 
     private void ShowFileViewerCenterPanel()
     {
+        // If the file viewer is in a window, just focus it — Open() already updated the VM
+        if (_fileViewerViewModel.DisplayState == PanelDisplayState.Window)
+        {
+            _panelWindowManager?.GetWindow(_fileViewerViewModel.PanelId)?.Activate();
+            return;
+        }
+
         if (_viewModel.SelectedTab is TerminalPairTabViewModel tab)
         {
             tab.SetPanel(_fileViewerViewModel);
@@ -1715,17 +1756,11 @@ public partial class MainWindow : Window
 
     private async void OpenFileHistory(string workingDirectory, string filePath)
     {
-        var windowPos = PointToScreen(new Point(0, 0));
-        _fileHistoryViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileHistoryViewModel.Width) / 2;
-        _fileHistoryViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileHistoryViewModel.Height) / 2;
         await _fileHistoryViewModel.OpenAsync(workingDirectory, filePath);
     }
 
     private async void OpenFileBlame(string workingDirectory, string filePath)
     {
-        var windowPos = PointToScreen(new Point(0, 0));
-        _fileBlameViewModel.HorizontalOffset = windowPos.X + (ActualWidth - _fileBlameViewModel.Width) / 2;
-        _fileBlameViewModel.VerticalOffset = windowPos.Y + (ActualHeight - _fileBlameViewModel.Height) / 2;
         await _fileBlameViewModel.OpenAsync(workingDirectory, filePath);
     }
 

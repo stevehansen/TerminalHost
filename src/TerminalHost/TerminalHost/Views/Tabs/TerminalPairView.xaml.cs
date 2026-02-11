@@ -13,6 +13,7 @@ public partial class TerminalPairView : UserControl
 {
     private TerminalPairTabViewModel? _currentViewModel;
     private PanelWindow? _panelWindow;
+    private readonly HashSet<string> _centerPanelWindowOrigins = new();
 
     public TerminalPairView()
     {
@@ -28,22 +29,10 @@ public partial class TerminalPairView : UserControl
         if (RightPanelHost != null)
         {
             RightPanelHost.PanelCloseRequested -= OnPanelCloseRequested;
-            RightPanelHost.PanelUndockRequested -= OnPanelUndockRequested;
             RightPanelHost.PanelDetachRequested -= OnPanelDetachRequested;
 
             RightPanelHost.PanelCloseRequested += OnPanelCloseRequested;
-            RightPanelHost.PanelUndockRequested += OnPanelUndockRequested;
             RightPanelHost.PanelDetachRequested += OnPanelDetachRequested;
-        }
-
-        // Subscribe to PanelPopup events (unsubscribe first to prevent duplicates)
-        if (PanelPopupHost != null)
-        {
-            PanelPopupHost.DockRequested -= OnPopupDockRequested;
-            PanelPopupHost.PopOutRequested -= OnPopupPopOutRequested;
-
-            PanelPopupHost.DockRequested += OnPopupDockRequested;
-            PanelPopupHost.PopOutRequested += OnPopupPopOutRequested;
         }
     }
 
@@ -53,15 +42,7 @@ public partial class TerminalPairView : UserControl
         if (RightPanelHost != null)
         {
             RightPanelHost.PanelCloseRequested -= OnPanelCloseRequested;
-            RightPanelHost.PanelUndockRequested -= OnPanelUndockRequested;
             RightPanelHost.PanelDetachRequested -= OnPanelDetachRequested;
-        }
-
-        // Unsubscribe from PanelPopup events
-        if (PanelPopupHost != null)
-        {
-            PanelPopupHost.DockRequested -= OnPopupDockRequested;
-            PanelPopupHost.PopOutRequested -= OnPopupPopOutRequested;
         }
     }
 
@@ -71,17 +52,6 @@ public partial class TerminalPairView : UserControl
 
         // Hide the docked panel based on panel type
         HideDockPanel(panel);
-    }
-
-    private void OnPanelUndockRequested(object? sender, IPanelableViewModel panel)
-    {
-        if (_currentViewModel == null) return;
-
-        // Hide the docked panel
-        HideDockPanel(panel);
-
-        // Show as floating popup
-        ShowPanelPopup(panel);
     }
 
     private void OnPanelDetachRequested(object? sender, IPanelableViewModel panel)
@@ -122,7 +92,8 @@ public partial class TerminalPairView : UserControl
             case "markdownPreview":
             case "gitChanges":
             case "scratchPad":
-                // Re-add to panels if not already there (panel was removed when undocking/detaching)
+            default:
+                // Re-add to panels if not already there (panel was removed when detaching)
                 if (!_currentViewModel.RightPanels.Contains(panel))
                 {
                     _currentViewModel.AddPanel(panel, Core.Interfaces.PanelSide.Right);
@@ -137,43 +108,8 @@ public partial class TerminalPairView : UserControl
         }
     }
 
-    private void ShowPanelPopup(IPanelableViewModel panel)
-    {
-        // If there's already a different popup showing, dock it back first
-        if (PanelPopupHost.DataContext is IPanelableViewModel currentPopupPanel && currentPopupPanel != panel)
-        {
-            currentPopupPanel.IsOpen = false;
-            currentPopupPanel.DisplayState = PanelDisplayState.Panel;
-            ShowDockPanel(currentPopupPanel);
-        }
-
-        // Set up popup - set DataContext first, then delay opening to avoid WPF popup timing issues
-        panel.DisplayState = PanelDisplayState.Popup;
-        PanelPopupHost.DataContext = panel;
-
-        // Delay opening to next render frame to ensure visual tree is ready
-        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
-        {
-            panel.IsOpen = true;
-        });
-    }
-
     private void ShowPanelWindow(IPanelableViewModel panel)
     {
-        // If there's a popup showing for a different panel, dock it back first
-        if (PanelPopupHost.DataContext is IPanelableViewModel currentPopupPanel && currentPopupPanel != panel)
-        {
-            currentPopupPanel.IsOpen = false;
-            currentPopupPanel.DisplayState = PanelDisplayState.Panel;
-            ShowDockPanel(currentPopupPanel);
-        }
-        else if (PanelPopupHost.DataContext is IPanelableViewModel samePopupPanel)
-        {
-            // Same panel transitioning from popup to window - just close popup
-            samePopupPanel.IsOpen = false;
-        }
-        PanelPopupHost.DataContext = null;
-
         // Close existing window if any (different panel)
         if (_panelWindow != null && _panelWindow.DataContext != panel)
         {
@@ -206,36 +142,21 @@ public partial class TerminalPairView : UserControl
         _panelWindow.Show();
     }
 
-    private void OnPopupDockRequested(object? sender, IPanelableViewModel panel)
-    {
-        if (_currentViewModel == null) return;
-
-        // Clear popup
-        PanelPopupHost.DataContext = null;
-
-        // Show the docked panel again
-        panel.DisplayState = PanelDisplayState.Panel;
-        ShowDockPanel(panel);
-    }
-
-    private void OnPopupPopOutRequested(object? sender, IPanelableViewModel panel)
-    {
-        if (_currentViewModel == null) return;
-
-        // Clear popup
-        PanelPopupHost.DataContext = null;
-
-        // Show as window instead
-        ShowPanelWindow(panel);
-    }
-
     private void OnPanelWindowDockRequested(object? sender, IPanelableViewModel panel)
     {
         if (_currentViewModel == null) return;
 
-        // Show the docked panel again
         panel.DisplayState = PanelDisplayState.Panel;
-        ShowDockPanel(panel);
+
+        // Route back to center panel if it originated from there
+        if (_centerPanelWindowOrigins.Remove(panel.PanelId))
+        {
+            _currentViewModel.ShowCenterPanel(panel);
+        }
+        else
+        {
+            ShowDockPanel(panel);
+        }
 
         _panelWindow = null;
     }
@@ -248,7 +169,6 @@ public partial class TerminalPairView : UserControl
             _currentViewModel.PanelStateChangeRequested -= OnPanelStateChangeRequested;
             _currentViewModel.ExplorerToggleRequested -= OnExplorerToggleRequested;
             _currentViewModel.PanelToggleRequested -= OnPanelToggleRequested;
-            _currentViewModel.PopupShowRequested -= OnPopupShowRequested;
         }
 
         // Subscribe to new view model
@@ -258,7 +178,6 @@ public partial class TerminalPairView : UserControl
             vm.PanelStateChangeRequested += OnPanelStateChangeRequested;
             vm.ExplorerToggleRequested += OnExplorerToggleRequested;
             vm.PanelToggleRequested += OnPanelToggleRequested;
-            vm.PopupShowRequested += OnPopupShowRequested;
         }
         else
         {
@@ -268,25 +187,6 @@ public partial class TerminalPairView : UserControl
 
     private void OnExplorerToggleRequested(object? sender, ExplorerToggleEventArgs e)
     {
-        // Check if explorer is in popup state and actually open
-        if (PanelPopupHost.DataContext is FileExplorerPanelViewModel popupPanel && popupPanel.IsOpen)
-        {
-            // Popup is open - close it and dock back
-            popupPanel.IsOpen = false;
-            popupPanel.DisplayState = PanelDisplayState.Panel;
-            PanelPopupHost.DataContext = null;
-            ShowDockPanel(popupPanel);
-            e.Handled = true;
-            return;
-        }
-
-        // Clean up stale popup reference
-        if (PanelPopupHost.DataContext is FileExplorerPanelViewModel stalePopup && !stalePopup.IsOpen)
-        {
-            stalePopup.DisplayState = PanelDisplayState.Panel;
-            PanelPopupHost.DataContext = null;
-        }
-
         // Check if explorer is in window state
         if (_panelWindow != null && _panelWindow.DataContext is FileExplorerPanelViewModel)
         {
@@ -306,27 +206,6 @@ public partial class TerminalPairView : UserControl
 
         var panel = e.Panel;
 
-        // Check if panel is in popup state
-        if (PanelPopupHost.DataContext is IPanelableViewModel popupPanel &&
-            popupPanel.PanelId == panel.PanelId && popupPanel.IsOpen)
-        {
-            // Popup is open - close it and dock back
-            popupPanel.IsOpen = false;
-            popupPanel.DisplayState = PanelDisplayState.Panel;
-            PanelPopupHost.DataContext = null;
-            ShowDockPanel(popupPanel);
-            e.Handled = true;
-            return;
-        }
-
-        // Clean up stale popup reference
-        if (PanelPopupHost.DataContext is IPanelableViewModel stalePopup &&
-            stalePopup.PanelId == panel.PanelId && !stalePopup.IsOpen)
-        {
-            stalePopup.DisplayState = PanelDisplayState.Panel;
-            PanelPopupHost.DataContext = null;
-        }
-
         // Check if panel is in window state
         if (_panelWindow != null && _panelWindow.DataContext is IPanelableViewModel windowPanel &&
             windowPanel.PanelId == panel.PanelId)
@@ -338,7 +217,7 @@ public partial class TerminalPairView : UserControl
             return;
         }
 
-        // Not in popup or window state - default behavior will toggle the docked panel
+        // Not in window state - default behavior will toggle the docked panel
     }
 
     private void OnPanelStateChangeRequested(object? sender, PanelStateChangeRequestedEventArgs e)
@@ -354,7 +233,7 @@ public partial class TerminalPairView : UserControl
                 {
                     panel.PreferredSide = e.DockSide.Value;
                 }
-                // Re-add to panels if not already there (coming back from popup/window)
+                // Re-add to panels if not already there (coming back from window)
                 if (!_currentViewModel.RightPanels.Contains(panel) && !_currentViewModel.LeftPanels.Contains(panel))
                 {
                     _currentViewModel.AddPanel(panel, panel.PreferredSide);
@@ -362,18 +241,12 @@ public partial class TerminalPairView : UserControl
                 panel.DisplayState = PanelDisplayState.Panel;
                 break;
 
-            case PanelDisplayState.Popup:
             case PanelDisplayState.Window:
-                // Remove from docked panels when transitioning to popup/window
+                // Remove from docked panels when transitioning to window
                 _currentViewModel.RemovePanel(panel);
                 panel.DisplayState = e.RequestedState;
                 break;
         }
-    }
-
-    private void OnPopupShowRequested(object? sender, IPanelableViewModel panel)
-    {
-        ShowPanelPopup(panel);
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
@@ -462,6 +335,9 @@ public partial class TerminalPairView : UserControl
         if (_currentViewModel?.ActiveCenterPanel == null) return;
 
         var panel = _currentViewModel.ActiveCenterPanel;
+
+        // Track that this panel originated from center (for dock-back routing)
+        _centerPanelWindowOrigins.Add(panel.PanelId);
 
         // Close the center panel first
         _currentViewModel.CloseCenterPanel();

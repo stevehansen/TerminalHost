@@ -85,8 +85,8 @@ public partial class FileBlameViewModel : BasePanelViewModel
         _dialogService = dialogService;
         _toastService = toastService;
 
-        // Set defaults - defaults to Popup
-        DisplayState = PanelDisplayState.Popup;
+        // Set defaults - defaults to Panel
+        DisplayState = PanelDisplayState.Panel;
         Width = 1100;
         Height = 750;
     }

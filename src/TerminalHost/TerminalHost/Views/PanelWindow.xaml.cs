@@ -9,6 +9,8 @@ namespace TerminalHost.Views;
 /// </summary>
 public partial class PanelWindow : Window
 {
+    private bool _isDocking;
+
     public PanelWindow()
     {
         InitializeComponent();
@@ -24,6 +26,7 @@ public partial class PanelWindow : Window
     {
         if (DataContext is IPanelableViewModel vm)
         {
+            _isDocking = true;
             DockRequested?.Invoke(this, vm);
             Close();
         }
@@ -31,7 +34,7 @@ public partial class PanelWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        if (DataContext is IPanelableViewModel vm)
+        if (DataContext is IPanelableViewModel vm && !_isDocking)
         {
             vm.IsOpen = false;
         }

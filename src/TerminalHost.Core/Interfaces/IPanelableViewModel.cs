@@ -35,11 +35,6 @@ public enum PanelDisplayState
     Panel,
 
     /// <summary>
-    /// Floating as a popup within the application.
-    /// </summary>
-    Popup,
-
-    /// <summary>
     /// Detached as an independent window.
     /// </summary>
     Window
@@ -55,7 +50,7 @@ public enum PanelSide
 }
 
 /// <summary>
-/// Defines size presets for popup/window mode.
+/// Defines size presets for window mode.
 /// Responsive sizes scale with the main window dimensions.
 /// </summary>
 public enum PanelSizePreset
@@ -91,9 +86,8 @@ public enum PanelSizePreset
 }
 
 /// <summary>
-/// Interface for ViewModels that support transitioning between Panel, Popup, and Window states.
-/// Implementing this interface allows content to be docked as a tab, shown as a floating popup,
-/// or detached to a separate window.
+/// Interface for ViewModels that support transitioning between Panel and Window states.
+/// Implementing this interface allows content to be docked as a tab or detached to a separate window.
 /// </summary>
 public interface IPanelableViewModel : INotifyPropertyChanged
 {
@@ -129,33 +123,28 @@ public interface IPanelableViewModel : INotifyPropertyChanged
     bool IsOpen { get; set; }
 
     /// <summary>
-    /// Width of the panel content (used for popup and panel sizing).
+    /// Width of the panel content (used for panel sizing).
     /// </summary>
     double Width { get; set; }
 
     /// <summary>
-    /// Height of the panel content (used for popup sizing).
+    /// Height of the panel content (used for window sizing).
     /// </summary>
     double Height { get; set; }
 
     /// <summary>
-    /// Size preset for popup/window mode.
-    /// Determines how the panel is sized when shown as popup or window.
+    /// Size preset for window mode.
+    /// Determines how the panel is sized when shown as a window.
     /// </summary>
     PanelSizePreset SizePreset { get; }
 
     /// <summary>
-    /// Command to dock the panel (from Popup or Window state to Panel state).
+    /// Command to dock the panel (from Window state to Panel state).
     /// </summary>
     ICommand DockCommand { get; }
 
     /// <summary>
-    /// Command to undock the panel (from Panel state to Popup state).
-    /// </summary>
-    ICommand UndockCommand { get; }
-
-    /// <summary>
-    /// Command to detach the panel to a window (from Panel or Popup state to Window state).
+    /// Command to detach the panel to a window (from Panel state to Window state).
     /// </summary>
     ICommand DetachCommand { get; }
 
@@ -166,12 +155,12 @@ public interface IPanelableViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Optional collection of custom header commands specific to this panel type.
-    /// These buttons appear before the standard Undock/PopOut/Close buttons.
+    /// These buttons appear before the standard PopOut/Close buttons.
     /// </summary>
     IEnumerable<PanelHeaderCommand>? HeaderCommands { get; }
 
     /// <summary>
-    /// Optional status text displayed in the footer (popup/window modes only).
+    /// Optional status text displayed in the footer (window mode only).
     /// </summary>
     string? StatusText { get; }
 

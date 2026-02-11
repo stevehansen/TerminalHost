@@ -53,7 +53,7 @@ public partial class MergeConflictViewModel : BasePanelViewModel
         _fileSystem = fileSystem;
         _toastService = toastService;
 
-        DisplayState = PanelDisplayState.Popup;
+        DisplayState = PanelDisplayState.Panel;
         Width = 1200;
         Height = 800;
     }

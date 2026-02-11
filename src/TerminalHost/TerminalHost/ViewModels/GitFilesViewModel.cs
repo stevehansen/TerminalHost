@@ -179,8 +179,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         _diffParserService = diffParserService;
         _configurationService = configurationService;
 
-        // Set defaults for git changes - defaults to Popup
-        DisplayState = PanelDisplayState.Popup;
+        // Set defaults for git changes - defaults to Panel
+        DisplayState = PanelDisplayState.Panel;
         Width = 1100;
         Height = 700;
     }

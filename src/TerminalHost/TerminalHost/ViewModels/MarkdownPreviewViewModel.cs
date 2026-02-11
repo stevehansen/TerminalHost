@@ -124,9 +124,6 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
 
         await RefreshAsync();
         SetupFileWatcher();
-
-        // Request window to be shown
-        RequestShow();
     }
 
     /// <summary>

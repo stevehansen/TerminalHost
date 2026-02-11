@@ -1200,20 +1200,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public event EventHandler<PanelToggleEventArgs>? PanelToggleRequested;
 
-    /// <summary>
-    /// Event raised when a panel should be shown as a popup.
-    /// The View should handle this to display the panel in the PanelPopupHost.
-    /// </summary>
-    public event EventHandler<IPanelableViewModel>? PopupShowRequested;
-
-    /// <summary>
-    /// Shows a panel as a popup (floating above the terminal area).
-    /// </summary>
-    public void ShowPanelAsPopup(IPanelableViewModel panel)
-    {
-        PopupShowRequested?.Invoke(this, panel);
-    }
-
     [RelayCommand]
     private void ToggleExplorer()
     {

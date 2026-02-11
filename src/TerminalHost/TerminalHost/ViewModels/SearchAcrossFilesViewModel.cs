@@ -134,8 +134,8 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         _timerService = timerService;
         _dispatcherService = dispatcherService;
 
-        // Set defaults for search panel - defaults to Popup
-        DisplayState = PanelDisplayState.Popup;
+        // Set defaults for search panel - defaults to Panel
+        DisplayState = PanelDisplayState.Panel;
         Width = 900;
         Height = 600;
     }

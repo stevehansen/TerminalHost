@@ -119,12 +119,6 @@ public partial class PanelHost : UserControl
     public event EventHandler<IPanelableViewModel>? PanelCloseRequested;
 
     /// <summary>
-    /// Raised when the undock button is clicked on a panel.
-    /// The parent should handle transitioning to popup mode.
-    /// </summary>
-    public event EventHandler<IPanelableViewModel>? PanelUndockRequested;
-
-    /// <summary>
     /// Raised when the pop-out button is clicked on a panel.
     /// The parent should handle transitioning to window mode.
     /// </summary>
@@ -145,15 +139,6 @@ public partial class PanelHost : UserControl
         {
             ActivePanel = panel;
             e.Handled = true;
-        }
-    }
-
-    private void UndockButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (ActivePanel != null)
-        {
-            // Raise event for parent to handle
-            PanelUndockRequested?.Invoke(this, ActivePanel);
         }
     }
 

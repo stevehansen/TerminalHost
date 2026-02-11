@@ -67,15 +67,6 @@
                             Background="{StaticResource BorderSubtleBrush}"
                             Margin="2,4,4,4"
                             Visibility="{Binding ActivePanel.HeaderCommands, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource NullToCollapsedConverter}}"/>
-                    <!-- Undock button -->
-                    <Button x:Name="UndockButton"
-                            Content="&#x229E;"
-                            ToolTip="Undock to popup"
-                            Style="{StaticResource TabCloseButton}"
-                            FontSize="12"
-                            Padding="6,2"
-                            Margin="0,0,2,0"
-                            Click="UndockButton_Click"/>
                     <!-- Pop-out button -->
                     <Button x:Name="PopOutButton"
                             Content="&#x29C9;"

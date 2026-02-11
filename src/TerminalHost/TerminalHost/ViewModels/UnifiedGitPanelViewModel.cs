@@ -109,8 +109,8 @@ public partial class UnifiedGitPanelViewModel : BasePanelViewModel
         TagsVM = tagsVM;
         ComparisonVM = comparisonVM;
 
-        // Default to Popup state with large size
-        DisplayState = PanelDisplayState.Popup;
+        // Default to Panel state with large size
+        DisplayState = PanelDisplayState.Panel;
         Width = 1200;
         Height = 800;
     }

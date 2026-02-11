@@ -125,6 +125,16 @@
                             Style="{StaticResource ViewerToolbarButton}"
                             Command="{Binding ReloadCommand}"
                             ToolTip="Reload"/>
+                    <Button Content="📋"
+                            Style="{StaticResource ViewerToolbarButton}"
+                            Command="{Binding CopyContentsCommand}"
+                            ToolTip="Copy Contents"
+                            Visibility="{Binding CanCopyContents, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="📁"
+                            Style="{StaticResource ViewerToolbarButton}"
+                            Command="{Binding CopyPathCommand}"
+                            ToolTip="Copy Full Path"
+                            Visibility="{Binding CanCopyContents, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <Button Content="📜"
                             Style="{StaticResource ViewerToolbarButton}"
                             Command="{Binding ViewHistoryCommand}"
@@ -135,17 +145,6 @@
                             Command="{Binding ViewBlameCommand}"
                             ToolTip="View Blame (Ctrl+Shift+B)"
                             Visibility="{Binding CanViewBlame, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                    <Button Content="⧉"
-                            Style="{StaticResource ViewerToolbarButton}"
-                            Command="{Binding DetachCommand}"
-                            ToolTip="Pop Out"
-                            Visibility="{Binding IsDetached, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                    <!-- Hide close button in detached window mode (window has its own close) -->
-                    <Button Content="✕"
-                            Style="{StaticResource ViewerToolbarButton}"
-                            Command="{Binding CloseCommand}"
-                            ToolTip="Close"
-                            Visibility="{Binding IsDetached, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -153,9 +152,12 @@
         <!-- Content area -->
         <Grid Grid.Row="1">
             <!-- Preview mode: FlowDocumentScrollViewer (for non-markdown text files) -->
+            <!-- Document is managed in code-behind (not via binding) because a FlowDocument
+                 can only belong to one FlowDocumentScrollViewer at a time. XAML bindings cause
+                 crashes during panel transitions when the binding engine activates on a new view
+                 instance before the old one releases the document. -->
             <FlowDocumentScrollViewer
                 x:Name="PreviewViewer"
-                Document="{Binding PreviewDocument}"
                 Visibility="{Binding IsPreviewMode, Converter={StaticResource BoolToVisibilityConverter}}"
                 Background="#1E1E1E"
                 Foreground="#CCCCCC"

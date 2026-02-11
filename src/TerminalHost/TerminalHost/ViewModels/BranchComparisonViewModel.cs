@@ -119,8 +119,8 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         _configurationService = configurationService;
         _mainViewModel = mainViewModel;
 
-        // Default to Popup state
-        DisplayState = PanelDisplayState.Popup;
+        // Default to Panel state
+        DisplayState = PanelDisplayState.Panel;
         Width = 1100;
         Height = 700;
     }

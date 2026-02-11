@@ -67,7 +67,7 @@ public partial class ReflogViewModel : BasePanelViewModel
         _dialogService = dialogService;
         _toastService = toastService;
 
-        DisplayState = PanelDisplayState.Popup;
+        DisplayState = PanelDisplayState.Panel;
         Width = 700;
         Height = 500;
     }

@@ -530,10 +530,11 @@
                                     Style="{StaticResource TabCloseButton}"
                                     Command="{Binding CloseCenterPanelCommand}"
                                     ToolTip="Back to Terminals (Escape)"/>
-                            <Button DockPanel.Dock="Right" Content="⊡"
+                            <Button DockPanel.Dock="Right" Content="&#x29C9;"
                                     Style="{StaticResource TabCloseButton}"
                                     Click="PopOutCenterPanel_Click"
                                     ToolTip="Pop out to window"
+                                    FontSize="12"
                                     Margin="0,0,4,0"/>
                             <Button DockPanel.Dock="Left"
                                     Style="{StaticResource TerminalSwitchButton}"
@@ -571,7 +572,5 @@
                                 Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>
 
-        <!-- Panel Popup Host - for undocked panels shown as floating popups -->
-        <controls:PanelPopup x:Name="PanelPopupHost" Grid.Row="1"/>
     </Grid>
 </UserControl>

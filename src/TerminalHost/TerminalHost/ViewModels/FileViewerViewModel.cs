@@ -138,6 +138,11 @@ public partial class FileViewerViewModel : BasePanelViewModel
     /// </summary>
     public bool CanViewBlame => !string.IsNullOrEmpty(_currentFilePath) && !IsImageMode;
 
+    /// <summary>
+    /// Can copy contents for text/markdown files and images (not binary).
+    /// </summary>
+    public bool CanCopyContents => !string.IsNullOrEmpty(_currentFilePath);
+
     public FileViewerViewModel(
         IFilePreviewService filePreviewService,
         IFileEditService fileEditService,
@@ -165,9 +170,17 @@ public partial class FileViewerViewModel : BasePanelViewModel
         FileName = Path.GetFileName(filePath);
         Title = FileName;
 
+        // Reset all modes before determining the new one
+        IsMarkdownMode = false;
+        RenderedHtml = "";
+        IsImageMode = false;
+        ImageSource = null;
+        ImageInfo = "";
+
         // Notify that computed properties may have changed
         OnPropertyChanged(nameof(ShowSideBySideTab));
         OnPropertyChanged(nameof(MarkdownBasePath));
+        OnPropertyChanged(nameof(CanCopyContents));
 
         // Check if it's an image file
         var extension = Path.GetExtension(filePath);
@@ -178,10 +191,6 @@ public partial class FileViewerViewModel : BasePanelViewModel
             return;
         }
 
-        // Reset image mode for text files
-        IsImageMode = false;
-        ImageSource = null;
-        ImageInfo = "";
         Mode = mode;
 
         if (mode == FileViewerMode.Preview)
@@ -411,6 +420,11 @@ public partial class FileViewerViewModel : BasePanelViewModel
         }
     }
 
+    partial void OnTitleChanged(string value)
+    {
+        OnPropertyChanged(nameof(PanelTitle));
+    }
+
     partial void OnIsImageModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsPreviewMode));
@@ -419,12 +433,14 @@ public partial class FileViewerViewModel : BasePanelViewModel
         OnPropertyChanged(nameof(IsEditModeSelected));
         OnPropertyChanged(nameof(CanViewHistory));
         OnPropertyChanged(nameof(CanViewBlame));
+        OnPropertyChanged(nameof(CanCopyContents));
     }
 
     partial void OnIsMarkdownModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsPreviewMode));
         OnPropertyChanged(nameof(IsMarkdownPreviewMode));
+        OnPropertyChanged(nameof(CanCopyContents));
     }
 
     partial void OnEditContentChanged(string value)
@@ -572,6 +588,44 @@ public partial class FileViewerViewModel : BasePanelViewModel
     {
         if (string.IsNullOrEmpty(_currentFilePath) || IsImageMode) return;
         FileBlameRequested?.Invoke(this, _currentFilePath);
+    }
+
+    [RelayCommand]
+    private void CopyContents()
+    {
+        if (string.IsNullOrEmpty(_currentFilePath)) return;
+
+        if (IsImageMode)
+        {
+            // Copy image to clipboard
+            if (ImageSource is BitmapSource bitmapSource)
+            {
+                Clipboard.SetImage(bitmapSource);
+            }
+        }
+        else
+        {
+            // Copy text content (edit content if in edit mode, otherwise read from file)
+            var text = !string.IsNullOrEmpty(EditContent)
+                ? EditContent
+                : _fileSystem.FileExists(_currentFilePath)
+                    ? _fileSystem.ReadAllText(_currentFilePath)
+                    : null;
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                Clipboard.SetText(text);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void CopyPath()
+    {
+        if (!string.IsNullOrEmpty(_currentFilePath))
+        {
+            Clipboard.SetText(_currentFilePath);
+        }
     }
 
     [RelayCommand]

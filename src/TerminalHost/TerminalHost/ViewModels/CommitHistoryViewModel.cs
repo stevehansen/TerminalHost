@@ -112,8 +112,8 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         _toastService = toastService;
         _commitGraphService = commitGraphService;
 
-        // Set defaults - defaults to Popup
-        DisplayState = PanelDisplayState.Popup;
+        // Set defaults - defaults to Panel
+        DisplayState = PanelDisplayState.Panel;
         Width = 1200;
         Height = 750;
     }

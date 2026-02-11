@@ -30,7 +30,7 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     public abstract string PanelIcon { get; }
 
     /// <summary>
-    /// Size preset for popup/window mode.
+    /// Size preset for window mode.
     /// </summary>
     public abstract PanelSizePreset SizePreset { get; }
 
@@ -44,7 +44,7 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     public virtual IEnumerable<PanelHeaderCommand>? HeaderCommands => null;
 
     /// <summary>
-    /// Optional status text displayed in the footer (popup/window modes only).
+    /// Optional status text displayed in the footer (window mode only).
     /// </summary>
     public virtual string? StatusText => null;
 
@@ -78,7 +78,6 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     #region Commands
 
     public ICommand DockCommand { get; }
-    public ICommand UndockCommand { get; }
     public ICommand DetachCommand { get; }
     public ICommand CloseCommand { get; }
 
@@ -87,7 +86,7 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     #region Events
 
     /// <summary>
-    /// Raised when the panel requests a state change (dock, undock, detach).
+    /// Raised when the panel requests a state change (dock, detach).
     /// The handler should perform the actual state transition.
     /// </summary>
     public event EventHandler<PanelStateChangeRequestedEventArgs>? StateChangeRequested;
@@ -102,7 +101,6 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     protected BasePanelViewModel()
     {
         DockCommand = new RelayCommand<PanelSide?>(OnDock);
-        UndockCommand = new RelayCommand(OnUndock);
         DetachCommand = new RelayCommand(OnDetach);
         CloseCommand = new RelayCommand(OnClose);
     }
@@ -119,16 +117,6 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
         DisplayState = PanelDisplayState.Panel;
         StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Panel, dockSide));
         // After state change, request to show in docked position
-        RequestShow();
-    }
-
-    /// <summary>
-    /// Handles undock command - requests transition to Popup state.
-    /// </summary>
-    protected virtual void OnUndock()
-    {
-        StateChangeRequested?.Invoke(this, new PanelStateChangeRequestedEventArgs(PanelDisplayState.Popup));
-        // After state change removes from docked panels, request to show as popup
         RequestShow();
     }
 

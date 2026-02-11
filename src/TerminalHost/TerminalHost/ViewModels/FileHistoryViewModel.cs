@@ -91,8 +91,8 @@ public partial class FileHistoryViewModel : BasePanelViewModel
         _dialogService = dialogService;
         _toastService = toastService;
 
-        // Set defaults - defaults to Popup
-        DisplayState = PanelDisplayState.Popup;
+        // Set defaults - defaults to Panel
+        DisplayState = PanelDisplayState.Panel;
         Width = 1000;
         Height = 700;
     }

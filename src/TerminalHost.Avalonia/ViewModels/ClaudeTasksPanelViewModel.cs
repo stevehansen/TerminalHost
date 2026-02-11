@@ -137,12 +137,6 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private bool _isEmptyStateVisible = true;
 
     /// <summary>
-    /// Whether the popup should be visible (IsOpen AND DisplayState is Popup).
-    /// Used by the popup view to avoid showing when panel is docked.
-    /// </summary>
-    public bool IsPopupVisible => IsOpen && DisplayState == PanelDisplayState.Popup;
-
-    /// <summary>
     /// Text for manual task creation.
     /// </summary>
     [ObservableProperty]
@@ -206,15 +200,6 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         {
             _claudeTaskFileService.TasksChanged += OnFileTasksChanged;
         }
-
-        // Subscribe to property changes to update IsPopupVisible
-        PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(IsOpen) or nameof(DisplayState))
-            {
-                OnPropertyChanged(nameof(IsPopupVisible));
-            }
-        };
 
         // Note: Panel is opened directly via ClaudeTasksPanelViewModel.Open() from MainViewModel
         // with the workspace path, rather than through an event
