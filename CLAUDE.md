@@ -28,7 +28,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **CLI & Single Instance**: `host .` support with named pipe IPC and duplicate tab detection.
 - [x] **Terminal Features**: ANSI colors, Interactive CLI support, Nerd Font (Cascadia Code NF), Activity indicators.
 - [x] **Settings & Persistence**: Form-based (Rich) and JSON (Raw) settings editor (Ctrl+,), window/session state persistence.
-- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff and hunk staging (Alt+G), Stash manager (Ctrl+Shift+S), Commit graph, Merge conflict resolution, Tree view toggle, Advanced commit filters.
+- [x] **Git Integration**: Status display, Branch switcher (Ctrl+B), Changes panel with diff and hunk staging (Alt+G), Commit UI with staged/unstaged sections, AI-powered message generation (claude -p), conventional commit prefixes, and Ctrl+Enter to commit. Stash manager (Ctrl+Shift+S), Commit graph, Merge conflict resolution, Tree view toggle, Advanced commit filters.
 - [x] **File Tools**: File explorer panel (Ctrl+Shift+F), syntax-highlighted preview (Ctrl+O), built-in editor (Ctrl+Shift+E).
 - [x] **Productivity**: Command palette (Ctrl+Shift+P), Tab switcher (Ctrl+Shift+T), Scratch pad (Ctrl+Shift+N).
 - [x] **Project Runner**: F5 to run projects with auto-detection and dedicated run terminal.
@@ -458,6 +458,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `Ctrl+Shift+P`: Open command palette
 - `Ctrl+Shift+N`: Open scratch pad (notes)
 - `Alt+G`: Open git changes panel (modified files + diffs + staging + commit UI)
+- `Ctrl+Enter`: Commit staged changes (when commit message box is focused)
 - `Ctrl+H`: Open commit history viewer
 - `Ctrl+F3`: Search across files (full-text search with replace)
 - `Ctrl+B`: Open git branch switcher
