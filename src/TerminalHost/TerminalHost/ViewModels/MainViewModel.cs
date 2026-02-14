@@ -1993,6 +1993,20 @@ public partial class MainViewModel : ObservableObject
                 IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => IsHelpOpen = true
             },
+            new() {
+                Id = "open-crash-log-folder",
+                Name = "Open Crash Log Folder",
+                Description = "Open the folder with app crash reports",
+                Icon = "🩺",
+                Category = "Help",
+                IntroducedOn = new DateOnly(2026, 2, 13),
+                Execute = () =>
+                {
+                    var crashLogDirectory = GetCrashLogDirectoryPath();
+                    Directory.CreateDirectory(crashLogDirectory);
+                    _processService.OpenFolder(crashLogDirectory);
+                }
+            },
 
             // Scratch Pad
             new() {
@@ -2686,6 +2700,12 @@ public partial class MainViewModel : ObservableObject
         }
 
         _configService.Save(config);
+    }
+
+    private static string GetCrashLogDirectoryPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return Path.Combine(appData, "TerminalHost", "logs");
     }
 
     /// <summary>

@@ -72,6 +72,7 @@ public partial class HelpViewModel : ObservableObject
     public List<ImportantPath> ImportantPaths { get; } =
     [
         new("Config file:", "%APPDATA%\\TerminalHost\\config.json"),
+        new("Crash logs:", "%APPDATA%\\TerminalHost\\logs\\"),
     ];
 
     #endregion

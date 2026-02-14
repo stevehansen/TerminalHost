@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
@@ -72,6 +73,7 @@ public partial class App : Application
         // Add global exception handlers
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         // Take control of application shutdown so the app doesn't exit when the modal setup window closes.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -523,9 +525,27 @@ public partial class App : Application
         e.Handled = true; // Prevent the application from terminating immediately
     }
 
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        // Keep the app alive for unobserved background task exceptions, but persist diagnostics.
+        var reportPath = WriteCrashReport("Unobserved Task Exception", e.Exception);
+        if (!string.IsNullOrEmpty(reportPath))
+        {
+            Debug.WriteLine($"Unobserved task exception report written: {reportPath}");
+        }
+
+        e.SetObserved();
+    }
+
     private void ShowUnhandledException(Exception ex, string type)
     {
+        var reportPath = WriteCrashReport(type, ex);
         var errorMessage = $"{type}:\n\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
+        if (!string.IsNullOrEmpty(reportPath))
+        {
+            errorMessage += $"\n\nCrash report saved to:\n{reportPath}";
+        }
+
         System.Diagnostics.Debug.WriteLine(errorMessage); // Log to debug output
 
         MessageBox.Show(
@@ -535,6 +555,42 @@ public partial class App : Application
             MessageBoxImage.Error);
 
         Shutdown();
+    }
+
+    private static string? WriteCrashReport(string type, Exception ex)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var logDirectory = Path.Combine(appData, "TerminalHost", "logs");
+            Directory.CreateDirectory(logDirectory);
+
+            var timestamp = DateTime.UtcNow;
+            var fileName = $"crash-{timestamp:yyyyMMdd-HHmmss-fff}.log";
+            var reportPath = Path.Combine(logDirectory, fileName);
+
+            var report = new StringBuilder();
+            report.AppendLine("TerminalHost Crash Report");
+            report.AppendLine("=========================");
+            report.AppendLine($"TimestampUtc: {timestamp:O}");
+            report.AppendLine($"Type: {type}");
+            report.AppendLine($"ProcessPath: {Environment.ProcessPath}");
+            report.AppendLine($"BaseDirectory: {AppContext.BaseDirectory}");
+            report.AppendLine($"OSVersion: {Environment.OSVersion}");
+            report.AppendLine($"RuntimeVersion: {Environment.Version}");
+            report.AppendLine($"Is64BitProcess: {Environment.Is64BitProcess}");
+            report.AppendLine();
+            report.AppendLine("Exception:");
+            report.AppendLine(ex.ToString());
+
+            File.WriteAllText(reportPath, report.ToString());
+            return reportPath;
+        }
+        catch (Exception writeEx)
+        {
+            Debug.WriteLine($"Failed to write crash report: {writeEx.Message}");
+            return null;
+        }
     }
 
     #region Claude Code Hook Handling
