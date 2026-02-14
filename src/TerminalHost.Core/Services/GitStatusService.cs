@@ -238,6 +238,17 @@ public sealed class GitStatusService : IGitStatusService
             var fullPath = Path.Combine(workingDirectory, filePath);
             if (_fileSystem.FileExists(fullPath))
             {
+                // Check if file is binary before trying to read as text
+                if (IsBinaryFile(fullPath))
+                {
+                    return string.Join("\n", new[]
+                    {
+                        $"diff --git a/{filePath} b/{filePath}",
+                        "new file mode 100644",
+                        $"Binary files /dev/null and b/{filePath} differ"
+                    });
+                }
+
                 try
                 {
                     var content = await _fileSystem.ReadAllTextAsync(fullPath);
@@ -999,6 +1010,36 @@ public sealed class GitStatusService : IGitStatusService
         MarkBlameGroups(result.Lines);
 
         return result;
+    }
+
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Images
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg", ".tiff", ".tif",
+        ".psd", ".ai", ".eps", ".raw", ".cr2", ".nef", ".heic", ".avif",
+        // Audio
+        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a",
+        // Video
+        ".mp4", ".avi", ".mkv", ".mov", ".webm", ".wmv", ".flv", ".m4v",
+        // Archives
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".zst",
+        // Executables/Libraries
+        ".exe", ".dll", ".so", ".dylib", ".msi", ".app", ".deb", ".rpm",
+        // Documents
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        // Fonts
+        ".ttf", ".otf", ".woff", ".woff2", ".eot",
+        // Database
+        ".db", ".sqlite", ".sqlite3",
+        // Other binary
+        ".bin", ".dat", ".class", ".pyc", ".pyo", ".o", ".obj", ".lib", ".a",
+        ".nupkg", ".snupkg", ".whl",
+    };
+
+    private static bool IsBinaryFile(string filePath)
+    {
+        var ext = Path.GetExtension(filePath);
+        return !string.IsNullOrEmpty(ext) && BinaryExtensions.Contains(ext);
     }
 
     private static bool IsHexString(ReadOnlySpan<char> span)

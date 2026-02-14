@@ -69,7 +69,24 @@ public partial class HunkStagingDiffViewer : UserControl
 
         var parsed = _diffParser.Parse(DiffText);
         if (parsed.Hunks.Count == 0)
+        {
+            // Show header info for binary files (e.g., "Binary files /dev/null and b/image.png differ")
+            var binaryLine = parsed.HeaderLines.FirstOrDefault(l => l.StartsWith("Binary files", StringComparison.Ordinal));
+            if (binaryLine != null)
+            {
+                var message = new TextBlock
+                {
+                    Text = binaryLine,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xDC, 0xFE)),
+                    FontFamily = (FontFamily)FindResource("FontFamilyMonospace"),
+                    FontSize = 13,
+                    Padding = new Thickness(16, 16, 16, 16),
+                    FontStyle = FontStyles.Italic
+                };
+                HunksControl.Items.Add(message);
+            }
             return;
+        }
 
         for (int i = 0; i < parsed.Hunks.Count; i++)
         {
