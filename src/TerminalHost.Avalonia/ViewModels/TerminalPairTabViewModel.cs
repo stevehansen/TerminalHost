@@ -421,8 +421,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? CloseRequested;
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
+#pragma warning disable CS0067 // Events not yet wired on macOS
     public event EventHandler? TaskPanelRequested;
     public event EventHandler? ClaudeTasksPanelRequested;
+#pragma warning restore CS0067
 
     public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null)
     {
@@ -643,36 +645,39 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
 
         // Unsubscribe old handlers to prevent memory leaks
-        if (_customActivityHandler != null)
+        if (_customActivityHandler != null && Pair.CustomTerminal != null)
             Pair.CustomTerminal.ActivityChanged -= _customActivityHandler;
-        if (_customTitleHandler != null)
+        if (_customTitleHandler != null && Pair.CustomTerminal != null)
             Pair.CustomTerminal.TitleChanged -= _customTitleHandler;
-        if (_customOutputHandler != null)
+        if (_customOutputHandler != null && Pair.CustomTerminal != null)
             Pair.CustomTerminal.OutputReceived -= _customOutputHandler;
 
         CustomTerminalContent = newControl.NativeControl as Control;
-        Pair.CustomTerminal.SetTerminalControl(newControl);
+        Pair.CustomTerminal?.SetTerminalControl(newControl);
+
+        var terminal = Pair.CustomTerminal;
+        if (terminal == null) return;
 
         // Create and store new handlers
-        _customActivityHandler = (s, e) => { IsCustomTerminalActive = Pair.CustomTerminal.IsActive; };
+        _customActivityHandler = (s, e) => { IsCustomTerminalActive = terminal.IsActive; };
         _customTitleHandler = (s, title) => { CustomTerminalTitle = title; };
         _customOutputHandler = (s, output) =>
         {
             // Process output for Claude task detection
-            _claudeTaskDetectionService?.ProcessOutput(output, Pair.CustomTerminal.Id);
+            _claudeTaskDetectionService?.ProcessOutput(output, terminal.Id);
         };
 
         // Subscribe to activity changes
-        Pair.CustomTerminal.ActivityChanged += _customActivityHandler;
+        terminal.ActivityChanged += _customActivityHandler;
 
         // Subscribe to title changes
-        Pair.CustomTerminal.TitleChanged += _customTitleHandler;
+        terminal.TitleChanged += _customTitleHandler;
 
         // Subscribe to output for Claude task detection
-        Pair.CustomTerminal.OutputReceived += _customOutputHandler;
+        terminal.OutputReceived += _customOutputHandler;
 
         // Start monitoring new terminal for Claude tasks
-        _claudeTaskDetectionService?.StartMonitoring(Pair.CustomTerminal.Id);
+        _claudeTaskDetectionService?.StartMonitoring(terminal.Id);
 
         // Reset title for new terminal
         CustomTerminalTitle = string.Empty;

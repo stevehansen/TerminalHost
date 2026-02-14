@@ -48,7 +48,8 @@ public partial class TabDropdownView : UserControl
             if (DropdownTabList.SelectedIndex < DropdownTabList.ItemCount - 1)
             {
                 DropdownTabList.SelectedIndex++;
-                DropdownTabList.ScrollIntoView(DropdownTabList.SelectedItem);
+                if (DropdownTabList.SelectedItem != null)
+                    DropdownTabList.ScrollIntoView(DropdownTabList.SelectedItem);
             }
             e.Handled = true;
         }
@@ -57,7 +58,8 @@ public partial class TabDropdownView : UserControl
             if (DropdownTabList.SelectedIndex > 0)
             {
                 DropdownTabList.SelectedIndex--;
-                DropdownTabList.ScrollIntoView(DropdownTabList.SelectedItem);
+                if (DropdownTabList.SelectedItem != null)
+                    DropdownTabList.ScrollIntoView(DropdownTabList.SelectedItem);
             }
             e.Handled = true;
         }

@@ -1,3 +1,8 @@
+// Suppress nullable warnings caused by VtNetCore types lacking proper annotations
+#pragma warning disable CS8604 // Possible null reference argument (VtNetCore operators)
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type (VtNetCore comparisons)
+#pragma warning disable CS8601 // Possible null reference assignment (VtNetCore types)
+
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -1431,7 +1436,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         if (topLevel?.Clipboard == null)
             return;
 
+#pragma warning disable CS0618 // IClipboard.GetTextAsync is obsolete in newer Avalonia
         var text = await topLevel.Clipboard.GetTextAsync();
+#pragma warning restore CS0618
         if (!string.IsNullOrEmpty(text))
         {
             ClearSelection();

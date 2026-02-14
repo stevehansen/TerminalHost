@@ -46,7 +46,8 @@ public partial class TabSwitcherView : UserControl
             if (SwitcherTabList.SelectedIndex < SwitcherTabList.ItemCount - 1)
             {
                 SwitcherTabList.SelectedIndex++;
-                SwitcherTabList.ScrollIntoView(SwitcherTabList.SelectedItem);
+                if (SwitcherTabList.SelectedItem != null)
+                    SwitcherTabList.ScrollIntoView(SwitcherTabList.SelectedItem);
             }
             e.Handled = true;
         }
@@ -55,7 +56,8 @@ public partial class TabSwitcherView : UserControl
             if (SwitcherTabList.SelectedIndex > 0)
             {
                 SwitcherTabList.SelectedIndex--;
-                SwitcherTabList.ScrollIntoView(SwitcherTabList.SelectedItem);
+                if (SwitcherTabList.SelectedItem != null)
+                    SwitcherTabList.ScrollIntoView(SwitcherTabList.SelectedItem);
             }
             e.Handled = true;
         }

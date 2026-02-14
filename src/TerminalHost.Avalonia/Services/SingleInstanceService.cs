@@ -22,7 +22,9 @@ internal sealed class SingleInstanceService : ISingleInstanceService
     private Task? _pipeServerTask;
 
     public event EventHandler<CommandLineArgs>? CommandReceived;
+#pragma warning disable CS0067 // Event is required by interface but not raised on macOS
     public event EventHandler<HookEvent>? HookEventReceived;
+#pragma warning restore CS0067
 
     public bool TryAcquireLock()
     {

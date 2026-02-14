@@ -106,6 +106,7 @@ public partial class TabStrip : UserControl
         if (Math.Abs(diff.X) > 5 || Math.Abs(diff.Y) > 5)
         {
             _isDragging = true;
+#pragma warning disable CS0618 // Avalonia drag-drop API migration deferred
             var dragData = new DataObject();
             dragData.Set("TabViewModel", _draggedTab);
 
@@ -113,12 +114,14 @@ public partial class TabStrip : UserControl
             {
                 await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
             }
+#pragma warning restore CS0618
 
             _draggedTab = null;
             _isDragging = false;
         }
     }
 
+#pragma warning disable CS0618 // Avalonia drag-drop API migration deferred
     private void Tab_DragOver(object? sender, DragEventArgs e)
     {
         if (!e.Data.Contains("TabViewModel"))
@@ -165,6 +168,7 @@ public partial class TabStrip : UserControl
         }
 
         var droppedTab = e.Data.Get("TabViewModel") as ITabViewModel;
+#pragma warning restore CS0618
         if (droppedTab == null)
         {
             return;

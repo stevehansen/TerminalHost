@@ -152,7 +152,8 @@ public partial class MarkdownViewer : UserControl
             _ => 14
         };
 
-        RenderInlines(textBlock.Inlines, heading.Inline);
+        if (textBlock.Inlines != null)
+            RenderInlines(textBlock.Inlines, heading.Inline);
         return textBlock;
     }
 
@@ -165,7 +166,8 @@ public partial class MarkdownViewer : UserControl
             LineHeight = 24
         };
 
-        RenderInlines(textBlock.Inlines, paragraph.Inline, skipTaskListInline);
+        if (textBlock.Inlines != null)
+            RenderInlines(textBlock.Inlines, paragraph.Inline, skipTaskListInline);
         return textBlock;
     }
 

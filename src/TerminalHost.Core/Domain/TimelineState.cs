@@ -261,6 +261,7 @@ public class TimelineState
     /// </summary>
     public void AddSession(ClaudeSession session)
     {
+        Sessions ??= [];
         Sessions.Add(session);
 
         var intent = GetIntent(session.IntentId);

@@ -252,8 +252,8 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
 
         var inProgressTask = taskIds
             .Select(id => _claudeTasksById.TryGetValue(id, out var t) ? t : null)
-            .Where(t => t != null && t.Status == FocusTaskStatus.InProgress)
-            .OrderByDescending(t => t.StartedAt)
+            .Where(t => t != null && t!.Status == FocusTaskStatus.InProgress)
+            .OrderByDescending(t => t!.StartedAt)
             .FirstOrDefault();
 
         if (inProgressTask == null)
@@ -288,10 +288,10 @@ public class ClaudeTaskDetectionService : IClaudeTaskDetectionService
 
         var matchingTask = taskIds
             .Select(id => _claudeTasksById.TryGetValue(id, out var t) ? t : null)
-            .Where(t => t != null && t.Status == FocusTaskStatus.InProgress)
+            .Where(t => t != null && t!.Status == FocusTaskStatus.InProgress)
             .FirstOrDefault(t =>
-                t.ClaudeTaskId == claudeTaskId ||
-                t.Title.Equals(subject, StringComparison.OrdinalIgnoreCase));
+                t!.ClaudeTaskId == claudeTaskId ||
+                t!.Title.Equals(subject, StringComparison.OrdinalIgnoreCase));
 
         if (matchingTask == null)
         {

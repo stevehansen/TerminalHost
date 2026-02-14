@@ -13,7 +13,7 @@ public class SmokeTests : IDisposable
 {
     private readonly Application _app;
     private readonly UIA3Automation _automation;
-    private readonly Window _window;
+    private readonly Window _window = null!;
     private readonly string _userDataDir;
 
     public SmokeTests()
@@ -23,12 +23,12 @@ public class SmokeTests : IDisposable
         Directory.CreateDirectory(_userDataDir);
 
         var appPath = FindAppPath();
-        
+
         // Launch with arguments for isolation
         var args = $"--user-data-dir \"{_userDataDir}\" --disable-single-instance";
         _app = Application.Launch(appPath, args);
         _automation = new UIA3Automation();
-        _window = _app.GetMainWindow(_automation);
+        _window = _app.GetMainWindow(_automation)!;
     }
 
     private string FindAppPath()

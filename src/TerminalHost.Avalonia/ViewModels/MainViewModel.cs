@@ -1698,7 +1698,9 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
     public event EventHandler? TaskPanelRequested;
+#pragma warning disable CS0067 // Event not yet wired on macOS
     public event EventHandler? ClaudeTasksPanelRequested;
+#pragma warning restore CS0067
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
 

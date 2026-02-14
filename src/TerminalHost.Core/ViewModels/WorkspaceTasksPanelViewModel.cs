@@ -293,9 +293,4 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
     /// </summary>
     public event EventHandler? ClaudeTasksPanelRequested;
 
-    /// <summary>
-    /// Legacy event for backwards compatibility.
-    /// </summary>
-    [Obsolete("Use ClaudeTasksPanelRequested instead")]
-    public event EventHandler? TaskPanelRequested;
 }

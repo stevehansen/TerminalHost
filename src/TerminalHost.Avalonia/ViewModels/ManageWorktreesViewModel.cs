@@ -53,7 +53,9 @@ public partial class ManageWorktreesViewModel : ObservableObject
     /// <summary>
     /// Event raised when user wants to create a new worktree.
     /// </summary>
+#pragma warning disable CS0067 // Event not yet wired on macOS
     public event EventHandler<string>? CreateWorktreeRequested;
+#pragma warning restore CS0067
 
     public ManageWorktreesViewModel(
         IGitWorktreeService gitWorktreeService,

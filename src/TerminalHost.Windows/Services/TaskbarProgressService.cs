@@ -38,7 +38,8 @@ public sealed class TaskbarProgressService : ITaskbarProgressService
         try
         {
             // Create the ITaskbarList3 COM object (Windows 7+)
-            _taskbarList = (ITaskbarList3?)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("56FDF344-FD6D-11d0-958A-006097C9A090")));
+            var taskbarType = Type.GetTypeFromCLSID(new Guid("56FDF344-FD6D-11d0-958A-006097C9A090"));
+            _taskbarList = taskbarType != null ? (ITaskbarList3?)Activator.CreateInstance(taskbarType) : null;
             _taskbarList?.HrInit();
         }
         catch

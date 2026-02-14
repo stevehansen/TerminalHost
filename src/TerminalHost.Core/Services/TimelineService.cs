@@ -982,10 +982,10 @@ public sealed class TimelineService : ITimelineService
                     Session = s,
                     Intent = _state.GetIntent(s.IntentId)
                 })
-                .Where(x => x.Intent != null)
+                .Where(x => x.Intent != null && !string.IsNullOrEmpty(x.Intent.MainRepoPath))
                 .Where(x =>
                 {
-                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath)
+                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath!)
                         .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                         .ToLowerInvariant();
                     return intentPath == normalizedPath;
@@ -1291,7 +1291,7 @@ public sealed class TimelineService : ITimelineService
 
         lock (_lock)
         {
-            return _state.Sessions.FirstOrDefault(s =>
+            return _state.Sessions?.FirstOrDefault(s =>
                 string.Equals(s.ContinueSessionId, claudeSessionId, StringComparison.OrdinalIgnoreCase));
         }
     }

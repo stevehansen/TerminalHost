@@ -60,8 +60,10 @@ public class TimelineService : ITimelineService
     public event EventHandler<ClaudeSession>? SessionStatusChanged;
     public event EventHandler<bool>? FocusStateChanged;
     public event EventHandler<TimeScale>? TimeScaleChanged;
+#pragma warning disable CS0067 // Events required by interface but not yet implemented on macOS
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
     public event EventHandler? OrphanSessionsChanged;
+#pragma warning restore CS0067
 
     // Session file management
 
@@ -721,10 +723,10 @@ public class TimelineService : ITimelineService
                     Session = s,
                     Intent = _state.GetIntent(s.IntentId)
                 })
-                .Where(x => x.Intent != null)
+                .Where(x => x.Intent != null && !string.IsNullOrEmpty(x.Intent.MainRepoPath))
                 .Where(x =>
                 {
-                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath)
+                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath!)
                         .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                         .ToLowerInvariant();
                     return intentPath == normalizedPath;

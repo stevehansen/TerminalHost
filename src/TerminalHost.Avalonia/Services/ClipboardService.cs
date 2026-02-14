@@ -21,7 +21,9 @@ internal sealed class ClipboardService : IClipboardService
         var clipboard = GetClipboard();
         if (clipboard != null)
         {
+#pragma warning disable CS0618 // IClipboard.GetTextAsync is obsolete in newer Avalonia
             return await clipboard.GetTextAsync();
+#pragma warning restore CS0618
         }
         return null;
     }
