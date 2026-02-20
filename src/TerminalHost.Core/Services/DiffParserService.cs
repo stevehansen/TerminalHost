@@ -9,6 +9,8 @@ namespace TerminalHost.Core.Services;
 /// </summary>
 public partial class DiffParserService : IDiffParserService
 {
+    private const int MaxDiffLines = 10_000;
+
     // Regex patterns
     [GeneratedRegex(@"^diff --git", RegexOptions.Compiled)]
     private static partial Regex DiffHeaderRegex();
@@ -36,6 +38,13 @@ public partial class DiffParserService : IDiffParserService
         };
 
         var lines = unifiedDiff.Split('\n');
+        bool truncated = false;
+        if (lines.Length > MaxDiffLines)
+        {
+            lines = lines[..MaxDiffLines];
+            truncated = true;
+        }
+
         DiffHunk? currentHunk = null;
         int oldLineNumber = 0;
         int newLineNumber = 0;
@@ -150,6 +159,23 @@ public partial class DiffParserService : IDiffParserService
                     newLineNumber++;
                 }
             }
+        }
+
+        if (truncated)
+        {
+            var truncHunk = new DiffHunk
+            {
+                OldStart = 0,
+                OldCount = 0,
+                NewStart = 0,
+                NewCount = 0,
+                Context = $"Diff truncated (exceeded {MaxDiffLines:N0} lines)",
+                Lines = []
+            };
+            truncHunk.Lines.Add(new DiffLine(null, null,
+                $"@@ Diff truncated — output exceeded {MaxDiffLines:N0} lines @@",
+                DiffLineType.HunkHeader));
+            result.Hunks.Add(truncHunk);
         }
 
         return result;

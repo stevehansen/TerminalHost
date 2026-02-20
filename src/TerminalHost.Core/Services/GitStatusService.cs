@@ -7,6 +7,9 @@ namespace TerminalHost.Core.Services;
 
 public sealed class GitStatusService : IGitStatusService
 {
+    private const long MaxFileSizeForDiff = 10 * 1024 * 1024; // 10MB
+    private const int MaxDiffStringLength = 5_000_000; // 5MB
+
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
 
@@ -238,6 +241,14 @@ public sealed class GitStatusService : IGitStatusService
             var fullPath = Path.Combine(workingDirectory, filePath);
             if (_fileSystem.FileExists(fullPath))
             {
+                // Check file size before reading
+                var fileSize = _fileSystem.GetFileSize(fullPath);
+                if (fileSize > MaxFileSizeForDiff)
+                {
+                    var sizeMb = fileSize / (1024.0 * 1024.0);
+                    return $"File too large to display ({sizeMb:F1} MB)";
+                }
+
                 // Check if file is binary before trying to read as text
                 if (IsBinaryFile(fullPath))
                 {
@@ -270,6 +281,13 @@ public sealed class GitStatusService : IGitStatusService
                     return null;
                 }
             }
+        }
+
+        // Safety check: truncate extremely large diffs from tracked files
+        if (diff != null && diff.Length > MaxDiffStringLength)
+        {
+            var sizeMb = diff.Length / (1024.0 * 1024.0);
+            return $"Diff too large to display ({sizeMb:F1} MB)";
         }
 
         return diff;
@@ -1565,7 +1583,15 @@ public sealed class GitStatusService : IGitStatusService
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return null;
 
-        return await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff \"{baseBranch}\"..\"{compareBranch}\" -- \"{filePath}\"");
+        var diff = await _gitRunner.RunGitCommandAsync(workingDirectory, $"diff \"{baseBranch}\"..\"{compareBranch}\" -- \"{filePath}\"");
+
+        if (diff != null && diff.Length > MaxDiffStringLength)
+        {
+            var sizeMb = diff.Length / (1024.0 * 1024.0);
+            return $"Diff too large to display ({sizeMb:F1} MB)";
+        }
+
+        return diff;
     }
 
     public async Task<List<GitBranch>> GetKeyBranchesAsync(string workingDirectory, IEnumerable<string> keyBranchPatterns)
@@ -1853,6 +1879,11 @@ public sealed class GitStatusService : IGitStatusService
     {
         var fullPath = Path.Combine(workingDirectory, filePath);
         if (!_fileSystem.FileExists(fullPath))
+            return Task.FromResult<ConflictInfo?>(null);
+
+        // Skip files that are too large to parse
+        var fileSize = _fileSystem.GetFileSize(fullPath);
+        if (fileSize > MaxFileSizeForDiff)
             return Task.FromResult<ConflictInfo?>(null);
 
         var content = _fileSystem.ReadAllText(fullPath);

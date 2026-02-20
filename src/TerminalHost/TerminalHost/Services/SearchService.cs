@@ -12,6 +12,8 @@ namespace TerminalHost.Services;
 /// </summary>
 public class SearchService : ISearchService
 {
+    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
+
     private readonly IFileSystem _fileSystem;
     private readonly IGitIgnoreService _gitIgnoreService;
 
@@ -152,6 +154,11 @@ public class SearchService : ISearchService
 
             try
             {
+                // Skip files that are too large
+                var fileSize = _fileSystem.GetFileSize(file);
+                if (fileSize > MaxFileSize)
+                    continue;
+
                 var content = await _fileSystem.ReadAllTextAsync(file);
                 var newContent = regex.Replace(content, replacement);
 
@@ -295,6 +302,11 @@ public class SearchService : ISearchService
     {
         try
         {
+            // Skip files that are too large
+            var fileSize = _fileSystem.GetFileSize(filePath);
+            if (fileSize > MaxFileSize)
+                return null;
+
             var content = await _fileSystem.ReadAllTextAsync(filePath);
             var lines = content.Split('\n');
             var matches = new List<SearchMatch>();

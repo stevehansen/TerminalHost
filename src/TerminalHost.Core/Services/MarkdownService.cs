@@ -191,6 +191,8 @@ public class MarkdownService : IMarkdownService
         return WrapHtml(fullHtml, basePath);
     }
 
+    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
+
     public async Task<string> ConvertFileToHtmlAsync(string filePath)
     {
         if (string.IsNullOrEmpty(filePath) || !_fileSystem.FileExists(filePath))
@@ -198,6 +200,13 @@ public class MarkdownService : IMarkdownService
 
         try
         {
+            var fileSize = _fileSystem.GetFileSize(filePath);
+            if (fileSize > MaxFileSize)
+            {
+                var sizeMb = fileSize / (1024.0 * 1024.0);
+                return WrapHtml($"<p style='color: #f4b842;'>File too large to render ({sizeMb:F1} MB). Maximum supported size is {MaxFileSize / (1024 * 1024)} MB.</p>", null);
+            }
+
             var markdown = await _fileSystem.ReadAllTextAsync(filePath);
             var basePath = Path.GetDirectoryName(filePath);
             return ConvertToHtml(markdown, basePath);
