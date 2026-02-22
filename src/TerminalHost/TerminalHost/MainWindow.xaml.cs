@@ -1567,8 +1567,18 @@ public partial class MainWindow : Window
 
     private async void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
     {
-        // Open PR Review Mode for the specific PR from the Dashboard
+        // Find the tab for this working directory (OpenProjectTab was already called)
+        var tab = _viewModel.Tabs.OfType<TerminalPairTabViewModel>()
+            .FirstOrDefault(t => string.Equals(t.WorkingDirectory, e.WorkingDirectory, StringComparison.OrdinalIgnoreCase))
+            ?? _viewModel.SelectedTab as TerminalPairTabViewModel;
+
+        if (tab == null) return;
+
+        // Switch to the tab and open the PR review panel
+        _viewModel.SelectedTab = tab;
+        tab.SetPanel(_prReviewViewModel);
         await _prReviewViewModel.OpenForPrAsync(e.WorkingDirectory, e.PullRequest);
+        tab.ShowCenterPanel(_prReviewViewModel);
     }
 
     private async void OnMarkdownPreviewRequested(object? sender, EventArgs e)

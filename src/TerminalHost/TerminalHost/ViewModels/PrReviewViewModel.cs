@@ -607,6 +607,7 @@ public partial class PrReviewViewModel : BasePanelViewModel
             if (string.IsNullOrWhiteSpace(diff))
             {
                 StatusMessage = "No diff available for AI review";
+                _toastService.Show("No diff available for AI review", ToastType.Warning);
                 return;
             }
 
@@ -635,18 +636,24 @@ public partial class PrReviewViewModel : BasePanelViewModel
                 OnPropertyChanged(nameof(HasAiReview));
                 IsAiReviewExpanded = true;
                 var truncatedWarning = truncated ? " (diff truncated)" : "";
-                StatusMessage = $"AI review complete — {findings.Count} finding{(findings.Count == 1 ? "" : "s")}{truncatedWarning}";
+                var summary = $"AI review complete — {findings.Count} finding{(findings.Count == 1 ? "" : "s")}{truncatedWarning}";
+                StatusMessage = summary;
+                _toastService.Show(summary, ToastType.Success);
             }
             else if (exitCode == -1)
             {
-                StatusMessage = "AI review timed out — check AI assistant or try again";
+                const string msg = "AI review timed out — check AI assistant or try again";
+                StatusMessage = msg;
+                _toastService.Show(msg, ToastType.Warning);
             }
             else
             {
                 var detail = !string.IsNullOrWhiteSpace(error)
                     ? error.Split('\n')[0].Trim()
                     : $"exit {exitCode}";
-                StatusMessage = $"AI review failed: {detail}";
+                var msg = $"AI review failed: {detail}";
+                StatusMessage = msg;
+                _toastService.Show(msg, ToastType.Error);
             }
         }
         finally
