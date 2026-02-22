@@ -521,7 +521,15 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
 
             if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
-                var pattern = output.Trim().Trim('`', '"', '\'');
+                var pattern = output.Trim();
+                // Unwrap if the entire output is wrapped in a matching quote pair
+                if (pattern.Length >= 2 &&
+                    ((pattern[0] == '`' && pattern[^1] == '`') ||
+                     (pattern[0] == '"' && pattern[^1] == '"') ||
+                     (pattern[0] == '\'' && pattern[^1] == '\'')))
+                {
+                    pattern = pattern[1..^1].Trim();
+                }
 
                 try
                 {
