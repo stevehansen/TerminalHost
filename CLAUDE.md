@@ -567,6 +567,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
 | [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
 | [GitGuiParity.md](docs/specs/GitGuiParity.md) | Git GUI feature parity (vs GitKraken/Fork) | **Completed** | Phase 1-4 all complete |
+| [AiWorkflowAssistance.md](docs/specs/AiWorkflowAssistance.md) | AI assistance in workflow panels (conflicts, tests, PR review, diffs, regex, changelog) | **Partial** | Commit messages implemented; 5 features planned |
 
 ### Architecture Specifications
 
@@ -581,7 +582,13 @@ All specifications are documented in `docs/specs/`. Status legend:
 
 | Priority | Feature | Spec |
 |----------|---------|------|
+| **High** | Merge Conflict Auto-Resolution (AI) | AiWorkflowAssistance.md |
+| **High** | Test Failure Root Cause Analysis (AI) | AiWorkflowAssistance.md |
+| **High** | Diff/Change Explanation (AI) | AiWorkflowAssistance.md |
+| **Medium** | PR Code Review Assistance (AI) | AiWorkflowAssistance.md |
+| **Medium** | Regex Generation Assistance (AI) | AiWorkflowAssistance.md |
 | **Medium** | Active Ports Detection | RemainingFeatures.md |
+| **Low** | Changelog Generation (AI) | AiWorkflowAssistance.md |
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |
