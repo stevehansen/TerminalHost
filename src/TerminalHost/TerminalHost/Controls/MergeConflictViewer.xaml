@@ -70,9 +70,17 @@
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                     <TextBlock Text="RESULT" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="11"
-                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="AiSuggestionLabel"
+                               Text="AI Suggestion — review before saving"
+                               Foreground="#C586C0" FontSize="11" VerticalAlignment="Center"
+                               Visibility="Collapsed"/>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="AiSuggestButton" Content="✨ AI Suggest"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Foreground="#C586C0"
+                            Margin="0,0,8,0"/>
                     <Button x:Name="AcceptOursButton" Content="Accept Ours"
                             Style="{StaticResource TerminalSwitchButton}"
                             Foreground="#4EC9B0"

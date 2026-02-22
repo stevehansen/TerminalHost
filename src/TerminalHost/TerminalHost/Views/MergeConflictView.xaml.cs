@@ -26,6 +26,22 @@ public partial class MergeConflictView : UserControl
             {
                 viewer.LoadConflict(vm.CurrentConflict);
             }
+
+            viewer.AiSuggestRequested += async (s, args) =>
+            {
+                if (DataContext is not MergeConflictViewModel viewModel) return;
+                viewer.SetAiLoading(true);
+                try
+                {
+                    var suggestion = await viewModel.SuggestResolutionAsync(args.OursContent, args.TheirsContent);
+                    if (suggestion != null)
+                        viewer.ApplyAiSuggestion(suggestion);
+                }
+                finally
+                {
+                    viewer.SetAiLoading(false);
+                }
+            };
         }
     }
 

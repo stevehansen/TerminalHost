@@ -7,7 +7,7 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | Feature | Location | Status |
 |---------|----------|--------|
 | AI Commit Message Generation | Git Changes panel (Alt+G) | **Implemented** |
-| Merge Conflict Auto-Resolution | Merge Conflict viewer | **Planned** |
+| Merge Conflict Auto-Resolution | Merge Conflict viewer | **Implemented** |
 | Test Failure Root Cause Analysis | Test Results panel (F6) | **Planned** |
 | PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Planned** |
 | Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
@@ -112,12 +112,14 @@ Context (surrounding lines):
 Output the resolved version of the conflicted section only.
 ```
 
-### Implementation
+### Implementation ✅
 
-- **ViewModel**: `MergeConflictViewModel.SuggestResolutionAsync()` — sets `ResultText`, marks result as AI-generated
-- **UI indicator**: Result panel header shows "AI Suggestion — review before saving" until manually edited
-- **Fallback**: Button disabled with tooltip "AI assistant not configured" when unavailable
-- **Input limit**: Send at most 200 lines of conflict + 40 lines of surrounding context
+- **ViewModel**: `MergeConflictViewModel.SuggestResolutionAsync(oursContent, theirsContent)` — called from view code-behind; returns resolved text or `null` on failure
+- **UI indicator**: Result panel header shows "AI Suggestion — review before saving" in purple until user manually edits (auto-clears); clears on hunk navigation and conflict load
+- **Button state**: "✨ AI Suggest" button changes to "Thinking..." and disables during AI call; re-enables on completion
+- **Fallback**: AI path checked for known identifiers ("claude", "gemini") — silently returns `null` when unavailable; error toast on AI failure
+- **Input limit**: Ours/Theirs truncated to 200 lines each; surrounding context not sent (prompt sufficient without it)
+- **Wiring**: `MergeConflictViewer.AiSuggestRequested` event → `MergeConflictView.xaml.cs` async handler → `MergeConflictViewModel.SuggestResolutionAsync` → `viewer.ApplyAiSuggestion()`
 
 ---
 
@@ -365,7 +367,7 @@ Commits:
 | Priority | Feature | Effort | Notes |
 |----------|---------|--------|-------|
 | ~~**High**~~ | ~~Diff/Change Explanation~~ | ~~Low~~ | ✅ Implemented — staged all-files + per-file in diff panel |
-| **High** | Merge Conflict Auto-Resolution | Medium | Highest pain point; significant time savings |
+| ~~**High**~~ | ~~Merge Conflict Auto-Resolution~~ | ~~Medium~~ | ✅ Implemented — "✨ AI Suggest" in conflict viewer action bar |
 | **High** | Test Failure Root Cause Analysis | Medium | Tight feedback loop; high daily use |
 | **Medium** | PR Code Review Assistance | Medium | Adds to existing PR Review Mode |
 | **Medium** | Regex Generation | Low | Small surface area, high friction reduction |

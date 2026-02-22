@@ -4,13 +4,22 @@ using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Controls;
 
+public class AiSuggestEventArgs(string oursContent, string theirsContent) : EventArgs
+{
+    public string OursContent { get; } = oursContent;
+    public string TheirsContent { get; } = theirsContent;
+}
+
 public partial class MergeConflictViewer : UserControl
 {
     private ConflictInfo? _conflictInfo;
     private int _currentHunkIndex;
+    private bool _isAiSuggestion;
+    private bool _suppressAiIndicatorClear;
 
     public event EventHandler<ConflictResolution>? ResolutionApplied;
     public event EventHandler<string>? ResultContentChanged;
+    public event EventHandler<AiSuggestEventArgs>? AiSuggestRequested;
 
     public MergeConflictViewer()
     {
@@ -21,15 +30,20 @@ public partial class MergeConflictViewer : UserControl
         AcceptBothButton.Click += (s, e) => ApplyResolution(ConflictResolution.AcceptBoth);
         PrevHunkButton.Click += (s, e) => NavigateHunk(-1);
         NextHunkButton.Click += (s, e) => NavigateHunk(1);
-        ResultTextBox.TextChanged += (s, e) => ResultContentChanged?.Invoke(this, ResultTextBox.Text);
+        AiSuggestButton.Click += OnAiSuggestClicked;
+        ResultTextBox.TextChanged += OnResultTextChanged;
     }
 
     public void LoadConflict(ConflictInfo? info)
     {
         _conflictInfo = info;
         _currentHunkIndex = 0;
+        ClearAiSuggestion();
 
-        if (info == null || info.Hunks.Count == 0)
+        var hasConflicts = info != null && info.Hunks.Count > 0;
+        AiSuggestButton.IsEnabled = hasConflicts;
+
+        if (!hasConflicts)
         {
             OursTextBox.Text = "";
             TheirsTextBox.Text = "";
@@ -42,6 +56,50 @@ public partial class MergeConflictViewer : UserControl
     }
 
     public string GetResultContent() => ResultTextBox.Text;
+
+    public void SetAiLoading(bool isLoading)
+    {
+        AiSuggestButton.IsEnabled = !isLoading;
+        AiSuggestButton.Content = isLoading ? "Thinking..." : "✨ AI Suggest";
+    }
+
+    public void ApplyAiSuggestion(string suggestion)
+    {
+        _suppressAiIndicatorClear = true;
+        ResultTextBox.Text = suggestion;
+        _suppressAiIndicatorClear = false;
+
+        _isAiSuggestion = true;
+        AiSuggestionLabel.Visibility = Visibility.Visible;
+
+        if (_conflictInfo != null)
+        {
+            while (_conflictInfo.ResolvedLines.Count <= _currentHunkIndex)
+                _conflictInfo.ResolvedLines.Add("");
+            _conflictInfo.ResolvedLines[_currentHunkIndex] = suggestion;
+        }
+    }
+
+    private void OnAiSuggestClicked(object sender, RoutedEventArgs e)
+    {
+        if (_conflictInfo == null || _currentHunkIndex >= _conflictInfo.Hunks.Count) return;
+        var hunk = _conflictInfo.Hunks[_currentHunkIndex];
+        AiSuggestRequested?.Invoke(this, new AiSuggestEventArgs(hunk.OursContent, hunk.TheirsContent));
+    }
+
+    private void OnResultTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_suppressAiIndicatorClear && _isAiSuggestion)
+            ClearAiSuggestion();
+
+        ResultContentChanged?.Invoke(this, ResultTextBox.Text);
+    }
+
+    private void ClearAiSuggestion()
+    {
+        _isAiSuggestion = false;
+        AiSuggestionLabel.Visibility = Visibility.Collapsed;
+    }
 
     private void ShowCurrentHunk()
     {
@@ -96,6 +154,7 @@ public partial class MergeConflictViewer : UserControl
         if (newIndex >= 0 && newIndex < _conflictInfo.Hunks.Count)
         {
             _currentHunkIndex = newIndex;
+            ClearAiSuggestion();
             ShowCurrentHunk();
         }
     }

@@ -14,6 +14,8 @@ public partial class MergeConflictViewModel : BasePanelViewModel
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     public override string PanelId => "mergeConflict";
@@ -46,12 +48,16 @@ public partial class MergeConflictViewModel : BasePanelViewModel
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IFileSystem fileSystem,
-        IToastService toastService)
+        IToastService toastService,
+        IProcessService processService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
+        _processService = processService;
+        _configurationService = configurationService;
 
         DisplayState = PanelDisplayState.Panel;
         Width = 1200;
@@ -209,5 +215,52 @@ public partial class MergeConflictViewModel : BasePanelViewModel
         {
             _toastService.Show($"Failed to continue merge: {result.Error}", ToastType.Error);
         }
+    }
+
+    public async Task<string?> SuggestResolutionAsync(string oursContent, string theirsContent)
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return null;
+
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini")) return null;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var filePath = SelectedConflictFile?.FilePath ?? "";
+        var ext = System.IO.Path.GetExtension(filePath).TrimStart('.');
+        var lang = ext.Length > 0 ? ext : "text";
+
+        // Truncate to 200 lines each per spec limit
+        const int maxLines = 200;
+        var oursText = string.Join('\n', oursContent.Split('\n').Take(maxLines));
+        var theirsText = string.Join('\n', theirsContent.Split('\n').Take(maxLines));
+
+        var prompt = $"""
+            You are resolving a git merge conflict. Produce ONLY the resolved code — no explanation, no markdown fences.
+
+            File: {filePath}
+            Language: {lang}
+
+            <<<<<<< OURS
+            {oursText}
+            =======
+            {theirsText}
+            >>>>>>> THEIRS
+
+            Output the resolved version of the conflicted section only.
+            """;
+
+        var (exitCode, output, _) = await _processService.RunAsync(
+            claudePath, "-p --no-session-persistence", workingDirectory,
+            stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+        {
+            _toastService.Show("AI suggestion failed — check AI assistant configuration", ToastType.Error);
+            return null;
+        }
+
+        return output.Trim();
     }
 }
