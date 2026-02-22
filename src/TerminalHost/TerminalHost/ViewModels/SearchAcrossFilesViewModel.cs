@@ -521,7 +521,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
 
             if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
-                var pattern = output.Trim().Trim('`');
+                var pattern = output.Trim().Trim('`', '"', '\'');
 
                 try
                 {
