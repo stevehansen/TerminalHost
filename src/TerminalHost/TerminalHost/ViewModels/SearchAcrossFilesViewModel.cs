@@ -522,8 +522,17 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
             if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
             {
                 var pattern = output.Trim();
-                // Unwrap if the entire output is wrapped in a matching quote pair
-                if (pattern.Length >= 2 &&
+                // Unwrap triple-backtick code fence (```[lang]\npattern\n```)
+                if (pattern.StartsWith("```"))
+                {
+                    var firstNewline = pattern.IndexOf('\n');
+                    if (firstNewline >= 0)
+                        pattern = pattern[(firstNewline + 1)..].Trim();
+                    if (pattern.EndsWith("```"))
+                        pattern = pattern[..^3].Trim();
+                }
+                // Unwrap if the entire output is a single matching quote pair
+                else if (pattern.Length >= 2 &&
                     ((pattern[0] == '`' && pattern[^1] == '`') ||
                      (pattern[0] == '"' && pattern[^1] == '"') ||
                      (pattern[0] == '\'' && pattern[^1] == '\'')))
