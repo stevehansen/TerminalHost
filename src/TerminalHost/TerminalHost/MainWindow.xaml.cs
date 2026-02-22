@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
@@ -193,6 +194,10 @@ public partial class MainWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         DarkModeHelper.EnableDarkMode(this);
+
+        // Prevent white flash before WPF's first render by intercepting WM_ERASEBKGND
+        var hwnd = new WindowInteropHelper(this).Handle;
+        HwndSource.FromHwnd(hwnd)?.AddHook(DarkModeHelper.CreateDarkBackgroundHook());
     }
 
     private void OnConfigReloaded(object? sender, EventArgs e)
