@@ -30,6 +30,7 @@ public interface IGitStatusService
     // Hunk-level staging
     Task<GitOperationResult> StageHunkAsync(string workingDirectory, string patchContent);
     Task<GitOperationResult> UnstageHunkAsync(string workingDirectory, string patchContent);
+    Task<GitOperationResult> DiscardHunkAsync(string workingDirectory, string patchContent);
 
     // Commit operations
     Task<string?> GetStagedDiffAsync(string workingDirectory);

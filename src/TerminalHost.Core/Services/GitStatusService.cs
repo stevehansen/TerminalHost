@@ -643,6 +643,15 @@ public sealed class GitStatusService : IGitStatusService
         return await _gitRunner.RunGitOperationWithStdinAsync(workingDirectory, "apply --cached -R --recount --allow-empty", patchContent);
     }
 
+    public async Task<GitOperationResult> DiscardHunkAsync(string workingDirectory, string patchContent)
+    {
+        if (!_fileSystem.DirectoryExists(workingDirectory))
+            return new GitOperationResult { Success = false, Error = "Directory does not exist" };
+
+        // Apply the patch in reverse to the working tree (no --cached)
+        return await _gitRunner.RunGitOperationWithStdinAsync(workingDirectory, "apply -R --recount --allow-empty", patchContent);
+    }
+
     #endregion
 
     #region Commit Operations

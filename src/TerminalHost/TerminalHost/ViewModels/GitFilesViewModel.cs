@@ -1030,6 +1030,36 @@ public partial class GitFilesViewModel : BasePanelViewModel
         }
     }
 
+    [RelayCommand]
+    private async Task DiscardHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.DiscardHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk discarded", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to discard hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
     #endregion
 
     #region Undo Commit

@@ -132,7 +132,9 @@ public sealed class GitProcessRunner : IGitProcessRunner
 
             process.Start();
 
-            await process.StandardInput.WriteAsync(stdinContent);
+            // Normalize line endings to LF — git apply rejects CRLF in patches
+            var normalizedContent = stdinContent.Replace("\r\n", "\n");
+            await process.StandardInput.WriteAsync(normalizedContent);
             process.StandardInput.Close();
 
             var outputTask = process.StandardOutput.ReadToEndAsync();

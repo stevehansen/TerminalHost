@@ -154,9 +154,16 @@
                     <TextBlock Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
                                Text="{Binding Pair.WorkingDirectory}"/>
 
-                    <!-- Git Status Display -->
-                    <TextBlock Foreground="{StaticResource SyntaxCyanBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
-                               Text="{Binding GitStatusDisplay}"/>
+                    <!-- Git Status Display (click to open Git Changes) -->
+                    <Button Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding DataContext.OpenGitPanelFromToolbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            ToolTip="Open Git Changes (Alt+G)"
+                            Padding="6,2"
+                            Margin="8,0,0,0"
+                            Visibility="{Binding GitStatus.IsGitRepository, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Foreground="{StaticResource SyntaxCyanBrush}"
+                                   Text="{Binding GitStatusDisplay}"/>
+                    </Button>
 
                     <!-- Git Pull/Push Buttons -->
                     <Button Content="{Binding GitPullButtonText}" ToolTip="Git Pull (Ctrl+Shift+D)" AutomationProperties.Name="Git Pull"
@@ -203,7 +210,8 @@
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding DataContext.OpenScratchPadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
-                            Margin="0,0,4,0"/>
+                            Margin="0,0,4,0"
+                            Visibility="Collapsed"/>
                     <Button Content="📋"
                             ToolTip="Git Panel (Alt+G)"
                             AutomationProperties.Name="Git Panel"

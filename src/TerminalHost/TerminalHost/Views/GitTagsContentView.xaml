@@ -163,9 +163,7 @@
                     <Setter Property="Cursor" Value="Hand"/>
                     <Setter Property="ContextMenu">
                         <Setter.Value>
-                            <ContextMenu Background="{StaticResource BackgroundDarkBrush}"
-                                         BorderBrush="{StaticResource BorderSubtleBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}">
+                            <ContextMenu Style="{StaticResource DarkContextMenu}">
                                 <MenuItem Header="Push Tag"
                                           Command="{Binding DataContext.PushTagCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                           Foreground="{StaticResource TextPrimaryBrush}"/>

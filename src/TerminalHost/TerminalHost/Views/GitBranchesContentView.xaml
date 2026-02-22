@@ -185,7 +185,8 @@
                   BorderThickness="0"
                   Foreground="{StaticResource TextPrimaryBrush}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                  Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}">
+                  Visibility="{Binding IsTreeView, Converter={StaticResource BoolToVisibilityConverter}}"
+                  SelectedItemChanged="BranchTreeView_SelectedItemChanged">
             <TreeView.Resources>
                 <HierarchicalDataTemplate DataType="{x:Type domain:BranchTreeNode}" ItemsSource="{Binding Children}">
                     <StackPanel Orientation="Horizontal" Margin="2,2">
@@ -245,6 +246,35 @@
                 <Style TargetType="TreeViewItem">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                    <!-- Tag passes the ViewModel to the ContextMenu via PlacementTarget.Tag -->
+                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TreeView}}"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu Style="{StaticResource DarkContextMenu}">
+                                <MenuItem Header="Checkout"
+                                          Command="{Binding PlacementTarget.Tag.CheckoutBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Compare with current"
+                                          Command="{Binding PlacementTarget.Tag.CompareWithSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Fast-forward current to this"
+                                          Command="{Binding PlacementTarget.Tag.FastForwardToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <MenuItem Header="Rebase current onto this"
+                                          Command="{Binding PlacementTarget.Tag.RebaseOntoSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <MenuItem Header="Reset current to this"
+                                          Command="{Binding PlacementTarget.Tag.ResetToSelectedBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource AccentOrangeBrush}"/>
+                                <Separator/>
+                                <MenuItem Header="Delete"
+                                          Command="{Binding PlacementTarget.Tag.DeleteBranchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                          Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </TreeView.ItemContainerStyle>
         </TreeView>
@@ -324,9 +354,7 @@
                     <Setter Property="Cursor" Value="Hand"/>
                     <Setter Property="ContextMenu">
                         <Setter.Value>
-                            <ContextMenu Background="{StaticResource BackgroundDarkBrush}"
-                                         BorderBrush="{StaticResource BorderSubtleBrush}"
-                                         Foreground="{StaticResource TextPrimaryBrush}">
+                            <ContextMenu Style="{StaticResource DarkContextMenu}">
                                 <MenuItem Header="Checkout"
                                           Command="{Binding DataContext.CheckoutBranchCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                           Foreground="{StaticResource TextPrimaryBrush}"/>

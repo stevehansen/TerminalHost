@@ -31,6 +31,7 @@ public partial class HunkStagingDiffViewer : UserControl
 
     public event EventHandler<int>? HunkStageRequested;
     public event EventHandler<int>? HunkUnstageRequested;
+    public event EventHandler<int>? HunkDiscardRequested;
 
     private IDiffParserService? _diffParser;
 
@@ -104,22 +105,12 @@ public partial class HunkStagingDiffViewer : UserControl
 
             var headerDock = new DockPanel();
 
-            var actionButton = new Button
-            {
-                Content = IsStaged ? "Unstage Hunk" : "Stage Hunk",
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                Padding = new Thickness(10, 4, 10, 4),
-                Cursor = System.Windows.Input.Cursors.Hand,
-                Background = IsStaged
-                    ? new SolidColorBrush(Color.FromRgb(0xB8, 0x86, 0x0B))
-                    : new SolidColorBrush(Color.FromRgb(0x2D, 0x8B, 0x6F)),
-                Foreground = new SolidColorBrush(Colors.White),
-                BorderBrush = IsStaged
-                    ? new SolidColorBrush(Color.FromRgb(0xD4, 0x9B, 0x1A))
-                    : new SolidColorBrush(Color.FromRgb(0x3A, 0xA8, 0x85)),
-                BorderThickness = new Thickness(1)
-            };
+            // Stage / Unstage button
+            var actionButton = CreateHunkButton(
+                IsStaged ? "Unstage Hunk" : "Stage Hunk",
+                IsStaged
+                    ? Color.FromRgb(0xB8, 0x86, 0x0B)  // amber for unstage
+                    : Color.FromRgb(0x1E, 0x7A, 0x60)); // teal for stage
             actionButton.Click += (s, e) =>
             {
                 if (IsStaged)
@@ -127,9 +118,18 @@ public partial class HunkStagingDiffViewer : UserControl
                 else
                     HunkStageRequested?.Invoke(this, hunkIndex);
             };
-
             DockPanel.SetDock(actionButton, Dock.Right);
             headerDock.Children.Add(actionButton);
+
+            // Discard button (only for unstaged hunks)
+            if (!IsStaged)
+            {
+                var discardButton = CreateHunkButton("Discard Hunk", Color.FromRgb(0x8B, 0x2E, 0x2E));
+                discardButton.Margin = new Thickness(0, 0, 6, 0);
+                discardButton.Click += (s, e) => HunkDiscardRequested?.Invoke(this, hunkIndex);
+                DockPanel.SetDock(discardButton, Dock.Right);
+                headerDock.Children.Add(discardButton);
+            }
 
             // Hunk header text
             var hunkHeaderLine = hunk.Lines.FirstOrDefault(l => l.Type == DiffLineType.HunkHeader);
@@ -214,5 +214,34 @@ public partial class HunkStagingDiffViewer : UserControl
 
             HunksControl.Items.Add(hunkPanel);
         }
+    }
+
+    private Button CreateHunkButton(string label, Color bgColor)
+    {
+        var btn = new Button
+        {
+            Content = label,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(10, 4, 10, 4),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            FocusVisualStyle = null,
+            Background = new SolidColorBrush(bgColor),
+            Foreground = new SolidColorBrush(Colors.White),
+            BorderThickness = new Thickness(0),
+        };
+
+        // Apply TerminalSwitchButton template so Background is respected
+        if (FindResource("TerminalSwitchButton") is Style style)
+        {
+            btn.Style = style;
+            // Re-apply our overrides after setting style (local values beat style setters)
+            btn.Background = new SolidColorBrush(bgColor);
+            btn.Foreground = new SolidColorBrush(Colors.White);
+            btn.FontWeight = FontWeights.SemiBold;
+            btn.Padding = new Thickness(10, 4, 10, 4);
+        }
+
+        return btn;
     }
 }

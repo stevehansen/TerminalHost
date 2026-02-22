@@ -30,6 +30,7 @@ public partial class GitFilesContentView : UserControl
         {
             HunkDiffViewer.HunkStageRequested -= OnHunkStageRequested;
             HunkDiffViewer.HunkUnstageRequested -= OnHunkUnstageRequested;
+            HunkDiffViewer.HunkDiscardRequested -= OnHunkDiscardRequested;
         }
 
         if (e.NewValue is GitFilesViewModel vm)
@@ -45,6 +46,7 @@ public partial class GitFilesContentView : UserControl
 
             HunkDiffViewer.HunkStageRequested += OnHunkStageRequested;
             HunkDiffViewer.HunkUnstageRequested += OnHunkUnstageRequested;
+            HunkDiffViewer.HunkDiscardRequested += OnHunkDiscardRequested;
         }
         else
         {
@@ -62,6 +64,12 @@ public partial class GitFilesContentView : UserControl
     {
         if (_currentVm?.UnstageHunkCommand.CanExecute(hunkIndex) == true)
             _currentVm.UnstageHunkCommand.Execute(hunkIndex);
+    }
+
+    private void OnHunkDiscardRequested(object? sender, int hunkIndex)
+    {
+        if (_currentVm?.DiscardHunkCommand.CanExecute(hunkIndex) == true)
+            _currentVm.DiscardHunkCommand.Execute(hunkIndex);
     }
 
     private void StagedList_SelectionChanged(object sender, SelectionChangedEventArgs e)

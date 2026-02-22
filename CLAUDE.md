@@ -57,6 +57,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
 - **When adding new actions**: Register them in `InitializeCommandPalette()` in `MainViewModel.cs`. The command palette must contain ALL invocable actions (toolbar buttons, keyboard shortcuts, context menu items, settings toggles). Set `IntroducedOn = new DateOnly(year, month, day)` to the current date so the feature appears in "What's New".
+- **When adding a ContextMenu in XAML:** Always use `Style="{StaticResource DarkContextMenu}"`. Never set `Background`/`BorderBrush`/`Foreground` directly on a `ContextMenu` element — the style handles all theming including the rounded border, shadow, separator colors, and MenuItem hover states. Inline color properties on `ContextMenu` bypass the template and leave the system-default light chrome visible.
+- **ContextMenu commands inside ItemContainerStyle:** Never use `x:Reference` to the parent list/tree inside its own `ItemContainerStyle` — this causes a XAML cyclical dependency exception at runtime. Instead, pass the ViewModel through the item's `Tag`: add `<Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>` (or `TreeView`), then bind commands as `Command="{Binding PlacementTarget.Tag.MyCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"`.  For `ListBox`, use `RelativeSource AncestorType=ListBox` in the Tag setter; for `TreeView` use `AncestorType=TreeView`.
 
 ## Important: Testing Requirements
 
