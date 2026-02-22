@@ -193,6 +193,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         DiffText = "";
         CommitMessage = "";
         AmendCommit = false;
+        DiffExplanation = "";
+        FileDiffExplanation = "";
         ChangesViewMode = "Working";
         BranchChangedFiles.Clear();
         SelectedBranchFile = null;
@@ -689,6 +691,15 @@ public partial class GitFilesViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _isGeneratingMessage;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasExplanation))]
+    private string _diffExplanation = "";
+
+    [ObservableProperty]
+    private bool _isExplainingDiff;
+
+    public bool HasExplanation => !string.IsNullOrEmpty(DiffExplanation);
+
     [RelayCommand]
     private async Task GenerateCommitMessageAsync()
     {
@@ -701,10 +712,31 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IsGeneratingMessage = true;
         try
         {
-            var aiMessage = await GenerateWithAiAsync(workingDirectory);
+            var aiMessage = await RunAiAsync(workingDirectory, $"""
+                Generate a conventional commit message for the following git diff.
+                Format: type(scope): description
+
+                Rules:
+                - type: feat, fix, refactor, docs, chore, test, style, perf
+                - scope: optional, the main area of change (short, lowercase)
+                - description: imperative mood, lowercase, no period at end
+                - First line MUST be under 72 characters
+                - Add a blank line then a brief body (1-3 lines) only if the change is complex
+                - Output ONLY the commit message, no explanation or markdown
+                """);
+
             if (!string.IsNullOrWhiteSpace(aiMessage))
             {
-                CommitMessage = aiMessage.Trim();
+                // Clean up: remove markdown code fences if present
+                var message = aiMessage.Trim();
+                if (message.StartsWith("```"))
+                {
+                    var lines = message.Split('\n');
+                    message = string.Join('\n', lines
+                        .SkipWhile(l => l.StartsWith("```"))
+                        .TakeWhile(l => !l.StartsWith("```")));
+                }
+                CommitMessage = message.Trim();
                 return;
             }
         }
@@ -721,39 +753,115 @@ public partial class GitFilesViewModel : BasePanelViewModel
         GenerateHeuristicMessage();
     }
 
-    private async Task<string?> GenerateWithAiAsync(string workingDirectory)
+    [RelayCommand]
+    private async Task ExplainChangesAsync()
     {
-        // Get the staged diff
-        var diff = await _gitStatusService.GetStagedDiffAsync(workingDirectory);
+        if (!StagedFiles.Any()) return;
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsExplainingDiff = true;
+        try
+        {
+            var explanation = await RunAiAsync(_currentTerminalTab.Pair.WorkingDirectory, """
+                Explain the following git diff in 2-4 sentences of plain English.
+                Describe what changed and why (infer from context).
+                No bullet points, no markdown, no code fences.
+                """);
+
+            if (!string.IsNullOrWhiteSpace(explanation))
+                DiffExplanation = explanation.Trim();
+            else
+                _toastService.Show("AI unavailable — configure an AI assistant in Settings", ToastType.Warning);
+        }
+        catch
+        {
+            _toastService.Show("Failed to explain changes", ToastType.Error);
+        }
+        finally
+        {
+            IsExplainingDiff = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissExplanation() => DiffExplanation = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFileDiffExplanation))]
+    private string _fileDiffExplanation = "";
+
+    [ObservableProperty]
+    private bool _isExplainingFileDiff;
+
+    public bool HasFileDiffExplanation => !string.IsNullOrEmpty(FileDiffExplanation);
+
+    [RelayCommand]
+    private async Task ExplainFileDiffAsync()
+    {
+        if (string.IsNullOrWhiteSpace(DiffText)) return;
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        IsExplainingFileDiff = true;
+        try
+        {
+            var explanation = await RunAiAsync(_currentTerminalTab.Pair.WorkingDirectory, """
+                Explain the following git diff for a single file in 2-4 sentences of plain English.
+                Describe what changed and why (infer from context).
+                No bullet points, no markdown, no code fences.
+                """, DiffText);
+
+            if (!string.IsNullOrWhiteSpace(explanation))
+                FileDiffExplanation = explanation.Trim();
+            else
+                _toastService.Show("AI unavailable — configure an AI assistant in Settings", ToastType.Warning);
+        }
+        catch
+        {
+            _toastService.Show("Failed to explain changes", ToastType.Error);
+        }
+        finally
+        {
+            IsExplainingFileDiff = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissFileDiffExplanation() => FileDiffExplanation = "";
+
+    /// <summary>
+    /// Runs the configured AI assistant with <paramref name="systemPrompt"/> and a diff via stdin.
+    /// If <paramref name="diffContent"/> is null the staged diff is fetched from git.
+    /// Returns the trimmed output, or null if AI is unavailable or the call fails.
+    /// </summary>
+    private async Task<string?> RunAiAsync(string workingDirectory, string systemPrompt, string? diffContent = null)
+    {
+        string? diff;
+        if (diffContent != null)
+        {
+            diff = diffContent;
+        }
+        else
+        {
+            diff = await _gitStatusService.GetStagedDiffAsync(workingDirectory);
+            if (string.IsNullOrWhiteSpace(diff))
+                return null;
+        }
+
         if (string.IsNullOrWhiteSpace(diff))
             return null;
 
-        // Truncate very large diffs to avoid token limits
         const int maxDiffLength = 20_000;
         if (diff.Length > maxDiffLength)
             diff = diff[..maxDiffLength] + "\n\n[... diff truncated ...]";
 
-        // Resolve the claude executable path from settings
         var config = _configurationService.Load();
         var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-
-        // Verify it looks like a claude command
         var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
         if (!claudeFileName.Contains("claude"))
-            return null; // Not using Claude as custom command, skip AI generation
+            return null;
 
-        // Combine prompt + diff as stdin (claude -p reads from stdin when no prompt arg given)
         var stdinContent = $"""
-            Generate a conventional commit message for the following git diff.
-            Format: type(scope): description
-
-            Rules:
-            - type: feat, fix, refactor, docs, chore, test, style, perf
-            - scope: optional, the main area of change (short, lowercase)
-            - description: imperative mood, lowercase, no period at end
-            - First line MUST be under 72 characters
-            - Add a blank line then a brief body (1-3 lines) only if the change is complex
-            - Output ONLY the commit message, no explanation or markdown
+            {systemPrompt}
 
             <diff>
             {diff}
@@ -767,20 +875,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
             stdin: stdinContent,
             timeout: TimeSpan.FromSeconds(30));
 
-        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            return null;
-
-        // Clean up: remove markdown code fences if present
-        var message = output.Trim();
-        if (message.StartsWith("```"))
-        {
-            var lines = message.Split('\n');
-            message = string.Join('\n', lines
-                .SkipWhile(l => l.StartsWith("```"))
-                .TakeWhile(l => !l.StartsWith("```")));
-        }
-
-        return message.Trim();
+        return exitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output.Trim() : null;
     }
 
     private void GenerateHeuristicMessage()
@@ -1114,6 +1209,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     partial void OnSelectedGitFileChanged(GitFileStatus? value)
     {
+        FileDiffExplanation = "";
         UpdateButtonsEnabledState();
         LoadDiffForSelectedFileAsync(value);
     }

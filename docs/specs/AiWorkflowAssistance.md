@@ -10,7 +10,7 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | Merge Conflict Auto-Resolution | Merge Conflict viewer | **Planned** |
 | Test Failure Root Cause Analysis | Test Results panel (F6) | **Planned** |
 | PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Planned** |
-| Diff/Change Explanation | Git Changes panel (Alt+G) | **Planned** |
+| Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
 | Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Planned** |
 | Changelog Generation | Commit History (Ctrl+H) | **Planned** |
 
@@ -257,10 +257,12 @@ Describe what changed and why (infer from context). No bullet points, no markdow
 {stagedDiff}
 ```
 
-### Implementation
+### Implementation ✅
 
-- **ViewModel**: `GitFilesViewModel.ExplainChangesAsync()` — sets `DiffExplanation` string property
-- **UI**: Explanation appears as a `💡` callout between the toolbar and file list; dismissed on next staging action
+- **ViewModel**: `GitFilesViewModel.ExplainChangesAsync()` — sets `DiffExplanation` string property; `ExplainFileDiffAsync()` — sets `FileDiffExplanation` for the currently selected file (staged or unstaged)
+- **Shared helper**: `RunAiAsync(workingDirectory, systemPrompt, diffContent?)` — used by both commit message generation and both explain variants
+- **UI (staged all-files)**: `💡` button in the commit form actions row; explanation callout with blue left-border accent appears above the conventional commit prefix chips; dismissed via ✕ button
+- **UI (per-file)**: `💡 Explain` button in the diff panel header; explanation callout appears between the diff header and the diff content; auto-dismissed when a different file is selected
 - **Trigger**: Separate from "Generate Message" — both can be run independently
 - **Input limit**: Same 20KB truncation as commit message generation
 
@@ -362,7 +364,7 @@ Commits:
 
 | Priority | Feature | Effort | Notes |
 |----------|---------|--------|-------|
-| **High** | Diff/Change Explanation | Low | Builds directly on existing commit message code |
+| ~~**High**~~ | ~~Diff/Change Explanation~~ | ~~Low~~ | ✅ Implemented — staged all-files + per-file in diff panel |
 | **High** | Merge Conflict Auto-Resolution | Medium | Highest pain point; significant time savings |
 | **High** | Test Failure Root Cause Analysis | Medium | Tight feedback loop; high daily use |
 | **Medium** | PR Code Review Assistance | Medium | Adds to existing PR Review Mode |

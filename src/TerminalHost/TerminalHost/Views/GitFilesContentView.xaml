@@ -488,6 +488,28 @@
                     <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}"
                             Padding="8,6" BorderBrush="#3F3F3F" BorderThickness="0,1,0,0">
                         <StackPanel>
+                            <!-- AI explanation callout (shown when HasExplanation is true) -->
+                            <Border Background="#1A2D4A" CornerRadius="3" Margin="0,0,0,6"
+                                    BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                                    Visibility="{Binding HasExplanation, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid Margin="8,7,6,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding DiffExplanation}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               LineHeight="18"
+                                               TextWrapping="Wrap"/>
+                                    <Button Grid.Column="1" Content="✕"
+                                            Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding DismissExplanationCommand}"
+                                            VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                </Grid>
+                            </Border>
+
                             <!-- Conventional commit prefix chips -->
                             <WrapPanel Margin="0,0,0,4">
                                 <Button Content="feat" Style="{StaticResource PrefixChipButton}"
@@ -596,6 +618,29 @@
                                         FontSize="14" Padding="5,2"
                                         Margin="2,0,0,0"/>
 
+                                <!-- Explain staged changes button -->
+                                <Button DockPanel.Dock="Right"
+                                        Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding ExplainChangesCommand}"
+                                        ToolTip="Explain staged changes in plain English (AI)"
+                                        FontSize="13" Padding="5,2"
+                                        Margin="2,0,0,0">
+                                    <Button.Content>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="💡"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExplainingDiff}" Value="True">
+                                                            <Setter Property="Text" Value="···"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+
                                 <!-- Generate commit message button -->
                                 <Button DockPanel.Dock="Right"
                                         Style="{StaticResource InlineActionButton}"
@@ -657,6 +702,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -664,6 +710,26 @@
                     <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <!-- Explain this file's diff (works for staged and unstaged) -->
+                                <Button Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding ExplainFileDiffCommand}"
+                                        ToolTip="Explain this file's changes (AI)"
+                                        Margin="0,0,4,0">
+                                    <Button.Content>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="💡 Explain"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExplainingFileDiff}" Value="True">
+                                                            <Setter Property="Text" Value="···"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
                                 <Button Content="&#x1f441; Preview"
                                         Style="{StaticResource TerminalSwitchButton}"
                                         Command="{Binding PreviewFileCommand}"
@@ -687,8 +753,30 @@
                         </DockPanel>
                     </Border>
 
+                    <!-- Per-file AI explanation callout -->
+                    <Border Grid.Row="1" Background="#1A2D4A" BorderBrush="#3A6DAA" BorderThickness="0,0,0,0"
+                            Padding="0"
+                            Visibility="{Binding HasFileDiffExplanation, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid Margin="12,7,6,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding FileDiffExplanation}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       LineHeight="18"
+                                       TextWrapping="Wrap"/>
+                            <Button Grid.Column="1" Content="✕"
+                                    Style="{StaticResource InlineActionButton}"
+                                    Command="{Binding DismissFileDiffExplanationCommand}"
+                                    VerticalAlignment="Top" Margin="6,0,0,0"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Diff content with hunk staging -->
-                    <controls:HunkStagingDiffViewer Grid.Row="1"
+                    <controls:HunkStagingDiffViewer Grid.Row="2"
                         x:Name="HunkDiffViewer"
                         DiffText="{Binding DiffText}"
                         IsStaged="{Binding SelectedGitFile.IsStaged}"/>
