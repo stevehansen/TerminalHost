@@ -96,6 +96,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -112,6 +113,11 @@
                         BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="4,0">
+                            <ToggleButton Content="✨"
+                                          IsChecked="{Binding ShowRegexInput}"
+                                          ToolTip="Generate regex with AI — describe what you want to search for"
+                                          Style="{StaticResource SearchOptionToggle}"
+                                          Margin="0,0,6,0"/>
                             <ToggleButton Content="Aa"
                                           IsChecked="{Binding CaseSensitive}"
                                           ToolTip="Case Sensitive (Aa)"
@@ -148,8 +154,65 @@
             </Grid>
         </Border>
 
-        <!-- Replace Row (collapsible) -->
+        <!-- AI Regex Input Row (collapsible) -->
         <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8"
+                Visibility="{Binding ShowRegexInput, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="✨ Describe:"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+
+                <Border Grid.Column="1" Background="{StaticResource BackgroundDarkestBrush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="3">
+                    <TextBox x:Name="RegexDescriptionBox"
+                             Text="{Binding RegexDescription, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             Foreground="{StaticResource TextLightBrush}"
+                             BorderThickness="0"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeNormal}"
+                             VerticalContentAlignment="Center">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding GenerateRegexCommand}"/>
+                            <KeyBinding Key="Escape" Command="{Binding HideRegexInputCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </Border>
+
+                <Button Grid.Column="2"
+                        Style="{StaticResource TerminalSwitchButton}"
+                        Command="{Binding GenerateRegexCommand}"
+                        Margin="8,0,0,0"
+                        Padding="12,6">
+                    <Button.Content>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Generate →"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsGeneratingRegex}" Value="True">
+                                            <Setter Property="Text" Value="Generating..."/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Replace Row (collapsible) -->
+        <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8"
                 Visibility="{Binding ShowReplaceSection, Converter={StaticResource BoolToVisibilityConverter}}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -178,7 +241,7 @@
         </Border>
 
         <!-- Filter Row -->
-        <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8">
+        <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,0,8,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -240,7 +303,7 @@
         </Border>
 
         <!-- Status Row -->
-        <Border Grid.Row="3" Background="{StaticResource BackgroundDarkBrush}" Padding="8,6">
+        <Border Grid.Row="4" Background="{StaticResource BackgroundDarkBrush}" Padding="8,6">
             <DockPanel>
                 <!-- Cancel/Clear buttons -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -272,7 +335,7 @@
         </Border>
 
         <!-- Results -->
-        <Border Grid.Row="4" Background="{StaticResource BackgroundDarkestBrush}">
+        <Border Grid.Row="5" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid>
                 <ListBox ItemsSource="{Binding Results}"
                          Background="Transparent"

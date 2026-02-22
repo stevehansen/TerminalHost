@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Input;
 using TerminalHost.ViewModels;
@@ -16,6 +17,17 @@ public partial class SearchAcrossFilesContentView : UserControl
     {
         // Focus the search box when the view is loaded
         SearchBox?.Focus();
+        if (DataContext is SearchAcrossFilesViewModel vm)
+            vm.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SearchAcrossFilesViewModel.ShowRegexInput) &&
+            sender is SearchAcrossFilesViewModel vm && vm.ShowRegexInput)
+        {
+            Dispatcher.BeginInvoke(() => RegexDescriptionBox?.Focus());
+        }
     }
 
     private void FileHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

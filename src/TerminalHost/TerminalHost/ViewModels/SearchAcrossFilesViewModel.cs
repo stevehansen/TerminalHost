@@ -17,6 +17,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
     private readonly ISearchService _searchService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
@@ -85,6 +86,23 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
 
     #endregion
 
+    #region AI Regex Properties
+
+    [ObservableProperty]
+    private bool _showRegexInput;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateRegexCommand))]
+    private bool _isGeneratingRegex;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateRegexCommand))]
+    private string _regexDescription = "";
+
+    public bool CanGenerateRegex => !IsGeneratingRegex && !string.IsNullOrWhiteSpace(RegexDescription);
+
+    #endregion
+
     #region Results Properties
 
     [ObservableProperty]
@@ -123,6 +141,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         ISearchService searchService,
         IFileSystem fileSystem,
         IProcessService processService,
+        IConfigurationService configurationService,
         IToastService toastService,
         ITimerService timerService,
         IDispatcherService dispatcherService)
@@ -130,6 +149,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         _searchService = searchService;
         _fileSystem = fileSystem;
         _processService = processService;
+        _configurationService = configurationService;
         _toastService = toastService;
         _timerService = timerService;
         _dispatcherService = dispatcherService;
@@ -159,6 +179,12 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
             });
         });
         _debounceTimer.Start();
+    }
+
+    partial void OnShowRegexInputChanged(bool value)
+    {
+        if (!value)
+            RegexDescription = "";
     }
 
     partial void OnCaseSensitiveChanged(bool value) => TriggerSearch();
@@ -220,6 +246,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         SearchPattern = "";
         ReplaceText = "";
         StatusMessage = "";
+        ShowRegexInput = false;
         base.OnClose();
     }
 
@@ -457,6 +484,74 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         catch
         {
             // Ignore
+        }
+    }
+
+    [RelayCommand]
+    private void HideRegexInput()
+    {
+        ShowRegexInput = false;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGenerateRegex))]
+    private async Task GenerateRegexAsync()
+    {
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
+            return;
+        }
+
+        IsGeneratingRegex = true;
+        try
+        {
+            var prompt = $"""
+                Generate a single regex pattern for the following description.
+                Output ONLY the regex — no explanation, no slashes, no flags.
+
+                Description: {RegexDescription}
+                """;
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", WorkingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+            {
+                var pattern = output.Trim().Trim('`');
+
+                try
+                {
+                    _ = new System.Text.RegularExpressions.Regex(pattern);
+                }
+                catch (ArgumentException)
+                {
+                    _toastService.Show($"Generated regex is invalid — try rephrasing your description", ToastType.Error);
+                    return;
+                }
+
+                SearchPattern = pattern;
+                UseRegex = true;
+                ShowRegexInput = false;
+            }
+            else if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out — try again", ToastType.Warning);
+            }
+            else
+            {
+                var detail = !string.IsNullOrWhiteSpace(error)
+                    ? error.Split('\n')[0].Trim()
+                    : $"exit {exitCode}";
+                _toastService.Show($"AI failed: {detail}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsGeneratingRegex = false;
         }
     }
 

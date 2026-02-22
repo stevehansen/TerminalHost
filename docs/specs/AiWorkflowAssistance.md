@@ -11,7 +11,7 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | Test Failure Root Cause Analysis | Test Results panel (F6) | **Implemented** |
 | PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Implemented** |
 | Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
-| Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Planned** |
+| Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Implemented** |
 | Changelog Generation | Commit History (Ctrl+H) | **Planned** |
 
 ---
@@ -303,12 +303,13 @@ Output ONLY the regex — no explanation, no slashes, no flags.
 Description: {userDescription}
 ```
 
-### Implementation
+### Implementation ✅
 
-- **ViewModel**: `SearchAcrossFilesViewModel.GenerateRegexAsync(description)` — inserts result into `SearchQuery`, enables regex mode
-- **UI**: Small inline input row toggled by the ✨ button; hidden after generation or on Escape
-- **Validation**: Test the generated regex for syntax errors before inserting; show error toast if invalid
-- **Fallback**: Input row still usable as a manual search description field if AI unavailable
+- **ViewModel**: `SearchAcrossFilesViewModel.GenerateRegexAsync()` — inserts result into `SearchPattern`, enables `UseRegex=true`; validates with `new Regex(pattern)` before inserting; error toast if invalid
+- **UI**: ✨ ToggleButton in search option bar; bound to `ShowRegexInput`; reveals inline description row below search box; description row has TextBox + "Generate →" button; Enter submits, Escape dismisses; auto-focuses description box on open
+- **Validation**: Syntactically invalid regex shows error toast and leaves input row open; no pattern inserted
+- **State**: `HideRegexInputCommand` always closes (used by Escape key); `ShowRegexInput=false` clears `RegexDescription` via `OnShowRegexInputChanged`; row cleared on panel close
+- **Error reporting**: Distinct messages for AI not configured (toast) vs timeout vs process failure (shows first stderr line)
 
 ---
 
@@ -374,7 +375,7 @@ Commits:
 | ~~**High**~~ | ~~Merge Conflict Auto-Resolution~~ | ~~Medium~~ | ✅ Implemented — "✨ AI Suggest" in conflict viewer action bar |
 | ~~**High**~~ | ~~Test Failure Root Cause Analysis~~ | ~~Medium~~ | ✅ Implemented — "Analyze Failures ✨" button in test results toolbar |
 | ~~**Medium**~~ | ~~PR Code Review Assistance~~ | ~~Medium~~ | ✅ Implemented — "AI Review ✨" button + collapsible findings panel |
-| **Medium** | Regex Generation | Low | Small surface area, high friction reduction |
+| ~~**Medium**~~ | ~~Regex Generation~~ | ~~Low~~ | ✅ Implemented — ✨ toggle in search bar + inline description row |
 | **Low** | Changelog Generation | Low | Useful for releases, lower daily frequency |
 
 ---
