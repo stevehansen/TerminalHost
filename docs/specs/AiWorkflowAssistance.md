@@ -9,7 +9,7 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | AI Commit Message Generation | Git Changes panel (Alt+G) | **Implemented** |
 | Merge Conflict Auto-Resolution | Merge Conflict viewer | **Implemented** |
 | Test Failure Root Cause Analysis | Test Results panel (F6) | **Implemented** |
-| PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Planned** |
+| PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Implemented** |
 | Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
 | Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Planned** |
 | Changelog Generation | Commit History (Ctrl+H) | **Planned** |
@@ -219,12 +219,14 @@ Author: {prAuthor}
 {prDiff}
 ```
 
-### Implementation
+### Implementation ✅
 
-- **ViewModel**: `PrReviewViewModel.RunAiReviewAsync()` — populates `AiReviewFindings` observable collection
-- **Parsing**: Split output lines by emoji prefix into typed `AiReviewFinding` records
-- **Input limit**: PR diff truncated at 30KB with a note in the prompt; large PRs show a warning
-- **Persistence**: Findings cached in memory for the session; cleared on PR refresh
+- **ViewModel**: `PrReviewViewModel.RunAiReviewAsync()` — loads per-file diffs up to 30 000 chars, sends full prompt, populates `AiReviewFindings` observable collection; `ParseAiFindings()` splits output lines by emoji prefix (🔴/🟡/🟢) into `AiReviewFinding` records with `Category`, `Location`, and `Description`
+- **UI**: "AI Review ✨" button (purple) in action bar left side; `IsRunningAiReview` changes label to "Reviewing..."; collapsible findings panel (Row 3, above file list) shows automatically after review; header toggles expand/collapse with count
+- **Finding columns**: Emoji + colored Category (red/yellow/green) + monospace Location (file:line, optional) + wrapping Description
+- **Input limit**: Per-file diffs accumulated until 30 000 chars; truncated prompt appends note; status bar warns when truncated
+- **State**: `AiReviewFindings` cleared on `OpenAsync`, `OpenForPrAsync`, and `Close`; `CanRunAiReview` gates button on `HasPullRequest && !IsRunningAiReview`
+- **Error reporting**: Distinct messages for timeout vs. process failure (shows first stderr line)
 
 ---
 
@@ -371,7 +373,7 @@ Commits:
 | ~~**High**~~ | ~~Diff/Change Explanation~~ | ~~Low~~ | ✅ Implemented — staged all-files + per-file in diff panel |
 | ~~**High**~~ | ~~Merge Conflict Auto-Resolution~~ | ~~Medium~~ | ✅ Implemented — "✨ AI Suggest" in conflict viewer action bar |
 | ~~**High**~~ | ~~Test Failure Root Cause Analysis~~ | ~~Medium~~ | ✅ Implemented — "Analyze Failures ✨" button in test results toolbar |
-| **Medium** | PR Code Review Assistance | Medium | Adds to existing PR Review Mode |
+| ~~**Medium**~~ | ~~PR Code Review Assistance~~ | ~~Medium~~ | ✅ Implemented — "AI Review ✨" button + collapsible findings panel |
 | **Medium** | Regex Generation | Low | Small surface area, high friction reduction |
 | **Low** | Changelog Generation | Low | Useful for releases, lower daily frequency |
 

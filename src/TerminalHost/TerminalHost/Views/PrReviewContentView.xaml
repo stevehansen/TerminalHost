@@ -14,6 +14,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -98,8 +99,113 @@
             <controls:MarkdownViewer HtmlContent="{Binding BodyHtml}"/>
         </Border>
 
+        <!-- AI Review Panel -->
+        <Border Grid.Row="3"
+                Background="{StaticResource BackgroundDarkestBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Visibility="{Binding HasAiReview, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header toggle -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="4,2">
+                    <Button Command="{Binding ToggleAiReviewCommand}"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Padding="8,4"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding IsAiReviewExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text=" AI Review"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       Foreground="#C586C0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0,0,0">
+                                <Run Text="("/>
+                                <Run Text="{Binding AiReviewFindings.Count, Mode=OneWay}"/>
+                                <Run Text=")"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- Findings list -->
+                <Border Grid.Row="1"
+                        MaxHeight="220"
+                        Padding="12,6"
+                        Visibility="{Binding IsAiReviewExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding AiReviewFindings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Emoji}" VerticalAlignment="Top"
+                                                   FontSize="{StaticResource FontSizeTiny}"/>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Category}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Top">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource SyntaxRedBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource SyntaxYellowBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsGood}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource SyntaxGreenBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding Location}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   FontFamily="Consolas"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Top"
+                                                   ToolTip="{Binding Location}"
+                                                   Visibility="{Binding HasLocation, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{Binding Description}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Top"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- Main Content: Files + Diff -->
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250"/>
                 <ColumnDefinition Width="*"/>
@@ -318,7 +424,7 @@
         </Grid>
 
         <!-- Comment Input -->
-        <Border Grid.Row="4" Padding="12,8"
+        <Border Grid.Row="5" Padding="12,8"
                 BorderBrush="{StaticResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0">
             <TextBox Text="{Binding ReviewComment, UpdateSourceTrigger=PropertyChanged}"
@@ -344,7 +450,7 @@
         </Border>
 
         <!-- Action Buttons -->
-        <Border Grid.Row="5" Padding="12,8,24,8"
+        <Border Grid.Row="6" Padding="12,8,24,8"
                 Background="{StaticResource BackgroundDarkestBrush}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -353,8 +459,29 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: Test Results -->
+                <!-- Left: AI + Test Results -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding RunAiReviewCommand}"
+                            Foreground="#C586C0"
+                            ToolTip="Use AI to review this PR"
+                            Padding="12,6"
+                            Margin="0,0,8,0">
+                        <Button.Content>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="AI Review ✨"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRunningAiReview}" Value="True">
+                                                <Setter Property="Text" Value="Reviewing..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button.Content>
+                    </Button>
                     <Button Content="Run Tests"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding RunTestsCommand}"
