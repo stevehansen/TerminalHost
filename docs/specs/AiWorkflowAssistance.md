@@ -8,7 +8,7 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 |---------|----------|--------|
 | AI Commit Message Generation | Git Changes panel (Alt+G) | **Implemented** |
 | Merge Conflict Auto-Resolution | Merge Conflict viewer | **Implemented** |
-| Test Failure Root Cause Analysis | Test Results panel (F6) | **Planned** |
+| Test Failure Root Cause Analysis | Test Results panel (F6) | **Implemented** |
 | PR Code Review Assistance | PR Review Mode (Ctrl+Shift+R) | **Planned** |
 | Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
 | Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Planned** |
@@ -166,12 +166,14 @@ TEST SOURCE (if available):
 {testFileContents}
 ```
 
-### Implementation
+### Implementation ✅
 
-- **ViewModel**: `TestResultsViewModel.AnalyzeFailuresAsync()` — attaches `AiDiagnosis` string to each failed `TestResult`
-- **UI**: Diagnosis shown as a `💡 AI:` paragraph below the failure details, collapsed by default, expanded on click
-- **Source loading**: Attempt to read test files referenced in stack traces via `IFileSystem`
-- **Input limit**: Up to 10 failures, 100 lines of output each; test source truncated at 300 lines
+- **ViewModel**: `TestResultsViewModel.AnalyzeFailuresAsync()` — single AI call for all failures (up to 10); diagnoses stored in `_aiDiagnoses` dict keyed by `FullName`; `SelectedAiDiagnosis` observable updates when selected test changes via `OnSelectedResultChanged`
+- **UI**: "Analyze Failures ✨" button in toolbar (visible only when `FailedCount > 0`); button text changes to "Analyzing..." during call; `💡 AI:` callout panel with blue left-border accent appears between error details and footer when a selected test has a diagnosis
+- **Multi-failure parsing**: AI instructed to separate per-test diagnoses with `---` lines; `SplitDiagnoses()` helper splits on lines that are exactly `---`; single-failure case uses full output as-is
+- **Source loading**: Reads test source files via `IFileSystem` using `test.FilePath`; supports absolute and working-directory-relative paths; total source capped at 300 lines across all files
+- **Input limit**: Up to 10 failures (via `FlattenLeafTests` for hierarchical result trees), 20 stack trace lines each; test source 300 lines total
+- **State management**: `_aiDiagnoses` dict and `SelectedAiDiagnosis` cleared when a new test run starts; `CanAnalyzeFailures` guards against concurrent runs
 
 ---
 
@@ -368,7 +370,7 @@ Commits:
 |----------|---------|--------|-------|
 | ~~**High**~~ | ~~Diff/Change Explanation~~ | ~~Low~~ | ✅ Implemented — staged all-files + per-file in diff panel |
 | ~~**High**~~ | ~~Merge Conflict Auto-Resolution~~ | ~~Medium~~ | ✅ Implemented — "✨ AI Suggest" in conflict viewer action bar |
-| **High** | Test Failure Root Cause Analysis | Medium | Tight feedback loop; high daily use |
+| ~~**High**~~ | ~~Test Failure Root Cause Analysis~~ | ~~Medium~~ | ✅ Implemented — "Analyze Failures ✨" button in test results toolbar |
 | **Medium** | PR Code Review Assistance | Medium | Adds to existing PR Review Mode |
 | **Medium** | Regex Generation | Low | Small surface area, high friction reduction |
 | **Low** | Changelog Generation | Low | Useful for releases, lower daily frequency |

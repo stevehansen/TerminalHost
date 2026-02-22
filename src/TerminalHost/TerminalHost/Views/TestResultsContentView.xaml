@@ -13,6 +13,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Summary Bar -->
@@ -25,6 +26,27 @@
                             Command="{Binding CancelTestsCommand}"
                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"
                             Margin="0,0,4,0"/>
+                    <Button Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding AnalyzeFailuresCommand}"
+                            Foreground="#C586C0"
+                            ToolTip="Use AI to diagnose failing tests"
+                            Margin="0,0,4,0"
+                            Visibility="{Binding FailedCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button.Content>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Analyze Failures ✨"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAnalyzingFailures}" Value="True">
+                                                <Setter Property="Text" Value="Analyzing..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button.Content>
+                    </Button>
                     <Button Content="Rerun"
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding RerunTestsCommand}"
@@ -207,8 +229,25 @@
             </ScrollViewer>
         </Border>
 
+        <!-- AI Diagnosis Panel -->
+        <Border Grid.Row="3"
+                Background="#1A2D4A"
+                Padding="12,8"
+                BorderBrush="#3A6DAA"
+                BorderThickness="3,0,0,0"
+                Margin="0,1,0,0"
+                Visibility="{Binding HasSelectedDiagnosis, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="{StaticResource FontSizeTiny}"
+                       TextWrapping="Wrap"
+                       LineHeight="18">
+                <Run Text="💡 AI: " Foreground="#C586C0" FontWeight="SemiBold"/>
+                <Run Text="{Binding SelectedAiDiagnosis}"/>
+            </TextBlock>
+        </Border>
+
         <!-- Footer -->
-        <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+        <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
             <DockPanel>
                 <TextBlock Text="{Binding StatusMessage}"
                            Foreground="{StaticResource TextDimmedBrush}"
