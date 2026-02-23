@@ -885,7 +885,25 @@ public class ApiServer : IApiServer
 
     public void Dispose()
     {
-        StopAsync().GetAwaiter().GetResult();
+        // Don't use StopAsync().GetAwaiter().GetResult() here — that deadlocks when
+        // called on the UI thread because in-flight request handlers may be blocked
+        // inside _dispatcherService.Invoke() waiting for the same UI thread.
+        // Instead, cancel and close synchronously; the listen loop and any in-flight
+        // requests will abort via OperationCanceledException / ObjectDisposedException.
+        IsRunning = false;
+        _cts?.Cancel();
+
+        lock (_sseLock)
+        {
+            foreach (var conn in _sseConnections)
+                conn.Cts.Cancel();
+            _sseConnections.Clear();
+        }
+
+        try { _listener?.Stop(); } catch { }
+        try { _listener?.Close(); } catch { }
+        _listener = null;
+        BaseUrl = null;
     }
 
     private sealed record SseConnection(CancellationTokenSource Cts, Channel<ApiEvent> Channel);
