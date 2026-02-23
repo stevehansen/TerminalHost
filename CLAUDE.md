@@ -577,6 +577,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [CrossPlatform.md](docs/specs/CrossPlatform.md) | Cross-platform support (Windows + macOS) | **Completed** | Core/Windows/macOS/Avalonia projects |
 | [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
+| [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Draft** | 5 phases: API → SSE → Webhooks → Scriban → MCP |
 
 ## Remaining Work Summary
 
