@@ -639,6 +639,12 @@ public class AppSettings
     [JsonPropertyName("voice")]
     public VoiceSettings Voice { get; set; } = new();
 
+    /// <summary>
+    /// REST API, SSE streaming, and webhook settings.
+    /// </summary>
+    [JsonPropertyName("api")]
+    public ApiSettings Api { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",

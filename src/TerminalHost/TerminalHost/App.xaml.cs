@@ -179,6 +179,28 @@ public partial class App : Application
 
         // Process any queued hook events from when the app wasn't running
         _ = ProcessQueuedHookEventsAsync();
+
+        // Auto-start API server if enabled
+        _ = AutoStartApiServerAsync();
+    }
+
+    private async Task AutoStartApiServerAsync()
+    {
+        try
+        {
+            if (_services == null) return;
+            var config = _services.GetRequiredService<IConfigurationService>().Load();
+            if (config.Settings.Api.Enabled)
+            {
+                var apiServer = _services.GetRequiredService<IApiServer>();
+                await apiServer.StartAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to auto-start API server: {ex.Message}");
+            _services?.GetService<IToastService>()?.Show($"API server failed to start: {ex.Message}", ToastType.Error);
+        }
     }
 
     private void ConfigureServices(IServiceCollection services, CommandLineArgs args)
@@ -232,6 +254,9 @@ public partial class App : Application
                 sp.GetRequiredService<IConfigurationService>(),
                 sp.GetRequiredService<IDispatcherService>());
         });
+        services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
+        services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
+        services.AddSingleton<IApiServer, ApiServer>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
@@ -508,6 +533,8 @@ public partial class App : Application
     {
         if (_services != null)
         {
+            _services.GetService<IApiServer>()?.Dispose();
+            _services.GetService<IWebhookDeliveryService>()?.Dispose();
             _services.GetService<ISystemTrayService>()?.Dispose();
             _services.GetService<ISingleInstanceService>()?.Dispose();
             _services.GetService<IStatisticsService>()?.Dispose();

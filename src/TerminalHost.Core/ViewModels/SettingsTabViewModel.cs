@@ -32,7 +32,8 @@ public enum SettingsSection
     LinkPatterns,
     ProjectTypes,
     ClaudeCommands,
-    DirectorySettings
+    DirectorySettings,
+    ApiWebhooks
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
@@ -377,6 +378,64 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _editRcUrlPattern = "";
 
+    // API & Webhooks settings
+    [ObservableProperty]
+    private bool _apiEnabled;
+
+    [ObservableProperty]
+    private int _apiPort = 19280;
+
+    [ObservableProperty]
+    private string _apiBindAddress = "127.0.0.1";
+
+    [ObservableProperty]
+    private string _apiKey = "";
+
+    [ObservableProperty]
+    private bool _apiEnableSse = true;
+
+    [ObservableProperty]
+    private string _apiCorsOrigins = "http://localhost:*";
+
+    [ObservableProperty]
+    private bool _apiEnableWebhooks;
+
+    [ObservableProperty]
+    private ObservableCollection<WebhookEndpoint> _apiWebhooks = [];
+
+    [ObservableProperty]
+    private WebhookEndpoint? _selectedWebhook;
+
+    // Webhook editing properties
+    [ObservableProperty]
+    private string _editWhName = "";
+
+    [ObservableProperty]
+    private string _editWhUrl = "";
+
+    [ObservableProperty]
+    private string _editWhSecret = "";
+
+    [ObservableProperty]
+    private string _editWhEvents = "*";
+
+    [ObservableProperty]
+    private int _editWhDebounceMs = 500;
+
+    [ObservableProperty]
+    private int _editWhBatchWindowMs = 0;
+
+    [ObservableProperty]
+    private int _editWhMaxRetries = 3;
+
+    [ObservableProperty]
+    private bool _editWhEnabled = true;
+
+    /// <summary>
+    /// Whether an API key is required (non-loopback bind address).
+    /// </summary>
+    public bool IsApiKeyRequired => ApiBindAddress != "127.0.0.1" && ApiBindAddress != "localhost";
+
     public string TabIcon => "\u2699"; // Gear symbol
     public string WorkingDirectory => "Settings";
     public bool IsCloseable => true;
@@ -492,6 +551,16 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // Project types
             ProjectTypes = new ObservableCollection<ProjectType>(config.ProjectTypes);
 
+            // API & Webhooks settings
+            ApiEnabled = config.Settings.Api.Enabled;
+            ApiPort = config.Settings.Api.Port;
+            ApiBindAddress = config.Settings.Api.BindAddress;
+            ApiKey = config.Settings.Api.ApiKey ?? "";
+            ApiEnableSse = config.Settings.Api.EnableSse;
+            ApiCorsOrigins = string.Join(", ", config.Settings.Api.CorsOrigins);
+            ApiEnableWebhooks = config.Settings.Api.EnableWebhooks;
+            ApiWebhooks = new ObservableCollection<WebhookEndpoint>(config.Settings.Api.Webhooks);
+
             // Directory settings
             Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
             if (Directories.Count > 0 && SelectedDirectory == null)
@@ -558,6 +627,18 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Project types
             config.ProjectTypes = ProjectTypes.ToList();
+
+            // API & Webhooks settings
+            config.Settings.Api.Enabled = ApiEnabled;
+            config.Settings.Api.Port = ApiPort;
+            config.Settings.Api.BindAddress = ApiBindAddress;
+            config.Settings.Api.ApiKey = string.IsNullOrEmpty(ApiKey) ? null : ApiKey;
+            config.Settings.Api.EnableSse = ApiEnableSse;
+            config.Settings.Api.CorsOrigins = ApiCorsOrigins
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            config.Settings.Api.EnableWebhooks = ApiEnableWebhooks;
+            config.Settings.Api.Webhooks = ApiWebhooks.ToList();
 
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
@@ -641,6 +722,65 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnShellCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandIconChanged(string value) => MarkDirtyFromRichMode();
+
+    // API & Webhooks change handlers
+    partial void OnApiEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnApiPortChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnApiBindAddressChanged(string value) { OnPropertyChanged(nameof(IsApiKeyRequired)); MarkDirtyFromRichMode(); }
+    partial void OnApiKeyChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnApiCorsOriginsChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnApiEnableWebhooksChanged(bool value) => MarkDirtyFromRichMode();
+
+    partial void OnSelectedWebhookChanged(WebhookEndpoint? value)
+    {
+        if (value != null)
+        {
+            EditWhName = value.Name;
+            EditWhUrl = value.Url;
+            EditWhSecret = value.Secret ?? "";
+            EditWhEvents = string.Join(", ", value.Events);
+            EditWhDebounceMs = value.DebounceMs;
+            EditWhBatchWindowMs = value.BatchWindowMs;
+            EditWhMaxRetries = value.MaxRetries;
+            EditWhEnabled = value.Enabled;
+        }
+    }
+
+    [RelayCommand]
+    private void AddWebhook()
+    {
+        var webhook = new WebhookEndpoint { Name = "New Webhook" };
+        ApiWebhooks.Add(webhook);
+        SelectedWebhook = webhook;
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void RemoveWebhook()
+    {
+        if (SelectedWebhook == null) return;
+        ApiWebhooks.Remove(SelectedWebhook);
+        SelectedWebhook = ApiWebhooks.FirstOrDefault();
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ApplyWebhook()
+    {
+        if (SelectedWebhook == null) return;
+        SelectedWebhook.Name = EditWhName;
+        SelectedWebhook.Url = EditWhUrl;
+        SelectedWebhook.Secret = string.IsNullOrEmpty(EditWhSecret) ? null : EditWhSecret;
+        SelectedWebhook.Events = EditWhEvents
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        SelectedWebhook.DebounceMs = EditWhDebounceMs;
+        SelectedWebhook.BatchWindowMs = EditWhBatchWindowMs;
+        SelectedWebhook.MaxRetries = EditWhMaxRetries;
+        SelectedWebhook.Enabled = EditWhEnabled;
+        SyncRichModeToJson();
+    }
 
     // Shortcut conflict detection
     partial void OnEditQcShortcutChanged(string value) => CheckQuickCommandShortcutConflict();

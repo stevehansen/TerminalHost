@@ -378,6 +378,10 @@
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=DirectorySettings}"/>
+                    <RadioButton Content="API &amp; Webhooks"
+                                 GroupName="SettingsSection"
+                                 Style="{StaticResource SidebarItemButton}"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ApiWebhooks}"/>
                 </StackPanel>
             </Border>
 
@@ -2374,6 +2378,174 @@
                                         HorizontalAlignment="Left"
                                         Padding="16,8"/>
                             </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <!-- API & Webhooks Settings Section -->
+                    <StackPanel Margin="24"
+                                Visibility="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=ApiWebhooks}">
+                        <TextBlock Text="API &amp; Webhooks" Style="{StaticResource SectionHeader}" Margin="0,0,0,16"/>
+                        <TextBlock Text="Expose application state via a local REST API and push events to webhook endpoints."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,16"/>
+
+                        <!-- Enable API -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable REST API"
+                                      IsChecked="{Binding ApiEnabled}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Start an HTTP server exposing read-only endpoints for repos, git status, tasks, and timeline."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Port -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Port" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding ApiPort, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="100" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Default: 19280. Range: 1024-65535."
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Bind Address -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Bind Address" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox SelectedValue="{Binding ApiBindAddress}"
+                                      SelectedValuePath="Content"
+                                      Width="200" HorizontalAlignment="Left"
+                                      Background="{StaticResource BackgroundLightBrush}"
+                                      Foreground="{StaticResource TextPrimaryBrush}">
+                                <ComboBoxItem Content="127.0.0.1"/>
+                                <ComboBoxItem Content="0.0.0.0"/>
+                            </ComboBox>
+                            <TextBlock Text="127.0.0.1 = local only (secure). 0.0.0.0 = all interfaces (requires API key)."
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- API Key (shown when non-loopback) -->
+                        <StackPanel Margin="0,0,0,12"
+                                    Visibility="{Binding IsApiKeyRequired, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="API Key" Style="{StaticResource FieldLabel}"/>
+                            <PasswordBox x:Name="ApiKeyBox"
+                                         Width="300" HorizontalAlignment="Left"
+                                         Background="{StaticResource BackgroundLightBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="{StaticResource BorderSubtleBrush}"/>
+                            <TextBlock Text="Required when binding to a non-loopback address. Sent via Authorization: Bearer header."
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"
+                                       Foreground="{StaticResource StatusWarningBrush}"/>
+                        </StackPanel>
+
+                        <!-- Enable SSE -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable SSE Streaming"
+                                      IsChecked="{Binding ApiEnableSse}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Server-Sent Events endpoint at /api/events for real-time event delivery."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- CORS Origins -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="CORS Origins" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding ApiCorsOrigins, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="400" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Comma-separated origins. Use * for wildcards (e.g., http://localhost:*)."
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Enable Webhooks -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable Webhooks"
+                                      IsChecked="{Binding ApiEnableWebhooks}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Push events to configured HTTP endpoints with debounce, retry, and HMAC signing."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Webhooks List -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,12"
+                                Visibility="{Binding ApiEnableWebhooks, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Webhook list -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <Button Content="+ Add" Command="{Binding AddWebhookCommand}"
+                                                Style="{StaticResource SettingsToolbarButton}" Margin="0,0,4,0"/>
+                                        <Button Content="- Remove" Command="{Binding RemoveWebhookCommand}"
+                                                Style="{StaticResource SettingsToolbarButton}"/>
+                                    </StackPanel>
+                                    <ListBox ItemsSource="{Binding ApiWebhooks}"
+                                             SelectedItem="{Binding SelectedWebhook}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             MaxHeight="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+
+                                <!-- Webhook editor -->
+                                <StackPanel Grid.Column="1"
+                                            Visibility="{Binding SelectedWebhook, Converter={StaticResource NullToCollapsedConverter}}">
+                                    <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding EditWhName, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource FormTextBox}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="URL" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding EditWhUrl, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource FormTextBox}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Secret (for HMAC signing)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding EditWhSecret, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource FormTextBox}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Events Filter" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding EditWhEvents, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource FormTextBox}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Comma-separated. Examples: *, repo.*, repo.commit, session.*"
+                                               Style="{StaticResource SectionDescription}" Margin="0,0,0,8"/>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <StackPanel Margin="0,0,16,0">
+                                            <TextBlock Text="Debounce (ms)" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Text="{Binding EditWhDebounceMs, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}" Width="80"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,16,0">
+                                            <TextBlock Text="Batch Window (ms)" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Text="{Binding EditWhBatchWindowMs, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}" Width="80"/>
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Max Retries" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox Text="{Binding EditWhMaxRetries, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource FormTextBox}" Width="60"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <CheckBox Content="Enabled"
+                                              IsChecked="{Binding EditWhEnabled}"
+                                              Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+
+                                    <Button Content="Apply Changes"
+                                            Command="{Binding ApplyWebhookCommand}"
+                                            Style="{StaticResource SettingsToolbarButton}"
+                                            Padding="16,8"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </Grid>

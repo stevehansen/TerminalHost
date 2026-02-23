@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
@@ -40,6 +41,9 @@ public partial class MainViewModel : ObservableObject
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly ITaskService? _taskService;
     private readonly IVoiceCommandService? _voiceCommandService;
+    private readonly IEventAggregatorService? _eventAggregator;
+    private readonly IApiServer? _apiServer;
+    private readonly IWebhookDeliveryService? _webhookDeliveryService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -237,7 +241,10 @@ public partial class MainViewModel : ObservableObject
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
         ITaskService? taskService = null,
-        IVoiceCommandService? voiceCommandService = null)
+        IVoiceCommandService? voiceCommandService = null,
+        IEventAggregatorService? eventAggregator = null,
+        IApiServer? apiServer = null,
+        IWebhookDeliveryService? webhookDeliveryService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -264,6 +271,17 @@ public partial class MainViewModel : ObservableObject
         _inputPromptDetectionService = inputPromptDetectionService;
         _taskService = taskService;
         _voiceCommandService = voiceCommandService;
+        _eventAggregator = eventAggregator;
+        _apiServer = apiServer;
+        _webhookDeliveryService = webhookDeliveryService;
+
+        // Wire up API server repo state delegate
+        if (_apiServer is ApiServer concreteServer)
+        {
+            concreteServer.SetRepoStateProvider(
+                () => BuildRepoList(),
+                (index) => BuildRepoDetail(index));
+        }
 
         // Subscribe to timeline events
         _timelineService.OpenProjectRequested += OnTimelineOpenProjectRequested;
@@ -301,6 +319,18 @@ public partial class MainViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(NonProjectTabs));
             OnPropertyChanged(nameof(HasNonProjectTabs));
+
+            // Publish API events for tab open/close
+            if (e.NewItems != null)
+            {
+                foreach (var item in e.NewItems.OfType<TerminalPairTabViewModel>())
+                    PublishApiEvent("repo.opened", data: new { workingDirectory = item.Pair.WorkingDirectory, title = item.Title });
+            }
+            if (e.OldItems != null)
+            {
+                foreach (var item in e.OldItems.OfType<TerminalPairTabViewModel>())
+                    PublishApiEvent("repo.closed", data: new { workingDirectory = item.Pair.WorkingDirectory, title = item.Title });
+            }
         };
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
@@ -375,6 +405,17 @@ public partial class MainViewModel : ObservableObject
         {
             _tabFocusStartTime = DateTime.Now;
             _focusedTabDirectory = newTerminalTab.Pair.WorkingDirectory;
+
+            // Publish API event for tab activation
+            var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(newTerminalTab);
+            var previousIndex = oldValue is TerminalPairTabViewModel oldTerminal
+                ? Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(oldTerminal) : -1;
+            PublishApiEvent("repo.activated", tabIndex, new
+            {
+                workingDirectory = newTerminalTab.Pair.WorkingDirectory,
+                title = newTerminalTab.Title,
+                previousIndex
+            });
         }
         else
         {
@@ -525,10 +566,30 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            var previousBranch = terminalTab.GitStatus?.BranchName;
             var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
             terminalTab.GitStatus = status;
             // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
+
+            // Publish API events for git status changes
+            var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(terminalTab);
+            if (tabIndex >= 0 && _eventAggregator != null)
+            {
+                PublishApiEvent("repo.git_status_changed", tabIndex, new
+                {
+                    branch = status.BranchName, isDirty = status.IsDirty,
+                    ahead = status.AheadCount, behind = status.BehindCount
+                });
+
+                if (previousBranch != null && previousBranch != status.BranchName)
+                {
+                    PublishApiEvent("repo.branch_switched", tabIndex, new
+                    {
+                        previousBranch, newBranch = status.BranchName
+                    });
+                }
+            }
 
             // Also refresh sidebar git status for the current workspace
             if (WorkspaceSidebar != null)
@@ -2633,6 +2694,66 @@ public partial class MainViewModel : ObservableObject
                     _configService.Save(config);
                     _toastService.Show(config.Settings.Voice.Enabled ? "Voice commands enabled" : "Voice commands disabled", ToastType.Info);
                 }
+            },
+
+            // API commands
+            new() {
+                Id = "api-start",
+                Name = "API: Start Server",
+                Description = "Start the REST API server",
+                Icon = "🌐",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => _ = StartApiServerAsync(),
+                CanExecute = () => _apiServer != null && !_apiServer.IsRunning
+            },
+            new() {
+                Id = "api-stop",
+                Name = "API: Stop Server",
+                Description = "Stop the REST API server",
+                Icon = "🌐",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => _ = StopApiServerAsync(),
+                CanExecute = () => _apiServer?.IsRunning == true
+            },
+            new() {
+                Id = "api-copy-url",
+                Name = "API: Copy Base URL",
+                Description = "Copy the API base URL to clipboard",
+                Icon = "📋",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => CopyApiUrl(),
+                CanExecute = () => _apiServer?.IsRunning == true
+            },
+            new() {
+                Id = "api-open-browser",
+                Name = "API: Open in Browser",
+                Description = "Open /api/status in default browser",
+                Icon = "🔗",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => OpenApiInBrowser(),
+                CanExecute = () => _apiServer?.IsRunning == true
+            },
+            new() {
+                Id = "api-test-webhooks",
+                Name = "API: Test Webhooks",
+                Description = "Send a test event to all enabled webhooks",
+                Icon = "🧪",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => _ = TestWebhooksAsync()
+            },
+            new() {
+                Id = "api-stats",
+                Name = "API: Show Delivery Stats",
+                Description = "Show webhook delivery statistics",
+                Icon = "📊",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => ShowWebhookStats()
             }
         ];
     }
@@ -3089,6 +3210,164 @@ public partial class MainViewModel : ObservableObject
             tab.Pair.Dispose();
         }
     }
+
+    #region API Server Helpers
+
+    private async Task StartApiServerAsync()
+    {
+        if (_apiServer == null) return;
+        try
+        {
+            await _apiServer.StartAsync();
+            _toastService.Show($"API server started at {_apiServer.BaseUrl}", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to start API server: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task StopApiServerAsync()
+    {
+        if (_apiServer == null) return;
+        try
+        {
+            await _apiServer.StopAsync();
+            _toastService.Show("API server stopped", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to stop API server: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private void CopyApiUrl()
+    {
+        if (_apiServer?.BaseUrl != null)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(_apiServer.BaseUrl);
+                _toastService.Show($"Copied: {_apiServer.BaseUrl}", ToastType.Success);
+            }
+            catch { }
+        }
+    }
+
+    private void OpenApiInBrowser()
+    {
+        if (_apiServer?.BaseUrl != null)
+        {
+            _processService.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = $"{_apiServer.BaseUrl}/api/status",
+                UseShellExecute = true
+            });
+        }
+    }
+
+    private async Task TestWebhooksAsync()
+    {
+        if (_webhookDeliveryService == null) return;
+        try
+        {
+            await _webhookDeliveryService.TestWebhooksAsync();
+            _toastService.Show("Test events sent to all enabled webhooks", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Webhook test failed: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private void ShowWebhookStats()
+    {
+        if (_webhookDeliveryService == null) return;
+
+        var stats = _webhookDeliveryService.GetStats();
+        var msg = $"Delivered: {stats.TotalDelivered} | Failed: {stats.TotalFailed} | Pending retries: {stats.PendingRetries}";
+        _toastService.Show(msg, ToastType.Info);
+    }
+
+    private List<ApiRepoInfo> BuildRepoList()
+    {
+        var repos = new List<ApiRepoInfo>();
+        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+
+        for (var i = 0; i < terminalTabs.Count; i++)
+        {
+            var tab = terminalTabs[i];
+            repos.Add(new ApiRepoInfo
+            {
+                Index = i,
+                Title = tab.Title,
+                WorkingDirectory = tab.Pair.WorkingDirectory,
+                IsActive = tab == SelectedTab,
+                Layout = tab.LayoutMode.ToString(),
+                SplitRatio = tab.SplitRatio,
+                ActiveTerminal = tab.ActiveTerminal.ToString(),
+                Git = tab.GitStatus != null ? new ApiGitInfo
+                {
+                    Branch = tab.GitStatus.BranchName,
+                    IsDirty = tab.GitStatus.IsDirty,
+                    Ahead = tab.GitStatus.AheadCount,
+                    Behind = tab.GitStatus.BehindCount,
+                    StashCount = tab.GitStatus.StashCount
+                } : null,
+                Terminals = new ApiTerminalsInfo
+                {
+                    Custom = new ApiTerminalInfo { Title = tab.CustomTerminalTitle ?? "", IsActive = tab.ActiveTerminal == ActiveTerminal.Custom },
+                    Shell = new ApiTerminalInfo { Title = tab.ShellTerminalTitle ?? "", IsActive = tab.ActiveTerminal == ActiveTerminal.Shell },
+                    Run = tab.IsRunTerminalVisible ? new ApiTerminalInfo { Title = "Run", IsActive = false } : null
+                }
+            });
+        }
+
+        return repos;
+    }
+
+    private ApiRepoDetailInfo? BuildRepoDetail(int index)
+    {
+        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+        if (index < 0 || index >= terminalTabs.Count) return null;
+
+        var tab = terminalTabs[index];
+        var basic = BuildRepoList()[index];
+
+        return new ApiRepoDetailInfo
+        {
+            Index = basic.Index,
+            Title = basic.Title,
+            WorkingDirectory = basic.WorkingDirectory,
+            IsActive = basic.IsActive,
+            Layout = basic.Layout,
+            SplitRatio = basic.SplitRatio,
+            ActiveTerminal = basic.ActiveTerminal,
+            Git = basic.Git,
+            Terminals = basic.Terminals,
+            AiAssistant = tab.ActiveAiAssistant != null ? new ApiAiAssistantInfo
+            {
+                Id = tab.ActiveAiAssistant.Id,
+                Name = tab.ActiveAiAssistant.Name,
+                Icon = tab.ActiveAiAssistant.DisplayLabel
+            } : null
+        };
+    }
+
+    /// <summary>
+    /// Publishes an API event if the event aggregator is available.
+    /// </summary>
+    private void PublishApiEvent(string type, int? repoIndex = null, object? data = null)
+    {
+        _eventAggregator?.Publish(new ApiEvent
+        {
+            Type = type,
+            RepoIndex = repoIndex,
+            Data = data
+        });
+    }
+
+    #endregion
 }
 
 public class RunTerminalRequestedEventArgs : EventArgs

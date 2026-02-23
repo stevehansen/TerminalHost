@@ -27,13 +27,13 @@ TerminalHost accumulates rich state — git status, terminal activity, AI sessio
 
 | Phase | Feature | Status |
 |-------|---------|--------|
-| 1 | Core REST API endpoints | Planned |
-| 1 | Settings model & UI | Planned |
-| 1 | Authentication (API key) | Planned |
-| 2 | SSE event streaming | Planned |
-| 2 | Event aggregation service | Planned |
-| 3 | Webhooks with fixed JSON payloads | Planned |
-| 3 | Debounce, retry, batching | Planned |
+| 1 | Core REST API endpoints | **Completed** |
+| 1 | Settings model & UI | **Completed** |
+| 1 | Authentication (API key) | **Completed** |
+| 2 | SSE event streaming | **Completed** |
+| 2 | Event aggregation service | **Completed** |
+| 3 | Webhooks with fixed JSON payloads | **Completed** |
+| 3 | Debounce, retry, batching | **Completed** |
 | 4 | Scriban template customization | Planned |
 | 5 | Write endpoints (POST/PUT) | Future |
 | 5 | MCP server integration | Future |

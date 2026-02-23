@@ -37,6 +37,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **GitHub Integration**: Dashboard (Ctrl+Shift+H), PR Review Mode (Ctrl+Shift+R).
 - [x] **UI Enhancements**: Toast notifications, themed dialogs, system tray support, Markdown preview (Ctrl+M).
 - [x] **Touch Mode**: Touch-friendly UI mode with larger touch targets, icon-only toolbar, narrower sidebar, and sidebar collapse button. Ideal for mobile RDP and demos.
+- [x] **REST API & Webhooks**: HttpListener-based REST API (Phase 1-3) with SSE streaming, event aggregation, and webhook delivery. Settings UI in Ctrl+, API & Webhooks section. Command palette commands for server control.
 - [x] **Resilience**: Robust JSON persistence with automatic backups and thread-safe writes.
 - [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
 - [x] **What's New Page**: Empty state shows recently added features grouped by week with NEW badges. Also available as center panel via Ctrl+F1 or command palette. All palette commands have `IntroducedOn` dates.
@@ -56,6 +57,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
   - Update [SHORTCUTS.md](SHORTCUTS.md) - the authoritative documentation registry
   - Update `ShortcutConflictService.BuiltInShortcutSections` - the single source of truth in code (Help view and conflict detection derive from this)
 - **When using XAML converters:** Reference [CONVERTERS.md](CONVERTERS.md) for exact names and parameters
+- **When adding XAML to SettingsView.xaml:** Only use styles defined in that file's `<UserControl.Resources>`. The available styles are: `SectionHeader` (section title), `SectionDescription` (subtitle/help text under sections and fields), `FieldLabel` (uppercase field label), `HelpText` (tiny muted hint text), `SettingsToolbarButton` (small toolbar button), `FormTextBox` (dark-themed text input), `FormCheckBox` (dark-themed checkbox), `DarkComboBox` (dark-themed dropdown). For brush/resource references, only use keys defined in `App.xaml` (e.g., `BackgroundLightBrush`, `BackgroundDarkBrush`, `TextPrimaryBrush` — never `BackgroundBrush`). A missing `StaticResource` causes a runtime crash.
 - **When adding new actions**: Register them in `InitializeCommandPalette()` in `MainViewModel.cs`. The command palette must contain ALL invocable actions (toolbar buttons, keyboard shortcuts, context menu items, settings toggles). Set `IntroducedOn = new DateOnly(year, month, day)` to the current date so the feature appears in "What's New".
 - **When adding a ContextMenu in XAML:** Always use `Style="{StaticResource DarkContextMenu}"`. Never set `Background`/`BorderBrush`/`Foreground` directly on a `ContextMenu` element — the style handles all theming including the rounded border, shadow, separator colors, and MenuItem hover states. Inline color properties on `ContextMenu` bypass the template and leave the system-default light chrome visible.
 - **ContextMenu commands inside ItemContainerStyle:** Never use `x:Reference` to the parent list/tree inside its own `ItemContainerStyle` — this causes a XAML cyclical dependency exception at runtime. Instead, pass the ViewModel through the item's `Tag`: add `<Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>` (or `TreeView`), then bind commands as `Command="{Binding PlacementTarget.Tag.MyCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"`.  For `ListBox`, use `RelativeSource AncestorType=ListBox` in the Tag setter; for `TreeView` use `AncestorType=TreeView`.
@@ -577,7 +579,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [CrossPlatform.md](docs/specs/CrossPlatform.md) | Cross-platform support (Windows + macOS) | **Completed** | Core/Windows/macOS/Avalonia projects |
 | [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
-| [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Draft** | 5 phases: API → SSE → Webhooks → Scriban → MCP |
+| [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 
 ## Remaining Work Summary
 
@@ -594,8 +596,10 @@ All specifications are documented in `docs/specs/`. Status legend:
 | **Low** | Explain Project Structure (AI) | AiWorkflowAssistance.md |
 | **Low** | Explain Search Results (AI) | AiWorkflowAssistance.md |
 | **Low** | Name Worktree (AI) | AiWorkflowAssistance.md |
+| **Low** | Scriban Template Customization (API Phase 4) | RestApiAndWebhooks.md |
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
+| **Future** | Write Endpoints & MCP Server (API Phase 5) | RestApiAndWebhooks.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |
 
 ## Future Considerations
