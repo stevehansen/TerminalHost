@@ -275,12 +275,14 @@ public partial class MainViewModel : ObservableObject
         _apiServer = apiServer;
         _webhookDeliveryService = webhookDeliveryService;
 
-        // Wire up API server repo state delegate
+        // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
         {
             concreteServer.SetRepoStateProvider(
                 () => BuildRepoList(),
                 (index) => BuildRepoDetail(index));
+            concreteServer.SetWorkspaceStateProvider(
+                () => BuildWorkspaceList());
         }
 
         // Subscribe to timeline events
@@ -3326,9 +3328,36 @@ public partial class MainViewModel : ObservableObject
                 } : null,
                 Terminals = new ApiTerminalsInfo
                 {
-                    Custom = new ApiTerminalInfo { Title = tab.CustomTerminalTitle ?? "", IsActive = tab.ActiveTerminal == ActiveTerminal.Custom },
-                    Shell = new ApiTerminalInfo { Title = tab.ShellTerminalTitle ?? "", IsActive = tab.ActiveTerminal == ActiveTerminal.Shell },
-                    Run = tab.IsRunTerminalVisible ? new ApiTerminalInfo { Title = "Run", IsActive = false } : null
+                    Custom = new ApiTerminalInfo
+                    {
+                        Title = tab.CustomTerminalTitle ?? "",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Custom,
+                        IsBusy = tab.Pair.CustomTerminal.IsActive,
+                        LastActivityAt = tab.Pair.CustomTerminal.LastOutputTime?.ToUniversalTime(),
+                    },
+                    Shell = new ApiTerminalInfo
+                    {
+                        Title = tab.ShellTerminalTitle ?? "",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Shell,
+                        IsBusy = tab.Pair.ShellTerminal.IsActive,
+                        LastActivityAt = tab.Pair.ShellTerminal.LastOutputTime?.ToUniversalTime(),
+                    },
+                    Run = tab.Pair.RunTerminal != null ? new ApiTerminalInfo
+                    {
+                        Title = "Run",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Run,
+                        IsBusy = tab.Pair.RunTerminal.IsActive,
+                        LastActivityAt = tab.Pair.RunTerminal.LastOutputTime?.ToUniversalTime(),
+                    } : null
+                },
+                ActivityIndicator = new ApiActivityIndicator
+                {
+                    State = tab.IsAnyTerminalActive ? "busy"
+                        : tab.IsWaitingForInput ? "waiting"
+                        : tab.HasUnreadActivity ? "done"
+                        : "idle",
+                    HasUnreadActivity = tab.HasUnreadActivity,
+                    IsWaitingForInput = tab.IsWaitingForInput,
                 }
             });
         }
@@ -3362,6 +3391,33 @@ public partial class MainViewModel : ObservableObject
                 Icon = tab.ActiveAiAssistant.DisplayLabel
             } : null
         };
+    }
+
+    private List<ApiWorkspaceInfo> BuildWorkspaceList()
+    {
+        var config = _configService.Load();
+        var openRepos = BuildRepoList();
+
+        return config.Workspaces.Select(w =>
+        {
+            var normalizedPath = w.Path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+            var matchingRepo = openRepos.FirstOrDefault(r =>
+                r.WorkingDirectory.Replace('\\', '/').TrimEnd('/').ToLowerInvariant() == normalizedPath);
+
+            return new ApiWorkspaceInfo
+            {
+                Id = w.Id,
+                Name = w.Name,
+                Path = w.Path,
+                PathId = ApiServer.NormalizePathId(w.Path),
+                Section = w.Section,
+                IsPinned = w.IsPinned,
+                Order = w.Order,
+                CustomIcon = w.CustomIcon,
+                IsOpen = matchingRepo != null,
+                RepoIndex = matchingRepo?.Index,
+            };
+        }).ToList();
     }
 
     /// <summary>

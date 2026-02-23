@@ -33,6 +33,9 @@ public class ApiRepoInfo
 
     [JsonPropertyName("terminals")]
     public ApiTerminalsInfo? Terminals { get; set; }
+
+    [JsonPropertyName("activityIndicator")]
+    public ApiActivityIndicator? ActivityIndicator { get; set; }
 }
 
 /// <summary>
@@ -133,8 +136,44 @@ public class ApiTerminalInfo
     [JsonPropertyName("title")]
     public string Title { get; set; } = "";
 
+    /// <summary>Whether this terminal pane is the focused/selected pane.</summary>
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
+
+    /// <summary>Whether the terminal is actively generating output (output within last 2 seconds).</summary>
+    [JsonPropertyName("isBusy")]
+    public bool IsBusy { get; set; }
+
+    /// <summary>The last time the terminal produced output (UTC). Null if no output has been received.</summary>
+    [JsonPropertyName("lastActivityAt")]
+    public DateTime? LastActivityAt { get; set; }
+}
+
+/// <summary>
+/// DTO for the tab-level activity indicator state in API responses.
+/// Maps to the visual indicators shown on the tab strip:
+/// spinning orange = actively outputting, green dot = completed (unread),
+/// orange dot = waiting for user input.
+/// </summary>
+public class ApiActivityIndicator
+{
+    /// <summary>
+    /// The current indicator state.
+    /// "busy" — terminal actively generating output (spinning orange indicator).
+    /// "waiting" — terminal idle, detected input prompt waiting for user (orange dot indicator).
+    /// "done" — activity finished but tab not yet viewed by user (green dot indicator).
+    /// "idle" — no notable activity state.
+    /// </summary>
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "idle";
+
+    /// <summary>Whether any terminal in this tab has unacknowledged completed activity.</summary>
+    [JsonPropertyName("hasUnreadActivity")]
+    public bool HasUnreadActivity { get; set; }
+
+    /// <summary>Whether the custom terminal is detected as waiting for user input.</summary>
+    [JsonPropertyName("isWaitingForInput")]
+    public bool IsWaitingForInput { get; set; }
 }
 
 /// <summary>
@@ -178,6 +217,7 @@ public class ApiLinkInfo
 
 /// <summary>
 /// DTO for a focus task in API responses.
+/// Merges tasks from ITaskService, IClaudeTaskDetectionService, and IClaudeTaskFileService.
 /// </summary>
 public class ApiTaskInfo
 {
@@ -193,8 +233,102 @@ public class ApiTaskInfo
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 
+    [JsonPropertyName("priority")]
+    public int Priority { get; set; }
+
+    [JsonPropertyName("tags")]
+    public List<string> Tags { get; set; } = new();
+
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("startedAt")]
+    public DateTime? StartedAt { get; set; }
+
+    [JsonPropertyName("completedAt")]
+    public DateTime? CompletedAt { get; set; }
+
+    [JsonPropertyName("elapsedTime")]
+    public string? ElapsedTime { get; set; }
+
+    [JsonPropertyName("repoIndex")]
+    public int? RepoIndex { get; set; }
+
+    [JsonPropertyName("projectPaths")]
+    public List<string> ProjectPaths { get; set; } = new();
+
+    [JsonPropertyName("parentTaskId")]
+    public string? ParentTaskId { get; set; }
+
+    [JsonPropertyName("blocks")]
+    public List<string> Blocks { get; set; } = new();
+
+    [JsonPropertyName("blockedBy")]
+    public List<string> BlockedBy { get; set; } = new();
+
+    [JsonPropertyName("isBlocked")]
+    public bool IsBlocked { get; set; }
+
+    [JsonPropertyName("linkedBranch")]
+    public string? LinkedBranch { get; set; }
+
+    [JsonPropertyName("linkedPrNumber")]
+    public string? LinkedPrNumber { get; set; }
+
+    [JsonPropertyName("linkedPrUrl")]
+    public string? LinkedPrUrl { get; set; }
+
+    [JsonPropertyName("claude")]
+    public ApiClaudeTaskInfo? Claude { get; set; }
+}
+
+/// <summary>
+/// Claude-specific metadata for a task.
+/// Present only when the task originated from Claude Code.
+/// </summary>
+public class ApiClaudeTaskInfo
+{
+    [JsonPropertyName("sessionId")]
+    public string? SessionId { get; set; }
+
+    [JsonPropertyName("claudeTaskId")]
+    public string? ClaudeTaskId { get; set; }
+
+    [JsonPropertyName("activeForm")]
+    public string? ActiveForm { get; set; }
+}
+
+/// <summary>
+/// DTO for a workspace/playground in API responses.
+/// </summary>
+public class ApiWorkspaceInfo
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = "";
+
+    [JsonPropertyName("pathId")]
+    public string PathId { get; set; } = "";
+
+    [JsonPropertyName("section")]
+    public string Section { get; set; } = "main";
+
+    [JsonPropertyName("isPinned")]
+    public bool IsPinned { get; set; }
+
+    [JsonPropertyName("order")]
+    public int Order { get; set; }
+
+    [JsonPropertyName("customIcon")]
+    public string? CustomIcon { get; set; }
+
+    [JsonPropertyName("isOpen")]
+    public bool IsOpen { get; set; }
 
     [JsonPropertyName("repoIndex")]
     public int? RepoIndex { get; set; }

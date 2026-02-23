@@ -33,6 +33,8 @@ public class ApiServer : IApiServer
     private readonly IGitStatusService? _gitStatusService;
     private readonly ITimelineService? _timelineService;
     private readonly ITaskService? _taskService;
+    private readonly IClaudeTaskFileService? _claudeTaskFileService;
+    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -41,9 +43,10 @@ public class ApiServer : IApiServer
     private readonly object _sseLock = new();
     private readonly DateTime _startTime = DateTime.UtcNow;
 
-    // Delegate provided by MainViewModel to read tab state on UI thread
+    // Delegates provided by MainViewModel to read UI state on UI thread
     private Func<List<ApiRepoInfo>>? _getRepos;
     private Func<int, ApiRepoDetailInfo?>? _getRepoDetail;
+    private Func<List<ApiWorkspaceInfo>>? _getWorkspaces;
 
     public bool IsRunning { get; private set; }
     public string? BaseUrl { get; private set; }
@@ -59,7 +62,9 @@ public class ApiServer : IApiServer
         IEventAggregatorService eventAggregator,
         IGitStatusService? gitStatusService = null,
         ITimelineService? timelineService = null,
-        ITaskService? taskService = null)
+        ITaskService? taskService = null,
+        IClaudeTaskFileService? claudeTaskFileService = null,
+        IClaudeTaskDetectionService? claudeTaskDetectionService = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -67,6 +72,8 @@ public class ApiServer : IApiServer
         _gitStatusService = gitStatusService;
         _timelineService = timelineService;
         _taskService = taskService;
+        _claudeTaskFileService = claudeTaskFileService;
+        _claudeTaskDetectionService = claudeTaskDetectionService;
     }
 
     /// <summary>
@@ -77,6 +84,15 @@ public class ApiServer : IApiServer
     {
         _getRepos = getRepos;
         _getRepoDetail = getRepoDetail;
+    }
+
+    /// <summary>
+    /// Sets the delegate used to read workspace state from the UI thread.
+    /// Must be called before StartAsync.
+    /// </summary>
+    public void SetWorkspaceStateProvider(Func<List<ApiWorkspaceInfo>> getWorkspaces)
+    {
+        _getWorkspaces = getWorkspaces;
     }
 
     public async Task StartAsync()
@@ -221,7 +237,11 @@ public class ApiServer : IApiServer
                     await WriteJsonError(response, 404, "NOT_FOUND", $"Unknown endpoint: {path}");
             }
             else if (path == "/api/tasks")
-                await HandleTasksAsync(response);
+                await HandleTasksAsync(response, request);
+            else if (path.StartsWith("/api/tasks/"))
+                await HandleTaskByIdAsync(response, path["/api/tasks/".Length..]);
+            else if (path == "/api/workspaces")
+                await HandleWorkspacesAsync(response, request);
             else if (path == "/api/timeline")
                 await HandleTimelineAsync(response, request);
             else if (path == "/api/config")
@@ -393,24 +413,69 @@ public class ApiServer : IApiServer
         await WriteJson(response, new { links = Array.Empty<object>() });
     }
 
-    private async Task HandleTasksAsync(HttpListenerResponse response)
+    private async Task HandleTasksAsync(HttpListenerResponse response, HttpListenerRequest request)
     {
-        var tasks = new List<ApiTaskInfo>();
+        var allTasks = GetMergedTasks();
 
-        if (_taskService != null)
+        // Apply query parameter filters
+        var statusFilter = request.QueryString["status"];
+        if (!string.IsNullOrEmpty(statusFilter))
+            allTasks = allTasks.Where(t => t.Status.Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sourceFilter = request.QueryString["source"];
+        if (!string.IsNullOrEmpty(sourceFilter))
         {
-            var allTasks = _taskService.GetAllTasks();
-            tasks = allTasks.Select(t => new ApiTaskInfo
-            {
-                Id = t.Id,
-                Title = t.Title,
-                Description = t.Description,
-                Status = t.Status.ToString(),
-                CreatedAt = t.CreatedAt
-            }).ToList();
+            if (sourceFilter.Equals("claude", StringComparison.OrdinalIgnoreCase))
+                allTasks = allTasks.Where(t => t.Claude != null).ToList();
+            else if (sourceFilter.Equals("manual", StringComparison.OrdinalIgnoreCase))
+                allTasks = allTasks.Where(t => t.Claude == null).ToList();
         }
 
-        await WriteJson(response, new { tasks });
+        var repoFilter = request.QueryString["repo"];
+        if (!string.IsNullOrEmpty(repoFilter) && int.TryParse(repoFilter, out var repoIdx))
+            allTasks = allTasks.Where(t => t.RepoIndex == repoIdx).ToList();
+
+        await WriteJson(response, new { tasks = allTasks });
+    }
+
+    private async Task HandleTaskByIdAsync(HttpListenerResponse response, string taskId)
+    {
+        var allTasks = GetMergedTasks();
+        var task = allTasks.FirstOrDefault(t => t.Id == taskId);
+
+        if (task == null)
+        {
+            await WriteJsonError(response, 404, "NOT_FOUND", $"Task '{taskId}' not found.");
+            return;
+        }
+
+        await WriteJson(response, task);
+    }
+
+    private async Task HandleWorkspacesAsync(HttpListenerResponse response, HttpListenerRequest request)
+    {
+        var workspaces = new List<ApiWorkspaceInfo>();
+
+        if (_getWorkspaces != null)
+        {
+            _dispatcherService.Invoke(() => { workspaces = _getWorkspaces(); });
+        }
+        else
+        {
+            // Fallback: read workspaces directly from config
+            var config = _configService.Load();
+            List<ApiRepoInfo> openRepos = new();
+            if (_getRepos != null)
+                _dispatcherService.Invoke(() => { openRepos = _getRepos(); });
+
+            workspaces = config.Workspaces.Select(w => MapWorkspace(w, openRepos)).ToList();
+        }
+
+        var sectionFilter = request.QueryString["section"];
+        if (!string.IsNullOrEmpty(sectionFilter))
+            workspaces = workspaces.Where(w => w.Section.Equals(sectionFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        await WriteJson(response, new { workspaces });
     }
 
     private async Task HandleTimelineAsync(HttpListenerResponse response, HttpListenerRequest request)
@@ -475,6 +540,158 @@ public class ApiServer : IApiServer
         };
 
         await WriteJson(response, result);
+    }
+
+    #endregion
+
+    #region Task & Workspace Helpers
+
+    /// <summary>
+    /// Merges tasks from all three sources (ITaskService, IClaudeTaskFileService, IClaudeTaskDetectionService)
+    /// with deduplication by task ID, and maps to API DTOs with repo index resolution.
+    /// </summary>
+    private List<ApiTaskInfo> GetMergedTasks()
+    {
+        var seen = new HashSet<string>();
+        var result = new List<FocusTask>();
+
+        // 1. Manual tasks from ITaskService
+        if (_taskService != null)
+        {
+            foreach (var task in _taskService.GetAllTasks())
+            {
+                var key = task.ClaudeTaskId ?? task.Id;
+                if (seen.Add(key))
+                    result.Add(task);
+            }
+        }
+
+        // 2. Claude tasks from file service (~/.claude/tasks/)
+        if (_claudeTaskFileService != null)
+        {
+            foreach (var task in _claudeTaskFileService.GetAllTasks())
+            {
+                var key = task.ClaudeTaskId ?? task.Id;
+                if (seen.Add(key))
+                    result.Add(task);
+            }
+        }
+
+        // 3. Claude tasks from terminal detection
+        if (_claudeTaskDetectionService != null)
+        {
+            foreach (var task in _claudeTaskDetectionService.GetAllClaudeTasks())
+            {
+                var key = task.ClaudeTaskId ?? task.Id;
+                if (seen.Add(key))
+                    result.Add(task);
+            }
+        }
+
+        // Resolve repo indices from open tabs
+        List<ApiRepoInfo> openRepos = new();
+        if (_getRepos != null)
+            _dispatcherService.Invoke(() => { openRepos = _getRepos(); });
+
+        return result.Select(t => MapTask(t, openRepos)).ToList();
+    }
+
+    private static ApiTaskInfo MapTask(FocusTask task, List<ApiRepoInfo> openRepos)
+    {
+        // Resolve repoIndex by matching task's project paths to open tab working directories
+        int? repoIndex = null;
+        if (task.ProjectPaths.Count > 0)
+        {
+            var normalizedPaths = task.ProjectPaths.Select(NormalizePathForComparison).ToHashSet();
+            var match = openRepos.FirstOrDefault(r => normalizedPaths.Contains(NormalizePathForComparison(r.WorkingDirectory)));
+            if (match != null)
+                repoIndex = match.Index;
+        }
+
+        var dto = new ApiTaskInfo
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Description = task.Description,
+            Status = task.Status.ToString(),
+            Priority = task.Priority,
+            Tags = task.Tags.ToList(),
+            CreatedAt = task.CreatedAt,
+            StartedAt = task.StartedAt,
+            CompletedAt = task.CompletedAt,
+            ElapsedTime = task.ElapsedTime.HasValue ? task.ElapsedTimeDisplay : null,
+            RepoIndex = repoIndex,
+            ProjectPaths = task.ProjectPaths.ToList(),
+            ParentTaskId = task.ParentTaskId,
+            Blocks = task.Blocks.ToList(),
+            BlockedBy = task.BlockedBy.ToList(),
+            IsBlocked = task.IsBlocked,
+            LinkedBranch = task.LinkedBranch,
+            LinkedPrNumber = task.LinkedPrNumber,
+            LinkedPrUrl = task.LinkedPrUrl,
+        };
+
+        if (task.IsClaudeTask)
+        {
+            dto.Claude = new ApiClaudeTaskInfo
+            {
+                SessionId = task.ClaudeSessionId,
+                ClaudeTaskId = task.ClaudeTaskId,
+                ActiveForm = task.ActiveForm,
+            };
+        }
+
+        return dto;
+    }
+
+    private static ApiWorkspaceInfo MapWorkspace(Workspace workspace, List<ApiRepoInfo> openRepos)
+    {
+        var normalizedPath = NormalizePathForComparison(workspace.Path);
+        var matchingRepo = openRepos.FirstOrDefault(r => NormalizePathForComparison(r.WorkingDirectory) == normalizedPath);
+
+        return new ApiWorkspaceInfo
+        {
+            Id = workspace.Id,
+            Name = workspace.Name,
+            Path = workspace.Path,
+            PathId = NormalizePathId(workspace.Path),
+            Section = workspace.Section,
+            IsPinned = workspace.IsPinned,
+            Order = workspace.Order,
+            CustomIcon = workspace.CustomIcon,
+            IsOpen = matchingRepo != null,
+            RepoIndex = matchingRepo?.Index,
+        };
+    }
+
+    /// <summary>
+    /// Normalizes a filesystem path for case-insensitive comparison.
+    /// </summary>
+    private static string NormalizePathForComparison(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return "";
+        return path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Creates a stable, URL-safe identifier from a filesystem path.
+    /// Lowercased, backslashes replaced with forward slashes, trimmed, then
+    /// path separators replaced with dashes and drive colons removed.
+    /// Example: "P:\TerminalHost" → "p-terminalhost"
+    /// </summary>
+    public static string NormalizePathId(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return "";
+        var normalized = path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+        // Remove drive letter colon (e.g., "p:" → "p")
+        normalized = normalized.Replace(":", "");
+        // Replace slashes with dashes
+        normalized = normalized.Replace('/', '-');
+        // Collapse multiple dashes
+        while (normalized.Contains("--"))
+            normalized = normalized.Replace("--", "-");
+        // Trim leading/trailing dashes
+        return normalized.Trim('-');
     }
 
     #endregion

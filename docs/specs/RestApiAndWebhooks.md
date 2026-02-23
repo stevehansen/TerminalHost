@@ -1,5 +1,7 @@
 # PRD: REST API & Webhooks
 
+> **Maintenance note:** This spec is the source of truth for the REST API contract. When adding or modifying endpoints, DTOs, events, or query parameters in code, update the corresponding sections in this document to keep them in sync.
+
 ## Overview
 
 TerminalHost accumulates rich state — git status, terminal activity, AI sessions, tasks, timeline, configuration — that is currently locked inside the desktop process. A lightweight REST API and webhook system exposes this data externally, enabling dashboards, mobile apps, browser extensions, and automation pipelines to consume TerminalHost state in real time.
@@ -28,6 +30,8 @@ TerminalHost accumulates rich state — git status, terminal activity, AI sessio
 | Phase | Feature | Status |
 |-------|---------|--------|
 | 1 | Core REST API endpoints | **Completed** |
+| 1 | Rich task endpoint (Claude tasks, dependencies, filtering) | **Completed** |
+| 1 | Workspaces & playgrounds endpoint | **Completed** |
 | 1 | Settings model & UI | **Completed** |
 | 1 | Authentication (API key) | **Completed** |
 | 2 | SSE event streaming | **Completed** |
@@ -232,9 +236,14 @@ List all open repository tabs.
         "stashCount": 1
       },
       "terminals": {
-        "custom": { "title": "Claude Code", "isActive": true },
-        "shell": { "title": "PowerShell", "isActive": false },
+        "custom": { "title": "Claude Code", "isActive": true, "isBusy": true, "lastActivityAt": "2026-02-23T10:15:00Z" },
+        "shell": { "title": "PowerShell", "isActive": false, "isBusy": false, "lastActivityAt": "2026-02-23T09:30:00Z" },
         "run": null
+      },
+      "activityIndicator": {
+        "state": "busy",
+        "hasUnreadActivity": false,
+        "isWaitingForInput": false
       },
       "panels": {
         "center": null,
@@ -245,6 +254,18 @@ List all open repository tabs.
   ]
 }
 ```
+
+**Terminal fields:**
+- `isActive` — whether this terminal pane is the focused/selected pane
+- `isBusy` — whether the terminal is actively generating output (output within last 2 seconds)
+- `lastActivityAt` — UTC timestamp of the last terminal output, `null` if no output received yet
+- `run` — `null` when no run terminal has been created for this tab
+
+**Activity indicator states** (maps to the visual tab strip indicators):
+- `"busy"` — a terminal is actively outputting (spinning orange indicator)
+- `"waiting"` — custom terminal is idle and detected as waiting for user input (orange dot)
+- `"done"` — activity has finished but the tab hasn't been viewed yet (green dot)
+- `"idle"` — no notable activity state
 
 ### GET /api/repos/{index}
 
@@ -275,9 +296,14 @@ Detailed status for a single repo tab.
     "untrackedFiles": 1
   },
   "terminals": {
-    "custom": { "title": "Claude Code", "isActive": true },
-    "shell": { "title": "PowerShell", "isActive": false },
+    "custom": { "title": "Claude Code", "isActive": true, "isBusy": true, "lastActivityAt": "2026-02-23T10:15:00Z" },
+    "shell": { "title": "PowerShell", "isActive": false, "isBusy": false, "lastActivityAt": "2026-02-23T09:30:00Z" },
     "run": null
+  },
+  "activityIndicator": {
+    "state": "busy",
+    "hasUnreadActivity": false,
+    "isWaitingForInput": false
   },
   "panels": {
     "center": null,
@@ -398,23 +424,129 @@ Detected links from terminal output for a repo tab.
 
 ### GET /api/tasks
 
-Active focus tasks (from the Tasks panel).
+Focus tasks from all sources: manually created tasks, Claude Code terminal detection, and Claude task files (`~/.claude/tasks/`). Results are merged and deduplicated.
+
+**Query parameters:**
+- `status` (optional) — filter by status: `NotStarted`, `InProgress`, `Completed`, `Deferred`
+- `source` (optional) — filter by source: `manual`, `claude` (only Claude-detected/file tasks)
+- `repo` (optional) — filter to tasks associated with a repo index
 
 **Response:**
 ```json
 {
   "tasks": [
     {
-      "id": "abc123",
+      "id": "task-20260223100000-a1b2c3d4",
       "title": "Implement REST API",
       "description": "Add HTTP endpoints for external access",
       "status": "InProgress",
+      "priority": 0,
+      "tags": [],
       "createdAt": "2026-02-23T10:00:00Z",
-      "repoIndex": 0
+      "startedAt": "2026-02-23T10:05:00Z",
+      "completedAt": null,
+      "elapsedTime": "1h 15m",
+      "repoIndex": 0,
+      "projectPaths": ["P:\\TerminalHost"],
+      "parentTaskId": null,
+      "blocks": [],
+      "blockedBy": [],
+      "isBlocked": false,
+      "linkedBranch": "feature/rest-api",
+      "linkedPrNumber": "42",
+      "linkedPrUrl": "https://github.com/user/repo/pull/42",
+      "claude": null
+    },
+    {
+      "id": "task-20260223101500-e5f6g7h8",
+      "title": "Add workspace endpoint",
+      "description": "Expose workspaces and playgrounds via API",
+      "status": "InProgress",
+      "priority": 0,
+      "tags": [],
+      "createdAt": "2026-02-23T10:15:00Z",
+      "startedAt": "2026-02-23T10:15:00Z",
+      "completedAt": null,
+      "elapsedTime": "5m",
+      "repoIndex": 0,
+      "projectPaths": ["P:\\TerminalHost"],
+      "parentTaskId": "task-20260223100000-a1b2c3d4",
+      "blocks": [],
+      "blockedBy": [],
+      "isBlocked": false,
+      "linkedBranch": null,
+      "linkedPrNumber": null,
+      "linkedPrUrl": null,
+      "claude": {
+        "sessionId": "abc123",
+        "claudeTaskId": "3",
+        "activeForm": "Writing endpoint handler..."
+      }
     }
   ]
 }
 ```
+
+**Notes:**
+- The `claude` object is present only for tasks created by or detected from Claude Code. It contains the Claude session ID, Claude's internal task ID, and the active-form text (progress indicator shown while Claude is working).
+- `elapsedTime` is a human-readable duration from `startedAt` to `completedAt` (or now, if still in progress).
+- `blocks` / `blockedBy` contain task IDs representing dependency relationships.
+- `projectPaths` lists all project directories associated with the task (a task can span multiple repos).
+- `repoIndex` is set when the task can be mapped to a currently-open tab; `null` otherwise.
+
+### GET /api/tasks/{id}
+
+Detailed info for a single task.
+
+**Path parameters:**
+- `id` — task ID
+
+**Response:** Same shape as a single item from `/api/tasks`.
+
+### GET /api/workspaces
+
+List all configured workspaces and playgrounds. Workspaces are the persistent project entries shown in the sidebar (when in Sidebar layout mode). Playgrounds are temporary/experimental workspaces.
+
+**Query parameters:**
+- `section` (optional) — filter by section: `main`, `playground`
+
+**Response:**
+```json
+{
+  "workspaces": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "TerminalHost",
+      "path": "P:\\TerminalHost",
+      "pathId": "p-terminalhost",
+      "section": "main",
+      "isPinned": true,
+      "order": 0,
+      "customIcon": null,
+      "isOpen": true,
+      "repoIndex": 0
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "api-experiment",
+      "path": "C:\\Users\\steve\\playgrounds\\api-experiment",
+      "pathId": "c-users-steve-playgrounds-api-experiment",
+      "section": "playground",
+      "isPinned": false,
+      "order": 0,
+      "customIcon": "🧪",
+      "isOpen": false,
+      "repoIndex": null
+    }
+  ]
+}
+```
+
+**Notes:**
+- `section` is either `"main"` (regular workspace) or `"playground"` (temporary/experimental).
+- `pathId` is a stable, URL-safe identifier derived from the workspace path — lowercased, with colons removed and path separators replaced by dashes (e.g., `P:\TerminalHost` → `p-terminalhost`). Useful as a stable key for external systems that cannot use filesystem paths directly.
+- `isOpen` indicates whether this workspace is currently open as a tab.
+- `repoIndex` is set when the workspace is open as a tab, enabling cross-referencing with `/api/repos/{index}`. `null` when the workspace is not currently open.
 
 ### GET /api/timeline
 
@@ -555,9 +687,15 @@ Every event shares a common envelope:
 | `session.intent_created` | New intent created | `{ intentId, name, branchName }` |
 | `session.intent_closed` | Intent closed | `{ intentId, name, status }` |
 | **Task Events** | | |
-| `task.created` | Focus task created | `{ taskId, title, description }` |
-| `task.updated` | Focus task updated | `{ taskId, title, status, previousStatus }` |
+| `task.created` | Focus task created | `{ taskId, title, description, status, isClaudeTask, claudeSessionId, parentTaskId, projectPaths }` |
+| `task.updated` | Focus task updated | `{ taskId, title, status, previousStatus, isClaudeTask, claudeSessionId, activeForm }` |
+| `task.completed` | Focus task completed | `{ taskId, title, elapsedTime, isClaudeTask, claudeSessionId }` |
 | `task.deleted` | Focus task deleted | `{ taskId, title }` |
+| **Workspace Events** | | |
+| `workspace.added` | Workspace added | `{ workspaceId, name, path, section }` |
+| `workspace.removed` | Workspace removed | `{ workspaceId, name, path, section }` |
+| `workspace.opened` | Workspace opened as tab | `{ workspaceId, name, path, section, repoIndex }` |
+| `workspace.closed` | Workspace tab closed | `{ workspaceId, name, path, section }` |
 | **App Events** | | |
 | `app.started` | Application launched | `{ version, platform }` |
 | `app.settings_changed` | Settings modified | `{ changedKeys }` |
@@ -576,7 +714,11 @@ How events map to existing TerminalHost event sources:
 | `repo.opened` / `repo.closed` | `MainViewModel.Tabs` CollectionChanged | Add/Remove events |
 | `repo.activated` | `MainViewModel.SelectedTab` PropertyChanged | Selection change |
 | `session.*` | `ITimelineService` events | `SessionStatusChanged`, `IntentsChanged` |
-| `task.*` | `AppConfiguration.Tasks` changes | Save/load events |
+| `task.created` / `task.updated` / `task.deleted` | `ITaskService.TasksChanged` | Save/load events |
+| `task.created` / `task.updated` | `IClaudeTaskDetectionService.ClaudeTaskChanged` | Terminal output detection |
+| `task.created` / `task.updated` | `IClaudeTaskFileService.TasksChanged` | `~/.claude/tasks/` file watcher |
+| `workspace.*` | `AppConfiguration.Workspaces` changes | Add/remove/reorder events |
+| `workspace.opened` / `workspace.closed` | `MainViewModel.Tabs` CollectionChanged | Tab add/remove cross-referenced with workspaces |
 | `app.settings_changed` | `IConfigurationService` save | After config save |
 
 ---
@@ -852,6 +994,135 @@ public class WebhookDeliveryStats
 }
 ```
 
+### API DTOs (`TerminalHost.Core/Domain/ApiDtos.cs`)
+
+In addition to the existing DTOs (`ApiRepoInfo`, `ApiGitInfo`, etc.), the following are added:
+
+```csharp
+/// <summary>
+/// DTO for a focus task in API responses (extended).
+/// </summary>
+public class ApiTaskInfo
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("priority")]
+    public int Priority { get; set; }
+
+    [JsonPropertyName("tags")]
+    public List<string> Tags { get; set; } = new();
+
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("startedAt")]
+    public DateTime? StartedAt { get; set; }
+
+    [JsonPropertyName("completedAt")]
+    public DateTime? CompletedAt { get; set; }
+
+    [JsonPropertyName("elapsedTime")]
+    public string? ElapsedTime { get; set; }
+
+    [JsonPropertyName("repoIndex")]
+    public int? RepoIndex { get; set; }
+
+    [JsonPropertyName("projectPaths")]
+    public List<string> ProjectPaths { get; set; } = new();
+
+    [JsonPropertyName("parentTaskId")]
+    public string? ParentTaskId { get; set; }
+
+    [JsonPropertyName("blocks")]
+    public List<string> Blocks { get; set; } = new();
+
+    [JsonPropertyName("blockedBy")]
+    public List<string> BlockedBy { get; set; } = new();
+
+    [JsonPropertyName("isBlocked")]
+    public bool IsBlocked { get; set; }
+
+    [JsonPropertyName("linkedBranch")]
+    public string? LinkedBranch { get; set; }
+
+    [JsonPropertyName("linkedPrNumber")]
+    public string? LinkedPrNumber { get; set; }
+
+    [JsonPropertyName("linkedPrUrl")]
+    public string? LinkedPrUrl { get; set; }
+
+    [JsonPropertyName("claude")]
+    public ApiClaudeTaskInfo? Claude { get; set; }
+}
+
+/// <summary>
+/// Claude-specific metadata for a task.
+/// Present only when the task originated from Claude Code.
+/// </summary>
+public class ApiClaudeTaskInfo
+{
+    [JsonPropertyName("sessionId")]
+    public string? SessionId { get; set; }
+
+    [JsonPropertyName("claudeTaskId")]
+    public string? ClaudeTaskId { get; set; }
+
+    [JsonPropertyName("activeForm")]
+    public string? ActiveForm { get; set; }
+}
+
+/// <summary>
+/// DTO for a workspace/playground in API responses.
+/// </summary>
+public class ApiWorkspaceInfo
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = "";
+
+    /// <summary>
+    /// Stable, URL-safe identifier derived from the path.
+    /// Lowercased, colons removed, path separators replaced with dashes.
+    /// Example: "P:\TerminalHost" → "p-terminalhost"
+    /// </summary>
+    [JsonPropertyName("pathId")]
+    public string PathId { get; set; } = "";
+
+    [JsonPropertyName("section")]
+    public string Section { get; set; } = "main";
+
+    [JsonPropertyName("isPinned")]
+    public bool IsPinned { get; set; }
+
+    [JsonPropertyName("order")]
+    public int Order { get; set; }
+
+    [JsonPropertyName("customIcon")]
+    public string? CustomIcon { get; set; }
+
+    [JsonPropertyName("isOpen")]
+    public bool IsOpen { get; set; }
+
+    [JsonPropertyName("repoIndex")]
+    public int? RepoIndex { get; set; }
+}
+```
+
 ### Service Implementations
 
 | Service | Project | Responsibility |
@@ -972,7 +1243,7 @@ Add an "API & Webhooks" section to the settings editor:
 |------|---------|
 | `ApiSettings` domain model | Settings class with JSON serialization |
 | `IApiServer` interface + `ApiServer` implementation | `HttpListener`, route table, auth middleware |
-| Endpoints: `/api/status`, `/api/repos`, `/api/repos/{id}`, `/api/repos/{id}/git`, `/api/repos/{id}/files`, `/api/repos/{id}/links`, `/api/config`, `/api/tasks`, `/api/timeline` | Read-only JSON responses |
+| Endpoints: `/api/status`, `/api/repos`, `/api/repos/{id}`, `/api/repos/{id}/git`, `/api/repos/{id}/files`, `/api/repos/{id}/links`, `/api/config`, `/api/tasks`, `/api/tasks/{id}`, `/api/workspaces`, `/api/timeline` | Read-only JSON responses |
 | Settings UI section | Enable/port/bind/key controls |
 | Command palette commands | Start/stop/copy URL |
 | Auth middleware | API key validation for non-loopback |

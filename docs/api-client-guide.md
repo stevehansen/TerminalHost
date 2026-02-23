@@ -79,13 +79,30 @@ All open project tabs.
         "untrackedFiles": 0
       },
       "terminals": {
-        "custom": { "title": "Claude Code", "isActive": true },
-        "shell": { "title": "PowerShell", "isActive": false },
+        "custom": { "title": "Claude Code", "isActive": true, "isBusy": true, "lastActivityAt": "2026-02-23T10:15:00Z" },
+        "shell": { "title": "PowerShell", "isActive": false, "isBusy": false, "lastActivityAt": "2026-02-23T09:30:00Z" },
         "run": null
+      },
+      "activityIndicator": {
+        "state": "busy",
+        "hasUnreadActivity": false,
+        "isWaitingForInput": false
       }
     }
   ]
 }
+
+**Terminal fields:**
+- `isActive` — whether this terminal pane is the focused/selected pane
+- `isBusy` — whether the terminal is actively generating output (output within last 2 seconds)
+- `lastActivityAt` — UTC timestamp of the last terminal output, `null` if no output received yet
+- `run` — `null` when no run terminal has been created for this tab
+
+**Activity indicator states** (maps to the visual tab strip indicators):
+- `"busy"` — a terminal is actively outputting (spinning orange indicator)
+- `"waiting"` — custom terminal is idle and detected as waiting for user input (orange dot)
+- `"done"` — activity has finished but the tab hasn't been viewed yet (green dot)
+- `"idle"` — no notable activity state
 ```
 
 ### GET /api/repos/{index}
