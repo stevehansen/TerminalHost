@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -25,6 +26,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
     private readonly IDiffParserService _diffParserService;
     private readonly IConfigurationService _configurationService;
     private readonly IAiExecutionService _aiService;
+    private readonly IInvisibleChangeService _invisibleChangeService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -95,6 +97,9 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     [ObservableProperty]
     private ParsedDiff? _currentParsedDiff;
+
+    [ObservableProperty]
+    private InvisibleChangeInfo? _invisibleChangeInfo;
 
     [ObservableProperty]
     private bool _isMergeInProgress;
@@ -170,7 +175,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IToastService toastService,
         IDiffParserService diffParserService,
         IConfigurationService configurationService,
-        IAiExecutionService aiExecutionService)
+        IAiExecutionService aiExecutionService,
+        IInvisibleChangeService invisibleChangeService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
@@ -181,6 +187,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         _diffParserService = diffParserService;
         _configurationService = configurationService;
         _aiService = aiExecutionService;
+        _invisibleChangeService = invisibleChangeService;
 
         // Set defaults for git changes - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -198,6 +205,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         AmendCommit = false;
         DiffExplanation = "";
         FileDiffExplanation = "";
+        InvisibleChangeInfo = null;
         ChangesViewMode = "Working";
         BranchChangedFiles.Clear();
         SelectedBranchFile = null;
@@ -1398,6 +1406,94 @@ public partial class GitFilesViewModel : BasePanelViewModel
         BranchDiffText = diff ?? "";
     }
 
+    [RelayCommand]
+    private async Task FixInvisibleChangesAsync()
+    {
+        if (InvisibleChangeInfo == null || SelectedGitFile == null ||
+            _currentTerminalTab?.Pair.WorkingDirectory == null)
+            return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var filePath = SelectedGitFile.FilePath;
+        var info = InvisibleChangeInfo;
+
+        try
+        {
+            // If we already have a diagnosis with a renormalize command, run that instead
+            if (info.Diagnosis != null)
+            {
+                var success = await _invisibleChangeService.RunDiagnosisFixAsync(
+                    workingDirectory, info.Diagnosis);
+
+                // Refresh to see if it worked
+                LoadDiffForSelectedFileAsync(SelectedGitFile);
+                await RefreshGitFilesAsync();
+
+                if (success)
+                {
+                    // Pre-fill commit message if empty
+                    var fileName = Path.GetFileName(filePath);
+                    if (string.IsNullOrEmpty(CommitMessage))
+                        CommitMessage = $"chore: fix EOL for {fileName}";
+
+                    _toastService.Show("Renormalized and staged — commit to apply permanently", ToastType.Success);
+                }
+                else
+                {
+                    _toastService.Show("Renormalize command failed", ToastType.Error);
+                }
+                return;
+            }
+
+            if (info.IsEntirelyInvisible)
+            {
+                // For purely invisible changes, git restore is the most reliable fix
+                var result = await _gitStatusService.DiscardChangesAsync(workingDirectory, filePath);
+                if (!result.Success)
+                {
+                    _toastService.Show($"Failed to fix: {result.Error}", ToastType.Error);
+                    return;
+                }
+            }
+            else
+            {
+                // For mixed changes (visible + invisible), use byte-level fix
+                await _invisibleChangeService.FixAsync(workingDirectory, filePath, info);
+            }
+
+            // Check if the diff still persists after the fix
+            var postFixDiff = await _gitStatusService.GetFileDiffAsync(workingDirectory, filePath, false);
+            if (!string.IsNullOrEmpty(postFixDiff))
+            {
+                // Fix didn't resolve it — diagnose and update the banner
+                var diagnosis = await _invisibleChangeService.DiagnoseEolIssueAsync(workingDirectory, filePath);
+                if (diagnosis != null)
+                {
+                    info.Diagnosis = diagnosis;
+                    // Re-set the property to trigger UI update
+                    InvisibleChangeInfo = null;
+                    InvisibleChangeInfo = info;
+                    _toastService.Show("EOL mismatch caused by git config — see banner for details", ToastType.Warning);
+                }
+                else
+                {
+                    _toastService.Show("Could not resolve invisible changes", ToastType.Warning);
+                }
+                return;
+            }
+
+            _toastService.Show("Invisible changes reverted", ToastType.Success);
+
+            // Refresh the diff and file list
+            LoadDiffForSelectedFileAsync(SelectedGitFile);
+            await RefreshGitFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to fix: {ex.Message}", ToastType.Error);
+        }
+    }
+
     #endregion
 
     #region Private Methods
@@ -1426,11 +1522,31 @@ public partial class GitFilesViewModel : BasePanelViewModel
         {
             DiffText = diff;
             CurrentParsedDiff = _diffParserService.Parse(diff);
+            var info = _invisibleChangeService.Detect(diff);
+
+            // Proactively diagnose EOL issues so the banner shows root cause immediately
+            if (info is { HasEolChange: true, IsEntirelyInvisible: true })
+            {
+                try
+                {
+                    var diagnosis = await _invisibleChangeService.DiagnoseEolIssueAsync(
+                        workingDirectory, file.FilePath);
+                    if (diagnosis != null)
+                        info.Diagnosis = diagnosis;
+                }
+                catch
+                {
+                    // Non-critical — banner still shows without diagnosis
+                }
+            }
+
+            InvisibleChangeInfo = info;
         }
         else
         {
             DiffText = "";
             CurrentParsedDiff = null;
+            InvisibleChangeInfo = null;
         }
     }
 

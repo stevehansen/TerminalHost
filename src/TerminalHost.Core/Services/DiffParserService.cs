@@ -151,6 +151,11 @@ public partial class DiffParserService : IDiffParserService
                     oldLineNumber++;
                     newLineNumber++;
                 }
+                else if (line.StartsWith("\\ No newline at end of file") || line == "\\")
+                {
+                    // "\ No newline at end of file" marker
+                    currentHunk.Lines.Add(new DiffLine(null, null, line, DiffLineType.NoNewlineMarker));
+                }
                 else if (string.IsNullOrEmpty(line))
                 {
                     // Empty context line (git sometimes omits the leading space for empty lines)
@@ -315,6 +320,9 @@ public partial class DiffParserService : IDiffParserService
                     break;
                 case DiffLineType.Context:
                     sb.AppendLine(" " + line.Content);
+                    break;
+                case DiffLineType.NoNewlineMarker:
+                    sb.AppendLine(line.Content);
                     break;
             }
         }

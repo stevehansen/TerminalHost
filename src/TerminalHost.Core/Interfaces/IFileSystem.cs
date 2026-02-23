@@ -26,4 +26,8 @@ public interface IFileSystem
     FileAttributes GetAttributes(string path);
     DateTime GetLastWriteTime(string path);
     bool IsHidden(string path);
+
+    // Byte-level operations (for BOM and raw EOL handling)
+    byte[] ReadAllBytes(string path);
+    void WriteAllBytes(string path, byte[] bytes);
 }

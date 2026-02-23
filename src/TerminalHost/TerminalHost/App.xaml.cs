@@ -235,6 +235,7 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
+        services.AddSingleton<IInvisibleChangeService, InvisibleChangeService>();
         services.AddSingleton<ICommitGraphService, CommitGraphService>();
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();

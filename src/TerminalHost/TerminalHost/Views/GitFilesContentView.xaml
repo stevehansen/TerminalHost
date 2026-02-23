@@ -840,7 +840,8 @@
                     <controls:HunkStagingDiffViewer Grid.Row="2"
                         x:Name="HunkDiffViewer"
                         DiffText="{Binding DiffText}"
-                        IsStaged="{Binding SelectedGitFile.IsStaged}"/>
+                        IsStaged="{Binding SelectedGitFile.IsStaged}"
+                        InvisibleChangeInfo="{Binding InvisibleChangeInfo}"/>
                 </Grid>
             </Border>
         </Grid>

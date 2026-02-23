@@ -28,7 +28,12 @@ public enum DiffLineType
     /// <summary>
     /// File header or metadata.
     /// </summary>
-    Header
+    Header,
+
+    /// <summary>
+    /// "\ No newline at end of file" marker.
+    /// </summary>
+    NoNewlineMarker
 }
 
 /// <summary>

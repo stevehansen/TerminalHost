@@ -39,4 +39,6 @@ public class FileSystem : IFileSystem
         var attributes = File.GetAttributes(path);
         return (attributes & FileAttributes.Hidden) == FileAttributes.Hidden;
     }
+    public byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
+    public void WriteAllBytes(string path, byte[] bytes) => File.WriteAllBytes(path, bytes);
 }

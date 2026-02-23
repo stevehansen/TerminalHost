@@ -31,6 +31,7 @@ public partial class GitFilesContentView : UserControl
             HunkDiffViewer.HunkStageRequested -= OnHunkStageRequested;
             HunkDiffViewer.HunkUnstageRequested -= OnHunkUnstageRequested;
             HunkDiffViewer.HunkDiscardRequested -= OnHunkDiscardRequested;
+            HunkDiffViewer.FixInvisibleChangesRequested -= OnFixInvisibleChangesRequested;
         }
 
         if (e.NewValue is GitFilesViewModel vm)
@@ -47,6 +48,7 @@ public partial class GitFilesContentView : UserControl
             HunkDiffViewer.HunkStageRequested += OnHunkStageRequested;
             HunkDiffViewer.HunkUnstageRequested += OnHunkUnstageRequested;
             HunkDiffViewer.HunkDiscardRequested += OnHunkDiscardRequested;
+            HunkDiffViewer.FixInvisibleChangesRequested += OnFixInvisibleChangesRequested;
         }
         else
         {
@@ -70,6 +72,12 @@ public partial class GitFilesContentView : UserControl
     {
         if (_currentVm?.DiscardHunkCommand.CanExecute(hunkIndex) == true)
             _currentVm.DiscardHunkCommand.Execute(hunkIndex);
+    }
+
+    private void OnFixInvisibleChangesRequested(object? sender, EventArgs e)
+    {
+        if (_currentVm?.FixInvisibleChangesCommand.CanExecute(null) == true)
+            _currentVm.FixInvisibleChangesCommand.Execute(null);
     }
 
     private void StagedList_SelectionChanged(object sender, SelectionChangedEventArgs e)
