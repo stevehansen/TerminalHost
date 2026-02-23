@@ -243,11 +243,20 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Rebind unified git panel when switching to a tab that has it as center panel
+            // Rebind center panel data when switching to a tab that has one.
+            // Singleton panel VMs only hold data for one tab at a time, so we
+            // must reload when the user switches to a different tab.
             if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab &&
-                newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
+                newTab.ActiveCenterPanel != null)
             {
-                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
+                if (newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
+                    _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
+                else if (newTab.ActiveCenterPanel == _branchComparisonViewModel)
+                    _ = _branchComparisonViewModel.OpenAsync(newTab);
+                else if (newTab.ActiveCenterPanel == _searchAcrossFilesViewModel)
+                    _ = _searchAcrossFilesViewModel.OpenAsync(newTab);
+                else if (newTab.ActiveCenterPanel == _prReviewViewModel)
+                    _ = _prReviewViewModel.OpenAsync(newTab.WorkingDirectory);
             }
 
             // Refresh git sidebar when tab changes
@@ -1250,6 +1259,16 @@ public partial class MainWindow : Window
 
     private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
     {
+        // Helper: associate panel with tab and mark it as the active center panel.
+        // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
+        // to avoid race conditions with singleton panel ViewModels. Data loads on demand
+        // when the user switches to the tab (via OnViewModelPropertyChanged rebind).
+        void AssociateOnly(IPanelableViewModel panel)
+        {
+            e.Tab.SetPanel(panel);
+            e.Tab.ShowCenterPanel(panel);
+        }
+
         switch (e.PanelId)
         {
             case "unifiedGit":
@@ -1258,19 +1277,40 @@ public partial class MainWindow : Window
                 {
                     gitTab = parsedTab;
                 }
-                e.Tab.SetPanel(_unifiedGitPanelViewModel);
-                await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
-                e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                if (e.SkipDataLoad)
+                {
+                    AssociateOnly(_unifiedGitPanelViewModel);
+                }
+                else
+                {
+                    e.Tab.SetPanel(_unifiedGitPanelViewModel);
+                    await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
+                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                }
                 break;
             case "branchComparison":
-                e.Tab.SetPanel(_branchComparisonViewModel);
-                await _branchComparisonViewModel.OpenAsync(e.Tab);
-                e.Tab.ShowCenterPanel(_branchComparisonViewModel);
+                if (e.SkipDataLoad)
+                {
+                    AssociateOnly(_branchComparisonViewModel);
+                }
+                else
+                {
+                    e.Tab.SetPanel(_branchComparisonViewModel);
+                    await _branchComparisonViewModel.OpenAsync(e.Tab);
+                    e.Tab.ShowCenterPanel(_branchComparisonViewModel);
+                }
                 break;
             case "searchFiles":
-                e.Tab.SetPanel(_searchAcrossFilesViewModel);
-                await _searchAcrossFilesViewModel.OpenAsync(e.Tab);
-                e.Tab.ShowCenterPanel(_searchAcrossFilesViewModel);
+                if (e.SkipDataLoad)
+                {
+                    AssociateOnly(_searchAcrossFilesViewModel);
+                }
+                else
+                {
+                    e.Tab.SetPanel(_searchAcrossFilesViewModel);
+                    await _searchAcrossFilesViewModel.OpenAsync(e.Tab);
+                    e.Tab.ShowCenterPanel(_searchAcrossFilesViewModel);
+                }
                 break;
             case "markdownPreview":
                 e.Tab.SetPanel(_markdownPreviewViewModel);
@@ -1283,9 +1323,16 @@ public partial class MainWindow : Window
                 e.Tab.ShowCenterPanel(_fileViewerViewModel);
                 break;
             case "prReview":
-                e.Tab.SetPanel(_prReviewViewModel);
-                await _prReviewViewModel.OpenAsync(e.Tab.WorkingDirectory);
-                e.Tab.ShowCenterPanel(_prReviewViewModel);
+                if (e.SkipDataLoad)
+                {
+                    AssociateOnly(_prReviewViewModel);
+                }
+                else
+                {
+                    e.Tab.SetPanel(_prReviewViewModel);
+                    await _prReviewViewModel.OpenAsync(e.Tab.WorkingDirectory);
+                    e.Tab.ShowCenterPanel(_prReviewViewModel);
+                }
                 break;
             case "testResults":
                 e.Tab.SetPanel(_testResultsViewModel);
