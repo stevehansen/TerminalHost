@@ -3416,6 +3416,8 @@ public partial class MainViewModel : ObservableObject
                 CustomIcon = w.CustomIcon,
                 IsOpen = matchingRepo != null,
                 RepoIndex = matchingRepo?.Index,
+                ActivityIndicator = matchingRepo?.ActivityIndicator,
+                Terminals = matchingRepo?.Terminals,
             };
         }).ToList();
     }

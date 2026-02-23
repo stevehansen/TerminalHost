@@ -197,6 +197,47 @@ Active focus tasks.
 }
 ```
 
+### GET /api/workspaces
+
+All configured workspaces and playgrounds. Open workspaces include live activity data.
+
+| Query Param | Default | Description |
+|-------------|---------|-------------|
+| `section` | (all) | Filter by `main` or `playground` |
+
+```json
+{
+  "workspaces": [
+    {
+      "id": "a1b2c3d4-...",
+      "name": "TerminalHost",
+      "path": "P:\\TerminalHost",
+      "pathId": "p-terminalhost",
+      "section": "main",
+      "isPinned": true,
+      "order": 0,
+      "customIcon": null,
+      "isOpen": true,
+      "repoIndex": 0,
+      "activityIndicator": {
+        "state": "busy",
+        "hasUnreadActivity": false,
+        "isWaitingForInput": false
+      },
+      "terminals": {
+        "custom": { "title": "Claude Code", "isActive": true, "isBusy": true, "lastActivityAt": "2026-02-23T10:15:00Z" },
+        "shell": { "title": "PowerShell", "isActive": false, "isBusy": false, "lastActivityAt": "2026-02-23T09:30:00Z" },
+        "run": null
+      }
+    }
+  ]
+}
+```
+
+- `pathId` is a stable, URL-safe key derived from the path (lowercased, separators replaced with dashes)
+- `activityIndicator` and `terminals` are only populated when `isOpen == true`, otherwise `null`
+- When populated, these are identical to the fields on `/api/repos/{index}` — poll this single endpoint for stable IDs + live state
+
 ### GET /api/timeline
 
 AI development timeline (intents and sessions).

@@ -661,6 +661,8 @@ public class ApiServer : IApiServer
             CustomIcon = workspace.CustomIcon,
             IsOpen = matchingRepo != null,
             RepoIndex = matchingRepo?.Index,
+            ActivityIndicator = matchingRepo?.ActivityIndicator,
+            Terminals = matchingRepo?.Terminals,
         };
     }
 

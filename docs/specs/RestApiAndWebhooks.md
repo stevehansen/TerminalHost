@@ -524,7 +524,17 @@ List all configured workspaces and playgrounds. Workspaces are the persistent pr
       "order": 0,
       "customIcon": null,
       "isOpen": true,
-      "repoIndex": 0
+      "repoIndex": 0,
+      "activityIndicator": {
+        "state": "busy",
+        "hasUnreadActivity": false,
+        "isWaitingForInput": false
+      },
+      "terminals": {
+        "custom": { "title": "Claude Code", "isActive": true, "isBusy": true, "lastActivityAt": "2026-02-23T10:15:00Z" },
+        "shell": { "title": "PowerShell", "isActive": false, "isBusy": false, "lastActivityAt": "2026-02-23T09:30:00Z" },
+        "run": null
+      }
     },
     {
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -536,7 +546,9 @@ List all configured workspaces and playgrounds. Workspaces are the persistent pr
       "order": 0,
       "customIcon": "🧪",
       "isOpen": false,
-      "repoIndex": null
+      "repoIndex": null,
+      "activityIndicator": null,
+      "terminals": null
     }
   ]
 }
@@ -547,6 +559,7 @@ List all configured workspaces and playgrounds. Workspaces are the persistent pr
 - `pathId` is a stable, URL-safe identifier derived from the workspace path — lowercased, with colons removed and path separators replaced by dashes (e.g., `P:\TerminalHost` → `p-terminalhost`). Useful as a stable key for external systems that cannot use filesystem paths directly.
 - `isOpen` indicates whether this workspace is currently open as a tab.
 - `repoIndex` is set when the workspace is open as a tab, enabling cross-referencing with `/api/repos/{index}`. `null` when the workspace is not currently open.
+- `activityIndicator` and `terminals` are populated only when the workspace is open (`isOpen == true`). These are the same objects as on `/api/repos/{index}`, embedded here so consumers can poll a single endpoint for stable IDs + live state.
 
 ### GET /api/timeline
 

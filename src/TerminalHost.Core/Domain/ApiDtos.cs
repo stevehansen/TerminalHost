@@ -332,6 +332,12 @@ public class ApiWorkspaceInfo
 
     [JsonPropertyName("repoIndex")]
     public int? RepoIndex { get; set; }
+
+    [JsonPropertyName("activityIndicator")]
+    public ApiActivityIndicator? ActivityIndicator { get; set; }
+
+    [JsonPropertyName("terminals")]
+    public ApiTerminalsInfo? Terminals { get; set; }
 }
 
 /// <summary>
