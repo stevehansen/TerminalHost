@@ -37,7 +37,7 @@
                          BorderThickness="1"
                          Padding="8,4"
                          FontSize="{StaticResource FontSizeMicro}"
-                         Margin="0,0,8,4">
+                         Margin="0,0,4,4">
                     <TextBox.Style>
                         <Style TargetType="TextBox">
                             <Setter Property="Tag" Value="Tag name (e.g. v1.0.0)"/>
@@ -45,13 +45,33 @@
                     </TextBox.Style>
                 </TextBox>
 
-                <Button Grid.Row="0" Grid.Column="1"
-                        Content="Create"
-                        Style="{StaticResource TerminalSwitchButton}"
-                        Command="{Binding CreateTagCommand}"
-                        Padding="12,4"
-                        FontSize="{StaticResource FontSizeMicro}"
-                        VerticalAlignment="Top"/>
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                    <Button Style="{StaticResource InlineActionButton}"
+                            Command="{Binding SuggestVersionCommand}"
+                            ToolTip="Suggest next version (AI)"
+                            VerticalAlignment="Center" Margin="0,0,4,0">
+                        <Button.Content>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#x2728;"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSuggestingVersion}" Value="True">
+                                                <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button.Content>
+                    </Button>
+                    <Button Content="Create"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding CreateTagCommand}"
+                            Padding="12,4"
+                            FontSize="{StaticResource FontSizeMicro}"
+                            VerticalAlignment="Top"/>
+                </StackPanel>
 
                 <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                          Text="{Binding NewTagMessage, UpdateSourceTrigger=PropertyChanged}"

@@ -22,6 +22,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBox Grid.Column="0"
@@ -35,7 +36,27 @@
                          FontSize="{StaticResource FontSizeCode}"
                          ToolTip="Optional stash message (leave empty for default)"/>
 
-                <CheckBox Grid.Column="1"
+                <Button Grid.Column="1" Style="{StaticResource InlineActionButton}"
+                        Command="{Binding GenerateStashNameCommand}"
+                        ToolTip="Generate stash name (AI)"
+                        VerticalAlignment="Center" Margin="4,0,0,0">
+                    <Button.Content>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#x2728;"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsGeneratingStashName}" Value="True">
+                                            <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+
+                <CheckBox Grid.Column="2"
                           IsChecked="{Binding IncludeUntracked}"
                           Content="Include untracked"
                           Foreground="{StaticResource TextSecondaryBrush}"
@@ -43,7 +64,7 @@
                           VerticalAlignment="Center"
                           Margin="8,0,0,0"/>
 
-                <Button Grid.Column="2"
+                <Button Grid.Column="3"
                         Content="Stash"
                         Style="{StaticResource TerminalSwitchButton}"
                         Command="{Binding CreateStashCommand}"

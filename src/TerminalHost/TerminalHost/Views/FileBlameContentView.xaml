@@ -190,12 +190,31 @@
                     <!-- Header -->
                     <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                         <DockPanel>
-                            <Button DockPanel.Dock="Right"
-                                    Content="Copy"
-                                    Style="{StaticResource TerminalSwitchButton}"
-                                    Command="{Binding CopyHashCommand}"
-                                    FontSize="{StaticResource FontSizeMicro}"
-                                    ToolTip="Copy commit hash"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding ExplainBlameLineCommand}"
+                                        ToolTip="Explain this change (AI)" FontSize="13" Padding="5,2" Margin="0,0,4,0">
+                                    <Button.Content>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="&#x2728; Why?"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExplainingBlame}" Value="True">
+                                                            <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+                                <Button Content="Copy"
+                                        Style="{StaticResource TerminalSwitchButton}"
+                                        Command="{Binding CopyHashCommand}"
+                                        FontSize="{StaticResource FontSizeMicro}"
+                                        ToolTip="Copy commit hash"/>
+                            </StackPanel>
                             <TextBlock Text="Commit Details"
                                        Foreground="{StaticResource TextDimmedBrush}"
                                        FontSize="{StaticResource FontSizeTiny}"
@@ -268,6 +287,22 @@
                                            FontSize="{StaticResource FontSizeSmall}"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
+
+                            <!-- AI Explanation callout -->
+                            <Border Grid.Row="5" Background="#1A2D4A" CornerRadius="3" Margin="0,0,0,6"
+                                    BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                                    Visibility="{Binding HasBlameExplanation, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid Margin="8,7,6,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding BlameAiExplanation}" Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                    <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding DismissBlameExplanationCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </ScrollViewer>
 

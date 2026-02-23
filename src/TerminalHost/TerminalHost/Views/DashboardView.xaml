@@ -201,8 +201,88 @@
 
             <!-- Content when CLI is available -->
             <Grid Visibility="{Binding IsGitHubCliAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- AI Action Bar (above list) -->
+                <StackPanel Grid.Row="0" Margin="8,8,8,0">
+                    <!-- Feature 9: PR Prioritization (Review section) -->
+                    <StackPanel Visibility="{Binding IsReviewSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button Style="{StaticResource InlineActionButton}" Command="{Binding PrioritizePrsCommand}"
+                                ToolTip="Suggest review priority order (AI)" FontSize="13" Padding="5,2" Margin="0,0,0,4"
+                                HorizontalAlignment="Left">
+                            <Button.Content>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x2728; Prioritize"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsGeneratingPrPriority}" Value="True">
+                                                    <Setter Property="Text" Value="&#x00B7;&#x00B7;&#x00B7;"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button.Content>
+                        </Button>
+                        <Border Background="#1A2D4A" CornerRadius="3" Margin="0,0,0,4"
+                                BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                                Visibility="{Binding HasPrPriorityAdvice, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid Margin="8,7,6,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding PrPriorityAdvice}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding DismissPrPriorityAdviceCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Feature 8: CI Failure Analysis (CIFailed section) -->
+                    <StackPanel Visibility="{Binding IsCIFailedSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button Style="{StaticResource InlineActionButton}" Command="{Binding AnalyzeCiFailureCommand}"
+                                ToolTip="Analyze selected CI failure (AI)" FontSize="13" Padding="5,2" Margin="0,0,0,4"
+                                HorizontalAlignment="Left">
+                            <Button.Content>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x2728; Analyze"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAnalyzingCiFailure}" Value="True">
+                                                    <Setter Property="Text" Value="&#x00B7;&#x00B7;&#x00B7;"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button.Content>
+                        </Button>
+                        <Border Background="#1A2D4A" CornerRadius="3" Margin="0,0,0,4"
+                                BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                                Visibility="{Binding HasCiFailureAnalysis, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid Margin="8,7,6,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding CiFailureAnalysis}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding DismissCiFailureAnalysisCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
                 <!-- Content List -->
-                <ListBox x:Name="ContentList"
+                <ListBox x:Name="ContentList" Grid.Row="1"
                          ItemsSource="{Binding CurrentSectionItems}"
                          SelectedItem="{Binding SelectedItem}"
                          Background="Transparent"
@@ -333,7 +413,7 @@
                 </ListBox>
 
                 <!-- Loading indicator -->
-                <Border Background="#CC1E1E1E"
+                <Border Grid.Row="1" Background="#CC1E1E1E"
                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="Loading..."
                                FontSize="{StaticResource FontSizeNormal}"
@@ -343,7 +423,7 @@
                 </Border>
 
                 <!-- Empty state -->
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
                             IsHitTestVisible="False"
                             Visibility="{Binding CurrentSectionItems.Count, Converter={StaticResource ZeroToVisibilityConverter}}">
                     <TextBlock Text="No items"

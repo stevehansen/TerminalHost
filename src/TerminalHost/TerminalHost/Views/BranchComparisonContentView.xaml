@@ -14,6 +14,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -25,6 +26,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -82,11 +84,47 @@
                         Command="{Binding CompareCommand}"
                         Margin="4,0,0,0"
                         Padding="12,6"/>
+
+                <Button Grid.Column="6" Style="{StaticResource InlineActionButton}"
+                        Command="{Binding AssessMergeRiskCommand}"
+                        ToolTip="Assess merge risk (AI)"
+                        VerticalAlignment="Center" Margin="4,0,0,0">
+                    <Button.Content>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#x2728; Risk"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAssessingMergeRisk}" Value="True">
+                                            <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Merge Risk Assessment Callout -->
+        <Border Grid.Row="1" Background="#2D2200" CornerRadius="3" Margin="12,6,12,0"
+                BorderBrush="#CC8800" BorderThickness="3,0,0,0"
+                Visibility="{Binding HasMergeRiskAssessment, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid Margin="8,7,6,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding MergeRiskAssessment}" Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                        Command="{Binding DismissMergeRiskAssessmentCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
             </Grid>
         </Border>
 
         <!-- Status/Summary -->
-        <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8"
+        <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8"
                 Visibility="{Binding ComparisonResult, Converter={StaticResource NullToCollapsedConverter}}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -110,7 +148,7 @@
         </Border>
 
         <!-- View Mode Toggle -->
-        <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,4"
+        <Border Grid.Row="3" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,4"
                 Visibility="{Binding ComparisonResult, Converter={StaticResource NullToCollapsedConverter}}">
             <StackPanel Orientation="Horizontal">
                 <RadioButton Content="Commits" GroupName="CompareViewMode"
@@ -132,7 +170,7 @@
         </Border>
 
         <!-- Comparison Content -->
-        <Grid Grid.Row="3" Margin="0">
+        <Grid Grid.Row="4" Margin="0">
 
             <!-- Commits View (two-column commit lists) -->
             <Grid Visibility="{Binding IsCommitsView, Converter={StaticResource BoolToVisibilityConverter}}">

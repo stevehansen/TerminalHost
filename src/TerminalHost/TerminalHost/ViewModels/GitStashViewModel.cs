@@ -13,6 +13,8 @@ public partial class GitStashViewModel : ObservableObject
     private readonly MainViewModel _mainViewModel;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
 
     private TerminalPairTabViewModel? _currentTerminalTab;
 
@@ -44,6 +46,10 @@ public partial class GitStashViewModel : ObservableObject
     [ObservableProperty]
     private bool _includeUntracked;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateStashNameCommand))]
+    private bool _isGeneratingStashName;
+
     // View properties for positioning/sizing the popup
     [ObservableProperty]
     private double _width = 600;
@@ -61,12 +67,16 @@ public partial class GitStashViewModel : ObservableObject
         IGitStatusService gitStatusService,
         MainViewModel mainViewModel,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        IProcessService processService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService;
+        _configurationService = configurationService;
     }
 
     [RelayCommand]
@@ -304,6 +314,70 @@ public partial class GitStashViewModel : ObservableObject
     {
         IsOpen = false;
     }
+
+    [RelayCommand(CanExecute = nameof(CanGenerateStashName))]
+    private async Task GenerateStashNameAsync()
+    {
+        if (string.IsNullOrEmpty(CurrentWorkingDirectory))
+            return;
+
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
+            return;
+        }
+
+        IsGeneratingStashName = true;
+        try
+        {
+            // Get staged diff
+            var stagedDiff = await _gitStatusService.GetStagedDiffAsync(CurrentWorkingDirectory);
+
+            // Get unstaged diff
+            var (_, unstagedDiff, _) = await _processService.RunAsync(
+                "git", "diff", CurrentWorkingDirectory, timeout: TimeSpan.FromSeconds(15));
+
+            var combined = ((stagedDiff ?? "") + "\n" + (unstagedDiff ?? "")).Trim();
+            if (string.IsNullOrWhiteSpace(combined))
+            {
+                _toastService.Show("No changes to describe", ToastType.Warning);
+                return;
+            }
+
+            if (combined.Length > 8000)
+                combined = combined[..8000] + "\n\n[... truncated ...]";
+
+            var prompt = $"Generate a short, descriptive stash message (10-60 chars) for the following changes. Output ONLY the message text — no quotes, no punctuation at end.\n\n{combined}";
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", CurrentWorkingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out — try again", ToastType.Warning);
+                return;
+            }
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            StashMessage = output.Trim();
+        }
+        finally
+        {
+            IsGeneratingStashName = false;
+        }
+    }
+
+    private bool CanGenerateStashName() => !IsGeneratingStashName;
 
     private async Task RefreshTerminalGitStatusAsync()
     {

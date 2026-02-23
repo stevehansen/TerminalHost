@@ -179,6 +179,7 @@ public partial class MainWindow : Window
         _viewModel.ClaudeTasksRequested += OnClaudeTasksRequested;
         _viewModel.TestRunnerRequested += OnTestRunnerRequested;
         _viewModel.WhatsNewRequested += OnWhatsNewRequested;
+        _viewModel.AiPanelCommandRequested += OnAiPanelCommandRequested;
         _recentFeaturesViewModel.ShowRequested += OnPanelShowRequested;
 
         // Set up the empty state Recent Features view
@@ -1468,6 +1469,45 @@ public partial class MainWindow : Window
             termTab.ShowCenterPanel(_testResultsViewModel);
         }
         await _testResultsViewModel.RunAllTestsAsync();
+    }
+
+    private void OnAiPanelCommandRequested(object? sender, string action)
+    {
+        switch (action)
+        {
+            case "explain-blame":
+                _fileBlameViewModel.ExplainBlameLineCommand.Execute(null);
+                break;
+            case "summarize-file-history":
+                _fileHistoryViewModel.SummarizeFileHistoryCommand.Execute(null);
+                break;
+            case "explain-commit":
+                _commitHistoryViewModel.ExplainCommitCommand.Execute(null);
+                break;
+            case "explain-reflog":
+                _reflogViewModel.ExplainReflogCommand.Execute(null);
+                break;
+            case "generate-stash-name":
+                _gitStashViewModel.GenerateStashNameCommand.Execute(null);
+                break;
+            case "assess-merge-risk":
+                _branchComparisonViewModel.AssessMergeRiskCommand.Execute(null);
+                break;
+            case "suggest-version":
+                _gitTagsViewModel.SuggestVersionCommand.Execute(null);
+                break;
+            case "analyze-ci-failure":
+                var dashboard = _viewModel.Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+                dashboard?.AnalyzeCiFailureCommand.Execute(null);
+                break;
+            case "prioritize-prs":
+                var dashboardForPr = _viewModel.Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+                dashboardForPr?.PrioritizePrsCommand.Execute(null);
+                break;
+            case "improve-markdown":
+                _markdownPreviewViewModel.ImproveMarkdownCommand.Execute(null);
+                break;
+        }
     }
 
     #endregion

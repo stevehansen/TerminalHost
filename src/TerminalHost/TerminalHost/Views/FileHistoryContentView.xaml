@@ -90,11 +90,30 @@
         <!-- File path header -->
         <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8">
             <DockPanel>
-                <Button DockPanel.Dock="Right"
-                        Content="Refresh"
-                        Style="{StaticResource TerminalSwitchButton}"
-                        Command="{Binding RefreshCommitsCommand}"
-                        ToolTip="Refresh file history"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Style="{StaticResource InlineActionButton}"
+                            Command="{Binding SummarizeFileHistoryCommand}"
+                            ToolTip="Summarize file evolution (AI)" FontSize="13" Padding="5,2" Margin="0,0,8,0">
+                        <Button.Content>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#x2728; Summarize"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSummarizingHistory}" Value="True">
+                                                <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button.Content>
+                    </Button>
+                    <Button Content="Refresh"
+                            Style="{StaticResource TerminalSwitchButton}"
+                            Command="{Binding RefreshCommitsCommand}"
+                            ToolTip="Refresh file history"/>
+                </StackPanel>
                 <TextBlock Foreground="{StaticResource TextDimmedBrush}"
                            FontSize="{StaticResource FontSizeSmall}"
                            TextTrimming="CharacterEllipsis">
@@ -116,12 +135,13 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Loading overlay -->
-                    <Border Grid.RowSpan="3"
+                    <Border Grid.RowSpan="4"
                             Background="#80000000"
                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
                             Panel.ZIndex="100">
@@ -138,8 +158,24 @@
                                    FontSize="{StaticResource FontSizeTiny}"/>
                     </Border>
 
+                    <!-- AI Summary callout -->
+                    <Border Grid.Row="1" Background="#1A2D4A" CornerRadius="3" Margin="6,6,6,0"
+                            BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                            Visibility="{Binding HasFileHistorySummary, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid Margin="8,7,6,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding FileHistorySummary}" Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                            <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                    Command="{Binding DismissFileHistorySummaryCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Commit list -->
-                    <ListBox Grid.Row="1"
+                    <ListBox Grid.Row="2"
                              ItemsSource="{Binding Commits}"
                              SelectedItem="{Binding SelectedCommit}"
                              ItemTemplate="{StaticResource CommitItemTemplate}"
@@ -149,7 +185,7 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
 
                     <!-- Load more button -->
-                    <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"
+                    <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"
                             Visibility="{Binding HasCommits, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Button Content="Load More..."
                                 Style="{StaticResource TerminalSwitchButton}"

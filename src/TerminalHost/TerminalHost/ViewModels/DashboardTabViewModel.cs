@@ -79,6 +79,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
     [NotifyPropertyChangedFor(nameof(ReviewRequestsCount))]
+    [NotifyCanExecuteChangedFor(nameof(PrioritizePrsCommand))]
     private ObservableCollection<GitHubPullRequest> _reviewRequests = [];
 
     [ObservableProperty]
@@ -100,7 +101,30 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private ObservableCollection<RepositoryItem> _recentRepos = [];
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCiFailureCommand))]
     private object? _selectedItem;
+
+    // Feature 8: CI failure analysis
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCiFailureAnalysis))]
+    private string _ciFailureAnalysis = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCiFailureCommand))]
+    private bool _isAnalyzingCiFailure;
+
+    public bool HasCiFailureAnalysis => !string.IsNullOrEmpty(CiFailureAnalysis);
+
+    // Feature 9: PR prioritization
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPrPriorityAdvice))]
+    private string _prPriorityAdvice = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrioritizePrsCommand))]
+    private bool _isGeneratingPrPriority;
+
+    public bool HasPrPriorityAdvice => !string.IsNullOrEmpty(PrPriorityAdvice);
 
     // Selection state helpers for UI binding
     public bool IsReviewSelected => SelectedSection == "Review";
@@ -176,6 +200,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         IsLoading = true;
         StatusMessage = "Refreshing...";
+        CiFailureAnalysis = "";
+        PrPriorityAdvice = "";
 
         try
         {
@@ -389,6 +415,139 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         _mainViewModel.OpenProjectTab(repo.LocalPath);
     }
+
+    #region Feature 8: CI Failure Analysis
+
+    public bool CanAnalyzeCiFailure => SelectedItem is GitHubWorkflowRun && !IsAnalyzingCiFailure;
+
+    [RelayCommand(CanExecute = nameof(CanAnalyzeCiFailure))]
+    private async Task AnalyzeCiFailureAsync()
+    {
+        if (SelectedItem is not GitHubWorkflowRun run) return;
+
+        var workDir = FindLocalRepository(run.Repository);
+
+        // Get CI logs via gh CLI
+        var logArgs = $"run view {run.Id} --log-failed";
+        if (!string.IsNullOrEmpty(workDir))
+        {
+            var (logExitCode, logOutput, logError) = await _processService.RunAsync(
+                "gh", logArgs, workDir, timeout: TimeSpan.FromSeconds(30));
+            var log = logExitCode == 0 && !string.IsNullOrWhiteSpace(logOutput) ? logOutput : logError;
+            if (string.IsNullOrWhiteSpace(log)) log = "(no log available)";
+            if (log.Length > 8000) log = log[..8000] + "\n[truncated]";
+
+            var prompt = $"Analyze this CI failure and provide a brief diagnosis (2-4 sentences). What failed, likely cause, and suggested fix.\n\nWorkflow: {run.WorkflowName}\nBranch: {run.Branch}\n\nFailure log:\n{log}";
+            await RunAiForCiAnalysis(prompt, workDir);
+        }
+        else
+        {
+            // No local repo — run without logs, just metadata
+            var prompt = $"Analyze this CI failure and provide a brief diagnosis (2-4 sentences). What failed, likely cause, and suggested fix.\n\nWorkflow: {run.WorkflowName}\nBranch: {run.Branch}\nConclusion: {run.Conclusion}\nCommit: {run.CommitMessage}\n\n(No detailed logs available — repo not cloned locally)";
+            await RunAiForCiAnalysis(prompt, null);
+        }
+    }
+
+    private async Task RunAiForCiAnalysis(string prompt, string? workDir)
+    {
+        IsAnalyzingCiFailure = true;
+        try
+        {
+            var config = _configService.Load();
+            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+            var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+            {
+                _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
+                return;
+            }
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", workDir,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
+                return;
+            }
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            CiFailureAnalysis = output.Trim();
+        }
+        finally
+        {
+            IsAnalyzingCiFailure = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissCiFailureAnalysis() => CiFailureAnalysis = "";
+
+    #endregion
+
+    #region Feature 9: PR Prioritization
+
+    public bool CanPrioritizePrs => ReviewRequests.Count > 0 && !IsGeneratingPrPriority;
+
+    [RelayCommand(CanExecute = nameof(CanPrioritizePrs))]
+    private async Task PrioritizePrsAsync()
+    {
+        var prList = string.Join("\n", ReviewRequests.Select(pr =>
+            $"#{pr.Number} by {pr.Author}: {pr.Title} ({pr.DiffSummary}, CI: {pr.CiStatus ?? "unknown"}, updated {pr.TimeSinceUpdate})"));
+
+        // Use first open tab's working directory as fallback
+        var workDir = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault()?.Pair.WorkingDirectory;
+
+        var prompt = $"Given these pull requests awaiting review, suggest a priority order. Consider: risk (large diffs), failing CI, and staleness. Format as a numbered list: #number \u2014 one-sentence rationale.\n\nPRs:\n{prList}";
+
+        IsGeneratingPrPriority = true;
+        try
+        {
+            var config = _configService.Load();
+            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+            var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+            {
+                _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
+                return;
+            }
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", workDir,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
+                return;
+            }
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            PrPriorityAdvice = output.Trim();
+        }
+        finally
+        {
+            IsGeneratingPrPriority = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissPrPriorityAdvice() => PrPriorityAdvice = "";
+
+    #endregion
 
     [RelayCommand]
     private void Close()

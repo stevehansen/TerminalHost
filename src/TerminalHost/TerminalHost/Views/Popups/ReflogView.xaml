@@ -8,6 +8,7 @@
              mc:Ignorable="d"
              PreviewKeyDown="UserControl_PreviewKeyDown">
 
+
     <Popup x:Name="ReflogPopup"
            Placement="Center"
            PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
@@ -26,6 +27,7 @@
             </Border.Effect>
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
@@ -47,6 +49,23 @@
                                 Command="{Binding RefreshCommand}"
                                 ToolTip="Refresh reflog"
                                 Margin="0,0,8,0"/>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource InlineActionButton}" Command="{Binding ExplainReflogCommand}"
+                                ToolTip="Explain recent operations (AI)" FontSize="13" Padding="5,2" Margin="0,0,4,0">
+                            <Button.Content>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x2728; Explain"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsExplainingReflog}" Value="True">
+                                                    <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button.Content>
+                        </Button>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="R"
                                        Foreground="{StaticResource SyntaxOrangeBrush}"
@@ -63,8 +82,24 @@
                     </DockPanel>
                 </Border>
 
+                <!-- AI Explanation callout -->
+                <Border Grid.Row="1" Background="#1A2D4A" CornerRadius="3" Margin="8,4,8,0"
+                        BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                        Visibility="{Binding HasReflogExplanation, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid Margin="8,7,6,7">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding ReflogAiExplanation}" Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                        <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                Command="{Binding DismissReflogExplanationCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                    </Grid>
+                </Border>
+
                 <!-- Create Branch Section -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8"
+                <Border Grid.Row="2" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8"
                         Visibility="{Binding HasSelectedEntry, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -103,7 +138,7 @@
 
                 <!-- Reflog List -->
                 <ListBox x:Name="ReflogList"
-                         Grid.Row="2"
+                         Grid.Row="3"
                          ItemsSource="{Binding Entries}"
                          SelectedItem="{Binding SelectedEntry}"
                          Background="Transparent"
@@ -210,7 +245,7 @@
                 </ListBox>
 
                 <!-- Empty state -->
-                <TextBlock Grid.Row="2"
+                <TextBlock Grid.Row="3"
                            Text="No reflog entries"
                            Foreground="{StaticResource TextMutedBrush}"
                            FontSize="{StaticResource FontSizeSmall}"
@@ -220,7 +255,7 @@
                            Visibility="{Binding Entries.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
 
                 <!-- Loading overlay -->
-                <Border Grid.Row="2"
+                <Border Grid.Row="3"
                         Background="#80000000"
                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="Loading..."
@@ -231,7 +266,7 @@
                 </Border>
 
                 <!-- Footer with hints -->
-                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
                                    Foreground="{StaticResource TextDimmedBrush}"

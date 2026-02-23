@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
@@ -13,6 +14,8 @@ public partial class GitTagsViewModel : ObservableObject
     private readonly MainViewModel _mainViewModel;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
 
     private TerminalPairTabViewModel? _currentTerminalTab;
 
@@ -47,16 +50,24 @@ public partial class GitTagsViewModel : ObservableObject
     [ObservableProperty]
     private string _newTagMessage = string.Empty;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SuggestVersionCommand))]
+    private bool _isSuggestingVersion;
+
     public GitTagsViewModel(
         IGitStatusService gitStatusService,
         MainViewModel mainViewModel,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        IProcessService processService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService;
+        _configurationService = configurationService;
     }
 
     /// <summary>
@@ -281,6 +292,77 @@ public partial class GitTagsViewModel : ObservableObject
     }
 
     private bool CanOperateOnTag() => SelectedTag != null && !IsLoading;
+
+    [RelayCommand(CanExecute = nameof(CanSuggestVersion))]
+    private async Task SuggestVersionAsync()
+    {
+        if (string.IsNullOrEmpty(CurrentWorkingDirectory))
+            return;
+
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
+            return;
+        }
+
+        var lastTag = Tags.FirstOrDefault();
+        var lastTagName = lastTag?.Name ?? "v0.0.0";
+
+        IsSuggestingVersion = true;
+        try
+        {
+            var (exitCode, commitList, _) = await _processService.RunAsync(
+                "git", $"log {lastTagName}..HEAD --oneline", CurrentWorkingDirectory,
+                timeout: TimeSpan.FromSeconds(15));
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(commitList))
+            {
+                _toastService.Show("No new commits since last tag", ToastType.Warning);
+                return;
+            }
+
+            if (commitList.Length > 6000)
+                commitList = commitList[..6000] + "\n\n[... truncated ...]";
+
+            var prompt = $"Given these commits since {lastTagName}, suggest the next semantic version number. Rules: breaking change (!) = major bump, feat = minor bump, fix/perf = patch bump. Output ONLY the version number prefixed with 'v' (e.g. v1.3.0).\n\nLast version: {lastTagName}\nCommits:\n{commitList}";
+
+            var (aiExitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", CurrentWorkingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (aiExitCode == -1)
+            {
+                _toastService.Show("AI timed out — try again", ToastType.Warning);
+                return;
+            }
+
+            if (aiExitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            var suggested = output.Trim();
+            if (Regex.IsMatch(suggested, @"^v?\d+\.\d+\.\d+"))
+            {
+                NewTagName = suggested;
+            }
+            else
+            {
+                _toastService.Show("AI returned invalid version format", ToastType.Warning);
+            }
+        }
+        finally
+        {
+            IsSuggestingVersion = false;
+        }
+    }
+
+    private bool CanSuggestVersion() => !IsSuggestingVersion;
 
     [RelayCommand]
     private void Close()

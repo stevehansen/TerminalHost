@@ -15,6 +15,9 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     private readonly IMarkdownService _markdownService;
     private readonly IFileSystem _fileSystem;
     private readonly IDispatcherService _dispatcherService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IToastService _toastService;
     private FileSystemWatcher? _fileWatcher;
 
     #region IPanelableViewModel Implementation
@@ -47,6 +50,7 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     #region Markdown Properties
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImproveMarkdownCommand))]
     private string _filePath = "";
 
     [ObservableProperty]
@@ -82,6 +86,18 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         ? null
         : Path.GetDirectoryName(FilePath);
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMarkdownImprovements))]
+    private string _markdownImprovements = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImproveMarkdownCommand))]
+    private bool _isImprovingMarkdown;
+
+    public bool HasMarkdownImprovements => !string.IsNullOrEmpty(MarkdownImprovements);
+
+    public bool CanImproveMarkdown => !string.IsNullOrEmpty(FilePath) && !IsImprovingMarkdown;
+
     #endregion
 
     #region Events
@@ -96,11 +112,17 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     public MarkdownPreviewViewModel(
         IMarkdownService markdownService,
         IFileSystem fileSystem,
-        IDispatcherService dispatcherService)
+        IDispatcherService dispatcherService,
+        IProcessService processService,
+        IConfigurationService configurationService,
+        IToastService toastService)
     {
         _markdownService = markdownService;
         _fileSystem = fileSystem;
         _dispatcherService = dispatcherService;
+        _processService = processService;
+        _configurationService = configurationService;
+        _toastService = toastService;
 
         // Set defaults for markdown preview - defaults to Window
         DisplayState = PanelDisplayState.Window;
@@ -132,6 +154,7 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     public void OnWindowClosed()
     {
         IsOpen = false;
+        MarkdownImprovements = "";
         _fileWatcher?.Dispose();
         _fileWatcher = null;
     }
@@ -193,6 +216,52 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         StatusMessage = AutoReload ? "Auto-reload enabled" : "Auto-reload disabled";
         OnPropertyChanged(nameof(HeaderCommands));
     }
+
+    [RelayCommand(CanExecute = nameof(CanImproveMarkdown))]
+    private async Task ImproveMarkdownAsync()
+    {
+        if (string.IsNullOrEmpty(FilePath)) return;
+
+        string content;
+        try { content = _fileSystem.ReadAllText(FilePath); }
+        catch (Exception ex) { _toastService.Show($"Could not read file: {ex.Message}", ToastType.Error); return; }
+
+        if (content.Length > 8000) content = content[..8000] + "\n[truncated]";
+
+        var workDir = Path.GetDirectoryName(FilePath) ?? "";
+        var prompt = $"Review this markdown document and suggest improvements. Cover: clarity, structure, completeness, broken relative links, missing sections. Format as short bullet points grouped by category. Be concise.\n\n{content}";
+
+        IsImprovingMarkdown = true;
+        try
+        {
+            var config = _configurationService.Load();
+            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+            var claudeFileName = Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+            {
+                _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
+                return;
+            }
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", workDir,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1) { _toastService.Show("AI timed out — try again", ToastType.Warning); return; }
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            MarkdownImprovements = output.Trim();
+        }
+        finally { IsImprovingMarkdown = false; }
+    }
+
+    [RelayCommand]
+    private void DismissMarkdownImprovements() => MarkdownImprovements = "";
 
     #endregion
 

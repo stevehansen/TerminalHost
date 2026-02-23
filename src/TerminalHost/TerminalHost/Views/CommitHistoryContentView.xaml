@@ -460,6 +460,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
@@ -506,6 +507,23 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+                                <Button Style="{StaticResource InlineActionButton}" Command="{Binding ExplainCommitCommand}"
+                                        ToolTip="Explain this commit (AI)" FontSize="13" Padding="5,2" Margin="2,0,0,0">
+                                    <Button.Content>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="&#x2728; Explain"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExplainingCommit}" Value="True">
+                                                            <Setter Property="Text" Value="&#xB7;&#xB7;&#xB7;"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
                             </StackPanel>
                             <TextBlock Text="{Binding SelectedCommit.Subject}"
                                        Foreground="{StaticResource TextPrimaryBrush}"
@@ -514,8 +532,24 @@
                                        TextWrapping="Wrap"/>
                         </DockPanel>
 
+                        <!-- AI Explanation callout -->
+                        <Border Grid.Row="2" Background="#1A2D4A" CornerRadius="3" Margin="0,0,0,6"
+                                BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                                Visibility="{Binding HasCommitExplanation, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid Margin="8,7,6,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding CommitAiExplanation}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                        Command="{Binding DismissCommitExplanationCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Files header -->
-                        <TextBlock Grid.Row="2" Margin="0,0,0,4"
+                        <TextBlock Grid.Row="3" Margin="0,0,0,4"
                                    Foreground="{StaticResource TextDimmedBrush}"
                                    FontSize="{StaticResource FontSizeMicro}">
                             <Run Text="Files: "/>
@@ -528,7 +562,7 @@
                         </TextBlock>
 
                         <!-- Files list -->
-                        <ListBox Grid.Row="3"
+                        <ListBox Grid.Row="4"
                                  ItemsSource="{Binding CommitDetails.Files}"
                                  SelectedItem="{Binding SelectedFile}"
                                  ItemTemplate="{StaticResource FileItemTemplate}"

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
@@ -17,6 +18,8 @@ public partial class ReflogViewModel : BasePanelViewModel
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
     private TerminalPairTabViewModel? _currentTerminalTab;
     private const int DefaultCount = 50;
 
@@ -53,6 +56,16 @@ public partial class ReflogViewModel : BasePanelViewModel
     [ObservableProperty]
     private string _newBranchName = "";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasReflogExplanation))]
+    private string _reflogAiExplanation = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExplainReflogCommand))]
+    private bool _isExplainingReflog;
+
+    public bool HasReflogExplanation => !string.IsNullOrEmpty(ReflogAiExplanation);
+
     public bool HasSelectedEntry => SelectedEntry != null;
     public bool HasEntries => Entries.Count > 0;
 
@@ -61,11 +74,15 @@ public partial class ReflogViewModel : BasePanelViewModel
     public ReflogViewModel(
         IGitStatusService gitStatusService,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        IProcessService processService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService;
+        _configurationService = configurationService;
 
         DisplayState = PanelDisplayState.Panel;
         Width = 700;
@@ -192,6 +209,61 @@ public partial class ReflogViewModel : BasePanelViewModel
     {
         await LoadAsync();
     }
+
+    public bool CanExplainReflog => Entries.Count > 0 && !IsExplainingReflog;
+
+    [RelayCommand(CanExecute = nameof(CanExplainReflog))]
+    private async Task ExplainReflogAsync()
+    {
+        if (Entries.Count == 0 || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
+            return;
+        }
+
+        IsExplainingReflog = true;
+        try
+        {
+            var entryLines = Entries.Take(20)
+                .Select(e => $"{e.Selector} {e.ShortHash} {e.Action}: {e.Description} ({e.RelativeTime})")
+                .ToList();
+            var entriesText = string.Join("\n", entryLines);
+
+            var prompt = $"Explain what git operations happened recently as a brief timeline. Then on a new line starting with 'Recovery:', suggest the safest entry to checkout to undo the most recent potentially destructive operation, if any. Plain text, no markdown.\n\nReflog:\n{entriesText}";
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", workingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
+                return;
+            }
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            ReflogAiExplanation = output.Trim();
+        }
+        finally
+        {
+            IsExplainingReflog = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissReflogExplanation() => ReflogAiExplanation = "";
 
     #endregion
 }

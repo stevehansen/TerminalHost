@@ -18,6 +18,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
     private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
     private readonly MainViewModel _mainViewModel;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
@@ -101,6 +102,16 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     [ObservableProperty]
     private string _diffText = "";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMergeRiskAssessment))]
+    private string _mergeRiskAssessment = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AssessMergeRiskCommand))]
+    private bool _isAssessingMergeRisk;
+
+    public bool HasMergeRiskAssessment => !string.IsNullOrEmpty(MergeRiskAssessment);
+
     public bool IsCommitsView => ViewMode == "Commits";
     public bool IsFilesView => ViewMode == "Files";
 
@@ -111,12 +122,14 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         IDialogService dialogService,
         IToastService toastService,
         IConfigurationService configurationService,
+        IProcessService processService,
         MainViewModel mainViewModel)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
         _configurationService = configurationService;
+        _processService = processService;
         _mainViewModel = mainViewModel;
 
         // Default to Panel state
@@ -203,6 +216,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
 
         IsLoading = true;
         StatusMessage = "Comparing branches...";
+        MergeRiskAssessment = "";
         try
         {
             ComparisonResult = await _gitStatusService.CompareBranchesAsync(
@@ -352,6 +366,72 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         CompareBranch = AvailableBranches.FirstOrDefault(b => b.ShortName == compareName);
     }
 
+    [RelayCommand(CanExecute = nameof(CanAssessMergeRisk))]
+    private async Task AssessMergeRiskAsync()
+    {
+        if (ComparisonResult == null || BaseBranch == null || CompareBranch == null)
+            return;
+
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
+            return;
+        }
+
+        IsAssessingMergeRisk = true;
+        try
+        {
+            var filesList = string.Join("\n", ChangedFiles.Select(f => $"  {f.StatusIcon} {f.FilePath}"));
+
+            var diffExcerpt = DiffText;
+            if (string.IsNullOrEmpty(diffExcerpt) && ChangedFiles.Any())
+            {
+                // Try to get diff for first file
+                var firstFile = ChangedFiles.First();
+                diffExcerpt = await _gitStatusService.GetFileDiffBetweenBranchesAsync(
+                    WorkingDirectory, BaseBranch.Name, CompareBranch.Name, firstFile.FilePath) ?? "";
+            }
+            if (diffExcerpt.Length > 6000)
+                diffExcerpt = diffExcerpt[..6000] + "\n\n[... truncated ...]";
+
+            var prompt = $"Analyze this branch comparison and assess merge risk. Identify: potential merge conflicts, risky changes, and recommend a merge strategy (merge commit / squash / rebase). Format as 3 short paragraphs: Risk Level, Key Concerns, Recommendation. Plain text.\n\nBase: {BaseBranch.ShortName}\nCompare: {CompareBranch.ShortName}\n\nChanged files:\n{filesList}\n\nDiff excerpt:\n{diffExcerpt}";
+
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", WorkingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out — try again", ToastType.Warning);
+                return;
+            }
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+
+            MergeRiskAssessment = output.Trim();
+        }
+        finally
+        {
+            IsAssessingMergeRisk = false;
+        }
+    }
+
+    private bool CanAssessMergeRisk() => !IsAssessingMergeRisk && ComparisonResult != null;
+
+    [RelayCommand]
+    private void DismissMergeRiskAssessment()
+    {
+        MergeRiskAssessment = "";
+    }
+
     #endregion
 
     partial void OnViewModeChanged(string value)
@@ -421,6 +501,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         SelectedCommit = null;
         SelectedFile = null;
         DiffText = "";
+        MergeRiskAssessment = "";
         ViewMode = "Commits";
         StatusMessage = "";
         _currentTerminalTab = null;

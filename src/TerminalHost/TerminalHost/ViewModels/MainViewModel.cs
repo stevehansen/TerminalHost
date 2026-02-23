@@ -1777,6 +1777,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? ClaudeTasksRequested;
     public event EventHandler? TestRunnerRequested;
     public event EventHandler? WhatsNewRequested;
+    public event EventHandler<string>? AiPanelCommandRequested;
 
     /// <summary>
     /// Returns the static palette commands for the Recent Features page.
@@ -2462,6 +2463,105 @@ public partial class MainViewModel : ObservableObject
                 Category = "Help",
                 IntroducedOn = new DateOnly(2026, 2, 10),
                 Execute = () => WhatsNewRequested?.Invoke(this, EventArgs.Empty)
+            },
+
+            // AI Workflow Commands
+            new() {
+                Id = "ai-explain-blame",
+                Name = "Explain blame line (AI) ✨",
+                Description = "AI explains why a blame line was changed",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-blame"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-summarize-file-history",
+                Name = "Summarize file history (AI) ✨",
+                Description = "AI summarizes a file's commit history",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "summarize-file-history"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-explain-commit",
+                Name = "Explain commit (AI) ✨",
+                Description = "AI explains what a commit does and why",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-commit"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-explain-reflog",
+                Name = "Explain recent git operations (AI) ✨",
+                Description = "AI explains recent reflog entries",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-reflog"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-generate-stash-name",
+                Name = "Generate stash name (AI) ✨",
+                Description = "AI generates a descriptive stash name",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "generate-stash-name"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-assess-merge-risk",
+                Name = "Assess merge risk (AI) ✨",
+                Description = "AI assesses risk of merging compared branches",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "assess-merge-risk"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-suggest-version",
+                Name = "Suggest next version (AI) ✨",
+                Description = "AI suggests next semantic version based on tags and commits",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "suggest-version"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-analyze-ci-failure",
+                Name = "Analyze CI failure (AI) ✨",
+                Description = "AI analyzes a failed CI check",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "analyze-ci-failure")
+            },
+            new() {
+                Id = "ai-prioritize-prs",
+                Name = "Prioritize PRs for review (AI) ✨",
+                Description = "AI prioritizes open PRs by review urgency",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "prioritize-prs")
+            },
+            new() {
+                Id = "ai-improve-markdown",
+                Name = "Improve markdown (AI) ✨",
+                Description = "AI suggests improvements to open markdown file",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
             },
 
             // Voice Commands

@@ -13,6 +13,16 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | Diff/Change Explanation | Git Changes panel (Alt+G) | **Implemented** |
 | Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Implemented** |
 | Changelog Generation | Commit History (Ctrl+H) | **Planned** |
+| Explain Blame Line | File Blame panel | **Implemented** |
+| Summarize File History | File History panel | **Implemented** |
+| Explain Commit | Commit History (Ctrl+H) | **Implemented** |
+| Explain Reflog Operations | Reflog panel (Ctrl+Shift+G) | **Implemented** |
+| Generate Stash Name | Stash panel (Ctrl+Shift+S) | **Implemented** |
+| Assess Merge Risk | Branch Comparison (Ctrl+Alt+B) | **Implemented** |
+| Suggest Next Version | Tags panel | **Implemented** |
+| Analyze CI Failure | Dashboard (Ctrl+Shift+H) | **Implemented** |
+| Prioritize PRs for Review | Dashboard (Ctrl+Shift+H) | **Implemented** |
+| Improve Markdown | Markdown Preview (Ctrl+M) | **Implemented** |
 
 ---
 
@@ -367,6 +377,106 @@ Commits:
 
 ---
 
+## Feature 7: Explain Blame Line
+
+### Implementation ✅
+
+- **ViewModel**: `FileBlameViewModel.ExplainBlameLineAsync()` — sends the selected blame line's commit details and surrounding code to AI for explanation
+- **UI**: "✨ Explain" button in blame detail panel; blue callout shows AI explanation below commit details; dismiss with ✕
+- **Command palette**: "Explain blame line (AI) ✨"
+
+---
+
+## Feature 8: Summarize File History
+
+### Implementation ✅
+
+- **ViewModel**: `FileHistoryViewModel.SummarizeFileHistoryAsync()` — sends commit list for the current file to AI; returns a narrative summary of how the file evolved
+- **UI**: "✨ Summarize" button in file history toolbar; summary callout appears above commit list
+- **Command palette**: "Summarize file history (AI) ✨"
+
+---
+
+## Feature 9: Explain Commit
+
+### Implementation ✅
+
+- **ViewModel**: `CommitHistoryViewModel.ExplainCommitAsync()` — sends the selected commit's diff and message to AI for a plain-English explanation
+- **UI**: "✨ Explain" button in commit detail panel; explanation callout below commit metadata
+- **Command palette**: "Explain commit (AI) ✨"
+
+---
+
+## Feature 10: Explain Reflog Operations
+
+### Implementation ✅
+
+- **ViewModel**: `ReflogViewModel.ExplainReflogAsync()` — sends recent reflog entries to AI; returns an explanation of what operations were performed and their effect
+- **UI**: "✨ Explain" button in reflog toolbar; explanation callout at top of entries list
+- **Command palette**: "Explain recent git operations (AI) ✨"
+
+---
+
+## Feature 11: Generate Stash Name
+
+### Implementation ✅
+
+- **ViewModel**: `GitStashViewModel.GenerateStashNameAsync()` — sends the stash diff to AI; returns a short descriptive name for the stash
+- **UI**: "✨ Name" button in stash creation area; AI-generated name populates the stash message input
+- **Command palette**: "Generate stash name (AI) ✨"
+
+---
+
+## Feature 12: Assess Merge Risk
+
+### Implementation ✅
+
+- **ViewModel**: `BranchComparisonViewModel.AssessMergeRiskAsync()` — sends the comparison summary (files changed, conflicts, divergence) to AI; returns a risk assessment
+- **UI**: "✨ Risk" button in branch comparison toolbar; risk assessment callout with colored risk level indicator
+- **Command palette**: "Assess merge risk (AI) ✨"
+
+---
+
+## Feature 13: Suggest Next Version
+
+### Implementation ✅
+
+- **ViewModel**: `GitTagsViewModel.SuggestVersionAsync()` — sends recent tags and commit messages to AI; returns a suggested next semantic version with reasoning
+- **UI**: "✨ Suggest" button in tags toolbar; suggestion callout shows recommended version and rationale
+- **Command palette**: "Suggest next version (AI) ✨"
+
+---
+
+## Feature 14: Analyze CI Failure
+
+### Implementation ✅
+
+- **ViewModel**: `DashboardTabViewModel.AnalyzeCiFailureAsync()` — sends the selected CI check's failure logs to AI; returns a root cause analysis
+- **UI**: "✨ Analyze" button on failed CI checks in Dashboard; analysis callout in check detail area
+- **Command palette**: "Analyze CI failure (AI) ✨"
+
+---
+
+## Feature 15: Prioritize PRs for Review
+
+### Implementation ✅
+
+- **ViewModel**: `DashboardTabViewModel.PrioritizePrsAsync()` — sends the list of open PRs (titles, authors, age, size) to AI; returns a prioritized review order with reasoning
+- **UI**: "✨ Prioritize" button in Dashboard PR section; prioritized list callout above PR list
+- **Command palette**: "Prioritize PRs for review (AI) ✨"
+
+---
+
+## Feature 16: Improve Markdown
+
+### Implementation ✅
+
+- **ViewModel**: `MarkdownPreviewViewModel.ImproveMarkdownAsync()` — reads the open markdown file (up to 8000 chars), sends to AI for review; returns bullet-point suggestions grouped by category (clarity, structure, completeness, broken links, missing sections)
+- **UI**: "✨ Improve" button in Markdown Preview toolbar; blue left-border callout shows suggestions; dismiss with ✕
+- **Command palette**: "Improve markdown (AI) ✨"
+
+---
+
 ## Implementation Priority
 
 | Priority | Feature | Effort | Notes |
@@ -398,6 +508,16 @@ All features check `ResolveAiExecutable()` before invoking. When AI is unavailab
 | Diff explanation | 20KB diff | Same as commit message generation |
 | Regex generation | N/A (user description only) | — |
 | Changelog generation | 200 commit messages | Filter to most recent |
+| Blame explanation | Commit details + surrounding code | Hard truncate |
+| File history summary | Up to 100 commit messages | Filter to most recent |
+| Commit explanation | Commit diff + message | 20KB truncate |
+| Reflog explanation | Recent reflog entries | Up to 50 entries |
+| Stash name generation | Stash diff | 8KB truncate |
+| Merge risk assessment | Comparison summary | Hard truncate |
+| Version suggestion | Recent tags + commits | Up to 50 commits |
+| CI failure analysis | CI check logs | 10KB truncate |
+| PR prioritization | Open PR metadata | All open PRs |
+| Markdown improvement | Markdown file content | 8KB truncate |
 
 ### Timeout
 
@@ -432,5 +552,6 @@ Optional future addition:
 
 ---
 
-*Document Version: 1.0*
+*Document Version: 2.0*
 *Created: 2026-02-22*
+*Updated: 2026-02-23 — Added Features 7-16 (blame explain, file history summary, commit explain, reflog explain, stash naming, merge risk, version suggest, CI analysis, PR prioritization, markdown improve)*

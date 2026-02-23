@@ -11,14 +11,57 @@
              d:DataContext="{d:DesignInstance Type=vm:MarkdownPreviewViewModel}">
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6,4,6,2">
+            <Button Style="{StaticResource InlineActionButton}" Command="{Binding ImproveMarkdownCommand}"
+                    ToolTip="Suggest improvements (AI)" FontSize="13" Padding="5,2" Margin="2,0,0,0">
+                <Button.Content>
+                    <TextBlock>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="✨ Improve"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsImprovingMarkdown}" Value="True">
+                                        <Setter Property="Text" Value="···"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button.Content>
+            </Button>
+        </StackPanel>
+
+        <!-- AI Improvements callout -->
+        <Border Grid.Row="1" Background="#1A2D4A" CornerRadius="3" Margin="6,0,6,6"
+                BorderBrush="#3A6DAA" BorderThickness="3,0,0,0"
+                Visibility="{Binding HasMarkdownImprovements, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid Margin="8,7,6,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding MarkdownImprovements}" Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                <Button Grid.Column="1" Content="✕" Style="{StaticResource InlineActionButton}"
+                        Command="{Binding DismissMarkdownImprovementsCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+            </Grid>
+        </Border>
+
         <!-- Use MarkdownViewer control for consistent link handling and error toasts -->
-        <controls:MarkdownViewer x:Name="MarkdownViewer"
+        <controls:MarkdownViewer Grid.Row="2" x:Name="MarkdownViewer"
                                  HtmlContent="{Binding RenderedHtml}"
                                  BasePath="{Binding MarkdownBasePath}"
                                  MarkdownLinkClicked="OnMarkdownLinkClicked"/>
 
         <!-- Loading overlay -->
-        <Border Background="#CC1E1E1E"
+        <Border Grid.Row="0" Grid.RowSpan="3" Background="#CC1E1E1E"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
             <TextBlock Text="Loading..."
                        FontSize="14"

@@ -18,6 +18,8 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IConfigurationService _configurationService;
     private const int DefaultCommitCount = 50;
     private const int LoadMoreCount = 25;
 
@@ -68,8 +70,18 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     [ObservableProperty]
     private bool _showFileContent;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFileHistorySummary))]
+    private string _fileHistorySummary = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SummarizeFileHistoryCommand))]
+    private bool _isSummarizingHistory;
+
     public bool HasSelectedCommit => SelectedCommit != null;
     public bool HasCommits => Commits.Count > 0;
+    public bool HasFileHistorySummary => !string.IsNullOrEmpty(FileHistorySummary);
+    public bool CanSummarizeFileHistory => Commits.Count > 0 && !IsSummarizingHistory;
 
     #endregion
 
@@ -85,11 +97,15 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     public FileHistoryViewModel(
         IGitStatusService gitStatusService,
         IDialogService dialogService,
-        IToastService toastService)
+        IToastService toastService,
+        IProcessService processService,
+        IConfigurationService configurationService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService;
+        _configurationService = configurationService;
 
         // Set defaults - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -154,6 +170,8 @@ public partial class FileHistoryViewModel : BasePanelViewModel
 
             Commits = new ObservableCollection<GitCommit>(commits);
             OnPropertyChanged(nameof(HasCommits));
+            FileHistorySummary = "";
+            SummarizeFileHistoryCommand.NotifyCanExecuteChanged();
 
             // Select first commit
             if (Commits.Count > 0)
@@ -259,6 +277,51 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     {
         ShowFileContent = false;
     }
+
+    [RelayCommand(CanExecute = nameof(CanSummarizeFileHistory))]
+    private async Task SummarizeFileHistoryAsync()
+    {
+        var commitList = string.Join("\n", Commits.Take(50).Select(c => $"{c.ShortHash} {c.Subject}"));
+
+        var prompt = $"Summarize how this file has evolved across these commits. Focus on major changes, renames, and purpose shifts. 3-5 sentences, plain English, no markdown.\n\nFile: {FilePath}\n\nCommit history:\n{commitList}";
+
+        var config = _configurationService.Load();
+        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
+        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
+        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
+        {
+            _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
+            return;
+        }
+
+        IsSummarizingHistory = true;
+        try
+        {
+            var (exitCode, output, error) = await _processService.RunAsync(
+                claudePath, "-p --no-session-persistence", WorkingDirectory,
+                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+
+            if (exitCode == -1)
+            {
+                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
+                return;
+            }
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
+                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
+                return;
+            }
+            FileHistorySummary = output.Trim();
+        }
+        finally
+        {
+            IsSummarizingHistory = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissFileHistorySummary() => FileHistorySummary = "";
 
     #endregion
 
