@@ -1766,6 +1766,16 @@ public partial class MainViewModel : ObservableObject
             tab.RefreshAvailableAiAssistants(enabledAssistants);
         }
 
+        // Sync API server state with saved config
+        var apiSettings = _configService.Load().Settings.Api;
+        if (_apiServer != null)
+        {
+            if (apiSettings.Enabled && !_apiServer.IsRunning)
+                _ = StartApiServerAsync();
+            else if (!apiSettings.Enabled && _apiServer.IsRunning)
+                _ = StopApiServerAsync();
+        }
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
