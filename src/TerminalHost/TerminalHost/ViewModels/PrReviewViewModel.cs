@@ -24,6 +24,7 @@ public partial class PrReviewViewModel : BasePanelViewModel
     private readonly IMarkdownService _markdownService;
     private readonly IToastService _toastService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
 
     public override string PanelId => "prReview";
     public override string PanelTitle => "PR Review";
@@ -121,12 +122,14 @@ public partial class PrReviewViewModel : BasePanelViewModel
         IProcessService processService,
         IMarkdownService markdownService,
         IToastService toastService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitHubService = gitHubService;
         _dialogService = dialogService;
         _testRunnerService = testRunnerService;
         _projectDetectionService = projectDetectionService;
+        _aiService = aiExecutionService;
         _fileSystem = fileSystem;
         _processService = processService;
         _markdownService = markdownService;
@@ -563,15 +566,7 @@ public partial class PrReviewViewModel : BasePanelViewModel
     private async Task RunAiReviewAsync()
     {
         if (PullRequest == null || string.IsNullOrEmpty(WorkingDirectory)) return;
-
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            StatusMessage = "AI assistant not configured — check Settings → General";
-            return;
-        }
+        if (!_aiService.IsAiAvailable()) { StatusMessage = "AI assistant not configured"; return; }
 
         IsRunningAiReview = true;
         AiReviewFindings.Clear();
@@ -625,35 +620,22 @@ public partial class PrReviewViewModel : BasePanelViewModel
                 {{diff}}{{truncatedNote}}
                 """;
 
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", WorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(60));
+            var result = await _aiService.ExecuteAsync(prompt, WorkingDirectory, "Reviewing PR",
+                timeout: TimeSpan.FromSeconds(60));
 
-            if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+            if (result.Success)
             {
-                var findings = ParseAiFindings(output.Trim());
+                var findings = ParseAiFindings(result.Output!);
                 AiReviewFindings = new ObservableCollection<AiReviewFinding>(findings);
                 OnPropertyChanged(nameof(HasAiReview));
                 IsAiReviewExpanded = true;
                 var truncatedWarning = truncated ? " (diff truncated)" : "";
                 var summary = $"AI review complete — {findings.Count} finding{(findings.Count == 1 ? "" : "s")}{truncatedWarning}";
                 StatusMessage = summary;
-                _toastService.Show(summary, ToastType.Success);
-            }
-            else if (exitCode == -1)
-            {
-                const string msg = "AI review timed out — check AI assistant or try again";
-                StatusMessage = msg;
-                _toastService.Show(msg, ToastType.Warning);
             }
             else
             {
-                var detail = !string.IsNullOrWhiteSpace(error)
-                    ? error.Split('\n')[0].Trim()
-                    : $"exit {exitCode}";
-                var msg = $"AI review failed: {detail}";
-                StatusMessage = msg;
-                _toastService.Show(msg, ToastType.Error);
+                StatusMessage = result.TimedOut ? "AI review timed out" : "AI review failed";
             }
         }
         finally

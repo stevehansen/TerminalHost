@@ -19,6 +19,7 @@ public partial class FileBlameViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
 
     #region IPanelableViewModel Implementation
 
@@ -93,13 +94,15 @@ public partial class FileBlameViewModel : BasePanelViewModel
         IDialogService dialogService,
         IToastService toastService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
 
         // Set defaults - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -214,6 +217,7 @@ public partial class FileBlameViewModel : BasePanelViewModel
     private async Task ExplainBlameLineAsync()
     {
         if (SelectedLine == null || SelectedCommitDetails == null) return;
+        if (!_aiService.IsAiAvailable()) return;
 
         var hash = SelectedLine.CommitHash;
         var commitMsg = SelectedCommitDetails.Subject ?? "";
@@ -225,38 +229,26 @@ public partial class FileBlameViewModel : BasePanelViewModel
 
         var prompt = $"Explain why this code was changed in 2-3 sentences. Focus on the intent behind the change, not the mechanics. Plain English, no markdown.\n\nCommit: {hash}\nMessage: {commitMsg}\n\nDiff:\n{diff}";
 
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured — check Settings \u2192 General", ToastType.Warning);
-            return;
-        }
-
         IsExplainingBlame = true;
         try
         {
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", WorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-            BlameAiExplanation = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, WorkingDirectory, "Explaining blame");
+            if (result.Success)
+                BlameAiExplanation = result.Output!;
         }
         finally
         {
             IsExplainingBlame = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyBlameExplanation()
+    {
+        if (!string.IsNullOrEmpty(BlameAiExplanation))
+        {
+            System.Windows.Clipboard.SetText(BlameAiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
         }
     }
 

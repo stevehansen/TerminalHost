@@ -20,6 +20,7 @@ public partial class ReflogViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
     private TerminalPairTabViewModel? _currentTerminalTab;
     private const int DefaultCount = 50;
 
@@ -76,13 +77,15 @@ public partial class ReflogViewModel : BasePanelViewModel
         IDialogService dialogService,
         IToastService toastService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
 
         DisplayState = PanelDisplayState.Panel;
         Width = 700;
@@ -216,16 +219,9 @@ public partial class ReflogViewModel : BasePanelViewModel
     private async Task ExplainReflogAsync()
     {
         if (Entries.Count == 0 || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+        if (!_aiService.IsAiAvailable()) return;
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
-            return;
-        }
 
         IsExplainingReflog = true;
         try
@@ -237,24 +233,9 @@ public partial class ReflogViewModel : BasePanelViewModel
 
             var prompt = $"Explain what git operations happened recently as a brief timeline. Then on a new line starting with 'Recovery:', suggest the safest entry to checkout to undo the most recent potentially destructive operation, if any. Plain text, no markdown.\n\nReflog:\n{entriesText}";
 
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", workingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            ReflogAiExplanation = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, workingDirectory, "Explaining reflog");
+            if (result.Success)
+                ReflogAiExplanation = result.Output!;
         }
         finally
         {

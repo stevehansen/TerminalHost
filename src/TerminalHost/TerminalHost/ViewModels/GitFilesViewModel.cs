@@ -24,6 +24,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly IDiffParserService _diffParserService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -168,7 +169,8 @@ public partial class GitFilesViewModel : BasePanelViewModel
         IProcessService processService,
         IToastService toastService,
         IDiffParserService diffParserService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
@@ -178,6 +180,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         _toastService = toastService;
         _diffParserService = diffParserService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
 
         // Set defaults for git changes - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -686,6 +689,83 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
     #endregion
 
+    #region Add to .gitignore
+
+    [RelayCommand]
+    private async Task AddToGitignoreByPathAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "/" + file.FilePath.Replace('\\', '/');
+        await AppendToGitignoreAsync(workingDirectory, pattern, file.FileName);
+    }
+
+    [RelayCommand]
+    private async Task AddToGitignoreByExtensionAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var ext = System.IO.Path.GetExtension(file.FilePath);
+        if (string.IsNullOrEmpty(ext)) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "*" + ext;
+        await AppendToGitignoreAsync(workingDirectory, pattern, pattern);
+    }
+
+    [RelayCommand]
+    private async Task AddToGitignoreByDirectoryAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var dir = System.IO.Path.GetDirectoryName(file.FilePath)?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(dir)) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "/" + dir + "/";
+        await AppendToGitignoreAsync(workingDirectory, pattern, dir);
+    }
+
+    private async Task AppendToGitignoreAsync(string workingDirectory, string pattern, string displayName)
+    {
+        var gitignorePath = System.IO.Path.Combine(workingDirectory, ".gitignore");
+
+        try
+        {
+            // Check if pattern already exists
+            if (_fileSystem.FileExists(gitignorePath))
+            {
+                var content = _fileSystem.ReadAllText(gitignorePath);
+                var lines = content.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+                if (lines.Any(l => l.Trim() == pattern))
+                {
+                    _toastService.Show($"'{pattern}' already in .gitignore", ToastType.Info);
+                    return;
+                }
+            }
+
+            // Append pattern (ensure newline before if file doesn't end with one)
+            var appendText = pattern + "\n";
+            if (_fileSystem.FileExists(gitignorePath))
+            {
+                var existing = _fileSystem.ReadAllText(gitignorePath);
+                if (existing.Length > 0 && !existing.EndsWith("\n"))
+                    appendText = "\n" + appendText;
+            }
+
+            _fileSystem.AppendAllText(gitignorePath, appendText);
+            _toastService.Show($"Added '{displayName}' to .gitignore", ToastType.Success);
+            await RefreshGitFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to update .gitignore: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    #endregion
+
     #region Commit Message Generation
 
     [ObservableProperty]
@@ -708,7 +788,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
 
-        // Try AI-powered generation first (via claude -p)
+        // Try AI-powered generation first
         IsGeneratingMessage = true;
         try
         {
@@ -723,7 +803,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
                 - First line MUST be under 72 characters
                 - Add a blank line then a brief body (1-3 lines) only if the change is complex
                 - Output ONLY the commit message, no explanation or markdown
-                """);
+                """, showErrorOnFailure: false);
 
             if (!string.IsNullOrWhiteSpace(aiMessage))
             {
@@ -770,8 +850,6 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
             if (!string.IsNullOrWhiteSpace(explanation))
                 DiffExplanation = explanation.Trim();
-            else
-                _toastService.Show("AI unavailable — configure an AI assistant in Settings", ToastType.Warning);
         }
         catch
         {
@@ -780,6 +858,16 @@ public partial class GitFilesViewModel : BasePanelViewModel
         finally
         {
             IsExplainingDiff = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyDiffExplanation()
+    {
+        if (!string.IsNullOrEmpty(DiffExplanation))
+        {
+            System.Windows.Clipboard.SetText(DiffExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
         }
     }
 
@@ -812,8 +900,6 @@ public partial class GitFilesViewModel : BasePanelViewModel
 
             if (!string.IsNullOrWhiteSpace(explanation))
                 FileDiffExplanation = explanation.Trim();
-            else
-                _toastService.Show("AI unavailable — configure an AI assistant in Settings", ToastType.Warning);
         }
         catch
         {
@@ -826,6 +912,16 @@ public partial class GitFilesViewModel : BasePanelViewModel
     }
 
     [RelayCommand]
+    private void CopyFileDiffExplanation()
+    {
+        if (!string.IsNullOrEmpty(FileDiffExplanation))
+        {
+            System.Windows.Clipboard.SetText(FileDiffExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    [RelayCommand]
     private void DismissFileDiffExplanation() => FileDiffExplanation = "";
 
     /// <summary>
@@ -833,8 +929,10 @@ public partial class GitFilesViewModel : BasePanelViewModel
     /// If <paramref name="diffContent"/> is null the staged diff is fetched from git.
     /// Returns the trimmed output, or null if AI is unavailable or the call fails.
     /// </summary>
-    private async Task<string?> RunAiAsync(string workingDirectory, string systemPrompt, string? diffContent = null)
+    private async Task<string?> RunAiAsync(string workingDirectory, string systemPrompt, string? diffContent = null, bool showErrorOnFailure = true)
     {
+        if (!_aiService.IsAiAvailable()) return null;
+
         string? diff;
         if (diffContent != null)
         {
@@ -854,13 +952,7 @@ public partial class GitFilesViewModel : BasePanelViewModel
         if (diff.Length > maxDiffLength)
             diff = diff[..maxDiffLength] + "\n\n[... diff truncated ...]";
 
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude"))
-            return null;
-
-        var stdinContent = $"""
+        var prompt = $"""
             {systemPrompt}
 
             <diff>
@@ -868,14 +960,10 @@ public partial class GitFilesViewModel : BasePanelViewModel
             </diff>
             """;
 
-        var (exitCode, output, _) = await _processService.RunAsync(
-            claudePath,
-            "-p --no-session-persistence",
-            workingDirectory,
-            stdin: stdinContent,
-            timeout: TimeSpan.FromSeconds(30));
+        var result = await _aiService.ExecuteAsync(prompt, workingDirectory, "Analyzing diff",
+            showErrorOnFailure: showErrorOnFailure);
 
-        return exitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output.Trim() : null;
+        return result.Success ? result.Output : null;
     }
 
     private void GenerateHeuristicMessage()

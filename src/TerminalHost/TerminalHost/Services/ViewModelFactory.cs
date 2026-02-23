@@ -59,7 +59,8 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<IProcessService>(),
             _serviceProvider.GetRequiredService<IToastService>(),
             _serviceProvider.GetRequiredService<ITimerService>(),
-            _serviceProvider.GetRequiredService<IFolderPickerService>()
+            _serviceProvider.GetRequiredService<IFolderPickerService>(),
+            _serviceProvider.GetRequiredService<IAiExecutionService>()
         );
     }
 

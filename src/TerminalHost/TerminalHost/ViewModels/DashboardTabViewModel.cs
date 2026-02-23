@@ -23,6 +23,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IFolderPickerService _folderPickerService;
+    private readonly IAiExecutionService _aiService;
     private readonly IAppTimer _refreshTimer;
 
     #region ITabViewModel Implementation
@@ -148,7 +149,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IProcessService processService,
         IToastService toastService,
         ITimerService timerService,
-        IFolderPickerService folderPickerService)
+        IFolderPickerService folderPickerService,
+        IAiExecutionService aiExecutionService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -159,6 +161,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _toastService = toastService;
         _timerService = timerService;
         _folderPickerService = folderPickerService;
+        _aiService = aiExecutionService;
 
         // Setup auto-refresh timer
         _refreshTimer = _timerService.CreateTimer(TimeSpan.FromMinutes(5), async () => await RefreshAsync());
@@ -450,36 +453,14 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
     private async Task RunAiForCiAnalysis(string prompt, string? workDir)
     {
+        if (!_aiService.IsAiAvailable()) return;
+
         IsAnalyzingCiFailure = true;
         try
         {
-            var config = _configService.Load();
-            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-            var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-            {
-                _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
-                return;
-            }
-
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", workDir,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            CiFailureAnalysis = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, workDir ?? "", "Analyzing CI failure");
+            if (result.Success)
+                CiFailureAnalysis = result.Output!;
         }
         finally
         {
@@ -499,44 +480,22 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     [RelayCommand(CanExecute = nameof(CanPrioritizePrs))]
     private async Task PrioritizePrsAsync()
     {
+        if (!_aiService.IsAiAvailable()) return;
+
         var prList = string.Join("\n", ReviewRequests.Select(pr =>
             $"#{pr.Number} by {pr.Author}: {pr.Title} ({pr.DiffSummary}, CI: {pr.CiStatus ?? "unknown"}, updated {pr.TimeSinceUpdate})"));
 
         // Use first open tab's working directory as fallback
-        var workDir = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault()?.Pair.WorkingDirectory;
+        var workDir = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault()?.Pair.WorkingDirectory ?? "";
 
         var prompt = $"Given these pull requests awaiting review, suggest a priority order. Consider: risk (large diffs), failing CI, and staleness. Format as a numbered list: #number \u2014 one-sentence rationale.\n\nPRs:\n{prList}";
 
         IsGeneratingPrPriority = true;
         try
         {
-            var config = _configService.Load();
-            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-            var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-            {
-                _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
-                return;
-            }
-
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", workDir,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            PrPriorityAdvice = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, workDir, "Prioritizing PRs");
+            if (result.Success)
+                PrPriorityAdvice = result.Output!;
         }
         finally
         {

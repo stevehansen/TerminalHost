@@ -584,6 +584,15 @@ All specifications are documented in `docs/specs/`. Status legend:
 |----------|---------|------|
 | **Medium** | Active Ports Detection | RemainingFeatures.md |
 | **Low** | Changelog Generation (AI) | AiWorkflowAssistance.md |
+| **Low** | Explain File / Review File for Issues (AI) | AiWorkflowAssistance.md |
+| **Low** | Suggest Branch Cleanup (AI) | AiWorkflowAssistance.md |
+| **Low** | Generate .gitignore (AI) | AiWorkflowAssistance.md |
+| **Low** | Polish Notes (AI) | AiWorkflowAssistance.md |
+| **Low** | Suggest Merge Message (AI) | AiWorkflowAssistance.md |
+| **Low** | Summarize Timeline Session (AI) | AiWorkflowAssistance.md |
+| **Low** | Explain Project Structure (AI) | AiWorkflowAssistance.md |
+| **Low** | Explain Search Results (AI) | AiWorkflowAssistance.md |
+| **Low** | Name Worktree (AI) | AiWorkflowAssistance.md |
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |

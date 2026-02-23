@@ -14,6 +14,16 @@ TerminalHost integrates the configured AI assistant (Claude, Gemini, etc.) direc
 | Regex Generation Assistance | Search Across Files (Ctrl+F3) | **Implemented** |
 | Changelog Generation | Commit History (Ctrl+H) | **Planned** |
 | Explain Blame Line | File Blame panel | **Implemented** |
+| Explain File | File Viewer (Ctrl+O) | **Planned** |
+| Review File for Issues | File Viewer (Ctrl+O) | **Planned** |
+| Suggest Branch Cleanup | Branch Switcher (Ctrl+B) | **Planned** |
+| Generate .gitignore | File Explorer (Ctrl+Shift+F) | **Planned** |
+| Polish Notes | Scratch Pad (Ctrl+Shift+N) | **Planned** |
+| Suggest Merge Message | Branch Comparison (Ctrl+Alt+B) | **Planned** |
+| Summarize Timeline Session | Timeline Mode (Ctrl+Shift+I) | **Planned** |
+| Explain Project Structure | File Explorer (Ctrl+Shift+F) | **Planned** |
+| Explain Search Results | Search Across Files (Ctrl+F3) | **Planned** |
+| Name Worktree | Worktree Manager | **Planned** |
 | Summarize File History | File History panel | **Implemented** |
 | Explain Commit | Commit History (Ctrl+H) | **Implemented** |
 | Explain Reflog Operations | Reflog panel (Ctrl+Shift+G) | **Implemented** |
@@ -477,6 +487,466 @@ Commits:
 
 ---
 
+## Feature 17: Explain File
+
+### Concept
+
+In the File Viewer, an **"Explain ✨"** button sends the current file's contents to the AI and shows a plain-English summary of what the file does — useful when navigating an unfamiliar codebase.
+
+### UI Change
+
+Add to `FileViewerViewModel` and `FileViewerView.xaml`:
+
+```
+┌─ FileViewer: src/services/AuthService.cs ──────────────────────────────────┐
+│  [Edit]  [Explain ✨]  [Copy Path]                                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 💡 This service manages OAuth token lifecycle. It stores access/refresh    │
+│    tokens in an encrypted keychain entry, automatically refreshes tokens   │
+│    300s before expiry, and exposes an HttpClient factory that injects      │
+│    a valid Bearer header on every request.                                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  1  public class AuthService : IAuthService {                              │
+│  2      ...                                                                │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Explain what this file does in 3-5 sentences of plain English.
+Describe its purpose, key responsibilities, and any notable design decisions.
+No bullet points, no markdown, no code fences.
+
+File: {filePath}
+Language: {detectedLanguage}
+
+{fileContents}
+```
+
+### Implementation
+
+- **ViewModel**: `FileViewerViewModel.ExplainFileAsync()` — sets `FileExplanation` string property; cleared when a different file is loaded
+- **UI**: "Explain ✨" button in file viewer toolbar (hidden for binary/image files); blue left-border callout appears below toolbar; dismissed via ✕ or on file change
+- **Input limit**: File contents truncated to 8KB; truncation noted in prompt
+- **Command palette**: "Explain file (AI) ✨"
+
+---
+
+## Feature 18: Review File for Issues
+
+### Concept
+
+In the File Viewer, a **"Review ✨"** button sends the current file to the AI for a quick code review — spotting bugs, security issues, and code smells without requiring a full PR.
+
+### UI Change
+
+Add to `FileViewerViewModel` and `FileViewerView.xaml`:
+
+```
+┌─ FileViewer: src/api/client.ts ─────────────────────────────────────────────┐
+│  [Edit]  [Explain ✨]  [Review ✨]  [Copy Path]                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 Bug        line 47 — maxRetries is read before it's assigned; will       │
+│               always be undefined on first call.                            │
+│ 🟡 Suggestion line 89 — Magic number 3000 should be named MAX_DELAY_MS.    │
+│ 🟢 Looks good: Error handling and retry logic are well-structured.          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1  export class ApiClient {                                                │
+│  ...                                                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Review this file for bugs, security issues, and significant code smells.
+Use the same format as a PR review:
+🔴 Bug | 🟡 Suggestion | 🟢 Looks good
+Format each finding as: {emoji} {category}  line {N} — {description}
+End with one 🟢 summary line. No other text.
+
+File: {filePath}
+Language: {detectedLanguage}
+
+{fileContents}
+```
+
+### Implementation
+
+- **ViewModel**: `FileViewerViewModel.ReviewFileAsync()` — populates `FileReviewFindings` observable collection; same `AiReviewFinding` record type as `PrReviewViewModel`; cleared on file change
+- **UI**: "Review ✨" button in toolbar (hidden for binary/image files); findings panel with same emoji/color column layout as PR review; header shows finding count
+- **Input limit**: File contents truncated to 8KB
+- **Command palette**: "Review file for issues (AI) ✨"
+
+---
+
+## Feature 19: Suggest Branch Cleanup
+
+### Concept
+
+In the Branch Switcher, a **"Clean up ✨"** button sends the branch list (with merge status and last-commit age) to the AI, which identifies stale or already-merged branches that are safe to delete.
+
+### UI Change
+
+Add to `GitBranchViewModel` and `GitBranchView.xaml`:
+
+```
+┌─ Branches ──────────────────────────────────────────────────────────────────┐
+│  [🌿 New Branch]  [Clean up ✨]  [Refresh]                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 💡 Safe to delete (3):                                                      │
+│   • feature/old-auth-flow — merged into main 45 days ago                   │
+│   • fix/typo-readme — merged into main 30 days ago                         │
+│   • wip/experiment — no commits in 60 days, not merged                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ * main                                         (up to date)                │
+│   feature/retry-logic                          (3 ahead)                   │
+│   ...                                                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Identify branches that are safe to delete. Consider: merged status, last commit age, and name patterns (wip/, fix/, feature/ that look abandoned).
+Format each suggestion as: • {branch} — {reason}
+Group under: "Safe to delete" and "Possibly stale (review first)".
+Only include branches worth acting on. No other text.
+
+Current branch: {currentBranch}
+Default branch: {defaultBranch}
+
+Branches:
+{branchList}
+```
+
+### Implementation
+
+- **ViewModel**: `GitBranchViewModel.SuggestCleanupAsync()` — sets `CleanupSuggestion` string property; sends branch names, merge status (`git branch --merged`), and last-commit date
+- **UI**: "Clean up ✨" button in branch list toolbar; suggestion callout at top of branch list; dismissed via ✕
+- **Input limit**: Up to 100 branches (name + merged flag + days-since-last-commit)
+- **Command palette**: "Suggest branch cleanup (AI) ✨"
+
+---
+
+## Feature 20: Generate .gitignore
+
+### Concept
+
+In the File Explorer, a **"Generate .gitignore ✨"** context menu item (on repo root) or toolbar button sends the project's file/directory structure to the AI, which produces a `.gitignore` tailored to the detected stack.
+
+### UI Change
+
+Add to `FileExplorerViewModel` and `FileExplorerView.xaml`:
+
+```
+┌─ File Explorer ──────────────────────────────────────────────────────────────┐
+│  [⟳ Refresh]  [Generate .gitignore ✨]                                       │
+│                                                                              │
+│  Right-click on root → "Generate .gitignore ✨"                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 📁 src/                                                                      │
+│ 📁 tests/                                                                    │
+│ 📄 package.json                                                              │
+│ 📄 .gitignore  ← created/updated                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Generate a .gitignore file for this project based on its structure and detected technologies.
+Output ONLY the .gitignore content — no explanation, no markdown fences.
+Include common patterns for the detected stack plus OS/editor artifacts.
+
+Project structure (top 2 levels):
+{fileTree}
+
+Detected technologies: {detectedTechs}
+```
+
+### Implementation
+
+- **ViewModel**: `FileExplorerViewModel.GenerateGitignoreAsync()` — builds file tree (top 2 levels), detects tech from known files (`package.json`, `*.csproj`, `requirements.txt`, `Cargo.toml`, etc.), calls AI, writes result to `.gitignore` via `IFileSystem`; prompts before overwrite if file exists
+- **UI**: "Generate .gitignore ✨" in toolbar and in root-node context menu; success toast "`.gitignore` created" with option to open in viewer
+- **Input limit**: Top-2-level file tree only (no deep recursion); typically well within limits
+- **Command palette**: "Generate .gitignore (AI) ✨"
+
+---
+
+## Feature 21: Polish Notes
+
+### Concept
+
+In the Scratch Pad, a **"Polish ✨"** button sends the current notes to the AI, which returns an improved version with better clarity, structure, and grammar. The user can accept, compare, or dismiss.
+
+### UI Change
+
+Add to `ScratchPadViewModel` and `ScratchPadContentView.xaml`:
+
+```
+┌─ Scratch Pad ────────────────────────────────────────────────────────────────┐
+│  [Clear]  [Polish ✨]                                                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  todo: fix the auth thing, maybe retry, also the timeout is wrong check it  │
+│  meeting notes: talked about caching, john said use redis, need to look     │
+│  into cost                                                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  [Accept polished version]  [Dismiss]                                        │
+│  ─────────────────────────────────────────────────────────────────          │
+│  ## TODOs                                                                    │
+│  - Fix auth retry logic (check timeout value)                                │
+│                                                                              │
+│  ## Meeting Notes — Caching                                                  │
+│  - John suggested Redis; need to evaluate cost before proceeding             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Polish these notes for clarity and structure. Improve grammar, fix capitalization, organize into sections if appropriate.
+Keep all original information — do not add or remove facts.
+Output plain text or minimal markdown (headers and bullet points only). No other commentary.
+
+{notesContent}
+```
+
+### Implementation
+
+- **ViewModel**: `ScratchPadViewModel.PolishNotesAsync()` — sets `PolishedNotes` preview string; user accepts via `AcceptPolishedNotesCommand` (replaces `Notes` content) or dismisses; preview panel shown between toolbar and editor
+- **UI**: "Polish ✨" button in scratch pad toolbar; preview area with diff-style callout below toolbar; "Accept" / "Dismiss" buttons
+- **Input limit**: Notes content truncated to 8KB
+- **Command palette**: "Polish scratch pad notes (AI) ✨"
+
+---
+
+## Feature 22: Suggest Merge Message
+
+### Concept
+
+In the Branch Comparison panel, alongside "Assess Merge Risk ✨", a **"Merge Message ✨"** button generates a descriptive merge commit message based on the commits being merged.
+
+### UI Change
+
+Add to `BranchComparisonViewModel` and `BranchComparisonView.xaml`:
+
+```
+┌─ Branch Comparison: feature/retry-logic → main ────────────────────────────┐
+│  [Merge Message ✨]  [Assess Risk ✨]  [Refresh]                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│ 💡 Merge feature/retry-logic into main                                     │
+│                                                                            │
+│    Add exponential backoff retry logic to the HTTP API client.             │
+│    Introduces RetryPolicy class, wires it up in client.ts, and adds       │
+│    test coverage for retry edge cases.                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│  Commits (7)                          Files (4)                            │
+│  ...                                  ...                                  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Generate a git merge commit message for merging {sourceBranch} into {targetBranch}.
+First line: conventional "Merge {sourceBranch} into {targetBranch}" subject (max 72 chars).
+Then a blank line, then 2-4 sentences summarising what the merge brings.
+No bullet points, no markdown, no code fences.
+
+Commits being merged:
+{commitList}
+```
+
+### Implementation
+
+- **ViewModel**: `BranchComparisonViewModel.SuggestMergeMessageAsync()` — sets `MergeMessage` string; callout shows subject + body separately for easy copying
+- **UI**: "Merge Message ✨" button in toolbar (left of "Assess Risk ✨"); message callout with [Copy] button; dismissed via ✕
+- **Input limit**: Up to 50 commit message titles
+- **Command palette**: "Suggest merge commit message (AI) ✨"
+
+---
+
+## Feature 23: Summarize Timeline Session
+
+### Concept
+
+In the Timeline Mode, a **"Summarize ✨"** button on a session block sends the session's intents, timestamps, and file activity to the AI, which returns a narrative of what was accomplished.
+
+### UI Change
+
+Add to `TimelineTabViewModel` and the Timeline session block UI:
+
+```
+┌─ Timeline ───────────────────────────────────────────────────────────────────┐
+│  Session: 2026-02-22 14:00–17:30  [Summarize ✨]                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 💡 Implemented the retry logic feature across 3.5 hours. Started by         │
+│    scaffolding RetryPolicy, then wired it into the API client. Spent ~1h    │
+│    debugging an off-by-one in the backoff calculation, resolved by adding   │
+│    a unit test that isolated the issue. Session ended with all tests        │
+│    green and the PR opened.                                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  ▌ feat: scaffold RetryPolicy (14:12)                                       │
+│  ▌ feat: wire into client (15:03)                                           │
+│  ...                                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Summarize this AI coding session in 3-5 sentences. Describe what was built, key decisions made, and how it ended.
+Plain text only, no markdown.
+
+Session: {date} {startTime}–{endTime} ({durationHours}h)
+Project: {projectName}
+
+Intents / commits during session:
+{intentList}
+```
+
+### Implementation
+
+- **ViewModel**: `TimelineTabViewModel.SummarizeSessionAsync(sessionBlock)` — sets `SessionSummary` on the selected `SessionBlockViewModel`; summary shown in session detail area
+- **UI**: "Summarize ✨" button in session detail header; summary callout; dismissed via ✕ or session change
+- **Input limit**: Up to 50 intents/commits from the session
+- **Command palette**: "Summarize timeline session (AI) ✨"
+
+---
+
+## Feature 24: Explain Project Structure
+
+### Concept
+
+In the File Explorer, an **"Explain project ✨"** button sends the top-level directory tree to the AI, which returns a brief orientation to the codebase — useful when opening an unfamiliar project.
+
+### UI Change
+
+Add to `FileExplorerViewModel` and `FileExplorerView.xaml`:
+
+```
+┌─ File Explorer ──────────────────────────────────────────────────────────────┐
+│  [⟳]  [Explain project ✨]  [Generate .gitignore ✨]                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 💡 A .NET 8 desktop application (WPF + Avalonia) with a platform-agnostic   │
+│    Core library. src/ holds the four projects; tests/ has unit and UI test  │
+│    suites. Configuration lives in %APPDATA%\TerminalHost\.                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  📁 src/                                                                     │
+│  📁 tests/                                                                   │
+│  📄 README.md                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Explain what this project is and how it's structured in 3-5 sentences.
+Cover: what it does, main technologies used, and how the directories are organised.
+Plain text, no markdown, no bullet points.
+
+Project directory: {rootPath}
+
+File tree (top 2 levels):
+{fileTree}
+```
+
+### Implementation
+
+- **ViewModel**: `FileExplorerViewModel.ExplainProjectAsync()` — sets `ProjectExplanation` string; callout appears below toolbar; dismissed via ✕ or project change
+- **UI**: "Explain project ✨" button in file explorer toolbar; blue left-border callout
+- **Input limit**: Top-2-level file tree (same tree built for Generate .gitignore)
+- **Command palette**: "Explain project structure (AI) ✨"
+
+---
+
+## Feature 25: Explain Search Results
+
+### Concept
+
+In the Search Across Files panel, after results are loaded, an **"Explain ✨"** button sends the search query and a sample of matches to the AI, which summarises what the pattern found and what it means in the context of the codebase.
+
+### UI Change
+
+Add to `SearchAcrossFilesViewModel` and `SearchAcrossFilesView.xaml`:
+
+```
+┌─ Search Across Files ────────────────────────────────────────────────────────┐
+│ 🔍 [TODO|FIXME                                ] [✨] [Aa] [.*]               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Results: 23 matches in 11 files              [Explain results ✨]           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 💡 The codebase has 23 TODO/FIXME annotations spread across 11 files.       │
+│    Most are in the auth and API layers (8 combined), suggesting those        │
+│    areas have the most outstanding work. The oldest patterns appear to be   │
+│    auth-related timeouts that predate the retry logic refactor.             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  src/api/client.ts (5 matches)                                              │
+│  ...                                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+The developer searched for "{searchQuery}" across the codebase and found {matchCount} matches in {fileCount} files.
+Summarise what these results indicate about the codebase in 3-5 sentences. Be specific and actionable.
+Plain text, no markdown.
+
+Sample matches (up to 30):
+{sampleMatches}
+```
+
+### Implementation
+
+- **ViewModel**: `SearchAcrossFilesViewModel.ExplainResultsAsync()` — sets `ResultExplanation` string; sends query, match count, file count, and up to 30 sample match lines (file + line + content); cleared when search query changes
+- **UI**: "Explain results ✨" button in results header row (visible only when `ResultCount > 0`); blue left-border callout below results header; dismissed via ✕
+- **Input limit**: Up to 30 sample match lines (filename + line number + match text)
+- **Command palette**: "Explain search results (AI) ✨"
+
+---
+
+## Feature 26: Name Worktree
+
+### Concept
+
+When creating a new worktree in the Worktree Manager, a **"✨ Name"** button next to the name field sends the current branch name and recent commits to the AI, which suggests a short, descriptive worktree name.
+
+### UI Change
+
+Add to `ManageWorktreesViewModel` and the worktree creation dialog:
+
+```
+┌─ Create Worktree ───────────────────────────────────────────────────────────┐
+│  Branch:  [feature/user-auth-oauth2-migration          ]                   │
+│  Name:    [auth-oauth-migration                ] [✨ Name]                  │
+│  Path:    [P:\TerminalHost\.worktrees\auth-oauth-migration]                 │
+│                                                              [Create]       │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Prompt Design
+
+```
+Suggest a short, filesystem-safe name (kebab-case, max 30 chars) for a git worktree.
+Output ONLY the name — no explanation, no punctuation.
+
+Branch: {branchName}
+Recent commits on this branch:
+{recentCommits}
+```
+
+### Implementation
+
+- **ViewModel**: `ManageWorktreesViewModel.SuggestWorktreeNameAsync()` — inserts result into the name field; validates as filesystem-safe before inserting
+- **UI**: "✨ Name" button inline with the name input field in the creation form
+- **Input limit**: Branch name + up to 10 recent commit messages
+- **Command palette**: N/A (inline creation dialog only)
+
+---
+
 ## Implementation Priority
 
 | Priority | Feature | Effort | Notes |
@@ -518,6 +988,16 @@ All features check `ResolveAiExecutable()` before invoking. When AI is unavailab
 | CI failure analysis | CI check logs | 10KB truncate |
 | PR prioritization | Open PR metadata | All open PRs |
 | Markdown improvement | Markdown file content | 8KB truncate |
+| Explain file | File contents | 8KB truncate |
+| Review file for issues | File contents | 8KB truncate |
+| Suggest branch cleanup | Branch list + merge status | Up to 100 branches |
+| Generate .gitignore | File tree (top 2 levels) | Hard truncate |
+| Polish notes | Notes content | 8KB truncate |
+| Suggest merge message | Commit message list | Up to 50 commits |
+| Summarize timeline session | Session intents/commits | Up to 50 entries |
+| Explain project structure | File tree (top 2 levels) | Hard truncate |
+| Explain search results | Sample match lines | Up to 30 matches |
+| Name worktree | Branch name + commits | Up to 10 commits |
 
 ### Timeout
 
@@ -552,6 +1032,7 @@ Optional future addition:
 
 ---
 
-*Document Version: 2.0*
+*Document Version: 2.1*
 *Created: 2026-02-22*
 *Updated: 2026-02-23 — Added Features 7-16 (blame explain, file history summary, commit explain, reflog explain, stash naming, merge risk, version suggest, CI analysis, PR prioritization, markdown improve)*
+*Updated: 2026-02-23 — Added Features 17-26 (explain file, review file, suggest branch cleanup, generate .gitignore, polish notes, suggest merge message, summarize timeline session, explain project structure, explain search results, name worktree)*

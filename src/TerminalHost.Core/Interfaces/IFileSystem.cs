@@ -10,6 +10,7 @@ public interface IFileSystem
     string ReadAllText(string path);
     Task<string> ReadAllTextAsync(string path);
     void WriteAllText(string path, string contents);
+    void AppendAllText(string path, string contents);
     string[] GetFiles(string path, string searchPattern, SearchOption searchOption);
     string[] GetFiles(string path);
     string[] GetDirectories(string path);

@@ -16,6 +16,7 @@ public partial class MergeConflictViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     public override string PanelId => "mergeConflict";
@@ -50,8 +51,10 @@ public partial class MergeConflictViewModel : BasePanelViewModel
         IFileSystem fileSystem,
         IToastService toastService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
+        _aiService = aiExecutionService;
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
@@ -220,11 +223,7 @@ public partial class MergeConflictViewModel : BasePanelViewModel
     public async Task<string?> SuggestResolutionAsync(string oursContent, string theirsContent)
     {
         if (_currentTerminalTab?.Pair.WorkingDirectory == null) return null;
-
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini")) return null;
+        if (!_aiService.IsAiAvailable()) return null;
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
         var filePath = SelectedConflictFile?.FilePath ?? "";
@@ -251,16 +250,7 @@ public partial class MergeConflictViewModel : BasePanelViewModel
             Output the resolved version of the conflicted section only.
             """;
 
-        var (exitCode, output, _) = await _processService.RunAsync(
-            claudePath, "-p --no-session-persistence", workingDirectory,
-            stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-        {
-            _toastService.Show("AI suggestion failed — check AI assistant configuration", ToastType.Error);
-            return null;
-        }
-
-        return output.Trim();
+        var result = await _aiService.ExecuteAsync(prompt, workingDirectory, "Suggesting resolution");
+        return result.Success ? result.Output : null;
     }
 }

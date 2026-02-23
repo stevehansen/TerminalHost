@@ -21,6 +21,8 @@ public partial class TestResultsViewModel : BasePanelViewModel
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
     private readonly IFileSystem _fileSystem;
+    private readonly IAiExecutionService _aiService;
+    private readonly IToastService _toastService;
 
     private string _currentWorkingDirectory = string.Empty;
     private ProjectType? _currentProjectType;
@@ -82,7 +84,9 @@ public partial class TestResultsViewModel : BasePanelViewModel
         IDialogService dialogService,
         IProcessService processService,
         IConfigurationService configurationService,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IAiExecutionService aiExecutionService,
+        IToastService toastService)
     {
         _testRunnerService = testRunnerService;
         _projectDetectionService = projectDetectionService;
@@ -91,6 +95,8 @@ public partial class TestResultsViewModel : BasePanelViewModel
         _processService = processService;
         _configurationService = configurationService;
         _fileSystem = fileSystem;
+        _aiService = aiExecutionService;
+        _toastService = toastService;
 
         Width = 700;
         Height = 500;
@@ -231,6 +237,16 @@ public partial class TestResultsViewModel : BasePanelViewModel
         IsOpen = false;
     }
 
+    [RelayCommand]
+    private void CopyAiDiagnosis()
+    {
+        if (!string.IsNullOrEmpty(SelectedAiDiagnosis))
+        {
+            System.Windows.Clipboard.SetText(SelectedAiDiagnosis);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
     partial void OnSelectedResultChanged(TestResult? value)
     {
         if (value != null && _aiDiagnoses.TryGetValue(value.FullName, out var diag))
@@ -296,14 +312,7 @@ public partial class TestResultsViewModel : BasePanelViewModel
     [RelayCommand(CanExecute = nameof(CanAnalyzeFailures))]
     private async Task AnalyzeFailuresAsync()
     {
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            StatusMessage = "AI assistant not configured — check Settings → General";
-            return;
-        }
+        if (!_aiService.IsAiAvailable()) { StatusMessage = "AI assistant not configured"; return; }
 
         var failedTests = FlattenLeafTests(Results)
             .Where(r => r.Status == TestStatus.Failed)
@@ -370,13 +379,12 @@ public partial class TestResultsViewModel : BasePanelViewModel
             if (sourceSection.Count > 0)
                 prompt += $"\n\nTEST SOURCE:\n{string.Join('\n', sourceSection)}";
 
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", _currentWorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(60));
+            var result = await _aiService.ExecuteAsync(prompt, _currentWorkingDirectory, "Diagnosing test failures",
+                timeout: TimeSpan.FromSeconds(60));
 
-            if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+            if (result.Success)
             {
-                var diagnoses = SplitDiagnoses(output.Trim(), failedTests.Count);
+                var diagnoses = SplitDiagnoses(result.Output!, failedTests.Count);
                 for (int i = 0; i < failedTests.Count && i < diagnoses.Length; i++)
                     _aiDiagnoses[failedTests[i].FullName] = diagnoses[i];
 
@@ -387,16 +395,9 @@ public partial class TestResultsViewModel : BasePanelViewModel
                 var diagnosed = Math.Min(failedTests.Count, diagnoses.Length);
                 StatusMessage = $"AI diagnosis complete — {diagnosed} of {failedTests.Count} failures analysed";
             }
-            else if (exitCode == -1)
-            {
-                StatusMessage = "AI analysis timed out — check AI assistant or try again";
-            }
             else
             {
-                var detail = !string.IsNullOrWhiteSpace(error)
-                    ? error.Split('\n')[0].Trim()
-                    : $"exit {exitCode}";
-                StatusMessage = $"AI analysis failed: {detail}";
+                StatusMessage = result.TimedOut ? "AI analysis timed out" : "AI analysis failed";
             }
         }
         finally

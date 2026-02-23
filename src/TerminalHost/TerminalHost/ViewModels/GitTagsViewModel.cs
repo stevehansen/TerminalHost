@@ -16,6 +16,7 @@ public partial class GitTagsViewModel : ObservableObject
     private readonly IToastService _toastService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
 
     private TerminalPairTabViewModel? _currentTerminalTab;
 
@@ -60,7 +61,8 @@ public partial class GitTagsViewModel : ObservableObject
         IDialogService dialogService,
         IToastService toastService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
@@ -68,6 +70,7 @@ public partial class GitTagsViewModel : ObservableObject
         _toastService = toastService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
     }
 
     /// <summary>
@@ -298,15 +301,7 @@ public partial class GitTagsViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(CurrentWorkingDirectory))
             return;
-
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
-            return;
-        }
+        if (!_aiService.IsAiAvailable()) return;
 
         var lastTag = Tags.FirstOrDefault();
         var lastTagName = lastTag?.Name ?? "v0.0.0";
@@ -329,31 +324,19 @@ public partial class GitTagsViewModel : ObservableObject
 
             var prompt = $"Given these commits since {lastTagName}, suggest the next semantic version number. Rules: breaking change (!) = major bump, feat = minor bump, fix/perf = patch bump. Output ONLY the version number prefixed with 'v' (e.g. v1.3.0).\n\nLast version: {lastTagName}\nCommits:\n{commitList}";
 
-            var (aiExitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", CurrentWorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+            var result = await _aiService.ExecuteAsync(prompt, CurrentWorkingDirectory, "Suggesting version");
 
-            if (aiExitCode == -1)
+            if (result.Success)
             {
-                _toastService.Show("AI timed out — try again", ToastType.Warning);
-                return;
-            }
-
-            if (aiExitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            var suggested = output.Trim();
-            if (Regex.IsMatch(suggested, @"^v?\d+\.\d+\.\d+"))
-            {
-                NewTagName = suggested;
-            }
-            else
-            {
-                _toastService.Show("AI returned invalid version format", ToastType.Warning);
+                var suggested = result.Output!;
+                if (Regex.IsMatch(suggested, @"^v?\d+\.\d+\.\d+"))
+                {
+                    NewTagName = suggested;
+                }
+                else
+                {
+                    _toastService.Show("AI returned invalid version format", ToastType.Warning);
+                }
             }
         }
         finally

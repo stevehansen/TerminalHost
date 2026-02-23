@@ -13,6 +13,7 @@ public class FileSystem : IFileSystem
     public string ReadAllText(string path) => File.ReadAllText(path);
     public Task<string> ReadAllTextAsync(string path) => File.ReadAllTextAsync(path);
     public void WriteAllText(string path, string contents) => File.WriteAllText(path, contents);
+    public void AppendAllText(string path, string contents) => File.AppendAllText(path, contents);
     public string[] GetFiles(string path, string searchPattern, SearchOption searchOption) =>
         Directory.GetFiles(path, searchPattern, searchOption);
     public string[] GetFiles(string path) => Directory.GetFiles(path);

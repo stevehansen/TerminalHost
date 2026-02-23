@@ -142,7 +142,7 @@
                         MaxHeight="220"
                         Padding="12,6"
                         Visibility="{Binding IsAiReviewExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding AiReviewFindings}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

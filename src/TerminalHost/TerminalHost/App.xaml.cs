@@ -233,6 +233,7 @@ public partial class App : Application
                 sp.GetRequiredService<IDispatcherService>());
         });
         services.AddSingleton<IToastService, ToastService>();
+        services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
         services.AddSingleton<ICommitGraphService, CommitGraphService>();
         services.AddSingleton<ITimerService, TimerService>();

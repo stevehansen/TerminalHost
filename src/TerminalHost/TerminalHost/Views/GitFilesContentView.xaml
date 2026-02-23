@@ -68,9 +68,84 @@
             </Setter>
         </Style>
 
+        <!-- Context menu for unstaged git file items -->
+        <ContextMenu x:Key="GitFileContextMenu" Style="{StaticResource DarkContextMenu}">
+            <MenuItem Header="Stage"
+                      Command="{Binding PlacementTarget.Tag.StageItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      InputGestureText="+">
+                <MenuItem.Icon>
+                    <TextBlock Text="+" FontWeight="Bold" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource SyntaxGreenBrush}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Discard Changes"
+                      Command="{Binding PlacementTarget.Tag.DiscardItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Foreground="#F14C4C">
+                <MenuItem.Icon>
+                    <TextBlock Text="↩" FontSize="{StaticResource FontSizeSmall}" Foreground="#F14C4C"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Add to .gitignore">
+                <MenuItem.Icon>
+                    <TextBlock Text="🚫" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+                <MenuItem Header="By File Path"
+                          Command="{Binding PlacementTarget.Tag.AddToGitignoreByPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="By Extension"
+                          Command="{Binding PlacementTarget.Tag.AddToGitignoreByExtensionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="By Directory"
+                          Command="{Binding PlacementTarget.Tag.AddToGitignoreByDirectoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Preview"
+                      Command="{Binding PlacementTarget.Tag.PreviewFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <TextBlock Text="👁" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Open in Explorer"
+                      Command="{Binding PlacementTarget.Tag.ExploreFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Context menu for staged file items -->
+        <ContextMenu x:Key="StagedFileContextMenu" Style="{StaticResource DarkContextMenu}">
+            <MenuItem Header="Unstage"
+                      Command="{Binding PlacementTarget.Tag.UnstageItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      InputGestureText="−">
+                <MenuItem.Icon>
+                    <TextBlock Text="−" FontWeight="Bold" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Preview"
+                      Command="{Binding PlacementTarget.Tag.PreviewFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <TextBlock Text="👁" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Open in Explorer"
+                      Command="{Binding PlacementTarget.Tag.ExploreFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
         <!-- Staged file item template (with unstage button on hover) -->
         <DataTemplate x:Key="StagedFileTemplate">
-            <Grid Margin="4,3">
+            <Grid Margin="4,3"
+                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                  ContextMenu="{StaticResource StagedFileContextMenu}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="20"/>
                     <ColumnDefinition Width="*"/>
@@ -125,7 +200,9 @@
 
         <!-- Unstaged file item template (with stage + discard buttons on hover) -->
         <DataTemplate x:Key="UnstagedFileTemplate">
-            <Grid Margin="4,3">
+            <Grid Margin="4,3"
+                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                  ContextMenu="{StaticResource GitFileContextMenu}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="20"/>
                     <ColumnDefinition Width="*"/>
@@ -468,6 +545,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding DiffExplanation}"
@@ -475,10 +553,15 @@
                                                FontSize="{StaticResource FontSizeTiny}"
                                                LineHeight="18"
                                                TextWrapping="Wrap"/>
-                                    <Button Grid.Column="1" Content="✕"
+                                    <Button Grid.Column="1" Content="&#x1F4CB;"
+                                            Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding CopyDiffExplanationCommand}"
+                                            VerticalAlignment="Top" Margin="6,0,0,0"
+                                            ToolTip="Copy to clipboard"/>
+                                    <Button Grid.Column="2" Content="✕"
                                             Style="{StaticResource InlineActionButton}"
                                             Command="{Binding DismissExplanationCommand}"
-                                            VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                            VerticalAlignment="Top" Margin="4,0,0,0"/>
                                 </Grid>
                             </Border>
 
@@ -733,6 +816,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0"
                                        Text="{Binding FileDiffExplanation}"
@@ -740,10 +824,15 @@
                                        FontSize="{StaticResource FontSizeTiny}"
                                        LineHeight="18"
                                        TextWrapping="Wrap"/>
-                            <Button Grid.Column="1" Content="✕"
+                            <Button Grid.Column="1" Content="&#x1F4CB;"
+                                    Style="{StaticResource InlineActionButton}"
+                                    Command="{Binding CopyFileDiffExplanationCommand}"
+                                    VerticalAlignment="Top" Margin="6,0,0,0"
+                                    ToolTip="Copy to clipboard"/>
+                            <Button Grid.Column="2" Content="✕"
                                     Style="{StaticResource InlineActionButton}"
                                     Command="{Binding DismissFileDiffExplanationCommand}"
-                                    VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                    VerticalAlignment="Top" Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 

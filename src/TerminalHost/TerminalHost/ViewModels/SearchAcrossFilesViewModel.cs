@@ -21,6 +21,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly IAiExecutionService _aiService;
 
     private TerminalPairTabViewModel? _currentTerminalTab;
     private CancellationTokenSource? _searchCts;
@@ -144,7 +145,8 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         IConfigurationService configurationService,
         IToastService toastService,
         ITimerService timerService,
-        IDispatcherService dispatcherService)
+        IDispatcherService dispatcherService,
+        IAiExecutionService aiExecutionService)
     {
         _searchService = searchService;
         _fileSystem = fileSystem;
@@ -153,6 +155,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
         _toastService = toastService;
         _timerService = timerService;
         _dispatcherService = dispatcherService;
+        _aiService = aiExecutionService;
 
         // Set defaults for search panel - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -496,14 +499,7 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
     [RelayCommand(CanExecute = nameof(CanGenerateRegex))]
     private async Task GenerateRegexAsync()
     {
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
-            return;
-        }
+        if (!_aiService.IsAiAvailable()) return;
 
         IsGeneratingRegex = true;
         try
@@ -515,13 +511,11 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
                 Description: {RegexDescription}
                 """;
 
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", WorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
+            var result = await _aiService.ExecuteAsync(prompt, WorkingDirectory, "Generating regex");
 
-            if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+            if (result.Success)
             {
-                var pattern = output.Trim();
+                var pattern = result.Output!;
                 // Unwrap triple-backtick code fence (```[lang]\npattern\n```)
                 if (pattern.StartsWith("```"))
                 {
@@ -553,17 +547,6 @@ public partial class SearchAcrossFilesViewModel : BasePanelViewModel
                 SearchPattern = pattern;
                 UseRegex = true;
                 ShowRegexInput = false;
-            }
-            else if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out — try again", ToastType.Warning);
-            }
-            else
-            {
-                var detail = !string.IsNullOrWhiteSpace(error)
-                    ? error.Split('\n')[0].Trim()
-                    : $"exit {exitCode}";
-                _toastService.Show($"AI failed: {detail}", ToastType.Error);
             }
         }
         finally

@@ -166,11 +166,15 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{Binding FileHistorySummary}" Foreground="{StaticResource TextPrimaryBrush}"
                                        FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
-                            <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
-                                    Command="{Binding DismissFileHistorySummaryCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            <Button Grid.Column="1" Content="&#x1F4CB;" Style="{StaticResource InlineActionButton}"
+                                    Command="{Binding CopyFileHistorySummaryCommand}" VerticalAlignment="Top" Margin="6,0,0,0"
+                                    ToolTip="Copy to clipboard"/>
+                            <Button Grid.Column="2" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                    Command="{Binding DismissFileHistorySummaryCommand}" VerticalAlignment="Top" Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace TerminalHost.Core.Interfaces;
 
@@ -44,7 +45,9 @@ public interface IProcessService
                 RedirectStandardError = true,
                 RedirectStandardInput = stdin != null,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
             }
         };
 
@@ -68,6 +71,68 @@ public interface IProcessService
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
             return (-1, "", "Process timed out");
+        }
+    }
+
+    /// <summary>
+    /// Runs a command asynchronously with streaming stdout callback.
+    /// Each line of stdout triggers <paramref name="onOutput"/>.
+    /// Returns the same tuple as <see cref="RunAsync"/>.
+    /// </summary>
+    async Task<(int ExitCode, string Output, string Error)> RunStreamingAsync(
+        string fileName, string arguments, string? workingDirectory = null,
+        string? stdin = null, TimeSpan? timeout = null,
+        Action<string>? onOutput = null)
+    {
+        var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(60);
+        var outputBuilder = new System.Text.StringBuilder();
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory ?? "",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = stdin != null,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            }
+        };
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+            {
+                outputBuilder.AppendLine(e.Data);
+                onOutput?.Invoke(e.Data);
+            }
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+
+        if (stdin != null)
+        {
+            await process.StandardInput.WriteAsync(stdin);
+            process.StandardInput.Close();
+        }
+
+        using var cts = new CancellationTokenSource(effectiveTimeout);
+        try
+        {
+            var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
+            await process.WaitForExitAsync(cts.Token);
+            return (process.ExitCode, outputBuilder.ToString(), await errorTask);
+        }
+        catch (OperationCanceledException)
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+            return (-1, outputBuilder.ToString(), "Process timed out");
         }
     }
 }

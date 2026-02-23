@@ -211,7 +211,7 @@
                 Padding="12,8"
                 Visibility="{Binding SelectedResult.ErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"
                 MaxHeight="150">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <TextBlock Text="{Binding SelectedResult.ErrorMessage}"
                                Foreground="{StaticResource SyntaxRedBrush}"
@@ -237,13 +237,22 @@
                 BorderThickness="3,0,0,0"
                 Margin="0,1,0,0"
                 Visibility="{Binding HasSelectedDiagnosis, Converter={StaticResource BoolToVisibilityConverter}}">
-            <TextBlock Foreground="{StaticResource TextPrimaryBrush}"
-                       FontSize="{StaticResource FontSizeTiny}"
-                       TextWrapping="Wrap"
-                       LineHeight="18">
-                <Run Text="💡 AI: " Foreground="#C586C0" FontWeight="SemiBold"/>
-                <Run Text="{Binding SelectedAiDiagnosis}"/>
-            </TextBlock>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           TextWrapping="Wrap"
+                           LineHeight="18">
+                    <Run Text="&#x1F4A1; AI: " Foreground="#C586C0" FontWeight="SemiBold"/>
+                    <Run Text="{Binding SelectedAiDiagnosis}"/>
+                </TextBlock>
+                <Button Grid.Column="1" Content="&#x1F4CB;" Style="{StaticResource InlineActionButton}"
+                        Command="{Binding CopyAiDiagnosisCommand}" VerticalAlignment="Top" Margin="6,0,0,0"
+                        ToolTip="Copy to clipboard"/>
+            </Grid>
         </Border>
 
         <!-- Footer -->

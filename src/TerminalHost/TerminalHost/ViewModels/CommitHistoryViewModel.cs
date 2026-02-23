@@ -22,6 +22,7 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private readonly ICommitGraphService _commitGraphService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
     private TerminalPairTabViewModel? _currentTerminalTab;
     private const int DefaultCommitCount = 50;
     private const int LoadMoreCount = 25;
@@ -121,7 +122,8 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         IToastService toastService,
         ICommitGraphService commitGraphService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
@@ -129,6 +131,7 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
         _commitGraphService = commitGraphService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
 
         // Set defaults - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -406,16 +409,9 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private async Task ExplainCommitAsync()
     {
         if (SelectedCommit == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+        if (!_aiService.IsAiAvailable()) return;
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
-            return;
-        }
 
         IsExplainingCommit = true;
         try
@@ -446,28 +442,23 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
 
             var prompt = $"Explain this commit in 2-4 sentences. What changed and why (infer intent from context and message). Plain English, no markdown.\n\nMessage: {SelectedCommit.Subject}\n\nDiff:\n{diff}";
 
-            var (aiExitCode, aiOutput, aiError) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", workingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (aiExitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-
-            if (aiExitCode != 0 || string.IsNullOrWhiteSpace(aiOutput))
-            {
-                var firstError = aiError.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            CommitAiExplanation = aiOutput.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, workingDirectory, "Explaining commit");
+            if (result.Success)
+                CommitAiExplanation = result.Output!;
         }
         finally
         {
             IsExplainingCommit = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyCommitExplanation()
+    {
+        if (!string.IsNullOrEmpty(CommitAiExplanation))
+        {
+            System.Windows.Clipboard.SetText(CommitAiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
         }
     }
 

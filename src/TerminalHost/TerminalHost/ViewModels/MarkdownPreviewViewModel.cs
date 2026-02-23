@@ -18,6 +18,7 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
     private readonly IToastService _toastService;
+    private readonly IAiExecutionService _aiService;
     private FileSystemWatcher? _fileWatcher;
 
     #region IPanelableViewModel Implementation
@@ -115,13 +116,15 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         IDispatcherService dispatcherService,
         IProcessService processService,
         IConfigurationService configurationService,
-        IToastService toastService)
+        IToastService toastService,
+        IAiExecutionService aiExecutionService)
     {
         _markdownService = markdownService;
         _fileSystem = fileSystem;
         _dispatcherService = dispatcherService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
         _toastService = toastService;
 
         // Set defaults for markdown preview - defaults to Window
@@ -221,6 +224,7 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
     private async Task ImproveMarkdownAsync()
     {
         if (string.IsNullOrEmpty(FilePath)) return;
+        if (!_aiService.IsAiAvailable()) return;
 
         string content;
         try { content = _fileSystem.ReadAllText(FilePath); }
@@ -234,28 +238,9 @@ public partial class MarkdownPreviewViewModel : BasePanelViewModel
         IsImprovingMarkdown = true;
         try
         {
-            var config = _configurationService.Load();
-            var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-            var claudeFileName = Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-            if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-            {
-                _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
-                return;
-            }
-
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", workDir,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1) { _toastService.Show("AI timed out — try again", ToastType.Warning); return; }
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            MarkdownImprovements = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, workDir, "Improving markdown");
+            if (result.Success)
+                MarkdownImprovements = result.Output!;
         }
         finally { IsImprovingMarkdown = false; }
     }

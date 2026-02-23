@@ -20,6 +20,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     private readonly IConfigurationService _configurationService;
     private readonly IProcessService _processService;
     private readonly MainViewModel _mainViewModel;
+    private readonly IAiExecutionService _aiService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     #region IPanelableViewModel Implementation
@@ -123,7 +124,8 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         IToastService toastService,
         IConfigurationService configurationService,
         IProcessService processService,
-        MainViewModel mainViewModel)
+        MainViewModel mainViewModel,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
@@ -131,6 +133,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
         _configurationService = configurationService;
         _processService = processService;
         _mainViewModel = mainViewModel;
+        _aiService = aiExecutionService;
 
         // Default to Panel state
         DisplayState = PanelDisplayState.Panel;
@@ -371,15 +374,7 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     {
         if (ComparisonResult == null || BaseBranch == null || CompareBranch == null)
             return;
-
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured — check Settings → General", ToastType.Warning);
-            return;
-        }
+        if (!_aiService.IsAiAvailable()) return;
 
         IsAssessingMergeRisk = true;
         try
@@ -399,24 +394,9 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
 
             var prompt = $"Analyze this branch comparison and assess merge risk. Identify: potential merge conflicts, risky changes, and recommend a merge strategy (merge commit / squash / rebase). Format as 3 short paragraphs: Risk Level, Key Concerns, Recommendation. Plain text.\n\nBase: {BaseBranch.ShortName}\nCompare: {CompareBranch.ShortName}\n\nChanged files:\n{filesList}\n\nDiff excerpt:\n{diffExcerpt}";
 
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", WorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out — try again", ToastType.Warning);
-                return;
-            }
-
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = error.Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-
-            MergeRiskAssessment = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, WorkingDirectory, "Assessing merge risk");
+            if (result.Success)
+                MergeRiskAssessment = result.Output!;
         }
         finally
         {
@@ -425,6 +405,16 @@ public partial class BranchComparisonViewModel : BasePanelViewModel
     }
 
     private bool CanAssessMergeRisk() => !IsAssessingMergeRisk && ComparisonResult != null;
+
+    [RelayCommand]
+    private void CopyMergeRiskAssessment()
+    {
+        if (!string.IsNullOrEmpty(MergeRiskAssessment))
+        {
+            System.Windows.Clipboard.SetText(MergeRiskAssessment);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
 
     [RelayCommand]
     private void DismissMergeRiskAssessment()

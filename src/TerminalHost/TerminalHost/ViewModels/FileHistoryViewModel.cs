@@ -20,6 +20,7 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     private readonly IToastService _toastService;
     private readonly IProcessService _processService;
     private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiService;
     private const int DefaultCommitCount = 50;
     private const int LoadMoreCount = 25;
 
@@ -99,13 +100,15 @@ public partial class FileHistoryViewModel : BasePanelViewModel
         IDialogService dialogService,
         IToastService toastService,
         IProcessService processService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _toastService = toastService;
         _processService = processService;
         _configurationService = configurationService;
+        _aiService = aiExecutionService;
 
         // Set defaults - defaults to Panel
         DisplayState = PanelDisplayState.Panel;
@@ -281,42 +284,31 @@ public partial class FileHistoryViewModel : BasePanelViewModel
     [RelayCommand(CanExecute = nameof(CanSummarizeFileHistory))]
     private async Task SummarizeFileHistoryAsync()
     {
+        if (!_aiService.IsAiAvailable()) return;
+
         var commitList = string.Join("\n", Commits.Take(50).Select(c => $"{c.ShortHash} {c.Subject}"));
-
         var prompt = $"Summarize how this file has evolved across these commits. Focus on major changes, renames, and purpose shifts. 3-5 sentences, plain English, no markdown.\n\nFile: {FilePath}\n\nCommit history:\n{commitList}";
-
-        var config = _configurationService.Load();
-        var claudePath = Environment.ExpandEnvironmentVariables(config.Settings.CustomCommand);
-        var claudeFileName = System.IO.Path.GetFileNameWithoutExtension(claudePath).ToLowerInvariant();
-        if (!claudeFileName.Contains("claude") && !claudeFileName.Contains("gemini"))
-        {
-            _toastService.Show("AI assistant not configured \u2014 check Settings \u2192 General", ToastType.Warning);
-            return;
-        }
 
         IsSummarizingHistory = true;
         try
         {
-            var (exitCode, output, error) = await _processService.RunAsync(
-                claudePath, "-p --no-session-persistence", WorkingDirectory,
-                stdin: prompt, timeout: TimeSpan.FromSeconds(30));
-
-            if (exitCode == -1)
-            {
-                _toastService.Show("AI timed out \u2014 try again", ToastType.Warning);
-                return;
-            }
-            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
-            {
-                var firstError = (error ?? "").Split('\n').FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "Unknown error";
-                _toastService.Show($"AI failed: {firstError}", ToastType.Error);
-                return;
-            }
-            FileHistorySummary = output.Trim();
+            var result = await _aiService.ExecuteAsync(prompt, WorkingDirectory, "Summarizing file history");
+            if (result.Success)
+                FileHistorySummary = result.Output!;
         }
         finally
         {
             IsSummarizingHistory = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyFileHistorySummary()
+    {
+        if (!string.IsNullOrEmpty(FileHistorySummary))
+        {
+            System.Windows.Clipboard.SetText(FileHistorySummary);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
         }
     }
 

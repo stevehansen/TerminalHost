@@ -223,7 +223,7 @@
                     </Border>
 
                     <!-- Commit details content -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="8">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8">
                         <Grid Visibility="{Binding HasSelectedLine, Converter={StaticResource BoolToVisibilityConverter}}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -296,11 +296,15 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding BlameAiExplanation}" Foreground="{StaticResource TextPrimaryBrush}"
                                                FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
-                                    <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
-                                            Command="{Binding DismissBlameExplanationCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                    <Button Grid.Column="1" Content="&#x1F4CB;" Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding CopyBlameExplanationCommand}" VerticalAlignment="Top" Margin="6,0,0,0"
+                                            ToolTip="Copy to clipboard"/>
+                                    <Button Grid.Column="2" Content="&#x2715;" Style="{StaticResource InlineActionButton}"
+                                            Command="{Binding DismissBlameExplanationCommand}" VerticalAlignment="Top" Margin="4,0,0,0"/>
                                 </Grid>
                             </Border>
                         </Grid>
