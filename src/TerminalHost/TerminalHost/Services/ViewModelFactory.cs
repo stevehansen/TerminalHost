@@ -82,7 +82,9 @@ public class ViewModelFactory : IViewModelFactory
         return new SettingsTabViewModel(
             _serviceProvider.GetRequiredService<IConfigurationService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
-            _serviceProvider.GetRequiredService<IToastService>()
+            _serviceProvider.GetRequiredService<IToastService>(),
+            _serviceProvider.GetRequiredService<IProcessService>(),
+            _serviceProvider.GetRequiredService<IClipboardService>()
         );
     }
     

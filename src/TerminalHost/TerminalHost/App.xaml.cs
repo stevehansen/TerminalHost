@@ -256,7 +256,10 @@ public partial class App : Application
         });
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
+        services.AddSingleton<ICollabService, CollabService>();
+        services.AddSingleton<McpHandler>();
         services.AddSingleton<IApiServer, ApiServer>();
+        services.AddSingleton<IClipboardService, TerminalHost.Windows.Services.ClipboardService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();

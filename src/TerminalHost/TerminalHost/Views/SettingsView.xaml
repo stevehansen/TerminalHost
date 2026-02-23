@@ -2455,6 +2455,68 @@
                         <!-- Separator -->
                         <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
 
+                        <!-- MCP Collab Integration -->
+                        <TextBlock Text="MCP Collab Integration" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="Register TerminalHost as an MCP server in Claude Code for collaboration tools."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,12"/>
+
+                        <StackPanel Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Status:" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x25CF;"/>
+                                            <Setter Property="Foreground" Value="#FF4444"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding McpCollabInstalled}" Value="True">
+                                                    <Setter Property="Foreground" Value="#44BB44"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding McpCollabDetecting}" Value="True">
+                                                    <Setter Property="Foreground" Value="#AAAAAA"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{Binding McpCollabStatus}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding McpCollabDetecting}" Value="True">
+                                                    <Setter Property="Text" Value="Detecting..."/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="MCP URL:" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding McpCollabUrl, Mode=OneWay}" IsReadOnly="True"
+                                         Style="{StaticResource FormTextBox}" Width="320" VerticalAlignment="Center"/>
+                                <Button Content="Copy URL" Command="{Binding CopyMcpCollabUrlCommand}"
+                                        Style="{StaticResource SettingsToolbarButton}" Margin="8,0,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button Content="Install in Claude Code" Command="{Binding InstallMcpCollabCommand}"
+                                        Style="{StaticResource SettingsToolbarButton}" IsEnabled="{Binding ApiEnabled}"/>
+                                <Button Content="Uninstall" Command="{Binding UninstallMcpCollabCommand}"
+                                        Style="{StaticResource SettingsToolbarButton}" Margin="4,0,0,0"/>
+                                <Button Content="Re-detect" Command="{Binding DetectMcpCollabCommand}"
+                                        Style="{StaticResource SettingsToolbarButton}" Margin="4,0,0,0"/>
+                            </StackPanel>
+
+                            <TextBlock Text="Registers globally in Claude Code (user scope) so all projects have access to collaboration tools."
+                                       Style="{StaticResource HelpText}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
                         <!-- Enable Webhooks -->
                         <StackPanel Margin="0,0,0,12">
                             <CheckBox Content="Enable Webhooks"

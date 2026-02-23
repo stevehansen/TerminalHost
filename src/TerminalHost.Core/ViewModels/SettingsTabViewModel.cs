@@ -48,6 +48,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IConfigurationService _configService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService _processService;
+    private readonly IClipboardService _clipboardService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -431,6 +433,18 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _editWhEnabled = true;
 
+    // MCP Collab integration
+    [ObservableProperty]
+    private bool _mcpCollabInstalled;
+
+    [ObservableProperty]
+    private bool _mcpCollabDetecting;
+
+    [ObservableProperty]
+    private string _mcpCollabStatus = "";
+
+    public string McpCollabUrl => $"http://localhost:{ApiPort}/api/mcp";
+
     /// <summary>
     /// Whether an API key is required (non-loopback bind address).
     /// </summary>
@@ -461,11 +475,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? JsonTextReloaded;
     public event EventHandler? ConfigSaved;
 
-    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService)
+    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
+        IProcessService? processService = null, IClipboardService? clipboardService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService!;
+        _clipboardService = clipboardService!;
         LoadSettings();
     }
 
@@ -482,6 +499,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Load rich mode properties from JSON
             LoadRichModeProperties();
+
+            // Fire-and-forget MCP collab detection
+            if (_processService != null)
+            {
+                _ = DetectMcpCollabAsync();
+            }
 
             JsonTextReloaded?.Invoke(this, EventArgs.Empty);
         }
@@ -725,7 +748,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     // API & Webhooks change handlers
     partial void OnApiEnabledChanged(bool value) => MarkDirtyFromRichMode();
-    partial void OnApiPortChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnApiPortChanged(int value) { OnPropertyChanged(nameof(McpCollabUrl)); MarkDirtyFromRichMode(); }
     partial void OnApiBindAddressChanged(string value) { OnPropertyChanged(nameof(IsApiKeyRequired)); MarkDirtyFromRichMode(); }
     partial void OnApiKeyChanged(string value) => MarkDirtyFromRichMode();
     partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
@@ -780,6 +803,97 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         SelectedWebhook.MaxRetries = EditWhMaxRetries;
         SelectedWebhook.Enabled = EditWhEnabled;
         SyncRichModeToJson();
+    }
+
+    // MCP Collab integration commands
+    [RelayCommand]
+    private async Task DetectMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        McpCollabDetecting = true;
+        try
+        {
+            var (exitCode, output, error) = await _processService.RunAsync(
+                "powershell.exe", "-NoProfile -Command \"claude mcp list\"");
+
+            var combined = output + error;
+            McpCollabInstalled = combined.Contains("terminalhost-collab", StringComparison.OrdinalIgnoreCase);
+            McpCollabStatus = McpCollabInstalled ? "Installed" : "Not registered";
+        }
+        catch
+        {
+            McpCollabInstalled = false;
+            McpCollabStatus = "Detection failed";
+        }
+        finally
+        {
+            McpCollabDetecting = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task InstallMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        try
+        {
+            var url = McpCollabUrl;
+            var (exitCode, output, error) = await _processService.RunAsync(
+                "powershell.exe", $"-NoProfile -Command \"claude mcp add --transport http terminalhost-collab {url} -s user\"");
+
+            if (exitCode == 0)
+            {
+                _toastService.Show("MCP Collab server registered in Claude Code", ToastType.Success);
+            }
+            else
+            {
+                _toastService.Show($"MCP registration failed: {error}", ToastType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"MCP registration failed: {ex.Message}", ToastType.Error);
+        }
+
+        await DetectMcpCollabAsync();
+    }
+
+    [RelayCommand]
+    private async Task UninstallMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        try
+        {
+            var (exitCode, output, error) = await _processService.RunAsync(
+                "powershell.exe", "-NoProfile -Command \"claude mcp remove terminalhost-collab -s user\"");
+
+            if (exitCode == 0)
+            {
+                _toastService.Show("MCP Collab server removed from Claude Code", ToastType.Success);
+            }
+            else
+            {
+                _toastService.Show($"MCP removal failed: {error}", ToastType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"MCP removal failed: {ex.Message}", ToastType.Error);
+        }
+
+        await DetectMcpCollabAsync();
+    }
+
+    [RelayCommand]
+    private async Task CopyMcpCollabUrlAsync()
+    {
+        if (_clipboardService == null) return;
+
+        await _clipboardService.SetTextAsync(McpCollabUrl);
+        _toastService.Show("MCP URL copied to clipboard", ToastType.Success);
     }
 
     // Shortcut conflict detection

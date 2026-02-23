@@ -88,6 +88,16 @@ public partial class SetupViewModel : ObservableObject
 
         Dependencies.Add(new Dependency
         {
+            Name = "MCP Collab Server",
+            Description = "Registers TerminalHost collaboration tools in Claude Code (messaging, file claims, shared memory).",
+            DetectionCommand = "claude mcp list",
+            DetectionOutputContains = "terminalhost-collab",
+            InstallCommand = "claude mcp add --transport http terminalhost-collab http://localhost:19280/api/mcp -s user",
+            HomepageUrl = "https://github.com/anthropics/claude-code"
+        });
+
+        Dependencies.Add(new Dependency
+        {
             Name = "GitHub CLI",
             Description = "CLI for GitHub. Used for PR/issue integration in Tasks.",
             DetectionCommand = "gh --version",
