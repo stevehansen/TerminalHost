@@ -35,6 +35,7 @@ public class ApiServer : IApiServer
     private readonly ITaskService? _taskService;
     private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly McpHandler? _mcpHandler;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -64,7 +65,8 @@ public class ApiServer : IApiServer
         ITimelineService? timelineService = null,
         ITaskService? taskService = null,
         IClaudeTaskFileService? claudeTaskFileService = null,
-        IClaudeTaskDetectionService? claudeTaskDetectionService = null)
+        IClaudeTaskDetectionService? claudeTaskDetectionService = null,
+        McpHandler? mcpHandler = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -74,6 +76,7 @@ public class ApiServer : IApiServer
         _taskService = taskService;
         _claudeTaskFileService = claudeTaskFileService;
         _claudeTaskDetectionService = claudeTaskDetectionService;
+        _mcpHandler = mcpHandler;
     }
 
     /// <summary>
@@ -213,6 +216,13 @@ public class ApiServer : IApiServer
             // Route dispatch
             var path = request.Url?.AbsolutePath ?? "/";
             var method = request.HttpMethod;
+
+            // MCP endpoint accepts POST
+            if (path == "/api/mcp" && method == "POST")
+            {
+                await HandleMcpAsync(request, response);
+                return;
+            }
 
             if (method != "GET")
             {
@@ -698,6 +708,49 @@ public class ApiServer : IApiServer
 
     #endregion
 
+    #region MCP Handler
+
+    private async Task HandleMcpAsync(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        if (_mcpHandler == null)
+        {
+            await WriteJsonError(response, 501, "NOT_IMPLEMENTED", "MCP handler is not configured.");
+            return;
+        }
+
+        string body;
+        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+        {
+            body = await reader.ReadToEndAsync();
+        }
+
+        var sessionHint = request.Headers["X-Session"]; // null if not provided (global config)
+        var mcpSessionId = request.Headers["Mcp-Session-Id"]; // null on first request
+        var result = _mcpHandler.HandleRequest(body, sessionHint, mcpSessionId);
+
+        // Set Mcp-Session-Id header if assigned
+        if (!string.IsNullOrEmpty(result.McpSessionId))
+        {
+            response.Headers.Add("Mcp-Session-Id", result.McpSessionId);
+        }
+
+        if (result.ResponseBody == null)
+        {
+            // Notification — no response body
+            response.StatusCode = 202;
+            response.Close();
+            return;
+        }
+
+        response.ContentType = "application/json";
+        response.StatusCode = 200;
+        var bytes = Encoding.UTF8.GetBytes(result.ResponseBody);
+        response.ContentLength64 = bytes.Length;
+        await response.OutputStream.WriteAsync(bytes);
+    }
+
+    #endregion
+
     #region SSE Streaming
 
     private async Task HandleSseAsync(HttpListenerContext httpContext, HttpListenerRequest request, CancellationToken serverCt)
@@ -853,8 +906,9 @@ public class ApiServer : IApiServer
         if (allowed)
         {
             response.Headers.Add("Access-Control-Allow-Origin", origin);
-            response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID");
+            response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Session, Mcp-Session-Id");
+            response.Headers.Add("Access-Control-Expose-Headers", "Mcp-Session-Id");
             response.Headers.Add("Access-Control-Max-Age", "86400");
         }
     }

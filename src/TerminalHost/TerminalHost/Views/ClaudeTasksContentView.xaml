@@ -270,6 +270,77 @@
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="8,4,8,8">
 
+                <!-- Collab Topics Section -->
+                <StackPanel Visibility="{Binding HasCollabTopics, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="COLLAB TOPICS"
+                               Foreground="#CBD5E1"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               Margin="0,8,0,4"/>
+                    <ItemsControl ItemsSource="{Binding CollabTopics}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type domain:CollabTopic}">
+                                <Border Background="#0A0E1A"
+                                        BorderBrush="#1E293B"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="10,8"
+                                        Margin="0,0,0,4">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="#E2E8F0"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="{StaticResource FontSizeSmall}"/>
+                                                <TextBlock Text="{Binding Description}"
+                                                           Foreground="#64748B"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding Description, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       VerticalAlignment="Center">
+                                                <Run Text="{Binding MessageCount, Mode=OneWay}"/>
+                                                <Run Text="msgs"/>
+                                            </TextBlock>
+                                        </Grid>
+
+                                        <!-- Subscriber badges -->
+                                        <ItemsControl ItemsSource="{Binding Subscribers}" Margin="0,4,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#1E293B"
+                                                            CornerRadius="3"
+                                                            Padding="6,2"
+                                                            Margin="0,0,4,0">
+                                                        <TextBlock Text="{Binding}"
+                                                                   Foreground="#60A5FA"
+                                                                   FontSize="10"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <!-- Empty State -->
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center"
