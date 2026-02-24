@@ -774,7 +774,7 @@
             </Setter>
         </Style>
 
-        <!-- Dark MenuItem Style -->
+        <!-- Dark MenuItem Style (flat items and submenu headers) -->
         <Style TargetType="MenuItem">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
@@ -782,35 +782,63 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
-                        <Border x:Name="Border"
-                                Background="{TemplateBinding Background}"
-                                BorderThickness="0"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="20"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ContentPresenter x:Name="Icon"
-                                                  Grid.Column="0"
-                                                  ContentSource="Icon"
-                                                  VerticalAlignment="Center"
-                                                  Margin="0,0,8,0"/>
-                                <ContentPresenter x:Name="Header"
-                                                  Grid.Column="1"
-                                                  ContentSource="Header"
-                                                  VerticalAlignment="Center"/>
-                                <TextBlock x:Name="InputGesture"
-                                           Grid.Column="2"
-                                           Text="{TemplateBinding InputGestureText}"
-                                           Foreground="{StaticResource TextDimmedBrush}"
-                                           VerticalAlignment="Center"
-                                           Margin="20,0,0,0"
-                                           FontSize="{StaticResource FontSizeTiny}"/>
-                            </Grid>
-                        </Border>
+                        <Grid>
+                            <Border x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    CornerRadius="3"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" MinWidth="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="Icon"
+                                                      Grid.Column="0"
+                                                      ContentSource="Icon"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,8,0"/>
+                                    <ContentPresenter x:Name="Header"
+                                                      Grid.Column="1"
+                                                      ContentSource="Header"
+                                                      VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="InputGesture"
+                                               Grid.Column="2"
+                                               Text="{TemplateBinding InputGestureText}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="20,0,0,0"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                    <TextBlock x:Name="SubMenuArrow"
+                                               Grid.Column="2"
+                                               Text="›"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0,0,0"
+                                               FontSize="14"
+                                               Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Right"
+                                   HorizontalOffset="-2"
+                                   Focusable="False"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="Fade">
+                                <Border Background="{StaticResource BackgroundMediumBrush}"
+                                        BorderBrush="{StaticResource BorderDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="2">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4"/>
+                                    </Border.Effect>
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
@@ -820,6 +848,10 @@
                             </Trigger>
                             <Trigger Property="Icon" Value="{x:Null}">
                                 <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="SubMenuArrow" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="InputGesture" Property="Visibility" Value="Collapsed"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
