@@ -19,11 +19,44 @@
         CloseCommand="{Binding CloseCommand}">
 
         <controls:DraggablePopup.HeaderRightContent>
-            <Button Content="↻ Refresh"
-                    Classes="TerminalSwitchButton"
-                    Command="{Binding RefreshGitFilesCommand}"
-                    ToolTip.Tip="Refresh file list"
-                    Margin="0,0,8,0"/>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding FileChangeSummary}"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+
+                <!-- Tree view toggle -->
+                <Button Classes="TerminalSwitchButton"
+                        Command="{Binding ToggleTreeViewCommand}"
+                        ToolTip.Tip="Toggle tree/flat view"
+                        Margin="0,0,4,0">
+                    <TextBlock Text="{Binding IsTreeView, Converter={StaticResource BoolToStringConverter}, ConverterParameter='List|Tree'}"/>
+                </Button>
+
+                <!-- View mode toggle (Working/Branch) -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                    <Button Content="Working"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding SetChangesViewModeCommand}"
+                            CommandParameter="Working"
+                            FontWeight="{Binding IsWorkingView, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Padding="6,2"/>
+                    <Button Content="Branch"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding SetChangesViewModeCommand}"
+                            CommandParameter="Branch"
+                            FontWeight="{Binding IsBranchView, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Padding="6,2"
+                            Margin="2,0,0,0"/>
+                </StackPanel>
+
+                <Button Content="↻ Refresh"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding RefreshGitFilesCommand}"
+                        ToolTip.Tip="Refresh file list"
+                        Margin="0,0,8,0"/>
+            </StackPanel>
         </controls:DraggablePopup.HeaderRightContent>
 
         <controls:DraggablePopup.PopupContent>
@@ -49,8 +82,9 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Scrollable file list area -->
-                            <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <!-- Working directory changes (visible when Working mode active) -->
+                            <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding IsWorkingView}">
                                 <StackPanel>
                                     <!-- Staged Files Section -->
                                     <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
@@ -71,8 +105,8 @@
                                         </DockPanel>
                                     </Border>
 
-                                    <!-- Staged files list -->
-                                    <ItemsControl ItemsSource="{Binding StagedFiles}">
+                                    <!-- Staged files list (flat view) -->
+                                    <ItemsControl ItemsSource="{Binding StagedFiles}" IsVisible="{Binding !IsTreeView}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="domain:GitFileStatus">
                                                 <Border Background="Transparent"
@@ -137,6 +171,62 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
+                                    <!-- Staged files tree view -->
+                                    <TreeView ItemsSource="{Binding StagedTree}"
+                                              IsVisible="{Binding IsTreeView}"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              SelectionChanged="OnTreeSelectionChanged">
+                                        <TreeView.ItemTemplate>
+                                            <TreeDataTemplate DataType="domain:FileTreeNode" ItemsSource="{Binding Children}">
+                                                <Grid ColumnDefinitions="20,*,Auto" Margin="2">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding DisplayIcon}"
+                                                               Foreground="{Binding StatusColor}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding DisplayName}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding CountDisplay}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontSize="{StaticResource FontSizeMicro}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="4,0,0,0"
+                                                               IsVisible="{Binding IsFolder}"/>
+                                                    <Button Grid.Column="2"
+                                                            Content="↑"
+                                                            Classes="TerminalSwitchButton"
+                                                            Command="{Binding $parent[UserControl].((vm:GitFilesViewModel)DataContext).UnstageFileCommand}"
+                                                            CommandParameter="{Binding FileStatus}"
+                                                            ToolTip.Tip="Unstage file"
+                                                            FontWeight="Bold"
+                                                            MinWidth="22"
+                                                            Padding="4,2"
+                                                            VerticalAlignment="Center"
+                                                            IsVisible="{Binding !IsFolder}"/>
+                                                </Grid>
+                                            </TreeDataTemplate>
+                                        </TreeView.ItemTemplate>
+                                        <TreeView.Styles>
+                                            <Style Selector="TreeViewItem">
+                                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay, FallbackValue=True}"/>
+                                                <Setter Property="Padding" Value="2,1"/>
+                                            </Style>
+                                            <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+                                                <Setter Property="Background" Value="#333333"/>
+                                            </Style>
+                                            <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+                                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                            </Style>
+                                        </TreeView.Styles>
+                                    </TreeView>
+
                                     <!-- Empty staged state -->
                                     <TextBlock Text="No staged changes"
                                                Foreground="{StaticResource TextMutedBrush}"
@@ -165,8 +255,8 @@
                                         </DockPanel>
                                     </Border>
 
-                                    <!-- Unstaged files list -->
-                                    <ItemsControl ItemsSource="{Binding UnstagedFiles}">
+                                    <!-- Unstaged files list (flat view) -->
+                                    <ItemsControl ItemsSource="{Binding UnstagedFiles}" IsVisible="{Binding !IsTreeView}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="domain:GitFileStatus">
                                                 <Border Background="Transparent"
@@ -240,6 +330,71 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
+                                    <!-- Unstaged files tree view -->
+                                    <TreeView ItemsSource="{Binding UnstagedTree}"
+                                              IsVisible="{Binding IsTreeView}"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              SelectionChanged="OnTreeSelectionChanged">
+                                        <TreeView.ItemTemplate>
+                                            <TreeDataTemplate DataType="domain:FileTreeNode" ItemsSource="{Binding Children}">
+                                                <Grid ColumnDefinitions="20,*,Auto" Margin="2">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding DisplayIcon}"
+                                                               Foreground="{Binding StatusColor}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding DisplayName}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding CountDisplay}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontSize="{StaticResource FontSizeMicro}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="4,0,0,0"
+                                                               IsVisible="{Binding IsFolder}"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                                                IsVisible="{Binding !IsFolder}">
+                                                        <Button Content="+"
+                                                                Classes="TerminalSwitchButton"
+                                                                Command="{Binding $parent[UserControl].((vm:GitFilesViewModel)DataContext).StageFileCommand}"
+                                                                CommandParameter="{Binding FileStatus}"
+                                                                ToolTip.Tip="Stage file"
+                                                                FontWeight="Bold"
+                                                                MinWidth="22"
+                                                                Padding="4,2"
+                                                                Margin="0,0,2,0"/>
+                                                        <Button Content="→"
+                                                                Classes="TerminalSwitchButton"
+                                                                Command="{Binding $parent[UserControl].((vm:GitFilesViewModel)DataContext).DiscardChangesCommand}"
+                                                                CommandParameter="{Binding FileStatus}"
+                                                                ToolTip.Tip="Discard changes"
+                                                                FontWeight="Bold"
+                                                                MinWidth="22"
+                                                                Padding="4,2"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </TreeDataTemplate>
+                                        </TreeView.ItemTemplate>
+                                        <TreeView.Styles>
+                                            <Style Selector="TreeViewItem">
+                                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay, FallbackValue=True}"/>
+                                                <Setter Property="Padding" Value="2,1"/>
+                                            </Style>
+                                            <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+                                                <Setter Property="Background" Value="#333333"/>
+                                            </Style>
+                                            <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+                                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                                            </Style>
+                                        </TreeView.Styles>
+                                    </TreeView>
+
                                     <!-- Empty unstaged state -->
                                     <TextBlock Text="No unstaged changes"
                                                Foreground="{StaticResource TextMutedBrush}"
@@ -247,6 +402,83 @@
                                                HorizontalAlignment="Center"
                                                Margin="0,8"
                                                IsVisible="{Binding !UnstagedFiles.Count}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Branch Changes View (visible when Branch mode active) -->
+                            <ScrollViewer Grid.Row="0"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding IsBranchView}">
+                                <StackPanel>
+                                    <!-- Branch info header -->
+                                    <Border Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                        <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}">
+                                            <Run Text="Changes vs "/>
+                                            <Run Text="{Binding BaseBranchName}" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueBrush}"/>
+                                        </TextBlock>
+                                    </Border>
+
+                                    <!-- Loading indicator -->
+                                    <TextBlock Text="Loading..."
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,16"
+                                               IsVisible="{Binding IsLoading}"/>
+
+                                    <!-- Branch changed files list -->
+                                    <ItemsControl ItemsSource="{Binding BranchChangedFiles}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="domain:GitFileStatus">
+                                                <Border Background="Transparent" Padding="4,3" Cursor="Hand"
+                                                        PointerPressed="OnBranchFileItemPressed">
+                                                    <Border.Styles>
+                                                        <Style Selector="Border:pointerover">
+                                                            <Setter Property="Background" Value="#333333"/>
+                                                        </Style>
+                                                    </Border.Styles>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="20"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                                                   Text="{Binding StatusIcon}"
+                                                                   Foreground="{Binding StatusColor}"
+                                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1" Grid.Row="0"
+                                                                   Text="{Binding FileName}"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1" Grid.Row="1"
+                                                                   Text="{Binding Directory}"
+                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Empty state -->
+                                    <TextBlock Text="No changes between branches"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,16"
+                                               IsVisible="{Binding !BranchChangedFiles.Count}"/>
                                 </StackPanel>
                             </ScrollViewer>
 
@@ -258,48 +490,98 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Conventional commit prefixes -->
-                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                                        <Button Content="feat"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding InsertCommitPrefixCommand}"
-                                                CommandParameter="feat"
-                                                ToolTip.Tip="New feature"
-                                                Padding="6,2"
-                                                Margin="0,0,4,0"/>
-                                        <Button Content="fix"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding InsertCommitPrefixCommand}"
-                                                CommandParameter="fix"
-                                                ToolTip.Tip="Bug fix"
-                                                Padding="6,2"
-                                                Margin="0,0,4,0"/>
-                                        <Button Content="docs"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding InsertCommitPrefixCommand}"
-                                                CommandParameter="docs"
-                                                ToolTip.Tip="Documentation"
-                                                Padding="6,2"
-                                                Margin="0,0,4,0"/>
-                                        <Button Content="refactor"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding InsertCommitPrefixCommand}"
-                                                CommandParameter="refactor"
-                                                ToolTip.Tip="Code refactoring"
-                                                Padding="6,2"
-                                                Margin="0,0,4,0"/>
-                                        <Button Content="chore"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding InsertCommitPrefixCommand}"
-                                                CommandParameter="chore"
-                                                ToolTip.Tip="Maintenance task"
-                                                Padding="6,2"/>
-                                    </StackPanel>
+                                    <!-- AI explanation callout for staged changes -->
+                                    <Border Grid.Row="0" Background="#1A2D4A" BorderBrush="#3A6DAA" BorderThickness="1"
+                                            CornerRadius="4" Padding="0" Margin="0,0,0,6"
+                                            IsVisible="{Binding DiffExplanation, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <Grid Margin="10,6,6,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding DiffExplanation}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="{StaticResource FontSizeTiny}"
+                                                       TextWrapping="Wrap"/>
+                                            <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                                    Command="{Binding CopyDiffExplanationCommand}"
+                                                    ToolTip.Tip="Copy to clipboard"
+                                                    VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                            <Button Grid.Column="2" Content="x"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding DismissExplanationCommand}"
+                                                    VerticalAlignment="Top" Margin="6,0,0,0"
+                                                    Padding="4,2" MinWidth="20"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- AI action buttons: Generate commit message + Explain staged changes -->
+                                    <DockPanel Grid.Row="1" Margin="0,0,0,4">
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <!-- Explain staged changes button -->
+                                            <Button Classes="TerminalSwitchButton"
+                                                    Command="{Binding ExplainChangesCommand}"
+                                                    ToolTip.Tip="Explain staged changes in plain English (AI)"
+                                                    Padding="5,2"
+                                                    Margin="2,0,0,0"
+                                                    Content="{Binding IsExplainingDiff, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|Explain'}"/>
+
+                                            <!-- Generate commit message button -->
+                                            <Button Classes="TerminalSwitchButton"
+                                                    Command="{Binding GenerateCommitMessageCommand}"
+                                                    ToolTip.Tip="Generate commit message (AI)"
+                                                    Padding="5,2"
+                                                    Margin="2,0,0,0"
+                                                    Content="{Binding IsGeneratingCommitMessage, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|Generate'}"/>
+                                        </StackPanel>
+
+                                        <!-- Conventional commit prefixes -->
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="feat"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding InsertCommitPrefixCommand}"
+                                                    CommandParameter="feat"
+                                                    ToolTip.Tip="New feature"
+                                                    Padding="6,2"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="fix"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding InsertCommitPrefixCommand}"
+                                                    CommandParameter="fix"
+                                                    ToolTip.Tip="Bug fix"
+                                                    Padding="6,2"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="docs"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding InsertCommitPrefixCommand}"
+                                                    CommandParameter="docs"
+                                                    ToolTip.Tip="Documentation"
+                                                    Padding="6,2"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="refactor"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding InsertCommitPrefixCommand}"
+                                                    CommandParameter="refactor"
+                                                    ToolTip.Tip="Code refactoring"
+                                                    Padding="6,2"
+                                                    Margin="0,0,4,0"/>
+                                            <Button Content="chore"
+                                                    Classes="TerminalSwitchButton"
+                                                    Command="{Binding InsertCommitPrefixCommand}"
+                                                    CommandParameter="chore"
+                                                    ToolTip.Tip="Maintenance task"
+                                                    Padding="6,2"/>
+                                        </StackPanel>
+                                    </DockPanel>
 
                                     <!-- Commit message input -->
-                                    <TextBox Grid.Row="1"
+                                    <TextBox Grid.Row="2"
                                              Text="{Binding CommitMessage, Mode=TwoWay}"
                                              Watermark="Commit message..."
                                              AcceptsReturn="True"
@@ -313,16 +595,16 @@
                                              BorderBrush="{StaticResource BorderMediumBrush}"
                                              Padding="6"/>
 
-                                    <!-- Character counter and amend checkbox -->
-                                    <DockPanel Grid.Row="2" Margin="0,4,0,0">
+                                    <!-- Subject length indicator and amend checkbox -->
+                                    <DockPanel Grid.Row="3" Margin="0,4,0,0">
                                         <CheckBox DockPanel.Dock="Right"
                                                   IsChecked="{Binding IsAmend}"
                                                   Content="Amend"
                                                   Foreground="{StaticResource TextDimmedBrush}"
                                                   FontSize="{StaticResource FontSizeMicro}"
                                                   ToolTip.Tip="Amend the last commit"/>
-                                        <TextBlock Foreground="{StaticResource TextDimmedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}">
+                                        <TextBlock FontSize="{StaticResource FontSizeMicro}"
+                                                   Foreground="{Binding IsSubjectTooLong, Converter={StaticResource BoolToBrushConverter}, ConverterParameter='#D29922|#606060'}">
                                             <TextBlock.Text>
                                                 <MultiBinding StringFormat="{}{0}/72">
                                                     <Binding Path="CommitMessageLength"/>
@@ -331,17 +613,29 @@
                                         </TextBlock>
                                     </DockPanel>
 
-                                    <!-- Commit button -->
-                                    <Button Grid.Row="3"
-                                            Content="Commit"
-                                            Command="{Binding CommitCommand}"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Center"
-                                            Margin="0,8,0,0"
-                                            Padding="8,6"
-                                            Background="{StaticResource AccentBlueBrush}"
-                                            Foreground="White"
-                                            FontWeight="SemiBold"/>
+                                    <!-- Commit and Undo buttons -->
+                                    <Grid Grid.Row="4" Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0"
+                                                Content="Commit"
+                                                Command="{Binding CommitCommand}"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Padding="8,6"
+                                                Background="{StaticResource AccentBlueBrush}"
+                                                Foreground="White"
+                                                FontWeight="SemiBold"/>
+                                        <Button Grid.Column="1"
+                                                Content="↩ Undo"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding UndoLastCommitCommand}"
+                                                ToolTip.Tip="Undo last commit (soft reset)"
+                                                Padding="8,6"
+                                                Margin="4,0,0,0"/>
+                                    </Grid>
                                 </Grid>
                             </Border>
 
@@ -363,6 +657,7 @@
                     <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
@@ -394,8 +689,29 @@
                                 </DockPanel>
                             </Border>
 
-                            <!-- Diff content -->
-                            <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}" />
+                            <!-- Invisible changes info bar -->
+                            <Border Grid.Row="1" Background="#2D2A1A" CornerRadius="3" Margin="6,4,6,2" Padding="8,6"
+                                    BorderBrush="#8B7D3C" BorderThickness="1"
+                                    IsVisible="{Binding InvisibleChangeInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <TextBlock Grid.Column="0" Text="&#x26A0;" Foreground="#E5C07B" FontSize="14"
+                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding InvisibleChangeInfo.Summary}"
+                                               Foreground="#E5C07B" FontSize="12" TextWrapping="Wrap"
+                                               VerticalAlignment="Center"/>
+                                    <Button Grid.Column="2"
+                                            Content="{Binding InvisibleChangeInfo.Diagnosis.FixLabel, FallbackValue='Fix'}"
+                                            Classes="InlineAction"
+                                            Command="{Binding FixInvisibleChangesCommand}"
+                                            ToolTip.Tip="Revert invisible changes"
+                                            Foreground="#E5C07B" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Diff content - Working mode -->
+                            <controls:DiffViewer Grid.Row="2" IsVisible="{Binding IsWorkingView}" DiffText="{Binding DiffText}" />
+                            <!-- Diff content - Branch mode -->
+                            <controls:DiffViewer Grid.Row="2" IsVisible="{Binding IsBranchView}" DiffText="{Binding BranchDiffText}" />
                         </Grid>
                     </Border>
                 </Grid>

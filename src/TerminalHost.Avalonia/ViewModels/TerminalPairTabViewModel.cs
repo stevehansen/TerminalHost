@@ -15,6 +15,20 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _title = "Terminal";
 
+    // Center panel properties
+    /// <summary>
+    /// The panel currently displayed in the center area, replacing terminals.
+    /// Null means terminals are visible.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTerminalsVisible))]
+    private IPanelableViewModel? _activeCenterPanel;
+
+    /// <summary>
+    /// Whether the terminal pair is visible (no center panel active).
+    /// </summary>
+    public bool IsTerminalsVisible => ActiveCenterPanel == null;
+
     public string TabIcon => "📁";
     public string WorkingDirectory => Pair.WorkingDirectory;
     public bool IsCloseable => true;
@@ -125,6 +139,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     // Track previous activity state to detect transitions
     private bool _wasAnyTerminalActive;
 
+    // Activity tracking: grace period before showing spinner, tracking window after
+    private const int GracePeriodSeconds = 5;
+    private const int TrackingWindowSeconds = 30;
+    private DateTime? _unfocusedAt;
+    private bool _isTrackingActivity;
+
     // Terminal factory for lazy initialization
     private readonly ITerminalControlFactory _terminalFactory;
 
@@ -160,14 +180,42 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
                 OnPropertyChanged(nameof(ShowActivitySpinner));
                 OnPropertyChanged(nameof(ShowCompletedIndicator));
 
-                // When tab becomes selected, suppress activity briefly to avoid
-                // false positives from terminal redraw output
                 if (value)
                 {
+                    // Tab was selected - stop tracking
+                    _isTrackingActivity = false;
+                    _unfocusedAt = null;
                     Pair.CustomTerminal.SuppressActivityBriefly();
                     Pair.ShellTerminal.SuppressActivityBriefly();
                     Pair.RunTerminal?.SuppressActivityBriefly();
                 }
+                else
+                {
+                    // Tab lost focus - start tracking after grace period
+                    _unfocusedAt = DateTime.UtcNow;
+                    _ = StartTrackingAfterGracePeriodAsync();
+                }
+            }
+        }
+    }
+
+    private async Task StartTrackingAfterGracePeriodAsync()
+    {
+        var unfocusedTime = _unfocusedAt;
+        await Task.Delay(TimeSpan.FromSeconds(GracePeriodSeconds));
+
+        // Only start tracking if we haven't been re-selected since
+        if (!IsSelected && _unfocusedAt == unfocusedTime)
+        {
+            _isTrackingActivity = true;
+            OnPropertyChanged(nameof(ShowActivitySpinner));
+
+            // Auto-stop tracking after window
+            await Task.Delay(TimeSpan.FromSeconds(TrackingWindowSeconds));
+            if (_isTrackingActivity && _unfocusedAt == unfocusedTime)
+            {
+                _isTrackingActivity = false;
+                OnPropertyChanged(nameof(ShowActivitySpinner));
             }
         }
     }
@@ -240,13 +288,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// <summary>
     /// True if either terminal is currently producing output.
     /// </summary>
-    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive || IsRunTerminalActive;
+    public bool IsAnyTerminalActive => IsCustomTerminalActive || IsShellTerminalActive;
 
     /// <summary>
     /// Whether to show the activity spinner on the tab.
     /// True when terminal is active AND tab is NOT selected.
     /// </summary>
-    public bool ShowActivitySpinner => IsAnyTerminalActive && !IsSelected;
+    public bool ShowActivitySpinner => IsAnyTerminalActive && !IsSelected && _isTrackingActivity;
 
     /// <summary>
     /// Whether to show the completed indicator (green dot) on the tab.
@@ -401,11 +449,23 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
+    public string GitPullButtonText => GitStatus?.BehindCount > 0 ? $"↓ {GitStatus.BehindCount}" : "↓";
+    public string GitPushButtonText => GitStatus?.AheadCount > 0 ? $"↑ {GitStatus.AheadCount}" : "↑";
+    public bool HasBehind => GitStatus?.BehindCount > 0;
+    public bool HasAhead => GitStatus?.AheadCount > 0;
+
+    /// <summary>
+    /// Number of stashed change sets from git status.
+    /// </summary>
+    public int StashCount => GitStatus?.StashCount ?? 0;
+
     public TerminalPair Pair { get; }
     private readonly IStatisticsService _statisticsService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly ITimelineService? _timelineService;
     private readonly ITaskService? _taskService;
+    private readonly IGitStatusService? _gitStatusService;
+    private readonly IToastService? _toastService;
 
     /// <summary>
     /// ViewModel for the workspace tasks panel (shows Claude tasks for this workspace).
@@ -426,7 +486,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? ClaudeTasksPanelRequested;
 #pragma warning restore CS0067
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -437,6 +497,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _timelineService = timelineService;
         _taskService = taskService;
+        _gitStatusService = gitStatusService;
+        _toastService = toastService;
         ActiveTerminal = pair.ActiveTerminal;
 
         // Initialize workspace tasks panel
@@ -461,7 +523,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -474,6 +536,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _timelineService = timelineService;
         _taskService = taskService;
+        _gitStatusService = gitStatusService;
+        _toastService = toastService;
         ActiveTerminal = pair.ActiveTerminal;
 
         // Initialize workspace tasks panel
@@ -918,6 +982,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(TitleWithGit));
         OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(GitStatusDisplay));
+        OnPropertyChanged(nameof(StashCount));
+        OnPropertyChanged(nameof(GitPullButtonText));
+        OnPropertyChanged(nameof(GitPushButtonText));
+        OnPropertyChanged(nameof(HasBehind));
+        OnPropertyChanged(nameof(HasAhead));
 
         // Refresh file explorer's git status when tab git status changes
         if (ExplorerViewModel != null)
@@ -1143,6 +1212,66 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
 
         OnPropertyChanged(nameof(HasDetectedLinks));
+    }
+
+    [RelayCommand]
+    private async Task GitPullAsync()
+    {
+        if (GitStatus?.IsGitRepository != true || _gitStatusService == null || _toastService == null) return;
+        var workDir = Pair.WorkingDirectory;
+        var isDirty = GitStatus.IsDirty;
+        using var toast = _toastService.ShowProgress(isDirty ? "Stashing & pulling..." : "Pulling...");
+
+        // Stash if dirty to avoid pull failures
+        if (isDirty)
+        {
+            var stashResult = await _gitStatusService.CreateStashAsync(workDir, "auto-stash before pull", includeUntracked: true);
+            if (!stashResult.Success)
+            {
+                toast.Fail($"Stash failed: {stashResult.Error}");
+                return;
+            }
+        }
+
+        var result = await _gitStatusService.PullRebaseAsync(workDir);
+
+        // Pop stash if we stashed
+        if (isDirty)
+        {
+            var popResult = await _gitStatusService.PopStashAsync(workDir, 0);
+            if (!popResult.Success)
+            {
+                // Pull may have succeeded but pop failed (conflicts)
+                toast.Fail(result.Success
+                    ? $"Pull succeeded but stash pop failed: {popResult.Error}"
+                    : $"Pull failed: {result.Error}; stash pop also failed: {popResult.Error}");
+                GitStatus = await _gitStatusService.GetGitStatusAsync(workDir);
+                return;
+            }
+        }
+
+        if (result.Success)
+        {
+            toast.Complete("Pull complete");
+            GitStatus = await _gitStatusService.GetGitStatusAsync(workDir);
+        }
+        else
+            toast.Fail($"Pull failed: {result.Error}");
+    }
+
+    [RelayCommand]
+    private async Task GitPushAsync()
+    {
+        if (GitStatus?.IsGitRepository != true || _gitStatusService == null || _toastService == null) return;
+        using var toast = _toastService.ShowProgress("Pushing...");
+        var result = await _gitStatusService.PushAsync(Pair.WorkingDirectory);
+        if (result.Success)
+        {
+            toast.Complete("Push complete");
+            GitStatus = await _gitStatusService.GetGitStatusAsync(Pair.WorkingDirectory);
+        }
+        else
+            toast.Fail($"Push failed: {result.Error}");
     }
 
     [RelayCommand]
@@ -1478,6 +1607,52 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             return path.ToLowerInvariant();
         }
     }
+
+    #region Center Panel Methods
+
+    /// <summary>
+    /// Shows a panel in the center area, replacing terminals.
+    /// Terminals continue running in background.
+    /// </summary>
+    public void ShowCenterPanel(IPanelableViewModel panel)
+    {
+        if (ActiveCenterPanel != null && ActiveCenterPanel != panel)
+        {
+            ActiveCenterPanel.IsOpen = false;
+        }
+
+        panel.IsOpen = true;
+        ActiveCenterPanel = panel;
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Returns to terminals by closing the active center panel.
+    /// </summary>
+    [RelayCommand]
+    public void CloseCenterPanel()
+    {
+        if (ActiveCenterPanel != null)
+        {
+            ActiveCenterPanel.IsOpen = false;
+            ActiveCenterPanel = null;
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Toggles a center panel: if it's the active center panel, close it (return to terminals);
+    /// if not, show it in the center area.
+    /// </summary>
+    public void ToggleCenterPanel(IPanelableViewModel panel)
+    {
+        if (ActiveCenterPanel == panel)
+            CloseCenterPanel();
+        else
+            ShowCenterPanel(panel);
+    }
+
+    #endregion
 
     /// <summary>
     /// Cleanup method called when tab is closed.

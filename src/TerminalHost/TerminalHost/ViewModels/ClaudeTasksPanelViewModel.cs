@@ -607,7 +607,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private static bool IsTaskForWorkspace(FocusTask task, string workspacePath)
     {
         if (task.ProjectPaths == null || task.ProjectPaths.Count == 0)
-            return true; // Tasks without project paths are shown everywhere
+            return false; // Tasks without project paths are excluded (session not yet indexed)
 
         var normalizedWorkspace = System.IO.Path.GetFullPath(workspacePath).TrimEnd(System.IO.Path.DirectorySeparatorChar);
         return task.ProjectPaths.Any(p =>

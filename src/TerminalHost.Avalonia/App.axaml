@@ -4,6 +4,8 @@
              xmlns:vm="using:TerminalHost.ViewModels"
              xmlns:views="using:TerminalHost.Views"
              xmlns:tabs="using:TerminalHost.Views.Tabs"
+             xmlns:popups="using:TerminalHost.Views.Popups"
+             xmlns:panels="using:TerminalHost.Views.Panels"
              x:Class="TerminalHost.App"
              RequestedThemeVariant="Dark">
 
@@ -60,6 +62,41 @@
         <!-- Timeline Tab Content -->
         <DataTemplate DataType="{x:Type vm:TimelineTabViewModel}">
             <views:TimelineModeView/>
+        </DataTemplate>
+
+        <!-- Center Panel Content Templates -->
+        <DataTemplate DataType="{x:Type vm:ClaudeTasksPanelViewModel}">
+            <panels:ClaudeTasksPanelView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GitFilesViewModel}">
+            <popups:GitFilesView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CommitHistoryViewModel}">
+            <popups:CommitHistoryView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SearchAcrossFilesViewModel}">
+            <popups:SearchAcrossFilesView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PrReviewViewModel}">
+            <popups:PrReviewView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TestResultsViewModel}">
+            <popups:TestResultsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BranchComparisonViewModel}">
+            <popups:BranchComparisonView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MergeConflictViewModel}">
+            <popups:MergeConflictView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GitTagsViewModel}">
+            <popups:GitTagsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RecentFeaturesViewModel}">
+            <popups:RecentFeaturesView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:UnifiedGitPanelViewModel}">
+            <popups:UnifiedGitPanelView/>
         </DataTemplate>
     </Application.DataTemplates>
 </Application>

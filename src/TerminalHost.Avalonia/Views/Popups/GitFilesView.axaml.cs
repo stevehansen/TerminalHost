@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using TerminalHost.Core.Domain;
 using TerminalHost.Domain;
 using TerminalHost.ViewModels;
 
@@ -21,6 +22,24 @@ public partial class GitFilesView : UserControl
     private void OnFileItemPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Border { DataContext: GitFileStatus file } && DataContext is GitFilesViewModel vm)
+        {
+            vm.SelectedGitFile = file;
+        }
+    }
+
+    private void OnBranchFileItemPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border { DataContext: GitFileStatus file } && DataContext is GitFilesViewModel vm)
+        {
+            vm.SelectedBranchFile = file;
+        }
+    }
+
+    private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is TreeView && e.AddedItems.Count > 0 &&
+            e.AddedItems[0] is FileTreeNode { IsFolder: false, FileStatus: { } file } &&
+            DataContext is GitFilesViewModel vm)
         {
             vm.SelectedGitFile = file;
         }

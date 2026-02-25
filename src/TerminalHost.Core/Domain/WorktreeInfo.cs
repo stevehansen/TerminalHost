@@ -54,4 +54,63 @@ public class WorktreeInfo
     /// Gets the display name for this worktree.
     /// </summary>
     public string DisplayName => IsMain ? "main" : (string.IsNullOrEmpty(Branch) ? System.IO.Path.GetFileName(Path) : Branch);
+
+    /// <summary>
+    /// Icon to display based on worktree state.
+    /// </summary>
+    public string Icon => IsMain ? "📁" : (IsDetached ? "🔗" : "🔀");
+
+    /// <summary>
+    /// Branch name formatted for display (shows "detached" or "bare" when appropriate).
+    /// </summary>
+    public string BranchDisplay => IsDetached ? $"(detached) {CommitHash[..Math.Min(7, CommitHash.Length)]}"
+        : IsBare ? "(bare)"
+        : string.IsNullOrEmpty(Branch) ? System.IO.Path.GetFileName(Path)
+        : Branch;
+
+    /// <summary>
+    /// Shortened path for display with ellipsis support.
+    /// </summary>
+    public string DisplayPath => Path;
+
+    /// <summary>
+    /// Status badge text showing worktree state (locked, prunable, main).
+    /// </summary>
+    public string StatusBadge
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (IsMain) parts.Add("Main Worktree");
+            if (IsLocked)
+            {
+                parts.Add(string.IsNullOrEmpty(LockReason) ? "🔒 Locked" : $"🔒 {LockReason}");
+            }
+            if (IsPrunable) parts.Add("⚠️ Missing");
+            return string.Join("  •  ", parts);
+        }
+    }
+
+    /// <summary>
+    /// Color for status badge (red for prunable, orange for locked, green for normal).
+    /// </summary>
+    public string StatusColor
+    {
+        get
+        {
+            if (IsPrunable) return "#F44336";
+            if (IsLocked) return "#FF9800";
+            return "#4CAF50";
+        }
+    }
+
+    /// <summary>
+    /// Whether this worktree can be removed (non-main worktrees only).
+    /// </summary>
+    public bool CanRemove => !IsMain;
+
+    /// <summary>
+    /// Button text for lock/unlock toggle.
+    /// </summary>
+    public string LockButtonText => IsLocked ? "Unlock" : "Lock";
 }

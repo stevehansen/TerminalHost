@@ -23,6 +23,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -42,6 +43,17 @@
                                 Command="{Binding RefreshCommand}"
                                 ToolTip.Tip="Refresh history"
                                 Margin="0,0,8,0"/>
+                        <Button DockPanel.Dock="Right"
+                                Classes="InlineAction"
+                                Command="{Binding SummarizeHistoryCommand}"
+                                IsEnabled="{Binding !IsAiLoading}"
+                                ToolTip.Tip="Ask AI to summarize file evolution"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="✨" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="Summarize" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Button>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📜" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="File History - "
@@ -58,8 +70,22 @@
                     </DockPanel>
                 </Border>
 
+                <!-- AI Explanation callout -->
+                <Border Grid.Row="1" Classes="AiCallout"
+                        IsVisible="{Binding AiExplanation, Converter={StaticResource NullToVisibilityConverter}}"
+                        Margin="0">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Text="{Binding AiExplanation}" TextWrapping="Wrap" Foreground="#D4D4D4" FontSize="{StaticResource FontSizeSmall}"/>
+                        <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                Command="{Binding CopyAiExplanationCommand}"
+                                ToolTip.Tip="Copy to clipboard"
+                                VerticalAlignment="Top" Margin="6,0,0,0"/>
+                        <Button Grid.Column="2" Classes="InlineAction" Content="&#x2715;" Command="{Binding DismissAiExplanationCommand}" VerticalAlignment="Top"/>
+                    </Grid>
+                </Border>
+
                 <!-- Content: Split view with commits and diff -->
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="350"/>
                         <ColumnDefinition Width="Auto"/>
@@ -179,7 +205,7 @@
                 </Grid>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="Copy Hash"

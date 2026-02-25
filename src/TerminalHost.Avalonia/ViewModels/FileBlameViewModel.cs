@@ -14,6 +14,9 @@ public partial class FileBlameViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
+    private readonly IAiExecutionService _aiExecutionService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -42,6 +45,12 @@ public partial class FileBlameViewModel : ObservableObject
     [ObservableProperty]
     private GitBlameResult? _blameResult;
 
+    [ObservableProperty]
+    private string? _aiExplanation;
+
+    [ObservableProperty]
+    private bool _isAiLoading;
+
     public ObservableCollection<BlameLineViewModel> BlameLines { get; } = [];
 
     public int UniqueAuthorCount => BlameResult?.UniqueAuthors.Count ?? 0;
@@ -50,12 +59,18 @@ public partial class FileBlameViewModel : ObservableObject
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IClipboardService clipboardService,
-        IToastService toastService)
+        IToastService toastService,
+        IConfigurationService configurationService,
+        IProcessService processService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _clipboardService = clipboardService;
         _toastService = toastService;
+        _configurationService = configurationService;
+        _processService = processService;
+        _aiExecutionService = aiExecutionService;
     }
 
     public async Task OpenAsync(string workingDirectory, string filePath)
@@ -178,6 +193,41 @@ public partial class FileBlameViewModel : ObservableObject
     private void ToggleColorByAuthor()
     {
         ColorByAuthor = !ColorByAuthor;
+    }
+
+    [RelayCommand]
+    private void DismissAiExplanation()
+    {
+        AiExplanation = null;
+    }
+
+    [RelayCommand]
+    private async Task ExplainBlameLineAsync()
+    {
+        if (SelectedLine == null) return;
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAiLoading = true;
+        try
+        {
+            var context = $"File: {FileName}\nLine {SelectedLine.LineNumber}: {SelectedLine.LineContent}\nCommit: {SelectedLine.CommitHash} by {SelectedLine.Author}\nMessage: {SelectedLine.Summary}";
+            var prompt = $"You are a git expert. Be concise (1-2 sentences).\n\nExplain why this line was changed in this commit:\n{context}";
+            var result = await _aiExecutionService.ExecuteAsync(prompt, WorkingDirectory, "Explaining blame line", timeout: TimeSpan.FromSeconds(60));
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                AiExplanation = result.Output.Trim();
+        }
+        finally { IsAiLoading = false; }
+    }
+
+    [RelayCommand]
+    private async Task CopyAiExplanationAsync()
+    {
+        if (!string.IsNullOrEmpty(AiExplanation))
+        {
+            await _clipboardService.SetTextAsync(AiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
     }
 }
 

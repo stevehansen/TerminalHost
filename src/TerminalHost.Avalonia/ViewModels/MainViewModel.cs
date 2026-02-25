@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using ITimerService = TerminalHost.Services.ITimerService;
@@ -43,6 +44,10 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimelineService _timelineService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly IClaudeTaskFileService? _claudeTaskFileService;
+    private readonly IApiServer? _apiServer;
+    private readonly IEventAggregatorService? _eventAggregator;
+    private readonly IWebhookDeliveryService? _webhookDeliveryService;
+    private readonly IAiExecutionService? _aiExecutionService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _gitAutoFetchTimer;
@@ -250,7 +255,11 @@ public partial class MainViewModel : ObservableObject
         IDispatcherService dispatcherService,
         ITimelineService timelineService,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
-        IClaudeTaskFileService? claudeTaskFileService = null)
+        IClaudeTaskFileService? claudeTaskFileService = null,
+        IApiServer? apiServer = null,
+        IEventAggregatorService? eventAggregator = null,
+        IWebhookDeliveryService? webhookDeliveryService = null,
+        IAiExecutionService? aiExecutionService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -282,6 +291,20 @@ public partial class MainViewModel : ObservableObject
         _timelineService = timelineService;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _claudeTaskFileService = claudeTaskFileService;
+        _apiServer = apiServer;
+        _eventAggregator = eventAggregator;
+        _webhookDeliveryService = webhookDeliveryService;
+        _aiExecutionService = aiExecutionService;
+
+        // Wire up API server state delegates
+        if (_apiServer is ApiServer concreteServer)
+        {
+            concreteServer.SetRepoStateProvider(
+                () => BuildRepoList(),
+                (index) => BuildRepoDetail(index));
+            concreteServer.SetWorkspaceStateProvider(
+                () => BuildWorkspaceList());
+        }
 
         // Subscribe to focus mode changes
         _taskService.FocusModeChanged += (_, _) => UpdateTabFocusModeVisibility();
@@ -389,6 +412,27 @@ public partial class MainViewModel : ObservableObject
                 {
                     ClaudeTasksPanelViewModel.RefreshTasks();
                 }
+            }
+
+            // Focus the custom (AI) terminal when switching to a workspace tab
+            if (newValue is TerminalPairTabViewModel focusTab && focusTab.IsTerminalInitialized)
+            {
+                // BeginInvoke so the view has time to render before we focus
+                _dispatcherService.BeginInvoke(() => focusTab.Pair.CustomTerminal.Focus());
+            }
+
+            // Publish API event for tab activation
+            if (newValue is TerminalPairTabViewModel activatedTab)
+            {
+                var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(activatedTab);
+                var previousIndex = oldValue is TerminalPairTabViewModel oldTerminal
+                    ? Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(oldTerminal) : -1;
+                PublishApiEvent("repo.activated", tabIndex, new
+                {
+                    workingDirectory = activatedTab.WorkingDirectory,
+                    title = activatedTab.Title,
+                    previousIndex
+                });
             }
         }
     }
@@ -557,10 +601,30 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            var previousBranch = terminalTab.GitStatus?.BranchName;
             var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
             terminalTab.GitStatus = status;
             // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
+
+            // Publish API events for git status changes
+            var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(terminalTab);
+            if (tabIndex >= 0 && _eventAggregator != null)
+            {
+                PublishApiEvent("repo.git_status_changed", tabIndex, new
+                {
+                    branch = status.BranchName, isDirty = status.IsDirty,
+                    ahead = status.AheadCount, behind = status.BehindCount
+                });
+
+                if (previousBranch != null && previousBranch != status.BranchName)
+                {
+                    PublishApiEvent("repo.branch_switched", tabIndex, new
+                    {
+                        previousBranch, newBranch = status.BranchName
+                    });
+                }
+            }
         }
         catch
         {
@@ -660,6 +724,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    // Deferred center panel restores during startup to avoid race conditions
+    // when multiple tabs fire async restore for the same singleton panel ViewModel.
+    private List<CenterPanelRestoreEventArgs>? _deferredCenterPanelRestores;
+
     private void RestoreOpenFolders()
     {
         var config = _configService.Load();
@@ -670,6 +738,11 @@ public partial class MainViewModel : ObservableObject
             _ = OpenDashboardAsync();
         }
 
+        // Defer center panel restores until the correct SelectedTab is set.
+        // Without this, multiple tabs fire async restores for singleton panel VMs
+        // and the last one to complete wins — which may not be the selected tab.
+        _deferredCenterPanelRestores = [];
+
         foreach (var folder in config.OpenFolders)
         {
             if (_fileSystem.DirectoryExists(folder))
@@ -678,6 +751,10 @@ public partial class MainViewModel : ObservableObject
                 OpenProjectTab(folder, selectTab: false);
             }
         }
+
+        // Capture and stop deferring
+        var pendingRestores = _deferredCenterPanelRestores;
+        _deferredCenterPanelRestores = null;
 
         // Restore the last selected tab (this is the only one that will be initialized on startup)
         if (!string.IsNullOrEmpty(config.LastSelectedFolder))
@@ -693,6 +770,26 @@ public partial class MainViewModel : ObservableObject
         {
             // If no last selected folder, select the first tab
             SelectedTab = Tabs[0];
+        }
+
+        // Now fire deferred center panel restores.
+        // Non-selected tabs only get ActiveCenterPanel set (no data load) to avoid
+        // async races overwriting the selected tab's data in singleton panel VMs.
+        // Data loads on demand when the user switches tabs (via tab-switch rebinding).
+        foreach (var restore in pendingRestores.Where(r => r.Tab != SelectedTab))
+        {
+            CenterPanelRestoreRequested?.Invoke(this, new CenterPanelRestoreEventArgs
+            {
+                Tab = restore.Tab,
+                PanelId = restore.PanelId,
+                GitPanelActiveTab = restore.GitPanelActiveTab,
+                SkipDataLoad = true
+            });
+        }
+        var selectedRestore = pendingRestores.FirstOrDefault(r => r.Tab == SelectedTab);
+        if (selectedRestore != null)
+        {
+            CenterPanelRestoreRequested?.Invoke(this, selectedRestore);
         }
     }
 
@@ -742,6 +839,15 @@ public partial class MainViewModel : ObservableObject
         // Update explorer settings
         settings.IsExplorerVisible = tab.IsExplorerVisible;
         settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
+
+        // Update center panel state
+        settings.ActiveCenterPanel = tab.ActiveCenterPanel?.PanelId;
+
+        // Save git panel active tab if the git panel is the center panel
+        if (tab.ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
+        {
+            settings.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
+        }
 
         config.DirectorySettings[normalizedPath] = settings;
         _configService.Save(config);
@@ -835,7 +941,7 @@ public partial class MainViewModel : ObservableObject
         _configService.Save(config);
     }
 
-    public async void OpenProjectTab(string workingDirectory, bool selectTab = true)
+    public async void OpenProjectTab(string workingDirectory, bool selectTab = true, bool forceNew = false)
     {
         try
         {
@@ -848,18 +954,21 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            // Check if we already have a tab open for this directory
-            var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
-                string.Equals(
-                    Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    workingDirectory,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (existingTab != null)
+            if (!forceNew)
             {
-                // Focus the existing tab instead of creating a new one
-                SelectedTab = existingTab;
-                return;
+                // Check if we already have a tab open for this directory
+                var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
+                    string.Equals(
+                        Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                        workingDirectory,
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (existingTab != null)
+                {
+                    // Focus the existing tab instead of creating a new one
+                    SelectedTab = existingTab;
+                    return;
+                }
             }
 
             var settings = _profileRegistry.Settings;
@@ -894,7 +1003,7 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService, _gitStatusService, _toastService);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
             tabViewModel.CloseRequested += OnTabCloseRequested;
@@ -959,6 +1068,9 @@ public partial class MainViewModel : ObservableObject
 
             Tabs.Add(tabViewModel);
 
+            // Publish API event for repo opened
+            PublishApiEvent("repo.opened", data: new { workingDirectory, title = tabViewModel.Title });
+
             // Only select the tab if requested (false during startup restore for lazy init)
             if (selectTab)
             {
@@ -972,6 +1084,27 @@ public partial class MainViewModel : ObservableObject
             if (SidebarViewModel != null)
             {
                 _ = SidebarViewModel.TrackWorkspaceOpenedAsync(workingDirectory);
+            }
+
+            // Restore center panel state (fires event for MainWindow to handle)
+            if (dirSettings?.ActiveCenterPanel != null)
+            {
+                var restoreArgs = new CenterPanelRestoreEventArgs
+                {
+                    Tab = tabViewModel,
+                    PanelId = dirSettings.ActiveCenterPanel,
+                    GitPanelActiveTab = dirSettings.GitPanelActiveTab
+                };
+
+                if (_deferredCenterPanelRestores != null)
+                {
+                    // During startup: defer until SelectedTab is finalized
+                    _deferredCenterPanelRestores.Add(restoreArgs);
+                }
+                else
+                {
+                    CenterPanelRestoreRequested?.Invoke(this, restoreArgs);
+                }
             }
 
             // Fetch git status for the new tab
@@ -1142,6 +1275,12 @@ public partial class MainViewModel : ObservableObject
             profileTab.CloseRequested -= OnTabCloseRequested;
             _sessionManager.CloseSession(profileTab.Session);
             profileTab.Session.Dispose();
+        }
+
+        // Publish API event for repo closed
+        if (tab is TerminalPairTabViewModel closedTerminalTab)
+        {
+            PublishApiEvent("repo.closed", data: new { workingDirectory = closedTerminalTab.WorkingDirectory, title = closedTerminalTab.Title });
         }
 
         Tabs.Remove(tab);
@@ -1411,7 +1550,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService);
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -1431,7 +1570,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab with Profiles section selected
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService);
         settingsTab.SelectedSection = SettingsSection.Profiles;
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
@@ -1451,7 +1590,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new dashboard tab
-        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService);
+        var dashboardTab = new DashboardTabViewModel(_gitHubService, _configService, this, _dialogService, _fileSystem, _processService, _toastService, _timerService, _folderPickerService, _aiExecutionService!, _clipboardService);
         dashboardTab.CloseRequested += OnTabCloseRequested;
         dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
         Tabs.Add(dashboardTab);
@@ -1694,6 +1833,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CycleTabBackward() => CycleTab(false);
 
+    /// <summary>
+    /// Returns the static palette commands for the Recent Features page.
+    /// </summary>
+    internal IReadOnlyList<PaletteCommand> GetPaletteCommandsForFeatures() => _allPaletteCommands;
+
     public event EventHandler? ScratchPadRequested;
     public event EventHandler? GitChangesRequested;
     public event EventHandler? SetupRequested;
@@ -1703,6 +1847,7 @@ public partial class MainViewModel : ObservableObject
 #pragma warning restore CS0067
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
+    public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -2136,6 +2281,28 @@ public partial class MainViewModel : ObservableObject
                 Category = "Run",
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
+            },
+
+            // API commands
+            new() {
+                Id = "api-start",
+                Name = "API: Start Server",
+                Description = "Start the REST API server",
+                Icon = "🌐",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 24),
+                Execute = () => _ = StartApiServerAsync(),
+                CanExecute = () => _apiServer != null && !_apiServer.IsRunning
+            },
+            new() {
+                Id = "api-stop",
+                Name = "API: Stop Server",
+                Description = "Stop the REST API server",
+                Icon = "🌐",
+                Category = "API",
+                IntroducedOn = new DateOnly(2026, 2, 24),
+                Execute = () => _ = StopApiServerAsync(),
+                CanExecute = () => _apiServer != null && _apiServer.IsRunning
             }
         ];
     }
@@ -2301,6 +2468,162 @@ public partial class MainViewModel : ObservableObject
         return _claudeCommandService.GetAllCommands(currentWorkingDir);
     }
 
+    #region REST API State Providers
+
+    private List<ApiRepoInfo> BuildRepoList()
+    {
+        var repos = new List<ApiRepoInfo>();
+        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+
+        for (var i = 0; i < terminalTabs.Count; i++)
+        {
+            var tab = terminalTabs[i];
+            repos.Add(new ApiRepoInfo
+            {
+                Index = i,
+                Title = tab.Title,
+                WorkingDirectory = tab.WorkingDirectory,
+                IsActive = tab == SelectedTab,
+                Layout = tab.LayoutMode.ToString(),
+                SplitRatio = tab.SplitRatio,
+                ActiveTerminal = tab.ActiveTerminal.ToString(),
+                Git = tab.GitStatus != null ? new ApiGitInfo
+                {
+                    Branch = tab.GitStatus.BranchName,
+                    IsDirty = tab.GitStatus.IsDirty,
+                    Ahead = tab.GitStatus.AheadCount,
+                    Behind = tab.GitStatus.BehindCount,
+                    StashCount = tab.GitStatus.StashCount
+                } : null,
+                Terminals = new ApiTerminalsInfo
+                {
+                    Custom = new ApiTerminalInfo
+                    {
+                        Title = tab.CustomTerminalTitle ?? "",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Custom,
+                        IsBusy = tab.IsCustomTerminalActive,
+                    },
+                    Shell = new ApiTerminalInfo
+                    {
+                        Title = tab.ShellTerminalTitle ?? "",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Shell,
+                        IsBusy = tab.IsShellTerminalActive,
+                    },
+                    Run = tab.IsRunTerminalVisible ? new ApiTerminalInfo
+                    {
+                        Title = "Run",
+                        IsActive = tab.ActiveTerminal == ActiveTerminal.Run,
+                        IsBusy = tab.IsRunTerminalActive,
+                    } : null
+                },
+                ActivityIndicator = new ApiActivityIndicator
+                {
+                    State = tab.IsAnyTerminalActive ? "busy"
+                        : tab.IsWaitingForInput ? "waiting"
+                        : tab.HasUnreadActivity ? "done"
+                        : "idle",
+                    HasUnreadActivity = tab.HasUnreadActivity,
+                    IsWaitingForInput = tab.IsWaitingForInput,
+                }
+            });
+        }
+
+        return repos;
+    }
+
+    private ApiRepoDetailInfo? BuildRepoDetail(int index)
+    {
+        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+        if (index < 0 || index >= terminalTabs.Count) return null;
+
+        var tab = terminalTabs[index];
+        var basic = BuildRepoList()[index];
+
+        return new ApiRepoDetailInfo
+        {
+            Index = basic.Index,
+            Title = basic.Title,
+            WorkingDirectory = basic.WorkingDirectory,
+            IsActive = basic.IsActive,
+            Layout = basic.Layout,
+            SplitRatio = basic.SplitRatio,
+            ActiveTerminal = basic.ActiveTerminal,
+            Git = basic.Git,
+            Terminals = basic.Terminals,
+            AiAssistant = tab.ActiveAiAssistant != null ? new ApiAiAssistantInfo
+            {
+                Id = tab.ActiveAiAssistant.Id,
+                Name = tab.ActiveAiAssistant.Name,
+                Icon = tab.ActiveAiAssistant.DisplayLabel
+            } : null
+        };
+    }
+
+    private List<ApiWorkspaceInfo> BuildWorkspaceList()
+    {
+        var config = _configService.Load();
+        var openRepos = BuildRepoList();
+
+        return config.Workspaces.Select(w =>
+        {
+            var normalizedPath = w.Path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+            var matchingRepo = openRepos.FirstOrDefault(r =>
+                r.WorkingDirectory.Replace('\\', '/').TrimEnd('/').ToLowerInvariant() == normalizedPath);
+
+            return new ApiWorkspaceInfo
+            {
+                Id = w.Id,
+                Name = w.Name,
+                Path = w.Path,
+                PathId = ApiServer.NormalizePathId(w.Path),
+                Section = w.Section,
+                IsPinned = w.IsPinned,
+                Order = w.Order,
+                CustomIcon = w.CustomIcon,
+                IsOpen = matchingRepo != null,
+                RepoIndex = matchingRepo?.Index,
+                ActivityIndicator = matchingRepo?.ActivityIndicator,
+                Terminals = matchingRepo?.Terminals,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Publishes an API event if the event aggregator is available.
+    /// </summary>
+    private void PublishApiEvent(string type, int? repoIndex = null, object? data = null)
+    {
+        _eventAggregator?.Publish(new ApiEvent
+        {
+            Type = type,
+            RepoIndex = repoIndex,
+            Data = data
+        });
+    }
+
+    private async Task StartApiServerAsync()
+    {
+        if (_apiServer == null) return;
+        try
+        {
+            await _apiServer.StartAsync();
+            _toastService.Show("API server started", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to start API server: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task StopApiServerAsync()
+    {
+        if (_apiServer == null) return;
+        await _apiServer.StopAsync();
+        _toastService.Show("API server stopped", ToastType.Info);
+    }
+
+    #endregion
+
     public void Shutdown()
     {
         // Stop and dispose timers
@@ -2338,4 +2661,18 @@ public class FileBlameRequestedEventArgs : EventArgs
 {
     public required string WorkingDirectory { get; init; }
     public required string FilePath { get; init; }
+}
+
+public class CenterPanelRestoreEventArgs : EventArgs
+{
+    public required TerminalPairTabViewModel Tab { get; init; }
+    public required string PanelId { get; init; }
+    public string? GitPanelActiveTab { get; init; }
+
+    /// <summary>
+    /// When true, only associate the panel with the tab (set ActiveCenterPanel)
+    /// without loading data. Used for non-selected tabs during startup to avoid
+    /// race conditions with singleton panel ViewModels.
+    /// </summary>
+    public bool SkipDataLoad { get; init; }
 }

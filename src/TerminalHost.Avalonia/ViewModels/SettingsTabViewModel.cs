@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
 using TerminalHost.Domain;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.ViewModels;
 
@@ -33,7 +34,8 @@ public enum SettingsSection
     LinkPatterns,
     ProjectTypes,
     ClaudeCommands,
-    DirectorySettings
+    DirectorySettings,
+    ApiWebhooks
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
@@ -48,6 +50,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IConfigurationService _configService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;
+    private readonly IProcessService? _processService;
+    private readonly IClipboardService? _clipboardService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -345,6 +349,73 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _editRcUrlPattern = "";
 
+    // API & Webhooks settings
+    [ObservableProperty]
+    private bool _apiEnabled;
+
+    [ObservableProperty]
+    private int _apiPort = 19280;
+
+    [ObservableProperty]
+    private string _apiBindAddress = "127.0.0.1";
+
+    [ObservableProperty]
+    private string _apiKey = "";
+
+    [ObservableProperty]
+    private bool _apiEnableSse = true;
+
+    [ObservableProperty]
+    private string _apiCorsOrigins = "http://localhost:*";
+
+    [ObservableProperty]
+    private bool _apiEnableWebhooks;
+
+    [ObservableProperty]
+    private ObservableCollection<WebhookEndpoint> _apiWebhooks = [];
+
+    [ObservableProperty]
+    private WebhookEndpoint? _selectedWebhook;
+
+    // Webhook editing properties
+    [ObservableProperty]
+    private string _editWhName = "";
+
+    [ObservableProperty]
+    private string _editWhUrl = "";
+
+    [ObservableProperty]
+    private string _editWhSecret = "";
+
+    [ObservableProperty]
+    private string _editWhEvents = "*";
+
+    [ObservableProperty]
+    private int _editWhDebounceMs = 500;
+
+    [ObservableProperty]
+    private int _editWhBatchWindowMs = 0;
+
+    [ObservableProperty]
+    private int _editWhMaxRetries = 3;
+
+    [ObservableProperty]
+    private bool _editWhEnabled = true;
+
+    // MCP Collab integration
+    [ObservableProperty]
+    private bool _mcpCollabInstalled;
+
+    [ObservableProperty]
+    private bool _mcpCollabDetecting;
+
+    [ObservableProperty]
+    private string _mcpCollabStatus = "";
+
+    public string McpCollabUrl => $"http://localhost:{ApiPort}/api/mcp";
+
+    public bool IsApiKeyRequired => ApiBindAddress != "127.0.0.1" && ApiBindAddress != "localhost";
+
     public string TabIcon => "\u2699"; // Gear symbol
     public string WorkingDirectory => "Settings";
     public bool IsCloseable => true;
@@ -368,11 +439,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? JsonTextReloaded;
     public event EventHandler? ConfigSaved;
 
-    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService)
+    public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
+        IProcessService? processService = null, IClipboardService? clipboardService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
         _toastService = toastService;
+        _processService = processService;
+        _clipboardService = clipboardService;
         LoadSettings();
     }
 
@@ -389,6 +463,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Load rich mode properties from JSON
             LoadRichModeProperties();
+
+            // Fire-and-forget MCP collab detection
+            if (_processService != null)
+            {
+                _ = DetectMcpCollabAsync();
+            }
 
             JsonTextReloaded?.Invoke(this, EventArgs.Empty);
         }
@@ -443,6 +523,16 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Project types
             ProjectTypes = new ObservableCollection<ProjectType>(config.ProjectTypes);
+
+            // API & Webhooks settings
+            ApiEnabled = config.Settings.Api.Enabled;
+            ApiPort = config.Settings.Api.Port;
+            ApiBindAddress = config.Settings.Api.BindAddress;
+            ApiKey = config.Settings.Api.ApiKey ?? "";
+            ApiEnableSse = config.Settings.Api.EnableSse;
+            ApiCorsOrigins = string.Join(", ", config.Settings.Api.CorsOrigins);
+            ApiEnableWebhooks = config.Settings.Api.EnableWebhooks;
+            ApiWebhooks = new ObservableCollection<WebhookEndpoint>(config.Settings.Api.Webhooks);
 
             // Directory settings - include both open folders and folders with saved settings
             var allDirectories = config.OpenFolders
@@ -500,6 +590,18 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
             // Project types
             config.ProjectTypes = ProjectTypes.ToList();
+
+            // API & Webhooks settings
+            config.Settings.Api.Enabled = ApiEnabled;
+            config.Settings.Api.Port = ApiPort;
+            config.Settings.Api.BindAddress = ApiBindAddress;
+            config.Settings.Api.ApiKey = string.IsNullOrEmpty(ApiKey) ? null : ApiKey;
+            config.Settings.Api.EnableSse = ApiEnableSse;
+            config.Settings.Api.CorsOrigins = ApiCorsOrigins
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            config.Settings.Api.EnableWebhooks = ApiEnableWebhooks;
+            config.Settings.Api.Webhooks = ApiWebhooks.ToList();
 
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
@@ -580,6 +682,167 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnShellCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnShellCommandIconChanged(string value) => MarkDirtyFromRichMode();
+
+    // API & Webhooks change handlers
+    partial void OnApiEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnApiPortChanged(int value) { OnPropertyChanged(nameof(McpCollabUrl)); MarkDirtyFromRichMode(); }
+    partial void OnApiBindAddressChanged(string value) { OnPropertyChanged(nameof(IsApiKeyRequired)); MarkDirtyFromRichMode(); }
+    partial void OnApiKeyChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnApiCorsOriginsChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnApiEnableWebhooksChanged(bool value) => MarkDirtyFromRichMode();
+
+    partial void OnSelectedWebhookChanged(WebhookEndpoint? value)
+    {
+        if (value != null)
+        {
+            EditWhName = value.Name;
+            EditWhUrl = value.Url;
+            EditWhSecret = value.Secret ?? "";
+            EditWhEvents = string.Join(", ", value.Events);
+            EditWhDebounceMs = value.DebounceMs;
+            EditWhBatchWindowMs = value.BatchWindowMs;
+            EditWhMaxRetries = value.MaxRetries;
+            EditWhEnabled = value.Enabled;
+        }
+    }
+
+    [RelayCommand]
+    private void AddWebhook()
+    {
+        var webhook = new WebhookEndpoint { Name = "New Webhook" };
+        ApiWebhooks.Add(webhook);
+        SelectedWebhook = webhook;
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void RemoveWebhook()
+    {
+        if (SelectedWebhook == null) return;
+        ApiWebhooks.Remove(SelectedWebhook);
+        SelectedWebhook = ApiWebhooks.FirstOrDefault();
+        SyncRichModeToJson();
+    }
+
+    [RelayCommand]
+    private void ApplyWebhook()
+    {
+        if (SelectedWebhook == null) return;
+        SelectedWebhook.Name = EditWhName;
+        SelectedWebhook.Url = EditWhUrl;
+        SelectedWebhook.Secret = string.IsNullOrEmpty(EditWhSecret) ? null : EditWhSecret;
+        SelectedWebhook.Events = EditWhEvents
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        SelectedWebhook.DebounceMs = EditWhDebounceMs;
+        SelectedWebhook.BatchWindowMs = EditWhBatchWindowMs;
+        SelectedWebhook.MaxRetries = EditWhMaxRetries;
+        SelectedWebhook.Enabled = EditWhEnabled;
+        SyncRichModeToJson();
+    }
+
+    // MCP Collab integration commands
+
+    private static (string shell, string argFormat) GetShellCommand(string command)
+    {
+        if (OperatingSystem.IsWindows())
+            return ("powershell.exe", $"-NoProfile -Command \"{command}\"");
+
+        // Use login shell (-l) to pick up user's PATH (e.g. ~/.local/bin for claude)
+        // GUI apps on macOS have a minimal PATH that excludes user additions
+        return ("/bin/zsh", $"-l -c \"{command.Replace("\"", "\\\"")}\"");
+    }
+
+    [RelayCommand]
+    private async Task DetectMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        McpCollabDetecting = true;
+        try
+        {
+            var (shell, args) = GetShellCommand("claude mcp list");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
+
+            var combined = output + error;
+            McpCollabInstalled = combined.Contains("terminalhost-collab", StringComparison.OrdinalIgnoreCase);
+            McpCollabStatus = McpCollabInstalled ? "Installed" : "Not registered";
+        }
+        catch
+        {
+            McpCollabInstalled = false;
+            McpCollabStatus = "Detection failed";
+        }
+        finally
+        {
+            McpCollabDetecting = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task InstallMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        try
+        {
+            var url = McpCollabUrl;
+            var (shell, args) = GetShellCommand($"claude mcp add --transport http terminalhost-collab {url} -s user");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
+
+            if (exitCode == 0)
+            {
+                _toastService.Show("MCP Collab server registered in Claude Code", ToastType.Success);
+            }
+            else
+            {
+                _toastService.Show($"MCP registration failed: {error}", ToastType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"MCP registration failed: {ex.Message}", ToastType.Error);
+        }
+
+        await DetectMcpCollabAsync();
+    }
+
+    [RelayCommand]
+    private async Task UninstallMcpCollabAsync()
+    {
+        if (_processService == null) return;
+
+        try
+        {
+            var (shell, args) = GetShellCommand("claude mcp remove terminalhost-collab -s user");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
+
+            if (exitCode == 0)
+            {
+                _toastService.Show("MCP Collab server removed from Claude Code", ToastType.Success);
+            }
+            else
+            {
+                _toastService.Show($"MCP removal failed: {error}", ToastType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"MCP removal failed: {ex.Message}", ToastType.Error);
+        }
+
+        await DetectMcpCollabAsync();
+    }
+
+    [RelayCommand]
+    private async Task CopyMcpCollabUrlAsync()
+    {
+        if (_clipboardService == null) return;
+
+        await _clipboardService.SetTextAsync(McpCollabUrl);
+        _toastService.Show("MCP URL copied to clipboard", ToastType.Success);
+    }
 
     // Notify EditQcTargetIndex when EditQcTarget changes (for ComboBox binding)
     partial void OnEditQcTargetChanged(QuickCommandTarget value) => OnPropertyChanged(nameof(EditQcTargetIndex));

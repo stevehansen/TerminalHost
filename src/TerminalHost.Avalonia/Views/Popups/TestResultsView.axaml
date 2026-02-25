@@ -27,6 +27,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Header -->
@@ -72,7 +73,12 @@
                         <Button Content="Run Failed"
                                 Classes="TerminalSwitchButton"
                                 Command="{Binding RunFailedTestsCommand}"
-                                ToolTip.Tip="Re-run only failed tests"/>
+                                ToolTip.Tip="Re-run only failed tests"
+                                Margin="0,0,4,0"/>
+                        <Button Classes="TerminalSwitchButton"
+                                Command="{Binding AnalyzeFailuresCommand}"
+                                ToolTip.Tip="Analyze failures with AI"
+                                Content="{Binding IsAnalyzingFailures, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|Analyze'}"/>
                     </StackPanel>
 
                     <!-- Summary counts -->
@@ -230,8 +236,25 @@
                 </ScrollViewer>
             </Border>
 
+            <!-- AI Diagnosis callout -->
+            <Border Grid.Row="4" Classes="AiCallout"
+                    IsVisible="{Binding HasSelectedDiagnosis}"
+                    Margin="0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="AI Diagnosis" Foreground="#10B981"
+                                   FontSize="{StaticResource FontSizeMicro}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding SelectedAiDiagnosis}" TextWrapping="Wrap" Foreground="#D4D4D4" FontSize="{StaticResource FontSizeSmall}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                            Command="{Binding CopySelectedAiDiagnosisCommand}"
+                            ToolTip.Tip="Copy to clipboard"
+                            VerticalAlignment="Top" Margin="6,0,0,0"/>
+                </Grid>
+            </Border>
+
             <!-- Footer -->
-            <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+            <Border Grid.Row="5" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                 <DockPanel>
                     <TextBlock Text="{Binding StatusMessage}"
                                Foreground="{StaticResource TextDimmedBrush}"

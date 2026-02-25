@@ -336,6 +336,35 @@
             </Border>
           </StackPanel>
 
+          <!-- Collab Topics Section -->
+          <StackPanel IsVisible="{Binding HasCollabTopics}" Margin="0,12,0,0">
+            <TextBlock Text="COLLAB TOPICS" Classes="section-header"/>
+            <Border Classes="claude-container" Padding="0">
+              <ItemsControl ItemsSource="{Binding CollabTopics}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="domain:CollabTopic">
+                    <Border Classes="task-item">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                     Foreground="#E2E8F0" FontSize="13"/>
+                          <TextBlock Text="{Binding Description}" FontSize="11"
+                                     Foreground="#64748B"
+                                     IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                        <Border Grid.Column="1" Background="#334155" CornerRadius="8"
+                                Padding="6,2" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding MessageCount}" FontSize="10"
+                                     Foreground="#E2E8F0"/>
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </StackPanel>
+
         </StackPanel>
         </ScrollViewer>
 

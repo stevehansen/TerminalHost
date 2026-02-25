@@ -12,6 +12,10 @@ public partial class GitStashViewModel : ObservableObject
     private readonly IGitStatusService _gitStatusService;
     private readonly MainViewModel _mainViewModel;
     private readonly IDialogService _dialogService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
+    private readonly IToastService _toastService;
+    private readonly IAiExecutionService _aiExecutionService;
 
     [ObservableProperty]
     private string _currentWorkingDirectory = string.Empty;
@@ -48,6 +52,10 @@ public partial class GitStashViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCreatingBranch;
 
+    // AI properties
+    [ObservableProperty]
+    private bool _isAiLoading;
+
     // View properties for popup sizing
     [ObservableProperty]
     private double _width = 550;
@@ -58,11 +66,19 @@ public partial class GitStashViewModel : ObservableObject
     public GitStashViewModel(
         IGitStatusService gitStatusService,
         MainViewModel mainViewModel,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IConfigurationService configurationService,
+        IProcessService processService,
+        IToastService toastService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
+        _configurationService = configurationService;
+        _processService = processService;
+        _toastService = toastService;
+        _aiExecutionService = aiExecutionService;
     }
 
     [RelayCommand]
@@ -75,6 +91,17 @@ public partial class GitStashViewModel : ObservableObject
             return;
         }
 
+        await LoadDataAsync(terminalTab);
+
+        IsOpen = true;
+    }
+
+    /// <summary>
+    /// Loads stash data without opening the popup.
+    /// Used by the unified Git panel to load data for embedded display.
+    /// </summary>
+    public async Task LoadDataAsync(TerminalPairTabViewModel terminalTab)
+    {
         CurrentWorkingDirectory = terminalTab.Pair.WorkingDirectory;
         Title = $"Git Stash - {terminalTab.Title}";
         StatusMessage = string.Empty;
@@ -84,8 +111,6 @@ public partial class GitStashViewModel : ObservableObject
         IsCreatingBranch = false;
 
         await RefreshStashListAsync();
-
-        IsOpen = true;
     }
 
     [RelayCommand]
@@ -328,5 +353,41 @@ public partial class GitStashViewModel : ObservableObject
                 // Silently ignore git status errors
             }
         }
+    }
+
+    [RelayCommand]
+    private async Task GenerateStashNameAsync()
+    {
+        if (string.IsNullOrEmpty(CurrentWorkingDirectory)) return;
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAiLoading = true;
+        try
+        {
+            // Get current diff to describe
+            var diff = await _gitStatusService.GetStagedDiffAsync(CurrentWorkingDirectory);
+            if (string.IsNullOrEmpty(diff))
+            {
+                // Fall back to unstaged diff
+                var (exitCode, output, _) = await _processService.RunAsync(
+                    "git", "diff", CurrentWorkingDirectory, timeout: TimeSpan.FromSeconds(10));
+                if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                    diff = output;
+            }
+            if (string.IsNullOrEmpty(diff))
+            {
+                _toastService.Show("No changes to describe", ToastType.Warning);
+                return;
+            }
+
+            if (diff.Length > 20_000) diff = diff[..20_000] + "\n\n[... diff truncated ...]";
+
+            var prompt = $"Generate a short descriptive name (3-6 words) for this stash. Output ONLY the name, nothing else.\n\n{diff}";
+            var result = await _aiExecutionService.ExecuteAsync(prompt, CurrentWorkingDirectory, "Generating stash name");
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                StashMessage = result.Output.Trim().Trim('"', '\'');
+        }
+        finally { IsAiLoading = false; }
     }
 }

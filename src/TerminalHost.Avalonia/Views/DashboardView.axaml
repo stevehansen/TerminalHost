@@ -193,8 +193,60 @@
 
             <!-- Content when CLI is available -->
             <Grid IsVisible="{Binding IsGitHubCliAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- AI Action Bar (above list) -->
+                <StackPanel Grid.Row="0" Margin="8,8,8,0">
+                    <!-- Feature 9: PR Prioritization (Review section) -->
+                    <StackPanel IsVisible="{Binding IsReviewSelected}">
+                        <Button Classes="InlineAction" Command="{Binding PrioritizePrsCommand}"
+                                ToolTip.Tip="Suggest review priority order (AI)" FontSize="13" Padding="5,2" Margin="0,0,0,4"
+                                HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding IsGeneratingPrPriority, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|&#x2728; Prioritize'}"/>
+                        </Button>
+                        <Border Classes="AiCallout" Margin="0,0,0,8"
+                                IsVisible="{Binding HasPrPriorityAdvice}">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <TextBlock Grid.Column="0" Text="{Binding PrPriorityAdvice}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                        Command="{Binding CopyPrPriorityAdviceCommand}"
+                                        ToolTip.Tip="Copy to clipboard"
+                                        VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                <Button Grid.Column="2" Content="&#x2715;" Classes="InlineAction"
+                                        Command="{Binding DismissPrPriorityAdviceCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Feature 8: CI Failure Analysis (CIFailed section) -->
+                    <StackPanel IsVisible="{Binding IsCIFailedSelected}">
+                        <Button Classes="InlineAction" Command="{Binding AnalyzeCiFailureCommand}"
+                                ToolTip.Tip="Analyze selected CI failure (AI)" FontSize="13" Padding="5,2" Margin="0,0,0,4"
+                                HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding IsAnalyzingCiFailure, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|&#x2728; Analyze'}"/>
+                        </Button>
+                        <Border Classes="AiCallout" Margin="0,0,0,8"
+                                IsVisible="{Binding HasCiFailureAnalysis}">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <TextBlock Grid.Column="0" Text="{Binding CiFailureAnalysis}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}" LineHeight="18" TextWrapping="Wrap"/>
+                                <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                        Command="{Binding CopyCiFailureAnalysisCommand}"
+                                        ToolTip.Tip="Copy to clipboard"
+                                        VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                <Button Grid.Column="2" Content="&#x2715;" Classes="InlineAction"
+                                        Command="{Binding DismissCiFailureAnalysisCommand}" VerticalAlignment="Top" Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
                 <!-- Content List -->
-                <ListBox x:Name="ContentList"
+                <ListBox Grid.Row="1" x:Name="ContentList"
                          ItemsSource="{Binding CurrentSectionItems}"
                          SelectedItem="{Binding SelectedItem}"
                          Background="Transparent"

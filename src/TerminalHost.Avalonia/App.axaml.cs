@@ -1,9 +1,13 @@
+using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
@@ -54,6 +58,9 @@ public partial class App : Application
                 // Create main window directly
                 var mainWindow = _services.GetRequiredService<MainWindow>();
                 desktop.MainWindow = mainWindow;
+
+                // Auto-start API server if enabled
+                _ = AutoStartApiServerAsync();
             }
 
             // Handle shutdown
@@ -91,6 +98,9 @@ public partial class App : Application
             var mainWindow = _services!.GetRequiredService<MainWindow>();
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
+
+            // Auto-start API server if enabled
+            _ = AutoStartApiServerAsync();
         };
 
         desktop.MainWindow = setupWindow;
@@ -112,7 +122,7 @@ public partial class App : Application
         services.AddSingleton<IFileSystem, FileSystem>();
 
         // Configuration Services
-        services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<IConfigurationService, TerminalHost.Services.ConfigurationService>();
         services.AddSingleton<IProfileRegistry, TerminalHost.Core.Services.ProfileRegistry>();
         services.AddSingleton<ISessionManager, SessionManager>();
 
@@ -121,10 +131,10 @@ public partial class App : Application
 
         // Git Services (use Core implementations for consistency with WPF)
         services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
-        services.AddSingleton<IGitHubService, GitHubService>();
+        services.AddSingleton<IGitHubService, global::TerminalHost.Services.GitHubService>();
         services.AddSingleton<IGitProcessRunner, TerminalHost.Core.Services.GitProcessRunner>();
         services.AddSingleton<IGitPrService, TerminalHost.Core.Services.GitPrService>();
-        services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
+        services.AddSingleton<IGitWorktreeService, global::TerminalHost.Services.GitWorktreeService>();
 
         // File Services
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
@@ -146,9 +156,18 @@ public partial class App : Application
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
-        services.AddSingleton<ITimelineService, TimelineService>();
+        services.AddSingleton<ITimelineService, global::TerminalHost.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
-        services.AddSingleton<ITestRunnerService, TestRunnerService>();
+        services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
+        services.AddSingleton<ITestRunnerService, global::TerminalHost.Services.TestRunnerService>();
+        services.AddSingleton<IAiExecutionService, AiExecutionService>();
+
+        // API & Webhooks Services
+        services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
+        services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
+        services.AddSingleton<ICollabService, CollabService>();
+        services.AddSingleton<McpHandler>();
+        services.AddSingleton<IApiServer, ApiServer>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
@@ -159,6 +178,7 @@ public partial class App : Application
         services.AddSingleton<GitBranchViewModel>();
         services.AddSingleton<CommitHistoryViewModel>();
         services.AddSingleton<GitStashViewModel>();
+        services.AddSingleton<GitTagsViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();
@@ -171,14 +191,42 @@ public partial class App : Application
         services.AddSingleton<ManageWorktreesViewModel>();
         services.AddSingleton<WorkspaceSidebarViewModel>();
         services.AddSingleton<PrReviewViewModel>();
+        services.AddSingleton<RecentFeaturesViewModel>();
+        services.AddSingleton<BranchComparisonViewModel>();
+        services.AddSingleton<MergeConflictViewModel>();
+        services.AddSingleton<UnifiedGitPanelViewModel>();
 
         // Windows
         services.AddSingleton<MainWindow>();
     }
 
+    private async Task AutoStartApiServerAsync()
+    {
+        try
+        {
+            if (_services == null) return;
+            var config = _services.GetRequiredService<IConfigurationService>().Load();
+            if (config.Settings.Api.Enabled)
+            {
+                var apiServer = _services.GetRequiredService<IApiServer>();
+                await apiServer.StartAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to auto-start API server: {ex.Message}");
+            _services?.GetService<IToastService>()?.Show($"API server failed to start: {ex.Message}", ToastType.Error);
+        }
+    }
+
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
-        // Dispose services on shutdown
+        // Dispose API and webhook services
+        _services?.GetService<IApiServer>()?.Dispose();
+        (_services?.GetService<IWebhookDeliveryService>() as IDisposable)?.Dispose();
+
+        // Dispose other services
         (_services?.GetService<IStatisticsService>() as IDisposable)?.Dispose();
+        (_services?.GetService<IClaudeCommandService>() as IDisposable)?.Dispose();
     }
 }

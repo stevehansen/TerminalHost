@@ -3,9 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -23,6 +23,9 @@ public partial class PrReviewViewModel : ObservableObject
     private readonly IProcessService _processService;
     private readonly IMarkdownService _markdownService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IAiExecutionService _aiExecutionService;
+    private readonly IClipboardService _clipboardService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -81,9 +84,24 @@ public partial class PrReviewViewModel : ObservableObject
     [ObservableProperty]
     private bool _showAllComments = true;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAiReview))]
+    [NotifyCanExecuteChangedFor(nameof(RunAiReviewCommand))]
+    private ObservableCollection<AiReviewFinding> _aiReviewFindings = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RunAiReviewCommand))]
+    private bool _isRunningAiReview;
+
+    [ObservableProperty]
+    private bool _isAiReviewExpanded;
+
     public bool HasPullRequest => PullRequest != null;
 
     public bool HasBody => !string.IsNullOrWhiteSpace(PullRequest?.Body);
+
+    public bool HasAiReview => AiReviewFindings.Count > 0;
+    public bool CanRunAiReview => HasPullRequest && !IsRunningAiReview;
 
     public bool HasComments => PrComments != null && PrComments.TotalThreadCount > 0;
 
@@ -101,7 +119,10 @@ public partial class PrReviewViewModel : ObservableObject
         IFileSystem fileSystem,
         IProcessService processService,
         IMarkdownService markdownService,
-        IToastService toastService)
+        IToastService toastService,
+        IConfigurationService configurationService,
+        IAiExecutionService aiExecutionService,
+        IClipboardService clipboardService)
     {
         _gitHubService = gitHubService;
         _dialogService = dialogService;
@@ -111,6 +132,9 @@ public partial class PrReviewViewModel : ObservableObject
         _processService = processService;
         _markdownService = markdownService;
         _toastService = toastService;
+        _configurationService = configurationService;
+        _aiExecutionService = aiExecutionService;
+        _clipboardService = clipboardService;
     }
 
     /// <summary>
@@ -129,6 +153,9 @@ public partial class PrReviewViewModel : ObservableObject
         PendingComments.Clear();
         BodyMarkdown = "";
         IsBodyExpanded = false;
+        AiReviewFindings.Clear();
+        OnPropertyChanged(nameof(HasAiReview));
+        IsAiReviewExpanded = false;
 
         try
         {
@@ -186,6 +213,9 @@ public partial class PrReviewViewModel : ObservableObject
         PendingComments.Clear();
         BodyMarkdown = "";
         IsBodyExpanded = false;
+        AiReviewFindings.Clear();
+        OnPropertyChanged(nameof(HasAiReview));
+        IsAiReviewExpanded = false;
 
         try
         {
@@ -326,6 +356,9 @@ public partial class PrReviewViewModel : ObservableObject
         AllThreads.Clear();
         IsCommentsExpanded = true;
         ShowAllComments = true;
+        AiReviewFindings.Clear();
+        OnPropertyChanged(nameof(HasAiReview));
+        IsAiReviewExpanded = false;
         OnPropertyChanged(nameof(HasComments));
         OnPropertyChanged(nameof(CurrentFileCommentCount));
         OnPropertyChanged(nameof(TotalCommentCount));
@@ -519,6 +552,163 @@ public partial class PrReviewViewModel : ObservableObject
 
         // This will be handled by the MainWindow via an event
         FileOpenRequested?.Invoke(this, fullPath);
+    }
+
+    [RelayCommand]
+    private void ToggleAiReview() => IsAiReviewExpanded = !IsAiReviewExpanded;
+
+    [RelayCommand]
+    private async Task CopyAiReviewFindingsAsync()
+    {
+        if (AiReviewFindings.Count > 0)
+        {
+            var text = string.Join("\n", AiReviewFindings.Select(f =>
+                $"{f.Emoji} {f.Category} {(f.Location != null ? f.Location + " " : "")}— {f.Description}"));
+            await _clipboardService.SetTextAsync(text);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunAiReview))]
+    private async Task RunAiReviewAsync()
+    {
+        if (PullRequest == null || string.IsNullOrEmpty(WorkingDirectory)) return;
+        if (!_aiExecutionService.IsAiAvailable())
+        {
+            StatusMessage = "AI assistant not configured";
+            return;
+        }
+
+        IsRunningAiReview = true;
+        AiReviewFindings.Clear();
+        OnPropertyChanged(nameof(HasAiReview));
+        IsAiReviewExpanded = false;
+        StatusMessage = "AI reviewing PR...";
+
+        try
+        {
+            // Collect per-file diffs up to 30 000 chars (~30KB)
+            const int maxChars = 30_000;
+            var diffParts = new List<string>();
+            int totalChars = 0;
+            bool truncated = false;
+
+            foreach (var file in ChangedFiles)
+            {
+                string fileDiff;
+                try { fileDiff = await _gitHubService.GetFileDiffAsync(WorkingDirectory, file.Path); }
+                catch { continue; }
+
+                var section = $"### {file.Path}\n{fileDiff}\n\n";
+                if (totalChars + section.Length > maxChars)
+                {
+                    truncated = true;
+                    break;
+                }
+                diffParts.Add(section);
+                totalChars += section.Length;
+            }
+
+            var diff = string.Concat(diffParts);
+            if (string.IsNullOrWhiteSpace(diff))
+            {
+                StatusMessage = "No diff available for AI review";
+                _toastService.Show("No diff available for AI review", ToastType.Warning);
+                return;
+            }
+
+            var truncatedNote = truncated ? "\n\n[Diff truncated at 30KB — remaining files not included]" : "";
+            var prompt = $$"""
+                You are reviewing a pull request. List findings as:
+                🔴 Bug | 🟡 Suggestion | 🟢 Looks good
+
+                Format each finding as: {emoji} {category}  {file}:{line} — {description}
+                End with one 🟢 summary line. No other text.
+
+                PR: {{PullRequest!.Title}}
+                Author: {{PullRequest.Author}}
+
+                {{diff}}{{truncatedNote}}
+                """;
+
+            var result = await _aiExecutionService.ExecuteAsync(prompt, WorkingDirectory, "AI reviewing PR", timeout: TimeSpan.FromSeconds(60), showErrorOnFailure: false);
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+            {
+                var findings = ParseAiFindings(result.Output.Trim());
+                AiReviewFindings = new ObservableCollection<AiReviewFinding>(findings);
+                OnPropertyChanged(nameof(HasAiReview));
+                IsAiReviewExpanded = true;
+                var truncatedWarning = truncated ? " (diff truncated)" : "";
+                var summary = $"AI review complete — {findings.Count} finding{(findings.Count == 1 ? "" : "s")}{truncatedWarning}";
+                StatusMessage = summary;
+            }
+            else
+            {
+                StatusMessage = result.TimedOut ? "AI review timed out" : "AI review failed";
+            }
+        }
+        finally
+        {
+            IsRunningAiReview = false;
+        }
+    }
+
+    private static List<AiReviewFinding> ParseAiFindings(string output)
+    {
+        var findings = new List<AiReviewFinding>();
+        foreach (var line in output.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrEmpty(trimmed)) continue;
+
+            string emoji;
+            if (trimmed.StartsWith("🔴")) emoji = "🔴";
+            else if (trimmed.StartsWith("🟡")) emoji = "🟡";
+            else if (trimmed.StartsWith("🟢")) emoji = "🟢";
+            else continue;
+
+            var rest = trimmed[emoji.Length..].TrimStart();
+            string category, description;
+            string? location = null;
+
+            var dashIdx = rest.IndexOf(" — ", StringComparison.Ordinal);
+            if (dashIdx >= 0)
+            {
+                var beforeDash = rest[..dashIdx].TrimEnd();
+                description = rest[(dashIdx + 3)..].Trim();
+
+                // Split on double-space to separate category from file:line
+                var spaceIdx = beforeDash.IndexOf("  ", StringComparison.Ordinal);
+                if (spaceIdx > 0)
+                {
+                    category = beforeDash[..spaceIdx].Trim();
+                    location = beforeDash[(spaceIdx + 2)..].Trim();
+                }
+                else
+                {
+                    category = beforeDash.Trim();
+                }
+            }
+            else
+            {
+                var colonIdx = rest.IndexOf(':');
+                if (colonIdx > 0 && colonIdx < 25)
+                {
+                    category = rest[..colonIdx].Trim();
+                    description = rest[(colonIdx + 1)..].Trim();
+                }
+                else
+                {
+                    category = emoji == "🟢" ? "Looks good" : "Note";
+                    description = rest;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(description))
+                findings.Add(new AiReviewFinding { Emoji = emoji, Category = category, Location = location, Description = description });
+        }
+        return findings;
     }
 
     /// <summary>

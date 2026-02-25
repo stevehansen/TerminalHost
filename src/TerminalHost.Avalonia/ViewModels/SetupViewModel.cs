@@ -91,6 +91,17 @@ public partial class SetupViewModel : ObservableObject
 
         Dependencies.Add(new Dependency
         {
+            Name = "MCP Collab Server",
+            Description = "Registers TerminalHost collaboration tools in Claude Code.",
+            DetectionCommand = "claude mcp list",
+            DetectionOutputContains = "terminalhost-collab",
+            InstallCommand = "claude mcp add --transport http terminalhost-collab http://localhost:19280/api/mcp -s user",
+            HomepageUrl = "https://docs.anthropic.com/en/docs/claude-code",
+            InstallUrl = "https://docs.anthropic.com/en/docs/claude-code"
+        });
+
+        Dependencies.Add(new Dependency
+        {
             Name = "HC.Dev Tool",
             Description = "The HC.Dev tool for .NET.",
             DetectionCommand = "dev h",
@@ -193,13 +204,14 @@ public partial class SetupViewModel : ObservableObject
 
         try
         {
-            // Use /bin/sh on macOS, which can execute most commands directly
+            // Use login shell (-l) to pick up user's PATH (e.g. ~/.local/bin for claude)
+            // GUI apps on macOS have a minimal PATH that excludes user additions
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "/bin/sh",
-                    Arguments = $"-c \"{command.Replace("\"", "\\\"")}\"",
+                    FileName = "/bin/zsh",
+                    Arguments = $"-l -c \"{command.Replace("\"", "\\\"")}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,

@@ -1,9 +1,9 @@
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -15,6 +15,9 @@ public partial class CommitHistoryViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
+    private readonly IAiExecutionService _aiExecutionService;
 
     private const int PageSize = 50;
     private int _currentPage;
@@ -66,18 +69,46 @@ public partial class CommitHistoryViewModel : ObservableObject
     [ObservableProperty]
     private double _verticalOffset;
 
+    // Advanced filter properties
+    [ObservableProperty]
+    private string? _authorFilter;
+
+    [ObservableProperty]
+    private string? _filePathFilter;
+
+    [ObservableProperty]
+    private bool _showFilters;
+
+    // AI explain properties
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAiExplanation))]
+    private string? _aiExplanation;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExplainCommitCommand))]
+    private bool _isAiExplaining;
+
+    public bool HasAiExplanation => !string.IsNullOrEmpty(AiExplanation);
+    public bool CanExplainCommit => SelectedCommit != null && !IsAiExplaining;
+
     public CommitHistoryViewModel(
         IGitStatusService gitStatusService,
         MainViewModel mainViewModel,
         IDialogService dialogService,
         IClipboardService clipboardService,
-        IToastService toastService)
+        IToastService toastService,
+        IConfigurationService configurationService,
+        IProcessService processService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _mainViewModel = mainViewModel;
         _dialogService = dialogService;
         _clipboardService = clipboardService;
         _toastService = toastService;
+        _configurationService = configurationService;
+        _processService = processService;
+        _aiExecutionService = aiExecutionService;
     }
 
     [RelayCommand]
@@ -98,6 +129,17 @@ public partial class CommitHistoryViewModel : ObservableObject
             return;
         }
 
+        await LoadDataAsync(terminalTab);
+
+        IsOpen = true;
+    }
+
+    /// <summary>
+    /// Loads commit history data without opening the popup.
+    /// Used by the unified Git panel to load data for embedded display.
+    /// </summary>
+    public async Task LoadDataAsync(TerminalPairTabViewModel terminalTab)
+    {
         _currentWorkingDirectory = terminalTab.Pair.WorkingDirectory;
         Title = $"Commit History - {terminalTab.Title}";
         StatusMessage = "";
@@ -112,8 +154,6 @@ public partial class CommitHistoryViewModel : ObservableObject
         FileDiff = "";
 
         await LoadCommitsAsync();
-
-        IsOpen = true;
     }
 
     [RelayCommand]
@@ -148,14 +188,18 @@ public partial class CommitHistoryViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            var authorFilter = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+            var author = string.IsNullOrWhiteSpace(AuthorFilter) ? null : AuthorFilter;
+            var search = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+            var fileFilter = string.IsNullOrWhiteSpace(FilePathFilter) ? null : FilePathFilter;
             // Core.IGitStatusService uses count parameter instead of skip/take
             // Load all needed commits and skip manually
             var totalNeeded = (_currentPage + 1) * PageSize;
             var allCommits = await _gitStatusService.GetCommitHistoryAsync(
                 _currentWorkingDirectory,
                 count: totalNeeded,
-                author: authorFilter);
+                author: author,
+                filePath: fileFilter,
+                searchText: search);
             var commits = allCommits.Skip(_currentPage * PageSize).Take(PageSize).ToList();
 
             if (commits.Count < PageSize)
@@ -205,6 +249,8 @@ public partial class CommitHistoryViewModel : ObservableObject
 
     partial void OnSelectedCommitChanged(GitCommit? value)
     {
+        AiExplanation = null;
+
         if (value != null)
         {
             LoadCommitDetailsAsync(value);
@@ -217,6 +263,7 @@ public partial class CommitHistoryViewModel : ObservableObject
         }
 
         CopyHashCommand.NotifyCanExecuteChanged();
+        ExplainCommitCommand.NotifyCanExecuteChanged();
     }
 
     private async void LoadCommitDetailsAsync(GitCommit commit)
@@ -298,6 +345,69 @@ public partial class CommitHistoryViewModel : ObservableObject
         await _clipboardService.SetTextAsync(SelectedCommit.ShortHash);
         _toastService.Show("Short hash copied", ToastType.Success);
     }
+
+    #region Filters
+
+    [RelayCommand]
+    private void ToggleFilters() => ShowFilters = !ShowFilters;
+
+    [RelayCommand]
+    private async Task ClearFiltersAsync()
+    {
+        AuthorFilter = null;
+        FilePathFilter = null;
+        SearchText = "";
+        await RefreshAsync();
+    }
+
+    #endregion
+
+    #region AI Explain
+
+    [RelayCommand(CanExecute = nameof(CanExplainCommit))]
+    private async Task ExplainCommitAsync()
+    {
+        if (SelectedCommit == null || string.IsNullOrEmpty(_currentWorkingDirectory)) return;
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAiExplaining = true;
+        try
+        {
+            var diff = await _gitStatusService.GetCommitDiffAsync(_currentWorkingDirectory, SelectedCommit.Hash);
+            if (string.IsNullOrEmpty(diff))
+            {
+                _toastService.Show("No diff available for this commit", ToastType.Warning);
+                return;
+            }
+
+            if (diff.Length > 20000) diff = diff[..20000];
+
+            var prompt = $"Explain this commit in 2-4 sentences. What changed and why (infer intent from context and message). Plain English, no markdown.\n\nMessage: {SelectedCommit.Subject}\n\n{diff}";
+            var result = await _aiExecutionService.ExecuteAsync(prompt, _currentWorkingDirectory, "Explaining commit", timeout: TimeSpan.FromSeconds(60));
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                AiExplanation = result.Output.Trim();
+        }
+        finally
+        {
+            IsAiExplaining = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissAiExplanation() => AiExplanation = null;
+
+    [RelayCommand]
+    private async Task CopyAiExplanationAsync()
+    {
+        if (!string.IsNullOrEmpty(AiExplanation))
+        {
+            await _clipboardService.SetTextAsync(AiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    #endregion
 
     #region Cherry-pick and Revert
 

@@ -53,7 +53,7 @@ public partial class ManageWorktreesViewModel : ObservableObject
     /// <summary>
     /// Event raised when user wants to create a new worktree.
     /// </summary>
-#pragma warning disable CS0067 // Event not yet wired on macOS
+#pragma warning disable CS0067
     public event EventHandler<string>? CreateWorktreeRequested;
 #pragma warning restore CS0067
 
@@ -257,18 +257,16 @@ public partial class ManageWorktreesViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(RepoPath)) return;
 
-        // GetBranchesForWorktreeAsync and ShowCreateWorktreeDialogAsync not in Core interfaces
-        // For now, show a simple message
-        _dialogService.ShowWarning("Create Worktree feature requires additional Core interface support.", "Not Available");
-        await Task.CompletedTask;
-        return;
+        // Get branches via the concrete Avalonia service (has GetBranchesForWorktreeAsync)
+        if (_gitWorktreeService is not GitWorktreeService concreteService)
+        {
+            _dialogService.ShowWarning("Create Worktree feature is not available.", "Not Available");
+            return;
+        }
 
-#pragma warning disable CS0162
-        // Original code commented out for now:
-        /* // Get branches for the dialog
-        var branches = await _gitWorktreeService.GetBranchesForWorktreeAsync(RepoPath);
+        var branches = await concreteService.GetBranchesForWorktreeAsync(RepoPath);
 
-        var result = await _dialogService.ShowCreateWorktreeDialogAsync(
+        var result = _dialogService.ShowCreateWorktreeDialog(
             RepoPath,
             branches,
             RepoPath);
@@ -280,8 +278,8 @@ public partial class ManageWorktreesViewModel : ObservableObject
         {
             var createResult = await _gitWorktreeService.CreateWorktreeAsync(
                 RepoPath,
-                result.WorktreePath,
                 result.BranchName,
+                result.WorktreePath,
                 result.CreateNewBranch);
 
             if (createResult.Success)
@@ -302,8 +300,7 @@ public partial class ManageWorktreesViewModel : ObservableObject
         finally
         {
             IsLoading = false;
-        } */
-#pragma warning restore CS0162
+        }
     }
 
     [RelayCommand]

@@ -1,0 +1,264 @@
+<UserControl x:Class="TerminalHost.Views.Popups.GitTagsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             d:DataContext="{d:DesignInstance viewModels:GitTagsViewModel}"
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}">
+
+    <!-- Overlay panel centered in parent -->
+    <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource SyntaxYellowBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="0"
+                MinWidth="400"
+                MaxWidth="550"
+                MaxHeight="550"
+                Width="{Binding Width, Mode=TwoWay}"
+                Height="{Binding Height, Mode=TwoWay}"
+                BoxShadow="0 5 20 0 #80000000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Classes="TabCloseButton"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <Button DockPanel.Dock="Right"
+                                Content="Refresh"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding RefreshTagsCommand}"
+                                ToolTip.Tip="Refresh tag list"
+                                Margin="0,0,8,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeCode}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Create Tag Section -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Tag name input -->
+                        <TextBox Grid.Row="0" Grid.Column="0"
+                                 Text="{Binding NewTagName}"
+                                 Watermark="Tag name (e.g. v1.0.0)"
+                                 Background="{StaticResource BackgroundMediumBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 BorderThickness="1"
+                                 Padding="8,6"
+                                 FontSize="{StaticResource FontSizeCode}"
+                                 Margin="0,0,4,4"/>
+
+                        <!-- AI Suggest + Create buttons -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                            <Button Classes="TerminalSwitchButton"
+                                    Command="{Binding SuggestVersionCommand}"
+                                    ToolTip.Tip="Suggest next version (AI)"
+                                    VerticalAlignment="Stretch"
+                                    Margin="0,0,4,4"
+                                    Padding="8,4">
+                                <TextBlock Text="{Binding IsSuggestingVersion, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|&#x2728;'}"/>
+                            </Button>
+                            <Button Content="Create"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding CreateTagCommand}"
+                                    ToolTip.Tip="Create new tag"
+                                    VerticalAlignment="Stretch"
+                                    Margin="0,0,0,4"/>
+                        </StackPanel>
+
+                        <!-- Tag message input (optional, for annotated tags) -->
+                        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Text="{Binding NewTagMessage}"
+                                 Watermark="Message (optional, creates annotated tag)"
+                                 Background="{StaticResource BackgroundMediumBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 BorderThickness="1"
+                                 Padding="8,6"
+                                 FontSize="{StaticResource FontSizeCode}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Search -->
+                <Border Grid.Row="2" Background="{StaticResource BackgroundDarkBrush}" Padding="12,6">
+                    <TextBox Text="{Binding SearchText}"
+                             Watermark="Search tags..."
+                             Background="{StaticResource BackgroundMediumBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                             BorderThickness="1"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeCode}"/>
+                </Border>
+
+                <!-- Tag List -->
+                <Grid Grid.Row="3">
+                    <ListBox x:Name="TagList"
+                             ItemsSource="{Binding Tags}"
+                             SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="domain:GitTag">
+                                <Grid Margin="12,4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Tag icon -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0"
+                                               Text=""
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0"/>
+
+                                    <!-- Tag name -->
+                                    <TextBlock Grid.Row="0" Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               Foreground="{StaticResource SyntaxYellowBrush}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Hash -->
+                                    <TextBlock Grid.Row="0" Grid.Column="2"
+                                               Text="{Binding ShortHash}"
+                                               Foreground="#569CD6"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0"/>
+
+                                    <!-- Annotated badge + commit subject -->
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                                Orientation="Horizontal"
+                                                Margin="0,2,0,0">
+                                        <Border CornerRadius="2" Padding="4,1" Margin="0,0,6,0"
+                                                Background="#2D3A4A"
+                                                IsVisible="{Binding IsAnnotated}">
+                                            <TextBlock Text="annotated"
+                                                       Foreground="{StaticResource SyntaxCyanBrush}"
+                                                       FontSize="9"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding CommitSubject}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   FontSize="{StaticResource FontSizeTiny}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Push Tag"
+                                                      Command="{Binding PlacementTarget.Tag.PushTagCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Delete Local Tag"
+                                                      Command="{Binding PlacementTarget.Tag.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            <MenuItem Header="Delete Remote Tag"
+                                                      Command="{Binding PlacementTarget.Tag.DeleteRemoteTagCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Foreground="{StaticResource AccentOrangeBrush}"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                            </Style>
+                            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                            </Style>
+                        </ListBox.Styles>
+                    </ListBox>
+
+                    <!-- Empty state -->
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Padding="20"
+                               IsVisible="{Binding Tags.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+                </Grid>
+
+                <!-- Footer with action buttons -->
+                <Border Grid.Row="4" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Push All"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding PushAllTagsCommand}"
+                                    ToolTip.Tip="Push all tags to remote"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Push"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding PushTagCommand}"
+                                    ToolTip.Tip="Push selected tag"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="Delete"
+                                    Classes="TerminalSwitchButton"
+                                    Command="{Binding DeleteTagCommand}"
+                                    ToolTip.Tip="Delete selected tag"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Tags.Count, StringFormat='{}{0} tag(s)'}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

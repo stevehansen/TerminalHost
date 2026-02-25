@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private readonly GitFilesViewModel _gitFilesViewModel;
     private readonly CommitHistoryViewModel _commitHistoryViewModel;
     private readonly GitStashViewModel _gitStashViewModel;
+    private readonly GitTagsViewModel _gitTagsViewModel;
     private readonly ScratchPadViewModel _scratchPadViewModel;
     private readonly FileViewerViewModel _fileViewerViewModel;
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
@@ -35,6 +37,10 @@ public partial class MainWindow : Window
     private readonly ManageWorktreesViewModel _manageWorktreesViewModel;
     private readonly WorkspaceSidebarViewModel _workspaceSidebarViewModel;
     private readonly PrReviewViewModel _prReviewViewModel;
+    private readonly RecentFeaturesViewModel _recentFeaturesViewModel;
+    private readonly BranchComparisonViewModel _branchComparisonViewModel;
+    private readonly MergeConflictViewModel _mergeConflictViewModel;
+    private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly IFilePickerService _filePickerService;
 
     public MainWindow(
@@ -45,6 +51,7 @@ public partial class MainWindow : Window
         GitFilesViewModel gitFilesViewModel,
         CommitHistoryViewModel commitHistoryViewModel,
         GitStashViewModel gitStashViewModel,
+        GitTagsViewModel gitTagsViewModel,
         ScratchPadViewModel scratchPadViewModel,
         FileViewerViewModel fileViewerViewModel,
         DetectedLinksViewModel detectedLinksViewModel,
@@ -57,6 +64,10 @@ public partial class MainWindow : Window
         ManageWorktreesViewModel manageWorktreesViewModel,
         WorkspaceSidebarViewModel workspaceSidebarViewModel,
         PrReviewViewModel prReviewViewModel,
+        RecentFeaturesViewModel recentFeaturesViewModel,
+        BranchComparisonViewModel branchComparisonViewModel,
+        MergeConflictViewModel mergeConflictViewModel,
+        UnifiedGitPanelViewModel unifiedGitPanelViewModel,
         IFilePickerService filePickerService)
     {
         InitializeComponent();
@@ -68,6 +79,7 @@ public partial class MainWindow : Window
         _gitFilesViewModel = gitFilesViewModel;
         _commitHistoryViewModel = commitHistoryViewModel;
         _gitStashViewModel = gitStashViewModel;
+        _gitTagsViewModel = gitTagsViewModel;
         _scratchPadViewModel = scratchPadViewModel;
         _fileViewerViewModel = fileViewerViewModel;
         _detectedLinksViewModel = detectedLinksViewModel;
@@ -80,6 +92,10 @@ public partial class MainWindow : Window
         _manageWorktreesViewModel = manageWorktreesViewModel;
         _workspaceSidebarViewModel = workspaceSidebarViewModel;
         _prReviewViewModel = prReviewViewModel;
+        _recentFeaturesViewModel = recentFeaturesViewModel;
+        _branchComparisonViewModel = branchComparisonViewModel;
+        _mergeConflictViewModel = mergeConflictViewModel;
+        _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _filePickerService = filePickerService;
 
         // Wire up sidebar view model bidirectional reference
@@ -99,6 +115,7 @@ public partial class MainWindow : Window
         GitFilesPopup.DataContext = _gitFilesViewModel;
         CommitHistoryPopup.DataContext = _commitHistoryViewModel;
         GitStashPopup.DataContext = _gitStashViewModel;
+        GitTagsPopup.DataContext = _gitTagsViewModel;
         ScratchPadPopup.DataContext = _scratchPadViewModel;
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
@@ -110,6 +127,10 @@ public partial class MainWindow : Window
         ReflogPopup.DataContext = _reflogViewModel;
         ManageWorktreesPopup.DataContext = _manageWorktreesViewModel;
         PrReviewPopup.DataContext = _prReviewViewModel;
+        RecentFeaturesPopup.DataContext = _recentFeaturesViewModel;
+        BranchComparisonPopup.DataContext = _branchComparisonViewModel;
+        MergeConflictPopup.DataContext = _mergeConflictViewModel;
+        // UnifiedGitPanel renders via center panel DataTemplate (no popup instance needed)
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -122,6 +143,10 @@ public partial class MainWindow : Window
         _mainViewModel.PrReviewRequested += OnPrReviewRequested;
         _mainViewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _mainViewModel.RunTerminalRequested += OnRunTerminalRequested;
+        _mainViewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
+
+        // Subscribe to view model property changes for tab-switch rebinding
+        _mainViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
         _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
@@ -378,6 +403,13 @@ public partial class MainWindow : Window
         keyboardShortcutsItem.Click += (_, _) => _mainViewModel.IsHelpOpen = true;
         helpMenu.Menu.Add(keyboardShortcutsItem);
 
+        var whatsNewItem = new NativeMenuItem("What's New")
+        {
+            Gesture = new KeyGesture(Key.F1, KeyModifiers.Meta)
+        };
+        whatsNewItem.Click += (_, _) => _recentFeaturesViewModel.OnOpened();
+        helpMenu.Menu.Add(whatsNewItem);
+
         menu.Add(helpMenu);
     }
 
@@ -430,7 +462,69 @@ public partial class MainWindow : Window
         _mainViewModel.Shutdown();
     }
 
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Update Claude Tasks panel workspace when selected tab changes
+        if (e.PropertyName == nameof(MainViewModel.SelectedTab))
+        {
+            if (_claudeTasksPanelViewModel.IsOpen)
+            {
+                // Always update workspace path so it's correct when toggling to "Current Workspace"
+                var workspacePath = (_mainViewModel.SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory;
+                _claudeTasksPanelViewModel.SetWorkspace(workspacePath);
+
+                // Only refresh if filtering by current workspace (global shows all anyway)
+                if (!_claudeTasksPanelViewModel.ShowGlobalTasks)
+                {
+                    _claudeTasksPanelViewModel.OnOpened();
+                }
+            }
+
+            // Rebind center panel data when switching to a tab that has one.
+            // Singleton panel VMs only hold data for one tab at a time, so we
+            // must reload when the user switches to a different tab.
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel newTab &&
+                newTab.ActiveCenterPanel != null)
+            {
+                if (newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
+                    _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
+                // Note: Other center panel types (branchComparison, searchFiles, prReview, etc.)
+                // are not yet implemented as IPanelableViewModel in Avalonia. Add rebinding here
+                // as they are migrated to inherit from BasePanelViewModel.
+            }
+        }
+    }
+
     #region Popup Event Handlers
+
+    private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
+    {
+        // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
+        // to avoid race conditions with singleton panel ViewModels. Data loads on demand
+        // when the user switches to the tab (via tab-switch rebinding in OnViewModelPropertyChanged).
+        switch (e.PanelId)
+        {
+            case "unifiedGit":
+                var gitTab = GitPanelTab.Changes;
+                if (e.GitPanelActiveTab != null && Enum.TryParse<GitPanelTab>(e.GitPanelActiveTab, out var parsedTab))
+                {
+                    gitTab = parsedTab;
+                }
+                if (e.SkipDataLoad)
+                {
+                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                }
+                else
+                {
+                    await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
+                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                }
+                break;
+            // Note: Other center panel types (branchComparison, searchFiles, prReview, etc.)
+            // are not yet implemented as IPanelableViewModel in Avalonia. Add cases here as
+            // they are migrated to inherit from BasePanelViewModel.
+        }
+    }
 
     private async void OnGitChangesRequested(object? sender, EventArgs e)
     {
@@ -561,6 +655,16 @@ public partial class MainWindow : Window
 
     private async void OnDashboardPrReviewRequested(object? sender, PrReviewRequestedEventArgs e)
     {
+        // Find the tab for this working directory (OpenProjectTab was already called by DashboardTabViewModel)
+        var tab = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>()
+            .FirstOrDefault(t => string.Equals(t.WorkingDirectory, e.WorkingDirectory, StringComparison.OrdinalIgnoreCase))
+            ?? _mainViewModel.SelectedTab as TerminalPairTabViewModel;
+
+        if (tab == null) return;
+
+        // Switch to the project tab so the PR review popup appears in the right context
+        _mainViewModel.SelectedTab = tab;
+
         await _prReviewViewModel.OpenForPrAsync(e.WorkingDirectory, e.PullRequest);
     }
 
@@ -641,6 +745,17 @@ public partial class MainWindow : Window
         var primaryModifier = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
             ? KeyModifiers.Meta
             : KeyModifiers.Control;
+
+        // Handle Cmd/Ctrl+F1 for What's New / Recent Features
+        if (e.Key == Key.F1 && e.KeyModifiers == primaryModifier)
+        {
+            if (_recentFeaturesViewModel.IsOpen)
+                _recentFeaturesViewModel.CloseCommand.Execute(null);
+            else
+                _recentFeaturesViewModel.OnOpened();
+            e.Handled = true;
+            return;
+        }
 
         // Handle F1 for help
         if (e.Key == Key.F1)
@@ -751,37 +866,50 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Cmd/Ctrl+B for Git Branch switcher
+        // Handle Cmd/Ctrl+B for Git Branches (opens unified panel on Branches tab)
         if (e.Key == Key.B && e.KeyModifiers == primaryModifier)
-        {
-            _ = _gitBranchViewModel.OpenCommand.ExecuteAsync(null);
-            e.Handled = true;
-            return;
-        }
-
-        // Handle Alt+G for Git Changes panel (Ctrl+G reserved by Claude Code)
-        if (e.Key == Key.G && e.KeyModifiers == KeyModifiers.Alt)
         {
             if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
             {
-                _ = _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Branches);
             }
             e.Handled = true;
             return;
         }
 
-        // Handle Cmd/Ctrl+Shift+H for Commit History
-        if (e.Key == Key.H && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        // Handle Alt+G for Git Changes (opens unified panel on Changes tab)
+        if (e.Key == Key.G && e.KeyModifiers == KeyModifiers.Alt)
         {
-            _ = _commitHistoryViewModel.OpenCommand.ExecuteAsync(null);
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Changes);
+            }
             e.Handled = true;
             return;
         }
 
-        // Handle Cmd/Ctrl+Shift+S for Git Stash
+        // Handle Cmd/Ctrl+Shift+H for Commit History (opens unified panel on History tab)
+        if (e.Key == Key.H && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.History);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+S for Git Stash (opens unified panel on Stash tab)
         if (e.Key == Key.S && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
-            _ = _gitStashViewModel.OpenCommand.ExecuteAsync(null);
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Stash);
+            }
             e.Handled = true;
             return;
         }
@@ -1052,6 +1180,8 @@ public partial class MainWindow : Window
             _commitHistoryViewModel.CloseCommand.Execute(null);
         if (_gitStashViewModel.CloseCommand.CanExecute(null))
             _gitStashViewModel.CloseCommand.Execute(null);
+        if (_gitTagsViewModel.CloseCommand.CanExecute(null))
+            _gitTagsViewModel.CloseCommand.Execute(null);
         if (_scratchPadViewModel.CloseCommand.CanExecute(null))
             _scratchPadViewModel.CloseCommand.Execute(null);
         _fileViewerViewModel.Close();
@@ -1073,6 +1203,12 @@ public partial class MainWindow : Window
             _manageWorktreesViewModel.CloseCommand.Execute(null);
         if (_prReviewViewModel.CloseCommand.CanExecute(null))
             _prReviewViewModel.CloseCommand.Execute(null);
+        if (_recentFeaturesViewModel.CloseCommand.CanExecute(null))
+            _recentFeaturesViewModel.CloseCommand.Execute(null);
+        if (_branchComparisonViewModel.CloseCommand.CanExecute(null))
+            _branchComparisonViewModel.CloseCommand.Execute(null);
+        if (_mergeConflictViewModel.CloseCommand.CanExecute(null))
+            _mergeConflictViewModel.CloseCommand.Execute(null);
     }
 
     public void BringToFront()

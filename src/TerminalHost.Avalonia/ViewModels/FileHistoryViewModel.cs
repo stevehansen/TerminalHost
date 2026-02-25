@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -15,6 +14,9 @@ public partial class FileHistoryViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
+    private readonly IAiExecutionService _aiExecutionService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -40,6 +42,12 @@ public partial class FileHistoryViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasMoreCommits = true;
 
+    [ObservableProperty]
+    private string? _aiExplanation;
+
+    [ObservableProperty]
+    private bool _isAiLoading;
+
     public ObservableCollection<GitCommit> Commits { get; } = [];
 
     private int _currentSkip;
@@ -49,12 +57,18 @@ public partial class FileHistoryViewModel : ObservableObject
         IGitStatusService gitStatusService,
         IDialogService dialogService,
         IClipboardService clipboardService,
-        IToastService toastService)
+        IToastService toastService,
+        IConfigurationService configurationService,
+        IProcessService processService,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _clipboardService = clipboardService;
         _toastService = toastService;
+        _configurationService = configurationService;
+        _processService = processService;
+        _aiExecutionService = aiExecutionService;
     }
 
     public async Task OpenAsync(string workingDirectory, string filePath)
@@ -191,5 +205,40 @@ public partial class FileHistoryViewModel : ObservableObject
         _currentSkip = 0;
         HasMoreCommits = true;
         await LoadCommitsAsync();
+    }
+
+    [RelayCommand]
+    private void DismissAiExplanation()
+    {
+        AiExplanation = null;
+    }
+
+    [RelayCommand]
+    private async Task SummarizeHistoryAsync()
+    {
+        if (Commits.Count == 0) return;
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAiLoading = true;
+        try
+        {
+            var messages = string.Join("\n", Commits.Select(c => $"- {c.ShortHash}: {c.Subject}"));
+            var prompt = $"You are a git expert. Summarize concisely.\n\nSummarize the evolution of file '{FileName}' based on these commits:\n{messages}";
+            var result = await _aiExecutionService.ExecuteAsync(prompt, WorkingDirectory, "Summarizing file history", timeout: TimeSpan.FromSeconds(60));
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                AiExplanation = result.Output.Trim();
+        }
+        finally { IsAiLoading = false; }
+    }
+
+    [RelayCommand]
+    private async Task CopyAiExplanationAsync()
+    {
+        if (!string.IsNullOrEmpty(AiExplanation))
+        {
+            await _clipboardService.SetTextAsync(AiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
     }
 }

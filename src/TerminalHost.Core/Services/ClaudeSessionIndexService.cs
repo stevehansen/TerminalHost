@@ -19,11 +19,13 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
 {
     private readonly IFileSystem _fileSystem;
     private readonly string _projectsRootPath;
-    private readonly Dictionary<string, ClaudeSessionIndexEntry> _sessionCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<ClaudeSessionIndexEntry>> _projectSessionsCache = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, ClaudeSessionIndexEntry> _sessionCache = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<ClaudeSessionIndexEntry>> _projectSessionsCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
     private FileSystemWatcher? _indexWatcher;
     private FileSystemWatcher? _jsonlWatcher;
+    private CancellationTokenSource? _debounceTokenSource;
+    private readonly object _debounceLock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -108,33 +110,41 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
 
     public void Refresh()
     {
-        lock (_lock)
+        // Build new caches outside the lock (all I/O happens here)
+        var newSessionCache = new Dictionary<string, ClaudeSessionIndexEntry>(StringComparer.OrdinalIgnoreCase);
+        var newProjectSessionsCache = new Dictionary<string, List<ClaudeSessionIndexEntry>>(StringComparer.OrdinalIgnoreCase);
+
+        if (_fileSystem.DirectoryExists(_projectsRootPath))
         {
-            _sessionCache.Clear();
-            _projectSessionsCache.Clear();
-
-            if (!_fileSystem.DirectoryExists(_projectsRootPath))
-                return;
-
             try
             {
                 var projectDirs = _fileSystem.GetDirectories(_projectsRootPath);
 
                 foreach (var projectDir in projectDirs)
                 {
-                    LoadProjectIndex(projectDir);
+                    LoadProjectIndex(projectDir, newSessionCache, newProjectSessionsCache);
                 }
             }
             catch
             {
-                // Continue with empty cache on error
+                // Continue with whatever was loaded
             }
+        }
+
+        // Brief lock to swap caches
+        lock (_lock)
+        {
+            _sessionCache = newSessionCache;
+            _projectSessionsCache = newProjectSessionsCache;
         }
 
         SessionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void LoadProjectIndex(string projectDir)
+    private void LoadProjectIndex(
+        string projectDir,
+        Dictionary<string, ClaudeSessionIndexEntry> sessionCache,
+        Dictionary<string, List<ClaudeSessionIndexEntry>> projectSessionsCache)
     {
         string? projectPath = null;
         var indexPath = Path.Combine(projectDir, "sessions-index.json");
@@ -160,7 +170,7 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
                         var entryProjectPath = entry.ProjectPath ?? index.OriginalPath;
                         if (!string.IsNullOrEmpty(entryProjectPath))
                         {
-                            AddSessionEntry(entry, entryProjectPath);
+                            AddSessionEntry(entry, entryProjectPath, sessionCache, projectSessionsCache);
                         }
                     }
                 }
@@ -173,14 +183,18 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
 
         // Also scan JSONL files to discover sessions not yet in the index
         // Claude Code updates the index lazily, so new sessions may not be indexed yet
-        ScanJsonlFiles(projectDir, projectPath);
+        ScanJsonlFiles(projectDir, projectPath, sessionCache, projectSessionsCache);
     }
 
     /// <summary>
     /// Scans for JSONL session files that may not be in the sessions-index.json yet.
     /// Creates minimal entries for sessions discovered this way.
     /// </summary>
-    private void ScanJsonlFiles(string projectDir, string? projectPath)
+    private void ScanJsonlFiles(
+        string projectDir,
+        string? projectPath,
+        Dictionary<string, ClaudeSessionIndexEntry> sessionCache,
+        Dictionary<string, List<ClaudeSessionIndexEntry>> projectSessionsCache)
     {
         try
         {
@@ -193,7 +207,7 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
                     continue;
 
                 // Skip if already in cache (from sessions-index.json)
-                if (_sessionCache.ContainsKey(fileName))
+                if (sessionCache.ContainsKey(fileName))
                     continue;
 
                 // Determine project path if we don't have it
@@ -233,7 +247,7 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
                     FirstPrompt = null
                 };
 
-                AddSessionEntry(entry, sessionProjectPath);
+                AddSessionEntry(entry, sessionProjectPath, sessionCache, projectSessionsCache);
             }
         }
         catch
@@ -243,36 +257,63 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
     }
 
     /// <summary>
-    /// Adds a session entry to the caches.
+    /// Adds a session entry to the provided caches.
+    /// Ensures entry.ProjectPath is set so GetProjectPathForSession always returns the resolved path.
     /// </summary>
-    private void AddSessionEntry(ClaudeSessionIndexEntry entry, string projectPath)
+    private static void AddSessionEntry(
+        ClaudeSessionIndexEntry entry,
+        string projectPath,
+        Dictionary<string, ClaudeSessionIndexEntry> sessionCache,
+        Dictionary<string, List<ClaudeSessionIndexEntry>> projectSessionsCache)
     {
+        // Ensure entry has ProjectPath set (may be null if JSON entry lacked it,
+        // but we resolved it from index.OriginalPath or directory name)
+        entry.ProjectPath ??= projectPath;
+
         var normalizedPath = NormalizePath(projectPath);
 
         // Add to session cache
-        _sessionCache[entry.SessionId] = entry;
+        sessionCache[entry.SessionId] = entry;
 
         // Add to project sessions cache
-        if (!_projectSessionsCache.TryGetValue(normalizedPath, out var projectSessions))
+        if (!projectSessionsCache.TryGetValue(normalizedPath, out var projectSessions))
         {
             projectSessions = [];
-            _projectSessionsCache[normalizedPath] = projectSessions;
+            projectSessionsCache[normalizedPath] = projectSessions;
         }
         projectSessions.Add(entry);
     }
 
     /// <summary>
     /// Decodes a project directory name to the actual file path.
-    /// Format: "P--W-Memoreaz-MobileApp" → "P:\W\Memoreaz.MobileApp"
+    /// Windows format: "C--Users-Name-Project" → "C:\Users\Name\Project" (-- = drive separator)
+    /// macOS format: "-Users-Name-Project" → "/Users/Name/Project" (leading - = root /)
+    ///
+    /// Note: This encoding is lossy (hyphens in directory names are ambiguous),
+    /// so this is a best-effort fallback. Prefer originalPath from sessions-index.json.
     /// </summary>
     private static string DecodeProjectPath(string? encodedPath)
     {
         if (string.IsNullOrEmpty(encodedPath))
             return string.Empty;
 
-        // Replace -- with the appropriate path separator for this OS
         var separator = Path.DirectorySeparatorChar.ToString();
-        return encodedPath.Replace("--", separator);
+
+        // Windows format: "C--Users-Name-Project" where -- represents :\
+        if (encodedPath.Contains("--"))
+        {
+            return encodedPath.Replace("--", ":" + separator).Replace("-", separator);
+        }
+
+        // macOS format: "-Users-Name-Project" where leading - represents /
+        // Replace all - with / (lossy: hyphens in dir names become /)
+        if (encodedPath.StartsWith("-"))
+        {
+            return encodedPath.Replace("-", separator);
+        }
+
+        // Unknown format - return as-is
+        return encodedPath;
     }
 
     private void StartFileWatchers()
@@ -321,8 +362,30 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
 
     private void OnFileChanged(object? sender, FileSystemEventArgs e)
     {
-        // Debounce: wait a bit to batch multiple rapid changes
-        Task.Delay(300).ContinueWith(_ => Refresh());
+        DebounceRefresh();
+    }
+
+    /// <summary>
+    /// Debounces refresh calls to batch multiple rapid file changes.
+    /// </summary>
+    private void DebounceRefresh()
+    {
+        lock (_debounceLock)
+        {
+            _debounceTokenSource?.Cancel();
+            _debounceTokenSource?.Dispose();
+            _debounceTokenSource = new CancellationTokenSource();
+
+            var token = _debounceTokenSource.Token;
+
+            Task.Delay(500, token).ContinueWith(t =>
+            {
+                if (!t.IsCanceled)
+                {
+                    Refresh();
+                }
+            }, TaskScheduler.Default);
+        }
     }
 
     /// <summary>
@@ -345,5 +408,7 @@ public sealed class ClaudeSessionIndexService : IClaudeSessionIndexService, IDis
     {
         _indexWatcher?.Dispose();
         _jsonlWatcher?.Dispose();
+        _debounceTokenSource?.Cancel();
+        _debounceTokenSource?.Dispose();
     }
 }

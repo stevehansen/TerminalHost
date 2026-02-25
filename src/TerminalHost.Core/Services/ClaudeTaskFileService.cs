@@ -9,7 +9,11 @@ namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Service for reading persisted Claude Code tasks from ~/.claude/tasks/.
-/// Each session writes task JSON files to ~/.claude/tasks/{session-id}/*.json.
+///
+/// Reads from: ~/.claude/tasks/{session-id}/{task-id}.json
+///   - Individual JSON files per task with {id, subject, description, activeForm, status, blocks, blockedBy}
+///   - Created by Claude Code's TaskCreate/TaskUpdate tools
+///
 /// Uses IClaudeSessionIndexService for session→project path mapping.
 /// </summary>
 public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
@@ -18,8 +22,8 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
     private readonly IClaudeSessionIndexService _sessionIndexService;
     private readonly string _tasksRootPath;
     private readonly string _claudeRootPath;
-    private readonly Dictionary<string, List<FocusTask>> _sessionTasksCache = new(StringComparer.OrdinalIgnoreCase);
-    private FileSystemWatcher? _fileWatcher;
+    private Dictionary<string, List<FocusTask>> _sessionTasksCache = new(StringComparer.OrdinalIgnoreCase);
+    private FileSystemWatcher? _tasksFileWatcher;
     private FileSystemWatcher? _directoryWatcher;
     private readonly object _lock = new();
     private CancellationTokenSource? _debounceTokenSource;
@@ -30,6 +34,13 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    /// <summary>
+    /// Sessions with no file updates within this duration are considered inactive.
+    /// In-progress and pending tasks from inactive sessions are hidden since those
+    /// sessions ended without cleaning up their task files.
+    /// </summary>
+    private static readonly TimeSpan SessionStaleThreshold = TimeSpan.FromMinutes(10);
 
     // Pattern to strip ANSI escape codes from text (cursor movement, colors, etc.)
     private static readonly Regex AnsiEscapePattern = new(
@@ -72,36 +83,27 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     public IReadOnlyList<FocusTask> GetSessionTasks(string sessionId)
     {
-        lock (_lock)
-        {
-            if (_sessionTasksCache.TryGetValue(sessionId, out var tasks))
-            {
-                return tasks.AsReadOnly();
-            }
+        // Grab cache reference (Refresh swaps the whole dictionary, so this snapshot is safe)
+        Dictionary<string, List<FocusTask>> cache;
+        lock (_lock) { cache = _sessionTasksCache; }
 
-            // Try loading if not in cache
-            var sessionTasks = LoadSessionTasks(sessionId);
-            if (sessionTasks.Count > 0)
-            {
-                _sessionTasksCache[sessionId] = sessionTasks;
-                return sessionTasks.AsReadOnly();
-            }
-
-            return Array.Empty<FocusTask>();
-        }
+        return cache.TryGetValue(sessionId, out var tasks)
+            ? tasks.AsReadOnly()
+            : Array.Empty<FocusTask>();
     }
 
     public IReadOnlyList<FocusTask> GetAllTasks()
     {
-        lock (_lock)
+        // Grab cache reference (Refresh swaps the whole dictionary, so this snapshot is safe)
+        Dictionary<string, List<FocusTask>> cache;
+        lock (_lock) { cache = _sessionTasksCache; }
+
+        var allTasks = new List<FocusTask>();
+        foreach (var sessionTasks in cache.Values)
         {
-            var allTasks = new List<FocusTask>();
-            foreach (var sessionTasks in _sessionTasksCache.Values)
-            {
-                allTasks.AddRange(sessionTasks);
-            }
-            return allTasks.AsReadOnly();
+            allTasks.AddRange(sessionTasks);
         }
+        return allTasks.AsReadOnly();
     }
 
     public IReadOnlyList<string> GetActiveSessions()
@@ -111,8 +113,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
         try
         {
-            var sessionDirs = _fileSystem.GetDirectories(_tasksRootPath);
-            return sessionDirs
+            return _fileSystem.GetDirectories(_tasksRootPath)
                 .Select(Path.GetFileName)
                 .Where(name => !string.IsNullOrEmpty(name))
                 .ToList()!;
@@ -125,75 +126,123 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     public void Refresh()
     {
+        // Build new cache outside the lock (all I/O happens here)
+        var newCache = new Dictionary<string, List<FocusTask>>(StringComparer.OrdinalIgnoreCase);
+
+        // Load from tasks/ directory (nested format from TaskCreate tool)
+        LoadTasksDirectory(newCache);
+
+        // Brief lock to swap cache
         lock (_lock)
         {
-            _sessionTasksCache.Clear();
-
-            var sessions = GetActiveSessions();
-            foreach (var sessionId in sessions)
-            {
-                var tasks = LoadSessionTasks(sessionId);
-                if (tasks.Count > 0)
-                {
-                    _sessionTasksCache[sessionId] = tasks;
-                }
-            }
+            _sessionTasksCache = newCache;
         }
 
         TasksChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private List<FocusTask> LoadSessionTasks(string sessionId)
+    /// <summary>
+    /// Loads tasks from ~/.claude/tasks/{session-id}/{task-id}.json files.
+    /// These are created by Claude Code's TaskCreate/TaskUpdate tools.
+    /// </summary>
+    private void LoadTasksDirectory(Dictionary<string, List<FocusTask>> cache)
     {
-        var sessionPath = Path.Combine(_tasksRootPath, sessionId);
-        if (!_fileSystem.DirectoryExists(sessionPath))
-            return [];
-
-        var tasks = new List<FocusTask>();
+        if (!_fileSystem.DirectoryExists(_tasksRootPath))
+            return;
 
         try
         {
-            var jsonFiles = _fileSystem.GetFiles(sessionPath, "*.json", SearchOption.TopDirectoryOnly);
+            var sessionDirs = _fileSystem.GetDirectories(_tasksRootPath);
 
-            foreach (var filePath in jsonFiles)
+            foreach (var sessionDir in sessionDirs)
             {
+                var sessionId = Path.GetFileName(sessionDir);
+                if (string.IsNullOrEmpty(sessionId))
+                    continue;
+
                 try
                 {
-                    var json = _fileSystem.ReadAllText(filePath);
-                    var taskDto = JsonSerializer.Deserialize<ClaudeTaskDto>(json, JsonOptions);
+                    var jsonFiles = _fileSystem.GetFiles(sessionDir, "*.json", SearchOption.TopDirectoryOnly);
+                    if (jsonFiles.Length == 0)
+                        continue;
 
-                    if (taskDto != null)
+                    // Get project path for this session
+                    var projectPaths = new List<string>();
+                    var projectPath = _sessionIndexService.GetProjectPathForSession(sessionId);
+                    if (!string.IsNullOrEmpty(projectPath))
                     {
-                        var task = MapToFocusTask(taskDto, sessionId, filePath);
-                        tasks.Add(task);
+                        projectPaths.Add(projectPath);
+                    }
+
+                    var tasks = new List<FocusTask>();
+                    var mostRecentWrite = DateTime.MinValue;
+
+                    foreach (var filePath in jsonFiles)
+                    {
+                        try
+                        {
+                            var json = _fileSystem.ReadAllText(filePath);
+                            var taskDto = JsonSerializer.Deserialize<ClaudeTaskDto>(json, JsonOptions);
+
+                            if (taskDto != null)
+                            {
+                                var task = MapTaskDtoToFocusTask(taskDto, sessionId, filePath, projectPaths);
+                                tasks.Add(task);
+
+                                // Track most recent file modification
+                                try
+                                {
+                                    var writeTime = File.GetLastWriteTimeUtc(filePath);
+                                    if (writeTime > mostRecentWrite)
+                                        mostRecentWrite = writeTime;
+                                }
+                                catch { }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip invalid task files
+                        }
+                    }
+
+                    // If session task files haven't been modified recently, the session is inactive.
+                    // Filter out in-progress and pending tasks (they'll never complete).
+                    if (mostRecentWrite != DateTime.MinValue &&
+                        DateTime.UtcNow - mostRecentWrite > SessionStaleThreshold)
+                    {
+                        tasks = tasks.Where(t => t.Status == FocusTaskStatus.Completed).ToList();
+                    }
+
+                    if (tasks.Count > 0)
+                    {
+                        // Sort by task ID (numeric)
+                        tasks = tasks.OrderBy(t => int.TryParse(t.ClaudeTaskId, out var n) ? n : int.MaxValue).ToList();
+                        cache[sessionId] = tasks;
                     }
                 }
                 catch
                 {
-                    // Skip invalid task files
+                    // Skip sessions that fail to load
                 }
             }
-
-            // Sort by ClaudeTaskId (which is the numeric ID from JSON)
-            tasks = tasks.OrderBy(t => int.TryParse(t.ClaudeTaskId, out var n) ? n : int.MaxValue).ToList();
         }
         catch
         {
-            // Skip sessions that fail to load
+            // Continue with whatever was loaded
         }
-
-        return tasks;
     }
 
-    private FocusTask MapToFocusTask(ClaudeTaskDto dto, string sessionId, string filePath)
+    /// <summary>
+    /// Maps a TaskCreate-style DTO to a FocusTask.
+    /// </summary>
+    private FocusTask MapTaskDtoToFocusTask(ClaudeTaskDto dto, string sessionId, string filePath, List<string> projectPaths)
     {
         // Generate consistent Guid from session + task ID
         var guidSeed = $"{sessionId}:{dto.Id}";
         var guid = GenerateGuidFromString(guidSeed);
 
         // Parse status
-        var rawStatus = dto.Status;
-        var status = rawStatus?.ToLowerInvariant() switch
+        var status = dto.Status?.ToLowerInvariant() switch
         {
             "completed" => FocusTaskStatus.Completed,
             "in_progress" or "in-progress" => FocusTaskStatus.InProgress,
@@ -201,7 +250,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             _ => FocusTaskStatus.NotStarted
         };
 
-        // Get file creation time for timestamps
+        // Get file creation time
         DateTime createdAt;
         try
         {
@@ -212,14 +261,6 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             createdAt = DateTime.UtcNow;
         }
 
-        // Get project path for this session using the session index service
-        var projectPaths = new List<string>();
-        var projectPath = _sessionIndexService.GetProjectPathForSession(sessionId);
-        if (!string.IsNullOrEmpty(projectPath))
-        {
-            projectPaths.Add(projectPath);
-        }
-
         return new FocusTask
         {
             Id = guid.ToString(),
@@ -227,8 +268,8 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             Description = StripAnsiCodes(dto.Description),
             ActiveForm = StripAnsiCodes(dto.ActiveForm),
             Status = status,
-            Priority = 0, // Not in Claude task files
-            ProjectPaths = projectPaths,
+            Priority = 0,
+            ProjectPaths = new List<string>(projectPaths),
             CreatedAt = createdAt,
             StartedAt = status == FocusTaskStatus.InProgress ? createdAt : null,
             CompletedAt = status == FocusTaskStatus.Completed ? createdAt : null,
@@ -252,21 +293,21 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     private void StartFileWatcher()
     {
-        // Watch for file changes if tasks directory exists
+        // Watch for file changes in tasks/ directory
         if (_fileSystem.DirectoryExists(_tasksRootPath))
         {
             try
             {
-                _fileWatcher = new FileSystemWatcher(_tasksRootPath, "*.json")
+                _tasksFileWatcher = new FileSystemWatcher(_tasksRootPath, "*.json")
                 {
                     NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
                     IncludeSubdirectories = true,
                     EnableRaisingEvents = true
                 };
 
-                _fileWatcher.Created += OnFileChanged;
-                _fileWatcher.Changed += OnFileChanged;
-                _fileWatcher.Deleted += OnFileChanged;
+                _tasksFileWatcher.Created += OnFileChanged;
+                _tasksFileWatcher.Changed += OnFileChanged;
+                _tasksFileWatcher.Deleted += OnFileChanged;
             }
             catch
             {
@@ -274,8 +315,7 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
             }
         }
 
-        // Also watch for new session directories being created in ~/.claude/
-        // This handles the case where tasks/ doesn't exist yet
+        // Watch for tasks/ directory being created in ~/.claude/
         if (_fileSystem.DirectoryExists(_claudeRootPath))
         {
             try
@@ -303,15 +343,15 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     private void OnDirectoryChanged(object? sender, FileSystemEventArgs e)
     {
-        // If a new directory was created under tasks/, refresh
-        if (e.FullPath.StartsWith(_tasksRootPath, StringComparison.OrdinalIgnoreCase))
-        {
-            DebounceRefresh();
-        }
-        // If tasks/ directory was just created, start the file watcher
-        else if (e.FullPath.Equals(_tasksRootPath, StringComparison.OrdinalIgnoreCase) && _fileWatcher == null)
+        // If tasks/ directory was created, start the tasks file watcher
+        if (e.FullPath.Equals(_tasksRootPath, StringComparison.OrdinalIgnoreCase) && _tasksFileWatcher == null)
         {
             StartFileWatcher();
+            DebounceRefresh();
+        }
+        // If a new session subdirectory was created under tasks/
+        else if (e.FullPath.StartsWith(_tasksRootPath, StringComparison.OrdinalIgnoreCase))
+        {
             DebounceRefresh();
         }
     }
@@ -343,15 +383,15 @@ public sealed class ClaudeTaskFileService : IClaudeTaskFileService, IDisposable
 
     public void Dispose()
     {
-        _fileWatcher?.Dispose();
+        _tasksFileWatcher?.Dispose();
         _directoryWatcher?.Dispose();
         _debounceTokenSource?.Cancel();
         _debounceTokenSource?.Dispose();
     }
 
     /// <summary>
-    /// DTO for deserializing Claude task JSON files.
-    /// Matches the structure of ~/.claude/tasks/{session-id}/*.json files.
+    /// DTO for deserializing Claude Code TaskCreate-style task files.
+    /// Matches the structure of ~/.claude/tasks/{session-id}/{task-id}.json files.
     /// </summary>
     private sealed class ClaudeTaskDto
     {

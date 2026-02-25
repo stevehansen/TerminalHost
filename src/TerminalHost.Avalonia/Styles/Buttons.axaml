@@ -1,4 +1,38 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Button styles placeholder - to be implemented -->
+
+    <!-- InlineActionButton style for AI sparkle buttons (e.g. "✨ Why?", "✨ Suggest") -->
+    <Style Selector="Button.InlineAction">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="#808080"/>
+        <Setter Property="Padding" Value="4,1"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Button.InlineAction:pointerover">
+        <Setter Property="Foreground" Value="#E0E0E0"/>
+        <Setter Property="Background" Value="#20FFFFFF"/>
+    </Style>
+    <Style Selector="Button.InlineAction:pressed">
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="Background" Value="#30FFFFFF"/>
+    </Style>
+    <Style Selector="Button.InlineAction:disabled">
+        <Setter Property="Opacity" Value="0.4"/>
+    </Style>
+
+    <!-- AI explanation callout style -->
+    <Style Selector="Border.AiCallout">
+        <Setter Property="Background" Value="#1A2D4A"/>
+        <Setter Property="BorderBrush" Value="#3A6DAA"/>
+        <Setter Property="BorderThickness" Value="2,0,0,0"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="CornerRadius" Value="0,4,4,0"/>
+        <Setter Property="Margin" Value="0,4"/>
+    </Style>
+
 </Styles>

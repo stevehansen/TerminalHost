@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
@@ -245,8 +246,59 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateWorktreeAsync()
     {
-        // STUB: GetBranchesForWorktreeAsync and ShowCreateWorktreeDialogAsync not available
-        _toastService.Show("Worktree creation not available in this version", ToastType.Warning);
+        await CreateWorktreeForPathAsync(null);
+    }
+
+    /// <summary>
+    /// Shared implementation for creating a worktree from a repo path.
+    /// </summary>
+    private async Task CreateWorktreeForPathAsync(string? repoPath)
+    {
+        // Determine repo path from current tab if not provided
+        if (string.IsNullOrEmpty(repoPath))
+        {
+            if (MainViewModel?.SelectedTab is TerminalPairTabViewModel terminalTab)
+                repoPath = terminalTab.Pair.WorkingDirectory;
+        }
+
+        if (string.IsNullOrEmpty(repoPath)) return;
+
+        // Get branches via the concrete Avalonia service
+        if (_worktreeService is not GitWorktreeService concreteService)
+        {
+            _toastService.Show("Worktree creation not available", ToastType.Warning);
+            return;
+        }
+
+        var branches = await concreteService.GetBranchesForWorktreeAsync(repoPath);
+        var result = _dialogService.ShowCreateWorktreeDialog(repoPath, branches, repoPath);
+        if (result == null) return;
+
+        var createResult = await _worktreeService.CreateWorktreeAsync(
+            repoPath,
+            result.BranchName,
+            result.WorktreePath,
+            result.CreateNewBranch);
+
+        if (createResult.Success)
+        {
+            _toastService.Show($"Worktree created: {result.BranchName}", ToastType.Success);
+
+            if (result.OpenAfterCreation)
+            {
+                MainViewModel?.OpenProjectTab(result.WorktreePath);
+            }
+        }
+        else
+        {
+            _toastService.Show($"Failed to create worktree: {createResult.Error}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowCreateWorktreeDialogAsync()
+    {
+        await CreateWorktreeForPathAsync(null);
     }
 
     [RelayCommand]
@@ -276,7 +328,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         workspace.IsPlayground = !workspace.IsPlayground;
     }
 
-    #region Git Operations for Open Projects
+    #region Tab Operations for Open Projects
 
     /// <summary>
     /// Exposes open projects from MainViewModel.
@@ -297,10 +349,80 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CloseTab(ITabViewModel tab)
+    private void OpenTab(ITabViewModel? tab)
     {
-        // MainViewModel.CloseTab may not be public - use RemoveTab instead
-        if (MainViewModel != null)
+        if (tab != null && MainViewModel != null)
+        {
+            MainViewModel.SelectedTab = tab;
+        }
+    }
+
+    [RelayCommand]
+    private void DuplicateTab(ITabViewModel? tab)
+    {
+        if (tab is TerminalPairTabViewModel terminalTab && MainViewModel != null)
+        {
+            MainViewModel.OpenProjectTab(terminalTab.Pair.WorkingDirectory, forceNew: true);
+        }
+    }
+
+    [RelayCommand]
+    private void MoveTabUp(ITabViewModel? tab)
+    {
+        if (tab == null || MainViewModel == null) return;
+        var index = MainViewModel.Tabs.IndexOf(tab);
+        if (index > 0)
+        {
+            MainViewModel.Tabs.Move(index, index - 1);
+        }
+    }
+
+    [RelayCommand]
+    private void MoveTabDown(ITabViewModel? tab)
+    {
+        if (tab == null || MainViewModel == null) return;
+        var index = MainViewModel.Tabs.IndexOf(tab);
+        if (index >= 0 && index < MainViewModel.Tabs.Count - 1)
+        {
+            MainViewModel.Tabs.Move(index, index + 1);
+        }
+    }
+
+    [RelayCommand]
+    private void MoveTabToTop(ITabViewModel? tab)
+    {
+        if (tab == null || MainViewModel == null) return;
+        var index = MainViewModel.Tabs.IndexOf(tab);
+        if (index > 0)
+        {
+            MainViewModel.Tabs.Move(index, 0);
+        }
+    }
+
+    [RelayCommand]
+    private void MoveTabToBottom(ITabViewModel? tab)
+    {
+        if (tab == null || MainViewModel == null) return;
+        var index = MainViewModel.Tabs.IndexOf(tab);
+        if (index >= 0 && index < MainViewModel.Tabs.Count - 1)
+        {
+            MainViewModel.Tabs.Move(index, MainViewModel.Tabs.Count - 1);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CreateWorktreeForTabAsync(ITabViewModel? tab)
+    {
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            await CreateWorktreeForPathAsync(terminalTab.Pair.WorkingDirectory);
+        }
+    }
+
+    [RelayCommand]
+    private void CloseTab(ITabViewModel? tab)
+    {
+        if (tab != null && MainViewModel != null)
         {
             MainViewModel.Tabs.Remove(tab);
         }
@@ -358,12 +480,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     private void OpenInFinder(ITabViewModel? tab)
     {
         if (tab is not TerminalPairTabViewModel terminalTab) return;
-        var workingDir = terminalTab.Pair.WorkingDirectory;
-        // Cast to local IProcessService which has OpenFolder
-        if (_processService is Services.ProcessService ps)
-        {
-            ps.OpenFolder(workingDir);
-        }
+        _processService.OpenFolder(terminalTab.Pair.WorkingDirectory);
     }
 
     #endregion

@@ -23,6 +23,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IFolderPickerService _folderPickerService;
+    private readonly IAiExecutionService _aiExecutionService;
+    private readonly IClipboardService _clipboardService;
     private readonly IPlatformTimer _refreshTimer;
 
     #region ITabViewModel Implementation
@@ -77,6 +79,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentSectionItems))]
     [NotifyPropertyChangedFor(nameof(ReviewRequestsCount))]
+    [NotifyCanExecuteChangedFor(nameof(PrioritizePrsCommand))]
     private ObservableCollection<GitHubPullRequest> _reviewRequests = [];
 
     [ObservableProperty]
@@ -98,7 +101,30 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private ObservableCollection<RepositoryItem> _recentRepos = [];
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCiFailureCommand))]
     private object? _selectedItem;
+
+    // Feature 8: CI failure analysis
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCiFailureAnalysis))]
+    private string _ciFailureAnalysis = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCiFailureCommand))]
+    private bool _isAnalyzingCiFailure;
+
+    public bool HasCiFailureAnalysis => !string.IsNullOrEmpty(CiFailureAnalysis);
+
+    // Feature 9: PR prioritization
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPrPriorityAdvice))]
+    private string _prPriorityAdvice = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrioritizePrsCommand))]
+    private bool _isGeneratingPrPriority;
+
+    public bool HasPrPriorityAdvice => !string.IsNullOrEmpty(PrPriorityAdvice);
 
     // Selection state helpers for UI binding
     public bool IsReviewSelected => SelectedSection == "Review";
@@ -122,7 +148,9 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         IProcessService processService,
         IToastService toastService,
         ITimerService timerService,
-        IFolderPickerService folderPickerService)
+        IFolderPickerService folderPickerService,
+        IAiExecutionService aiExecutionService,
+        IClipboardService clipboardService)
     {
         _gitHubService = gitHubService;
         _configService = configService;
@@ -133,6 +161,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
         _toastService = toastService;
         _timerService = timerService;
         _folderPickerService = folderPickerService;
+        _aiExecutionService = aiExecutionService;
+        _clipboardService = clipboardService;
 
         // Setup auto-refresh timer
         _refreshTimer = _timerService.CreateTimer(
@@ -176,6 +206,8 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         IsLoading = true;
         StatusMessage = "Refreshing...";
+        CiFailureAnalysis = "";
+        PrPriorityAdvice = "";
 
         try
         {
@@ -395,6 +427,116 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
 
         _mainViewModel.OpenProjectTab(repo.LocalPath);
     }
+
+    #region Feature 8: CI Failure Analysis
+
+    public bool CanAnalyzeCiFailure => SelectedItem is GitHubWorkflowRun && !IsAnalyzingCiFailure;
+
+    [RelayCommand(CanExecute = nameof(CanAnalyzeCiFailure))]
+    private async Task AnalyzeCiFailureAsync()
+    {
+        if (SelectedItem is not GitHubWorkflowRun run) return;
+
+        var workDir = FindLocalRepository(run.Repository);
+
+        // Get CI logs via gh CLI
+        var logArgs = $"run view {run.Id} --log-failed";
+        if (!string.IsNullOrEmpty(workDir))
+        {
+            var (logExitCode, logOutput, logError) = await _processService.RunAsync(
+                "gh", logArgs, workDir, timeout: TimeSpan.FromSeconds(30));
+            var log = logExitCode == 0 && !string.IsNullOrWhiteSpace(logOutput) ? logOutput : logError;
+            if (string.IsNullOrWhiteSpace(log)) log = "(no log available)";
+            if (log.Length > 8000) log = log[..8000] + "\n[truncated]";
+
+            var prompt = $"Analyze this CI failure and provide a brief diagnosis (2-4 sentences). What failed, likely cause, and suggested fix.\n\nWorkflow: {run.WorkflowName}\nBranch: {run.Branch}\n\nFailure log:\n{log}";
+            await RunAiForCiAnalysis(prompt, workDir);
+        }
+        else
+        {
+            // No local repo -- run without logs, just metadata
+            var prompt = $"Analyze this CI failure and provide a brief diagnosis (2-4 sentences). What failed, likely cause, and suggested fix.\n\nWorkflow: {run.WorkflowName}\nBranch: {run.Branch}\nConclusion: {run.Conclusion}\nCommit: {run.CommitMessage}\n\n(No detailed logs available -- repo not cloned locally)";
+            await RunAiForCiAnalysis(prompt, null);
+        }
+    }
+
+    private async Task RunAiForCiAnalysis(string prompt, string? workDir)
+    {
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAnalyzingCiFailure = true;
+        try
+        {
+            var result = await _aiExecutionService.ExecuteAsync(prompt, workDir ?? "", "Analyzing CI failure");
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                CiFailureAnalysis = result.Output.Trim();
+        }
+        finally
+        {
+            IsAnalyzingCiFailure = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissCiFailureAnalysis() => CiFailureAnalysis = "";
+
+    [RelayCommand]
+    private async Task CopyCiFailureAnalysisAsync()
+    {
+        if (!string.IsNullOrEmpty(CiFailureAnalysis))
+        {
+            await _clipboardService.SetTextAsync(CiFailureAnalysis);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    #endregion
+
+    #region Feature 9: PR Prioritization
+
+    public bool CanPrioritizePrs => ReviewRequests.Count > 0 && !IsGeneratingPrPriority;
+
+    [RelayCommand(CanExecute = nameof(CanPrioritizePrs))]
+    private async Task PrioritizePrsAsync()
+    {
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        var prList = string.Join("\n", ReviewRequests.Select(pr =>
+            $"#{pr.Number} by {pr.Author}: {pr.Title} ({pr.DiffSummary}, CI: {pr.CiStatus ?? "unknown"}, updated {pr.TimeSinceUpdate})"));
+
+        var workDir = _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault()?.Pair.WorkingDirectory;
+
+        var prompt = $"Given these pull requests awaiting review, suggest a priority order. Consider: risk (large diffs), failing CI, and staleness. Format as a numbered list: #number -- one-sentence rationale.\n\nPRs:\n{prList}";
+
+        IsGeneratingPrPriority = true;
+        try
+        {
+            var result = await _aiExecutionService.ExecuteAsync(prompt, workDir ?? "", "Prioritizing PRs");
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                PrPriorityAdvice = result.Output.Trim();
+        }
+        finally
+        {
+            IsGeneratingPrPriority = false;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissPrPriorityAdvice() => PrPriorityAdvice = "";
+
+    [RelayCommand]
+    private async Task CopyPrPriorityAdviceAsync()
+    {
+        if (!string.IsNullOrEmpty(PrPriorityAdvice))
+        {
+            await _clipboardService.SetTextAsync(PrPriorityAdvice);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    #endregion
 
     [RelayCommand]
     private void Close()

@@ -19,7 +19,13 @@
         CloseCommand="{Binding CloseCommand}">
 
         <controls:DraggablePopup.HeaderRightContent>
-            <StackPanel Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Content="Filter"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding ToggleFiltersCommand}"
+                        ToolTip.Tip="Toggle advanced filters"
+                        Padding="6,3"
+                        FontSize="{StaticResource FontSizeMicro}"/>
                 <Button Content="Refresh"
                         Classes="TerminalSwitchButton"
                         Command="{Binding RefreshCommand}"
@@ -31,6 +37,7 @@
         <controls:DraggablePopup.PopupContent>
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
@@ -46,7 +53,7 @@
                         <TextBox Grid.Column="0"
                                  x:Name="SearchBox"
                                  Text="{Binding SearchText, Mode=TwoWay}"
-                                 Watermark="Filter by author..."
+                                 Watermark="Search commit messages..."
                                  Background="{StaticResource BackgroundDarkBrush}"
                                  Foreground="{StaticResource TextPrimaryBrush}"
                                  BorderBrush="{StaticResource BorderMediumBrush}"
@@ -61,8 +68,40 @@
                     </Grid>
                 </Border>
 
+                <!-- Advanced filter bar (collapsible) -->
+                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}"
+                        Padding="8,4" IsVisible="{Binding ShowFilters}"
+                        BorderBrush="{StaticResource BorderMediumBrush}" BorderThickness="0,1,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Author:" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeMicro}" Width="50"/>
+                        <TextBox Text="{Binding AuthorFilter, Mode=TwoWay}" Width="160"
+                                 Watermark="e.g. John"
+                                 Background="{StaticResource BackgroundDarkBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderMediumBrush}"
+                                 FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
+                        <TextBlock Text="File:" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeMicro}" Width="30"/>
+                        <TextBox Text="{Binding FilePathFilter, Mode=TwoWay}" Width="200"
+                                 Watermark="e.g. src/main.cs"
+                                 Background="{StaticResource BackgroundDarkBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderMediumBrush}"
+                                 FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
+                        <Button Content="Apply" Command="{Binding RefreshCommand}"
+                                Classes="TerminalSwitchButton"
+                                Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
+                        <Button Content="Clear" Command="{Binding ClearFiltersCommand}"
+                                Classes="TerminalSwitchButton"
+                                Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Main content - 3 column layout -->
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="350" MinWidth="250"/>
                         <ColumnDefinition Width="4"/>
@@ -96,10 +135,11 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
 
                                                 <!-- Author avatar/initials -->
-                                                <Border Grid.Column="0" Grid.RowSpan="2"
+                                                <Border Grid.Column="0" Grid.RowSpan="3"
                                                         Width="28" Height="28"
                                                         CornerRadius="14"
                                                         Background="{Binding AuthorColor}"
@@ -131,8 +171,31 @@
                                                            VerticalAlignment="Top"
                                                            Margin="8,0,0,0"/>
 
+                                                <!-- Decoration badges (HEAD, branches, tags) -->
+                                                <ItemsControl Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1"
+                                                              ItemsSource="{Binding ParsedDecorations}"
+                                                              IsVisible="{Binding ParsedDecorations.Count, Converter={StaticResource CountToVisibilityConverter}}"
+                                                              Margin="0,2,0,0">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border CornerRadius="3" Padding="5,1" Margin="2,0"
+                                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
+                                                                <TextBlock Text="{Binding DisplayText}"
+                                                                           Foreground="White"
+                                                                           FontSize="11"
+                                                                           FontWeight="SemiBold"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
                                                 <!-- Author and date -->
-                                                <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,0">
+                                                <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="2" Orientation="Horizontal" Margin="0,2,0,0">
                                                     <TextBlock Text="{Binding Author}"
                                                                Foreground="{StaticResource TextMutedBrush}"
                                                                FontSize="{StaticResource FontSizeMicro}"/>
@@ -195,6 +258,12 @@
                             <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                                        <Button Content="Explain"
+                                                Classes="TerminalSwitchButton"
+                                                Command="{Binding ExplainCommitCommand}"
+                                                ToolTip.Tip="AI-powered commit explanation"
+                                                Padding="6,3"
+                                                FontSize="{StaticResource FontSizeMicro}"/>
                                         <Button Content="Cherry-pick"
                                                 Classes="TerminalSwitchButton"
                                                 Command="{Binding CherryPickCommand}"
@@ -271,6 +340,45 @@
                                         <TextBlock Text="{Binding CommitDetails.StatsDisplay}"
                                                    Foreground="{StaticResource TextDimmedBrush}"
                                                    FontSize="{StaticResource FontSizeMicro}"/>
+                                    </Border>
+
+                                    <!-- AI Explaining spinner -->
+                                    <Border Background="#1A6366F1" CornerRadius="4" Padding="8" Margin="0,0,0,8"
+                                            IsVisible="{Binding IsAiExplaining}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Analyzing commit..." Foreground="#6366F1"
+                                                       FontSize="{StaticResource FontSizeMicro}" FontStyle="Italic"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- AI Explanation callout -->
+                                    <Border Background="#1A10B981" CornerRadius="4" Padding="8" Margin="0,0,0,12"
+                                            IsVisible="{Binding HasAiExplanation}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <TextBlock Text="AI Explanation" Foreground="#10B981"
+                                                           FontSize="{StaticResource FontSizeMicro}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding AiExplanation}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                                    Command="{Binding CopyAiExplanationCommand}"
+                                                    ToolTip.Tip="Copy to clipboard"
+                                                    VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                            <Button Grid.Column="2" Content="x"
+                                                    Command="{Binding DismissAiExplanationCommand}"
+                                                    VerticalAlignment="Top"
+                                                    Background="Transparent" Foreground="{StaticResource TextMutedBrush}"
+                                                    Padding="4,0" FontSize="{StaticResource FontSizeMicro}"
+                                                    ToolTip.Tip="Dismiss"/>
+                                        </Grid>
                                     </Border>
 
                                     <!-- Files header -->
@@ -390,7 +498,7 @@
                 </Grid>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
                                    Foreground="{StaticResource TextDimmedBrush}"

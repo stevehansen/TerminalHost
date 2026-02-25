@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -14,7 +13,10 @@ public partial class ReflogViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IProcessService _processService;
     private readonly MainViewModel _mainViewModel;
+    private readonly IAiExecutionService _aiExecutionService;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -28,6 +30,12 @@ public partial class ReflogViewModel : ObservableObject
     [ObservableProperty]
     private GitReflogEntry? _selectedEntry;
 
+    [ObservableProperty]
+    private string? _aiExplanation;
+
+    [ObservableProperty]
+    private bool _isAiLoading;
+
     public ObservableCollection<GitReflogEntry> Entries { get; } = [];
 
     public ReflogViewModel(
@@ -35,13 +43,19 @@ public partial class ReflogViewModel : ObservableObject
         IDialogService dialogService,
         IClipboardService clipboardService,
         IToastService toastService,
-        MainViewModel mainViewModel)
+        IConfigurationService configurationService,
+        IProcessService processService,
+        MainViewModel mainViewModel,
+        IAiExecutionService aiExecutionService)
     {
         _gitStatusService = gitStatusService;
         _dialogService = dialogService;
         _clipboardService = clipboardService;
         _toastService = toastService;
+        _configurationService = configurationService;
+        _processService = processService;
         _mainViewModel = mainViewModel;
+        _aiExecutionService = aiExecutionService;
     }
 
     [RelayCommand]
@@ -183,5 +197,40 @@ public partial class ReflogViewModel : ObservableObject
     private async Task RefreshAsync()
     {
         await LoadReflogAsync();
+    }
+
+    [RelayCommand]
+    private void DismissAiExplanation()
+    {
+        AiExplanation = null;
+    }
+
+    [RelayCommand]
+    private async Task ExplainReflogAsync()
+    {
+        if (Entries.Count == 0) return;
+        if (!_aiExecutionService.IsAiAvailable()) return;
+
+        IsAiLoading = true;
+        try
+        {
+            var entries = string.Join("\n", Entries.Take(20).Select(e => $"- {e.ShortHash}: {e.Action} {e.Description}"));
+            var prompt = $"You are a git expert. Explain in plain language.\n\nExplain what happened in these recent git operations:\n{entries}";
+            var result = await _aiExecutionService.ExecuteAsync(prompt, WorkingDirectory, "Explaining reflog", timeout: TimeSpan.FromSeconds(60));
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                AiExplanation = result.Output.Trim();
+        }
+        finally { IsAiLoading = false; }
+    }
+
+    [RelayCommand]
+    private async Task CopyAiExplanationAsync()
+    {
+        if (!string.IsNullOrEmpty(AiExplanation))
+        {
+            await _clipboardService.SetTextAsync(AiExplanation);
+            _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
     }
 }

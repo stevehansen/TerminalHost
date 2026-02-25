@@ -23,6 +23,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -42,6 +43,17 @@
                                 Command="{Binding RefreshCommand}"
                                 ToolTip.Tip="Refresh reflog"
                                 Margin="0,0,8,0"/>
+                        <Button DockPanel.Dock="Right"
+                                Classes="InlineAction"
+                                Command="{Binding ExplainReflogCommand}"
+                                IsEnabled="{Binding !IsAiLoading}"
+                                ToolTip.Tip="Ask AI to explain recent operations"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="&#x2728;" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="Explain" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Button>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Git Reflog"
@@ -53,9 +65,23 @@
                     </DockPanel>
                 </Border>
 
+                <!-- AI Explanation callout -->
+                <Border Grid.Row="1" Classes="AiCallout"
+                        IsVisible="{Binding AiExplanation, Converter={StaticResource NullToVisibilityConverter}}"
+                        Margin="0">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Text="{Binding AiExplanation}" TextWrapping="Wrap" Foreground="#D4D4D4" FontSize="{StaticResource FontSizeSmall}"/>
+                        <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                Command="{Binding CopyAiExplanationCommand}"
+                                ToolTip.Tip="Copy to clipboard"
+                                VerticalAlignment="Top" Margin="6,0,0,0"/>
+                        <Button Grid.Column="2" Classes="InlineAction" Content="&#x2715;" Command="{Binding DismissAiExplanationCommand}" VerticalAlignment="Top"/>
+                    </Grid>
+                </Border>
+
                 <!-- Reflog entries -->
                 <ListBox x:Name="ReflogList"
-                         Grid.Row="1"
+                         Grid.Row="2"
                          ItemsSource="{Binding Entries}"
                          SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
                          Background="Transparent"
@@ -144,7 +170,7 @@
                 </ListBox>
 
                 <!-- Empty state -->
-                <TextBlock Grid.Row="1"
+                <TextBlock Grid.Row="2"
                            Text="No reflog entries"
                            Foreground="{StaticResource TextMutedBrush}"
                            FontSize="{StaticResource FontSizeSmall}"
@@ -153,7 +179,7 @@
                            IsVisible="{Binding !Entries.Count}"/>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="Copy Hash"

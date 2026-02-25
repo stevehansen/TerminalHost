@@ -384,6 +384,10 @@
                                  GroupName="SettingsSection"
                                  Classes="SidebarItemButton"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=DirectorySettings}"/>
+                    <RadioButton Content="API &amp; Webhooks"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ApiWebhooks}"/>
                 </StackPanel>
             </Border>
 
@@ -2133,6 +2137,257 @@
                                         HorizontalAlignment="Left"
                                         Padding="16,8"/>
                             </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- API & Webhooks Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=ApiWebhooks}">
+                        <TextBlock Text="API &amp; Webhooks" Classes="SectionHeader"/>
+                        <TextBlock Text="REST API server, SSE streaming, and MCP collaboration integration." Classes="SectionDescription"/>
+
+                        <!-- API Server -->
+                        <CheckBox Content="Enable API Server"
+                                  IsChecked="{Binding ApiEnabled}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,16,0,4"/>
+                        <TextBlock Text="Enables the built-in REST API and SSE streaming server."
+                                   Classes="SectionDescription" Margin="0,0,0,12"/>
+
+                        <Grid ColumnDefinitions="Auto,200" Margin="0,0,0,8">
+                            <TextBlock Text="PORT" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding ApiPort}"
+                                     Background="{StaticResource BackgroundLightBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,4"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,200" Margin="0,0,0,8">
+                            <TextBlock Text="BIND ADDRESS" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding ApiBindAddress}"
+                                     Background="{StaticResource BackgroundLightBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,4"/>
+                        </Grid>
+
+                        <!-- API Key (shown when non-loopback) -->
+                        <StackPanel Margin="0,0,0,12"
+                                    IsVisible="{Binding IsApiKeyRequired, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="API KEY" Classes="FieldLabel"/>
+                            <TextBox Text="{Binding ApiKey}"
+                                     Background="{StaticResource BackgroundLightBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,4"
+                                     Width="300" HorizontalAlignment="Left"
+                                     PasswordChar="*"/>
+                            <TextBlock Text="Required when binding to a non-loopback address. Sent via Authorization: Bearer header."
+                                       Foreground="{StaticResource StatusWarningBrush}"
+                                       FontSize="11"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <CheckBox Content="Enable SSE (Server-Sent Events)"
+                                  IsChecked="{Binding ApiEnableSse}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,8,0,12"/>
+
+                        <!-- CORS Origins -->
+                        <Grid ColumnDefinitions="Auto,400" Margin="0,0,0,12">
+                            <TextBlock Text="CORS ORIGINS" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding ApiCorsOrigins}"
+                                     Background="{StaticResource BackgroundLightBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     Padding="8,4"/>
+                        </Grid>
+                        <TextBlock Text="Comma-separated origins. Use * for wildcards (e.g., http://localhost:*)."
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="11"
+                                   Margin="0,-8,0,12"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- MCP Collab Integration -->
+                        <TextBlock Text="MCP Collab Integration" Classes="SectionHeader"/>
+                        <TextBlock Text="Register TerminalHost as an MCP server in Claude Code for collaboration tools."
+                                   Classes="SectionDescription" Margin="0,0,0,12"/>
+
+                        <StackPanel Margin="0,0,0,8">
+                            <!-- Status indicator -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Panel Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <Ellipse Width="10" Height="10" Fill="#4CAF50"
+                                             IsVisible="{Binding McpCollabInstalled}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Ellipse Width="10" Height="10" Fill="#F44336"
+                                             IsVisible="{Binding !McpCollabInstalled}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Panel>
+                                <TextBlock Text="{Binding McpCollabStatus}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="  Detecting..."
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding McpCollabDetecting}"/>
+                            </StackPanel>
+
+                            <!-- MCP URL display -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="MCP URL:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding McpCollabUrl, Mode=OneWay}" IsReadOnly="True"
+                                         Background="{StaticResource BackgroundLightBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderThickness="1"
+                                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                                         Padding="8,4"
+                                         Width="320" VerticalAlignment="Center"/>
+                                <Button Content="Copy URL" Command="{Binding CopyMcpCollabUrlCommand}"
+                                        Classes="SettingsToolbarButton" Margin="8,0,0,0"/>
+                            </StackPanel>
+
+                            <!-- Action buttons -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button Content="Install in Claude Code" Command="{Binding InstallMcpCollabCommand}"
+                                        Classes="SettingsToolbarButton"/>
+                                <Button Content="Uninstall" Command="{Binding UninstallMcpCollabCommand}"
+                                        Classes="SettingsToolbarButton" Margin="4,0,0,0"/>
+                                <Button Content="Re-detect" Command="{Binding DetectMcpCollabCommand}"
+                                        Classes="SettingsToolbarButton" Margin="4,0,0,0"/>
+                            </StackPanel>
+
+                            <TextBlock Text="Registers globally in Claude Code (user scope) so all projects have access to collaboration tools."
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="11"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Enable Webhooks -->
+                        <CheckBox Content="Enable Webhooks"
+                                  IsChecked="{Binding ApiEnableWebhooks}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,0,0,4"/>
+                        <TextBlock Text="Push events to configured HTTP endpoints with debounce, retry, and HMAC signing."
+                                   Classes="SectionDescription" Margin="0,0,0,12"/>
+
+                        <!-- Webhooks List (visible when webhooks enabled) -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,12"
+                                IsVisible="{Binding ApiEnableWebhooks, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                            <Grid ColumnDefinitions="200,*">
+                                <!-- Webhook list -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <Button Content="+ Add" Command="{Binding AddWebhookCommand}"
+                                                Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                                        <Button Content="- Remove" Command="{Binding RemoveWebhookCommand}"
+                                                Classes="SettingsToolbarButton"/>
+                                    </StackPanel>
+                                    <ListBox ItemsSource="{Binding ApiWebhooks}"
+                                             SelectedItem="{Binding SelectedWebhook}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             MaxHeight="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+
+                                <!-- Webhook editor -->
+                                <StackPanel Grid.Column="1"
+                                            IsVisible="{Binding SelectedWebhook, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}">
+                                    <TextBlock Text="NAME" Classes="FieldLabel"/>
+                                    <TextBox Text="{Binding EditWhName}"
+                                             Background="{StaticResource BackgroundLightBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,4" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="URL" Classes="FieldLabel"/>
+                                    <TextBox Text="{Binding EditWhUrl}"
+                                             Background="{StaticResource BackgroundLightBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,4" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="SECRET (FOR HMAC SIGNING)" Classes="FieldLabel"/>
+                                    <TextBox Text="{Binding EditWhSecret}"
+                                             Background="{StaticResource BackgroundLightBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,4" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="EVENTS FILTER" Classes="FieldLabel"/>
+                                    <TextBox Text="{Binding EditWhEvents}"
+                                             Background="{StaticResource BackgroundLightBrush}"
+                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                             BorderThickness="1"
+                                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                                             Padding="8,4" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Comma-separated. Examples: *, repo.*, repo.commit, session.*"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="11"
+                                               Margin="0,0,0,8"/>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <StackPanel Margin="0,0,16,0">
+                                            <TextBlock Text="DEBOUNCE (MS)" Classes="FieldLabel"/>
+                                            <TextBox Text="{Binding EditWhDebounceMs}"
+                                                     Background="{StaticResource BackgroundLightBrush}"
+                                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                                     BorderThickness="1"
+                                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                     Padding="8,4" Width="80"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,16,0">
+                                            <TextBlock Text="BATCH WINDOW (MS)" Classes="FieldLabel"/>
+                                            <TextBox Text="{Binding EditWhBatchWindowMs}"
+                                                     Background="{StaticResource BackgroundLightBrush}"
+                                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                                     BorderThickness="1"
+                                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                     Padding="8,4" Width="80"/>
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="MAX RETRIES" Classes="FieldLabel"/>
+                                            <TextBox Text="{Binding EditWhMaxRetries}"
+                                                     Background="{StaticResource BackgroundLightBrush}"
+                                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                                     BorderThickness="1"
+                                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                                     Padding="8,4" Width="60"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <CheckBox Content="Enabled"
+                                              IsChecked="{Binding EditWhEnabled}"
+                                              Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+
+                                    <Button Content="Apply Changes"
+                                            Command="{Binding ApplyWebhookCommand}"
+                                            Classes="SettingsToolbarButton"
+                                            Padding="16,8"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </Grid>

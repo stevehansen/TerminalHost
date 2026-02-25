@@ -18,6 +18,56 @@
     <UserControl.Resources>
         <!-- Open Project Context Menu -->
         <ContextMenu x:Key="OpenProjectContextMenu">
+            <MenuItem Header="Open" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenTabCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Duplicate Tab" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).DuplicateTabCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="📋" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Move Up" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).MoveTabUpCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="↑" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Move Down" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).MoveTabDownCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="↓" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Move to Top" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).MoveTabToTopCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⤒" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Move to Bottom" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).MoveTabToBottomCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⤓" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Create Worktree..." Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CreateWorktreeForTabCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="🌿" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Manage Worktrees..." Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).ManageWorktreesCommand}">
+                <MenuItem.Icon>
+                    <TextBlock Text="⚙" FontSize="{StaticResource FontSizeSmall}"/>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator/>
             <MenuItem Header="Git Fetch" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).GitFetchCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
@@ -44,7 +94,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
-            <MenuItem Header="Close" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
+            <MenuItem Header="Close Tab" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).CloseTabCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
                     <TextBlock Text="✕" FontSize="{StaticResource FontSizeSmall}"/>
@@ -204,11 +254,20 @@
                                                Classes="iconText"
                                                Margin="0,0,4,0"/>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayTitle}"
-                                                   FontFamily="{StaticResource FontFamilyStandard}"
-                                                   FontSize="{StaticResource FontSizeSmall}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                       FontFamily="{StaticResource FontFamilyStandard}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <!-- Stash count indicator (visible when StashCount > 0, uses ReflectionBinding since StashCount is on TerminalPairTabViewModel, not ITabViewModel) -->
+                                            <TextBlock Text="{ReflectionBinding StashCount, StringFormat='📦 {0}'}"
+                                                       FontSize="{StaticResource FontSizeSmaller}"
+                                                       Foreground="{StaticResource SyntaxYellowBrush}"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="Stashed changes"
+                                                       IsVisible="{ReflectionBinding StashCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                        </StackPanel>
                                     </StackPanel>
                                     <!-- Activity indicators -->
                                     <Panel Grid.Column="2" VerticalAlignment="Center" Margin="4,0,0,0">

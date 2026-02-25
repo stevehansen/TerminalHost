@@ -806,6 +806,20 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     }
 
     // MCP Collab integration commands
+
+    /// <summary>
+    /// Gets the shell executable and argument format for running commands on the current platform.
+    /// </summary>
+    private static (string shell, string argFormat) GetShellCommand(string command)
+    {
+        if (OperatingSystem.IsWindows())
+            return ("powershell.exe", $"-NoProfile -Command \"{command}\"");
+
+        // macOS / Linux: use login shell to pick up user's PATH
+        // GUI apps on macOS have a minimal PATH that excludes user additions (e.g. ~/.local/bin)
+        return ("/bin/zsh", $"-l -c \"{command.Replace("\"", "\\\"")}\"");
+    }
+
     [RelayCommand]
     private async Task DetectMcpCollabAsync()
     {
@@ -814,8 +828,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         McpCollabDetecting = true;
         try
         {
-            var (exitCode, output, error) = await _processService.RunAsync(
-                "powershell.exe", "-NoProfile -Command \"claude mcp list\"");
+            var (shell, args) = GetShellCommand("claude mcp list");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
 
             var combined = output + error;
             McpCollabInstalled = combined.Contains("terminalhost-collab", StringComparison.OrdinalIgnoreCase);
@@ -840,8 +854,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         try
         {
             var url = McpCollabUrl;
-            var (exitCode, output, error) = await _processService.RunAsync(
-                "powershell.exe", $"-NoProfile -Command \"claude mcp add --transport http terminalhost-collab {url} -s user\"");
+            var (shell, args) = GetShellCommand($"claude mcp add --transport http terminalhost-collab {url} -s user");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
 
             if (exitCode == 0)
             {
@@ -867,8 +881,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
         try
         {
-            var (exitCode, output, error) = await _processService.RunAsync(
-                "powershell.exe", "-NoProfile -Command \"claude mcp remove terminalhost-collab -s user\"");
+            var (shell, args) = GetShellCommand("claude mcp remove terminalhost-collab -s user");
+            var (exitCode, output, error) = await _processService.RunAsync(shell, args);
 
             if (exitCode == 0)
             {

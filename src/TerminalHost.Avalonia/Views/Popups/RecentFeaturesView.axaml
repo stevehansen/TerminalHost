@@ -1,0 +1,188 @@
+<UserControl x:Class="TerminalHost.Views.Popups.RecentFeaturesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
+             xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
+             d:DataContext="{d:DesignInstance viewModels:RecentFeaturesViewModel}"
+             mc:Ignorable="d"
+             IsVisible="{Binding IsOpen}">
+
+    <!-- Overlay panel centered in parent -->
+    <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Background="{StaticResource BackgroundDarkBrush}"
+                BorderBrush="{StaticResource AccentPrimaryBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="0"
+                MinWidth="600"
+                MaxWidth="800"
+                MaxHeight="700"
+                BoxShadow="0 5 20 0 #80000000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Welcome Header -->
+                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="8,8,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Classes="TabCloseButton"
+                                Command="{Binding CloseCommand}"
+                                FontSize="{StaticResource FontSizeLarge}"
+                                Padding="8,2"/>
+                        <TextBlock Text="Welcome to TerminalHost"
+                                   Foreground="{StaticResource TextBrightBrush}"
+                                   FontSize="{StaticResource FontSizeLarge}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+
+                <!-- Section Header -->
+                <Border Grid.Row="1" Padding="20,12,20,8">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="What's New"
+                                   Foreground="{StaticResource SyntaxCyanBrush}"
+                                   FontSize="{StaticResource FontSizeNormal}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <!-- Unseen count badge -->
+                        <Border Background="#2D7D46"
+                                CornerRadius="8"
+                                Padding="6,2"
+                                Margin="8,0,0,0"
+                                IsVisible="{Binding HasUnseenFeatures}">
+                            <TextBlock Text="{Binding UnseenCount, StringFormat={}{0} new}"
+                                       Foreground="White"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       FontWeight="Bold"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Feature List -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="20,0,20,16">
+                    <ItemsControl ItemsSource="{Binding WeekGroups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="domain:FeatureWeekGroup">
+                                <StackPanel Margin="0,0,0,16">
+                                    <!-- Week Header -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding WeekLabel}"
+                                                   Foreground="{StaticResource TextDimmedBrush}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                        <!-- NEW badge on week header -->
+                                        <Border Background="#2D7D46"
+                                                CornerRadius="3"
+                                                Padding="6,2"
+                                                Margin="8,0,0,0"
+                                                IsVisible="{Binding HasNewFeatures}">
+                                            <TextBlock Text="NEW"
+                                                       Foreground="White"
+                                                       FontSize="10"
+                                                       FontWeight="Bold"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Feature Items -->
+                                    <ItemsControl ItemsSource="{Binding Features}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="domain:FeatureEntry">
+                                                <Border Background="{StaticResource BackgroundMediumBrush}"
+                                                        CornerRadius="4"
+                                                        Padding="12,8"
+                                                        Margin="0,0,0,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="28"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Icon -->
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding Command.Icon}"
+                                                                   FontSize="{StaticResource FontSizeNormal}"
+                                                                   VerticalAlignment="Center"/>
+
+                                                        <!-- Name + Description -->
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,8,0">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Command.Name}"
+                                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                                           FontSize="{StaticResource FontSizeNormal}"
+                                                                           FontWeight="Medium"/>
+                                                                <!-- NEW dot for individual items -->
+                                                                <Ellipse Width="6" Height="6"
+                                                                         Fill="#2D7D46"
+                                                                         Margin="6,0,0,0"
+                                                                         VerticalAlignment="Center"
+                                                                         IsVisible="{Binding IsNew}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Command.Description}"
+                                                                       Foreground="{StaticResource TextDimmedBrush}"
+                                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+
+                                                        <!-- Shortcut badge -->
+                                                        <Border Grid.Column="2"
+                                                                Background="{StaticResource BackgroundLightBrush}"
+                                                                CornerRadius="3"
+                                                                Padding="6,2"
+                                                                Margin="0,0,8,0"
+                                                                VerticalAlignment="Center"
+                                                                IsVisible="{Binding Command.Shortcut, Converter={StaticResource NullToBoolConverter}}">
+                                                            <TextBlock Text="{Binding Command.DisplayShortcut}"
+                                                                       Foreground="{StaticResource TextDimmedBrush}"
+                                                                       FontSize="{StaticResource FontSizeTiny}"
+                                                                       FontFamily="{StaticResource FontFamilyMonospace}"/>
+                                                        </Border>
+
+                                                        <!-- Open Button -->
+                                                        <Button Grid.Column="3"
+                                                                Content="Open"
+                                                                Classes="TerminalSwitchButton"
+                                                                Command="{Binding DataContext.ExecuteFeatureCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding Command}"
+                                                                Padding="10,4"
+                                                                FontSize="{StaticResource FontSizeSmall}"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Footer -->
+                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="16,10" CornerRadius="0,0,8,8">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Text="Press Escape or Cmd+F1 to close"/>
+                        <TextBlock Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Text="TerminalHost"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

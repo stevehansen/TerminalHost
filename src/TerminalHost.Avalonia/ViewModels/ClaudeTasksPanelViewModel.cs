@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for Claude Tasks panel (Cmd+Shift+K) - shows Claude Code task activity in real-time.
 /// Supports Panel, Popup, and Window display states.
 /// Provides manual task creation and real-time progress monitoring.
-/// Reads tasks from Claude Code's ~/.claude/tasks/ folder.
+/// Reads tasks from Claude Code's ~/.claude/todos/ folder.
 /// </summary>
 public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 {
@@ -22,6 +23,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly ITaskService _taskService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly ICollabService? _collabService;
 
     #region IPanelableViewModel Implementation
 
@@ -167,6 +169,24 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     /// </summary>
     private string? _currentWorkspacePath;
 
+    /// <summary>
+    /// Active collaboration topics from the MCP collab service.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCollabTopics))]
+    private ObservableCollection<CollabTopic> _collabTopics = [];
+
+    /// <summary>
+    /// Recent collaboration messages across all topics (latest 10).
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<CollabMessage> _recentCollabMessages = [];
+
+    /// <summary>
+    /// Whether there are any active collab topics.
+    /// </summary>
+    public bool HasCollabTopics => CollabTopics.Count > 0;
+
     #endregion
 
     private readonly MainViewModel _mainViewModel;
@@ -176,13 +196,15 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         IClaudeTaskFileService? claudeTaskFileService,
         ITaskService taskService,
         IDispatcherService dispatcherService,
-        MainViewModel mainViewModel)
+        MainViewModel mainViewModel,
+        ICollabService? collabService = null)
     {
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _claudeTaskFileService = claudeTaskFileService;
         _taskService = taskService;
         _dispatcherService = dispatcherService;
         _mainViewModel = mainViewModel;
+        _collabService = collabService;
 
         // Set defaults - defaults to docked Panel
         DisplayState = PanelDisplayState.Panel;
@@ -201,16 +223,51 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
             _claudeTaskFileService.TasksChanged += OnFileTasksChanged;
         }
 
+        // Subscribe to collab state changes
+        if (_collabService != null)
+        {
+            _collabService.StateChanged += OnCollabStateChanged;
+        }
+
         // Note: Panel is opened directly via ClaudeTasksPanelViewModel.Open() from MainViewModel
         // with the workspace path, rather than through an event
     }
 
     /// <summary>
-    /// Handles file-based task changes (tasks read from ~/.claude/tasks/).
+    /// Handles file-based task changes (tasks read from ~/.claude/todos/).
     /// </summary>
     private void OnFileTasksChanged(object? sender, EventArgs e)
     {
         _dispatcherService.BeginInvoke(RefreshTasks);
+    }
+
+    /// <summary>
+    /// Handles collab state changes (topics, messages, claims).
+    /// </summary>
+    private void OnCollabStateChanged()
+    {
+        _dispatcherService.BeginInvoke(RefreshCollabState);
+    }
+
+    /// <summary>
+    /// Refreshes the collab topics and recent messages from the collab service.
+    /// </summary>
+    private void RefreshCollabState()
+    {
+        if (_collabService == null) return;
+
+        var topics = _collabService.GetTopics();
+
+        CollabTopics.Clear();
+        foreach (var topic in topics)
+            CollabTopics.Add(topic);
+
+        // Gather recent messages across all topics
+        // Note: We don't have a session name for the UI observer, so we just display topic metadata
+        RecentCollabMessages.Clear();
+
+        OnPropertyChanged(nameof(HasCollabTopics));
+        IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
     }
 
     #region Event Handlers
@@ -305,7 +362,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
             // Update counts and visibility
             ActiveTasksCount = ActiveTasks.Count;
-            IsEmptyStateVisible = ClaudeTasks.Count == 0;
+            IsEmptyStateVisible = ClaudeTasks.Count == 0 && !HasCollabTopics;
 
             // Notify computed properties
             OnPropertyChanged(nameof(CurrentTaskProgress));
@@ -333,7 +390,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
         var allTasks = new List<FocusTask>();
 
-        // Primarily load from file service (reads ~/.claude/tasks/)
+        // Primarily load from file service (reads ~/.claude/todos/)
         if (_claudeTaskFileService != null)
         {
             allTasks.AddRange(_claudeTaskFileService.GetAllTasks());
@@ -384,7 +441,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
         CurrentTask = ActiveTasks.FirstOrDefault();
         ActiveTasksCount = ActiveTasks.Count;
-        IsEmptyStateVisible = ClaudeTasks.Count == 0;
+        IsEmptyStateVisible = ClaudeTasks.Count == 0 && !HasCollabTopics;
     }
 
     /// <summary>
@@ -516,7 +573,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         }
 
         ActiveTasksCount = ActiveTasks.Count;
-        IsEmptyStateVisible = ClaudeTasks.Count == 0;
+        IsEmptyStateVisible = ClaudeTasks.Count == 0 && !HasCollabTopics;
     }
 
     /// <summary>
@@ -579,6 +636,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     public void OnOpened()
     {
         RefreshTasks();
+        RefreshCollabState();
     }
 
     /// <summary>
@@ -605,11 +663,12 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 
     /// <summary>
     /// Checks if a task belongs to the specified workspace.
+    /// Tasks without project paths are excluded (session not yet indexed).
     /// </summary>
     private static bool IsTaskForWorkspace(FocusTask task, string workspacePath)
     {
         if (task.ProjectPaths == null || task.ProjectPaths.Count == 0)
-            return true; // Tasks without project paths are shown everywhere
+            return false;
 
         var normalizedWorkspace = System.IO.Path.GetFullPath(workspacePath).TrimEnd(System.IO.Path.DirectorySeparatorChar);
         return task.ProjectPaths.Any(p =>

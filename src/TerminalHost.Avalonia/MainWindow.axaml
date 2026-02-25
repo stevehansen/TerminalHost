@@ -162,6 +162,12 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
 
+                <!-- Git Tags - Center -->
+                <popups:GitTagsView
+                    x:Name="GitTagsPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
                 <!-- Scratch Pad - Center -->
                 <views:ScratchPadView
                     x:Name="ScratchPadPopup"
@@ -227,6 +233,26 @@
                     x:Name="PrReviewPopup"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch" />
+
+                <!-- Recent Features / What's New - Center -->
+                <popups:RecentFeaturesView
+                    x:Name="RecentFeaturesPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Branch Comparison - Center -->
+                <popups:BranchComparisonView
+                    x:Name="BranchComparisonPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Merge Conflict - Center -->
+                <popups:MergeConflictView
+                    x:Name="MergeConflictPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Unified Git Panel renders via center panel DataTemplate (App.axaml) -->
             </Panel>
         </Grid>
     </Grid>

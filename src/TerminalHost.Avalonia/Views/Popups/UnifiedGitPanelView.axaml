@@ -1,0 +1,121 @@
+<UserControl x:Class="TerminalHost.Views.Popups.UnifiedGitPanelView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             d:DataContext="{d:DesignInstance vm:UnifiedGitPanelViewModel}"
+             mc:Ignorable="d">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Tab Strip -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource BackgroundDarkestBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="4,0">
+            <DockPanel>
+                <!-- Refresh button on the right -->
+                <Button DockPanel.Dock="Right"
+                        Content="Refresh"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding RefreshCurrentTabCommand}"
+                        ToolTip.Tip="Refresh current view"
+                        Margin="0,0,4,0"
+                        Padding="8,4"
+                        FontSize="{DynamicResource FontSizeSmall}"
+                        VerticalAlignment="Center"/>
+
+                <!-- Tab buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Content="Branches"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.Branches}"
+                            FontWeight="{Binding IsBranchesTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                    <Button Content="Changes"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.Changes}"
+                            FontWeight="{Binding IsChangesTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                    <Button Content="History"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.History}"
+                            FontWeight="{Binding IsHistoryTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                    <Button Content="Stash"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.Stash}"
+                            FontWeight="{Binding IsStashTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                    <Button Content="Tags"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.Tags}"
+                            FontWeight="{Binding IsTagsTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                    <Button Content="Compare"
+                            Command="{Binding SwitchToTabCommand}"
+                            CommandParameter="{x:Static vm:GitPanelTab.Comparison}"
+                            FontWeight="{Binding IsComparisonTabActive, Converter={StaticResource BoolToFontWeightConverter}}"
+                            Classes="TerminalSwitchButton"
+                            Padding="10,6"
+                            FontSize="{DynamicResource FontSizeSmall}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Tab Content -->
+        <Grid Grid.Row="1">
+            <!-- Branches Tab Content -->
+            <ContentControl Content="{Binding BranchesVM}"
+                            IsVisible="{Binding IsBranchesTabActive}"/>
+
+            <!-- Changes Tab Content -->
+            <ContentControl Content="{Binding ChangesVM}"
+                            IsVisible="{Binding IsChangesTabActive}"/>
+
+            <!-- History Tab Content -->
+            <ContentControl Content="{Binding HistoryVM}"
+                            IsVisible="{Binding IsHistoryTabActive}"/>
+
+            <!-- Stash Tab Content -->
+            <ContentControl Content="{Binding StashVM}"
+                            IsVisible="{Binding IsStashTabActive}"/>
+
+            <!-- Tags Tab Content -->
+            <ContentControl Content="{Binding TagsVM}"
+                            IsVisible="{Binding IsTagsTabActive}"/>
+
+            <!-- Comparison Tab Content -->
+            <ContentControl Content="{Binding ComparisonVM}"
+                            IsVisible="{Binding IsComparisonTabActive}"/>
+        </Grid>
+
+        <!-- Loading overlay -->
+        <Border Grid.RowSpan="2"
+                Background="#80000000"
+                IsVisible="{Binding IsLoading}"
+                IsHitTestVisible="{Binding IsLoading}">
+            <TextBlock Text="Loading..."
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       FontSize="{DynamicResource FontSizeNormal}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</UserControl>

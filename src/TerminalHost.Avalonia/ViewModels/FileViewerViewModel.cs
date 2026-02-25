@@ -28,10 +28,28 @@ public partial class FileViewerViewModel : ObservableObject
     private IPlatformTimer? _markdownDebounceTimer;
     private const int MarkdownDebounceMs = 300;
 
+    // Maximum file size for text viewing/editing (5 MB)
+    private const long MaxViewerFileSize = 5 * 1024 * 1024;
+
     // Image file extensions
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif"
+    };
+
+    // Binary file extensions (non-image)
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".psd", ".ai", ".eps", ".raw", ".cr2", ".nef", ".heic", ".avif",
+        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a",
+        ".mp4", ".avi", ".mkv", ".mov", ".webm", ".wmv", ".flv", ".m4v",
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".zst",
+        ".exe", ".dll", ".so", ".dylib", ".msi", ".app", ".deb", ".rpm",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".ttf", ".otf", ".woff", ".woff2", ".eot",
+        ".db", ".sqlite", ".sqlite3",
+        ".bin", ".dat", ".class", ".pyc", ".pyo", ".o", ".obj", ".lib", ".a",
+        ".nupkg", ".snupkg", ".whl",
     };
 
     [ObservableProperty]
@@ -171,6 +189,44 @@ public partial class FileViewerViewModel : ObservableObject
             LoadImage(filePath);
             IsOpen = true;
             return;
+        }
+
+        // Check if it's a non-image binary file
+        if (BinaryExtensions.Contains(extension))
+        {
+            IsImageMode = false;
+            ImageSource = null;
+            ImageInfo = "";
+            Mode = FileViewerMode.Preview;
+            PreviewContent = "";
+            PreviewError = $"Binary file: {FileName}\n\nThis file type cannot be displayed as text.";
+            Info = "Binary file";
+            IsOpen = true;
+            OnPropertyChanged(nameof(IsPreviewMode));
+            return;
+        }
+
+        // Check file size before attempting to load
+        if (_fileSystem.FileExists(filePath))
+        {
+            try
+            {
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Length > MaxViewerFileSize)
+                {
+                    IsImageMode = false;
+                    ImageSource = null;
+                    ImageInfo = "";
+                    Mode = FileViewerMode.Preview;
+                    PreviewContent = "";
+                    PreviewError = $"File too large to display ({fileInfo.Length / 1024.0 / 1024.0:F1} MB).\n\nMaximum supported size is {MaxViewerFileSize / 1024.0 / 1024.0:F0} MB.";
+                    Info = $"{fileInfo.Length / 1024.0 / 1024.0:F1} MB - Too large";
+                    IsOpen = true;
+                    OnPropertyChanged(nameof(IsPreviewMode));
+                    return;
+                }
+            }
+            catch { /* ignore - file might be inaccessible */ }
         }
 
         // Reset image mode for text files

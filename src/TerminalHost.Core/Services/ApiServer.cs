@@ -112,16 +112,29 @@ public class ApiServer : IApiServer
             throw new InvalidOperationException("API key is required when binding to a non-loopback address.");
         }
 
-        var prefix = $"http://{apiSettings.BindAddress}:{apiSettings.Port}/";
+        var port = apiSettings.Port;
 
         try
         {
             _listener = new HttpListener();
-            _listener.Prefixes.Add(prefix);
+
+            // On macOS, the managed HttpListener matches the Host header against the prefix host.
+            // If we bind to "127.0.0.1" but the client connects via "localhost", the Host header
+            // won't match and HttpListener returns its own 404 HTML. Add both loopback variants.
+            if (apiSettings.BindAddress is "127.0.0.1" or "localhost")
+            {
+                _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+                _listener.Prefixes.Add($"http://localhost:{port}/");
+            }
+            else
+            {
+                _listener.Prefixes.Add($"http://{apiSettings.BindAddress}:{port}/");
+            }
+
             _listener.Start();
 
             _cts = new CancellationTokenSource();
-            BaseUrl = $"http://{(apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress)}:{apiSettings.Port}";
+            BaseUrl = $"http://{(apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress)}:{port}";
             IsRunning = true;
 
             _listenerTask = Task.Run(() => ListenLoop(_cts.Token));
@@ -217,10 +230,18 @@ public class ApiServer : IApiServer
             var path = request.Url?.AbsolutePath ?? "/";
             var method = request.HttpMethod;
 
-            // MCP endpoint accepts POST
-            if (path == "/api/mcp" && method == "POST")
+            // MCP endpoint — POST for JSON-RPC, GET returns 405 per MCP Streamable HTTP spec
+            if (path == "/api/mcp")
             {
-                await HandleMcpAsync(request, response);
+                if (method == "POST")
+                {
+                    await HandleMcpAsync(request, response);
+                    return;
+                }
+                // GET /api/mcp is allowed by spec to return 405 if server doesn't offer SSE on this endpoint
+                response.StatusCode = 405;
+                response.Headers.Add("Allow", "POST");
+                response.Close();
                 return;
             }
 

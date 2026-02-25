@@ -1,0 +1,96 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:interfaces="clr-namespace:TerminalHost.Core.Interfaces;assembly=TerminalHost.Core"
+        mc:Ignorable="d"
+        x:Class="TerminalHost.Views.PanelWindow"
+        Title="{Binding PanelTitle}"
+        Width="600" Height="500"
+        MinWidth="300" MinHeight="250"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        d:DataContext="{d:DesignInstance Type=interfaces:IPanelableViewModel}">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </Window.KeyBindings>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Header with dock button -->
+        <Border Grid.Row="0"
+                Background="{StaticResource BackgroundMediumBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                    <!-- Custom header commands from panel -->
+                    <ItemsControl ItemsSource="{Binding HeaderCommands}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding Icon}"
+                                        ToolTip.Tip="{Binding Tooltip}"
+                                        Command="{Binding Command}"
+                                        Padding="6,2"
+                                        Background="Transparent"
+                                        Foreground="{StaticResource TextSecondaryBrush}"
+                                        FontSize="12"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Separator when header commands exist -->
+                    <Border Width="1"
+                            Background="{StaticResource BorderSubtleBrush}"
+                            Margin="0,4"
+                            IsVisible="{Binding HeaderCommands, Converter={StaticResource NullToCollapsedConverter}}"/>
+
+                    <!-- Dock button -->
+                    <Button Content="&#x25E7;"
+                            Click="DockButton_Click"
+                            ToolTip.Tip="Dock back to panel"
+                            FontSize="14"
+                            Padding="8,4"
+                            Background="Transparent"
+                            Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Panel icon + title -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PanelIcon}"
+                               FontSize="14"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding PanelTitle}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Panel Content - uses DataTemplates from App.axaml -->
+        <ContentControl Grid.Row="1" Content="{Binding}"/>
+
+        <!-- Status bar (only shown when StatusText is not empty) -->
+        <Border Grid.Row="2"
+                Background="{StaticResource BackgroundMediumBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="8,4"
+                IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding StatusText}"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="{StaticResource FontSizeMicro}"
+                       TextTrimming="CharacterEllipsis"/>
+        </Border>
+    </Grid>
+</Window>

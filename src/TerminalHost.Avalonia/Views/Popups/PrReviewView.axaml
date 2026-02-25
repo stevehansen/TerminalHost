@@ -17,11 +17,19 @@
         CloseCommand="{Binding CloseCommand}">
 
         <controls:DraggablePopup.HeaderRightContent>
-            <Button Content="Open in Browser"
-                    Classes="TerminalSwitchButton"
-                    Command="{Binding OpenInBrowserCommand}"
-                    Padding="8,4"
-                    Margin="0,0,8,0"/>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="✨ AI Review"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding RunAiReviewCommand}"
+                        IsEnabled="{Binding !IsRunningAiReview}"
+                        Padding="8,4"
+                        Margin="0,0,8,0"/>
+                <Button Content="Open in Browser"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding OpenInBrowserCommand}"
+                        Padding="8,4"
+                        Margin="0,0,8,0"/>
+            </StackPanel>
         </controls:DraggablePopup.HeaderRightContent>
 
         <controls:DraggablePopup.PopupContent>
@@ -178,10 +186,11 @@
                         </Grid>
                     </Border>
 
-                    <!-- Diff Viewer and Comments -->
+                    <!-- Diff Viewer, AI Review, and Comments -->
                     <Grid Grid.Column="1">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
@@ -189,8 +198,78 @@
                         <!-- Diff Viewer -->
                         <controls:DiffViewer Grid.Row="0" DiffText="{Binding DiffContent}" />
 
-                        <!-- Comments Header Bar -->
+                        <!-- AI Review Findings -->
                         <Border Grid.Row="1"
+                                Background="{StaticResource BackgroundDarkBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="0,1,0,0"
+                                IsVisible="{Binding HasAiReview}">
+                            <StackPanel Margin="8,4">
+                                <!-- Header with toggle -->
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Button Command="{Binding ToggleAiReviewCommand}"
+                                            Classes="TerminalSwitchButton"
+                                            Padding="8,4"
+                                            HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding IsAiReviewExpanded, Converter={StaticResource BoolToExpandCollapseTextConverter}}"
+                                                       FontSize="{StaticResource FontSizeTiny}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text=" AI Review Findings"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="{StaticResource FontSizeTiny}"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0,0,0"/>
+                                            <TextBlock FontSize="{StaticResource FontSizeTiny}"
+                                                       Foreground="{StaticResource TextDimmedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0,0,0">
+                                                <Run Text="("/>
+                                                <Run Text="{Binding AiReviewFindings.Count, Mode=OneWay}"/>
+                                                <Run Text=")"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="&#x1F4CB;" Classes="InlineAction"
+                                            Command="{Binding CopyAiReviewFindingsCommand}"
+                                            ToolTip.Tip="Copy findings to clipboard"
+                                            VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Findings list -->
+                                <ScrollViewer MaxHeight="200"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              IsVisible="{Binding IsAiReviewExpanded}"
+                                              Margin="0,4,0,0">
+                                    <ItemsControl ItemsSource="{Binding AiReviewFindings}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2">
+                                                    <TextBlock Text="{Binding Emoji}" Width="20"
+                                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                                    <TextBlock Text="{Binding Location}"
+                                                               Foreground="{StaticResource SyntaxBlueBrush}"
+                                                               FontSize="{StaticResource FontSizeTiny}"
+                                                               Width="120"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip.Tip="{Binding Location}"
+                                                               IsVisible="{Binding HasLocation}"/>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Comments Header Bar -->
+                        <Border Grid.Row="2"
                                 Background="{StaticResource BackgroundMediumBrush}"
                                 BorderBrush="{StaticResource BorderSubtleBrush}"
                                 BorderThickness="0,1,0,0">
@@ -241,7 +320,7 @@
                         </Border>
 
                         <!-- Comments Panel -->
-                        <Border Grid.Row="2"
+                        <Border Grid.Row="3"
                                 Background="{StaticResource BackgroundDarkBrush}"
                                 BorderBrush="{StaticResource BorderSubtleBrush}"
                                 BorderThickness="0,1,0,0"
