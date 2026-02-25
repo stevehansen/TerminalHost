@@ -143,6 +143,16 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool IsWhisperEngine => VoiceSpeechEngineIndex == 1;
 
+    // Status Overlay settings
+    [ObservableProperty]
+    private bool _overlayAutoShowOnUnfocus;
+
+    [ObservableProperty]
+    private int _overlaySizeIndex;
+
+    [ObservableProperty]
+    private double _overlayOpacity = 0.9;
+
     [ObservableProperty]
     private string _customCommand = "";
 
@@ -548,6 +558,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             VoiceWhisperModelSizeIndex = (int)config.Settings.Voice.WhisperModelSize;
             VoiceWhisperLanguage = config.Settings.Voice.WhisperLanguage;
 
+            // Status Overlay settings
+            OverlayAutoShowOnUnfocus = config.Settings.StatusOverlay.AutoShowOnUnfocus;
+            OverlaySizeIndex = (int)config.Settings.StatusOverlay.Size;
+            OverlayOpacity = config.Settings.StatusOverlay.Opacity;
+
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
             CustomCommandName = config.Settings.CustomCommandName;
@@ -627,6 +642,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Voice.SpeechEngine = (VoiceRecognitionEngine)VoiceSpeechEngineIndex;
             config.Settings.Voice.WhisperModelSize = (WhisperModelSize)VoiceWhisperModelSizeIndex;
             config.Settings.Voice.WhisperLanguage = VoiceWhisperLanguage;
+
+            // Status Overlay settings
+            config.Settings.StatusOverlay.AutoShowOnUnfocus = OverlayAutoShowOnUnfocus;
+            config.Settings.StatusOverlay.Size = (StatusOverlaySize)OverlaySizeIndex;
+            config.Settings.StatusOverlay.Opacity = OverlayOpacity;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -739,6 +759,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnVoiceSpeechEngineIndexChanged(int value) { OnPropertyChanged(nameof(IsWhisperEngine)); MarkDirtyFromRichMode(); }
     partial void OnVoiceWhisperModelSizeIndexChanged(int value) => MarkDirtyFromRichMode();
     partial void OnVoiceWhisperLanguageChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnOverlayAutoShowOnUnfocusChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnOverlaySizeIndexChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnOverlayOpacityChanged(double value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

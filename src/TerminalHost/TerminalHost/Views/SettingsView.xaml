@@ -636,6 +636,46 @@
                         </StackPanel>
                         <TextBlock Text="Minimum confidence required to match a command. Lower values match more loosely; higher values require closer matches. Commands below threshold show alternatives instead."
                                    Style="{StaticResource HelpText}"/>
+
+                        <!-- Status Overlay Settings -->
+                        <TextBlock Text="STATUS OVERLAY"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,12"/>
+
+                        <CheckBox Content="Auto-show when window loses focus"
+                                  IsChecked="{Binding OverlayAutoShowOnUnfocus}"
+                                  Style="{StaticResource FormCheckBox}"
+                                  ToolTip="Automatically show the floating status overlay when TerminalHost is not focused, and hide it when focused."/>
+                        <TextBlock Text="The overlay appears on top of other windows showing terminal activity state. Toggle manually with Ctrl+Shift+Y or via command palette."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <TextBlock Text="DEFAULT SIZE" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                        <ComboBox SelectedIndex="{Binding OverlaySizeIndex}"
+                                  Style="{StaticResource DarkComboBox}"
+                                  ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                            <ComboBoxItem Content="Small (icon only)"/>
+                            <ComboBoxItem Content="Medium (icon + text)"/>
+                        </ComboBox>
+                        <TextBlock Text="Small shows just the status icon. Medium adds a text description of the current state."
+                                   Style="{StaticResource HelpText}"/>
+
+                        <TextBlock Text="OPACITY" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Slider Width="200"
+                                    Minimum="0.3" Maximum="1.0"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding OverlayOpacity}"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding OverlayOpacity, StringFormat={}{0:P0}}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Background opacity of the overlay window. Lower values make it more transparent."
+                                   Style="{StaticResource HelpText}"/>
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->
