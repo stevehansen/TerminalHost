@@ -42,6 +42,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Panel-Based Layout**: Center panels replace terminals for Git GUI, PR Review, Test Results, File Viewer, Search, Markdown Preview, Branch Comparison. Right sidebar hosts File Explorer, Claude Tasks, Detected Links, Scratch Pad. All panel state persisted across restarts. Terminals continue running in background when center panel is active.
 - [x] **What's New Page**: Empty state shows recently added features grouped by week with NEW badges. Also available as center panel via Ctrl+F1 or command palette. All palette commands have `IntroducedOn` dates.
 - [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Two engines: Windows Speech (default, zero setup) and Whisper (opt-in, open-vocabulary, multi-language via whisper.cpp). Settings in Ctrl+, General section.
+- [x] **Status Overlay**: Floating always-on-top window showing terminal activity state (Ctrl+Shift+Y). Displays active/waiting/completed/idle with animated icons. Draggable, non-focus-stealing, click to restore main window. Multiple instances for multi-monitor setups. Auto-show/hide on window focus change (optional). Command palette commands for toggle/create/close.
 
 ### Deferred Features
 
@@ -471,6 +472,7 @@ EasyTerminalControl doesn't have a native working directory property. The factor
 - `F1`: Show help window
 - `Ctrl+F1`: What's New / Recent Features
 - `F4`: Toggle voice commands (start/stop listening)
+- `Ctrl+Shift+Y`: Toggle floating status overlay
 
 ### Project Runner
 - `F5`: Start/Stop project run

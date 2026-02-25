@@ -71,6 +71,7 @@ public static class ShortcutConflictService
             new("Ctrl+F1", "What's New / Recent Features"),
             new("Ctrl+M", "Markdown preview (center panel)"),
             new("F4", "Toggle voice commands"),
+            new("Ctrl+Shift+Y", "Toggle status overlay"),
         ]),
 
         new("Git & GitHub",

@@ -640,6 +640,12 @@ public class AppSettings
     public VoiceSettings Voice { get; set; } = new();
 
     /// <summary>
+    /// Floating status overlay settings.
+    /// </summary>
+    [JsonPropertyName("statusOverlay")]
+    public StatusOverlaySettings StatusOverlay { get; set; } = new();
+
+    /// <summary>
     /// REST API, SSE streaming, and webhook settings.
     /// </summary>
     [JsonPropertyName("api")]
@@ -947,4 +953,71 @@ public class VoiceSettings
     /// </summary>
     [JsonPropertyName("whisperLanguage")]
     public string WhisperLanguage { get; set; } = "auto";
+}
+
+/// <summary>
+/// Size mode for the floating status overlay.
+/// </summary>
+public enum StatusOverlaySize
+{
+    /// <summary>Icon-only mode (~48x48).</summary>
+    Small,
+    /// <summary>Icon plus text mode (~220x48).</summary>
+    Medium
+}
+
+/// <summary>
+/// Persisted position for a single status overlay instance.
+/// </summary>
+public class StatusOverlayInstanceSettings
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("left")]
+    public double Left { get; set; } = double.NaN;
+
+    [JsonPropertyName("top")]
+    public double Top { get; set; } = double.NaN;
+
+    [JsonPropertyName("size")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public StatusOverlaySize Size { get; set; } = StatusOverlaySize.Medium;
+}
+
+/// <summary>
+/// Settings for the floating status overlay feature.
+/// </summary>
+public class StatusOverlaySettings
+{
+    /// <summary>
+    /// Whether the status overlay feature is enabled.
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>
+    /// Auto-show overlay when the main window loses focus, auto-hide when focused.
+    /// </summary>
+    [JsonPropertyName("autoShowOnUnfocus")]
+    public bool AutoShowOnUnfocus { get; set; } = false;
+
+    /// <summary>
+    /// Default size for new overlay instances.
+    /// </summary>
+    [JsonPropertyName("size")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public StatusOverlaySize Size { get; set; } = StatusOverlaySize.Medium;
+
+    /// <summary>
+    /// Opacity of overlay windows (0.0 to 1.0).
+    /// </summary>
+    [JsonPropertyName("opacity")]
+    public double Opacity { get; set; } = 0.9;
+
+    /// <summary>
+    /// Persisted overlay instances with their positions.
+    /// </summary>
+    [JsonPropertyName("instances")]
+    public List<StatusOverlayInstanceSettings> Instances { get; set; } = [];
 }

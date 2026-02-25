@@ -261,6 +261,7 @@ public partial class App : Application
         services.AddSingleton<IApiServer, ApiServer>();
         services.AddSingleton<IClipboardService, TerminalHost.Windows.Services.ClipboardService>();
         services.AddSingleton<IToastService, ToastService>();
+        services.AddSingleton<StatusOverlayService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, InvisibleChangeService>();

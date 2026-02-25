@@ -1,0 +1,102 @@
+<Window x:Class="TerminalHost.Views.StatusOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Status Overlay"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight">
+
+    <Window.Resources>
+        <!-- Spinner animation for active state -->
+        <Storyboard x:Key="SpinnerAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="SpinnerRotation"
+                             Storyboard.TargetProperty="Angle"
+                             From="0" To="360" Duration="0:0:1.2"/>
+        </Storyboard>
+
+        <!-- Pulse animation for waiting state -->
+        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="PulseScale"
+                             Storyboard.TargetProperty="ScaleX"
+                             From="1.0" To="1.15" Duration="0:0:0.8"
+                             AutoReverse="True" EasingFunction="{x:Null}"/>
+            <DoubleAnimation Storyboard.TargetName="PulseScale"
+                             Storyboard.TargetProperty="ScaleY"
+                             From="1.0" To="1.15" Duration="0:0:0.8"
+                             AutoReverse="True" EasingFunction="{x:Null}"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder"
+            Background="#E6252525"
+            CornerRadius="8"
+            Padding="10,8"
+            Cursor="Hand"
+            MouseLeftButtonDown="OnMouseLeftButtonDown"
+            MouseRightButtonDown="OnMouseRightButtonDown">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Color="Black"/>
+        </Border.Effect>
+
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Status icon area -->
+            <Grid Width="24" Height="24" VerticalAlignment="Center">
+                <!-- Spinner icon (active) -->
+                <Path x:Name="SpinnerIcon" Visibility="Collapsed"
+                      Data="M12,2 A10,10 0 0,1 22,12"
+                      Stroke="#4FC3F7" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                      Stretch="Uniform" Width="20" Height="20"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      RenderTransformOrigin="0.5,0.5">
+                    <Path.RenderTransform>
+                        <RotateTransform x:Name="SpinnerRotation" Angle="0"/>
+                    </Path.RenderTransform>
+                </Path>
+
+                <!-- Waiting icon (amber dot with pulse) -->
+                <Ellipse x:Name="WaitingIcon" Visibility="Collapsed"
+                         Width="16" Height="16" Fill="#FFB74D"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         RenderTransformOrigin="0.5,0.5">
+                    <Ellipse.RenderTransform>
+                        <ScaleTransform x:Name="PulseScale" ScaleX="1" ScaleY="1"/>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+
+                <!-- Completed icon (green check) -->
+                <Path x:Name="CompletedIcon" Visibility="Collapsed"
+                      Data="M4,12 L9,17 L20,6"
+                      Stroke="#81C784" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      Stretch="Uniform" Width="18" Height="18"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- Idle icon (dim circle) -->
+                <Ellipse x:Name="IdleIcon" Visibility="Visible"
+                         Width="12" Height="12" Fill="#666666"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Status text (medium mode only) -->
+            <TextBlock x:Name="StatusText"
+                       Margin="8,0,0,0"
+                       Foreground="#CCCCCC"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       Text="Idle"/>
+        </StackPanel>
+
+        <Border.ContextMenu>
+            <ContextMenu Style="{StaticResource DarkContextMenu}">
+                <MenuItem x:Name="ToggleSizeMenuItem" Header="Toggle Size (Small/Medium)" Click="OnToggleSize"/>
+                <Separator/>
+                <MenuItem Header="Close Overlay" Click="OnCloseOverlay"/>
+                <MenuItem Header="Close All Overlays" Click="OnCloseAllOverlays"/>
+            </ContextMenu>
+        </Border.ContextMenu>
+    </Border>
+</Window>

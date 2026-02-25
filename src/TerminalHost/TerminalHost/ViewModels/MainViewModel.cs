@@ -44,6 +44,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IEventAggregatorService? _eventAggregator;
     private readonly IApiServer? _apiServer;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
+    private readonly StatusOverlayService? _statusOverlayService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -244,7 +245,8 @@ public partial class MainViewModel : ObservableObject
         IVoiceCommandService? voiceCommandService = null,
         IEventAggregatorService? eventAggregator = null,
         IApiServer? apiServer = null,
-        IWebhookDeliveryService? webhookDeliveryService = null)
+        IWebhookDeliveryService? webhookDeliveryService = null,
+        StatusOverlayService? statusOverlayService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -274,6 +276,7 @@ public partial class MainViewModel : ObservableObject
         _eventAggregator = eventAggregator;
         _apiServer = apiServer;
         _webhookDeliveryService = webhookDeliveryService;
+        _statusOverlayService = statusOverlayService;
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -2766,6 +2769,37 @@ public partial class MainViewModel : ObservableObject
                 Category = "API",
                 IntroducedOn = new DateOnly(2026, 2, 23),
                 Execute = () => ShowWebhookStats()
+            },
+
+            // Status Overlay commands
+            new() {
+                Id = "toggle-status-overlay",
+                Name = "Toggle Status Overlay",
+                Description = "Show or hide the floating status overlay",
+                Shortcut = "Ctrl+Shift+Y",
+                Icon = "🔔",
+                Category = "Application",
+                IntroducedOn = new DateOnly(2026, 2, 25),
+                Execute = () => _statusOverlayService?.Toggle()
+            },
+            new() {
+                Id = "new-status-overlay",
+                Name = "New Status Overlay",
+                Description = "Create an additional floating status overlay instance",
+                Icon = "🔔",
+                Category = "Application",
+                IntroducedOn = new DateOnly(2026, 2, 25),
+                Execute = () => _statusOverlayService?.CreateOverlay()
+            },
+            new() {
+                Id = "close-all-status-overlays",
+                Name = "Close All Status Overlays",
+                Description = "Close all floating status overlay windows",
+                Icon = "🔔",
+                Category = "Application",
+                IntroducedOn = new DateOnly(2026, 2, 25),
+                Execute = () => _statusOverlayService?.CloseAll(),
+                CanExecute = () => _statusOverlayService?.OverlayCount > 0
             }
         ];
     }

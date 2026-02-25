@@ -51,13 +51,14 @@ public partial class MainWindow : Window
     private readonly IToastService _toastService;
     private readonly ITaskbarProgressService? _taskbarProgressService;
     private readonly ISoundService? _soundService;
+    private readonly StatusOverlayService _statusOverlayService;
     private bool _isExiting;
     private bool _isWindowActivated = true;
     private Services.PanelWindowManager? _panelWindowManager;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, IFileSystem fileSystem, IToastService toastService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -91,6 +92,7 @@ public partial class MainWindow : Window
         _toastService = toastService;
         _taskbarProgressService = taskbarProgressService;
         _soundService = soundService;
+        _statusOverlayService = statusOverlayService;
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -480,6 +482,9 @@ public partial class MainWindow : Window
             taskbarService.Initialize(windowInteropHelper.Handle);
         }
 
+        // Initialize status overlay service
+        _statusOverlayService.Initialize(this);
+
         // Subscribe to window activation events to clear glow when focused
         Activated += OnWindowActivated;
         Deactivated += OnWindowDeactivated;
@@ -499,6 +504,7 @@ public partial class MainWindow : Window
         }
 
         SaveWindowState();
+        _statusOverlayService.Shutdown();
         _viewModel.Shutdown();
 
         Application.Current.Shutdown();
@@ -969,6 +975,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.L && Keyboard.Modifiers == ModifierKeys.Control)
         {
             _viewModel.ToggleLayoutModeCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+Shift+Y: Toggle status overlay
+        else if (e.Key == Key.Y && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _statusOverlayService.Toggle();
             e.Handled = true;
         }
         // Ctrl+Shift+D: Git Pull
@@ -1966,6 +1978,7 @@ public partial class MainWindow : Window
         _isWindowActivated = true;
         _taskbarProgressService?.ClearGlow();
         _soundService?.SetAppFocused(true);
+        _statusOverlayService.OnMainWindowActivated();
     }
 
     /// <summary>
@@ -1978,6 +1991,7 @@ public partial class MainWindow : Window
         _soundService?.SetAppFocused(false);
         // Update taskbar state immediately based on current terminal activity
         UpdateTaskbarGlow();
+        _statusOverlayService.OnMainWindowDeactivated();
     }
 
     /// <summary>
@@ -2034,9 +2048,13 @@ public partial class MainWindow : Window
     /// <summary>
     /// Updates the taskbar glow based on current terminal activity state.
     /// Only shows glow when window is NOT active (user is in another app).
+    /// Also updates the floating status overlay with the current state.
     /// </summary>
     private void UpdateTaskbarGlow()
     {
+        // Always update the status overlay (it's visible when window is unfocused)
+        UpdateStatusOverlay();
+
         if (_taskbarProgressService == null || _isWindowActivated)
         {
             // No service or window is active - no glow needed
@@ -2072,6 +2090,41 @@ public partial class MainWindow : Window
         {
             // Non-terminal tab selected (settings, dashboard, etc.)
             _taskbarProgressService.ClearGlow();
+        }
+    }
+
+    /// <summary>
+    /// Updates the floating status overlay with current terminal activity state.
+    /// </summary>
+    private void UpdateStatusOverlay()
+    {
+        if (_statusOverlayService.OverlayCount == 0) return;
+
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            var aiName = _configService.Load().Settings.CustomCommandName;
+            var projectName = System.IO.Path.GetFileName(terminalTab.Pair.WorkingDirectory);
+
+            if (terminalTab.IsWaitingForInput)
+            {
+                _statusOverlayService.UpdateState("waiting", "Waiting for input");
+            }
+            else if (terminalTab.IsAnyTerminalActive)
+            {
+                _statusOverlayService.UpdateState("active", $"{aiName} is working");
+            }
+            else if (terminalTab.HasUnreadActivity)
+            {
+                _statusOverlayService.UpdateState("completed", "Task completed");
+            }
+            else
+            {
+                _statusOverlayService.UpdateState("idle", $"{projectName} \u2014 idle");
+            }
+        }
+        else
+        {
+            _statusOverlayService.UpdateState("idle", "Idle");
         }
     }
 

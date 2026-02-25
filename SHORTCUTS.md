@@ -47,6 +47,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
 | `F4` | Toggle voice commands | Global | Start/stop voice listening |
+| `Ctrl+Shift+Y` | Toggle status overlay | Global | Floating activity indicator |
 
 ### Git & GitHub Shortcuts (Requires Project Tab Selected)
 
@@ -206,7 +207,7 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+Q` - Available (freed from Quick Task removal)
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available
-- `Ctrl+Shift+Y` - Available
+- `Ctrl+Shift+Y` - Status overlay toggle
 - `Ctrl+Shift+Z` - Available
 
 **Note:** `Ctrl+Shift+C`, `Ctrl+Shift+L`, `Ctrl+Shift+V` are used by default Quick Commands but are user-configurable. `Ctrl+Shift+D` (Git Pull) and `Ctrl+Shift+U` (Git Push) are built-in shortcuts.
