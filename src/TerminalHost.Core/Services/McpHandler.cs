@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -43,7 +45,7 @@ public class McpHandler
     /// mcpSessionId: from Mcp-Session-Id header (may be null on first request).
     /// Returns response body + session ID to set on response.
     /// </summary>
-    public McpResult HandleRequest(string jsonBody, string? sessionHint, string? mcpSessionId)
+    public async Task<McpResult> HandleRequestAsync(string jsonBody, string? sessionHint, string? mcpSessionId, CancellationToken ct = default)
     {
         JsonRpcRequest? request;
         try
@@ -90,14 +92,19 @@ public class McpHandler
 
         _collab.EnsureSession(sessionName);
 
-        var response = request.Method switch
+        JsonRpcResponse? response;
+        if (request.Method == "tools/call")
+            response = await HandleToolsCallAsync(request, sessionName, ct);
+        else
         {
-            "initialize" => HandleInitialize(request, sessionName),
-            "notifications/initialized" => null, // notification, no response
-            "tools/list" => HandleToolsList(request, sessionName),
-            "tools/call" => HandleToolsCall(request, sessionName),
-            _ => JsonRpcResponse.ErrorResponse(request.Id, -32601, $"Method not found: {request.Method}")
-        };
+            response = request.Method switch
+            {
+                "initialize" => HandleInitialize(request, sessionName),
+                "notifications/initialized" => null, // notification, no response
+                "tools/list" => HandleToolsList(request, sessionName),
+                _ => JsonRpcResponse.ErrorResponse(request.Id, -32601, $"Method not found: {request.Method}")
+            };
+        }
 
         var body = response != null ? JsonSerializer.Serialize(response, JsonOptions) : null;
         return new McpResult(body, returnSessionId);
@@ -237,7 +244,7 @@ public class McpHandler
         });
     }
 
-    private JsonRpcResponse HandleToolsCall(JsonRpcRequest request, string session)
+    private async Task<JsonRpcResponse> HandleToolsCallAsync(JsonRpcRequest request, string session, CancellationToken ct)
     {
         if (request.Params == null)
             return JsonRpcResponse.ErrorResponse(request.Id, -32602, "Missing params");
@@ -254,33 +261,40 @@ public class McpHandler
             return JsonRpcResponse.ErrorResponse(request.Id, -32602, "Invalid params: expected 'name' and optional 'arguments'");
         }
 
-        var result = ExecuteTool(toolName, arguments, session);
+        var result = await ExecuteToolAsync(toolName, arguments, session, ct);
         return JsonRpcResponse.Success(request.Id, result);
     }
 
     #region Tool Execution
 
-    private McpCallToolResult ExecuteTool(string name, JsonElement args, string session)
+    private async Task<McpCallToolResult> ExecuteToolAsync(string name, JsonElement args, string session, CancellationToken ct)
     {
         try
         {
-            var result = name switch
+            McpCallToolResult result;
+            if (name == "read_messages")
             {
-                "set_session_name" => ExecuteSetSessionName(args, session),
-                "create_topic" => ExecuteCreateTopic(args, session),
-                "subscribe" => ExecuteSubscribe(args, session),
-                "unsubscribe" => ExecuteUnsubscribe(args, session),
-                "list_topics" => ExecuteListTopics(),
-                "send_message" => ExecuteSendMessage(args, session),
-                "read_messages" => ExecuteReadMessages(args, session),
-                "claim_file" => ExecuteClaimFile(args, session),
-                "release_file" => ExecuteReleaseFile(args, session),
-                "list_claims" => ExecuteListClaims(),
-                "set_shared" => ExecuteSetShared(args, session),
-                "get_shared" => ExecuteGetShared(args),
-                "list_shared" => ExecuteListShared(),
-                _ => ErrorResult($"Unknown tool: {name}")
-            };
+                result = await ExecuteReadMessagesAsync(args, session, ct);
+            }
+            else
+            {
+                result = name switch
+                {
+                    "set_session_name" => ExecuteSetSessionName(args, session),
+                    "create_topic" => ExecuteCreateTopic(args, session),
+                    "subscribe" => ExecuteSubscribe(args, session),
+                    "unsubscribe" => ExecuteUnsubscribe(args, session),
+                    "list_topics" => ExecuteListTopics(),
+                    "send_message" => ExecuteSendMessage(args, session),
+                    "claim_file" => ExecuteClaimFile(args, session),
+                    "release_file" => ExecuteReleaseFile(args, session),
+                    "list_claims" => ExecuteListClaims(),
+                    "set_shared" => ExecuteSetShared(args, session),
+                    "get_shared" => ExecuteGetShared(args),
+                    "list_shared" => ExecuteListShared(),
+                    _ => ErrorResult($"Unknown tool: {name}")
+                };
+            }
 
             // Append unread hints to successful results
             if (!result.IsError)
@@ -372,14 +386,16 @@ public class McpHandler
             : ErrorResult(error!);
     }
 
-    private McpCallToolResult ExecuteReadMessages(JsonElement args, string session)
+    private async Task<McpCallToolResult> ExecuteReadMessagesAsync(JsonElement args, string session, CancellationToken ct)
     {
         var topic = GetString(args, "topic");
         if (string.IsNullOrEmpty(topic))
             return ErrorResult("Missing required parameter: topic");
 
         var sinceId = GetInt(args, "since_id");
-        var (messages, cursor, error) = _collab.ReadMessages(session, topic, sinceId);
+        var timeoutMs = Math.Clamp(GetInt(args, "timeout"), 0, 300_000);
+
+        var (messages, cursor, error) = await _collab.ReadMessagesAsync(session, topic, sinceId, timeoutMs, ct);
         if (error != null)
             return ErrorResult(error);
 
@@ -557,7 +573,8 @@ public class McpHandler
             Description = "Read messages from a topic. Returns messages since the given cursor. Must be subscribed.",
             InputSchema = Schema(new[] {
                 Prop("topic", "string", "Topic to read from"),
-                Prop("since_id", "integer", "Read messages after this ID (cursor). Omit or 0 for all.") },
+                Prop("since_id", "integer", "Read messages after this ID (cursor). Omit or 0 for all."),
+                Prop("timeout", "integer", "Max ms to wait for new messages. 0 = return immediately (default).") },
                 new[] { "topic" })
         },
         new()

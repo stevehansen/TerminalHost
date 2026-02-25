@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -20,6 +22,7 @@ public class CollabService : ICollabService
     private readonly Dictionary<string, CollabSharedEntry> _shared = new(StringComparer.OrdinalIgnoreCase);
     // session → topic → last read message ID
     private readonly Dictionary<string, Dictionary<string, int>> _cursors = new();
+    private readonly Dictionary<string, List<TaskCompletionSource<bool>>> _topicWaiters = new(StringComparer.OrdinalIgnoreCase);
     private int _nextMessageId;
 
     public event Action? StateChanged;
@@ -143,6 +146,14 @@ public class CollabService : ICollabService
             // Auto-advance sender's cursor so their own messages don't show as unread
             EnsureCursor(session, topic);
             _cursors[session][topic] = msg.Id;
+
+            // Wake any long-polling readers on this topic
+            if (_topicWaiters.TryGetValue(topic, out var waiters))
+            {
+                foreach (var tcs in waiters)
+                    tcs.TrySetResult(true);
+                waiters.Clear();
+            }
         }
         RaiseChanged();
         return (true, null);
@@ -168,6 +179,75 @@ public class CollabService : ICollabService
             EnsureCursor(session, topic);
             _cursors[session][topic] = maxId;
 
+            return (msgs, maxId, null);
+        }
+    }
+
+    public async Task<(List<CollabMessage> messages, int cursor, string? error)> ReadMessagesAsync(
+        string session, string topic, int sinceId, int timeoutMs, CancellationToken ct)
+    {
+        // Fast path: check for messages immediately
+        TaskCompletionSource<bool>? tcs = null;
+        lock (_lock)
+        {
+            if (!_topics.TryGetValue(topic, out var t))
+                return (new(), 0, $"Topic '{topic}' does not exist.");
+
+            if (!t.Subscribers.Contains(session))
+                return (new(), 0, $"Session '{session}' is not subscribed to topic '{topic}'.");
+
+            var msgs = _messages
+                .Where(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase) && m.Id > sinceId)
+                .ToList();
+
+            if (msgs.Count > 0 || timeoutMs <= 0)
+            {
+                var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
+                EnsureCursor(session, topic);
+                _cursors[session][topic] = maxId;
+                return (msgs, maxId, null);
+            }
+
+            // No messages — register a waiter
+            tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!_topicWaiters.TryGetValue(topic, out var waiters))
+            {
+                waiters = new List<TaskCompletionSource<bool>>();
+                _topicWaiters[topic] = waiters;
+            }
+            waiters.Add(tcs);
+        }
+
+        // Wait outside the lock for a signal or timeout
+        using var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        ctsTimeout.CancelAfter(timeoutMs);
+        try
+        {
+            await tcs.Task.WaitAsync(ctsTimeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout or caller cancelled — remove our waiter and return whatever we have
+            lock (_lock)
+            {
+                if (_topicWaiters.TryGetValue(topic, out var waiters))
+                    waiters.Remove(tcs);
+            }
+        }
+
+        // Re-read messages under lock
+        lock (_lock)
+        {
+            if (!_topics.TryGetValue(topic, out var t))
+                return (new(), 0, $"Topic '{topic}' does not exist.");
+
+            var msgs = _messages
+                .Where(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase) && m.Id > sinceId)
+                .ToList();
+
+            var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
+            EnsureCursor(session, topic);
+            _cursors[session][topic] = maxId;
             return (msgs, maxId, null);
         }
     }

@@ -235,7 +235,7 @@ public class ApiServer : IApiServer
             {
                 if (method == "POST")
                 {
-                    await HandleMcpAsync(request, response);
+                    await HandleMcpAsync(request, response, ct);
                     return;
                 }
                 // GET /api/mcp is allowed by spec to return 405 if server doesn't offer SSE on this endpoint
@@ -731,7 +731,7 @@ public class ApiServer : IApiServer
 
     #region MCP Handler
 
-    private async Task HandleMcpAsync(HttpListenerRequest request, HttpListenerResponse response)
+    private async Task HandleMcpAsync(HttpListenerRequest request, HttpListenerResponse response, CancellationToken ct)
     {
         if (_mcpHandler == null)
         {
@@ -747,7 +747,7 @@ public class ApiServer : IApiServer
 
         var sessionHint = request.Headers["X-Session"]; // null if not provided (global config)
         var mcpSessionId = request.Headers["Mcp-Session-Id"]; // null on first request
-        var result = _mcpHandler.HandleRequest(body, sessionHint, mcpSessionId);
+        var result = await _mcpHandler.HandleRequestAsync(body, sessionHint, mcpSessionId, ct);
 
         // Set Mcp-Session-Id header if assigned
         if (!string.IsNullOrEmpty(result.McpSessionId))

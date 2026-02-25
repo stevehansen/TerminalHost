@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Core.Interfaces;
@@ -23,6 +25,7 @@ public interface ICollabService
     // Messages
     (bool ok, string? error) SendMessage(string session, string topic, string content);
     (List<CollabMessage> messages, int cursor, string? error) ReadMessages(string session, string topic, int sinceId);
+    Task<(List<CollabMessage> messages, int cursor, string? error)> ReadMessagesAsync(string session, string topic, int sinceId, int timeoutMs, CancellationToken ct);
     Dictionary<string, int> GetUnreadCounts(string session);
 
     // Claims
