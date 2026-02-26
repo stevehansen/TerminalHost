@@ -764,9 +764,9 @@ public sealed class GitStatusService : IGitStatusService
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return null;
 
-        // Get commit info with stats
+        // Get commit info with numstat (machine-readable, non-truncated file paths)
         var format = "%H|%h|%an|%ae|%cn|%ce|%ar|%aI|%s|%b|%P";
-        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"show --stat --format=\"{format}\" {hash}");
+        var output = await _gitRunner.RunGitCommandAsync(workingDirectory, $"show --numstat --format=\"{format}\" {hash}");
 
         if (string.IsNullOrEmpty(output))
             return null;
@@ -797,48 +797,67 @@ public sealed class GitStatusService : IGitStatusService
         };
 
         // Parse file stats from remaining lines
-        // Format: " filename | N +"/ "-" or "insertions(+)" / "deletions(-)" summary line
+        // --numstat format: "insertions\tdeletions\tfilepath" (tab-separated)
+        // Binary files: "-\t-\tfilepath"
+        // Renames: "insertions\tdeletions\told_path => new_path" or with {old => new} syntax
         for (int i = 1; i < lines.Length; i++)
         {
-            var line = lines[i].Trim();
-            if (string.IsNullOrEmpty(line)) continue;
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line)) continue;
 
-            // Skip the summary line like "3 files changed, 10 insertions(+), 5 deletions(-)"
-            if (line.Contains("files changed") || line.Contains("file changed"))
+            var tabParts = line.Split('\t');
+            if (tabParts.Length < 3) continue;
+
+            var isBinary = tabParts[0] == "-" && tabParts[1] == "-";
+            var insertions = int.TryParse(tabParts[0], out var ins) ? ins : 0;
+            var deletions = int.TryParse(tabParts[1], out var del) ? del : 0;
+
+            // Reconstruct path (tabs 2+ in case path contains tabs, though unlikely)
+            var filePath = string.Join('\t', tabParts.Skip(2));
+
+            // Handle rename paths: "old => new" or "{old => new}/suffix"
+            if (filePath.Contains(" => "))
             {
-                // Parse the summary
-                var insertionsMatch = Regex.Match(line, @"(\d+) insertion");
-                var deletionsMatch = Regex.Match(line, @"(\d+) deletion");
-                if (insertionsMatch.Success) details.TotalInsertions = int.Parse(insertionsMatch.Groups[1].Value);
-                if (deletionsMatch.Success) details.TotalDeletions = int.Parse(deletionsMatch.Groups[1].Value);
-                continue;
-            }
-
-            // Parse file line: " filename | N ++--" or " filename | Bin X -> Y bytes"
-            var pipeIndex = line.IndexOf('|');
-            if (pipeIndex > 0)
-            {
-                var filePath = line.Substring(0, pipeIndex).Trim();
-                var statsStr = line.Substring(pipeIndex + 1).Trim();
-
-                var file = new GitCommitFile { FilePath = filePath };
-
-                // Parse stats: count of + and - or "N ++" style
-                var plusCount = statsStr.Count(c => c == '+');
-                var minusCount = statsStr.Count(c => c == '-');
-                file.Insertions = plusCount;
-                file.Deletions = minusCount;
-
-                // Determine status from the stats
-                if (minusCount == 0 && plusCount > 0)
-                    file.Status = GitFileStatusType.Added;
-                else if (plusCount == 0 && minusCount > 0)
-                    file.Status = GitFileStatusType.Deleted;
+                var braceStart = filePath.IndexOf('{');
+                if (braceStart >= 0)
+                {
+                    var braceEnd = filePath.IndexOf('}', braceStart);
+                    var arrow = filePath.IndexOf(" => ", braceStart);
+                    if (braceEnd > arrow && arrow > braceStart)
+                    {
+                        var prefix = filePath.Substring(0, braceStart);
+                        var newPart = filePath.Substring(arrow + 4, braceEnd - arrow - 4);
+                        var suffix = filePath.Substring(braceEnd + 1);
+                        filePath = prefix + newPart + suffix;
+                    }
+                }
                 else
-                    file.Status = GitFileStatusType.Modified;
-
-                details.Files.Add(file);
+                {
+                    // Simple "old => new" format - take the new path
+                    filePath = filePath.Substring(filePath.IndexOf(" => ") + 4);
+                }
             }
+
+            var file = new GitCommitFile
+            {
+                FilePath = filePath,
+                Insertions = insertions,
+                Deletions = deletions
+            };
+
+            // Determine status from the stats
+            if (isBinary)
+                file.Status = GitFileStatusType.Modified;
+            else if (deletions == 0 && insertions > 0)
+                file.Status = GitFileStatusType.Added;
+            else if (insertions == 0 && deletions > 0)
+                file.Status = GitFileStatusType.Deleted;
+            else
+                file.Status = GitFileStatusType.Modified;
+
+            details.Files.Add(file);
+            details.TotalInsertions += insertions;
+            details.TotalDeletions += deletions;
         }
 
         return details;
