@@ -162,6 +162,7 @@ public class MarkdownService : IMarkdownService
         // Configure Markdig pipeline with common extensions
         _pipeline = new MarkdownPipelineBuilder()
             .UseAdvancedExtensions()
+            .UseSoftlineBreakAsHardlineBreak()
             .UseAlertBlocks()
             .UseYamlFrontMatter()
             .UseSyntaxHighlighting(customCss: DarkStyleSheet)

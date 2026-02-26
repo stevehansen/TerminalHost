@@ -20,6 +20,7 @@ public partial class MarkdownViewer : UserControl
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseSoftlineBreakAsHardlineBreak()
         .Build();
 
     // Colors for dark theme
