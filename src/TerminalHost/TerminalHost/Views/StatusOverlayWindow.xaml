@@ -48,7 +48,7 @@
             <Grid Width="24" Height="24" VerticalAlignment="Center">
                 <!-- Spinner icon (active) -->
                 <Path x:Name="SpinnerIcon" Visibility="Collapsed"
-                      Data="M12,2 A10,10 0 0,1 22,12"
+                      Data="M12,2 A10,10 0 1,1 2,12"
                       Stroke="#4FC3F7" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                       Stretch="Uniform" Width="20" Height="20"
                       HorizontalAlignment="Center" VerticalAlignment="Center"

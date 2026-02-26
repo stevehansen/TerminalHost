@@ -130,15 +130,13 @@ public partial class StatusOverlayWindow : Window
     {
         if (e.ClickCount == 1)
         {
-            // Single click while holding Ctrl: drag the window
-            // Single click without Ctrl: focus main window
-            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            // Always allow drag - capture position before DragMove
+            var startLeft = Left;
+            var startTop = Top;
+            DragMove();
+            // If the window didn't move, treat as a click to focus main window
+            if (Math.Abs(Left - startLeft) < 3 && Math.Abs(Top - startTop) < 3)
             {
-                DragMove();
-            }
-            else
-            {
-                // Left-click: focus main window
                 FocusMainWindowRequested?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -146,22 +144,7 @@ public partial class StatusOverlayWindow : Window
 
     private void OnMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Allow context menu to open (drag on right-click)
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-        {
-            DragMove();
-            e.Handled = true;
-        }
-    }
-
-    protected override void OnMouseMove(MouseEventArgs e)
-    {
-        base.OnMouseMove(e);
-        // Allow dragging with left button held down
-        if (e.LeftButton == MouseButtonState.Pressed)
-        {
-            DragMove();
-        }
+        // Right-click opens context menu (default behavior)
     }
 
     private void OnToggleSize(object sender, RoutedEventArgs e)
