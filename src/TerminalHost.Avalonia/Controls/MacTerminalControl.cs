@@ -41,6 +41,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private VirtualTerminalViewPort? _viewPort;
     private CancellationTokenSource? _readCts;
     private bool _disposed;
+    private bool _needsInitialResize;
 
     // Terminal dimensions
     private int _columns = 80;
@@ -327,6 +328,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         // Start reading from PTY
         _readCts = new CancellationTokenSource();
         _ = ReadOutputAsync(_readCts.Token);
+
+        // If PTY was started before the control is in the visual tree (common on startup),
+        // the dimensions are likely wrong (defaults 80x24). Flag that we need to force
+        // a resize once we know the actual size, even if the computed size happens to match.
+        if (Bounds.Width <= 0 || Bounds.Height <= 0)
+        {
+            _needsInitialResize = true;
+        }
 
         Loaded?.Invoke(this, EventArgs.Empty);
 
@@ -1493,7 +1502,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         var columns = Math.Max(1, (int)(size.Width / _charWidth));
         var rows = Math.Max(1, (int)(size.Height / _charHeight));
 
-        if (columns != _columns || rows != _rows)
+        // Force resize through when the PTY was started before the control was sized
+        // (common on startup with default 80x24). This ensures the PTY and terminal
+        // controller get the correct dimensions even if they happen to match the defaults.
+        var forceResize = _needsInitialResize;
+        _needsInitialResize = false;
+
+        if (forceResize || columns != _columns || rows != _rows)
         {
             _columns = columns;
             _rows = rows;

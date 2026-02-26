@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TerminalHost.Views.StatusOverlayWindow"
+        Title="Status Overlay"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        CanResize="False"
+        SizeToContent="WidthAndHeight">
+
+    <Border x:Name="RootBorder"
+            Background="#E6252525"
+            CornerRadius="8"
+            Padding="10,8"
+            Cursor="Hand"
+            BoxShadow="0 4 12 0 #80000000"
+            PointerPressed="OnBorderPointerPressed">
+
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Status icon area -->
+            <Grid Width="13" Height="13" ClipToBounds="True" VerticalAlignment="Center">
+                <!-- Active icon - pulsing cyan dot -->
+                <Ellipse x:Name="SpinnerIcon" IsVisible="False"
+                         Width="8" Height="8" Fill="#4FC3F7"
+                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse#SpinnerIcon[IsVisible=True]">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="INFINITE" PlaybackDirection="Alternate">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="0.3"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+
+                <!-- Waiting icon (amber dot with pulse animation) -->
+                <Ellipse x:Name="WaitingIcon" IsVisible="False"
+                         Width="8" Height="8" Fill="#FFB74D"
+                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse#WaitingIcon[IsVisible=True]">
+                            <Style.Animations>
+                                <Animation Duration="0:0:0.8" IterationCount="INFINITE" PlaybackDirection="Alternate">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="0.4"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+
+                <!-- Completed icon (green checkmark) -->
+                <Path x:Name="CompletedIcon" IsVisible="False"
+                      Data="M4,12 L9,17 L20,6"
+                      Stroke="#81C784" StrokeThickness="1.5"
+                      StrokeLineCap="Round" StrokeJoin="Round"
+                      Stretch="Uniform" Width="10" Height="10"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- Idle icon (dim circle) - visible by default -->
+                <Ellipse x:Name="IdleIcon" IsVisible="True"
+                         Width="7" Height="7" Fill="#666666"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Status text (medium mode only) -->
+            <TextBlock x:Name="StatusText"
+                       Margin="8,0,0,0"
+                       Foreground="#CCCCCC"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       Text="Idle"/>
+        </StackPanel>
+
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="ToggleSizeMenuItem" Header="Toggle Size (Small/Medium)" Click="OnToggleSize"/>
+                <Separator/>
+                <MenuItem Header="Close Overlay" Click="OnCloseOverlay"/>
+                <MenuItem Header="Close All Overlays" Click="OnCloseAllOverlays"/>
+            </ContextMenu>
+        </Border.ContextMenu>
+    </Border>
+</Window>

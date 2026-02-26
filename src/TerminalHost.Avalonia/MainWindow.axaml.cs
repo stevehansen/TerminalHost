@@ -42,6 +42,8 @@ public partial class MainWindow : Window
     private readonly MergeConflictViewModel _mergeConflictViewModel;
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly IFilePickerService _filePickerService;
+    private readonly StatusOverlayService _statusOverlayService;
+    private TerminalPairTabViewModel? _subscribedOverlayTab;
 
     public MainWindow(
         MainViewModel mainViewModel,
@@ -68,7 +70,8 @@ public partial class MainWindow : Window
         BranchComparisonViewModel branchComparisonViewModel,
         MergeConflictViewModel mergeConflictViewModel,
         UnifiedGitPanelViewModel unifiedGitPanelViewModel,
-        IFilePickerService filePickerService)
+        IFilePickerService filePickerService,
+        StatusOverlayService statusOverlayService)
     {
         InitializeComponent();
 
@@ -97,6 +100,7 @@ public partial class MainWindow : Window
         _mergeConflictViewModel = mergeConflictViewModel;
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _filePickerService = filePickerService;
+        _statusOverlayService = statusOverlayService;
 
         // Wire up sidebar view model bidirectional reference
         _mainViewModel.SidebarViewModel = _workspaceSidebarViewModel;
@@ -168,6 +172,8 @@ public partial class MainWindow : Window
         // Event handlers
         Opened += OnOpened;
         Closing += OnClosing;
+        Activated += OnWindowActivated;
+        Deactivated += OnWindowDeactivated;
 
     }
 
@@ -351,6 +357,13 @@ public partial class MainWindow : Window
         timelineItem.Click += (_, _) => _mainViewModel.OpenTimelineCommand.Execute(null);
         viewMenu.Menu.Add(timelineItem);
 
+        var statusOverlayItem = new NativeMenuItem("Toggle Status Overlay")
+        {
+            Gesture = new KeyGesture(Key.Y, KeyModifiers.Meta | KeyModifiers.Shift)
+        };
+        statusOverlayItem.Click += (_, _) => _statusOverlayService.Toggle();
+        viewMenu.Menu.Add(statusOverlayItem);
+
         viewMenu.Menu.Add(new NativeMenuItemSeparator());
 
         var toggleFullScreenItem = new NativeMenuItem("Toggle Full Screen")
@@ -416,6 +429,17 @@ public partial class MainWindow : Window
     private void OnOpened(object? sender, EventArgs e)
     {
         _mainViewModel.Initialize();
+        _statusOverlayService.Initialize(this);
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        _statusOverlayService.OnMainWindowActivated();
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        _statusOverlayService.OnMainWindowDeactivated();
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
@@ -458,6 +482,9 @@ public partial class MainWindow : Window
         };
         _configService.Save(config);
 
+        // Shutdown status overlay
+        _statusOverlayService.Shutdown();
+
         // Shutdown view model
         _mainViewModel.Shutdown();
     }
@@ -480,6 +507,10 @@ public partial class MainWindow : Window
                 }
             }
 
+            // Subscribe to terminal activity changes on the new tab for status overlay
+            SubscribeOverlayTab(_mainViewModel.SelectedTab as TerminalPairTabViewModel);
+            UpdateStatusOverlay();
+
             // Rebind center panel data when switching to a tab that has one.
             // Singleton panel VMs only hold data for one tab at a time, so we
             // must reload when the user switches to a different tab.
@@ -494,6 +525,67 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    #region Status Overlay
+
+    private void SubscribeOverlayTab(TerminalPairTabViewModel? tab)
+    {
+        if (_subscribedOverlayTab != null)
+        {
+            _subscribedOverlayTab.PropertyChanged -= OnOverlayTabPropertyChanged;
+            _subscribedOverlayTab = null;
+        }
+
+        if (tab != null)
+        {
+            _subscribedOverlayTab = tab;
+            tab.PropertyChanged += OnOverlayTabPropertyChanged;
+        }
+    }
+
+    private void OnOverlayTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TerminalPairTabViewModel.IsAnyTerminalActive) or
+            nameof(TerminalPairTabViewModel.IsWaitingForInput) or
+            nameof(TerminalPairTabViewModel.HasUnreadActivity))
+        {
+            UpdateStatusOverlay();
+        }
+    }
+
+    private void UpdateStatusOverlay()
+    {
+        if (_statusOverlayService.OverlayCount == 0) return;
+
+        if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            var aiName = _configService.Load().Settings.CustomCommandName;
+            var projectName = System.IO.Path.GetFileName(terminalTab.Pair.WorkingDirectory);
+
+            if (terminalTab.IsWaitingForInput)
+            {
+                _statusOverlayService.UpdateState("waiting", "Waiting for input");
+            }
+            else if (terminalTab.IsAnyTerminalActive)
+            {
+                _statusOverlayService.UpdateState("active", $"{aiName} is working");
+            }
+            else if (terminalTab.HasUnreadActivity)
+            {
+                _statusOverlayService.UpdateState("completed", "Task completed");
+            }
+            else
+            {
+                _statusOverlayService.UpdateState("idle", $"{projectName} — idle");
+            }
+        }
+        else
+        {
+            _statusOverlayService.UpdateState("idle", "Idle");
+        }
+    }
+
+    #endregion
 
     #region Popup Event Handlers
 
@@ -987,6 +1079,14 @@ public partial class MainWindow : Window
         {
             // Open file picker for edit
             _ = OpenFilePickerAsync(editMode: true);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+Y for Status Overlay toggle
+        if (e.Key == Key.Y && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _statusOverlayService.Toggle();
             e.Handled = true;
             return;
         }

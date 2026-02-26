@@ -197,6 +197,8 @@ public partial class App : Application
         services.AddSingleton<UnifiedGitPanelViewModel>();
 
         // Windows
+        services.AddSingleton<StatusOverlayService>();
+
         services.AddSingleton<MainWindow>();
     }
 

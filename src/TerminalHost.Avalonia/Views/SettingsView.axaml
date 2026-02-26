@@ -388,6 +388,10 @@
                                  GroupName="SettingsSection"
                                  Classes="SidebarItemButton"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ApiWebhooks}"/>
+                    <RadioButton Content="Status Overlay"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=StatusOverlay}"/>
                 </StackPanel>
             </Border>
 
@@ -2389,6 +2393,50 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+                    </StackPanel>
+
+                    <!-- Status Overlay Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=StatusOverlay}">
+                        <TextBlock Text="Status Overlay" Classes="SectionHeader"/>
+                        <TextBlock Text="Floating always-on-top window showing terminal activity state. Toggle with ⌘⇧Y." Classes="SectionDescription"/>
+
+                        <!-- Auto-show on unfocus -->
+                        <CheckBox Content="Auto-show when window loses focus"
+                                  IsChecked="{Binding OverlayAutoShowOnUnfocus}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Margin="0,16,0,4"/>
+                        <TextBlock Text="Automatically show the overlay when TerminalHost is not focused, and hide when focused."
+                                   Classes="HelpText"/>
+
+                        <!-- Default Size -->
+                        <TextBlock Text="DEFAULT SIZE" Classes="FieldLabel" Margin="0,16,0,4"/>
+                        <ComboBox SelectedIndex="{Binding OverlaySizeIndex}"
+                                  Classes="DarkComboBox"
+                                  Width="220"
+                                  HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Small (icon only)"/>
+                            <ComboBoxItem Content="Medium (icon + text)"/>
+                        </ComboBox>
+                        <TextBlock Text="Small shows just the status icon. Medium adds a text description."
+                                   Classes="HelpText"/>
+
+                        <!-- Opacity -->
+                        <TextBlock Text="OPACITY" Classes="FieldLabel" Margin="0,16,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Slider Width="200"
+                                    Minimum="0.3" Maximum="1.0"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding OverlayOpacity}"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding OverlayOpacity, StringFormat={}{0:P0}}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Background opacity of the overlay window."
+                                   Classes="HelpText"/>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
