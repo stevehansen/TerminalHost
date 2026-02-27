@@ -174,8 +174,12 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 else
                     _allWorkspaces.Add(vm);
 
-                // Load worktrees in background
-                _ = vm.LoadAsync();
+                // Load worktrees in background (catch errors to prevent silent failures)
+                _ = vm.LoadAsync().ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        System.Diagnostics.Debug.WriteLine($"Workspace load failed for {vm.Name}: {t.Exception?.InnerException?.Message}");
+                }, TaskContinuationOptions.OnlyOnFaulted);
             }
 
             // Set sort mode after workspaces are loaded so the change handler can sort them
