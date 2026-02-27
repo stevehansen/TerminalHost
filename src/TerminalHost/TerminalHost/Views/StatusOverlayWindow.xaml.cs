@@ -20,6 +20,9 @@ public partial class StatusOverlayWindow : Window
     /// <summary>Unique ID for this overlay instance (for position persistence).</summary>
     public string OverlayId { get; set; } = Guid.NewGuid().ToString("N")[..8];
 
+    /// <summary>Current size mode of the overlay.</summary>
+    public StatusOverlaySize CurrentSize => _currentSize;
+
     /// <summary>Fired when the user clicks to focus the main window.</summary>
     public event EventHandler? FocusMainWindowRequested;
 
@@ -40,6 +43,22 @@ public partial class StatusOverlayWindow : Window
         InitializeComponent();
         Loaded += OnLoaded;
         LocationChanged += (_, _) => PositionChanged?.Invoke(this, EventArgs.Empty);
+
+        // Temporarily allow activation while context menu is open so clicks reach menu items
+        RootBorder.ContextMenu!.Opened += (_, _) => SetNoActivate(false);
+        RootBorder.ContextMenu!.Closed += (_, _) => SetNoActivate(true);
+    }
+
+    private void SetNoActivate(bool noActivate)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        var style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+        if (noActivate)
+            style |= NativeMethods.WS_EX_NOACTIVATE;
+        else
+            style &= ~NativeMethods.WS_EX_NOACTIVATE;
+        NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, style);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

@@ -23,12 +23,16 @@
         <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="PulseScale"
                              Storyboard.TargetProperty="ScaleX"
-                             From="1.0" To="1.15" Duration="0:0:0.8"
-                             AutoReverse="True" EasingFunction="{x:Null}"/>
+                             From="0.8" To="1.2" Duration="0:0:0.9"
+                             AutoReverse="True"/>
             <DoubleAnimation Storyboard.TargetName="PulseScale"
                              Storyboard.TargetProperty="ScaleY"
-                             From="1.0" To="1.15" Duration="0:0:0.8"
-                             AutoReverse="True" EasingFunction="{x:Null}"/>
+                             From="0.8" To="1.2" Duration="0:0:0.9"
+                             AutoReverse="True"/>
+            <DoubleAnimation Storyboard.TargetName="WaitingIcon"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.5" To="1.0" Duration="0:0:0.9"
+                             AutoReverse="True"/>
         </Storyboard>
     </Window.Resources>
 

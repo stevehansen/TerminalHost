@@ -88,7 +88,7 @@ public class InputPromptPattern
         {
             Id = "claude-permission",
             Name = "Permission Request",
-            Pattern = @"(?i)(may I|can I|should I|shall I|would you like me to|do you want me to).*\?",
+            Pattern = @"(?i)(may I|can I|should I|shall I|would you like (me )?to|do you want (me )?to).*\?",
             Priority = 95,
             Description = "Claude asking for permission to proceed"
         },
@@ -139,6 +139,14 @@ public class InputPromptPattern
             Pattern = @"(?i)(press\s+(enter|return)\s+to\s+(continue|confirm|proceed|accept))|(enter\s+to\s+submit)",
             Priority = 97,
             Description = "Hints about pressing Enter to continue"
+        },
+        new InputPromptPattern
+        {
+            Id = "type-here",
+            Name = "Type Here Prompt",
+            Pattern = @"(?i)type here to",
+            Priority = 96,
+            Description = "Prompts asking the user to type something (e.g., 'type here to tell Claude what to do')"
         },
 
         // General terminal prompts

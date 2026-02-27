@@ -37,6 +37,21 @@ public class StatusOverlayService
     public void Initialize(System.Windows.Window mainWindow)
     {
         _mainWindow = mainWindow;
+        RestoreOverlays();
+    }
+
+    /// <summary>
+    /// Recreates overlay windows from persisted instances on startup.
+    /// </summary>
+    private void RestoreOverlays()
+    {
+        var settings = _configService.Load().Settings.StatusOverlay;
+        if (settings.Instances.Count == 0) return;
+
+        foreach (var instance in settings.Instances.ToList())
+        {
+            CreateOverlay();
+        }
     }
 
     /// <summary>
@@ -279,6 +294,7 @@ public class StatusOverlayService
                     Id = overlay.OverlayId,
                     Left = overlay.Left,
                     Top = overlay.Top,
+                    Size = overlay.CurrentSize,
                 });
             }
         }

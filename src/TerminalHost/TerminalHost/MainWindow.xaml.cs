@@ -491,6 +491,11 @@ public partial class MainWindow : Window
 
         // Subscribe to tab selection changes to monitor terminal activity
         _viewModel.PropertyChanged += OnViewModelPropertyChangedForTaskbar;
+
+        // Subscribe to all existing terminal tabs for overlay aggregation
+        foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
+            tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
+        _viewModel.Tabs.CollectionChanged += OnTabsCollectionChangedForOverlay;
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -2100,32 +2105,72 @@ public partial class MainWindow : Window
     {
         if (_statusOverlayService.OverlayCount == 0) return;
 
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-        {
-            var aiName = _configService.Load().Settings.CustomCommandName;
-            var projectName = System.IO.Path.GetFileName(terminalTab.Pair.WorkingDirectory);
+        var terminalTabs = _viewModel.Tabs.OfType<TerminalPairTabViewModel>().ToList();
+        var aiName = _configService.Load().Settings.CustomCommandName;
 
-            if (terminalTab.IsWaitingForInput)
+        // Priority: any waiting > any active > any completed > all idle
+        var waitingTab = terminalTabs.FirstOrDefault(t => t.IsWaitingForInput);
+        if (waitingTab != null)
+        {
+            var project = System.IO.Path.GetFileName(waitingTab.Pair.WorkingDirectory);
+            _statusOverlayService.UpdateState("waiting", $"{project} \u2014 waiting for input");
+            return;
+        }
+
+        var activeTabs = terminalTabs.Where(t => t.IsAnyTerminalActive).ToList();
+        if (activeTabs.Count > 0)
+        {
+            if (activeTabs.Count == 1)
             {
-                _statusOverlayService.UpdateState("waiting", "Waiting for input");
-            }
-            else if (terminalTab.IsAnyTerminalActive)
-            {
-                _statusOverlayService.UpdateState("active", $"{aiName} is working");
-            }
-            else if (terminalTab.HasUnreadActivity)
-            {
-                _statusOverlayService.UpdateState("completed", "Task completed");
+                var project = System.IO.Path.GetFileName(activeTabs[0].Pair.WorkingDirectory);
+                _statusOverlayService.UpdateState("active", $"{project} \u2014 {aiName} working");
             }
             else
             {
-                _statusOverlayService.UpdateState("idle", $"{projectName} \u2014 idle");
+                _statusOverlayService.UpdateState("active", $"{activeTabs.Count} workspaces active");
             }
+            return;
+        }
+
+        var completedTab = terminalTabs.FirstOrDefault(t => t.HasUnreadActivity);
+        if (completedTab != null)
+        {
+            var project = System.IO.Path.GetFileName(completedTab.Pair.WorkingDirectory);
+            _statusOverlayService.UpdateState("completed", $"{project} \u2014 task completed");
+            return;
+        }
+
+        // All idle - show selected tab name or generic
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel selectedTerminal)
+        {
+            var project = System.IO.Path.GetFileName(selectedTerminal.Pair.WorkingDirectory);
+            _statusOverlayService.UpdateState("idle", $"{project} \u2014 idle");
         }
         else
         {
             _statusOverlayService.UpdateState("idle", "Idle");
         }
+    }
+
+    private void OnAnyTerminalTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TerminalPairTabViewModel.IsWaitingForInput) or
+            nameof(TerminalPairTabViewModel.IsAnyTerminalActive) or
+            nameof(TerminalPairTabViewModel.HasUnreadActivity))
+        {
+            UpdateStatusOverlay();
+        }
+    }
+
+    private void OnTabsCollectionChangedForOverlay(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (var tab in e.NewItems.OfType<TerminalPairTabViewModel>())
+                tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
+        if (e.OldItems != null)
+            foreach (var tab in e.OldItems.OfType<TerminalPairTabViewModel>())
+                tab.PropertyChanged -= OnAnyTerminalTabPropertyChanged;
+        UpdateStatusOverlay();
     }
 
     #endregion

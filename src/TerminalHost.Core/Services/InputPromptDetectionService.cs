@@ -9,6 +9,10 @@ namespace TerminalHost.Core.Services;
 /// </summary>
 public class InputPromptDetectionService : IInputPromptDetectionService
 {
+    private static readonly Regex AnsiEscapePattern = new(
+        @"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])",
+        RegexOptions.Compiled);
+
     private readonly IConfigurationService _configurationService;
     private List<(InputPromptPattern Pattern, Regex Regex)> _compiledPatterns = [];
     private InputPromptSettings _settings = new();
@@ -114,6 +118,9 @@ public class InputPromptDetectionService : IInputPromptDetectionService
     {
         if (string.IsNullOrEmpty(text))
             return string.Empty;
+
+        // Strip ANSI escape codes before matching (terminal output contains formatting codes)
+        text = AnsiEscapePattern.Replace(text, "");
 
         // Split into lines (handle both \n and \r\n)
         var lines = text.Split(["\r\n", "\n"], StringSplitOptions.None);
