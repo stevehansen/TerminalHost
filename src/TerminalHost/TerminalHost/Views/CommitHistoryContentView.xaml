@@ -205,11 +205,13 @@
             </Grid>
         </DataTemplate>
 
-        <!-- ListBoxItem style -->
+        <!-- ListBoxItem style with fixed height to match graph -->
         <Style x:Key="CommitListBoxItemStyle" TargetType="ListBoxItem">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="4,2"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="{Binding DataContext.CommitItemHeight,
+                RelativeSource={RelativeSource AncestorType=ListBox}}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -227,7 +229,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <ContentPresenter/>
+                            <ContentPresenter VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -404,17 +406,21 @@
                                   MinWidth="40">
                         <controls:CommitGraphControl
                             ItemsSource="{Binding GraphNodes}"
-                            ItemHeight="32"/>
+                            ItemHeight="{Binding CommitItemHeight}"
+                            VerticalAlignment="Top"/>
                     </ScrollViewer>
 
                     <!-- Commit list -->
                     <ListBox Grid.Column="1"
+                         x:Name="CommitListBox"
                          ItemsSource="{Binding Commits}"
                          SelectedItem="{Binding SelectedCommit}"
                          ItemContainerStyle="{StaticResource CommitListBoxItemStyle}"
                          Background="Transparent"
                          BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         VirtualizingPanel.ScrollUnit="Pixel"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Loaded="OnCommitListBoxLoaded">
                     <ListBox.Style>
                         <Style TargetType="ListBox">
                             <Setter Property="ItemTemplate" Value="{StaticResource CommitItemTemplate}"/>
@@ -431,7 +437,7 @@
 
                 <!-- Load more button -->
                 <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4"
-                        Visibility="{Binding HasCommits, Converter={StaticResource BoolToVisibilityConverter}}">
+                        Visibility="{Binding HasMoreCommits, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Button Content="Load More..."
                             Style="{StaticResource TerminalSwitchButton}"
                             Command="{Binding LoadMoreCommitsCommand}"

@@ -75,6 +75,12 @@ public class CommitGraphService : ICommitGraphService
             }
             var color = laneColors[hash];
 
+            // Snapshot active lanes before parent processing (for pass-through edges)
+            var preLanes = new Dictionary<int, string>();
+            for (int lane = 0; lane < lanes.Count; lane++)
+                if (lanes[lane] != null && lane != column)
+                    preLanes[lane] = lanes[lane]!;
+
             var node = new GraphNode
             {
                 Hash = hash,
@@ -149,6 +155,25 @@ public class CommitGraphService : ICommitGraphService
             {
                 // Root commit - free the lane
                 lanes[column] = null;
+            }
+
+            // Add pass-through edges for lanes that were active before and are still active
+            // Skip for the last row — edges would extend below the visible graph
+            if (i < commits.Count - 1)
+            {
+                foreach (var (lane, laneHash) in preLanes)
+                {
+                    if (lane < lanes.Count && lanes[lane] != null)
+                    {
+                        node.Edges.Add(new GraphEdge
+                        {
+                            FromColumn = lane,
+                            ToColumn = lane,
+                            Color = laneColors.GetValueOrDefault(laneHash, "#888888"),
+                            IsMerge = false
+                        });
+                    }
+                }
             }
 
             // Clean up trailing null lanes

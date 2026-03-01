@@ -75,7 +75,10 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     private string _authorFilter = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CommitItemHeight))]
     private bool _isCompactView;
+
+    public double CommitItemHeight => IsCompactView ? 24.0 : 44.0;
 
     [ObservableProperty]
     private string _filePathFilter = "";
@@ -108,6 +111,9 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExplainCommitCommand))]
     private bool _isExplainingCommit;
+
+    [ObservableProperty]
+    private bool _hasMoreCommits = true;
 
     public bool HasCommitExplanation => !string.IsNullOrEmpty(CommitAiExplanation);
 
@@ -212,6 +218,7 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
             var commits = await _gitStatusService.GetCommitHistoryAsync(
                 workingDirectory, DefaultCommitCount, author, fileFilter, search, after, before);
 
+            HasMoreCommits = commits.Count >= DefaultCommitCount;
             Commits = new ObservableCollection<GitCommit>(commits);
 
             // Insert WIP entry at top if repo is dirty
@@ -261,12 +268,16 @@ public partial class CommitHistoryViewModel : BasePanelViewModel
             var fileFilter = string.IsNullOrWhiteSpace(FilePathFilter) ? null : FilePathFilter;
             DateTimeOffset? after = AfterDate.HasValue ? new DateTimeOffset(AfterDate.Value) : null;
             DateTimeOffset? before = BeforeDate.HasValue ? new DateTimeOffset(BeforeDate.Value) : null;
-            var totalCount = Commits.Count + LoadMoreCount;
+            var wipCount = Commits.Count(c => c.IsWipEntry);
+            var totalCount = Commits.Count - wipCount + LoadMoreCount;
             var commits = await _gitStatusService.GetCommitHistoryAsync(
                 workingDirectory, totalCount, author, fileFilter, search, after, before);
 
+            HasMoreCommits = commits.Count >= totalCount;
+
             // Add new commits that aren't already in the list
-            foreach (var commit in commits.Skip(Commits.Count))
+            var realCommitCount = Commits.Count - wipCount;
+            foreach (var commit in commits.Skip(realCommitCount))
             {
                 Commits.Add(commit);
             }
