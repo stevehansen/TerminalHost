@@ -167,6 +167,9 @@ public partial class App : Application
         // Initialize system tray
         InitializeSystemTray();
 
+        // Start UI thread watchdog (detects hangs and breaks into debugger)
+        _services.GetRequiredService<UiThreadWatchdog>().Start();
+
         // Show Main Window
         var mainWindow = _services.GetRequiredService<MainWindow>();
 
@@ -268,6 +271,7 @@ public partial class App : Application
         services.AddSingleton<ICommitGraphService, CommitGraphService>();
         services.AddSingleton<ITimerService, TimerService>();
         services.AddSingleton<IDispatcherService, DispatcherService>();
+        services.AddSingleton<UiThreadWatchdog>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IViewModelFactory, ViewModelFactory>();
@@ -318,7 +322,7 @@ public partial class App : Application
         // Handle tray events
         systemTrayService.ShowRequested += (_, _) =>
         {
-            Dispatcher.Invoke(() => mainWindow?.BringToFront());
+            Dispatcher.BeginInvoke(() => mainWindow?.BringToFront());
         };
 
         systemTrayService.ExitRequested += (_, _) =>
@@ -330,7 +334,7 @@ public partial class App : Application
     private void OnCommandReceived(object? sender, CommandLineArgs args)
     {
         // This runs on a background thread, so dispatch to UI thread
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             HandleCommandLineArgs(args);
             var mainWindow = Services.GetService<MainWindow>();
@@ -341,7 +345,7 @@ public partial class App : Application
     private void OnHookEventReceived(object? sender, HookEvent hookEvent)
     {
         // This runs on a background thread, so dispatch to UI thread
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             ProcessHookEvent(hookEvent);
         });
@@ -537,6 +541,7 @@ public partial class App : Application
     {
         if (_services != null)
         {
+            _services.GetService<UiThreadWatchdog>()?.Dispose();
             _services.GetService<IApiServer>()?.Dispose();
             _services.GetService<IWebhookDeliveryService>()?.Dispose();
             _services.GetService<ISystemTrayService>()?.Dispose();

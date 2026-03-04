@@ -23,6 +23,14 @@ public interface IDispatcherService
     Task InvokeAsync(Func<Task> action);
 
     /// <summary>
+    /// Executes the action synchronously on the UI thread with a timeout.
+    /// Returns true if the action completed within the timeout, false if it timed out.
+    /// Use this instead of Invoke() when calling from background threads that must not block forever
+    /// (e.g., HTTP request handlers).
+    /// </summary>
+    bool TryInvoke(Action action, TimeSpan timeout);
+
+    /// <summary>
     /// Returns true if the calling thread is the UI thread.
     /// </summary>
     bool CheckAccess();

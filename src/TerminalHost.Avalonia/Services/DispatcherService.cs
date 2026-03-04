@@ -27,6 +27,23 @@ internal sealed class DispatcherService : IDispatcherService
         await Dispatcher.UIThread.InvokeAsync(action);
     }
 
+    public bool TryInvoke(Action action, TimeSpan timeout)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return true;
+        }
+
+        var completed = new ManualResetEventSlim(false);
+        Dispatcher.UIThread.Post(() =>
+        {
+            try { action(); }
+            finally { completed.Set(); }
+        });
+        return completed.Wait(timeout);
+    }
+
     public bool CheckAccess()
     {
         return Dispatcher.UIThread.CheckAccess();

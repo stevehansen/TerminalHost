@@ -44,6 +44,9 @@ public class ApiServer : IApiServer
     private readonly object _sseLock = new();
     private readonly DateTime _startTime = DateTime.UtcNow;
 
+    /// <summary>Maximum time to wait for the UI thread when handling API requests.</summary>
+    private static readonly TimeSpan UiTimeout = TimeSpan.FromSeconds(10);
+
     // Delegates provided by MainViewModel to read UI state on UI thread
     private Func<List<ApiRepoInfo>>? _getRepos;
     private Func<int, ApiRepoDetailInfo?>? _getRepoDetail;
@@ -323,12 +326,16 @@ public class ApiServer : IApiServer
 
         if (_getRepos != null)
         {
-            _dispatcherService.Invoke(() =>
+            if (!_dispatcherService.TryInvoke(() =>
             {
                 var repos = _getRepos();
                 repoCount = repos.Count;
                 activeIndex = repos.FindIndex(r => r.IsActive);
-            });
+            }, UiTimeout))
+            {
+                await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                return;
+            }
         }
 
         var uptime = DateTime.UtcNow - _startTime;
@@ -353,7 +360,11 @@ public class ApiServer : IApiServer
 
         if (_getRepos != null)
         {
-            _dispatcherService.Invoke(() => { repos = _getRepos(); });
+            if (!_dispatcherService.TryInvoke(() => { repos = _getRepos(); }, UiTimeout))
+            {
+                await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                return;
+            }
         }
 
         await WriteJson(response, new { repos });
@@ -365,7 +376,11 @@ public class ApiServer : IApiServer
 
         if (_getRepoDetail != null)
         {
-            _dispatcherService.Invoke(() => { detail = _getRepoDetail(index); });
+            if (!_dispatcherService.TryInvoke(() => { detail = _getRepoDetail(index); }, UiTimeout))
+            {
+                await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                return;
+            }
         }
 
         if (detail == null)
@@ -383,12 +398,16 @@ public class ApiServer : IApiServer
         string? workingDir = null;
         if (_getRepos != null)
         {
-            _dispatcherService.Invoke(() =>
+            if (!_dispatcherService.TryInvoke(() =>
             {
                 var repos = _getRepos();
                 if (index >= 0 && index < repos.Count)
                     workingDir = repos[index].WorkingDirectory;
-            });
+            }, UiTimeout))
+            {
+                await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                return;
+            }
         }
 
         if (workingDir == null)
@@ -447,6 +466,11 @@ public class ApiServer : IApiServer
     private async Task HandleTasksAsync(HttpListenerResponse response, HttpListenerRequest request)
     {
         var allTasks = GetMergedTasks();
+        if (allTasks == null)
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
 
         // Apply query parameter filters
         var statusFilter = request.QueryString["status"];
@@ -472,6 +496,11 @@ public class ApiServer : IApiServer
     private async Task HandleTaskByIdAsync(HttpListenerResponse response, string taskId)
     {
         var allTasks = GetMergedTasks();
+        if (allTasks == null)
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
         var task = allTasks.FirstOrDefault(t => t.Id == taskId);
 
         if (task == null)
@@ -489,7 +518,11 @@ public class ApiServer : IApiServer
 
         if (_getWorkspaces != null)
         {
-            _dispatcherService.Invoke(() => { workspaces = _getWorkspaces(); });
+            if (!_dispatcherService.TryInvoke(() => { workspaces = _getWorkspaces(); }, UiTimeout))
+            {
+                await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                return;
+            }
         }
         else
         {
@@ -497,7 +530,13 @@ public class ApiServer : IApiServer
             var config = _configService.Load();
             List<ApiRepoInfo> openRepos = new();
             if (_getRepos != null)
-                _dispatcherService.Invoke(() => { openRepos = _getRepos(); });
+            {
+                if (!_dispatcherService.TryInvoke(() => { openRepos = _getRepos(); }, UiTimeout))
+                {
+                    await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+                    return;
+                }
+            }
 
             workspaces = config.Workspaces.Select(w => MapWorkspace(w, openRepos)).ToList();
         }
@@ -581,7 +620,7 @@ public class ApiServer : IApiServer
     /// Merges tasks from all three sources (ITaskService, IClaudeTaskFileService, IClaudeTaskDetectionService)
     /// with deduplication by task ID, and maps to API DTOs with repo index resolution.
     /// </summary>
-    private List<ApiTaskInfo> GetMergedTasks()
+    private List<ApiTaskInfo>? GetMergedTasks()
     {
         var seen = new HashSet<string>();
         var result = new List<FocusTask>();
@@ -622,7 +661,10 @@ public class ApiServer : IApiServer
         // Resolve repo indices from open tabs
         List<ApiRepoInfo> openRepos = new();
         if (_getRepos != null)
-            _dispatcherService.Invoke(() => { openRepos = _getRepos(); });
+        {
+            if (!_dispatcherService.TryInvoke(() => { openRepos = _getRepos(); }, UiTimeout))
+                return null; // UI thread timed out — caller should return 503
+        }
 
         return result.Select(t => MapTask(t, openRepos)).ToList();
     }

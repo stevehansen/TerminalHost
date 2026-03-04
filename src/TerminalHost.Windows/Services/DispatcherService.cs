@@ -68,6 +68,26 @@ public sealed class DispatcherService : IDispatcherService
         }
     }
 
+    public bool TryInvoke(Action action, TimeSpan timeout)
+    {
+        var dispatcher = Dispatcher;
+        if (dispatcher == null)
+        {
+            action();
+            return true;
+        }
+
+        if (dispatcher.CheckAccess())
+        {
+            action();
+            return true;
+        }
+
+        var op = dispatcher.BeginInvoke(action);
+        var status = op.Wait(timeout);
+        return status == System.Windows.Threading.DispatcherOperationStatus.Completed;
+    }
+
     public bool CheckAccess()
     {
         return Dispatcher?.CheckAccess() ?? true;

@@ -90,7 +90,7 @@ public partial class StatusOverlayWindow : Window
     {
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.Invoke(() => UpdateState(state, statusText));
+            Dispatcher.BeginInvoke(() => UpdateState(state, statusText));
             return;
         }
 

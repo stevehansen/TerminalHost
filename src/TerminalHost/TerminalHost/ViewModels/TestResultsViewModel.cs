@@ -257,7 +257,7 @@ public partial class TestResultsViewModel : BasePanelViewModel
 
     private void OnOutputReceived(object? sender, string output)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             Output += output + Environment.NewLine;
         });
@@ -265,7 +265,7 @@ public partial class TestResultsViewModel : BasePanelViewModel
 
     private void OnTestRunCompleted(object? sender, TestRunSummary summary)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             PassedCount = summary.Passed;
             FailedCount = summary.Failed;

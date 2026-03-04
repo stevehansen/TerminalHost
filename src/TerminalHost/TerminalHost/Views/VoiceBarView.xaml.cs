@@ -34,7 +34,7 @@ public partial class VoiceBarView : UserControl
         if (e.PropertyName != nameof(VoiceBarViewModel.State)) return;
         if (sender is not VoiceBarViewModel vm) return;
 
-        Dispatcher.Invoke(() => UpdateBorderAnimation(vm));
+        Dispatcher.BeginInvoke(() => UpdateBorderAnimation(vm));
     }
 
     private void UpdateBorderAnimation(VoiceBarViewModel vm)
