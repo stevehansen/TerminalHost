@@ -2412,11 +2412,14 @@
                         <!-- Default Size -->
                         <TextBlock Text="DEFAULT SIZE" Classes="FieldLabel" Margin="0,16,0,4"/>
                         <ComboBox SelectedIndex="{Binding OverlaySizeIndex}"
-                                  Classes="DarkComboBox"
                                   Width="220"
-                                  HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Small (icon only)"/>
-                            <ComboBoxItem Content="Medium (icon + text)"/>
+                                  HorizontalAlignment="Left"
+                                  Background="{DynamicResource BackgroundLightBrush}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}">
+                            <ComboBox.Items>
+                                <system:String>Small (icon only)</system:String>
+                                <system:String>Medium (icon + text)</system:String>
+                            </ComboBox.Items>
                         </ComboBox>
                         <TextBlock Text="Small shows just the status icon. Medium adds a text description."
                                    Classes="HelpText"/>

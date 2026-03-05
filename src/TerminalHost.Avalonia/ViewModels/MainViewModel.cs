@@ -1708,6 +1708,9 @@ public partial class MainViewModel : ObservableObject
         // Refresh run configurations for all terminal tabs
         RefreshAllRunConfigurations();
 
+        // Apply status overlay settings to existing overlays
+        _statusOverlayService?.ApplySettings();
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }

@@ -33,7 +33,8 @@ public enum SettingsSection
     ProjectTypes,
     ClaudeCommands,
     DirectorySettings,
-    ApiWebhooks
+    ApiWebhooks,
+    StatusOverlay
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel

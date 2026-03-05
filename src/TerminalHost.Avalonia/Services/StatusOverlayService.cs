@@ -189,6 +189,22 @@ public class StatusOverlayService
         }
     }
 
+    /// <summary>
+    /// Applies current settings (opacity, size) to all existing overlays.
+    /// Called after settings are saved.
+    /// </summary>
+    public void ApplySettings()
+    {
+        var settings = _configService.Load().Settings.StatusOverlay;
+        lock (_lock)
+        {
+            foreach (var overlay in _overlays)
+            {
+                overlay.SetOverlayOpacity(settings.Opacity);
+            }
+        }
+    }
+
     public void OnMainWindowActivated()
     {
         var settings = _configService.Load().Settings.StatusOverlay;

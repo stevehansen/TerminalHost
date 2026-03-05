@@ -35,7 +35,8 @@ public enum SettingsSection
     ProjectTypes,
     ClaudeCommands,
     DirectorySettings,
-    ApiWebhooks
+    ApiWebhooks,
+    StatusOverlay
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
@@ -412,6 +413,16 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _mcpCollabStatus = "";
 
+    // Status Overlay settings
+    [ObservableProperty]
+    private bool _overlayAutoShowOnUnfocus;
+
+    [ObservableProperty]
+    private int _overlaySizeIndex;
+
+    [ObservableProperty]
+    private double _overlayOpacity = 0.9;
+
     public string McpCollabUrl => $"http://localhost:{ApiPort}/api/mcp";
 
     public bool IsApiKeyRequired => ApiBindAddress != "127.0.0.1" && ApiBindAddress != "localhost";
@@ -534,6 +545,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ApiEnableWebhooks = config.Settings.Api.EnableWebhooks;
             ApiWebhooks = new ObservableCollection<WebhookEndpoint>(config.Settings.Api.Webhooks);
 
+            // Status Overlay settings
+            OverlayAutoShowOnUnfocus = config.Settings.StatusOverlay.AutoShowOnUnfocus;
+            OverlaySizeIndex = (int)config.Settings.StatusOverlay.Size;
+            OverlayOpacity = config.Settings.StatusOverlay.Opacity;
+
             // Directory settings - include both open folders and folders with saved settings
             var allDirectories = config.OpenFolders
                 .Union(config.DirectorySettings.Keys)
@@ -602,6 +618,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
                 .ToList();
             config.Settings.Api.EnableWebhooks = ApiEnableWebhooks;
             config.Settings.Api.Webhooks = ApiWebhooks.ToList();
+
+            // Status Overlay settings
+            config.Settings.StatusOverlay.AutoShowOnUnfocus = OverlayAutoShowOnUnfocus;
+            config.Settings.StatusOverlay.Size = (StatusOverlaySize)OverlaySizeIndex;
+            config.Settings.StatusOverlay.Opacity = OverlayOpacity;
 
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
@@ -691,6 +712,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnApiCorsOriginsChanged(string value) => MarkDirtyFromRichMode();
     partial void OnApiEnableWebhooksChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnOverlayAutoShowOnUnfocusChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnOverlaySizeIndexChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnOverlayOpacityChanged(double value) => MarkDirtyFromRichMode();
 
     partial void OnSelectedWebhookChanged(WebhookEndpoint? value)
     {
