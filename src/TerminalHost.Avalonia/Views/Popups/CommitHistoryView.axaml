@@ -7,18 +7,17 @@
              xmlns:controls="clr-namespace:TerminalHost.Controls"
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance vm:CommitHistoryViewModel}"
+             Background="{StaticResource BackgroundDarkBrush}"
              mc:Ignorable="d">
 
-    <controls:DraggablePopup
-        IsOpen="{Binding IsOpen, Mode=TwoWay}"
-        PopupWidth="{Binding Width, Mode=TwoWay}"
-        PopupHeight="{Binding Height, Mode=TwoWay}"
-        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
-        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
-        Title="{Binding Title}"
-        CloseCommand="{Binding CloseCommand}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <controls:DraggablePopup.HeaderRightContent>
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Content="Filter"
                         Classes="TerminalSwitchButton"
@@ -29,489 +28,487 @@
                 <Button Content="Refresh"
                         Classes="TerminalSwitchButton"
                         Command="{Binding RefreshCommand}"
-                        ToolTip.Tip="Refresh commit history"
-                        Margin="0,0,8,0"/>
+                        ToolTip.Tip="Refresh commit history"/>
             </StackPanel>
-        </controls:DraggablePopup.HeaderRightContent>
+        </Border>
 
-        <controls:DraggablePopup.PopupContent>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- Content -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-                <!-- Search bar -->
-                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8">
+            <!-- Search bar -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             x:Name="SearchBox"
+                             Text="{Binding SearchText, Mode=TwoWay}"
+                             Watermark="Search commit messages..."
+                             Background="{StaticResource BackgroundDarkBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderMediumBrush}"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeSmall}"/>
+                    <Button Grid.Column="1"
+                            Content="Search"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding SearchCommand}"
+                            Margin="8,0,0,0"
+                            Padding="12,6"/>
+                </Grid>
+            </Border>
+
+            <!-- Advanced filter bar (collapsible) -->
+            <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}"
+                    Padding="8,4" IsVisible="{Binding ShowFilters}"
+                    BorderBrush="{StaticResource BorderMediumBrush}" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Author:" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeMicro}" Width="50"/>
+                    <TextBox Text="{Binding AuthorFilter, Mode=TwoWay}" Width="160"
+                             Watermark="e.g. John"
+                             Background="{StaticResource BackgroundDarkBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderMediumBrush}"
+                             FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
+                    <TextBlock Text="File:" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="{StaticResource FontSizeMicro}" Width="30"/>
+                    <TextBox Text="{Binding FilePathFilter, Mode=TwoWay}" Width="200"
+                             Watermark="e.g. src/main.cs"
+                             Background="{StaticResource BackgroundDarkBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderMediumBrush}"
+                             FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
+                    <Button Content="Apply" Command="{Binding RefreshCommand}"
+                            Classes="TerminalSwitchButton"
+                            Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
+                    <Button Content="Clear" Command="{Binding ClearFiltersCommand}"
+                            Classes="TerminalSwitchButton"
+                            Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Main content - 3 column layout -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="350" MinWidth="250"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="300" MinWidth="200"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="*" MinWidth="300"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Commit List -->
+                <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0"
-                                 x:Name="SearchBox"
-                                 Text="{Binding SearchText, Mode=TwoWay}"
-                                 Watermark="Search commit messages..."
-                                 Background="{StaticResource BackgroundDarkBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderMediumBrush}"
-                                 Padding="8,6"
-                                 FontSize="{StaticResource FontSizeSmall}"/>
-                        <Button Grid.Column="1"
-                                Content="Search"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding SearchCommand}"
-                                Margin="8,0,0,0"
-                                Padding="12,6"/>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <ListBox Grid.Row="0"
+                                 ItemsSource="{Binding Commits}"
+                                 SelectedItem="{Binding SelectedCommit}"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="domain:GitCommit">
+                                    <Border Padding="8,6" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="36"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Author avatar/initials -->
+                                            <Border Grid.Column="0" Grid.RowSpan="3"
+                                                    Width="28" Height="28"
+                                                    CornerRadius="14"
+                                                    Background="{Binding AuthorColor}"
+                                                    VerticalAlignment="Top"
+                                                    Margin="0,2,8,0">
+                                                <TextBlock Text="{Binding AuthorInitials}"
+                                                           Foreground="White"
+                                                           FontSize="10"
+                                                           FontWeight="Bold"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Commit subject -->
+                                            <TextBlock Grid.Column="1" Grid.Row="0"
+                                                       Text="{Binding Subject}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="{StaticResource FontSizeSmall}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxLines="2"
+                                                       TextWrapping="Wrap"/>
+
+                                            <!-- Short hash -->
+                                            <TextBlock Grid.Column="2" Grid.Row="0"
+                                                       Text="{Binding ShortHash}"
+                                                       Foreground="{StaticResource SyntaxCyanBrush}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       VerticalAlignment="Top"
+                                                       Margin="8,0,0,0"/>
+
+                                            <!-- Decoration badges (HEAD, branches, tags) -->
+                                            <ItemsControl Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1"
+                                                          ItemsSource="{Binding ParsedDecorations}"
+                                                          IsVisible="{Binding ParsedDecorations.Count, Converter={StaticResource CountToVisibilityConverter}}"
+                                                          Margin="0,2,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border CornerRadius="3" Padding="5,1" Margin="2,0"
+                                                                Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
+                                                            <TextBlock Text="{Binding DisplayText}"
+                                                                       Foreground="White"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <!-- Author and date -->
+                                            <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="2" Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding Author}"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                                <TextBlock Text=" - "
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                                <TextBlock Text="{Binding RelativeDate}"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Load more button -->
+                        <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="8">
+                            <Button Content="Load More"
+                                    Command="{Binding LoadMoreCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Classes="TerminalSwitchButton"
+                                    Padding="8,6"/>
+                        </Border>
+
+                        <!-- Loading overlay -->
+                        <Border Grid.Row="0" Grid.RowSpan="2"
+                                Background="#80000000"
+                                IsVisible="{Binding IsLoading}">
+                            <TextBlock Text="Loading..."
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Empty state -->
+                        <TextBlock Grid.Row="0"
+                                   Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding StatusMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </Grid>
                 </Border>
 
-                <!-- Advanced filter bar (collapsible) -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}"
-                        Padding="8,4" IsVisible="{Binding ShowFilters}"
-                        BorderBrush="{StaticResource BorderMediumBrush}" BorderThickness="0,1,0,0">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Author:" VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   FontSize="{StaticResource FontSizeMicro}" Width="50"/>
-                        <TextBox Text="{Binding AuthorFilter, Mode=TwoWay}" Width="160"
-                                 Watermark="e.g. John"
-                                 Background="{StaticResource BackgroundDarkBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderMediumBrush}"
-                                 FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
-                        <TextBlock Text="File:" VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   FontSize="{StaticResource FontSizeMicro}" Width="30"/>
-                        <TextBox Text="{Binding FilePathFilter, Mode=TwoWay}" Width="200"
-                                 Watermark="e.g. src/main.cs"
-                                 Background="{StaticResource BackgroundDarkBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderMediumBrush}"
-                                 FontSize="{StaticResource FontSizeMicro}" Padding="6,4"/>
-                        <Button Content="Apply" Command="{Binding RefreshCommand}"
-                                Classes="TerminalSwitchButton"
-                                Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
-                        <Button Content="Clear" Command="{Binding ClearFiltersCommand}"
-                                Classes="TerminalSwitchButton"
-                                Padding="8,3" FontSize="{StaticResource FontSizeMicro}"/>
-                    </StackPanel>
-                </Border>
+                <!-- Splitter 1 -->
+                <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
 
-                <!-- Main content - 3 column layout -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="350" MinWidth="250"/>
-                        <ColumnDefinition Width="4"/>
-                        <ColumnDefinition Width="300" MinWidth="200"/>
-                        <ColumnDefinition Width="4"/>
-                        <ColumnDefinition Width="*" MinWidth="300"/>
-                    </Grid.ColumnDefinitions>
+                <!-- Commit Details Panel -->
+                <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                    <!-- Commit List -->
-                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <ListBox Grid.Row="0"
-                                     ItemsSource="{Binding Commits}"
-                                     SelectedItem="{Binding SelectedCommit}"
-                                     Background="Transparent"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate DataType="domain:GitCommit">
-                                        <Border Padding="8,6" Cursor="Hand">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="36"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                </Grid.RowDefinitions>
-
-                                                <!-- Author avatar/initials -->
-                                                <Border Grid.Column="0" Grid.RowSpan="3"
-                                                        Width="28" Height="28"
-                                                        CornerRadius="14"
-                                                        Background="{Binding AuthorColor}"
-                                                        VerticalAlignment="Top"
-                                                        Margin="0,2,8,0">
-                                                    <TextBlock Text="{Binding AuthorInitials}"
-                                                               Foreground="White"
-                                                               FontSize="10"
-                                                               FontWeight="Bold"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"/>
-                                                </Border>
-
-                                                <!-- Commit subject -->
-                                                <TextBlock Grid.Column="1" Grid.Row="0"
-                                                           Text="{Binding Subject}"
-                                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                                           FontSize="{StaticResource FontSizeSmall}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           MaxLines="2"
-                                                           TextWrapping="Wrap"/>
-
-                                                <!-- Short hash -->
-                                                <TextBlock Grid.Column="2" Grid.Row="0"
-                                                           Text="{Binding ShortHash}"
-                                                           Foreground="{StaticResource SyntaxCyanBrush}"
-                                                           FontFamily="{StaticResource FontFamilyMonospace}"
-                                                           FontSize="{StaticResource FontSizeMicro}"
-                                                           VerticalAlignment="Top"
-                                                           Margin="8,0,0,0"/>
-
-                                                <!-- Decoration badges (HEAD, branches, tags) -->
-                                                <ItemsControl Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1"
-                                                              ItemsSource="{Binding ParsedDecorations}"
-                                                              IsVisible="{Binding ParsedDecorations.Count, Converter={StaticResource CountToVisibilityConverter}}"
-                                                              Margin="0,2,0,0">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <WrapPanel/>
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border CornerRadius="3" Padding="5,1" Margin="2,0"
-                                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
-                                                                <TextBlock Text="{Binding DisplayText}"
-                                                                           Foreground="White"
-                                                                           FontSize="11"
-                                                                           FontWeight="SemiBold"/>
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-
-                                                <!-- Author and date -->
-                                                <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="2" Orientation="Horizontal" Margin="0,2,0,0">
-                                                    <TextBlock Text="{Binding Author}"
-                                                               Foreground="{StaticResource TextMutedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"/>
-                                                    <TextBlock Text=" - "
-                                                               Foreground="{StaticResource TextMutedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"/>
-                                                    <TextBlock Text="{Binding RelativeDate}"
-                                                               Foreground="{StaticResource TextMutedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"/>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-
-                            <!-- Load more button -->
-                            <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="8">
-                                <Button Content="Load More"
-                                        Command="{Binding LoadMoreCommand}"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Classes="TerminalSwitchButton"
-                                        Padding="8,6"/>
-                            </Border>
-
-                            <!-- Loading overlay -->
-                            <Border Grid.Row="0" Grid.RowSpan="2"
-                                    Background="#80000000"
-                                    IsVisible="{Binding IsLoading}">
-                                <TextBlock Text="Loading..."
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
-                            </Border>
-
-                            <!-- Empty state -->
-                            <TextBlock Grid.Row="0"
-                                       Text="{Binding StatusMessage}"
-                                       Foreground="{StaticResource TextMutedBrush}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       IsVisible="{Binding StatusMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Splitter 1 -->
-                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
-
-                    <!-- Commit Details Panel -->
-                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- Details header -->
-                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                <DockPanel>
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
-                                        <Button Content="Explain"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding ExplainCommitCommand}"
-                                                ToolTip.Tip="AI-powered commit explanation"
-                                                Padding="6,3"
-                                                FontSize="{StaticResource FontSizeMicro}"/>
-                                        <Button Content="Cherry-pick"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding CherryPickCommand}"
-                                                ToolTip.Tip="Apply this commit to current branch"
-                                                Padding="6,3"
-                                                FontSize="{StaticResource FontSizeMicro}"/>
-                                        <Button Content="Revert"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding RevertCommitCommand}"
-                                                ToolTip.Tip="Create a commit that undoes this commit"
-                                                Padding="6,3"
-                                                FontSize="{StaticResource FontSizeMicro}"/>
-                                        <Button Content="Copy Hash"
-                                                Classes="TerminalSwitchButton"
-                                                Command="{Binding CopyHashCommand}"
-                                                ToolTip.Tip="Copy full commit hash"
-                                                Padding="6,3"
-                                                FontSize="{StaticResource FontSizeMicro}"/>
-                                    </StackPanel>
-                                    <TextBlock Text="Commit Details"
-                                               Foreground="{StaticResource TextDimmedBrush}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
-                            </Border>
-
-                            <!-- Details content -->
-                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                <StackPanel Margin="12,8" IsVisible="{Binding CommitDetails, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                    <!-- Full message -->
-                                    <TextBlock Text="{Binding CommitDetails.FullMessage}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontSize="{StaticResource FontSizeSmall}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,0,0,12"/>
-
-                                    <!-- Author -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                        <TextBlock Text="Author: "
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                        <TextBlock Text="{Binding CommitDetails.Author}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                    </StackPanel>
-
-                                    <!-- Date -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                        <TextBlock Text="Date: "
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                        <TextBlock Text="{Binding CommitDetails.Date, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                        <TextBlock Text="{Binding CommitDetails.RelativeDate, StringFormat=' ({0})'}"
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                    </StackPanel>
-
-                                    <!-- Hash -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                        <TextBlock Text="Hash: "
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                        <TextBlock Text="{Binding CommitDetails.ShortHash}"
-                                                   Foreground="{StaticResource SyntaxCyanBrush}"
-                                                   FontFamily="{StaticResource FontFamilyMonospace}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                    </StackPanel>
-
-                                    <!-- Stats -->
-                                    <Border Background="{StaticResource BackgroundMediumBrush}" CornerRadius="4" Padding="8" Margin="0,0,0,12">
-                                        <TextBlock Text="{Binding CommitDetails.StatsDisplay}"
-                                                   Foreground="{StaticResource TextDimmedBrush}"
-                                                   FontSize="{StaticResource FontSizeMicro}"/>
-                                    </Border>
-
-                                    <!-- AI Explaining spinner -->
-                                    <Border Background="#1A6366F1" CornerRadius="4" Padding="8" Margin="0,0,0,8"
-                                            IsVisible="{Binding IsAiExplaining}">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="Analyzing commit..." Foreground="#6366F1"
-                                                       FontSize="{StaticResource FontSizeMicro}" FontStyle="Italic"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- AI Explanation callout -->
-                                    <Border Background="#1A10B981" CornerRadius="4" Padding="8" Margin="0,0,0,12"
-                                            IsVisible="{Binding HasAiExplanation}">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Spacing="4">
-                                                <TextBlock Text="AI Explanation" Foreground="#10B981"
-                                                           FontSize="{StaticResource FontSizeMicro}" FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding AiExplanation}"
-                                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                                           FontSize="{StaticResource FontSizeMicro}"
-                                                           TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                            <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
-                                                    Command="{Binding CopyAiExplanationCommand}"
-                                                    ToolTip.Tip="Copy to clipboard"
-                                                    VerticalAlignment="Top" Margin="6,0,0,0"/>
-                                            <Button Grid.Column="2" Content="x"
-                                                    Command="{Binding DismissAiExplanationCommand}"
-                                                    VerticalAlignment="Top"
-                                                    Background="Transparent" Foreground="{StaticResource TextMutedBrush}"
-                                                    Padding="4,0" FontSize="{StaticResource FontSizeMicro}"
-                                                    ToolTip.Tip="Dismiss"/>
-                                        </Grid>
-                                    </Border>
-
-                                    <!-- Files header -->
-                                    <TextBlock Text="Changed Files"
-                                               Foreground="{StaticResource TextDimmedBrush}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               FontWeight="SemiBold"
-                                               Margin="0,0,0,8"/>
-
-                                    <!-- Files list -->
-                                    <ListBox ItemsSource="{Binding CommitDetails.Files}"
-                                             SelectedItem="{Binding SelectedFile}"
-                                             Background="Transparent"
-                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate DataType="domain:GitCommitFile">
-                                                <Border Padding="4,3" Cursor="Hand">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="20"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <Grid.RowDefinitions>
-                                                            <RowDefinition Height="Auto"/>
-                                                            <RowDefinition Height="Auto"/>
-                                                        </Grid.RowDefinitions>
-
-                                                        <!-- Status icon -->
-                                                        <TextBlock Grid.Column="0" Grid.RowSpan="2"
-                                                                   Text="{Binding StatusIcon}"
-                                                                   Foreground="{Binding StatusColor}"
-                                                                   FontFamily="{StaticResource FontFamilyMonospace}"
-                                                                   FontSize="{StaticResource FontSizeSmall}"
-                                                                   FontWeight="Bold"
-                                                                   VerticalAlignment="Center"/>
-
-                                                        <!-- File name -->
-                                                        <TextBlock Grid.Column="1" Grid.Row="0"
-                                                                   Text="{Binding FileName}"
-                                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                                   FontSize="{StaticResource FontSizeMicro}"
-                                                                   TextTrimming="CharacterEllipsis"/>
-
-                                                        <!-- Directory -->
-                                                        <TextBlock Grid.Column="1" Grid.Row="1"
-                                                                   Text="{Binding Directory}"
-                                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                                   FontSize="9"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                                                        <!-- Stats -->
-                                                        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Additions, StringFormat='+{0}'}"
-                                                                       Foreground="{StaticResource SuccessGreenBrush}"
-                                                                       FontSize="{StaticResource FontSizeMicro}"
-                                                                       Margin="4,0"
-                                                                       IsVisible="{Binding Additions}"/>
-                                                            <TextBlock Text="{Binding Deletions, StringFormat='-{0}'}"
-                                                                       Foreground="{StaticResource ErrorRedBrush}"
-                                                                       FontSize="{StaticResource FontSizeMicro}"
-                                                                       IsVisible="{Binding Deletions}"/>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
+                        <!-- Details header -->
+                        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                                    <Button Content="Explain"
+                                            Classes="TerminalSwitchButton"
+                                            Command="{Binding ExplainCommitCommand}"
+                                            ToolTip.Tip="AI-powered commit explanation"
+                                            Padding="6,3"
+                                            FontSize="{StaticResource FontSizeMicro}"/>
+                                    <Button Content="Cherry-pick"
+                                            Classes="TerminalSwitchButton"
+                                            Command="{Binding CherryPickCommand}"
+                                            ToolTip.Tip="Apply this commit to current branch"
+                                            Padding="6,3"
+                                            FontSize="{StaticResource FontSizeMicro}"/>
+                                    <Button Content="Revert"
+                                            Classes="TerminalSwitchButton"
+                                            Command="{Binding RevertCommitCommand}"
+                                            ToolTip.Tip="Create a commit that undoes this commit"
+                                            Padding="6,3"
+                                            FontSize="{StaticResource FontSizeMicro}"/>
+                                    <Button Content="Copy Hash"
+                                            Classes="TerminalSwitchButton"
+                                            Command="{Binding CopyHashCommand}"
+                                            ToolTip.Tip="Copy full commit hash"
+                                            Padding="6,3"
+                                            FontSize="{StaticResource FontSizeMicro}"/>
                                 </StackPanel>
-                            </ScrollViewer>
-
-                            <!-- No commit selected state -->
-                            <TextBlock Grid.Row="1"
-                                       Text="Select a commit to view details"
-                                       Foreground="{StaticResource TextMutedBrush}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       IsVisible="{Binding CommitDetails, Converter={x:Static ObjectConverters.IsNull}}"/>
-
-                            <!-- Loading details overlay -->
-                            <Border Grid.Row="1"
-                                    Background="#80000000"
-                                    IsVisible="{Binding IsLoadingDetails}">
-                                <TextBlock Text="Loading details..."
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
-                            </Border>
-                        </Grid>
-                    </Border>
-
-                    <!-- Splitter 2 -->
-                    <GridSplitter Grid.Column="3" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
-
-                    <!-- Diff Area -->
-                    <Border Grid.Column="4" Background="{StaticResource BackgroundDarkestBrush}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- Diff header -->
-                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                <TextBlock Text="{Binding SelectedFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                <TextBlock Text="Commit Details"
                                            Foreground="{StaticResource TextDimmedBrush}"
                                            FontSize="{StaticResource FontSizeTiny}"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </Border>
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
 
-                            <!-- Diff content -->
-                            <controls:DiffViewer Grid.Row="1" DiffText="{Binding FileDiff}" />
-                        </Grid>
-                    </Border>
-                </Grid>
+                        <!-- Details content -->
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="12,8" IsVisible="{Binding CommitDetails, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <!-- Full message -->
+                                <TextBlock Text="{Binding CommitDetails.FullMessage}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,12"/>
 
-                <!-- Footer -->
-                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
+                                <!-- Author -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBlock Text="Author: "
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                    <TextBlock Text="{Binding CommitDetails.Author}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </StackPanel>
+
+                                <!-- Date -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBlock Text="Date: "
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                    <TextBlock Text="{Binding CommitDetails.Date, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                    <TextBlock Text="{Binding CommitDetails.RelativeDate, StringFormat=' ({0})'}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </StackPanel>
+
+                                <!-- Hash -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="Hash: "
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                    <TextBlock Text="{Binding CommitDetails.ShortHash}"
+                                               Foreground="{StaticResource SyntaxCyanBrush}"
+                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </StackPanel>
+
+                                <!-- Stats -->
+                                <Border Background="{StaticResource BackgroundMediumBrush}" CornerRadius="4" Padding="8" Margin="0,0,0,12">
+                                    <TextBlock Text="{Binding CommitDetails.StatsDisplay}"
+                                               Foreground="{StaticResource TextDimmedBrush}"
+                                               FontSize="{StaticResource FontSizeMicro}"/>
+                                </Border>
+
+                                <!-- AI Explaining spinner -->
+                                <Border Background="#1A6366F1" CornerRadius="4" Padding="8" Margin="0,0,0,8"
+                                        IsVisible="{Binding IsAiExplaining}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Analyzing commit..." Foreground="#6366F1"
+                                                   FontSize="{StaticResource FontSizeMicro}" FontStyle="Italic"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- AI Explanation callout -->
+                                <Border Background="#1A10B981" CornerRadius="4" Padding="8" Margin="0,0,0,12"
+                                        IsVisible="{Binding HasAiExplanation}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <TextBlock Text="AI Explanation" Foreground="#10B981"
+                                                       FontSize="{StaticResource FontSizeMicro}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding AiExplanation}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="{StaticResource FontSizeMicro}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                                                Command="{Binding CopyAiExplanationCommand}"
+                                                ToolTip.Tip="Copy to clipboard"
+                                                VerticalAlignment="Top" Margin="6,0,0,0"/>
+                                        <Button Grid.Column="2" Content="x"
+                                                Command="{Binding DismissAiExplanationCommand}"
+                                                VerticalAlignment="Top"
+                                                Background="Transparent" Foreground="{StaticResource TextMutedBrush}"
+                                                Padding="4,0" FontSize="{StaticResource FontSizeMicro}"
+                                                ToolTip.Tip="Dismiss"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Files header -->
+                                <TextBlock Text="Changed Files"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+
+                                <!-- Files list -->
+                                <ListBox ItemsSource="{Binding CommitDetails.Files}"
+                                         SelectedItem="{Binding SelectedFile}"
+                                         Background="Transparent"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate DataType="domain:GitCommitFile">
+                                            <Border Padding="4,3" Cursor="Hand">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="20"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <!-- Status icon -->
+                                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                                               Text="{Binding StatusIcon}"
+                                                               Foreground="{Binding StatusColor}"
+                                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               FontWeight="Bold"
+                                                               VerticalAlignment="Center"/>
+
+                                                    <!-- File name -->
+                                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                                               Text="{Binding FileName}"
+                                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                                               FontSize="{StaticResource FontSizeMicro}"
+                                                               TextTrimming="CharacterEllipsis"/>
+
+                                                    <!-- Directory -->
+                                                    <TextBlock Grid.Column="1" Grid.Row="1"
+                                                               Text="{Binding Directory}"
+                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                               FontSize="9"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                                    <!-- Stats -->
+                                                    <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Additions, StringFormat='+{0}'}"
+                                                                   Foreground="{StaticResource SuccessGreenBrush}"
+                                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                                   Margin="4,0"
+                                                                   IsVisible="{Binding Additions}"/>
+                                                        <TextBlock Text="{Binding Deletions, StringFormat='-{0}'}"
+                                                                   Foreground="{StaticResource ErrorRedBrush}"
+                                                                   FontSize="{StaticResource FontSizeMicro}"
+                                                                   IsVisible="{Binding Deletions}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- No commit selected state -->
+                        <TextBlock Grid.Row="1"
+                                   Text="Select a commit to view details"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Text="Press Escape to close"/>
-                        <TextBlock Text="{Binding Commits.Count, StringFormat='{}{0} commits loaded'}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
+                                   IsVisible="{Binding CommitDetails, Converter={x:Static ObjectConverters.IsNull}}"/>
+
+                        <!-- Loading details overlay -->
+                        <Border Grid.Row="1"
+                                Background="#80000000"
+                                IsVisible="{Binding IsLoadingDetails}">
+                            <TextBlock Text="Loading details..."
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Splitter 2 -->
+                <GridSplitter Grid.Column="3" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                <!-- Diff Area -->
+                <Border Grid.Column="4" Background="{StaticResource BackgroundDarkestBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Diff header -->
+                        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                            <TextBlock Text="{Binding SelectedFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Border>
+
+                        <!-- Diff content -->
+                        <controls:DiffViewer Grid.Row="1" DiffText="{Binding FileDiff}" />
+                    </Grid>
                 </Border>
             </Grid>
-        </controls:DraggablePopup.PopupContent>
-    </controls:DraggablePopup>
+
+            <!-- Footer -->
+            <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Text="Press Escape to close"/>
+                    <TextBlock Text="{Binding Commits.Count, StringFormat='{}{0} commits loaded'}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
 </UserControl>

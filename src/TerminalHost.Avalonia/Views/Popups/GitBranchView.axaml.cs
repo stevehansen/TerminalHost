@@ -15,17 +15,13 @@ public partial class GitBranchView : UserControl
         InitializeComponent();
 
         // Focus the search box when view becomes visible
-        this.PropertyChanged += (s, e) =>
+        this.AttachedToVisualTree += (s, e) =>
         {
-            if (e.Property.Name == nameof(IsVisible) && IsVisible)
+            Dispatcher.UIThread.Post(() =>
             {
-                // Use Dispatcher to ensure focus happens after view is fully rendered
-                Dispatcher.UIThread.Post(() =>
-                {
-                    GitBranchSearchBox.Focus();
-                    GitBranchSearchBox.SelectAll();
-                }, DispatcherPriority.Input);
-            }
+                GitBranchSearchBox.Focus();
+                GitBranchSearchBox.SelectAll();
+            }, DispatcherPriority.Input);
         };
 
         // Handle keyboard navigation

@@ -7,18 +7,17 @@
              xmlns:controls="clr-namespace:TerminalHost.Controls"
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance vm:GitFilesViewModel}"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             Background="{StaticResource BackgroundDarkBrush}">
 
-    <controls:DraggablePopup
-        IsOpen="{Binding IsOpen, Mode=TwoWay}"
-        PopupWidth="{Binding Width, Mode=TwoWay}"
-        PopupHeight="{Binding Height, Mode=TwoWay}"
-        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
-        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
-        Title="{Binding Title}"
-        CloseCommand="{Binding CloseCommand}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <controls:DraggablePopup.HeaderRightContent>
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding FileChangeSummary}"
                            Foreground="{StaticResource TextDimmedBrush}"
@@ -57,10 +56,10 @@
                         ToolTip.Tip="Refresh file list"
                         Margin="0,0,8,0"/>
             </StackPanel>
-        </controls:DraggablePopup.HeaderRightContent>
+        </Border>
 
-        <controls:DraggablePopup.PopupContent>
-            <Grid>
+        <!-- Content -->
+        <Grid Grid.Row="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
@@ -717,7 +716,7 @@
                 </Grid>
 
                 <!-- Footer -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right"
                                    Foreground="{StaticResource TextDimmedBrush}"
@@ -732,6 +731,5 @@
                     </DockPanel>
                 </Border>
             </Grid>
-        </controls:DraggablePopup.PopupContent>
-    </controls:DraggablePopup>
+    </Grid>
 </UserControl>

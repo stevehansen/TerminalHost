@@ -7,257 +7,215 @@
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance viewModels:GitStashViewModel}"
              mc:Ignorable="d"
-             IsVisible="{Binding IsOpen}">
+             Background="{StaticResource BackgroundDarkBrush}">
 
-    <!-- Overlay panel centered in parent -->
-    <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Border Background="{StaticResource BackgroundDarkBrush}"
-                BorderBrush="{StaticResource SyntaxYellowBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="0"
-                MinWidth="400"
-                MaxWidth="550"
-                MaxHeight="550"
-                Width="{Binding Width, Mode=TwoWay}"
-                Height="{Binding Height, Mode=TwoWay}"
-                BoxShadow="0 5 20 0 #80000000">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Create Stash Form -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
-                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right"
-                                Content="x"
-                                Classes="TabCloseButton"
-                                Command="{Binding CloseCommand}"
-                                FontSize="{StaticResource FontSizeLarge}"
-                                Padding="8,2"/>
-                        <Button DockPanel.Dock="Right"
-                                Content="Refresh"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding RefreshStashListCommand}"
-                                ToolTip.Tip="Refresh stash list"
-                                Margin="0,0,8,0"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="" FontSize="{StaticResource FontSizeNormal}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding Title}"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="{StaticResource FontSizeCode}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
+                <!-- Stash message input -->
+                <TextBox Grid.Column="0" Grid.Row="0"
+                         Text="{Binding StashMessage}"
+                         Watermark="Stash message (optional)"
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,6"
+                         FontSize="{StaticResource FontSizeCode}"
+                         Margin="0,0,8,0"/>
 
-                <!-- Create Stash Form -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                <!-- Create stash button -->
+                <Button Grid.Column="1" Grid.Row="0"
+                        Content="Stash"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding CreateStashCommand}"
+                        ToolTip.Tip="Create new stash"
+                        VerticalAlignment="Stretch"/>
 
-                        <!-- Stash message input -->
-                        <TextBox Grid.Column="0" Grid.Row="0"
-                                 Text="{Binding StashMessage}"
-                                 Watermark="Stash message (optional)"
-                                 Background="{StaticResource BackgroundMediumBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderSubtleBrush}"
-                                 BorderThickness="1"
-                                 Padding="8,6"
-                                 FontSize="{StaticResource FontSizeCode}"
-                                 Margin="0,0,8,0"/>
-
-                        <!-- Create stash button -->
-                        <Button Grid.Column="1" Grid.Row="0"
-                                Content="Stash"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding CreateStashCommand}"
-                                ToolTip.Tip="Create new stash"
-                                VerticalAlignment="Stretch"/>
-
-                        <!-- Include untracked checkbox -->
-                        <CheckBox Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
-                                  IsChecked="{Binding IncludeUntracked}"
-                                  Content="Include untracked files"
-                                  Foreground="{StaticResource TextSecondaryBrush}"
-                                  FontSize="{StaticResource FontSizeSmall}"
-                                  Margin="0,6,0,0"/>
-                    </Grid>
-                </Border>
-
-                <!-- Stash List -->
-                <Grid Grid.Row="2">
-                    <!-- Main stash list -->
-                    <ListBox x:Name="StashList"
-                             ItemsSource="{Binding Stashes}"
-                             SelectedItem="{Binding SelectedStash, Mode=TwoWay}"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             IsVisible="{Binding !IsCreatingBranch}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="domain:GitStashEntry">
-                                <Grid Margin="12,6">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- Stash index badge -->
-                                    <Border Grid.Row="0" Grid.Column="0"
-                                            Background="{StaticResource SyntaxYellowBrush}"
-                                            CornerRadius="3"
-                                            Padding="4,2"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Index, StringFormat='{}{0}'}"
-                                                   Foreground="{StaticResource BackgroundDarkBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"
-                                                   FontWeight="Bold"/>
-                                    </Border>
-
-                                    <!-- Stash message -->
-                                    <TextBlock Grid.Row="0" Grid.Column="1"
-                                               Text="{Binding Message}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontSize="{StaticResource FontSizeSmall}"
-                                               TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center"/>
-
-                                    <!-- Relative date -->
-                                    <TextBlock Grid.Row="0" Grid.Column="2"
-                                               Text="{Binding RelativeDate}"
-                                               Foreground="{StaticResource TextDimmedBrush}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               VerticalAlignment="Center"
-                                               Margin="8,0,0,0"/>
-
-                                    <!-- Branch name -->
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                               Text="{Binding BranchName, StringFormat='On {0}'}"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               IsVisible="{Binding BranchName, Converter={StaticResource BoolToVisibilityConverter}}"
-                                               Margin="0,2,0,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.Styles>
-                            <Style Selector="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                            </Style>
-                            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
-                            </Style>
-                            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                                <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
-                            </Style>
-                        </ListBox.Styles>
-                    </ListBox>
-
-                    <!-- Create branch from stash panel -->
-                    <Border IsVisible="{Binding IsCreatingBranch}"
-                            Background="{StaticResource BackgroundMediumBrush}"
-                            Padding="16"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Center">
-                        <StackPanel Spacing="12" MinWidth="300">
-                            <TextBlock Text="Create branch from stash"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="{StaticResource FontSizeCode}"
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Center"/>
-
-                            <TextBlock Text="{Binding SelectedStash.DisplayName}"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       HorizontalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"/>
-
-                            <TextBox Text="{Binding NewBranchName}"
-                                     Watermark="Branch name"
-                                     Background="{StaticResource BackgroundDarkBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     CaretBrush="{StaticResource TextPrimaryBrush}"
-                                     BorderBrush="{StaticResource BorderSubtleBrush}"
-                                     BorderThickness="1"
-                                     Padding="8,6"
-                                     FontSize="{StaticResource FontSizeCode}"/>
-
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                                <Button Content="Cancel"
-                                        Classes="TerminalSwitchButton"
-                                        Command="{Binding CancelBranchFromStashCommand}"/>
-                                <Button Content="Create Branch"
-                                        Classes="TerminalSwitchButton"
-                                        Command="{Binding CreateBranchFromStashCommand}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Empty state -->
-                    <TextBlock Text="{Binding StatusMessage}"
-                               Foreground="{StaticResource TextMutedBrush}"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Padding="20"
-                               IsVisible="{Binding Stashes.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
-                </Grid>
-
-                <!-- Footer with action buttons -->
-                <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6" CornerRadius="0,0,6,6"
-                        IsVisible="{Binding !IsCreatingBranch}">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="Drop"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding DropStashCommand}"
-                                    ToolTip.Tip="Delete selected stash"
-                                    Margin="0,0,4,0"/>
-                            <Button Content="Branch"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding ShowBranchFromStashCommand}"
-                                    ToolTip.Tip="Create branch from stash"
-                                    Margin="0,0,4,0"/>
-                            <Button Content="Apply"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding ApplyStashCommand}"
-                                    ToolTip.Tip="Apply stash (keep stash)"
-                                    Margin="0,0,4,0"/>
-                            <Button Content="Pop"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding PopStashCommand}"
-                                    ToolTip.Tip="Apply and remove stash"/>
-                        </StackPanel>
-                        <TextBlock Text="Cmd+Shift+S"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Border>
+                <!-- Include untracked checkbox -->
+                <CheckBox Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
+                          IsChecked="{Binding IncludeUntracked}"
+                          Content="Include untracked files"
+                          Foreground="{StaticResource TextSecondaryBrush}"
+                          FontSize="{StaticResource FontSizeSmall}"
+                          Margin="0,6,0,0"/>
             </Grid>
         </Border>
-    </Panel>
+
+        <!-- Stash List -->
+        <Grid Grid.Row="1">
+            <!-- Main stash list -->
+            <ListBox x:Name="StashList"
+                     ItemsSource="{Binding Stashes}"
+                     SelectedItem="{Binding SelectedStash, Mode=TwoWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     IsVisible="{Binding !IsCreatingBranch}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="domain:GitStashEntry">
+                        <Grid Margin="12,6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Stash index badge -->
+                            <Border Grid.Row="0" Grid.Column="0"
+                                    Background="{StaticResource SyntaxYellowBrush}"
+                                    CornerRadius="3"
+                                    Padding="4,2"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Index, StringFormat='{}{0}'}"
+                                           Foreground="{StaticResource BackgroundDarkBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           FontWeight="Bold"/>
+                            </Border>
+
+                            <!-- Stash message -->
+                            <TextBlock Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding Message}"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- Relative date -->
+                            <TextBlock Grid.Row="0" Grid.Column="2"
+                                       Text="{Binding RelativeDate}"
+                                       Foreground="{StaticResource TextDimmedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0,0,0"/>
+
+                            <!-- Branch name -->
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                       Text="{Binding BranchName, StringFormat='On {0}'}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeTiny}"
+                                       IsVisible="{Binding BranchName, Converter={StaticResource BoolToVisibilityConverter}}"
+                                       Margin="0,2,0,0"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+
+            <!-- Create branch from stash panel -->
+            <Border IsVisible="{Binding IsCreatingBranch}"
+                    Background="{StaticResource BackgroundMediumBrush}"
+                    Padding="16"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center">
+                <StackPanel Spacing="12" MinWidth="300">
+                    <TextBlock Text="Create branch from stash"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeCode}"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"/>
+
+                    <TextBlock Text="{Binding SelectedStash.DisplayName}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               HorizontalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <TextBox Text="{Binding NewBranchName}"
+                             Watermark="Branch name"
+                             Background="{StaticResource BackgroundDarkBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource TextPrimaryBrush}"
+                             BorderBrush="{StaticResource BorderSubtleBrush}"
+                             BorderThickness="1"
+                             Padding="8,6"
+                             FontSize="{StaticResource FontSizeCode}"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                        <Button Content="Cancel"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding CancelBranchFromStashCommand}"/>
+                        <Button Content="Create Branch"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding CreateBranchFromStashCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Empty state -->
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="{StaticResource FontSizeSmall}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Padding="20"
+                       IsVisible="{Binding Stashes.Count, Converter={StaticResource ZeroToVisibilityConverter}}"/>
+        </Grid>
+
+        <!-- Footer with action buttons -->
+        <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6"
+                IsVisible="{Binding !IsCreatingBranch}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Drop"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding DropStashCommand}"
+                            ToolTip.Tip="Delete selected stash"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Branch"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding ShowBranchFromStashCommand}"
+                            ToolTip.Tip="Create branch from stash"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Apply"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding ApplyStashCommand}"
+                            ToolTip.Tip="Apply stash (keep stash)"
+                            Margin="0,0,4,0"/>
+                    <Button Content="Pop"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding PopStashCommand}"
+                            ToolTip.Tip="Apply and remove stash"/>
+                </StackPanel>
+                <TextBlock Text="Cmd+Shift+S"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeTiny}"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+    </Grid>
 </UserControl>

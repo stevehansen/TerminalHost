@@ -138,35 +138,9 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
 
-                <!-- Git Branch Switcher - Center -->
-                <popups:GitBranchView
-                    x:Name="GitBranchPopup"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center" />
+                <!-- Git Branch Switcher - now rendered inline via UnifiedGitPanel center panel DataTemplate -->
 
-                <!-- Git Files/Changes - Center (uses DraggablePopup internally) -->
-                <popups:GitFilesView
-                    x:Name="GitFilesPopup"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch" />
-
-                <!-- Commit History - Center (uses DraggablePopup internally) -->
-                <popups:CommitHistoryView
-                    x:Name="CommitHistoryPopup"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch" />
-
-                <!-- Git Stash - Center -->
-                <popups:GitStashView
-                    x:Name="GitStashPopup"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center" />
-
-                <!-- Git Tags - Center -->
-                <popups:GitTagsView
-                    x:Name="GitTagsPopup"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center" />
+                <!-- Git views (Files, History, Stash, Tags) now rendered inline via UnifiedGitPanel center panel DataTemplates -->
 
                 <!-- Scratch Pad - Center -->
                 <views:ScratchPadView
@@ -240,11 +214,7 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
 
-                <!-- Branch Comparison - Center -->
-                <popups:BranchComparisonView
-                    x:Name="BranchComparisonPopup"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center" />
+                <!-- Branch Comparison - now rendered inline via UnifiedGitPanel center panel DataTemplate -->
 
                 <!-- Merge Conflict - Center -->
                 <popups:MergeConflictView

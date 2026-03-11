@@ -7,18 +7,17 @@
              xmlns:controls="clr-namespace:TerminalHost.Controls"
              xmlns:domain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DataContext="{d:DesignInstance vm:BranchComparisonViewModel}"
+             Background="{StaticResource BackgroundDarkBrush}"
              mc:Ignorable="d">
 
-    <controls:DraggablePopup
-        IsOpen="{Binding IsOpen, Mode=TwoWay}"
-        PopupWidth="{Binding Width, Mode=TwoWay}"
-        PopupHeight="{Binding Height, Mode=TwoWay}"
-        HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
-        VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
-        Title="{Binding Title}"
-        CloseCommand="{Binding CloseCommand}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <controls:DraggablePopup.HeaderRightContent>
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Content="Refresh"
                         Classes="TerminalSwitchButton"
@@ -31,461 +30,336 @@
                         Command="{Binding SwapBranchesCommand}"
                         ToolTip.Tip="Swap base and compare branches"
                         Padding="6,3"
-                        FontSize="{StaticResource FontSizeMicro}"
-                        Margin="0,0,8,0"/>
+                        FontSize="{StaticResource FontSizeMicro}"/>
             </StackPanel>
-        </controls:DraggablePopup.HeaderRightContent>
+        </Border>
 
-        <controls:DraggablePopup.PopupContent>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- Content -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-                <!-- Branch Selection -->
-                <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+            <!-- Branch Selection -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0"
-                                   Text="Base:"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"/>
+                    <TextBlock Grid.Column="0"
+                               Text="Base:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
 
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding AvailableBranches}"
-                                  SelectedItem="{Binding BaseBranch}"
-                                  FontSize="{StaticResource FontSizeSmall}"
-                                  Background="{StaticResource BackgroundDarkBrush}"
-                                  Foreground="{StaticResource TextPrimaryBrush}"
-                                  BorderBrush="{StaticResource BorderMediumBrush}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate DataType="domain:GitBranch">
-                                    <TextBlock Text="{Binding ShortName}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding AvailableBranches}"
+                              SelectedItem="{Binding BaseBranch}"
+                              FontSize="{StaticResource FontSizeSmall}"
+                              Background="{StaticResource BackgroundDarkBrush}"
+                              Foreground="{StaticResource TextPrimaryBrush}"
+                              BorderBrush="{StaticResource BorderMediumBrush}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="domain:GitBranch">
+                                <TextBlock Text="{Binding ShortName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
-                        <TextBlock Grid.Column="2"
-                                   Text="vs"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   VerticalAlignment="Center"
-                                   Margin="12,0"/>
-
-                        <ComboBox Grid.Column="3"
-                                  ItemsSource="{Binding AvailableBranches}"
-                                  SelectedItem="{Binding CompareBranch}"
-                                  FontSize="{StaticResource FontSizeSmall}"
-                                  Background="{StaticResource BackgroundDarkBrush}"
-                                  Foreground="{StaticResource TextPrimaryBrush}"
-                                  BorderBrush="{StaticResource BorderMediumBrush}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate DataType="domain:GitBranch">
-                                    <TextBlock Text="{Binding ShortName}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-
-                        <Button Grid.Column="4"
-                                Content="Compare"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding CompareCommand}"
-                                Margin="8,0,0,0"
-                                Padding="12,6"/>
-
-                        <Button Grid.Column="5"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding AssessMergeRiskCommand}"
-                                ToolTip.Tip="Assess merge risk (AI)"
-                                Margin="4,0,0,0"
-                                Padding="6,6"
-                                Content="{Binding IsAssessingMergeRisk, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|Risk'}"/>
-                    </Grid>
-                </Border>
-
-                <!-- Merge Risk Assessment Callout -->
-                <Border Grid.Row="1" Background="#2D2200" CornerRadius="3" Margin="12,6,12,0"
-                        BorderBrush="#CC8800" BorderThickness="3,0,0,0"
-                        IsVisible="{Binding HasMergeRiskAssessment}">
-                    <Grid Margin="8,7,6,7">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding MergeRiskAssessment}" Foreground="{StaticResource TextPrimaryBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}" TextWrapping="Wrap"/>
-                        <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
-                                Command="{Binding CopyMergeRiskAssessmentCommand}"
-                                ToolTip.Tip="Copy to clipboard"
-                                VerticalAlignment="Top" Margin="6,0,0,0"/>
-                        <Button Grid.Column="2" Content="x"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding DismissMergeRiskAssessmentCommand}"
-                                VerticalAlignment="Top" Margin="6,0,0,0"
-                                Padding="4,2" MinWidth="20"/>
-                    </Grid>
-                </Border>
-
-                <!-- Status/Summary -->
-                <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8"
-                        IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
-                            <Button Content="Fast-Forward"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding FastForwardBaseToCompareCommand}"
-                                    IsVisible="{Binding ComparisonResult.CanFastForwardBaseToCompare}"
-                                    ToolTip.Tip="Fast-forward base branch to match compare branch"
-                                    Padding="6,3"
-                                    FontSize="{StaticResource FontSizeMicro}"/>
-                            <Button Content="Reset"
-                                    Classes="TerminalSwitchButton"
-                                    Command="{Binding ResetBaseToCompareCommand}"
-                                    ToolTip.Tip="Reset base branch to match compare branch (destructive)"
-                                    Foreground="{StaticResource AccentOrangeBrush}"
-                                    Padding="6,3"
-                                    FontSize="{StaticResource FontSizeMicro}"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatusMessage}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Border>
-
-                <!-- View Mode Toggle -->
-                <Border Grid.Row="3" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,4"
-                        IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button Content="Commits"
-                                Classes="TerminalSwitchButton"
-                                Command="{Binding SetViewModeCommand}"
-                                CommandParameter="Commits"
-                                FontWeight="{Binding IsCommitsView, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Bold|Normal'}"
-                                Padding="8,4"/>
-                        <Button Command="{Binding SetViewModeCommand}"
-                                CommandParameter="Files"
-                                Classes="TerminalSwitchButton"
-                                FontWeight="{Binding IsFilesView, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Bold|Normal'}"
-                                Padding="8,4">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Files"/>
-                                <TextBlock Text="{Binding ChangedFiles.Count, StringFormat=' ({0})'}"
-                                           Foreground="{StaticResource TextMutedBrush}"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
-                <!-- Comparison Content -->
-                <Grid Grid.Row="4">
-
-                    <!-- Commits View (two-column commit lists) -->
-                    <Grid IsVisible="{Binding IsCommitsView}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="4"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Commits only in Base -->
-                        <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Commits only in "
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"/>
-                                        <TextBlock Text="{Binding BaseBranch.ShortName, FallbackValue='base'}"
-                                                   Foreground="{StaticResource SyntaxGreenBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"
-                                                   FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding CommitsInBase.Count, StringFormat=' ({0})'}"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <ListBox Grid.Row="1"
-                                         ItemsSource="{Binding CommitsInBase}"
-                                         SelectedItem="{Binding SelectedCommit}"
-                                         Background="Transparent"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate DataType="domain:GitCommit">
-                                            <Border Padding="8,4" Cursor="Hand">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="{Binding ShortHash}"
-                                                               Foreground="{StaticResource SyntaxYellowBrush}"
-                                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                                               FontSize="{StaticResource FontSizeMicro}"
-                                                               VerticalAlignment="Center"
-                                                               Margin="0,0,8,0"/>
-
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding Subject}"
-                                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                                               FontSize="{StaticResource FontSizeSmall}"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               VerticalAlignment="Center"/>
-
-                                                    <TextBlock Grid.Column="2"
-                                                               Text="{Binding RelativeDate}"
-                                                               Foreground="{StaticResource TextDimmedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"
-                                                               VerticalAlignment="Center"
-                                                               Margin="8,0,0,0"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-
-                                <!-- Empty state -->
-                                <TextBlock Grid.Row="1"
-                                           Text="No unique commits"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           IsVisible="{Binding !CommitsInBase.Count}"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- Splitter -->
-                        <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BorderSubtleBrush}" HorizontalAlignment="Stretch"/>
-
-                        <!-- Commits only in Compare -->
-                        <Border Grid.Column="2" Background="{StaticResource BackgroundDarkBrush}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Commits only in "
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"/>
-                                        <TextBlock Text="{Binding CompareBranch.ShortName, FallbackValue='compare'}"
-                                                   Foreground="{StaticResource SyntaxCyanBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"
-                                                   FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding CommitsInCompare.Count, StringFormat=' ({0})'}"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                                   FontSize="{StaticResource FontSizeTiny}"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <ListBox Grid.Row="1"
-                                         ItemsSource="{Binding CommitsInCompare}"
-                                         SelectedItem="{Binding SelectedCommit}"
-                                         Background="Transparent"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate DataType="domain:GitCommit">
-                                            <Border Padding="8,4" Cursor="Hand">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="{Binding ShortHash}"
-                                                               Foreground="{StaticResource SyntaxYellowBrush}"
-                                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                                               FontSize="{StaticResource FontSizeMicro}"
-                                                               VerticalAlignment="Center"
-                                                               Margin="0,0,8,0"/>
-
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding Subject}"
-                                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                                               FontSize="{StaticResource FontSizeSmall}"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               VerticalAlignment="Center"/>
-
-                                                    <TextBlock Grid.Column="2"
-                                                               Text="{Binding RelativeDate}"
-                                                               Foreground="{StaticResource TextDimmedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"
-                                                               VerticalAlignment="Center"
-                                                               Margin="8,0,0,0"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-
-                                <!-- Empty state -->
-                                <TextBlock Grid.Row="1"
-                                           Text="No unique commits"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           IsVisible="{Binding !CommitsInCompare.Count}"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- Loading overlay for commits view -->
-                        <Border Grid.ColumnSpan="3"
-                                Background="#80000000"
-                                IsVisible="{Binding IsLoading}">
-                            <TextBlock Text="Comparing branches..."
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-
-                    <!-- Files View (file list + diff) -->
-                    <Grid IsVisible="{Binding IsFilesView}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="300" MinWidth="200"/>
-                            <ColumnDefinition Width="4"/>
-                            <ColumnDefinition Width="*" MinWidth="300"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- File List -->
-                        <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                    <TextBlock Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}">
-                                        <TextBlock.Text>
-                                            <MultiBinding StringFormat="{}{0} files changed">
-                                                <Binding Path="ChangedFiles.Count"/>
-                                            </MultiBinding>
-                                        </TextBlock.Text>
-                                    </TextBlock>
-                                </Border>
-
-                                <ListBox Grid.Row="1"
-                                         ItemsSource="{Binding ChangedFiles}"
-                                         SelectedItem="{Binding SelectedFile}"
-                                         Background="Transparent"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate DataType="domain:GitFileStatus">
-                                            <Border Padding="4,3" Cursor="Hand">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="20"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                    </Grid.RowDefinitions>
-
-                                                    <TextBlock Grid.Column="0" Grid.RowSpan="2"
-                                                               Text="{Binding StatusIcon}"
-                                                               Foreground="{Binding StatusColor}"
-                                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                                               FontSize="{StaticResource FontSizeSmall}"
-                                                               FontWeight="Bold"
-                                                               VerticalAlignment="Center"
-                                                               ToolTip.Tip="{Binding StatusDescription}"/>
-
-                                                    <TextBlock Grid.Column="1" Grid.Row="0"
-                                                               Text="{Binding FileName}"
-                                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                                               FontSize="{StaticResource FontSizeSmall}"
-                                                               TextTrimming="CharacterEllipsis"/>
-
-                                                    <TextBlock Grid.Column="1" Grid.Row="1"
-                                                               Text="{Binding Directory}"
-                                                               Foreground="{StaticResource TextMutedBrush}"
-                                                               FontSize="{StaticResource FontSizeMicro}"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-
-                                <!-- Empty state -->
-                                <TextBlock Grid.Row="1"
-                                           Text="No file changes"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           IsVisible="{Binding !ChangedFiles.Count}"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- Splitter -->
-                        <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
-
-                        <!-- Diff Area -->
-                        <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
-                                    <TextBlock Text="{Binding SelectedFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
-                                               Foreground="{StaticResource TextDimmedBrush}"
-                                               FontSize="{StaticResource FontSizeTiny}"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
-                                </Border>
-
-                                <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}"/>
-                            </Grid>
-                        </Border>
-                    </Grid>
-
-                    <!-- No comparison yet -->
-                    <TextBlock Text="Select two branches and click Compare"
+                    <TextBlock Grid.Column="2"
+                               Text="vs"
                                Foreground="{StaticResource TextMutedBrush}"
                                FontSize="{StaticResource FontSizeSmall}"
-                               HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNull}}"/>
+                               Margin="12,0"/>
 
-                    <!-- Loading overlay -->
-                    <Border Background="#80000000"
+                    <ComboBox Grid.Column="3"
+                              ItemsSource="{Binding AvailableBranches}"
+                              SelectedItem="{Binding CompareBranch}"
+                              FontSize="{StaticResource FontSizeSmall}"
+                              Background="{StaticResource BackgroundDarkBrush}"
+                              Foreground="{StaticResource TextPrimaryBrush}"
+                              BorderBrush="{StaticResource BorderMediumBrush}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="domain:GitBranch">
+                                <TextBlock Text="{Binding ShortName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Button Grid.Column="4"
+                            Content="Compare"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding CompareCommand}"
+                            Margin="8,0,0,0"
+                            Padding="12,6"/>
+
+                    <Button Grid.Column="5"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding AssessMergeRiskCommand}"
+                            ToolTip.Tip="Assess merge risk (AI)"
+                            Margin="4,0,0,0"
+                            Padding="6,6"
+                            Content="{Binding IsAssessingMergeRisk, Converter={StaticResource BoolToStringConverter}, ConverterParameter='...|Risk'}"/>
+                </Grid>
+            </Border>
+
+            <!-- Merge Risk Assessment Callout -->
+            <Border Grid.Row="1" Background="#2D2200" CornerRadius="3" Margin="12,6,12,0"
+                    BorderBrush="#CC8800" BorderThickness="3,0,0,0"
+                    IsVisible="{Binding HasMergeRiskAssessment}">
+                <Grid Margin="8,7,6,7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding MergeRiskAssessment}" Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="{StaticResource FontSizeTiny}" TextWrapping="Wrap"/>
+                    <Button Grid.Column="1" Content="&#x1F4CB;" Classes="InlineAction"
+                            Command="{Binding CopyMergeRiskAssessmentCommand}"
+                            ToolTip.Tip="Copy to clipboard"
+                            VerticalAlignment="Top" Margin="6,0,0,0"/>
+                    <Button Grid.Column="2" Content="x"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding DismissMergeRiskAssessmentCommand}"
+                            VerticalAlignment="Top" Margin="6,0,0,0"
+                            Padding="4,2" MinWidth="20"/>
+                </Grid>
+            </Border>
+
+            <!-- Status/Summary -->
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8"
+                    IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                        <Button Content="Fast-Forward"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding FastForwardBaseToCompareCommand}"
+                                IsVisible="{Binding ComparisonResult.CanFastForwardBaseToCompare}"
+                                ToolTip.Tip="Fast-forward base branch to match compare branch"
+                                Padding="6,3"
+                                FontSize="{StaticResource FontSizeMicro}"/>
+                        <Button Content="Reset"
+                                Classes="TerminalSwitchButton"
+                                Command="{Binding ResetBaseToCompareCommand}"
+                                ToolTip.Tip="Reset base branch to match compare branch (destructive)"
+                                Foreground="{StaticResource AccentOrangeBrush}"
+                                Padding="6,3"
+                                FontSize="{StaticResource FontSizeMicro}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- View Mode Toggle -->
+            <Border Grid.Row="3" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,4"
+                    IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Content="Commits"
+                            Classes="TerminalSwitchButton"
+                            Command="{Binding SetViewModeCommand}"
+                            CommandParameter="Commits"
+                            FontWeight="{Binding IsCommitsView, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Bold|Normal'}"
+                            Padding="8,4"/>
+                    <Button Command="{Binding SetViewModeCommand}"
+                            CommandParameter="Files"
+                            Classes="TerminalSwitchButton"
+                            FontWeight="{Binding IsFilesView, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Bold|Normal'}"
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Files"/>
+                            <TextBlock Text="{Binding ChangedFiles.Count, StringFormat=' ({0})'}"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Comparison Content -->
+            <Grid Grid.Row="4">
+
+                <!-- Commits View (two-column commit lists) -->
+                <Grid IsVisible="{Binding IsCommitsView}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Commits only in Base -->
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Commits only in "
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                    <TextBlock Text="{Binding BaseBranch.ShortName, FallbackValue='base'}"
+                                               Foreground="{StaticResource SyntaxGreenBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CommitsInBase.Count, StringFormat=' ({0})'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding CommitsInBase}"
+                                     SelectedItem="{Binding SelectedCommit}"
+                                     Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="domain:GitCommit">
+                                        <Border Padding="8,4" Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding ShortHash}"
+                                                           Foreground="{StaticResource SyntaxYellowBrush}"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,8,0"/>
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Subject}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding RelativeDate}"
+                                                           Foreground="{StaticResource TextDimmedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="8,0,0,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Empty state -->
+                            <TextBlock Grid.Row="1"
+                                       Text="No unique commits"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding !CommitsInBase.Count}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BorderSubtleBrush}" HorizontalAlignment="Stretch"/>
+
+                    <!-- Commits only in Compare -->
+                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Commits only in "
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                    <TextBlock Text="{Binding CompareBranch.ShortName, FallbackValue='compare'}"
+                                               Foreground="{StaticResource SyntaxCyanBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CommitsInCompare.Count, StringFormat=' ({0})'}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="{StaticResource FontSizeTiny}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding CommitsInCompare}"
+                                     SelectedItem="{Binding SelectedCommit}"
+                                     Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="domain:GitCommit">
+                                        <Border Padding="8,4" Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding ShortHash}"
+                                                           Foreground="{StaticResource SyntaxYellowBrush}"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,8,0"/>
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Subject}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding RelativeDate}"
+                                                           Foreground="{StaticResource TextDimmedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="8,0,0,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Empty state -->
+                            <TextBlock Grid.Row="1"
+                                       Text="No unique commits"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding !CommitsInCompare.Count}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Loading overlay for commits view -->
+                    <Border Grid.ColumnSpan="3"
+                            Background="#80000000"
                             IsVisible="{Binding IsLoading}">
                         <TextBlock Text="Comparing branches..."
                                    Foreground="{StaticResource TextPrimaryBrush}"
@@ -494,22 +368,145 @@
                     </Border>
                 </Grid>
 
-                <!-- Footer -->
-                <Border Grid.Row="5" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,20,0"
-                                   Text="Press Escape to close"/>
-                        <TextBlock Text="{Binding StatusMessage}"
-                                   Foreground="{StaticResource TextDimmedBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
+                <!-- Files View (file list + diff) -->
+                <Grid IsVisible="{Binding IsFilesView}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" MinWidth="200"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*" MinWidth="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- File List -->
+                    <Border Grid.Column="0" Background="{StaticResource BackgroundDarkBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <TextBlock Foreground="{StaticResource TextDimmedBrush}" FontSize="{StaticResource FontSizeTiny}">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} files changed">
+                                            <Binding Path="ChangedFiles.Count"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </Border>
+
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding ChangedFiles}"
+                                     SelectedItem="{Binding SelectedFile}"
+                                     Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="domain:GitFileStatus">
+                                        <Border Padding="4,3" Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock Grid.Column="0" Grid.RowSpan="2"
+                                                           Text="{Binding StatusIcon}"
+                                                           Foreground="{Binding StatusColor}"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
+                                                           FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip.Tip="{Binding StatusDescription}"/>
+
+                                                <TextBlock Grid.Column="1" Grid.Row="0"
+                                                           Text="{Binding FileName}"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           FontSize="{StaticResource FontSizeSmall}"
+                                                           TextTrimming="CharacterEllipsis"/>
+
+                                                <TextBlock Grid.Column="1" Grid.Row="1"
+                                                           Text="{Binding Directory}"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="{StaticResource FontSizeMicro}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           IsVisible="{Binding Directory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Empty state -->
+                            <TextBlock Grid.Row="1"
+                                       Text="No file changes"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding !ChangedFiles.Count}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"/>
+
+                    <!-- Diff Area -->
+                    <Border Grid.Column="2" Background="{StaticResource BackgroundDarkestBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="8,6">
+                                <TextBlock Text="{Binding SelectedFile.FilePath, StringFormat='Diff: {0}', FallbackValue='Select a file to view diff'}"
+                                           Foreground="{StaticResource TextDimmedBrush}"
+                                           FontSize="{StaticResource FontSizeTiny}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Border>
+
+                            <controls:DiffViewer Grid.Row="1" DiffText="{Binding DiffText}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- No comparison yet -->
+                <TextBlock Text="Select two branches and click Compare"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding ComparisonResult, Converter={x:Static ObjectConverters.IsNull}}"/>
+
+                <!-- Loading overlay -->
+                <Border Background="#80000000"
+                        IsVisible="{Binding IsLoading}">
+                    <TextBlock Text="Comparing branches..."
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
                 </Border>
             </Grid>
-        </controls:DraggablePopup.PopupContent>
-    </controls:DraggablePopup>
+
+            <!-- Footer -->
+            <Border Grid.Row="5" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,20,0"
+                               Text="Press Escape to close"/>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource TextDimmedBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
 </UserControl>

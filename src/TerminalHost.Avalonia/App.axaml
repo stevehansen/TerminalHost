@@ -92,6 +92,12 @@
         <DataTemplate DataType="{x:Type vm:GitTagsViewModel}">
             <popups:GitTagsView/>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GitBranchViewModel}">
+            <popups:GitBranchView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GitStashViewModel}">
+            <popups:GitStashView/>
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:RecentFeaturesViewModel}">
             <popups:RecentFeaturesView/>
         </DataTemplate>

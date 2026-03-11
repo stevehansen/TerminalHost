@@ -115,11 +115,8 @@ public partial class MainWindow : Window
         WorkspaceSidebar.DataContext = _workspaceSidebarViewModel;
 
         // Set popup DataContexts
-        GitBranchPopup.DataContext = _gitBranchViewModel;
-        GitFilesPopup.DataContext = _gitFilesViewModel;
-        CommitHistoryPopup.DataContext = _commitHistoryViewModel;
-        GitStashPopup.DataContext = _gitStashViewModel;
-        GitTagsPopup.DataContext = _gitTagsViewModel;
+        // Git views (Branch, Files, History, Stash, Tags, BranchComparison) now render
+        // inline via UnifiedGitPanel center panel DataTemplates
         ScratchPadPopup.DataContext = _scratchPadViewModel;
         FileViewerPopup.DataContext = _fileViewerViewModel;
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
@@ -132,9 +129,7 @@ public partial class MainWindow : Window
         ManageWorktreesPopup.DataContext = _manageWorktreesViewModel;
         PrReviewPopup.DataContext = _prReviewViewModel;
         RecentFeaturesPopup.DataContext = _recentFeaturesViewModel;
-        BranchComparisonPopup.DataContext = _branchComparisonViewModel;
         MergeConflictPopup.DataContext = _mergeConflictViewModel;
-        // UnifiedGitPanel renders via center panel DataTemplate (no popup instance needed)
 
         // Wire up MainViewModel events
         // Note: ScratchPadViewModel and TaskPanelViewModel subscribe to their events internally
@@ -275,7 +270,14 @@ public partial class MainWindow : Window
         {
             Gesture = new KeyGesture(Key.B, KeyModifiers.Meta)
         };
-        gitBranchItem.Click += (_, _) => _ = _gitBranchViewModel.OpenCommand.ExecuteAsync(null);
+        gitBranchItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Branches);
+            }
+        };
         viewMenu.Menu.Add(gitBranchItem);
 
         var gitChangesItem = new NativeMenuItem("Git Changes...")
@@ -285,7 +287,10 @@ public partial class MainWindow : Window
         gitChangesItem.Click += (_, _) =>
         {
             if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-                _ = _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Changes);
+            }
         };
         viewMenu.Menu.Add(gitChangesItem);
 
@@ -293,14 +298,28 @@ public partial class MainWindow : Window
         {
             Gesture = new KeyGesture(Key.H, KeyModifiers.Meta | KeyModifiers.Shift)
         };
-        commitHistoryItem.Click += (_, _) => _ = _commitHistoryViewModel.OpenCommand.ExecuteAsync(null);
+        commitHistoryItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.History);
+            }
+        };
         viewMenu.Menu.Add(commitHistoryItem);
 
         var gitStashItem = new NativeMenuItem("Git Stash...")
         {
             Gesture = new KeyGesture(Key.S, KeyModifiers.Meta | KeyModifiers.Shift)
         };
-        gitStashItem.Click += (_, _) => _ = _gitStashViewModel.OpenCommand.ExecuteAsync(null);
+        gitStashItem.Click += (_, _) =>
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Stash);
+            }
+        };
         viewMenu.Menu.Add(gitStashItem);
 
         var gitReflogItem = new NativeMenuItem("Git Reflog...")
@@ -667,7 +686,8 @@ public partial class MainWindow : Window
     {
         if (_mainViewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
         {
-            await _gitFilesViewModel.OpenCommand.ExecuteAsync(terminalTab);
+            terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+            await _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Changes);
         }
     }
 
