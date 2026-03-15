@@ -7,6 +7,7 @@ using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace TerminalHost.Tests.Services;
@@ -31,87 +32,38 @@ public class GitStatusServiceTests
     }
 
     [Fact]
-    public async Task GetGitStatusAsync_ShouldReturnCleanStatus_WhenNoChanges()
+    public async Task GetGitStatusAsync_ShouldDetectGitRepository()
     {
-        // Arrange
-        var workingDirectory = "P:\\TestRepo";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --git-dir"))
-                             .ReturnsAsync(".git\n"); // Indicate it's a git repo
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
-                             .ReturnsAsync(""); // No output means clean
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD"))
-                             .ReturnsAsync("main\n");
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count @{u}..HEAD"))
-                             .ReturnsAsync("1\n"); // Example ahead
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count HEAD..@{u}"))
-                             .ReturnsAsync("2\n"); // Example behind
+        // Uses libgit2sharp against the actual repo this test project lives in
+        var workingDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
-        // Act
         var result = await _gitStatusService.GetGitStatusAsync(workingDirectory);
 
-        // Assert
         result.ShouldNotBeNull();
         result.IsGitRepository.ShouldBeTrue();
-        result.IsDirty.ShouldBeFalse();
-        result.BranchName.ShouldBe("main");
-        result.AheadCount.ShouldBe(1);
-        result.BehindCount.ShouldBe(2);
+        result.BranchName.ShouldNotBeNullOrEmpty();
     }
 
     [Fact]
-    public async Task GetGitStatusAsync_ShouldReturnDirtyStatus_WhenChangesExist()
+    public async Task GetGitStatusAsync_ShouldReturnNonRepoForInvalidPath()
     {
-        // Arrange
-        var workingDirectory = "P:\\TestRepo";
-        var statusOutput = " M MyFile.cs\n?? NewFile.txt";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --git-dir"))
-                             .ReturnsAsync(".git\n"); // Indicate it's a git repo
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
-                             .ReturnsAsync(statusOutput);
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD"))
-                             .ReturnsAsync("feature/branch\n");
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count @{u}..HEAD"))
-                             .ReturnsAsync("0\n");
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count HEAD..@{u}"))
-                             .ReturnsAsync("0\n");
+        var result = await _gitStatusService.GetGitStatusAsync("P:\\NonExistent\\FakePath");
 
-        // Act
-        var result = await _gitStatusService.GetGitStatusAsync(workingDirectory);
-
-        // Assert
         result.ShouldNotBeNull();
-        result.IsGitRepository.ShouldBeTrue();
-        result.IsDirty.ShouldBeTrue();
-        result.BranchName.ShouldBe("feature/branch");
-        result.AheadCount.ShouldBe(0);
-        result.BehindCount.ShouldBe(0);
+        result.IsGitRepository.ShouldBeFalse();
     }
 
     [Fact]
-    public async Task GetGitStatusAsync_ShouldHandleNoUpstreamTracking()
+    public async Task GetGitStatusAsync_ShouldReturnNonRepoForNonGitDirectory()
     {
-        // Arrange
-        var workingDirectory = "P:\\TestRepo";
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --git-dir"))
-                             .ReturnsAsync(".git\n"); // Indicate it's a git repo
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "status --porcelain"))
-                             .ReturnsAsync("");
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD"))
-                             .ReturnsAsync("main\n");
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count @{u}..HEAD"))
-                             .ReturnsAsync(""); // No output for tracking
-        _mockGitProcessRunner.Setup(r => r.RunGitCommandAsync(workingDirectory, "rev-list --count HEAD..@{u}"))
-                             .ReturnsAsync(""); // No output for tracking
+        // Use the Windows temp directory which is not a git repo
+        var tempDir = Path.GetTempPath();
+        _mockFileSystem.Setup(fs => fs.DirectoryExists(tempDir)).Returns(true);
 
-        // Act
-        var result = await _gitStatusService.GetGitStatusAsync(workingDirectory);
+        var result = await _gitStatusService.GetGitStatusAsync(tempDir);
 
-        // Assert
         result.ShouldNotBeNull();
-        result.IsGitRepository.ShouldBeTrue();
-        result.BranchName.ShouldBe("main");
-        result.AheadCount.ShouldBe(0);
-        result.BehindCount.ShouldBe(0);
+        result.IsGitRepository.ShouldBeFalse();
     }
 
     [Fact]

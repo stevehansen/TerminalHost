@@ -193,9 +193,13 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             IsLoading = false;
         }
 
-        // Load git status/worktrees in background after the overlay is removed.
-        // Each entry's own IsLoading indicator shows per-workspace progress.
-        _ = LoadWorkspaceGitStatusAsync();
+        // Load git status/worktrees in background after the overlay is removed,
+        // unless git tracking is disabled.
+        var trackingMode = _configurationService.Load().Settings.GitTrackingMode;
+        if (trackingMode != GitTrackingMode.Disabled)
+        {
+            _ = LoadWorkspaceGitStatusAsync();
+        }
     }
 
     /// <summary>
@@ -383,8 +387,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Refreshes git status for all workspaces in batches to balance throughput
-    /// with UI responsiveness (avoids flooding the dispatcher with 60+ simultaneous updates).
+    /// Refreshes git status for all workspaces in batches.
+    /// Git I/O runs on thread pool, results applied on the calling thread.
     /// </summary>
     public async Task RefreshAllGitStatusAsync()
     {
@@ -393,20 +397,28 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         for (var i = 0; i < all.Count; i += batchSize)
         {
-            var batch = all.Skip(i).Take(batchSize);
+            var batch = all.Skip(i).Take(batchSize).ToList();
+
+            var results = new System.Collections.Concurrent.ConcurrentBag<(WorkspaceEntryViewModel vm, Core.Domain.GitStatus? status)>();
             await Task.WhenAll(batch.Select(async w =>
             {
-                try { await w.RefreshGitStatusAsync(); }
+                try
+                {
+                    var status = await Task.Run(() => _gitStatusService.GetGitStatusAsync(w.Path));
+                    results.Add((w, status));
+                }
                 catch { /* Silently ignore git status errors */ }
             }));
+
+            foreach (var (vm, status) in results)
+                vm.GitStatus = status;
         }
     }
 
     /// <summary>
     /// Fetches from git remotes for all workspaces and refreshes their status.
-    /// Runs in batches of 5 to get good I/O throughput without flooding the
-    /// thread pool (120+ concurrent git processes) or the UI dispatcher
-    /// (540+ simultaneous property change notifications).
+    /// Runs git I/O in batches of 5 on the thread pool, then applies results
+    /// on the calling thread to avoid cross-thread WPF property change flooding.
     /// </summary>
     public async Task FetchAllAsync()
     {
@@ -415,19 +427,30 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         for (var i = 0; i < all.Count; i += batchSize)
         {
-            var batch = all.Skip(i).Take(batchSize);
+            var batch = all.Skip(i).Take(batchSize).ToList();
+
+            // Run git I/O on thread pool, collect results
+            var results = new System.Collections.Concurrent.ConcurrentBag<(WorkspaceEntryViewModel vm, Core.Domain.GitStatus? status)>();
             await Task.WhenAll(batch.Select(async w =>
             {
                 try
                 {
-                    await _gitStatusService.FetchAllAsync(w.Path);
-                    await w.RefreshGitStatusAsync();
+                    await Task.Run(async () =>
+                    {
+                        await _gitStatusService.FetchAllAsync(w.Path);
+                        var status = await _gitStatusService.GetGitStatusAsync(w.Path);
+                        results.Add((w, status));
+                    });
                 }
                 catch
                 {
                     // Silently ignore fetch errors (network issues, etc.)
                 }
             }));
+
+            // Apply results on the calling thread (UI thread when called from command handlers)
+            foreach (var (vm, status) in results)
+                vm.GitStatus = status;
         }
     }
 
@@ -451,6 +474,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         return _allWorkspaces.Select(w => w.Workspace)
             .Concat(_allPlaygrounds.Select(w => w.Workspace))
             .ToList();
+    }
+
+    /// <summary>
+    /// Returns all workspace entry ViewModels (for AutoFetchAll to coordinate UI updates).
+    /// </summary>
+    public List<WorkspaceEntryViewModel> GetAllWorkspaceEntries()
+    {
+        return _allWorkspaces.Concat(_allPlaygrounds).ToList();
     }
 
     private WorkspaceEntryViewModel? FindWorkspaceByPath(string path)
@@ -958,27 +989,47 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         for (var i = 0; i < allWorkspaces.Count; i += batchSize)
         {
-            var batch = allWorkspaces.Skip(i).Take(batchSize);
+            var batch = allWorkspaces.Skip(i).Take(batchSize).ToList();
+
+            // Run git pull on thread pool, collect results
+            var results = new System.Collections.Concurrent.ConcurrentBag<(WorkspaceEntryViewModel vm, Core.Domain.GitStatus? status, bool success)>();
             await Task.WhenAll(batch.Select(async w =>
             {
                 try
                 {
-                    var result = await _gitStatusService.PullRebaseAsync(w.Path);
-                    if (result.Success)
+                    await Task.Run(async () =>
                     {
-                        await w.RefreshGitStatusAsync();
-                        Interlocked.Increment(ref successCount);
-                    }
-                    else
-                    {
-                        Interlocked.Increment(ref failCount);
-                    }
+                        var result = await _gitStatusService.PullRebaseAsync(w.Path);
+                        if (result.Success)
+                        {
+                            var status = await _gitStatusService.GetGitStatusAsync(w.Path);
+                            results.Add((w, status, true));
+                        }
+                        else
+                        {
+                            results.Add((w, null, false));
+                        }
+                    });
                 }
                 catch
                 {
                     Interlocked.Increment(ref failCount);
                 }
             }));
+
+            // Apply results on UI thread
+            foreach (var (vm, status, success) in results)
+            {
+                if (success)
+                {
+                    vm.GitStatus = status;
+                    Interlocked.Increment(ref successCount);
+                }
+                else
+                {
+                    Interlocked.Increment(ref failCount);
+                }
+            }
         }
 
         IsPullAllInProgress = false;

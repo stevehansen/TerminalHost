@@ -45,6 +45,27 @@ public enum WorkspaceSortMode
 }
 
 /// <summary>
+/// Controls how aggressively git status is tracked for workspaces.
+/// </summary>
+public enum GitTrackingMode
+{
+    /// <summary>
+    /// Periodically fetch and refresh git status for all workspaces.
+    /// </summary>
+    All,
+
+    /// <summary>
+    /// Only track git status for the currently selected workspace/tab.
+    /// </summary>
+    CurrentOnly,
+
+    /// <summary>
+    /// Disable all background git tracking (manual refresh only).
+    /// </summary>
+    Disabled
+}
+
+/// <summary>
 /// Defines behavior when launching the app while another instance is running.
 /// </summary>
 public enum SingleInstanceBehavior
@@ -569,6 +590,15 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("sidebarCollapsed")]
     public bool SidebarCollapsed { get; set; } = false;
+
+    /// <summary>
+    /// Controls how aggressively git status is tracked for workspaces.
+    /// All = fetch/refresh all workspaces periodically.
+    /// CurrentOnly = only track the currently selected workspace/tab.
+    /// Disabled = no background git tracking (manual refresh only).
+    /// </summary>
+    [JsonPropertyName("gitTrackingMode")]
+    public GitTrackingMode GitTrackingMode { get; set; } = GitTrackingMode.All;
 
     /// <summary>
     /// Whether to automatically fetch from git remotes periodically.

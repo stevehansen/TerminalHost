@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.RegularExpressions;
+using LibGit2Sharp;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -19,50 +20,65 @@ public sealed class GitStatusService : IGitStatusService
         _fileSystem = fileSystem;
     }
 
-    public async Task<GitStatus> GetGitStatusAsync(string workingDirectory)
+    public Task<Domain.GitStatus> GetGitStatusAsync(string workingDirectory)
     {
-        var status = new GitStatus();
-
-        if (!_fileSystem.DirectoryExists(workingDirectory))
-            return status;
-
-        // Check if it's a git repository
-        var gitDir = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --git-dir");
-        if (gitDir == null)
-            return status;
-
-        status.IsGitRepository = true;
-
-        // Get branch name
-        var branch = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --abbrev-ref HEAD");
-        status.BranchName = branch?.Trim() ?? "";
-
-        // Handle detached HEAD
-        if (status.BranchName == "HEAD")
+        // Use libgit2sharp for in-process git status (no Process.Start overhead).
+        // This replaces 7 sequential git CLI calls with a single library call.
+        return Task.Run(() =>
         {
-            var shortSha = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-parse --short HEAD");
-            status.BranchName = shortSha?.Trim() ?? "HEAD";
-        }
+            var status = new Domain.GitStatus();
 
-        // Check dirty status
-        var porcelain = await _gitRunner.RunGitCommandAsync(workingDirectory, "status --porcelain");
-        status.IsDirty = !string.IsNullOrWhiteSpace(porcelain);
+            if (!_fileSystem.DirectoryExists(workingDirectory))
+                return status;
 
-        // Get ahead/behind counts (may fail if no upstream)
-        var ahead = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-list --count @{u}..HEAD");
-        if (ahead != null && int.TryParse(ahead.Trim(), out var aheadCount))
-            status.AheadCount = aheadCount;
+            try
+            {
+                var repoPath = Repository.Discover(workingDirectory);
+                if (repoPath == null)
+                    return status;
 
-        var behind = await _gitRunner.RunGitCommandAsync(workingDirectory, "rev-list --count HEAD..@{u}");
-        if (behind != null && int.TryParse(behind.Trim(), out var behindCount))
-            status.BehindCount = behindCount;
+                using var repo = new Repository(repoPath);
+                status.IsGitRepository = true;
 
-        // Get stash count
-        var stashOutput = await _gitRunner.RunGitCommandAsync(workingDirectory, "stash list");
-        if (!string.IsNullOrEmpty(stashOutput))
-            status.StashCount = stashOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+                // Branch name
+                if (repo.Head.FriendlyName == "(no branch)")
+                {
+                    // Detached HEAD — use short SHA
+                    status.BranchName = repo.Head.Tip?.Sha[..7] ?? "HEAD";
+                }
+                else
+                {
+                    status.BranchName = repo.Head.FriendlyName ?? "";
+                }
 
-        return status;
+                // Dirty status (any staged, unstaged, or untracked changes)
+                var repoStatus = repo.RetrieveStatus(new StatusOptions
+                {
+                    IncludeUntracked = true,
+                    RecurseUntrackedDirs = false, // faster: don't recurse into untracked dirs
+                });
+                status.IsDirty = repoStatus.IsDirty;
+
+                // Ahead/behind counts
+                if (repo.Head.TrackedBranch != null && repo.Head.Tip != null && repo.Head.TrackedBranch.Tip != null)
+                {
+                    var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(
+                        repo.Head.Tip, repo.Head.TrackedBranch.Tip);
+                    status.AheadCount = divergence.AheadBy ?? 0;
+                    status.BehindCount = divergence.BehindBy ?? 0;
+                }
+
+                // Stash count
+                status.StashCount = repo.Stashes.Count();
+
+                return status;
+            }
+            catch
+            {
+                // Fall back to non-repo status on any error
+                return status;
+            }
+        });
     }
 
     public async Task<List<GitFileStatus>> GetModifiedFilesAsync(string workingDirectory)
@@ -1322,7 +1338,7 @@ public sealed class GitStatusService : IGitStatusService
 
     #region Reset Operations
 
-    public async Task<GitOperationResult> ResetAsync(string workingDirectory, string targetRef, ResetMode mode = ResetMode.Mixed)
+    public async Task<GitOperationResult> ResetAsync(string workingDirectory, string targetRef, Domain.ResetMode mode = Domain.ResetMode.Mixed)
     {
         if (!_fileSystem.DirectoryExists(workingDirectory))
             return new GitOperationResult { Success = false, Error = "Directory does not exist" };
@@ -1332,8 +1348,8 @@ public sealed class GitStatusService : IGitStatusService
 
         var modeFlag = mode switch
         {
-            ResetMode.Soft => "--soft",
-            ResetMode.Hard => "--hard",
+            Domain.ResetMode.Soft => "--soft",
+            Domain.ResetMode.Hard => "--hard",
             _ => "--mixed"
         };
 
@@ -1729,10 +1745,10 @@ public sealed class GitStatusService : IGitStatusService
 
             var status = statusChar switch
             {
-                '-' => SubmoduleStatus.Uninitialized,
-                '+' => SubmoduleStatus.Modified,
-                'U' => SubmoduleStatus.Modified, // Merge conflict treated as modified
-                _ => SubmoduleStatus.Clean
+                '-' => Domain.SubmoduleStatus.Uninitialized,
+                '+' => Domain.SubmoduleStatus.Modified,
+                'U' => Domain.SubmoduleStatus.Modified, // Merge conflict treated as modified
+                _ => Domain.SubmoduleStatus.Clean
             };
 
             submodules.Add(new SubmoduleInfo

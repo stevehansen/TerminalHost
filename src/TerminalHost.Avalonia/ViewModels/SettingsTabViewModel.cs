@@ -92,6 +92,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _touchMode;
 
     [ObservableProperty]
+    private GitTrackingMode _gitTrackingMode;
+
+    [ObservableProperty]
     private bool _gitAutoFetch = true;
 
     [ObservableProperty]
@@ -503,6 +506,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
             TouchMode = config.Settings.TouchMode;
+            GitTrackingMode = config.Settings.GitTrackingMode;
             GitAutoFetch = config.Settings.GitAutoFetch;
             GitAutoFetchIntervalSeconds = config.Settings.GitAutoFetchIntervalSeconds;
 
@@ -578,6 +582,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
             config.Settings.TouchMode = TouchMode;
+            config.Settings.GitTrackingMode = GitTrackingMode;
             config.Settings.GitAutoFetch = GitAutoFetch;
             config.Settings.GitAutoFetchIntervalSeconds = GitAutoFetchIntervalSeconds;
 
@@ -695,6 +700,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnGitTrackingModeChanged(GitTrackingMode value) => MarkDirtyFromRichMode();
     partial void OnGitAutoFetchChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnGitAutoFetchIntervalSecondsChanged(int value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();

@@ -31,8 +31,11 @@ public class TerminalSession : IDisposable
     private readonly StringBuilder _oscBuffer = new();
     private bool _parsingOsc;
 
-    // Output buffer for link detection (circular buffer of recent lines)
+    // Output buffer for link detection (circular buffer of recent output).
+    // Writer appends to StringBuilder under lock, then publishes a snapshot string.
+    // Readers only access the volatile snapshot — no lock needed for reads.
     private readonly StringBuilder _outputBuffer = new();
+    private volatile string _outputSnapshot = "";
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
 
     private readonly IStatisticsService _statisticsService;
@@ -144,38 +147,26 @@ public class TerminalSession : IDisposable
     /// </summary>
     private string? GetTextForLinkDetection()
     {
-        // First try to get any selected text (user may have selected a URL/path)
-        // This requires the user to double-click first to select, then Ctrl+click
-        // Unfortunately, EasyTerminalControl doesn't expose selection APIs directly
+        // Lock-free read: just read the volatile snapshot reference
+        var snapshot = _outputSnapshot;
+        if (snapshot.Length == 0)
+            return null;
 
-        // For now, we'll look at the last few lines of output to find potential links
-        // The user can also select text before Ctrl+clicking
-        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
-        lock (_outputBuffer)
-        {
-            if (_outputBuffer.Length == 0)
-                return null;
-
-            // Get last ~1000 chars which likely contains the visible area
-            var startIndex = Math.Max(0, _outputBuffer.Length - 1000);
-            return _outputBuffer.ToString(startIndex, _outputBuffer.Length - startIndex);
-        }
+        // Get last ~1000 chars which likely contains the visible area
+        return snapshot.Length <= 1000 ? snapshot : snapshot[^1000..];
     }
 
     /// <summary>
     /// Gets recent terminal output for link detection.
+    /// Lock-free: reads a volatile string snapshot published by the writer.
     /// </summary>
     public string GetRecentOutput(int maxChars = 5000)
     {
-        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
-        lock (_outputBuffer)
-        {
-            if (_outputBuffer.Length == 0)
-                return string.Empty;
+        var snapshot = _outputSnapshot;
+        if (snapshot.Length == 0)
+            return string.Empty;
 
-            var startIndex = Math.Max(0, _outputBuffer.Length - maxChars);
-            return _outputBuffer.ToString(startIndex, _outputBuffer.Length - startIndex);
-        }
+        return snapshot.Length <= maxChars ? snapshot : snapshot[^maxChars..];
     }
 
     /// <summary>
@@ -206,8 +197,7 @@ public class TerminalSession : IDisposable
         // Parse OSC escape sequences for title changes
         ParseOscSequences(str);
 
-        // Append to output buffer for link detection
-        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
+        // Append to output buffer and publish snapshot for lock-free readers
         lock (_outputBuffer)
         {
             _outputBuffer.Append(str);
@@ -220,6 +210,9 @@ public class TerminalSession : IDisposable
                 _outputBuffer.Clear();
                 _outputBuffer.Append(kept);
             }
+
+            // Publish snapshot for lock-free readers
+            _outputSnapshot = _outputBuffer.ToString();
         }
     }
 

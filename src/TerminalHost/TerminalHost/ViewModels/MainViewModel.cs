@@ -52,6 +52,13 @@ public partial class MainViewModel : ObservableObject
     private readonly IAppTimer _linkDetectionTimer;
     private readonly IAppTimer _runUrlDetectionTimer;
 
+    // Cached git tracking mode to avoid config loads on every timer tick
+    private GitTrackingMode _gitTrackingMode;
+
+    // Cached settings reference for command palette NameProvider lambdas
+    // (avoids 30 × 145KB config loads on every palette render/keystroke)
+    private AppSettings _cachedSettings = new();
+
     // Focus time tracking for workspace auto-sort
     private DateTime? _tabFocusStartTime;
     private string? _focusedTabDirectory;
@@ -316,8 +323,11 @@ public partial class MainViewModel : ObservableObject
         // Initialize help view model
         HelpViewModel = new HelpViewModel(this);
 
+        // Cache settings reference for command palette NameProvider lambdas
+        _cachedSettings = configService.Load().Settings;
+
         // Initialize touch mode from config
-        TouchMode = configService.Load().Settings.TouchMode;
+        TouchMode = _cachedSettings.TouchMode;
 
         // Subscribe to Tabs collection changes for NonProjectTabs updates
         _tabs.CollectionChanged += (s, e) =>
@@ -557,11 +567,17 @@ public partial class MainViewModel : ObservableObject
 
         sp.Log("Starting timers");
 
-        // Start git status refresh timer
-        _gitStatusTimer.Start();
+        // Cache git tracking mode
+        _gitTrackingMode = _configService.Load().Settings.GitTrackingMode;
 
-        // Start git auto-fetch timer (if enabled)
-        if (_configService.Load().Settings.GitAutoFetch)
+        // Start git status refresh timer (unless tracking is fully disabled)
+        if (_gitTrackingMode != GitTrackingMode.Disabled)
+        {
+            _gitStatusTimer.Start();
+        }
+
+        // Start git auto-fetch timer (only in All mode + if enabled)
+        if (_gitTrackingMode == GitTrackingMode.All && _configService.Load().Settings.GitAutoFetch)
         {
             _gitAutoFetchTimer.Start();
         }
@@ -586,16 +602,17 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshSelectedTabGitStatusAsync()
     {
+        if (_gitTrackingMode == GitTrackingMode.Disabled) return;
         if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
-        IoCounters.CurrentUiOperation = "RefreshGitStatus";
         try
         {
             var previousBranch = terminalTab.GitStatus?.BranchName;
             var workDir = terminalTab.Pair.WorkingDirectory;
             var status = await Task.Run(() => _gitStatusService.GetGitStatusAsync(workDir));
+
+            // UI property updates happen synchronously on the UI thread
             terminalTab.GitStatus = status;
-            // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
 
             // Publish API events for git status changes
@@ -620,14 +637,17 @@ public partial class MainViewModel : ObservableObject
             // Also refresh sidebar git status for the current workspace
             if (WorkspaceSidebar != null)
             {
-                await WorkspaceSidebar.RefreshGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+                var sidebarStatus = await Task.Run(() => _gitStatusService.GetGitStatusAsync(workDir));
+                var workspace = WorkspaceSidebar.GetAllWorkspaceEntries()
+                    .FirstOrDefault(w => string.Equals(w.Path, workDir, StringComparison.OrdinalIgnoreCase));
+                if (workspace != null)
+                    workspace.GitStatus = sidebarStatus;
             }
         }
         catch
         {
             // Silently ignore git status errors
         }
-        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     private async Task RefreshTabGitStatusAsync(TerminalPairTabViewModel tab)
@@ -678,44 +698,72 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        // Run git fetch + status in batches on the thread pool, posting UI updates
-        // between batches so the UI thread stays responsive.
+        // Respect git tracking mode — skip entirely if not in All mode
+        if (_gitTrackingMode != GitTrackingMode.All) return;
+
+        // Fetch git data in batches on the thread pool, then post ONE BeginInvoke
+        // per batch to update UI properties. This prevents 540+ individual cross-thread
+        // property change notifications from flooding the WPF dispatcher.
         var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
-        var sidebar = WorkspaceSidebar;
+        var workspaceEntries = WorkspaceSidebar?.GetAllWorkspaceEntries() ?? [];
         const int batchSize = 5;
 
-        await Task.Run(async () =>
+        // Phase 1: Fetch + refresh sidebar workspaces in batches
+        for (var i = 0; i < workspaceEntries.Count; i += batchSize)
         {
-            // Fetch and refresh sidebar workspaces in batches of 5.
-            if (sidebar != null)
-            {
-                await sidebar.FetchAllAsync();
-            }
+            var batch = workspaceEntries.Skip(i).Take(batchSize).ToList();
 
-            // Update open tabs with fresh git status in batches.
-            for (var i = 0; i < tabs.Count; i += batchSize)
+            // Run git I/O on thread pool, collect results
+            var results = new System.Collections.Concurrent.ConcurrentBag<(WorkspaceEntryViewModel vm, Core.Domain.GitStatus? status)>();
+            await Task.Run(async () =>
             {
-                var batch = tabs.Skip(i).Take(batchSize);
+                await Task.WhenAll(batch.Select(async w =>
+                {
+                    try
+                    {
+                        await _gitStatusService.FetchAllAsync(w.Path);
+                        var status = await _gitStatusService.GetGitStatusAsync(w.Path);
+                        results.Add((w, status));
+                    }
+                    catch { /* Silently ignore fetch errors */ }
+                }));
+            });
+
+            // Post ONE dispatcher call for the entire batch
+            _dispatcherService.BeginInvoke(() =>
+            {
+                foreach (var (vm, status) in results)
+                    vm.GitStatus = status;
+            });
+        }
+
+        // Phase 2: Refresh open tab git status in batches
+        for (var i = 0; i < tabs.Count; i += batchSize)
+        {
+            var batch = tabs.Skip(i).Take(batchSize).ToList();
+
+            var results = new System.Collections.Concurrent.ConcurrentBag<(TerminalPairTabViewModel tab, Core.Domain.GitStatus? status)>();
+            await Task.Run(async () =>
+            {
                 await Task.WhenAll(batch.Select(async tab =>
                 {
                     try
                     {
                         var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
-                        _dispatcherService.BeginInvoke(() =>
-                        {
-                            tab.GitStatus = status;
-                        });
+                        results.Add((tab, status));
                     }
-                    catch
-                    {
-                        // Silently ignore git status errors
-                    }
+                    catch { /* Silently ignore git status errors */ }
                 }));
-            }
+            });
 
-            // Single UI update for window title after all tabs are refreshed
-            _dispatcherService.BeginInvoke(() => OnPropertyChanged(nameof(WindowTitle)));
-        });
+            _dispatcherService.BeginInvoke(() =>
+            {
+                foreach (var (tab, status) in results)
+                    tab.GitStatus = status;
+            });
+        }
+
+        _dispatcherService.BeginInvoke(() => OnPropertyChanged(nameof(WindowTitle)));
     }
 
     private void RefreshDetectedLinks()
@@ -1909,8 +1957,11 @@ public partial class MainViewModel : ObservableObject
         // Reload quick commands when config is saved
         LoadQuickCommands();
 
+        // Refresh cached settings for NameProvider lambdas
+        _cachedSettings = _configService.Load().Settings;
+
         // Reload touch mode setting and adjust sidebar width
-        var newTouchMode = _configService.Load().Settings.TouchMode;
+        var newTouchMode = _cachedSettings.TouchMode;
         if (newTouchMode != TouchMode)
         {
             TouchMode = newTouchMode;
@@ -1929,6 +1980,29 @@ public partial class MainViewModel : ObservableObject
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.RefreshAvailableAiAssistants(enabledAssistants);
+        }
+
+        // Refresh git tracking mode and adjust timers accordingly
+        var newGitTrackingMode = _configService.Load().Settings.GitTrackingMode;
+        if (newGitTrackingMode != _gitTrackingMode)
+        {
+            _gitTrackingMode = newGitTrackingMode;
+            switch (_gitTrackingMode)
+            {
+                case GitTrackingMode.All:
+                    _gitStatusTimer.Start();
+                    if (_configService.Load().Settings.GitAutoFetch)
+                        _gitAutoFetchTimer.Start();
+                    break;
+                case GitTrackingMode.CurrentOnly:
+                    _gitStatusTimer.Start();
+                    _gitAutoFetchTimer.Stop();
+                    break;
+                case GitTrackingMode.Disabled:
+                    _gitStatusTimer.Stop();
+                    _gitAutoFetchTimer.Stop();
+                    break;
+            }
         }
 
         // Sync API server state with saved config
@@ -2659,7 +2733,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-sounds",
                 Name = "Toggle Sounds",
-                NameProvider = () => _configService.Load().Settings.Sounds.Enabled ? "Disable Sounds" : "Enable Sounds",
+                NameProvider = () => _cachedSettings.Sounds.Enabled ? "Disable Sounds" : "Enable Sounds",
                 Description = "Sound notifications",
                 Icon = "🔊",
                 Category = "Settings",
@@ -2674,7 +2748,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-touch-mode",
                 Name = "Toggle Touch Mode",
-                NameProvider = () => _configService.Load().Settings.TouchMode ? "Disable Touch Mode" : "Enable Touch Mode",
+                NameProvider = () => _cachedSettings.TouchMode ? "Disable Touch Mode" : "Enable Touch Mode",
                 Description = "Touch-friendly UI with larger targets",
                 Icon = "👆",
                 Category = "Settings",
@@ -2689,7 +2763,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-system-tray",
                 Name = "Toggle System Tray",
-                NameProvider = () => _configService.Load().Settings.ShowInSystemTray ? "Disable System Tray" : "Enable System Tray",
+                NameProvider = () => _cachedSettings.ShowInSystemTray ? "Disable System Tray" : "Enable System Tray",
                 Description = "System tray icon",
                 Icon = "🔽",
                 Category = "Settings",
@@ -2704,7 +2778,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-confirm-close",
                 Name = "Toggle Confirm on Close",
-                NameProvider = () => _configService.Load().Settings.ConfirmOnClose ? "Disable Confirm on Close" : "Enable Confirm on Close",
+                NameProvider = () => _cachedSettings.ConfirmOnClose ? "Disable Confirm on Close" : "Enable Confirm on Close",
                 Description = "Confirm before closing tabs",
                 Icon = "⚠",
                 Category = "Settings",
@@ -2719,7 +2793,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-git-auto-fetch",
                 Name = "Toggle Git Auto-Fetch",
-                NameProvider = () => _configService.Load().Settings.GitAutoFetch ? "Disable Git Auto-Fetch" : "Enable Git Auto-Fetch",
+                NameProvider = () => _cachedSettings.GitAutoFetch ? "Disable Git Auto-Fetch" : "Enable Git Auto-Fetch",
                 Description = "Automatic fetch from remotes",
                 Icon = "🔄",
                 Category = "Settings",
@@ -2858,7 +2932,7 @@ public partial class MainViewModel : ObservableObject
             new() {
                 Id = "toggle-voice-enabled",
                 Name = "Toggle Voice Commands Enabled",
-                NameProvider = () => _configService.Load().Settings.Voice.Enabled ? "Disable Voice Commands" : "Enable Voice Commands",
+                NameProvider = () => _cachedSettings.Voice.Enabled ? "Disable Voice Commands" : "Enable Voice Commands",
                 Description = "Enable or disable voice command feature",
                 Icon = "🎙",
                 Category = "Settings",

@@ -422,6 +422,20 @@
                         <TextBlock Text="Manual: drag workspaces to reorder. Usage: sorted by focus time + activity from last 7 days. Alphabetical: sorted A-Z by name."
                                    Style="{StaticResource HelpText}"/>
 
+                        <TextBlock Text="GIT TRACKING MODE" Style="{StaticResource FieldLabel}" Margin="0,12,0,4"/>
+                        <ComboBox SelectedValue="{Binding GitTrackingMode}"
+                                  SelectedValuePath="Tag"
+                                  Style="{StaticResource DarkComboBox}"
+                                  Width="260"
+                                  HorizontalAlignment="Left"
+                                  ToolTip="Controls background git status tracking for workspaces.">
+                            <ComboBoxItem Content="All workspaces (fetch + status)" Tag="{x:Static domain:GitTrackingMode.All}"/>
+                            <ComboBoxItem Content="Current workspace only" Tag="{x:Static domain:GitTrackingMode.CurrentOnly}"/>
+                            <ComboBoxItem Content="Disabled (manual refresh only)" Tag="{x:Static domain:GitTrackingMode.Disabled}"/>
+                        </ComboBox>
+                        <TextBlock Text="All: periodically fetches and refreshes git status for every workspace. Current only: only tracks the selected tab. Disabled: no background git activity."
+                                   Style="{StaticResource HelpText}"/>
+
                         <CheckBox Content="Touch-friendly mode"
                                   IsChecked="{Binding TouchMode}"
                                   Style="{StaticResource FormCheckBox}"

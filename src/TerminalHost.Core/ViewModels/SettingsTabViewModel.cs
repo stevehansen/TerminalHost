@@ -90,6 +90,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private WorkspaceSortMode _workspaceSortMode;
 
     [ObservableProperty]
+    private GitTrackingMode _gitTrackingMode;
+
+    [ObservableProperty]
     private bool _touchMode;
 
     // Sound settings
@@ -539,6 +542,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
             WorkspaceSortMode = config.Settings.WorkspaceSortMode;
+            GitTrackingMode = config.Settings.GitTrackingMode;
             TouchMode = config.Settings.TouchMode;
 
             // Sound settings
@@ -624,6 +628,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
             config.Settings.WorkspaceSortMode = WorkspaceSortMode;
+            config.Settings.GitTrackingMode = GitTrackingMode;
             config.Settings.TouchMode = TouchMode;
 
             // Sound settings
@@ -745,6 +750,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnWorkspaceSortModeChanged(WorkspaceSortMode value) => MarkDirtyFromRichMode();
+    partial void OnGitTrackingModeChanged(GitTrackingMode value) => MarkDirtyFromRichMode();
     partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnSoundsEnabledChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnSoundsOnlyWhenUnfocusedChanged(bool value) => MarkDirtyFromRichMode();
