@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -35,8 +36,9 @@ public sealed class ConfigurationService : IConfigurationService
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public AppConfiguration Load()
+    public AppConfiguration Load([System.Runtime.CompilerServices.CallerMemberName] string? caller = null)
     {
+        IoCounters.TrackConfigLoad(caller);
         var config = _jsonFileService.Load();
         if (!config.Profiles.Any()) // If config has no profiles, add the default PowerShell profile
         {
@@ -46,8 +48,9 @@ public sealed class ConfigurationService : IConfigurationService
         return config;
     }
 
-    public void Save(AppConfiguration configuration)
+    public void Save(AppConfiguration configuration, [System.Runtime.CompilerServices.CallerMemberName] string? caller = null)
     {
+        IoCounters.TrackConfigSave(caller);
         lock (_saveLock)
         {
             _jsonFileService.Save(configuration);

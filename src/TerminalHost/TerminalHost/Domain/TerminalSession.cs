@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,6 +8,7 @@ using System.Windows.Interop;
 using EasyWindowsTerminalControl;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Domain;
 
@@ -148,6 +150,7 @@ public class TerminalSession : IDisposable
 
         // For now, we'll look at the last few lines of output to find potential links
         // The user can also select text before Ctrl+clicking
+        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
         lock (_outputBuffer)
         {
             if (_outputBuffer.Length == 0)
@@ -164,6 +167,7 @@ public class TerminalSession : IDisposable
     /// </summary>
     public string GetRecentOutput(int maxChars = 5000)
     {
+        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
         lock (_outputBuffer)
         {
             if (_outputBuffer.Length == 0)
@@ -203,6 +207,7 @@ public class TerminalSession : IDisposable
         ParseOscSequences(str);
 
         // Append to output buffer for link detection
+        Interlocked.Increment(ref IoCounters.OutputBufferLocks);
         lock (_outputBuffer)
         {
             _outputBuffer.Append(str);

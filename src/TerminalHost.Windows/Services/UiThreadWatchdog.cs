@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Windows.Services;
 
@@ -119,11 +120,14 @@ public sealed class UiThreadWatchdog : IDisposable
             var memInfo = $"  Working set: {process.WorkingSet64 / 1024 / 1024}MB";
             var poolInfo = GetThreadPoolInfo();
 
+            var ioSnapshot = IoCounters.GetSnapshot();
+
             var entry = $"""
                 {message}
                 {threadInfo}
                 {memInfo}
                 {poolInfo}
+                {ioSnapshot}
                   Hint: Attach Visual Studio to host.exe and reproduce to get full stack traces.
                   Or run: dotnet-dump collect -p {process.Id}
                 ---

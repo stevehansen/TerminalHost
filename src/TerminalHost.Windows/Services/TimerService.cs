@@ -1,5 +1,7 @@
+using System.Threading;
 using System.Windows.Threading;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Windows.Services;
 
@@ -31,6 +33,7 @@ public sealed class TimerService : ITimerService
 
         private void OnTick(object? sender, EventArgs e)
         {
+            Interlocked.Increment(ref IoCounters.TimerCallbacks);
             _callback();
         }
 

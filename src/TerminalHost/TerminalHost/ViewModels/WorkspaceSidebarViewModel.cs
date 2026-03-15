@@ -165,6 +165,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             Workspaces.Clear();
             Playgrounds.Clear();
 
+            // Create all VMs first (cheap, no I/O)
+            var vms = new List<WorkspaceEntryViewModel>();
             foreach (var workspace in config.Workspaces.OrderBy(w => w.Order))
             {
                 var vm = CreateWorkspaceEntryViewModel(workspace);
@@ -174,19 +176,28 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 else
                     _allWorkspaces.Add(vm);
 
-                // Load worktrees in background (catch errors to prevent silent failures)
-                _ = vm.LoadAsync().ContinueWith(t =>
-                {
-                    if (t.IsFaulted)
-                        System.Diagnostics.Debug.WriteLine($"Workspace load failed for {vm.Name}: {t.Exception?.InnerException?.Message}");
-                }, TaskContinuationOptions.OnlyOnFaulted);
+                vms.Add(vm);
             }
 
-            // Set sort mode after workspaces are loaded so the change handler can sort them
+            // Set sort mode after workspaces are added so the change handler can sort them
             SortMode = config.Settings.WorkspaceSortMode;
 
             // Apply filter and sort
             ApplyFilterAndSort();
+
+            // Load git status/worktrees sequentially to avoid flooding the UI thread
+            // with 63 concurrent Process.Start() calls and dispatcher continuations.
+            foreach (var vm in vms)
+            {
+                try
+                {
+                    await vm.LoadAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Workspace load failed for {vm.Name}: {ex.Message}");
+                }
+            }
         }
         finally
         {
@@ -402,11 +413,14 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                _allPlaygrounds.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
     }
 
+    // Cached to avoid loading 145KB config per workspace entry (was 63 loads at startup)
+    private bool? _cachedShowStashCount;
+
     private WorkspaceEntryViewModel CreateWorkspaceEntryViewModel(Workspace workspace)
     {
-        var config = _configurationService.Load();
+        _cachedShowStashCount ??= _configurationService.Load().Settings.ShowStashCount;
         var vm = new WorkspaceEntryViewModel(workspace, _gitWorktreeService, _gitStatusService);
-        vm.ShowStashCount = config.Settings.ShowStashCount;
+        vm.ShowStashCount = _cachedShowStashCount.Value;
         vm.OpenRequested += OnWorkspaceOpenRequested;
         vm.WorktreeOpenRequested += OnWorktreeOpenRequested;
         return vm;

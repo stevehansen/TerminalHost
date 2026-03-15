@@ -43,7 +43,7 @@ internal sealed class ConfigurationService : IConfigurationService
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    public AppConfiguration Load()
+    public AppConfiguration Load([System.Runtime.CompilerServices.CallerMemberName] string? caller = null)
     {
         var config = _jsonFileService.Load();
         var needsSave = false;
@@ -112,7 +112,7 @@ internal sealed class ConfigurationService : IConfigurationService
         return config;
     }
 
-    public void Save(AppConfiguration configuration)
+    public void Save(AppConfiguration configuration, [System.Runtime.CompilerServices.CallerMemberName] string? caller = null)
     {
         lock (_saveLock)
         {

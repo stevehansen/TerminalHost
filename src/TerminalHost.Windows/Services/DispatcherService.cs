@@ -1,5 +1,7 @@
+using System.Threading;
 using System.Windows.Threading;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Windows.Services;
 
@@ -12,6 +14,7 @@ public sealed class DispatcherService : IDispatcherService
 
     public void BeginInvoke(Action action)
     {
+        Interlocked.Increment(ref IoCounters.DispatcherBeginInvokes);
         var dispatcher = Dispatcher;
         if (dispatcher == null)
         {
@@ -32,6 +35,7 @@ public sealed class DispatcherService : IDispatcherService
 
     public void Invoke(Action action)
     {
+        Interlocked.Increment(ref IoCounters.DispatcherInvokes);
         var dispatcher = Dispatcher;
         if (dispatcher == null)
         {

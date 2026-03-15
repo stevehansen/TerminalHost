@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -15,6 +16,7 @@ public sealed class GitProcessRunner : IGitProcessRunner
 
     public async Task<string?> RunGitCommandAsync(string workingDirectory, string arguments, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
+        Interlocked.Increment(ref IoCounters.GitProcessStarts);
         try
         {
             using var process = new Process

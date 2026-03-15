@@ -111,7 +111,7 @@ public class MainViewModelTests
         });
         
         // Mock AppConfiguration with a default empty OpenFolders list
-        _mockConfigService.Setup(cs => cs.Load()).Returns(new AppConfiguration 
+        _mockConfigService.Setup(cs => cs.Load(It.IsAny<string?>())).Returns(new AppConfiguration 
         {
             OpenFolders = new List<string>() ,
             QuickCommands = new List<QuickCommand>()
@@ -311,7 +311,7 @@ public class MainViewModelTests
                 OpenFolders = new List<string> { folder1, folder2 },
                 Settings = new AppSettings() // Need default settings for profiles
             };
-            _mockConfigService.Setup(cs => cs.Load()).Returns(config);
+            _mockConfigService.Setup(cs => cs.Load(It.IsAny<string?>())).Returns(config);
 
             _mockFileSystem.Setup(fs => fs.DirectoryExists(folder1)).Returns(true);
             _mockFileSystem.Setup(fs => fs.DirectoryExists(folder2)).Returns(true);
@@ -342,7 +342,7 @@ public class MainViewModelTests
                 OpenFolders = new List<string> { folder1, folder2 },
                 Settings = new AppSettings()
             };
-            _mockConfigService.Setup(cs => cs.Load()).Returns(config);
+            _mockConfigService.Setup(cs => cs.Load(It.IsAny<string?>())).Returns(config);
 
             _mockFileSystem.Setup(fs => fs.DirectoryExists(folder1)).Returns(true);
             _mockFileSystem.Setup(fs => fs.DirectoryExists(folder2)).Returns(false); // Non-existent

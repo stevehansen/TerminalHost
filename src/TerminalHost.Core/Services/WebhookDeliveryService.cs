@@ -43,6 +43,10 @@ public class WebhookDeliveryService : IWebhookDeliveryService
     private readonly ConcurrentDictionary<string, int> _failuresByEndpoint = new();
     private bool _disposed;
 
+    // Cached to avoid loading 145KB config on every event (was 121 loads at startup)
+    private bool _cachedWebhooksEnabled;
+    private List<WebhookEndpoint>? _cachedWebhooks;
+
     public WebhookDeliveryService(
         IConfigurationService configService,
         IEventAggregatorService eventAggregator)
@@ -51,8 +55,21 @@ public class WebhookDeliveryService : IWebhookDeliveryService
         _eventAggregator = eventAggregator;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
+        // Cache webhook settings
+        RefreshCachedSettings();
+
         // Subscribe to all events
         _subscription = _eventAggregator.Subscribe(OnEventReceived, "*");
+    }
+
+    /// <summary>
+    /// Reloads cached webhook settings from the config. Call after settings change.
+    /// </summary>
+    public void RefreshCachedSettings()
+    {
+        var config = _configService.Load();
+        _cachedWebhooksEnabled = config.Settings.Api.EnableWebhooks;
+        _cachedWebhooks = config.Settings.Api.Webhooks.Where(w => w.Enabled).ToList();
     }
 
     public void Enqueue(ApiEvent apiEvent)
@@ -92,13 +109,9 @@ public class WebhookDeliveryService : IWebhookDeliveryService
     private void OnEventReceived(ApiEvent apiEvent)
     {
         if (_disposed) return;
+        if (!_cachedWebhooksEnabled || _cachedWebhooks == null || _cachedWebhooks.Count == 0) return;
 
-        var config = _configService.Load();
-        if (!config.Settings.Api.EnableWebhooks) return;
-
-        var webhooks = config.Settings.Api.Webhooks.Where(w => w.Enabled).ToList();
-
-        foreach (var webhook in webhooks)
+        foreach (var webhook in _cachedWebhooks)
         {
             if (!EventMatchesFilter(apiEvent.Type, webhook.Events))
                 continue;

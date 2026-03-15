@@ -1,7 +1,9 @@
 using System.IO;
+using System.Threading;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Services;
 
@@ -298,6 +300,7 @@ public class FileExplorerService : IFileExplorerService
 
         void OnChange(object sender, FileSystemEventArgs e)
         {
+            Interlocked.Increment(ref IoCounters.FsWatcherEvents);
             onChange(new FileSystemWatcherEventArgs
             {
                 Path = e.FullPath,
@@ -307,6 +310,7 @@ public class FileExplorerService : IFileExplorerService
 
         void OnRename(object sender, RenamedEventArgs e)
         {
+            Interlocked.Increment(ref IoCounters.FsWatcherEvents);
             onChange(new FileSystemWatcherEventArgs
             {
                 Path = e.FullPath,

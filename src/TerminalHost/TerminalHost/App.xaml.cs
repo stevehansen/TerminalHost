@@ -160,21 +160,29 @@ public partial class App : Application
         }
 
         // Configure Services
+        var sp = TerminalHost.Core.Services.StartupProfiler.Instance;
+        sp.Log("App.OnStartup — configuring services");
+
         var serviceCollection = new ServiceCollection();
-        ConfigureServices(serviceCollection, startupArgs);
-        _services = serviceCollection.BuildServiceProvider();
+        using (sp.Measure("ConfigureServices"))
+            ConfigureServices(serviceCollection, startupArgs);
+        using (sp.Measure("BuildServiceProvider"))
+            _services = serviceCollection.BuildServiceProvider();
 
         // Initialize system tray
-        InitializeSystemTray();
+        using (sp.Measure("InitializeSystemTray"))
+            InitializeSystemTray();
 
         // Start UI thread watchdog (detects hangs and breaks into debugger)
         _services.GetRequiredService<UiThreadWatchdog>().Start();
 
         // Show Main Window
+        sp.Log("Creating MainWindow");
         var mainWindow = _services.GetRequiredService<MainWindow>();
 
         // Ensure that closing the main window shuts down the application
         mainWindow.Closed += (s, a) => Shutdown();
+        sp.Log("MainWindow.Show()");
         mainWindow.Show();
 
         // Handle command line arguments for this instance

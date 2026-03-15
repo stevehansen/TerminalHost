@@ -348,8 +348,10 @@ public partial class MainViewModel : ObservableObject
         UpdateFilteredSwitcherTabs(); // Initial population
 
         FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
-        InitializeCommandPalette(); // Initialize commands once
-        InitializeVoiceGrammar();   // Build voice grammar from palette commands
+        using (StartupProfiler.Instance.Measure("InitializeCommandPalette"))
+            InitializeCommandPalette(); // Initialize commands once
+        using (StartupProfiler.Instance.Measure("InitializeVoiceGrammar"))
+            InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(5), async () => await RefreshSelectedTabGitStatusAsync());
@@ -408,6 +410,14 @@ public partial class MainViewModel : ObservableObject
         // Start tracking focus time for the new tab
         if (newValue is TerminalPairTabViewModel newTerminalTab)
         {
+            // Lazy-init file explorer for tabs that were deferred during startup restore
+            if (newTerminalTab.DeferredExplorerInit != null)
+            {
+                var init = newTerminalTab.DeferredExplorerInit;
+                newTerminalTab.DeferredExplorerInit = null;
+                _ = init();
+            }
+
             _tabFocusStartTime = DateTime.Now;
             _focusedTabDirectory = newTerminalTab.Pair.WorkingDirectory;
 
@@ -531,14 +541,21 @@ public partial class MainViewModel : ObservableObject
 
     public void Initialize()
     {
+        var sp = StartupProfiler.Instance;
+
         // Load quick commands from config
-        LoadQuickCommands();
+        using (sp.Measure("LoadQuickCommands"))
+            LoadQuickCommands();
 
         // Load layout mode and initialize workspace sidebar
+        sp.Log("InitializeWorkspaceSidebarAsync (fire-and-forget)");
         _ = InitializeWorkspaceSidebarAsync();
 
         // Restore previously open folders
-        RestoreOpenFolders();
+        using (sp.Measure("RestoreOpenFolders"))
+            RestoreOpenFolders();
+
+        sp.Log("Starting timers");
 
         // Start git status refresh timer
         _gitStatusTimer.Start();
@@ -557,6 +574,8 @@ public partial class MainViewModel : ObservableObject
 
         // Start run URL detection timer
         _runUrlDetectionTimer.Start();
+
+        sp.Log("Initialize — done");
     }
 
     private void LoadQuickCommands()
@@ -569,6 +588,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
+        IoCounters.CurrentUiOperation = "RefreshGitStatus";
         try
         {
             var previousBranch = terminalTab.GitStatus?.BranchName;
@@ -606,6 +626,7 @@ public partial class MainViewModel : ObservableObject
         {
             // Silently ignore git status errors
         }
+        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     private async Task RefreshTabGitStatusAsync(TerminalPairTabViewModel tab)
@@ -623,26 +644,31 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshActivityState()
     {
-        // Update activity state for all terminal tabs (to detect idle transitions)
-        foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+        IoCounters.CurrentUiOperation = "RefreshActivityState";
+        try
         {
-            tab.UpdateActivityState();
-            tab.UpdateWaitingState(_inputPromptDetectionService);
+            // Update activity state for all terminal tabs (to detect idle transitions)
+            foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
+            {
+                tab.UpdateActivityState();
+                tab.UpdateWaitingState(_inputPromptDetectionService);
 
-            // Sync activity state to workspace sidebar
-            WorkspaceSidebar?.UpdateActivity(
-                tab.Pair.WorkingDirectory,
-                tab.IsAnyTerminalActive,
-                tab.HasUnreadActivity,
-                tab.IsWaitingForInput);
-        }
+                // Sync activity state to workspace sidebar
+                WorkspaceSidebar?.UpdateActivity(
+                    tab.Pair.WorkingDirectory,
+                    tab.IsAnyTerminalActive,
+                    tab.HasUnreadActivity,
+                    tab.IsWaitingForInput);
+            }
 
-        // Also update profile terminal tabs
-        foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
-        {
-            tab.UpdateActivityState();
-            tab.UpdateWaitingState(_inputPromptDetectionService);
+            // Also update profile terminal tabs
+            foreach (var tab in Tabs.OfType<ProfileTerminalTabViewModel>())
+            {
+                tab.UpdateActivityState();
+                tab.UpdateWaitingState(_inputPromptDetectionService);
+            }
         }
+        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     /// <summary>
@@ -651,57 +677,74 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        // Fetch for all workspaces in the sidebar (not just open tabs)
-        if (WorkspaceSidebar != null)
+        IoCounters.CurrentUiOperation = "AutoFetchAll";
+        try
         {
-            await WorkspaceSidebar.FetchAllAsync();
-        }
+            // Fetch for all workspaces in the sidebar (not just open tabs)
+            if (WorkspaceSidebar != null)
+            {
+                await WorkspaceSidebar.FetchAllAsync();
+            }
 
-        // Also refresh git status for any open tabs (keeps tab indicators in sync)
-        var refreshTasks = Tabs.OfType<TerminalPairTabViewModel>()
-            .Select(tab => RefreshTabGitStatusAsync(tab));
-        await Task.WhenAll(refreshTasks);
+            // Refresh git status for open tabs sequentially to avoid flooding
+            // the UI thread with hundreds of concurrent git process completions.
+            foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>().ToList())
+            {
+                await RefreshTabGitStatusAsync(tab);
+            }
+        }
+        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     private void RefreshDetectedLinks()
     {
-        // Only refresh the selected tab to keep it lightweight
-        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+        IoCounters.CurrentUiOperation = "RefreshDetectedLinks";
+        try
         {
-            terminalTab.UpdateDetectedLinks(_linkDetectionService);
+            // Only refresh the selected tab to keep it lightweight
+            if (SelectedTab is TerminalPairTabViewModel terminalTab)
+            {
+                terminalTab.UpdateDetectedLinks(_linkDetectionService);
+            }
         }
+        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     private void RefreshRunUrlDetection()
     {
-        // Only scan when there's a running project
-        if (SelectedTab is not TerminalPairTabViewModel terminalTab)
-            return;
-
-        if (terminalTab.RunState != RunState.Running && terminalTab.RunState != RunState.Starting)
-            return;
-
-        if (terminalTab.Pair.RunTerminal == null)
-            return;
-
-        // Don't re-detect if we already have a URL
-        if (!string.IsNullOrEmpty(terminalTab.DetectedRunUrl))
-            return;
-
-        // Get recent output from run terminal
-        var output = terminalTab.Pair.RunTerminal.GetRecentOutput(5000);
-        if (string.IsNullOrEmpty(output))
-            return;
-
-        // Get the URL pattern from the active configuration
-        var urlPattern = terminalTab.ActiveRunConfiguration?.UrlPattern;
-
-        // Detect URL
-        var url = _runUrlDetectionService.DetectUrl(output, urlPattern);
-        if (!string.IsNullOrEmpty(url))
+        IoCounters.CurrentUiOperation = "RefreshRunUrlDetection";
+        try
         {
-            terminalTab.DetectedRunUrl = url;
+            // Only scan when there's a running project
+            if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+                return;
+
+            if (terminalTab.RunState != RunState.Running && terminalTab.RunState != RunState.Starting)
+                return;
+
+            if (terminalTab.Pair.RunTerminal == null)
+                return;
+
+            // Don't re-detect if we already have a URL
+            if (!string.IsNullOrEmpty(terminalTab.DetectedRunUrl))
+                return;
+
+            // Get recent output from run terminal
+            var output = terminalTab.Pair.RunTerminal.GetRecentOutput(5000);
+            if (string.IsNullOrEmpty(output))
+                return;
+
+            // Get the URL pattern from the active configuration
+            var urlPattern = terminalTab.ActiveRunConfiguration?.UrlPattern;
+
+            // Detect URL
+            var url = _runUrlDetectionService.DetectUrl(output, urlPattern);
+            if (!string.IsNullOrEmpty(url))
+            {
+                terminalTab.DetectedRunUrl = url;
+            }
         }
+        finally { IoCounters.CurrentUiOperation = null; }
     }
 
     // Deferred center panel restores during startup to avoid race conditions
@@ -734,13 +777,39 @@ public partial class MainViewModel : ObservableObject
         // and the last one to complete wins — which may not be the selected tab.
         _deferredCenterPanelRestores = [];
 
-        foreach (var folder in config.OpenFolders)
+        var sp = StartupProfiler.Instance;
+
+        // Pre-build directory settings lookup from the already-loaded config
+        // so we don't re-read 145KB from disk per tab (was 2 loads + 1 save per tab).
+        var dirSettingsLookup = config.DirectorySettings;
+
+        // Collect tabs for deferred git refresh
+        var restoredTabs = new List<TerminalPairTabViewModel>();
+
+        sp.Log($"Restoring {config.OpenFolders.Count} tabs");
+        var tabSw = System.Diagnostics.Stopwatch.StartNew();
+
+        for (var i = 0; i < config.OpenFolders.Count; i++)
         {
+            var folder = config.OpenFolders[i];
             if (_fileSystem.DirectoryExists(folder))
             {
-                OpenProjectTab(folder);
+                var tab = OpenProjectTabCore(folder, dirSettingsLookup, isRestore: true);
+                if (tab != null) restoredTabs.Add(tab);
+            }
+
+            // Log every 10th tab and the last one
+            if ((i + 1) % 10 == 0 || i == config.OpenFolders.Count - 1)
+            {
+                sp.Log($"  Tab {i + 1}/{config.OpenFolders.Count} — {tabSw.ElapsedMilliseconds}ms total");
             }
         }
+
+        sp.Log($"All {restoredTabs.Count} tabs created in {tabSw.ElapsedMilliseconds}ms");
+
+        // Defer all git status refreshes to after the UI is painted.
+        // This lets the user see the tabs immediately instead of a frozen window.
+        _ = DeferredGitRefreshAsync(restoredTabs);
 
         // Capture and stop deferring
         var pendingRestores = _deferredCenterPanelRestores;
@@ -797,6 +866,22 @@ public partial class MainViewModel : ObservableObject
         if (selectedRestore != null)
         {
             CenterPanelRestoreRequested?.Invoke(this, selectedRestore);
+        }
+    }
+
+    /// <summary>
+    /// Runs git status refresh for all restored tabs after yielding to the UI thread,
+    /// so the window renders immediately instead of hanging during startup.
+    /// Processes tabs sequentially to avoid spawning hundreds of git processes at once.
+    /// </summary>
+    private async Task DeferredGitRefreshAsync(List<TerminalPairTabViewModel> tabs)
+    {
+        // Yield once so WPF can render the tabs
+        await Task.Delay(100);
+
+        foreach (var tab in tabs)
+        {
+            await RefreshTabGitStatusAsync(tab);
         }
     }
 
@@ -941,15 +1026,36 @@ public partial class MainViewModel : ObservableObject
 
     public void OpenProjectTab(string workingDirectory, bool forceNew = false)
     {
+        var tab = OpenProjectTabCore(workingDirectory, null, isRestore: false, forceNew);
+        if (tab != null)
+        {
+            // Only do these for interactive opens — during restore they are deferred/skipped
+            UpdateRecentFolders(workingDirectory);
+            _ = RefreshTabGitStatusAsync(tab);
+            _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
+        }
+    }
+
+    /// <summary>
+    /// Core tab creation shared by interactive opens and startup restore.
+    /// When <paramref name="cachedDirSettings"/> is provided, skips the config reload per tab.
+    /// When <paramref name="isRestore"/> is true, skips UpdateRecentFolders and defers git refresh.
+    /// </summary>
+    private TerminalPairTabViewModel? OpenProjectTabCore(
+        string workingDirectory,
+        IDictionary<string, DirectorySettings>? cachedDirSettings,
+        bool isRestore,
+        bool forceNew = false)
+    {
         try
         {
             // Normalize the path for comparison
             workingDirectory = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            if (!_fileSystem.DirectoryExists(workingDirectory)) // Use injected IFileSystem
+            if (!_fileSystem.DirectoryExists(workingDirectory))
             {
-                _dialogService.ShowError($"Directory not found: {workingDirectory}"); // Use injected IDialogService
-                return;
+                if (!isRestore) _dialogService.ShowError($"Directory not found: {workingDirectory}");
+                return null;
             }
 
             // Check if we already have a tab open for this directory (unless forceNew)
@@ -963,9 +1069,8 @@ public partial class MainViewModel : ObservableObject
 
                 if (existingTab != null)
                 {
-                    // Focus the existing tab instead of creating a new one
                     SelectedTab = existingTab;
-                    return;
+                    return null;
                 }
             }
 
@@ -1009,10 +1114,21 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.SetTerminalControls(customControl, shellControl);
             tabViewModel.CloseRequested += OnTabCloseRequested;
-            tabViewModel.SettingsChanged += OnTabSettingsChanged;
+            // NOTE: SettingsChanged subscription is deferred until AFTER property restoration
+            // to avoid 165 config Load+Save cycles during startup (was the #1 hang cause).
 
-            // Restore per-directory settings if available
-            var dirSettings = GetDirectorySettings(workingDirectory);
+            // Restore per-directory settings — use cached lookup if available (avoids disk I/O)
+            DirectorySettings? dirSettings;
+            if (cachedDirSettings != null)
+            {
+                var normalizedPath = NormalizePath(workingDirectory);
+                cachedDirSettings.TryGetValue(normalizedPath, out dirSettings);
+            }
+            else
+            {
+                dirSettings = GetDirectorySettings(workingDirectory);
+            }
+
             if (dirSettings != null)
             {
                 tabViewModel.LayoutMode = dirSettings.LayoutMode;
@@ -1056,6 +1172,10 @@ public partial class MainViewModel : ObservableObject
                 tabViewModel.LeftPanelSplitRatio = dirSettings.LeftPanelSplitRatio;
             }
 
+            // Subscribe to settings changes AFTER all properties are restored
+            // (setting properties above triggers SettingsChanged which would Save config per property)
+            tabViewModel.SettingsChanged += OnTabSettingsChanged;
+
             // Wire up explorer events
             explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
             explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
@@ -1064,20 +1184,26 @@ public partial class MainViewModel : ObservableObject
             explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
             explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
 
-            // Initialize explorer async (don't await - let it load in background)
-            _ = explorerViewModel.InitializeAsync(workingDirectory);
+            // Initialize explorer async — during restore, defer to avoid flooding
+            // the dispatcher with 60 concurrent directory scans + git status checks.
+            // Non-selected tabs will be initialized lazily when first selected.
+            if (!isRestore)
+            {
+                _ = explorerViewModel.InitializeAsync(workingDirectory);
+            }
+            else
+            {
+                tabViewModel.DeferredExplorerInit = () => explorerViewModel.InitializeAsync(workingDirectory);
+            }
 
             Tabs.Add(tabViewModel);
-            SelectedTab = tabViewModel;
 
-            // Track in recent folders
-            UpdateRecentFolders(workingDirectory);
-
-            // Fetch git status for the new tab
-            _ = RefreshTabGitStatusAsync(tabViewModel);
-
-            // Sync with workspace sidebar
-            _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
+            // During restore, skip per-tab SelectedTab assignment — it triggers expensive
+            // WPF data template loading for each of 60 tabs. Set once at end of restore instead.
+            if (!isRestore)
+            {
+                SelectedTab = tabViewModel;
+            }
 
             // Restore center panel state (fires event for MainWindow to handle)
             if (dirSettings?.ActiveCenterPanel != null)
@@ -1110,10 +1236,13 @@ public partial class MainViewModel : ObservableObject
                     ActivePanelId = dirSettings.ActiveRightPanel
                 });
             }
+
+            return tabViewModel;
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"Error creating terminal: {ex.Message}"); // Use injected IDialogService
+            if (!isRestore) _dialogService.ShowError($"Error creating terminal: {ex.Message}");
+            return null;
         }
     }
 
@@ -3219,8 +3348,13 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public async Task InitializeWorkspaceSidebarAsync()
     {
+        // Set layout mode synchronously so the UI renders correctly from the start
         var config = _configService.Load();
         LayoutMode = config.Settings.LayoutMode;
+
+        // Yield so the fire-and-forget caller (Initialize) can proceed
+        // to RestoreOpenFolders without waiting for 63 git Process.Start() calls.
+        await Task.Yield();
 
         if (WorkspaceSidebar != null)
         {

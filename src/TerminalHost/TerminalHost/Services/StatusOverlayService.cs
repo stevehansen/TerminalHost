@@ -1,3 +1,4 @@
+using System.Windows.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Views;
@@ -16,6 +17,18 @@ public class StatusOverlayService
     private string _currentStatusText = "Idle";
     private System.Windows.Window? _mainWindow;
     private bool _isVisible;
+
+    // Cached settings to avoid reading 145KB config from disk on every focus change / state update
+    private bool _cachedAutoShowOnUnfocus;
+
+    // Debounce timer for SaveOverlayInstances — avoids disk I/O on every drag pixel
+    private DispatcherTimer? _saveDebounceTimer;
+
+    /// <summary>
+    /// Raised when the user clicks an overlay to focus the main window.
+    /// Subscribers can use this to switch to the relevant tab.
+    /// </summary>
+    public event EventHandler? FocusRequested;
 
     public StatusOverlayService(IConfigurationService configService)
     {
@@ -37,7 +50,25 @@ public class StatusOverlayService
     public void Initialize(System.Windows.Window mainWindow)
     {
         _mainWindow = mainWindow;
+
+        _saveDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _saveDebounceTimer.Tick += (_, _) =>
+        {
+            _saveDebounceTimer.Stop();
+            SaveOverlayInstancesNow();
+        };
+
+        RefreshCachedSettings();
         RestoreOverlays();
+    }
+
+    /// <summary>
+    /// Reloads cached settings from the config file. Call this when the user changes settings.
+    /// </summary>
+    public void RefreshCachedSettings()
+    {
+        var settings = _configService.Load().Settings.StatusOverlay;
+        _cachedAutoShowOnUnfocus = settings.AutoShowOnUnfocus;
     }
 
     /// <summary>
@@ -216,11 +247,11 @@ public class StatusOverlayService
 
     /// <summary>
     /// Handles main window activation (auto-hide if configured).
+    /// Uses cached setting to avoid disk I/O on every focus change.
     /// </summary>
     public void OnMainWindowActivated()
     {
-        var settings = _configService.Load().Settings.StatusOverlay;
-        if (settings.AutoShowOnUnfocus && OverlayCount > 0)
+        if (_cachedAutoShowOnUnfocus && OverlayCount > 0)
         {
             Hide();
         }
@@ -228,11 +259,11 @@ public class StatusOverlayService
 
     /// <summary>
     /// Handles main window deactivation (auto-show if configured).
+    /// Uses cached setting to avoid disk I/O on every focus change.
     /// </summary>
     public void OnMainWindowDeactivated()
     {
-        var settings = _configService.Load().Settings.StatusOverlay;
-        if (settings.AutoShowOnUnfocus && OverlayCount > 0)
+        if (_cachedAutoShowOnUnfocus && OverlayCount > 0)
         {
             Show();
         }
@@ -243,7 +274,9 @@ public class StatusOverlayService
     /// </summary>
     public void Shutdown()
     {
-        SaveOverlayInstances();
+        // Flush any pending debounced save
+        _saveDebounceTimer?.Stop();
+        SaveOverlayInstancesNow();
 
         List<StatusOverlayWindow> toClose;
         lock (_lock)
@@ -262,6 +295,9 @@ public class StatusOverlayService
     {
         if (_mainWindow == null) return;
 
+        // Raise event so MainWindow can switch to the relevant tab before focusing
+        FocusRequested?.Invoke(this, EventArgs.Empty);
+
         if (_mainWindow.WindowState == System.Windows.WindowState.Minimized)
             _mainWindow.WindowState = System.Windows.WindowState.Normal;
 
@@ -270,7 +306,6 @@ public class StatusOverlayService
 
     private void OnOverlayPositionChanged(object? sender, EventArgs e)
     {
-        // Debounce: save after position changes settle
         SaveOverlayInstances();
     }
 
@@ -279,7 +314,23 @@ public class StatusOverlayService
         SaveOverlayInstances();
     }
 
+    /// <summary>
+    /// Schedules a debounced save — waits 500ms for rapid changes to settle before hitting disk.
+    /// </summary>
     private void SaveOverlayInstances()
+    {
+        if (_saveDebounceTimer == null)
+        {
+            // Not initialized yet (called during constructor/restore) — save immediately
+            SaveOverlayInstancesNow();
+            return;
+        }
+
+        _saveDebounceTimer.Stop();
+        _saveDebounceTimer.Start();
+    }
+
+    private void SaveOverlayInstancesNow()
     {
         var config = _configService.Load();
         var settings = config.Settings.StatusOverlay;

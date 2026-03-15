@@ -1,7 +1,9 @@
 using System.IO;
 using System.IO.Pipes;
 using System.Text.Json;
+using System.Threading;
 using TerminalHost.Core.Domain;
+using TerminalHost.Core.Services;
 using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Windows.Services;
@@ -54,6 +56,8 @@ public sealed class SingleInstanceService : ISingleInstanceService
 
                 if (string.IsNullOrEmpty(message))
                     continue;
+
+                Interlocked.Increment(ref IoCounters.PipeMessagesReceived);
 
                 // Parse message based on type prefix
                 if (message.StartsWith(MessageTypeHook))

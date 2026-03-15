@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Windows.Interfaces;
@@ -52,6 +53,8 @@ public partial class MainWindow : Window
     private readonly ITaskbarProgressService? _taskbarProgressService;
     private readonly ISoundService? _soundService;
     private readonly StatusOverlayService _statusOverlayService;
+    private TerminalPairTabViewModel? _overlayFeaturedTab;
+    private string _cachedAiName = "Claude Code";
     private bool _isExiting;
     private bool _isWindowActivated = true;
     private Services.PanelWindowManager? _panelWindowManager;
@@ -205,11 +208,16 @@ public partial class MainWindow : Window
 
     private void OnConfigReloaded(object? sender, EventArgs e)
     {
+        var config = _configService.Load();
+
         if (_systemTrayService != null)
         {
-            var config = _configService.Load();
             _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
         }
+
+        // Refresh cached values so hot paths don't need to hit disk
+        _cachedAiName = config.Settings.CustomCommandName;
+        _statusOverlayService.RefreshCachedSettings();
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -465,7 +473,11 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _viewModel.Initialize();
+        var sp = StartupProfiler.Instance;
+        sp.Log("OnLoaded — enter");
+
+        using (sp.Measure("ViewModel.Initialize"))
+            _viewModel.Initialize();
 
         // Initialize panel window manager
         _panelWindowManager = new Services.PanelWindowManager(this);
@@ -482,8 +494,15 @@ public partial class MainWindow : Window
             taskbarService.Initialize(windowInteropHelper.Handle);
         }
 
+        // Cache config values used in high-frequency paths (avoids disk I/O on every state change)
+        _cachedAiName = _configService.Load().Settings.CustomCommandName;
+
         // Initialize status overlay service
         _statusOverlayService.Initialize(this);
+        _statusOverlayService.FocusRequested += OnStatusOverlayFocusRequested;
+
+        sp.Log("OnLoaded — done");
+        sp.Flush();
 
         // Subscribe to window activation events to clear glow when focused
         Activated += OnWindowActivated;
@@ -2105,13 +2124,17 @@ public partial class MainWindow : Window
     {
         if (_statusOverlayService.OverlayCount == 0) return;
 
+        IoCounters.CurrentUiOperation = "UpdateStatusOverlay";
+        try
+        {
         var terminalTabs = _viewModel.Tabs.OfType<TerminalPairTabViewModel>().ToList();
-        var aiName = _configService.Load().Settings.CustomCommandName;
+        var aiName = _cachedAiName;
 
         // Priority: any waiting > any active > any completed > all idle
         var waitingTab = terminalTabs.FirstOrDefault(t => t.IsWaitingForInput);
         if (waitingTab != null)
         {
+            _overlayFeaturedTab = waitingTab;
             var project = System.IO.Path.GetFileName(waitingTab.Pair.WorkingDirectory);
             _statusOverlayService.UpdateState("waiting", $"{project} \u2014 waiting for input");
             return;
@@ -2122,11 +2145,13 @@ public partial class MainWindow : Window
         {
             if (activeTabs.Count == 1)
             {
+                _overlayFeaturedTab = activeTabs[0];
                 var project = System.IO.Path.GetFileName(activeTabs[0].Pair.WorkingDirectory);
                 _statusOverlayService.UpdateState("active", $"{project} \u2014 {aiName} working");
             }
             else
             {
+                _overlayFeaturedTab = null; // Multiple active — no single tab to focus
                 _statusOverlayService.UpdateState("active", $"{activeTabs.Count} workspaces active");
             }
             return;
@@ -2135,12 +2160,14 @@ public partial class MainWindow : Window
         var completedTab = terminalTabs.FirstOrDefault(t => t.HasUnreadActivity);
         if (completedTab != null)
         {
+            _overlayFeaturedTab = completedTab;
             var project = System.IO.Path.GetFileName(completedTab.Pair.WorkingDirectory);
             _statusOverlayService.UpdateState("completed", $"{project} \u2014 task completed");
             return;
         }
 
         // All idle - show selected tab name or generic
+        _overlayFeaturedTab = null;
         if (_viewModel.SelectedTab is TerminalPairTabViewModel selectedTerminal)
         {
             var project = System.IO.Path.GetFileName(selectedTerminal.Pair.WorkingDirectory);
@@ -2149,6 +2176,19 @@ public partial class MainWindow : Window
         else
         {
             _statusOverlayService.UpdateState("idle", "Idle");
+        }
+        }
+        finally { IoCounters.CurrentUiOperation = null; }
+    }
+
+    /// <summary>
+    /// When the overlay is clicked, switch to the featured tab (the workspace shown in the overlay).
+    /// </summary>
+    private void OnStatusOverlayFocusRequested(object? sender, EventArgs e)
+    {
+        if (_overlayFeaturedTab != null && _viewModel.Tabs.Contains(_overlayFeaturedTab))
+        {
+            _viewModel.SelectedTab = _overlayFeaturedTab;
         }
     }
 

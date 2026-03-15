@@ -1,5 +1,7 @@
 using System.IO;
+using System.Threading;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Services;
 
@@ -8,10 +10,10 @@ internal sealed class FileSystem : IFileSystem
     public bool DirectoryExists(string? path) => !string.IsNullOrEmpty(path) && Directory.Exists(path);
     public void CreateDirectory(string path) => Directory.CreateDirectory(path);
     public bool FileExists(string? path) => !string.IsNullOrEmpty(path) && File.Exists(path);
-    public string ReadAllText(string path) => File.ReadAllText(path);
-    public Task<string> ReadAllTextAsync(string path) => File.ReadAllTextAsync(path);
-    public void WriteAllText(string path, string contents) => File.WriteAllText(path, contents);
-    public void AppendAllText(string path, string contents) => File.AppendAllText(path, contents);
+    public string ReadAllText(string path) { Interlocked.Increment(ref IoCounters.FileReads); return File.ReadAllText(path); }
+    public Task<string> ReadAllTextAsync(string path) { Interlocked.Increment(ref IoCounters.FileReads); return File.ReadAllTextAsync(path); }
+    public void WriteAllText(string path, string contents) { Interlocked.Increment(ref IoCounters.FileWrites); File.WriteAllText(path, contents); }
+    public void AppendAllText(string path, string contents) { Interlocked.Increment(ref IoCounters.FileWrites); File.AppendAllText(path, contents); }
     public string[] GetFiles(string path, string searchPattern, SearchOption searchOption) => Directory.GetFiles(path, searchPattern, searchOption);
     public string[] GetFiles(string path) => Directory.GetFiles(path);
     public string[] GetDirectories(string path) => Directory.GetDirectories(path);

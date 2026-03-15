@@ -505,6 +505,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? SettingsChanged;
     public event EventHandler<AiAssistantSwitchEventArgs>? AiAssistantSwitchRequested;
 
+    /// <summary>
+    /// Deferred file explorer initialization for tabs restored at startup.
+    /// Called once when the tab is first selected. Set to null after execution.
+    /// </summary>
+    public Func<Task>? DeferredExplorerInit { get; set; }
+
     public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null)
     {
         Pair = pair;
