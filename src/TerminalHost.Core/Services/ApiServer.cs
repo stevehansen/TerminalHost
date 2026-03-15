@@ -55,6 +55,17 @@ public class ApiServer : IApiServer
     public bool IsRunning { get; private set; }
     public string? BaseUrl { get; private set; }
 
+    // Cached API settings to avoid loading 145KB config on every HTTP request
+    private ApiSettings? _cachedApiSettings;
+
+    /// <summary>
+    /// Refreshes cached API settings. Call after the user changes settings.
+    /// </summary>
+    public void RefreshCachedSettings()
+    {
+        _cachedApiSettings = _configService.Load().Settings.Api;
+    }
+
     public int ActiveSseConnections
     {
         get { lock (_sseLock) return _sseConnections.Count; }
@@ -107,6 +118,7 @@ public class ApiServer : IApiServer
 
         var config = _configService.Load();
         var apiSettings = config.Settings.Api;
+        _cachedApiSettings = apiSettings;
 
         // Validate: require API key for non-loopback
         if (apiSettings.BindAddress != "127.0.0.1" && apiSettings.BindAddress != "localhost"
@@ -208,8 +220,7 @@ public class ApiServer : IApiServer
 
         try
         {
-            var config = _configService.Load();
-            var apiSettings = config.Settings.Api;
+            var apiSettings = _cachedApiSettings ?? _configService.Load().Settings.Api;
 
             // CORS headers
             SetCorsHeaders(response, request, apiSettings);
@@ -256,7 +267,7 @@ public class ApiServer : IApiServer
 
             // Route matching
             if (path == "/api/status")
-                await HandleStatusAsync(response, config);
+                await HandleStatusAsync(response, _configService.Load());
             else if (path == "/api/repos")
                 await HandleReposAsync(response);
             else if (path.StartsWith("/api/repos/") && TryParseRepoIndex(path, "/api/repos/", out var idx, out var subPath))
@@ -279,7 +290,7 @@ public class ApiServer : IApiServer
             else if (path == "/api/timeline")
                 await HandleTimelineAsync(response, request);
             else if (path == "/api/config")
-                await HandleConfigAsync(response, config);
+                await HandleConfigAsync(response, _configService.Load());
             else if (path == "/api/events")
             {
                 if (apiSettings.EnableSse)

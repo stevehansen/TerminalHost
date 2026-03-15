@@ -407,6 +407,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Returns all workspace domain objects (for API server use without config reload).
+    /// </summary>
+    public List<Workspace> GetAllWorkspaces()
+    {
+        return _allWorkspaces.Select(w => w.Workspace)
+            .Concat(_allPlaygrounds.Select(w => w.Workspace))
+            .ToList();
+    }
+
     private WorkspaceEntryViewModel? FindWorkspaceByPath(string path)
     {
         return _allWorkspaces.FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase)) ??

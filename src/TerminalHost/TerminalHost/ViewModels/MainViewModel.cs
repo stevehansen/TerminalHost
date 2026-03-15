@@ -677,23 +677,37 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        IoCounters.CurrentUiOperation = "AutoFetchAll";
-        try
+        // Run all git work on the thread pool so the UI thread stays responsive.
+        // Only post back to UI thread to update properties.
+        var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+        var sidebar = WorkspaceSidebar;
+
+        await Task.Run(async () =>
         {
-            // Fetch for all workspaces in the sidebar (not just open tabs)
-            if (WorkspaceSidebar != null)
+            // Fetch for all workspaces in the sidebar
+            if (sidebar != null)
             {
-                await WorkspaceSidebar.FetchAllAsync();
+                await sidebar.FetchAllAsync();
             }
 
-            // Refresh git status for open tabs sequentially to avoid flooding
-            // the UI thread with hundreds of concurrent git process completions.
-            foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>().ToList())
+            // Refresh git status for open tabs sequentially
+            foreach (var tab in tabs)
             {
-                await RefreshTabGitStatusAsync(tab);
+                try
+                {
+                    var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
+                    _dispatcherService.BeginInvoke(() =>
+                    {
+                        tab.GitStatus = status;
+                        OnPropertyChanged(nameof(WindowTitle));
+                    });
+                }
+                catch
+                {
+                    // Silently ignore git status errors
+                }
             }
-        }
-        finally { IoCounters.CurrentUiOperation = null; }
+        });
     }
 
     private void RefreshDetectedLinks()
@@ -3563,10 +3577,17 @@ public partial class MainViewModel : ObservableObject
 
     private List<ApiWorkspaceInfo> BuildWorkspaceList()
     {
-        var config = _configService.Load();
+        // Use the already-loaded workspace sidebar state instead of re-reading
+        // 145KB config from disk on every API request (was 927 loads in one session).
+        var workspaces = WorkspaceSidebar?.GetAllWorkspaces();
+        if (workspaces == null || workspaces.Count == 0)
+        {
+            var config = _configService.Load();
+            workspaces = config.Workspaces;
+        }
         var openRepos = BuildRepoList();
 
-        return config.Workspaces.Select(w =>
+        return workspaces.Select(w =>
         {
             var normalizedPath = w.Path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
             var matchingRepo = openRepos.FirstOrDefault(r =>
