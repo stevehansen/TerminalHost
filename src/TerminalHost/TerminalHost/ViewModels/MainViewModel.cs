@@ -592,7 +592,8 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var previousBranch = terminalTab.GitStatus?.BranchName;
-            var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+            var workDir = terminalTab.Pair.WorkingDirectory;
+            var status = await Task.Run(() => _gitStatusService.GetGitStatusAsync(workDir));
             terminalTab.GitStatus = status;
             // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
@@ -677,36 +678,43 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        // Run all git work on the thread pool so the UI thread stays responsive.
-        // Only post back to UI thread to update properties.
+        // Run git fetch + status in batches on the thread pool, posting UI updates
+        // between batches so the UI thread stays responsive.
         var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
         var sidebar = WorkspaceSidebar;
+        const int batchSize = 5;
 
         await Task.Run(async () =>
         {
-            // Fetch for all workspaces in the sidebar
+            // Fetch and refresh sidebar workspaces in batches of 5.
             if (sidebar != null)
             {
                 await sidebar.FetchAllAsync();
             }
 
-            // Refresh git status for open tabs sequentially
-            foreach (var tab in tabs)
+            // Update open tabs with fresh git status in batches.
+            for (var i = 0; i < tabs.Count; i += batchSize)
             {
-                try
+                var batch = tabs.Skip(i).Take(batchSize);
+                await Task.WhenAll(batch.Select(async tab =>
                 {
-                    var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
-                    _dispatcherService.BeginInvoke(() =>
+                    try
                     {
-                        tab.GitStatus = status;
-                        OnPropertyChanged(nameof(WindowTitle));
-                    });
-                }
-                catch
-                {
-                    // Silently ignore git status errors
-                }
+                        var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
+                        _dispatcherService.BeginInvoke(() =>
+                        {
+                            tab.GitStatus = status;
+                        });
+                    }
+                    catch
+                    {
+                        // Silently ignore git status errors
+                    }
+                }));
             }
+
+            // Single UI update for window title after all tabs are refreshed
+            _dispatcherService.BeginInvoke(() => OnPropertyChanged(nameof(WindowTitle)));
         });
     }
 
@@ -893,10 +901,19 @@ public partial class MainViewModel : ObservableObject
         // Yield once so WPF can render the tabs
         await Task.Delay(100);
 
-        foreach (var tab in tabs)
+        // Run git work on thread pool so Process.Start() calls don't block the UI thread
+        await Task.Run(async () =>
         {
-            await RefreshTabGitStatusAsync(tab);
-        }
+            foreach (var tab in tabs)
+            {
+                try
+                {
+                    var status = await _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory);
+                    _dispatcherService.BeginInvoke(() => tab.GitStatus = status);
+                }
+                catch { }
+            }
+        });
     }
 
     private void SaveOpenFolders()
@@ -3367,11 +3384,13 @@ public partial class MainViewModel : ObservableObject
         LayoutMode = config.Settings.LayoutMode;
 
         // Yield so the fire-and-forget caller (Initialize) can proceed
-        // to RestoreOpenFolders without waiting for 63 git Process.Start() calls.
+        // to RestoreOpenFolders without waiting for sidebar git loads.
         await Task.Yield();
 
         if (WorkspaceSidebar != null)
         {
+            // Load workspace VMs on the UI thread (they need ObservableCollection access),
+            // but run the git status/worktree loads on the thread pool.
             await WorkspaceSidebar.LoadAsync();
         }
     }

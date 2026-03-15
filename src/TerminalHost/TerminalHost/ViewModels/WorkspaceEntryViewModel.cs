@@ -217,16 +217,21 @@ public partial class WorkspaceEntryViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            // Load git status
-            GitStatus = await _gitStatusService.GetGitStatusAsync(Path);
+            // Run git commands on the thread pool so Process.Start() doesn't block the UI thread.
+            var path = Path;
+            var (status, worktreeInfos) = await Task.Run(async () =>
+            {
+                var s = await _gitStatusService.GetGitStatusAsync(path);
+                var w = await _gitWorktreeService.ListWorktreesAsync(path);
+                return (s, w);
+            });
 
-            // Load worktrees (only linked worktrees, not the main one which is the workspace itself)
-            var worktreeInfos = await _gitWorktreeService.ListWorktreesAsync(Path);
+            // Update UI-bound properties on the calling (UI) thread
+            GitStatus = status;
             Worktrees.Clear();
             foreach (var info in worktreeInfos.Where(w => !w.IsMain))
             {
-                var vm = new WorktreeEntryViewModel(info);
-                Worktrees.Add(vm);
+                Worktrees.Add(new WorktreeEntryViewModel(info));
             }
         }
         finally

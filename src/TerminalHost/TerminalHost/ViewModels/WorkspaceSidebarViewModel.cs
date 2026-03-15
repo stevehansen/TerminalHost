@@ -149,6 +149,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
     /// <summary>
     /// Loads workspaces from configuration.
+    /// Shows workspace entries immediately, then loads git status in background.
     /// </summary>
     public async Task LoadAsync()
     {
@@ -182,12 +183,34 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
             // Set sort mode after workspaces are added so the change handler can sort them
             SortMode = config.Settings.WorkspaceSortMode;
 
-            // Apply filter and sort
+            // Apply filter and sort - workspace entries are now visible and interactive
             ApplyFilterAndSort();
+        }
+        finally
+        {
+            // Remove loading overlay immediately so user can interact with workspaces.
+            // Individual workspace entries show their own loading state via WorkspaceEntryViewModel.IsLoading.
+            IsLoading = false;
+        }
 
-            // Load git status/worktrees sequentially to avoid flooding the UI thread
-            // with 63 concurrent Process.Start() calls and dispatcher continuations.
-            foreach (var vm in vms)
+        // Load git status/worktrees in background after the overlay is removed.
+        // Each entry's own IsLoading indicator shows per-workspace progress.
+        _ = LoadWorkspaceGitStatusAsync();
+    }
+
+    /// <summary>
+    /// Loads git status and worktrees for all workspaces in the background.
+    /// Runs in batches of 5 for good throughput without flooding the UI.
+    /// </summary>
+    private async Task LoadWorkspaceGitStatusAsync()
+    {
+        const int batchSize = 5;
+        var vms = _allWorkspaces.Concat(_allPlaygrounds).ToList();
+
+        for (var i = 0; i < vms.Count; i += batchSize)
+        {
+            var batch = vms.Skip(i).Take(batchSize);
+            await Task.WhenAll(batch.Select(async vm =>
             {
                 try
                 {
@@ -197,11 +220,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 {
                     System.Diagnostics.Debug.WriteLine($"Workspace load failed for {vm.Name}: {ex.Message}");
                 }
-            }
-        }
-        finally
-        {
-            IsLoading = false;
+            }));
         }
     }
 
@@ -364,23 +383,40 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Refreshes git status for all workspaces.
+    /// Refreshes git status for all workspaces in batches to balance throughput
+    /// with UI responsiveness (avoids flooding the dispatcher with 60+ simultaneous updates).
     /// </summary>
     public async Task RefreshAllGitStatusAsync()
     {
-        var tasks = _allWorkspaces.Concat(_allPlaygrounds)
-            .Select(w => w.RefreshGitStatusAsync());
-        await Task.WhenAll(tasks);
+        const int batchSize = 5;
+        var all = _allWorkspaces.Concat(_allPlaygrounds).ToList();
+
+        for (var i = 0; i < all.Count; i += batchSize)
+        {
+            var batch = all.Skip(i).Take(batchSize);
+            await Task.WhenAll(batch.Select(async w =>
+            {
+                try { await w.RefreshGitStatusAsync(); }
+                catch { /* Silently ignore git status errors */ }
+            }));
+        }
     }
 
     /// <summary>
     /// Fetches from git remotes for all workspaces and refreshes their status.
-    /// This is called by the auto-fetch timer to keep behind counts up to date.
+    /// Runs in batches of 5 to get good I/O throughput without flooding the
+    /// thread pool (120+ concurrent git processes) or the UI dispatcher
+    /// (540+ simultaneous property change notifications).
     /// </summary>
     public async Task FetchAllAsync()
     {
-        var tasks = _allWorkspaces.Concat(_allPlaygrounds)
-            .Select(async w =>
+        const int batchSize = 5;
+        var all = _allWorkspaces.Concat(_allPlaygrounds).ToList();
+
+        for (var i = 0; i < all.Count; i += batchSize)
+        {
+            var batch = all.Skip(i).Take(batchSize);
+            await Task.WhenAll(batch.Select(async w =>
             {
                 try
                 {
@@ -391,8 +427,8 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
                 {
                     // Silently ignore fetch errors (network issues, etc.)
                 }
-            });
-        await Task.WhenAll(tasks);
+            }));
+        }
     }
 
     /// <summary>
@@ -904,6 +940,7 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
     /// <summary>
     /// Pulls all repositories with git pull --rebase.
+    /// Runs in batches of 5 for good throughput without flooding the UI.
     /// </summary>
     [RelayCommand]
     private async Task PullAll()
@@ -917,29 +954,32 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
 
         var successCount = 0;
         var failCount = 0;
+        const int batchSize = 5;
 
-        var tasks = allWorkspaces.Select(async w =>
+        for (var i = 0; i < allWorkspaces.Count; i += batchSize)
         {
-            try
+            var batch = allWorkspaces.Skip(i).Take(batchSize);
+            await Task.WhenAll(batch.Select(async w =>
             {
-                var result = await _gitStatusService.PullRebaseAsync(w.Path);
-                if (result.Success)
+                try
                 {
-                    await w.RefreshGitStatusAsync();
-                    Interlocked.Increment(ref successCount);
+                    var result = await _gitStatusService.PullRebaseAsync(w.Path);
+                    if (result.Success)
+                    {
+                        await w.RefreshGitStatusAsync();
+                        Interlocked.Increment(ref successCount);
+                    }
+                    else
+                    {
+                        Interlocked.Increment(ref failCount);
+                    }
                 }
-                else
+                catch
                 {
                     Interlocked.Increment(ref failCount);
                 }
-            }
-            catch
-            {
-                Interlocked.Increment(ref failCount);
-            }
-        });
-
-        await Task.WhenAll(tasks);
+            }));
+        }
 
         IsPullAllInProgress = false;
 
