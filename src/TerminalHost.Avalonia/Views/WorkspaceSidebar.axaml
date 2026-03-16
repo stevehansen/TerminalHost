@@ -4,7 +4,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="clr-namespace:TerminalHost.ViewModels"
-             xmlns:domain="clr-namespace:TerminalHost.Domain"
              xmlns:coreInterfaces="clr-namespace:TerminalHost.Core.Interfaces;assembly=TerminalHost.Core"
              xmlns:coreDomain="clr-namespace:TerminalHost.Core.Domain;assembly=TerminalHost.Core"
              d:DesignWidth="250" d:DesignHeight="600"
@@ -16,7 +15,7 @@
     </Design.DataContext>
 
     <UserControl.Resources>
-        <!-- Open Project Context Menu -->
+        <!-- Open Project Context Menu (for tabs) -->
         <ContextMenu x:Key="OpenProjectContextMenu">
             <MenuItem Header="Open" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenTabCommand}"
                       CommandParameter="{Binding}">
@@ -87,7 +86,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <Separator/>
-            <MenuItem Header="Open in Finder" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenInFinderCommand}"
+            <MenuItem Header="Open in Finder" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenInFinderTabCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
                     <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
@@ -104,7 +103,7 @@
 
         <!-- Workspace Item Context Menu -->
         <ContextMenu x:Key="WorkspaceContextMenu">
-            <MenuItem Header="Open" Command="{Binding OpenWorkspaceCommand}"
+            <MenuItem Header="Open" Command="{Binding $parent[UserControl].((viewModels:WorkspaceSidebarViewModel)DataContext).OpenWorkspaceCommand}"
                       CommandParameter="{Binding}">
                 <MenuItem.Icon>
                     <TextBlock Text="📂" FontSize="{StaticResource FontSizeSmall}"/>
@@ -179,7 +178,7 @@
         <Border Grid.Row="0" Padding="8" Background="{StaticResource BackgroundDarkestBrush}">
             <Grid RowDefinitions="Auto,Auto">
                 <!-- Title and toggle button -->
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,8">
                     <!-- Collapse Button (more prominent for touch) -->
                     <Button Grid.Column="0"
                             Command="{Binding MainViewModel.ToggleLayoutModeCommand}"
@@ -196,7 +195,17 @@
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"/>
+                    <!-- Sort toggle button -->
                     <Button Grid.Column="2"
+                            Command="{Binding CycleSortModeCommand}"
+                            ToolTip.Tip="{Binding SortToggleToolTip}"
+                            Background="Transparent"
+                            Foreground="{StaticResource TextSecondaryBrush}"
+                            Padding="4,2"
+                            Margin="0,0,2,0">
+                        <TextBlock Text="{Binding SortToggleIcon}" FontSize="{StaticResource FontSizeSmall}"/>
+                    </Button>
+                    <Button Grid.Column="3"
                             Command="{Binding MainViewModel.ToggleLayoutModeCommand}"
                             ToolTip.Tip="Switch to Tabs (Cmd+Shift+L)"
                             Background="Transparent"
@@ -241,7 +250,7 @@
                         </StackPanel>
                     </Expander.Header>
 
-                    <ListBox ItemsSource="{Binding MainViewModel.Tabs}"
+                    <ListBox ItemsSource="{Binding SortedTabs}"
                              SelectedItem="{Binding MainViewModel.SelectedTab}"
                              Background="Transparent"
                              BorderThickness="0"
@@ -260,7 +269,7 @@
                                                        FontSize="{StaticResource FontSizeSmall}"
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        TextTrimming="CharacterEllipsis"/>
-                                            <!-- Stash count indicator (visible when StashCount > 0, uses ReflectionBinding since StashCount is on TerminalPairTabViewModel, not ITabViewModel) -->
+                                            <!-- Stash count indicator -->
                                             <TextBlock Text="{ReflectionBinding StashCount, StringFormat='📦 {0}'}"
                                                        FontSize="{StaticResource FontSizeSmaller}"
                                                        Foreground="{StaticResource SyntaxYellowBrush}"
@@ -389,11 +398,6 @@
                                                        FontFamily="{StaticResource FontFamilyMonospace}"
                                                        FontSize="{StaticResource FontSizeSmall}"
                                                        Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding ShortHash}"
-                                                       FontFamily="{StaticResource FontFamilyMonospace}"
-                                                       FontSize="{StaticResource FontSizeSmaller}"
-                                                       Foreground="{StaticResource TextDimmedBrush}"
-                                                       IsVisible="{Binding !IsDetached}"/>
                                         </StackPanel>
                                         <TextBlock Text="{Binding DisplayPath}"
                                                    FontFamily="{StaticResource FontFamilyMonospace}"
@@ -429,7 +433,6 @@
                              BorderThickness="0"
                              HorizontalAlignment="Stretch">
                         <ListBox.ItemTemplate>
-                            <!-- Using runtime binding (no x:DataType) for nested WorkspaceItem class -->
                             <DataTemplate>
                                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2"
                                       ContextMenu="{StaticResource WorkspaceContextMenu}"

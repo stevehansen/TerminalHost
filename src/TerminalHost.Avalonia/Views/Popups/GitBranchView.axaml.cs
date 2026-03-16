@@ -26,6 +26,17 @@ public partial class GitBranchView : UserControl
 
         // Handle keyboard navigation
         this.KeyDown += UserControl_KeyDown;
+
+        // Handle tree view selection to sync SelectedBranch
+        GitBranchTreeView.SelectionChanged += (s, e) =>
+        {
+            if (DataContext is GitBranchViewModel vm &&
+                GitBranchTreeView.SelectedItem is BranchTreeNode node &&
+                node.Branch != null)
+            {
+                vm.SelectedBranch = node.Branch;
+            }
+        };
     }
 
     private void UserControl_KeyDown(object? sender, KeyEventArgs e)
@@ -107,6 +118,15 @@ public partial class GitBranchView : UserControl
             if (string.IsNullOrEmpty(viewModel.SearchText))
             {
                 viewModel.CompareWithSelectedBranchCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.T && e.KeyModifiers == KeyModifiers.None)
+        {
+            // Toggle tree view (only if not typing in search box with text)
+            if (string.IsNullOrEmpty(viewModel.SearchText))
+            {
+                viewModel.ToggleTreeViewCommand.Execute(null);
                 e.Handled = true;
             }
         }

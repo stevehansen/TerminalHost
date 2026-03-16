@@ -89,10 +89,25 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _showInSystemTray;
 
     [ObservableProperty]
+    private WorkspaceSortMode _workspaceSortMode;
+
+    public int WorkspaceSortModeIndex
+    {
+        get => (int)WorkspaceSortMode;
+        set { WorkspaceSortMode = (WorkspaceSortMode)value; OnPropertyChanged(); }
+    }
+
+    [ObservableProperty]
     private bool _touchMode;
 
     [ObservableProperty]
     private GitTrackingMode _gitTrackingMode;
+
+    public int GitTrackingModeIndex
+    {
+        get => (int)GitTrackingMode;
+        set { GitTrackingMode = (GitTrackingMode)value; OnPropertyChanged(); }
+    }
 
     [ObservableProperty]
     private bool _gitAutoFetch = true;
@@ -329,6 +344,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private double _editDsExplorerRatio = 0.25;
 
+    [ObservableProperty]
+    private bool _editDsShowLeftPanel = false;
+
+    [ObservableProperty]
+    private double _editDsLeftPanelRatio = 0.25;
+
     // AI Assistant selection for the directory
     [ObservableProperty]
     private AiAssistant? _editDsAiAssistant;
@@ -505,6 +526,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             ConfirmOnClose = config.Settings.ConfirmOnClose;
             ShowInSystemTray = config.Settings.ShowInSystemTray;
+            WorkspaceSortMode = config.Settings.WorkspaceSortMode;
             TouchMode = config.Settings.TouchMode;
             GitTrackingMode = config.Settings.GitTrackingMode;
             GitAutoFetch = config.Settings.GitAutoFetch;
@@ -581,6 +603,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             // General settings
             config.Settings.ConfirmOnClose = ConfirmOnClose;
             config.Settings.ShowInSystemTray = ShowInSystemTray;
+            config.Settings.WorkspaceSortMode = WorkspaceSortMode;
             config.Settings.TouchMode = TouchMode;
             config.Settings.GitTrackingMode = GitTrackingMode;
             config.Settings.GitAutoFetch = GitAutoFetch;
@@ -699,8 +722,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     // Property change handlers for rich mode - mark dirty
     partial void OnConfirmOnCloseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnShowInSystemTrayChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnWorkspaceSortModeChanged(WorkspaceSortMode value) { OnPropertyChanged(nameof(WorkspaceSortModeIndex)); MarkDirtyFromRichMode(); }
     partial void OnTouchModeChanged(bool value) => MarkDirtyFromRichMode();
-    partial void OnGitTrackingModeChanged(GitTrackingMode value) => MarkDirtyFromRichMode();
+    partial void OnGitTrackingModeChanged(GitTrackingMode value) { OnPropertyChanged(nameof(GitTrackingModeIndex)); MarkDirtyFromRichMode(); }
     partial void OnGitAutoFetchChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnGitAutoFetchIntervalSecondsChanged(int value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
@@ -1858,6 +1882,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsRunSplitRatio = CurrentDirectorySettings.RunSplitRatio;
             EditDsShowExplorer = CurrentDirectorySettings.IsExplorerVisible;
             EditDsExplorerRatio = CurrentDirectorySettings.ExplorerSplitRatio;
+            EditDsShowLeftPanel = CurrentDirectorySettings.IsLeftPanelVisible;
+            EditDsLeftPanelRatio = CurrentDirectorySettings.LeftPanelSplitRatio;
             RunConfigurations = new ObservableCollection<RunConfiguration>(CurrentDirectorySettings.RunConfigurations);
 
             // Load AI assistant selection
@@ -1874,6 +1900,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             EditDsRunSplitRatio = 0.3;
             EditDsShowExplorer = false;
             EditDsExplorerRatio = 0.25;
+            EditDsShowLeftPanel = false;
+            EditDsLeftPanelRatio = 0.25;
             RunConfigurations = [];
             EditDsAiAssistant = AiAssistants.FirstOrDefault(a => a.IsDefault) ?? AiAssistants.FirstOrDefault();
         }
@@ -1909,6 +1937,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         CurrentDirectorySettings.RunSplitRatio = EditDsRunSplitRatio;
         CurrentDirectorySettings.IsExplorerVisible = EditDsShowExplorer;
         CurrentDirectorySettings.ExplorerSplitRatio = EditDsExplorerRatio;
+        CurrentDirectorySettings.IsLeftPanelVisible = EditDsShowLeftPanel;
+        CurrentDirectorySettings.LeftPanelSplitRatio = EditDsLeftPanelRatio;
         CurrentDirectorySettings.RunConfigurations = RunConfigurations.ToList();
         CurrentDirectorySettings.ActiveAiAssistantId = EditDsAiAssistant?.Id;
 

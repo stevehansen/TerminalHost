@@ -34,6 +34,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool IsCloseable => true;
     public bool CanDuplicate => true; // Project tabs can be duplicated
 
+    /// <summary>
+    /// Index for duplicate tabs of the same directory.
+    /// 0 = first/original tab (no suffix), 2+ = duplicate tabs.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    private int _duplicateIndex;
+
     [ObservableProperty]
     private string _customIcon = "🤖";
 
@@ -134,6 +142,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private bool _isRunTerminalActive;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCompletedIndicator))]
     private bool _hasUnreadActivity;
 
     // Track previous activity state to detect transitions
@@ -220,6 +229,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
+    /// <summary>
+    /// Deferred file explorer initialization for tabs created during startup restore.
+    /// Called when the tab is first selected, then set to null.
+    /// </summary>
+    public Func<Task>? DeferredExplorerInit { get; set; }
+
     [ObservableProperty]
     private bool _isVisibleInFocusMode = true;
 
@@ -300,18 +315,21 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// Whether to show the completed indicator (green dot) on the tab.
     /// True when activity finished AND has unread activity AND tab is NOT selected.
     /// </summary>
-    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected;
+    public bool ShowCompletedIndicator => HasUnreadActivity && !IsAnyTerminalActive && !IsSelected && !IsWaitingForInput;
 
     /// <summary>
     /// Whether the terminal is waiting for user input.
-    /// Not yet implemented in Avalonia version.
     /// </summary>
-    public bool IsWaitingForInput => false;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWaitingIndicator))]
+    [NotifyPropertyChangedFor(nameof(ShowCompletedIndicator))]
+    private bool _isWaitingForInput;
 
     /// <summary>
     /// Whether to show the waiting indicator on the tab.
+    /// Shows when terminal is waiting for user input and tab is NOT selected.
     /// </summary>
-    public bool ShowWaitingIndicator => false;
+    public bool ShowWaitingIndicator => IsWaitingForInput && !IsSelected;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowClaudeTaskIndicator))]
@@ -445,7 +463,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? $"{Title} {GitStatus.BranchDisplayShort}"
         : Title;
 
-    public string DisplayTitle => TitleWithGit;
+    public string DisplayTitle => DuplicateIndex > 0
+        ? $"{TitleWithGit} ({DuplicateIndex})"
+        : TitleWithGit;
 
     public string GitStatusDisplay => GitStatus?.StatusDisplayFull ?? "";
 
@@ -486,7 +506,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? ClaudeTasksPanelRequested;
 #pragma warning restore CS0067
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -500,6 +520,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _gitStatusService = gitStatusService;
         _toastService = toastService;
         ActiveTerminal = pair.ActiveTerminal;
+        DuplicateIndex = duplicateIndex;
 
         // Initialize workspace tasks panel
         if (taskService != null)
@@ -523,7 +544,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -539,6 +560,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _gitStatusService = gitStatusService;
         _toastService = toastService;
         ActiveTerminal = pair.ActiveTerminal;
+        DuplicateIndex = duplicateIndex;
 
         // Initialize workspace tasks panel
         if (taskService != null)
@@ -1139,6 +1161,47 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
+    /// <summary>
+    /// Updates the waiting for input state by checking terminal output against patterns.
+    /// Called periodically when the terminal is idle.
+    /// </summary>
+    /// <param name="inputPromptDetectionService">The service to detect input prompts.</param>
+    public void UpdateWaitingState(IInputPromptDetectionService inputPromptDetectionService)
+    {
+        // Only check for waiting state if:
+        // 1. Detection is enabled
+        // 2. Custom terminal is not actively producing output
+        // 3. Custom terminal has been idle for the minimum time
+        if (!inputPromptDetectionService.IsEnabled)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // If terminal is actively producing output, it's not waiting
+        if (IsCustomTerminalActive)
+        {
+            IsWaitingForInput = false;
+            return;
+        }
+
+        // Check if we've been idle long enough
+        var lastOutputTime = Pair.CustomTerminal.LastOutputTime;
+        if (lastOutputTime.HasValue)
+        {
+            var idleTimeMs = (DateTime.Now - lastOutputTime.Value).TotalMilliseconds;
+            if (idleTimeMs < inputPromptDetectionService.MinIdleTimeMs)
+            {
+                // Not idle long enough yet - keep current state
+                return;
+            }
+        }
+
+        // Get recent output from the custom terminal (AI assistant)
+        var recentOutput = Pair.CustomTerminal.GetRecentOutput(2000);
+        IsWaitingForInput = inputPromptDetectionService.IsWaitingForInput(recentOutput);
+    }
+
     public void UpdateSplitRatioFromColumnWidths(double customWidth, double shellWidth)
     {
         var total = customWidth + shellWidth;
@@ -1353,6 +1416,18 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         return FocusedTerminal == ActiveTerminal.Custom
             ? Pair.CustomTerminal
             : Pair.ShellTerminal;
+    }
+
+    /// <summary>
+    /// Focuses the active terminal control (Custom or Shell based on FocusedTerminal state).
+    /// Call this after closing center panels to ensure keyboard input goes to the terminal.
+    /// </summary>
+    public void FocusActiveTerminal()
+    {
+        var session = FocusedTerminal == ActiveTerminal.Custom
+            ? Pair.CustomTerminal
+            : Pair.ShellTerminal;
+        session.Focus();
     }
 
     /// <summary>
@@ -1637,6 +1712,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             ActiveCenterPanel.IsOpen = false;
             ActiveCenterPanel = null;
             SettingsChanged?.Invoke(this, EventArgs.Empty);
+            FocusActiveTerminal();
         }
     }
 

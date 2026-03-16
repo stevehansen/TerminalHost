@@ -135,6 +135,7 @@ public partial class App : Application
         services.AddSingleton<IGitProcessRunner, TerminalHost.Core.Services.GitProcessRunner>();
         services.AddSingleton<IGitPrService, TerminalHost.Core.Services.GitPrService>();
         services.AddSingleton<IGitWorktreeService, global::TerminalHost.Services.GitWorktreeService>();
+        services.AddSingleton<IGitIgnoreService, TerminalHost.Core.Services.GitIgnoreService>();
 
         // File Services
         services.AddSingleton<IFileExplorerService, FileExplorerService>();
@@ -145,6 +146,7 @@ public partial class App : Application
         services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
         services.AddSingleton<IProjectDetectionService, TerminalHost.Core.Services.ProjectDetectionService>();
         services.AddSingleton<IRunUrlDetectionService, TerminalHost.Core.Services.RunUrlDetectionService>();
+        services.AddSingleton<IInputPromptDetectionService, TerminalHost.Core.Services.InputPromptDetectionService>();
 
         // Feature Services
         services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();

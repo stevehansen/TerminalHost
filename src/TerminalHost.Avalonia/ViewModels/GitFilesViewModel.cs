@@ -52,6 +52,8 @@ public partial class GitFilesViewModel : ObservableObject
     private readonly IInvisibleChangeService _invisibleChangeService;
     private readonly IAiExecutionService _aiExecutionService;
     private readonly IClipboardService _clipboardService;
+    private readonly IDiffParserService _diffParserService;
+    private readonly IGitIgnoreService _gitIgnoreService;
     private TerminalPairTabViewModel? _currentTerminalTab;
 
     [ObservableProperty]
@@ -107,6 +109,15 @@ public partial class GitFilesViewModel : ObservableObject
     private InvisibleChangeInfo? _invisibleChangeInfo;
 
     [ObservableProperty]
+    private bool _isMergeInProgress;
+
+    [ObservableProperty]
+    private int _conflictCount;
+
+    [ObservableProperty]
+    private ParsedDiff? _currentParsedDiff;
+
+    [ObservableProperty]
     private int _commitMessageLength;
 
     private const int MaxCommitMessageLength = 72; // Conventional max for first line
@@ -120,7 +131,7 @@ public partial class GitFilesViewModel : ObservableObject
         var n => $"{n} files changed"
     };
 
-    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService, IFileSystem fileSystem, IProcessService processService, IConfigurationService configurationService, IToastService toastService, IInvisibleChangeService invisibleChangeService, IAiExecutionService aiExecutionService, IClipboardService clipboardService)
+    public GitFilesViewModel(IGitStatusService gitStatusService, IFilePreviewService filePreviewService, IDialogService dialogService, IFileSystem fileSystem, IProcessService processService, IConfigurationService configurationService, IToastService toastService, IInvisibleChangeService invisibleChangeService, IAiExecutionService aiExecutionService, IClipboardService clipboardService, IDiffParserService diffParserService, IGitIgnoreService gitIgnoreService)
     {
         _gitStatusService = gitStatusService;
         _filePreviewService = filePreviewService;
@@ -132,6 +143,8 @@ public partial class GitFilesViewModel : ObservableObject
         _invisibleChangeService = invisibleChangeService;
         _aiExecutionService = aiExecutionService;
         _clipboardService = clipboardService;
+        _diffParserService = diffParserService;
+        _gitIgnoreService = gitIgnoreService;
         _diffText = "";
     }
 
@@ -227,6 +240,10 @@ public partial class GitFilesViewModel : ObservableObject
             BuildFileTrees();
         }
 
+        // Check for merge in progress
+        IsMergeInProgress = await _gitStatusService.IsMergeInProgressAsync(workingDirectory);
+        ConflictCount = allFiles.Count(f => f.Status == GitFileStatusType.Conflicted);
+
         // Update computed properties
         OnPropertyChanged(nameof(FileChangeSummary));
 
@@ -237,6 +254,7 @@ public partial class GitFilesViewModel : ObservableObject
 
         SelectedGitFile = null;
         DiffText = "";
+        CurrentParsedDiff = null;
 
         // Select first unstaged file if any, otherwise first staged
         if (UnstagedFiles.Any())
@@ -261,6 +279,7 @@ public partial class GitFilesViewModel : ObservableObject
         if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null)
         {
             DiffText = "";
+            CurrentParsedDiff = null;
             InvisibleChangeInfo = null;
             return;
         }
@@ -269,6 +288,7 @@ public partial class GitFilesViewModel : ObservableObject
         if (file.IsSubmodule)
         {
             DiffText = $"Submodule: {file.FilePath}\n\nDiff preview is not available for submodules.\n\nTo view submodule changes, navigate to the submodule directory\nand use git commands directly.";
+            CurrentParsedDiff = null;
             InvisibleChangeInfo = null;
             return;
         }
@@ -277,6 +297,7 @@ public partial class GitFilesViewModel : ObservableObject
         if (IsBinaryFile(file.FilePath))
         {
             DiffText = $"Binary file {file.FileName} differs";
+            CurrentParsedDiff = null;
             InvisibleChangeInfo = null;
             return;
         }
@@ -293,6 +314,7 @@ public partial class GitFilesViewModel : ObservableObject
                 if (fileInfo.Length > MaxDiffFileSize)
                 {
                     DiffText = $"File too large to display ({fileInfo.Length / 1024.0 / 1024.0:F1} MB)";
+                    CurrentParsedDiff = null;
                     InvisibleChangeInfo = null;
                     return;
                 }
@@ -305,6 +327,7 @@ public partial class GitFilesViewModel : ObservableObject
         if (!string.IsNullOrEmpty(diff))
         {
             DiffText = diff;
+            CurrentParsedDiff = _diffParserService.Parse(diff);
 
             // Detect invisible changes (EOL, BOM, trailing newline)
             var info = _invisibleChangeService.Detect(diff);
@@ -318,6 +341,7 @@ public partial class GitFilesViewModel : ObservableObject
         else
         {
             DiffText = "";
+            CurrentParsedDiff = null;
             InvisibleChangeInfo = null;
         }
     }
@@ -458,7 +482,21 @@ public partial class GitFilesViewModel : ObservableObject
 
         if (!confirmed) return;
 
-        var result = await _gitStatusService.DiscardChangesAsync(_currentTerminalTab.Pair.WorkingDirectory, file.FilePath);
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+        // For untracked files, delete the file instead of git checkout
+        if (file.Status == GitFileStatusType.Untracked)
+        {
+            var fullPath = System.IO.Path.Combine(workingDirectory, file.FilePath);
+            if (_fileSystem.FileExists(fullPath))
+                _fileSystem.DeleteFile(fullPath);
+
+            _toastService.Show($"Deleted untracked file {file.FileName}", ToastType.Success);
+            await RefreshGitFilesAsync();
+            return;
+        }
+
+        var result = await _gitStatusService.DiscardChangesAsync(workingDirectory, file.FilePath);
         if (result.Success)
         {
             _toastService.Show($"Discarded changes to {file.FileName}", ToastType.Success);
@@ -467,6 +505,100 @@ public partial class GitFilesViewModel : ObservableObject
         else
         {
             _toastService.Show($"Failed to discard changes to {file.FileName}", ToastType.Error);
+        }
+    }
+
+    #endregion
+
+    #region Hunk Staging
+
+    [RelayCommand]
+    private async Task StageHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.StageHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk staged", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to stage hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UnstageHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.UnstageHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk unstaged", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to unstage hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DiscardHunkAsync(int hunkIndex)
+    {
+        if (CurrentParsedDiff == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var patch = _diffParserService.ExtractHunkPatch(CurrentParsedDiff, hunkIndex);
+        if (string.IsNullOrEmpty(patch)) return;
+
+        IsLoading = true;
+        try
+        {
+            var result = await _gitStatusService.DiscardHunkAsync(
+                _currentTerminalTab.Pair.WorkingDirectory, patch);
+
+            if (result.Success)
+            {
+                _toastService.Show("Hunk discarded", ToastType.Success);
+                await RefreshGitFilesAsync();
+            }
+            else
+            {
+                _toastService.Show($"Failed to discard hunk: {result.Error}", ToastType.Error);
+            }
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
@@ -860,7 +992,6 @@ public partial class GitFilesViewModel : ObservableObject
     {
         if (!StagedFiles.Any()) return;
         if (_currentTerminalTab?.Pair.WorkingDirectory == null) return;
-        if (!_aiExecutionService.IsAiAvailable()) return;
 
         var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
         var diff = await _gitStatusService.GetStagedDiffAsync(workingDirectory);
@@ -874,41 +1005,149 @@ public partial class GitFilesViewModel : ObservableObject
         IsGeneratingCommitMessage = true;
         try
         {
-            var prompt = $"""
-                Generate a conventional commit message for the following git diff.
-                Format: type(scope): description
-
-                Rules:
-                - type: feat, fix, refactor, docs, chore, test, style, perf
-                - scope: optional, the main area of change (short, lowercase)
-                - description: imperative mood, lowercase, no period at end
-                - First line MUST be under 72 characters
-                - Add a blank line then a brief body (1-3 lines) only if the change is complex
-                - Output ONLY the commit message, no explanation or markdown
-
-                <diff>
-                {diff}
-                </diff>
-                """;
-
-            var result = await _aiExecutionService.ExecuteAsync(prompt, workingDirectory, "Generating commit message");
-            if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+            if (_aiExecutionService.IsAiAvailable())
             {
-                var message = result.Output.Trim();
-                if (message.StartsWith("```"))
+                try
                 {
-                    var lines = message.Split('\n');
-                    message = string.Join('\n', lines
-                        .SkipWhile(l => l.StartsWith("```"))
-                        .TakeWhile(l => !l.StartsWith("```")));
+                    var prompt = $"""
+                        Generate a conventional commit message for the following git diff.
+                        Format: type(scope): description
+
+                        Rules:
+                        - type: feat, fix, refactor, docs, chore, test, style, perf
+                        - scope: optional, the main area of change (short, lowercase)
+                        - description: imperative mood, lowercase, no period at end
+                        - First line MUST be under 72 characters
+                        - Add a blank line then a brief body (1-3 lines) only if the change is complex
+                        - Output ONLY the commit message, no explanation or markdown
+
+                        <diff>
+                        {diff}
+                        </diff>
+                        """;
+
+                    var result = await _aiExecutionService.ExecuteAsync(prompt, workingDirectory, "Generating commit message");
+                    if (result.Success && !string.IsNullOrWhiteSpace(result.Output))
+                    {
+                        var message = result.Output.Trim();
+                        if (message.StartsWith("```"))
+                        {
+                            var lines = message.Split('\n');
+                            message = string.Join('\n', lines
+                                .SkipWhile(l => l.StartsWith("```"))
+                                .TakeWhile(l => !l.StartsWith("```")));
+                        }
+                        CommitMessage = message.Trim();
+                        return;
+                    }
                 }
-                CommitMessage = message.Trim();
+                catch
+                {
+                    // AI unavailable, fall through to heuristic
+                }
             }
+
+            // Fallback: heuristic-based generation
+            GenerateHeuristicMessage();
         }
         finally
         {
             IsGeneratingCommitMessage = false;
         }
+    }
+
+    private void GenerateHeuristicMessage()
+    {
+        if (!StagedFiles.Any()) return;
+
+        var files = StagedFiles.ToList();
+        var prefix = DetermineConventionalPrefix(files);
+        var scope = DetermineScope(files);
+        var description = BuildDescription(files);
+
+        CommitMessage = scope != null
+            ? $"{prefix}({scope}): {description}"
+            : $"{prefix}: {description}";
+    }
+
+    private static string DetermineConventionalPrefix(List<GitFileStatus> files)
+    {
+        if (files.All(f => IsTestFile(f.FilePath))) return "test";
+        if (files.All(f => IsDocFile(f.FilePath))) return "docs";
+        if (files.All(f => IsConfigFile(f.FilePath))) return "chore";
+        if (files.All(f => f.Status == GitFileStatusType.Added)) return "feat";
+        if (files.All(f => f.Status == GitFileStatusType.Deleted)) return "refactor";
+        if (files.Any(f => f.Status == GitFileStatusType.Added)) return "feat";
+        return "fix";
+    }
+
+    private static string? DetermineScope(List<GitFileStatus> files)
+    {
+        var directories = files
+            .Select(f => System.IO.Path.GetDirectoryName(f.FilePath)?.Replace('\\', '/'))
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Distinct()
+            .ToList();
+
+        if (directories.Count == 1)
+        {
+            var parts = directories[0]!.Split('/');
+            return parts.Last();
+        }
+
+        return null;
+    }
+
+    private static string BuildDescription(List<GitFileStatus> files)
+    {
+        if (files.Count == 1)
+        {
+            var file = files[0];
+            var verb = file.Status switch
+            {
+                GitFileStatusType.Added => "add",
+                GitFileStatusType.Deleted => "remove",
+                GitFileStatusType.Renamed => "rename",
+                _ => "update"
+            };
+            return $"{verb} {file.FileName}";
+        }
+
+        var added = files.Count(f => f.Status == GitFileStatusType.Added);
+        var modified = files.Count(f => f.Status == GitFileStatusType.Modified);
+        var deleted = files.Count(f => f.Status == GitFileStatusType.Deleted);
+
+        var parts = new List<string>();
+        if (added > 0) parts.Add($"add {added} file{(added > 1 ? "s" : "")}");
+        if (modified > 0) parts.Add($"update {modified} file{(modified > 1 ? "s" : "")}");
+        if (deleted > 0) parts.Add($"remove {deleted} file{(deleted > 1 ? "s" : "")}");
+
+        return string.Join(", ", parts);
+    }
+
+    private static bool IsTestFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        return lower.Contains("test") || lower.Contains("spec") ||
+               lower.Contains(".test.") || lower.Contains(".spec.");
+    }
+
+    private static bool IsDocFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        var ext = System.IO.Path.GetExtension(lower);
+        return ext is ".md" or ".txt" or ".rst" or ".adoc"
+            || lower.Contains("readme") || lower.Contains("doc/") || lower.Contains("docs/");
+    }
+
+    private static bool IsConfigFile(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        var ext = System.IO.Path.GetExtension(lower);
+        var name = System.IO.Path.GetFileName(lower);
+        return ext is ".json" or ".yml" or ".yaml" or ".toml" or ".ini" or ".cfg" or ".config" or ".xml" or ".props" or ".targets"
+            || name.StartsWith(".")
+            || name is "dockerfile" or "makefile" or ".gitignore" or ".editorconfig";
     }
 
     [RelayCommand]
@@ -1005,6 +1244,139 @@ public partial class GitFilesViewModel : ObservableObject
         {
             await _clipboardService.SetTextAsync(FileDiffExplanation);
             _toastService.Show("Copied to clipboard", ToastType.Success);
+        }
+    }
+
+    #endregion
+
+    #region Merge Conflict
+
+    public event EventHandler? MergeConflictRequested;
+
+    [RelayCommand]
+    private void OpenMergeConflictResolver()
+    {
+        MergeConflictRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    #endregion
+
+    #region Quick Stash
+
+    [RelayCommand]
+    private async Task QuickStashAsync()
+    {
+        if (_currentTerminalTab?.Pair.WorkingDirectory == null)
+            return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+
+        try
+        {
+            var result = await _gitStatusService.CreateStashAsync(workingDirectory);
+
+            if (result.Success)
+            {
+                _toastService.Show("Changes stashed", ToastType.Success);
+                await RefreshGitFilesAsync();
+
+                // Also refresh the terminal tab's git status
+                var status = await _gitStatusService.GetGitStatusAsync(workingDirectory);
+                _currentTerminalTab.GitStatus = status;
+            }
+            else
+            {
+                var error = result.Error ?? "Unknown error";
+                if (error.Contains("No local changes to save"))
+                {
+                    _toastService.Show("No changes to stash", ToastType.Warning);
+                }
+                else
+                {
+                    _dialogService.ShowWarning($"Failed to stash changes:\n{error}", "Git Stash");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to stash changes: {ex.Message}", "Git Stash");
+        }
+    }
+
+    #endregion
+
+    #region Add to .gitignore
+
+    [RelayCommand]
+    private async Task AddToGitignoreByPathAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "/" + file.FilePath.Replace('\\', '/');
+        await AppendToGitignoreAsync(workingDirectory, pattern, file.FileName);
+    }
+
+    [RelayCommand]
+    private async Task AddToGitignoreByExtensionAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var ext = System.IO.Path.GetExtension(file.FilePath);
+        if (string.IsNullOrEmpty(ext)) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "*" + ext;
+        await AppendToGitignoreAsync(workingDirectory, pattern, pattern);
+    }
+
+    [RelayCommand]
+    private async Task AddToGitignoreByDirectoryAsync(GitFileStatus? file)
+    {
+        if (file == null || _currentTerminalTab?.Pair.WorkingDirectory == null) return;
+
+        var dir = System.IO.Path.GetDirectoryName(file.FilePath)?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(dir)) return;
+
+        var workingDirectory = _currentTerminalTab.Pair.WorkingDirectory;
+        var pattern = "/" + dir + "/";
+        await AppendToGitignoreAsync(workingDirectory, pattern, dir);
+    }
+
+    private async Task AppendToGitignoreAsync(string workingDirectory, string pattern, string displayName)
+    {
+        var gitignorePath = System.IO.Path.Combine(workingDirectory, ".gitignore");
+
+        try
+        {
+            // Check if pattern already exists
+            if (_fileSystem.FileExists(gitignorePath))
+            {
+                var content = _fileSystem.ReadAllText(gitignorePath);
+                var lines = content.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+                if (lines.Any(l => l.Trim() == pattern))
+                {
+                    _toastService.Show($"'{pattern}' already in .gitignore", ToastType.Info);
+                    return;
+                }
+            }
+
+            // Append pattern (ensure newline before if file doesn't end with one)
+            var appendText = pattern + "\n";
+            if (_fileSystem.FileExists(gitignorePath))
+            {
+                var existing = _fileSystem.ReadAllText(gitignorePath);
+                if (existing.Length > 0 && !existing.EndsWith("\n"))
+                    appendText = "\n" + appendText;
+            }
+
+            _fileSystem.AppendAllText(gitignorePath, appendText);
+            _toastService.Show($"Added '{displayName}' to .gitignore", ToastType.Success);
+            await RefreshGitFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to update .gitignore: {ex.Message}", ToastType.Error);
         }
     }
 

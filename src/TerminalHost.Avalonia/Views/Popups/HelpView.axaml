@@ -84,11 +84,34 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ `" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Links button" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ C" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Copy selection from terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘ V" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Paste into terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Links button" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                    </Grid>
+
+                    <!-- Project Runner -->
+                    <TextBlock Text="Project Runner" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="F5" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Start/Stop project run" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⇧ F5" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Force stop project run" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>
 
                     <!-- File Operations -->
@@ -158,7 +181,7 @@
                         <TextBlock Grid.Row="5" Grid.Column="1" Text="Claude Tasks Panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="6" Grid.Column="0" Text="⌘⇧ L" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="6" Grid.Column="1" Text="Toggle sidebar layout" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="⌘ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="⌥ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="7" Grid.Column="1" Text="Open git changes panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="8" Grid.Column="0" Text="⌘ B" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git branch switcher" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
@@ -168,16 +191,16 @@
                         <TextBlock Grid.Row="10" Grid.Column="1" Text="Open git reflog" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="11" Grid.Column="0" Text="F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="11" Grid.Column="1" Text="Show this help window" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="0" Text="⌘⇧ O" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="1" Text="Repository quick access" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="⌘ F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="12" Grid.Column="1" Text="What's New / Recent Features" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="13" Grid.Column="0" Text="⌘⇧ H" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="13" Grid.Column="1" Text="Open commit history" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="14" Grid.Column="0" Text="⌘⇧ R" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="14" Grid.Column="1" Text="PR Review Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="0" Text="F6" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="1" Text="Run tests" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="0" Text="⌘ M" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="1" Text="Markdown preview" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="15" Grid.Column="0" Text="⌘ F" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="15" Grid.Column="1" Text="Search across files" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="16" Grid.Column="0" Text="⌘ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Row="16" Grid.Column="1" Text="Task panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="17" Grid.Column="0" Text="⌘⇧ Y" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
                         <TextBlock Grid.Row="17" Grid.Column="1" Text="Toggle floating status overlay" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
                     </Grid>

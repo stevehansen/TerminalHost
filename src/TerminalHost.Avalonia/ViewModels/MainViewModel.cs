@@ -48,6 +48,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IEventAggregatorService? _eventAggregator;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly IAiExecutionService? _aiExecutionService;
+    private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly StatusOverlayService? _statusOverlayService;
 
     private readonly IPlatformTimer _gitStatusTimer;
@@ -55,6 +56,13 @@ public partial class MainViewModel : ObservableObject
     private readonly IPlatformTimer _activityTimer;
     private readonly IPlatformTimer _linkDetectionTimer;
     private readonly IPlatformTimer _runUrlDetectionTimer;
+
+    // Cached git tracking mode to avoid config loads on every timer tick
+    private GitTrackingMode _gitTrackingMode;
+
+    // Focus time tracking for workspace auto-sort
+    private DateTime? _tabFocusStartTime;
+    private string? _focusedTabDirectory;
 
     /// <summary>
     /// The link detection service for scanning terminal output for clickable links.
@@ -255,6 +263,7 @@ public partial class MainViewModel : ObservableObject
         ITimerService timerService,
         IDispatcherService dispatcherService,
         ITimelineService timelineService,
+        IInputPromptDetectionService inputPromptDetectionService,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         IClaudeTaskFileService? claudeTaskFileService = null,
         IApiServer? apiServer = null,
@@ -291,6 +300,7 @@ public partial class MainViewModel : ObservableObject
         _timerService = timerService;
         _dispatcherService = dispatcherService;
         _timelineService = timelineService;
+        _inputPromptDetectionService = inputPromptDetectionService;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _claudeTaskFileService = claudeTaskFileService;
         _apiServer = apiServer;
@@ -321,6 +331,9 @@ public partial class MainViewModel : ObservableObject
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
+
+        // Keep sidebar sorted tabs in sync with any tab add/remove/move
+        Tabs.CollectionChanged += (_, _) => SidebarViewModel?.RefreshSortedTabs();
 
         FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
         UpdateFilteredSwitcherTabs(); // Initial population
@@ -373,6 +386,16 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
     {
+        // Record focus time for the previous tab
+        if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
+        {
+            var elapsed = (int)(DateTime.Now - _tabFocusStartTime.Value).TotalSeconds;
+            if (elapsed > 0)
+            {
+                _statisticsService.RecordFocusTime(_focusedTabDirectory, elapsed);
+            }
+        }
+
         // If the selected tab changes, and the dropdown is open, close it.
         if (IsTabDropdownOpen && newValue != null)
         {
@@ -415,6 +438,26 @@ public partial class MainViewModel : ObservableObject
                 {
                     ClaudeTasksPanelViewModel.RefreshTasks();
                 }
+            }
+
+            // Lazy-init file explorer for tabs that were deferred during startup restore
+            if (newValue is TerminalPairTabViewModel newTerminalTab && newTerminalTab.DeferredExplorerInit != null)
+            {
+                var init = newTerminalTab.DeferredExplorerInit;
+                newTerminalTab.DeferredExplorerInit = null;
+                _ = init();
+            }
+
+            // Start tracking focus time for the new tab
+            if (newValue is TerminalPairTabViewModel focusTrackTab)
+            {
+                _tabFocusStartTime = DateTime.Now;
+                _focusedTabDirectory = focusTrackTab.Pair.WorkingDirectory;
+            }
+            else
+            {
+                _tabFocusStartTime = null;
+                _focusedTabDirectory = null;
             }
 
             // Focus the custom (AI) terminal when switching to a workspace tab
@@ -566,11 +609,17 @@ public partial class MainViewModel : ObservableObject
         // Restore previously open folders
         RestoreOpenFolders();
 
-        // Start git status refresh timer
-        _gitStatusTimer.Start();
+        // Cache git tracking mode
+        _gitTrackingMode = _configService.Load().Settings.GitTrackingMode;
 
-        // Start git auto-fetch timer (if enabled)
-        if (_configService.Load().Settings.GitAutoFetch)
+        // Start git status refresh timer (unless tracking is fully disabled)
+        if (_gitTrackingMode != GitTrackingMode.Disabled)
+        {
+            _gitStatusTimer.Start();
+        }
+
+        // Start git auto-fetch timer (only in All mode + if enabled)
+        if (_gitTrackingMode == GitTrackingMode.All && _configService.Load().Settings.GitAutoFetch)
         {
             _gitAutoFetchTimer.Start();
         }
@@ -600,12 +649,14 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshSelectedTabGitStatusAsync()
     {
+        if (_gitTrackingMode == GitTrackingMode.Disabled) return;
         if (SelectedTab is not TerminalPairTabViewModel terminalTab) return;
 
         try
         {
             var previousBranch = terminalTab.GitStatus?.BranchName;
-            var status = await _gitStatusService.GetGitStatusAsync(terminalTab.Pair.WorkingDirectory);
+            var workDir = terminalTab.Pair.WorkingDirectory;
+            var status = await Task.Run(() => _gitStatusService.GetGitStatusAsync(workDir));
             terminalTab.GitStatus = status;
             // Update window title when git status changes
             OnPropertyChanged(nameof(WindowTitle));
@@ -654,6 +705,7 @@ public partial class MainViewModel : ObservableObject
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
         {
             tab.UpdateActivityState();
+            tab.UpdateWaitingState(_inputPromptDetectionService);
         }
 
         // Also update profile terminal tabs
@@ -666,24 +718,45 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Automatically fetches from git remotes for all open projects.
     /// This runs periodically to keep behind counts up to date.
+    /// Runs in batches of 5 to avoid flooding the UI thread.
     /// </summary>
     private async Task AutoFetchAllAsync()
     {
-        // Fetch for all open terminal pair tabs in parallel
-        var fetchTasks = Tabs.OfType<TerminalPairTabViewModel>()
-            .Select(async tab =>
+        // Respect git tracking mode — skip entirely if not in All mode
+        if (_gitTrackingMode != GitTrackingMode.All) return;
+
+        const int batchSize = 5;
+        var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+
+        for (var i = 0; i < tabs.Count; i += batchSize)
+        {
+            var batch = tabs.Skip(i).Take(batchSize).ToList();
+            await Task.WhenAll(batch.Select(async tab =>
             {
                 try
                 {
-                    await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
+                    await Task.Run(async () =>
+                    {
+                        await _gitStatusService.FetchAllAsync(tab.Pair.WorkingDirectory);
+                    });
                 }
                 catch
                 {
                     // Silently ignore fetch errors (network issues, etc.)
                 }
-            });
+            }));
 
-        await Task.WhenAll(fetchTasks);
+            // Refresh git status for the batch after fetch completes
+            foreach (var tab in batch)
+            {
+                try
+                {
+                    var status = await Task.Run(() => _gitStatusService.GetGitStatusAsync(tab.Pair.WorkingDirectory));
+                    tab.GitStatus = status;
+                }
+                catch { }
+            }
+        }
     }
 
     private void RefreshDetectedLinks()
@@ -976,6 +1049,9 @@ public partial class MainViewModel : ObservableObject
 
             var settings = _profileRegistry.Settings;
 
+            // Calculate duplicate index for display title
+            var duplicateIndex = GetDuplicateTabIndex(workingDirectory);
+
             // Get the AI assistant for this directory
             var aiAssistant = _aiAssistantService.GetAssistantForDirectory(workingDirectory);
             var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
@@ -1006,7 +1082,7 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService, _gitStatusService, _toastService);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService, _gitStatusService, _toastService, duplicateIndex);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
             tabViewModel.CloseRequested += OnTabCloseRequested;
@@ -1066,8 +1142,17 @@ public partial class MainViewModel : ObservableObject
             explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
             explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
 
-            // Initialize explorer async (don't await - let it load in background)
-            _ = explorerViewModel.InitializeAsync(workingDirectory);
+            // Initialize explorer async — during restore, defer to avoid flooding
+            // the dispatcher with concurrent directory scans + git status checks.
+            // Non-selected tabs will be initialized lazily when first selected.
+            if (selectTab)
+            {
+                _ = explorerViewModel.InitializeAsync(workingDirectory);
+            }
+            else
+            {
+                tabViewModel.DeferredExplorerInit = () => explorerViewModel.InitializeAsync(workingDirectory);
+            }
 
             Tabs.Add(tabViewModel);
 
@@ -1291,6 +1376,100 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab == tab && Tabs.Count > 0)
         {
             SelectedTab = Tabs[^1];
+        }
+    }
+
+    /// <summary>
+    /// Gets the next duplicate index for tabs with the same working directory.
+    /// Returns 0 for the first tab (no suffix), 2 for the second, etc.
+    /// </summary>
+    private int GetDuplicateTabIndex(string workingDirectory)
+    {
+        var normalizedPath = Path.GetFullPath(workingDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        var existingTabs = Tabs.OfType<TerminalPairTabViewModel>()
+            .Where(t => string.Equals(
+                Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                normalizedPath,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (existingTabs.Count == 0)
+            return 0; // First tab, no index needed
+
+        // Find the highest existing index and add 1
+        var maxIndex = existingTabs.Max(t => t.DuplicateIndex);
+        return Math.Max(2, maxIndex + 1);
+    }
+
+    /// <summary>
+    /// Duplicates the specified tab, creating a new tab for the same directory.
+    /// </summary>
+    [RelayCommand]
+    private void DuplicateTab(ITabViewModel? tab)
+    {
+        if (tab is TerminalPairTabViewModel terminalTab)
+        {
+            OpenProjectTab(terminalTab.Pair.WorkingDirectory, forceNew: true);
+        }
+    }
+
+    /// <summary>
+    /// Moves the specified tab to the front of the tab list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveTabToFront(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index > 0)
+        {
+            Tabs.Move(index, 0);
+        }
+    }
+
+    /// <summary>
+    /// Moves the specified tab to the end of the tab list.
+    /// </summary>
+    [RelayCommand]
+    private void MoveTabToEnd(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index >= 0 && index < Tabs.Count - 1)
+        {
+            Tabs.Move(index, Tabs.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// Closes all tabs except the specified one.
+    /// </summary>
+    [RelayCommand]
+    private void CloseOtherTabs(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var tabsToClose = Tabs.Where(t => t != tab && t.IsCloseable).ToList();
+        foreach (var t in tabsToClose)
+        {
+            CloseTabCommand.Execute(t);
+        }
+    }
+
+    /// <summary>
+    /// Closes all tabs to the right of the specified tab.
+    /// </summary>
+    [RelayCommand]
+    private void CloseTabsToRight(ITabViewModel? tab)
+    {
+        if (tab == null) return;
+        var index = Tabs.IndexOf(tab);
+        if (index < 0) return;
+        var tabsToClose = Tabs.Skip(index + 1).Where(t => t.IsCloseable).ToList();
+        foreach (var t in tabsToClose)
+        {
+            CloseTabCommand.Execute(t);
         }
     }
 
@@ -1711,6 +1890,34 @@ public partial class MainViewModel : ObservableObject
         // Apply status overlay settings to existing overlays
         _statusOverlayService?.ApplySettings();
 
+        // Refresh sidebar sort mode
+        var config = _configService.Load();
+        if (SidebarViewModel != null)
+        {
+            SidebarViewModel.SortMode = config.Settings.WorkspaceSortMode;
+        }
+
+        // Refresh git tracking mode
+        var newTrackingMode = config.Settings.GitTrackingMode;
+        if (newTrackingMode != _gitTrackingMode)
+        {
+            _gitTrackingMode = newTrackingMode;
+
+            if (_gitTrackingMode == GitTrackingMode.Disabled)
+            {
+                _gitStatusTimer.Stop();
+                _gitAutoFetchTimer.Stop();
+            }
+            else
+            {
+                _gitStatusTimer.Start();
+                if (_gitTrackingMode == GitTrackingMode.All && config.Settings.GitAutoFetch)
+                    _gitAutoFetchTimer.Start();
+                else
+                    _gitAutoFetchTimer.Stop();
+            }
+        }
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
@@ -1854,6 +2061,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
     public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
+    public event EventHandler<string>? AiPanelCommandRequested;
 
     [RelayCommand]
     private void OpenSetup()
@@ -2013,6 +2221,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+N",
                 Icon = "📁",
                 Category = "Project",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenNewProjectCommand.Execute(null)
             },
             new() {
@@ -2022,7 +2231,58 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+W",
                 Icon = "✕",
                 Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
+            },
+            new() {
+                Id = "duplicate-tab",
+                Name = "Duplicate Tab",
+                Description = "Open new tab for same directory",
+                Icon = "📋",
+                Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) DuplicateTabCommand.Execute(tab); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "move-tab-to-front",
+                Name = "Move Tab to Front",
+                Description = "Move current tab to the beginning",
+                Icon = "⏮",
+                Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
+                Execute = () => { if (SelectedTab != null) MoveTabToFrontCommand.Execute(SelectedTab); },
+                CanExecute = () => SelectedTab != null && Tabs.IndexOf(SelectedTab) > 0
+            },
+            new() {
+                Id = "move-tab-to-end",
+                Name = "Move Tab to End",
+                Description = "Move current tab to the end",
+                Icon = "⏭",
+                Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
+                Execute = () => { if (SelectedTab != null) MoveTabToEndCommand.Execute(SelectedTab); },
+                CanExecute = () => SelectedTab != null && Tabs.IndexOf(SelectedTab) < Tabs.Count - 1
+            },
+            new() {
+                Id = "close-other-tabs",
+                Name = "Close Other Tabs",
+                Description = "Close all tabs except current",
+                Icon = "🗑",
+                Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
+                Execute = () => { if (SelectedTab != null) CloseOtherTabsCommand.Execute(SelectedTab); },
+                CanExecute = () => SelectedTab != null && Tabs.Count > 1
+            },
+            new() {
+                Id = "close-tabs-to-right",
+                Name = "Close Tabs to Right",
+                Description = "Close all tabs to the right of current",
+                Icon = "➡️",
+                Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
+                Execute = () => { if (SelectedTab != null) CloseTabsToRightCommand.Execute(SelectedTab); },
+                CanExecute = () => SelectedTab != null && Tabs.IndexOf(SelectedTab) < Tabs.Count - 1
             },
             new() {
                 Id = "tab-switcher",
@@ -2031,6 +2291,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+T",
                 Icon = "🔍",
                 Category = "Tab",
+                IntroducedOn = new DateOnly(2025, 12, 13),
                 Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
             },
 
@@ -2042,6 +2303,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+O",
                 Icon = "👁",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 19),
                 Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
             },
             new() {
@@ -2051,6 +2313,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+E",
                 Icon = "✏️",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 19),
                 Execute = () => { /* Needs to be improved */ }
             },
             new() {
@@ -2060,6 +2323,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "⌘E",
                 Icon = "📂",
                 Category = "File",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenInExplorerCommand.Execute(null),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2072,6 +2336,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+`",
                 Icon = "⇄",
                 Category = "Terminal",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => SwitchActiveTerminalCommand.Execute(null),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2084,6 +2349,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+,",
                 Icon = "⚙️",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenSettingsCommand.Execute(null)
             },
             new() {
@@ -2093,6 +2359,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+P",
                 Icon = "👤",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenProfilesCommand.Execute(null)
             },
             new() {
@@ -2101,6 +2368,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Check dependencies and setup",
                 Icon = "🔧",
                 Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenSetupCommand.Execute(null)
             },
 
@@ -2112,7 +2380,29 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "F1",
                 Icon = "❓",
                 Category = "Help",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => IsHelpOpen = true
+            },
+            new() {
+                Id = "open-crash-log-folder",
+                Name = "Open Crash Log Folder",
+                Description = "Open the folder with app crash reports",
+                Icon = "🩺",
+                Category = "Help",
+                IntroducedOn = new DateOnly(2026, 2, 13),
+                Execute = () => { } // TODO: Not yet implemented in Avalonia
+            },
+
+            // What's New
+            new() {
+                Id = "whats-new",
+                Name = "What's New",
+                Description = "View recently added features",
+                Shortcut = "Ctrl+F1",
+                Icon = "✨",
+                Category = "Help",
+                IntroducedOn = new DateOnly(2026, 2, 10),
+                Execute = () => { } // TODO: Not yet implemented in Avalonia
             },
 
             // Task Panel
@@ -2123,6 +2413,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+T",
                 Icon = "📋",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenTaskPanelCommand.Execute(null)
             },
             new() {
@@ -2132,6 +2423,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+K",
                 Icon = "🤖",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 1, 27),
                 Execute = () => OpenClaudeTasksPanelCommand.Execute(null)
             },
             new() {
@@ -2141,6 +2433,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+Q",
                 Icon = "+",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenQuickTaskCommand.Execute(null)
             },
             new() {
@@ -2150,6 +2443,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+M",
                 Icon = "📝",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 11),
                 Execute = () => OpenQuickNoteCommand.Execute(null)
             },
 
@@ -2161,6 +2455,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+N",
                 Icon = "📝",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 14),
                 Execute = () => OpenScratchPadCommand.Execute(null)
             },
 
@@ -2171,7 +2466,20 @@ public partial class MainViewModel : ObservableObject
                 Description = "View usage statistics",
                 Icon = "📊",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => OpenStatisticsCommand.Execute(null)
+            },
+
+            // Timeline Mode
+            new() {
+                Id = "timeline",
+                Name = "Timeline Mode",
+                Description = "Visual timeline of AI-assisted development sessions",
+                Shortcut = "Cmd+Shift+I",
+                Icon = "⏱️",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 26),
+                Execute = () => OpenTimelineCommand.Execute(null)
             },
 
             // GitHub Dashboard
@@ -2182,6 +2490,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+H",
                 Icon = "🏠",
                 Category = "GitHub",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => OpenDashboardCommand.Execute(null)
             },
             new() {
@@ -2191,19 +2500,9 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+R",
                 Icon = "📝",
                 Category = "GitHub",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // Timeline Mode
-            new() {
-                Id = "timeline",
-                Name = "Timeline Mode",
-                Description = "Track AI development sessions and intents",
-                Shortcut = "Cmd+Shift+I",
-                Icon = "📅",
-                Category = "Tools",
-                Execute = () => OpenTimelineCommand.Execute(null)
             },
 
             // Markdown
@@ -2214,6 +2513,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+M",
                 Icon = "📄",
                 Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 18),
                 Execute = () => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2226,7 +2526,18 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Alt+G",
                 Icon = "📋",
                 Category = "Git",
-                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty), // Needs to be improved
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-commit",
+                Name = "Git Commit",
+                Description = "Stage files, write message, and commit from the Changes panel (Alt+G)",
+                Icon = "💾",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2026, 2, 11),
+                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
             new() {
@@ -2236,7 +2547,122 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+B",
                 Icon = "🌿",
                 Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
                 Execute = () => { /* Needs to be improved */ },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-history",
+                Name = "Git History",
+                Description = "View commit history",
+                Shortcut = "Ctrl+H",
+                Icon = "📜",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-stash",
+                Name = "Git Stash",
+                Description = "Manage stashed changes",
+                Shortcut = "Ctrl+Shift+S",
+                Icon = "📦",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-compare",
+                Name = "Git Compare Branches",
+                Description = "Compare two branches",
+                Shortcut = "Ctrl+Alt+B",
+                Icon = "🔀",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Git operations
+            new() {
+                Id = "git-pull",
+                Name = "Git Pull",
+                Description = "Pull with auto-stash and rebase",
+                Shortcut = "Ctrl+Shift+D",
+                Icon = "⬇",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPullCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-push",
+                Name = "Git Push",
+                Description = "Push to remote",
+                Shortcut = "Ctrl+Shift+U",
+                Icon = "⬆",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPushCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-reflog",
+                Name = "Git Reflog",
+                Description = "View reference log",
+                Shortcut = "Ctrl+Shift+G",
+                Icon = "📋",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "git-repository-switcher",
+                Name = "Switch Repository",
+                Description = "Open repository switcher",
+                Shortcut = "Ctrl+Shift+O",
+                Icon = "🔄",
+                Category = "Git",
+                IntroducedOn = new DateOnly(2025, 12, 29),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Panel/Tool toggles
+            new() {
+                Id = "file-explorer",
+                Name = "File Explorer",
+                Description = "Toggle file explorer panel",
+                Shortcut = "Ctrl+Shift+F",
+                Icon = "📁",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2025, 12, 22),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleExplorerCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "file-search",
+                Name = "Search in Files",
+                Description = "Search across files",
+                Shortcut = "Ctrl+F3",
+                Icon = "🔍",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 2, 7),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "test-runner",
+                Name = "Run Tests",
+                Description = "Run project tests",
+                Shortcut = "F6",
+                Icon = "🧪",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 2, 5),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 
@@ -2248,6 +2674,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "F5",
                 Icon = "▶",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
             },
@@ -2258,6 +2685,7 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Shift+F5",
                 Icon = "⏹",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
             },
@@ -2267,6 +2695,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Restart the running project",
                 Icon = "🔄",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
             },
@@ -2276,6 +2705,7 @@ public partial class MainViewModel : ObservableObject
                 Description = "Show/hide run terminal panel",
                 Icon = "📺",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
@@ -2285,8 +2715,156 @@ public partial class MainViewModel : ObservableObject
                 Description = "Open detected localhost URL in browser",
                 Icon = "🌐",
                 Category = "Run",
+                IntroducedOn = new DateOnly(2025, 12, 12),
                 Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
+            },
+
+            // Layout commands
+            new() {
+                Id = "toggle-layout-mode",
+                Name = "Toggle Layout Mode",
+                Description = "Switch between Tabs and Workspace Sidebar layout",
+                Shortcut = "Ctrl+L",
+                Icon = "📐",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
+                Execute = () => ToggleLayoutModeCommand.Execute(null)
+            },
+            new() {
+                Id = "toggle-sidebar",
+                Name = "Toggle Sidebar",
+                Description = "Collapse/expand the workspace sidebar",
+                Shortcut = "Ctrl+Shift+L",
+                Icon = "📎",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
+                Execute = () => { }, // TODO: Not yet implemented in Avalonia
+                CanExecute = () => LayoutMode == AppLayoutMode.WorkspaceSidebar
+            },
+            new() {
+                Id = "switch-to-tabs",
+                Name = "Switch to Tabs Layout",
+                Description = "Use traditional tab bar layout",
+                Icon = "🗂",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
+                Execute = () => { LayoutMode = AppLayoutMode.Tabs; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
+                CanExecute = () => LayoutMode != AppLayoutMode.Tabs
+            },
+            new() {
+                Id = "switch-to-sidebar",
+                Name = "Switch to Sidebar Layout",
+                Description = "Use workspace sidebar layout",
+                Icon = "📂",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 25),
+                Execute = () => { LayoutMode = AppLayoutMode.WorkspaceSidebar; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
+                CanExecute = () => LayoutMode != AppLayoutMode.WorkspaceSidebar
+            },
+
+            // Terminal layout modes
+            new() {
+                Id = "layout-custom-full",
+                Name = "Layout: Custom Full",
+                Description = "Show only custom terminal",
+                Icon = "🖥",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetCustomFullLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "layout-horizontal-split",
+                Name = "Layout: Horizontal Split",
+                Description = "Side-by-side terminals",
+                Icon = "⬜",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetHorizontalSplitLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "layout-vertical-split",
+                Name = "Layout: Vertical Split",
+                Description = "Top-bottom terminals",
+                Icon = "⬛",
+                Category = "Layout",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetVerticalSplitLayoutCommand.Execute(null); },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+
+            // Settings toggles
+            new() {
+                Id = "toggle-sounds",
+                Name = "Toggle Sounds",
+                Description = "Sound notifications",
+                Icon = "🔊",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.Sounds.Enabled = !config.Settings.Sounds.Enabled;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.Sounds.Enabled ? "Sounds enabled" : "Sounds disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-touch-mode",
+                Name = "Toggle Touch Mode",
+                Description = "Touch-friendly UI with larger targets",
+                Icon = "👆",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2026, 1, 12),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.TouchMode = !config.Settings.TouchMode;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.TouchMode ? "Touch Mode enabled" : "Touch Mode disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-system-tray",
+                Name = "Toggle System Tray",
+                Description = "System tray icon",
+                Icon = "🔽",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.ShowInSystemTray ? "System tray enabled" : "System tray disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-confirm-close",
+                Name = "Toggle Confirm on Close",
+                Description = "Confirm before closing tabs",
+                Icon = "⚠",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2025, 12, 11),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.ConfirmOnClose = !config.Settings.ConfirmOnClose;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.ConfirmOnClose ? "Close confirmation enabled" : "Close confirmation disabled", ToastType.Info);
+                }
+            },
+            new() {
+                Id = "toggle-git-auto-fetch",
+                Name = "Toggle Git Auto-Fetch",
+                Description = "Automatic fetch from remotes",
+                Icon = "🔄",
+                Category = "Settings",
+                IntroducedOn = new DateOnly(2026, 1, 7),
+                Execute = () => {
+                    var config = _configService.Load();
+                    config.Settings.GitAutoFetch = !config.Settings.GitAutoFetch;
+                    _configService.Save(config);
+                    _toastService.Show(config.Settings.GitAutoFetch ? "Git auto-fetch enabled" : "Git auto-fetch disabled", ToastType.Info);
+                }
             },
 
             // API commands
@@ -2340,6 +2918,105 @@ public partial class MainViewModel : ObservableObject
                 IntroducedOn = new DateOnly(2026, 2, 26),
                 Execute = () => _statusOverlayService?.CloseAll(),
                 CanExecute = () => _statusOverlayService?.OverlayCount > 0
+            },
+
+            // AI Workflow Commands
+            new() {
+                Id = "ai-explain-blame",
+                Name = "Explain blame line (AI)",
+                Description = "AI explains why a blame line was changed",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-blame"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-summarize-file-history",
+                Name = "Summarize file history (AI)",
+                Description = "AI summarizes a file's commit history",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "summarize-file-history"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-explain-commit",
+                Name = "Explain commit (AI)",
+                Description = "AI explains what a commit does and why",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-commit"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-explain-reflog",
+                Name = "Explain recent git operations (AI)",
+                Description = "AI explains recent reflog entries",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-reflog"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-generate-stash-name",
+                Name = "Generate stash name (AI)",
+                Description = "AI generates a descriptive stash name",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "generate-stash-name"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-assess-merge-risk",
+                Name = "Assess merge risk (AI)",
+                Description = "AI assesses risk of merging compared branches",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "assess-merge-risk"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-suggest-version",
+                Name = "Suggest next version (AI)",
+                Description = "AI suggests next semantic version based on tags and commits",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "suggest-version"),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "ai-analyze-ci-failure",
+                Name = "Analyze CI failure (AI)",
+                Description = "AI analyzes a failed CI check",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "analyze-ci-failure")
+            },
+            new() {
+                Id = "ai-prioritize-prs",
+                Name = "Prioritize PRs for review (AI)",
+                Description = "AI prioritizes open PRs by review urgency",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "prioritize-prs")
+            },
+            new() {
+                Id = "ai-improve-markdown",
+                Name = "Improve markdown (AI)",
+                Description = "AI suggests improvements to open markdown file",
+                Icon = "✨",
+                Category = "AI",
+                IntroducedOn = new DateOnly(2026, 2, 23),
+                Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
             }
         ];
     }
@@ -2505,6 +3182,16 @@ public partial class MainViewModel : ObservableObject
         return _claudeCommandService.GetAllCommands(currentWorkingDir);
     }
 
+    /// <summary>
+    /// Gets all profiles (used by MainWindow for keyboard shortcuts).
+    /// </summary>
+    public IReadOnlyList<Profile> GetProfiles() => _profileRegistry.Profiles;
+
+    /// <summary>
+    /// Raises the MarkdownPreviewRequested event (used by MainWindow for Cmd/Ctrl+M shortcut).
+    /// </summary>
+    public void RaiseMarkdownPreviewRequested() => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty);
+
     #region REST API State Providers
 
     private List<ApiRepoInfo> BuildRepoList()
@@ -2669,6 +3356,16 @@ public partial class MainViewModel : ObservableObject
         _activityTimer.Dispose();
         _linkDetectionTimer.Dispose();
         _runUrlDetectionTimer.Dispose();
+
+        // Save final focus time for the currently active tab
+        if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
+        {
+            var elapsed = (int)(DateTime.Now - _tabFocusStartTime.Value).TotalSeconds;
+            if (elapsed > 0)
+            {
+                _statisticsService.RecordFocusTime(_focusedTabDirectory, elapsed);
+            }
+        }
 
         // Save open folders before closing
         SaveOpenFolders();

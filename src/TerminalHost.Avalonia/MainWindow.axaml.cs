@@ -6,9 +6,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Microsoft.Extensions.DependencyInjection;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private readonly BranchComparisonViewModel _branchComparisonViewModel;
     private readonly MergeConflictViewModel _mergeConflictViewModel;
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
+    private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly IFilePickerService _filePickerService;
     private readonly StatusOverlayService _statusOverlayService;
     private TerminalPairTabViewModel? _subscribedOverlayTab;
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
         BranchComparisonViewModel branchComparisonViewModel,
         MergeConflictViewModel mergeConflictViewModel,
         UnifiedGitPanelViewModel unifiedGitPanelViewModel,
+        MarkdownPreviewViewModel markdownPreviewViewModel,
         IFilePickerService filePickerService,
         StatusOverlayService statusOverlayService)
     {
@@ -99,6 +101,7 @@ public partial class MainWindow : Window
         _branchComparisonViewModel = branchComparisonViewModel;
         _mergeConflictViewModel = mergeConflictViewModel;
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
+        _markdownPreviewViewModel = markdownPreviewViewModel;
         _filePickerService = filePickerService;
         _statusOverlayService = statusOverlayService;
 
@@ -143,6 +146,7 @@ public partial class MainWindow : Window
         _mainViewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _mainViewModel.RunTerminalRequested += OnRunTerminalRequested;
         _mainViewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
+        _mainViewModel.AiPanelCommandRequested += OnAiPanelCommandRequested;
 
         // Subscribe to view model property changes for tab-switch rebinding
         _mainViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -150,6 +154,7 @@ public partial class MainWindow : Window
         // Wire up GitFilesViewModel events for file preview/edit from Git Changes popup
         _gitFilesViewModel.FilePreviewRequested += OnGitFilesFilePreviewRequested;
         _gitFilesViewModel.FileEditRequested += OnGitFilesFileEditRequested;
+        _gitFilesViewModel.MergeConflictRequested += OnMergeConflictRequested;
 
         // Wire up file viewer detach event
         _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
@@ -707,6 +712,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnMergeConflictRequested(object? sender, EventArgs e)
+    {
+        var currentTab = _mainViewModel.SelectedTab as TerminalPairTabViewModel;
+        if (currentTab == null) return;
+
+        await _mergeConflictViewModel.OpenAsync(currentTab);
+    }
+
     private void OnSearchFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
     {
         if (!string.IsNullOrEmpty(e.FilePath))
@@ -944,11 +957,68 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Escape - close popups
+        // Handle Escape - priority-based cascade (close one thing at a time)
         if (e.Key == Key.Escape)
         {
-            CloseAllPopups();
-            e.Handled = true;
+            // First priority: close active center panel (return to terminals)
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
+            {
+                escTerminalTab.CloseCenterPanel();
+                e.Handled = true;
+                return;
+            }
+
+            // Then close individual popups in priority order
+            if (_reflogViewModel.IsOpen)
+            {
+                _reflogViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_manageWorktreesViewModel.IsOpen)
+            {
+                _manageWorktreesViewModel.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (_scratchPadViewModel.IsOpen)
+            {
+                _scratchPadViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_detectedLinksViewModel.IsOpen)
+            {
+                _detectedLinksViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_gitFilesViewModel.IsOpen)
+            {
+                _gitFilesViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_fileViewerViewModel.IsOpen)
+            {
+                _fileViewerViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_claudeTasksPanelViewModel.IsOpen)
+            {
+                _claudeTasksPanelViewModel.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (_mainViewModel.IsHelpOpen)
+            {
+                _mainViewModel.IsHelpOpen = false;
+                e.Handled = true;
+                return;
+            }
+
+            // If nothing was open, don't consume the key event
             return;
         }
 
@@ -1208,8 +1278,98 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle Cmd/Ctrl+H for Commit History (opens unified panel on History tab)
+        if (e.Key == Key.H && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel histTab)
+            {
+                histTab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                _ = _unifiedGitPanelViewModel.OpenOnTabAsync(histTab, GitPanelTab.History);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+D for Git Pull
+        if (e.Key == Key.D && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel pullTab)
+                pullTab.GitPullCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+U for Git Push
+        if (e.Key == Key.U && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel pushTab)
+                pushTab.GitPushCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+M for Markdown Preview
+        if (e.Key == Key.M && e.KeyModifiers == primaryModifier)
+        {
+            // TODO: wire when MarkdownPreview is connected to MainWindow (event not subscribed yet)
+            _mainViewModel.RaiseMarkdownPreviewRequested();
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+O for Repository Switcher
+        if (e.Key == Key.O && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            // TODO: wire when RepositorySwitcherViewModel is injected into MainWindow
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+V for paste into terminal
+        if (e.Key == Key.V && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel pasteTab)
+            {
+                var session = pasteTab.GetFocusedSession();
+                if (session != null)
+                {
+                    _ = PasteToTerminalAsync(session);
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
+        // Handle Cmd/Ctrl+C for copy from terminal (only if there's a selection)
+        if (e.Key == Key.C && e.KeyModifiers == primaryModifier)
+        {
+            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel copyTab)
+            {
+                var session = copyTab.GetFocusedSession();
+                if (session != null)
+                {
+                    _ = session.CopySelectionToClipboardAsync();
+                    // Don't consume event unconditionally - let Ctrl+C pass through for SIGINT if no selection
+                }
+            }
+        }
+
         // Check Quick Command shortcuts
         if (TryExecuteQuickCommandShortcut(e.Key, e.KeyModifiers))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Check profile launch shortcuts
+        if (TryExecuteProfileShortcut(e.Key, e.KeyModifiers))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Check Claude command shortcuts
+        if (TryExecuteClaudeCommandShortcut(e.Key, e.KeyModifiers))
         {
             e.Handled = true;
             return;
@@ -1327,6 +1487,84 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Profile and Claude Command Shortcuts
+
+    private bool TryExecuteProfileShortcut(Key key, KeyModifiers modifiers)
+    {
+        foreach (var profile in _mainViewModel.GetProfiles())
+        {
+            if (string.IsNullOrEmpty(profile.Shortcut)) continue;
+
+            if (TryParseShortcut(profile.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                // On macOS, also accept Meta (Cmd) when the shortcut specifies Control (Ctrl)
+                var platformModifiers = expectedModifiers;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && expectedModifiers.HasFlag(KeyModifiers.Control))
+                {
+                    platformModifiers = (expectedModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
+                }
+
+                if (key == expectedKey && (modifiers == expectedModifiers || modifiers == platformModifiers))
+                {
+                    _mainViewModel.OpenProfileTab(profile);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private bool TryExecuteClaudeCommandShortcut(Key key, KeyModifiers modifiers)
+    {
+        var claudeCommands = _mainViewModel.GetClaudeCommandsForCurrentProject();
+
+        foreach (var command in claudeCommands)
+        {
+            if (string.IsNullOrEmpty(command.Shortcut)) continue;
+
+            if (TryParseShortcut(command.Shortcut, out var expectedKey, out var expectedModifiers))
+            {
+                // On macOS, also accept Meta (Cmd) when the shortcut specifies Control (Ctrl)
+                var platformModifiers = expectedModifiers;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && expectedModifiers.HasFlag(KeyModifiers.Control))
+                {
+                    platformModifiers = (expectedModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
+                }
+
+                if (key == expectedKey && (modifiers == expectedModifiers || modifiers == platformModifiers))
+                {
+                    _mainViewModel.ExecuteClaudeCommand(command);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private async Task PasteToTerminalAsync(Domain.TerminalSession session)
+    {
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+            {
+#pragma warning disable CS0618 // IClipboard.GetTextAsync is obsolete in newer Avalonia
+                var text = await clipboard.GetTextAsync();
+#pragma warning restore CS0618
+                if (!string.IsNullOrEmpty(text))
+                {
+                    session.SendText(text, appendNewline: false);
+                }
+            }
+        }
+        catch
+        {
+            // Silently fail if clipboard access fails
+        }
+    }
+
+    #endregion
+
     private void CloseAllPopups()
     {
         // Close MainViewModel popups
@@ -1400,6 +1638,45 @@ public partial class MainWindow : Window
                 var sidebarWidth = grid.ColumnDefinitions[0].ActualWidth;
                 _mainViewModel.UpdateSidebarWidth(sidebarWidth);
             }
+        }
+    }
+
+    private void OnAiPanelCommandRequested(object? sender, string action)
+    {
+        switch (action)
+        {
+            case "explain-blame":
+                _fileBlameViewModel.ExplainBlameLineCommand.Execute(null);
+                break;
+            case "summarize-file-history":
+                _fileHistoryViewModel.SummarizeHistoryCommand.Execute(null);
+                break;
+            case "explain-commit":
+                _commitHistoryViewModel.ExplainCommitCommand.Execute(null);
+                break;
+            case "explain-reflog":
+                _reflogViewModel.ExplainReflogCommand.Execute(null);
+                break;
+            case "generate-stash-name":
+                _gitStashViewModel.GenerateStashNameCommand.Execute(null);
+                break;
+            case "assess-merge-risk":
+                _branchComparisonViewModel.AssessMergeRiskCommand.Execute(null);
+                break;
+            case "suggest-version":
+                _gitTagsViewModel.SuggestVersionCommand.Execute(null);
+                break;
+            case "analyze-ci-failure":
+                var dashboard = _mainViewModel.Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+                dashboard?.AnalyzeCiFailureCommand.Execute(null);
+                break;
+            case "prioritize-prs":
+                var dashboardForPr = _mainViewModel.Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
+                dashboardForPr?.PrioritizePrsCommand.Execute(null);
+                break;
+            case "improve-markdown":
+                _markdownPreviewViewModel.ImproveMarkdownCommand.Execute(null);
+                break;
         }
     }
 }

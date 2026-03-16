@@ -121,28 +121,44 @@
             </StackPanel>
         </Border>
 
-        <!-- Search Box -->
+        <!-- Search Box + Tree View Toggle -->
         <Border Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}" Padding="12,8">
-            <TextBox x:Name="GitBranchSearchBox"
-                     Text="{Binding SearchText}"
-                     Watermark="Search branches..."
-                     Background="{StaticResource BackgroundMediumBrush}"
-                     Foreground="{StaticResource TextPrimaryBrush}"
-                     CaretBrush="{StaticResource TextPrimaryBrush}"
-                     BorderBrush="{StaticResource BorderSubtleBrush}"
-                     BorderThickness="1"
-                     Padding="8,6"
-                     FontSize="{StaticResource FontSizeCode}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="GitBranchSearchBox"
+                         Grid.Column="0"
+                         Text="{Binding SearchText}"
+                         Watermark="Search branches..."
+                         Background="{StaticResource BackgroundMediumBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         CaretBrush="{StaticResource TextPrimaryBrush}"
+                         BorderBrush="{StaticResource BorderSubtleBrush}"
+                         BorderThickness="1"
+                         Padding="8,6"
+                         FontSize="{StaticResource FontSizeCode}"/>
+                <Button Grid.Column="1"
+                        Content="Tree"
+                        Classes="TerminalSwitchButton"
+                        Command="{Binding ToggleTreeViewCommand}"
+                        ToolTip.Tip="Toggle tree view (T)"
+                        Margin="6,0,0,0"
+                        Padding="8,6"
+                        FontSize="{StaticResource FontSizeTiny}"/>
+            </Grid>
         </Border>
 
-        <!-- Branch List -->
+        <!-- Branch List (flat view) -->
         <ListBox x:Name="GitBranchList"
                  Grid.Row="2"
                  ItemsSource="{Binding Branches}"
                  SelectedItem="{Binding SelectedBranch}"
                  Background="Transparent"
                  BorderThickness="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 IsVisible="{Binding IsTreeView, Converter={StaticResource InverseBoolConverter}}">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="domain:GitBranch">
                     <Grid Margin="8,4">
@@ -218,6 +234,78 @@
                 </Style>
             </ListBox.Styles>
         </ListBox>
+
+        <!-- Branch Tree View -->
+        <TreeView x:Name="GitBranchTreeView"
+                  Grid.Row="2"
+                  ItemsSource="{Binding BranchTree}"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  IsVisible="{Binding IsTreeView}">
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    <Setter Property="Padding" Value="4,2"/>
+                </Style>
+                <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+                    <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                </Style>
+                <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+                </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate DataType="domain:BranchTreeNode" ItemsSource="{Binding Children}">
+                    <Grid Margin="2,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Icon -->
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding DisplayIcon}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0"/>
+
+                        <!-- Name -->
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Name}"
+                                   Foreground="{Binding StatusColor, Converter={StaticResource HexToBrushConverter}}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Styles>
+                                <Style Selector="TextBlock">
+                                    <Setter Property="FontWeight" Value="Normal"/>
+                                </Style>
+                            </TextBlock.Styles>
+                        </TextBlock>
+
+                        <!-- Branch count for folders -->
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding CountDisplay}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   IsVisible="{Binding IsFolder}"/>
+
+                        <!-- Status info for leaf branches -->
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding StatusDisplay}"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   IsVisible="{Binding HasStatusInfo}"/>
+                    </Grid>
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
 
         <!-- Empty state -->
         <TextBlock x:Name="GitBranchEmptyState"
