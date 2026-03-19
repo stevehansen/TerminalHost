@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TerminalHost.CmdPal (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "TerminalHost.CmdPal (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+
+## NuGet
+*.nupkg
+!**/packages/build/
+packages/
+
+## Visual Studio
+.vs/
+*.sln.docstates
+AppPackages/
+
+## Keep these for deployment (Windows App SDK requirement)
+# !**/Properties/launchSettings.json
+# !*.pubxml

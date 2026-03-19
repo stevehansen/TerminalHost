@@ -44,6 +44,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Two engines: Windows Speech (default, zero setup) and Whisper (opt-in, open-vocabulary, multi-language via whisper.cpp). Settings in Ctrl+, General section.
 - [x] **Status Overlay**: Floating always-on-top window showing terminal activity state (Ctrl+Shift+Y). Displays active/waiting/completed/idle with animated icons. Draggable, non-focus-stealing, click to restore main window. Multiple instances for multi-monitor setups. Auto-show/hide on window focus change (optional). Command palette commands for toggle/create/close.
 
+- [x] **PowerToys CmdPal Extension**: Separate extension project (`src/TerminalHost.CmdPal/`) integrating with PowerToys Command Palette. Dock band widget showing active project/git/activity status, workspace switcher, git status markdown page, tasks list. Communicates via REST API.
+
 ### Deferred Features
 
 (None currently)
@@ -582,6 +584,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
+| [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
 
 ## Remaining Work Summary
 
