@@ -439,6 +439,18 @@ public class DirectorySettings
     /// </summary>
     [JsonPropertyName("isGitBranchTreeView")]
     public bool IsGitBranchTreeView { get; set; }
+
+    /// <summary>
+    /// Per-directory container override. If null, uses global setting.
+    /// </summary>
+    [JsonPropertyName("containerEnabled")]
+    public bool? ContainerEnabled { get; set; }
+
+    /// <summary>
+    /// Per-directory override for reference volumes. If set, replaces global reference volumes.
+    /// </summary>
+    [JsonPropertyName("containerReferenceVolumes")]
+    public List<ReferenceVolume>? ContainerReferenceVolumes { get; set; }
 }
 
 /// <summary>
@@ -680,6 +692,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("api")]
     public ApiSettings Api { get; set; } = new();
+
+    /// <summary>
+    /// Containerized workspace settings (Docker isolation for AI agents).
+    /// </summary>
+    [JsonPropertyName("container")]
+    public ContainerSettings Container { get; set; } = new();
 
     private static List<string> GetDefaultKeyBranches() =>
     [

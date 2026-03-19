@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using EasyWindowsTerminalControl;
@@ -12,11 +13,13 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
 {
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
+    private readonly IContainerService _containerService;
 
-    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService)
+    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
+        _containerService = containerService;
     }
 
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
@@ -25,55 +28,17 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         var workingDir = profile.GetExpandedWorkingDir();
         var command = string.IsNullOrWhiteSpace(profile.Command) ? "cmd.exe" : profile.Command;
 
-
-        // Build a startup command that changes to working directory first, then runs the command
         string startupCommand;
 
-        // Check if the command executable exists (for custom commands like claude.exe)
-        var commandExe = command.Split(' ')[0];
-        var commandExists = _fileSystem.FileExists(commandExe) ||
-                           _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe));
-
-        if (!commandExists && !IsBuiltInCommand(commandExe))
+        // Containerized session: use docker exec instead of local command
+        if (!string.IsNullOrEmpty(profile.ContainerName))
         {
-            // Show warning on UI thread since this runs during terminal creation
-            Application.Current?.Dispatcher.BeginInvoke(() =>
-            {
-                _dialogService.ShowWarning(
-                    $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
-                    "Terminal Warning");
-            });
-            command = "cmd.exe";
-        }
-
-        if (string.IsNullOrWhiteSpace(workingDir))
-        {
-            // Just use the command directly
-            startupCommand = command;
+            startupCommand = BuildContainerCommand(profile.ContainerName, command);
         }
         else
         {
-            // For cmd, use /K with cd
-            if (command.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase) ||
-                command.Equals("cmd", StringComparison.OrdinalIgnoreCase))
-            {
-                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\" ";
-            }
-            // For PowerShell variants
-            else if (command.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("pwsh", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase) ||
-                     command.Equals("powershell", StringComparison.OrdinalIgnoreCase))
-            {
-                startupCommand = $"{command} -NoExit -WorkingDirectory \"{workingDir}\" ";
-            }
-            else
-            {
-                // For other commands, run them from the directory using cmd
-                startupCommand = $"cmd.exe /K cd /d \"{workingDir}\" && {command}";
-            }
+            startupCommand = BuildLocalCommand(command, workingDir);
         }
-
 
         // Create the terminal control with configured command line
         var terminalControl = new EasyTerminalControl
@@ -158,6 +123,85 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
 
         return terminalControl;
     }
+
+    /// <summary>
+    /// Build a docker exec command for running inside a container.
+    /// </summary>
+    private string BuildContainerCommand(string containerName, string command)
+    {
+        // For shell profiles (pwsh, cmd, bash, etc.), launch bash inside the container
+        var commandExe = command.Split(' ')[0];
+        if (IsShellCommand(commandExe))
+        {
+            return _containerService.BuildExecCommand(containerName, "/bin/bash");
+        }
+
+        // For AI assistants and other commands, extract just the binary name
+        // (the host path like %USERPROFILE%\.local\bin\claude.exe doesn't exist in the container)
+        var binaryName = Path.GetFileNameWithoutExtension(
+            Environment.ExpandEnvironmentVariables(commandExe));
+
+        // When auto-approve is enabled and this is Claude Code, pass --dangerously-skip-permissions
+        // since the container itself is the sandbox
+        string? extraArgs = null;
+        if (_containerService.IsAutoApproveEnabled &&
+            binaryName.Equals("claude", StringComparison.OrdinalIgnoreCase))
+        {
+            extraArgs = "--dangerously-skip-permissions";
+        }
+
+        return _containerService.BuildExecCommand(containerName, binaryName, extraArgs);
+    }
+
+    /// <summary>
+    /// Build the original local command (non-containerized).
+    /// </summary>
+    private string BuildLocalCommand(string command, string workingDir)
+    {
+        // Check if the command executable exists (for custom commands like claude.exe)
+        var commandExe = command.Split(' ')[0];
+        var commandExists = _fileSystem.FileExists(commandExe) ||
+                           _fileSystem.FileExists(Environment.ExpandEnvironmentVariables(commandExe));
+
+        if (!commandExists && !IsBuiltInCommand(commandExe))
+        {
+            // Show warning on UI thread since this runs during terminal creation
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                _dialogService.ShowWarning(
+                    $"Command not found: {commandExe}\n\nFalling back to cmd.exe. Check your settings.",
+                    "Terminal Warning");
+            });
+            command = "cmd.exe";
+        }
+
+        if (string.IsNullOrWhiteSpace(workingDir))
+        {
+            return command;
+        }
+
+        // For cmd, use /K with cd
+        if (command.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"cmd.exe /K cd /d \"{workingDir}\" ";
+        }
+
+        // For PowerShell variants
+        if (command.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("pwsh", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("powershell", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{command} -NoExit -WorkingDirectory \"{workingDir}\" ";
+        }
+
+        // For other commands, run them from the directory using cmd
+        return $"cmd.exe /K cd /d \"{workingDir}\" && {command}";
+    }
+
+    private static bool IsShellCommand(string command) =>
+        IsBuiltInCommand(command);
 
     private static bool IsBuiltInCommand(string command)
     {

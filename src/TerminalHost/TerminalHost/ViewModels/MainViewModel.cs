@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IApiServer? _apiServer;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly StatusOverlayService? _statusOverlayService;
+    private readonly IContainerService? _containerService;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -253,7 +254,8 @@ public partial class MainViewModel : ObservableObject
         IEventAggregatorService? eventAggregator = null,
         IApiServer? apiServer = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
-        StatusOverlayService? statusOverlayService = null)
+        StatusOverlayService? statusOverlayService = null,
+        IContainerService? containerService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -284,6 +286,7 @@ public partial class MainViewModel : ObservableObject
         _apiServer = apiServer;
         _webhookDeliveryService = webhookDeliveryService;
         _statusOverlayService = statusOverlayService;
+        _containerService = containerService;
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -647,6 +650,19 @@ public partial class MainViewModel : ObservableObject
         catch
         {
             // Silently ignore git status errors
+        }
+    }
+
+    private async Task EnsureContainerForWorkspaceAsync(string workspaceDir)
+    {
+        try
+        {
+            await _containerService.EnsureContainerRunningAsync(workspaceDir);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to start container for {workspaceDir}: {ex.Message}");
+            _toastService.Show($"Docker container failed to start: {ex.Message}", ToastType.Error);
         }
     }
 
@@ -1180,6 +1196,29 @@ public partial class MainViewModel : ObservableObject
                 WorkingDir = workingDirectory,
                 Icon = settings.ShellCommandIcon
             };
+
+            // Set up container if enabled for this workspace
+            string? containerName = null;
+            if (_containerService != null && _containerService.IsEnabledForDirectory(workingDirectory))
+            {
+                try
+                {
+                    containerName = _containerService.GetContainerName(workingDirectory);
+                    customProfile.ContainerName = containerName;
+                    shellProfile.ContainerName = containerName;
+                    // Container will be started lazily on first terminal Loaded event
+                    // via EnsureContainerRunningAsync (called below)
+                    _ = EnsureContainerForWorkspaceAsync(workingDirectory);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Container setup failed: {ex.Message}");
+                    _toastService.Show($"Container setup failed: {ex.Message}", ToastType.Warning);
+                    // Fall back to non-containerized
+                    customProfile.ContainerName = null;
+                    shellProfile.ContainerName = null;
+                }
+            }
 
             // Create the terminal pair
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService);
@@ -3034,8 +3073,189 @@ public partial class MainViewModel : ObservableObject
                 IntroducedOn = new DateOnly(2026, 2, 25),
                 Execute = () => _statusOverlayService?.CloseAll(),
                 CanExecute = () => _statusOverlayService?.OverlayCount > 0
+            },
+
+            // Container commands
+            new() {
+                Id = "container-toggle",
+                Name = "Container: Toggle for Current Workspace",
+                Description = "Enable or disable Docker container isolation for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => ToggleContainerForCurrentWorkspace(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-rebuild-image",
+                Name = "Container: Rebuild Image",
+                Description = "Rebuild the Docker workspace image from Dockerfile",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = RebuildContainerImageAsync()
+            },
+            new() {
+                Id = "container-stop",
+                Name = "Container: Stop Current",
+                Description = "Stop the Docker container for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = StopCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-remove",
+                Name = "Container: Remove Current",
+                Description = "Remove the Docker container for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = RemoveCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-list",
+                Name = "Container: List All",
+                Description = "Show all TerminalHost Docker containers",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = ListContainersAsync()
+            },
+            new() {
+                Id = "container-clean",
+                Name = "Container: Clean Stopped",
+                Description = "Remove all stopped Docker containers",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = CleanStoppedContainersAsync()
+            },
+            new() {
+                Id = "container-check-docker",
+                Name = "Container: Check Docker Status",
+                Description = "Verify Docker Desktop is available and running",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 19),
+                Execute = () => _ = CheckDockerStatusAsync()
             }
         ];
+    }
+
+    // ── Container command helpers ───────────────────────────────────────
+
+    private void ToggleContainerForCurrentWorkspace()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab) return;
+        var dir = tab.Pair.WorkingDirectory;
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(dir);
+
+        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var dirSettings))
+        {
+            dirSettings = new DirectorySettings();
+            config.DirectorySettings[normalizedPath] = dirSettings;
+        }
+
+        // Toggle: if currently enabled (explicitly or via global), disable; otherwise enable
+        var currentlyEnabled = _containerService?.IsEnabledForDirectory(dir) ?? false;
+        dirSettings.ContainerEnabled = !currentlyEnabled;
+        _configService.Save(config);
+
+        var state = dirSettings.ContainerEnabled.Value ? "enabled" : "disabled";
+        _toastService.Show($"Container {state} for {Path.GetFileName(dir)}. Restart the tab to apply.", ToastType.Info);
+    }
+
+    private async Task RebuildContainerImageAsync()
+    {
+        if (_containerService == null) return;
+        _toastService.Show("Building Docker image...", ToastType.Info);
+        try
+        {
+            var success = await _containerService.BuildImageAsync();
+            _toastService.Show(
+                success ? "Docker image built successfully" : "Docker image build failed",
+                success ? ToastType.Success : ToastType.Error);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Image build failed: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task StopCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        try
+        {
+            await _containerService.StopContainerAsync(tab.Pair.WorkingDirectory);
+            _toastService.Show("Container stopped", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to stop container: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task RemoveCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        try
+        {
+            await _containerService.RemoveContainerAsync(tab.Pair.WorkingDirectory);
+            _toastService.Show("Container removed", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to remove container: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task ListContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var containers = await _containerService.ListContainersAsync();
+            if (containers.Count == 0)
+            {
+                _toastService.Show("No containers found", ToastType.Info);
+                return;
+            }
+
+            var lines = containers.Select(c => $"{c.Name}: {c.State}");
+            _toastService.Show($"{containers.Count} container(s):\n{string.Join("\n", lines)}", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to list containers: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task CleanStoppedContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var count = await _containerService.CleanStoppedContainersAsync();
+            _toastService.Show(count > 0 ? $"Removed {count} stopped container(s)" : "No stopped containers to remove", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to clean containers: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task CheckDockerStatusAsync()
+    {
+        if (_containerService == null) return;
+        var available = await _containerService.IsDockerAvailableAsync();
+        _toastService.Show(
+            available ? "Docker is available and running" : "Docker is not available. Ensure Docker Desktop is running.",
+            available ? ToastType.Success : ToastType.Warning);
     }
 
     /// <summary>

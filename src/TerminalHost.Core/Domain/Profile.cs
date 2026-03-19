@@ -32,6 +32,13 @@ public class Profile
     [JsonPropertyName("autoStart")]
     public bool AutoStart { get; set; }
 
+    /// <summary>
+    /// When set, this terminal session runs inside a Docker container.
+    /// Not serialized — set at runtime by MainViewModel when container is enabled.
+    /// </summary>
+    [JsonIgnore]
+    public string? ContainerName { get; set; }
+
     public string GetExpandedWorkingDir()
     {
         return Environment.ExpandEnvironmentVariables(WorkingDir);

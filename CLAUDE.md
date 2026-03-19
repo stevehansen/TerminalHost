@@ -585,6 +585,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
+| [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Draft** | 4 phases planned |
 
 ## Remaining Work Summary
 
@@ -605,6 +606,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
 | **Future** | Write Endpoints & MCP Server (API Phase 5) | RestApiAndWebhooks.md |
+| **Future** | Containerized Workspaces (Docker) | ContainerizedWorkspaces.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |
 
 ## Future Considerations
