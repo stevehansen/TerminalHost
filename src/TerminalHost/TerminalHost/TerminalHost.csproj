@@ -13,6 +13,11 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 	<NoWarn>$(NoWarn);NU1701</NoWarn>
 
+	<!-- Server GC: shorter pause times for multi-threaded workloads (60+ terminals).
+	     Workstation GC was causing 5-6s blocking compacting Gen2 collections. -->
+	<ServerGarbageCollection>true</ServerGarbageCollection>
+	<ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
 	<!-- Single-file publish settings -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

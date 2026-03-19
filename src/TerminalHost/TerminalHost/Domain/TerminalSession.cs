@@ -34,9 +34,13 @@ public class TerminalSession : IDisposable
     // Output buffer for link detection (circular buffer of recent output).
     // Writer appends to StringBuilder under lock, then publishes a snapshot string.
     // Readers only access the volatile snapshot — no lock needed for reads.
+    // Snapshot is throttled to avoid creating 50KB garbage strings on every output chunk.
     private readonly StringBuilder _outputBuffer = new();
     private volatile string _outputSnapshot = "";
+    private bool _snapshotDirty;
+    private DateTime _lastSnapshotTime;
     private const int MaxOutputBufferSize = 50000; // ~50KB of recent output
+    private static readonly TimeSpan SnapshotInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly IStatisticsService _statisticsService;
     private readonly string _workingDirectory;
@@ -211,8 +215,20 @@ public class TerminalSession : IDisposable
                 _outputBuffer.Append(kept);
             }
 
-            // Publish snapshot for lock-free readers
-            _outputSnapshot = _outputBuffer.ToString();
+            // Throttle snapshot publishing to avoid creating 50KB garbage strings
+            // on every output chunk (60 terminals × frequent output = massive GC pressure).
+            // Readers (link detection) only check every 3 seconds, so 500ms is plenty.
+            var now = DateTime.UtcNow;
+            if (now - _lastSnapshotTime >= SnapshotInterval)
+            {
+                _outputSnapshot = _outputBuffer.ToString();
+                _lastSnapshotTime = now;
+                _snapshotDirty = false;
+            }
+            else
+            {
+                _snapshotDirty = true;
+            }
         }
     }
 

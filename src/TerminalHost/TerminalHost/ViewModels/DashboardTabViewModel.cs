@@ -22,6 +22,7 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
     private readonly IProcessService _processService;
     private readonly IToastService _toastService;
     private readonly ITimerService _timerService;
+    private List<string>? _cachedRecentPaths;
     private readonly IFolderPickerService _folderPickerService;
     private readonly IAiExecutionService _aiService;
     private readonly IAppTimer _refreshTimer;
@@ -604,9 +605,10 @@ public partial class DashboardTabViewModel : ObservableObject, ITabViewModel
             }
         }
 
-        // Add from recent paths in config (if not already in list)
-        var config = _configService.Load();
-        foreach (var path in config.Settings.Repositories.RecentPaths.Take(10))
+        // Add from recent paths in config (if not already in list).
+        // Cache the paths to avoid loading the full 145KB config on every refresh.
+        _cachedRecentPaths ??= _configService.Load().Settings.Repositories.RecentPaths;
+        foreach (var path in _cachedRecentPaths.Take(10))
         {
             if (repos.Any(r => r.LocalPath?.Equals(path, StringComparison.OrdinalIgnoreCase) == true))
                 continue;

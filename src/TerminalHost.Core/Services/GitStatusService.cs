@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text.RegularExpressions;
 using LibGit2Sharp;
@@ -6,7 +7,7 @@ using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Core.Services;
 
-public sealed class GitStatusService : IGitStatusService
+public sealed class GitStatusService : IGitStatusService, IDisposable
 {
     private const long MaxFileSizeForDiff = 10 * 1024 * 1024; // 10MB
     private const int MaxDiffStringLength = 5_000_000; // 5MB
@@ -14,16 +15,68 @@ public sealed class GitStatusService : IGitStatusService
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
 
+    // Cache Repository objects to avoid creating thousands of native SafeHandle
+    // objects that flood the finalization queue (9000+ pending finalizers observed).
+    // Each open/close creates ~20 native handles; caching eliminates that churn.
+    private readonly ConcurrentDictionary<string, Repository> _repoCache = new(StringComparer.OrdinalIgnoreCase);
+
     public GitStatusService(IGitProcessRunner gitRunner, IFileSystem fileSystem)
     {
         _gitRunner = gitRunner;
         _fileSystem = fileSystem;
     }
 
+    public void Dispose()
+    {
+        foreach (var repo in _repoCache.Values)
+        {
+            try { repo.Dispose(); } catch { }
+        }
+        _repoCache.Clear();
+    }
+
+    /// <summary>
+    /// Gets or creates a cached Repository for the given path.
+    /// Returns null if the path is not a git repository.
+    /// </summary>
+    private Repository? GetCachedRepo(string workingDirectory)
+    {
+        if (_repoCache.TryGetValue(workingDirectory, out var cached))
+        {
+            // Verify the repo is still valid (hasn't been deleted)
+            try
+            {
+                _ = cached.Head;
+                return cached;
+            }
+            catch
+            {
+                // Repo is invalid, remove and re-discover
+                _repoCache.TryRemove(workingDirectory, out _);
+                try { cached.Dispose(); } catch { }
+            }
+        }
+
+        var repoPath = Repository.Discover(workingDirectory);
+        if (repoPath == null)
+            return null;
+
+        try
+        {
+            var repo = new Repository(repoPath);
+            _repoCache[workingDirectory] = repo;
+            return repo;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public Task<Domain.GitStatus> GetGitStatusAsync(string workingDirectory)
     {
         // Use libgit2sharp for in-process git status (no Process.Start overhead).
-        // This replaces 7 sequential git CLI calls with a single library call.
+        // Repository objects are cached to avoid finalization queue pressure.
         return Task.Run(() =>
         {
             var status = new Domain.GitStatus();
@@ -33,11 +86,10 @@ public sealed class GitStatusService : IGitStatusService
 
             try
             {
-                var repoPath = Repository.Discover(workingDirectory);
-                if (repoPath == null)
+                var repo = GetCachedRepo(workingDirectory);
+                if (repo == null)
                     return status;
 
-                using var repo = new Repository(repoPath);
                 status.IsGitRepository = true;
 
                 // Branch name
@@ -75,7 +127,9 @@ public sealed class GitStatusService : IGitStatusService
             }
             catch
             {
-                // Fall back to non-repo status on any error
+                // Invalidate cache on error (repo may have been deleted/corrupted)
+                _repoCache.TryRemove(workingDirectory, out var stale);
+                if (stale != null) try { stale.Dispose(); } catch { }
                 return status;
             }
         });

@@ -10,14 +10,16 @@ namespace TerminalHost.Windows.Services;
 /// </summary>
 public sealed class SoundService : ISoundService
 {
-    private readonly IConfigurationService _configurationService;
     private volatile bool _isAppFocused = true;
+
+    // Cached sound settings to avoid loading 145KB config on every sound event
+    private SoundSettings _cachedSettings;
 
     public bool IsAppFocused => _isAppFocused;
 
     public SoundService(IConfigurationService configurationService)
     {
-        _configurationService = configurationService;
+        _cachedSettings = configurationService.Load().Settings.Sounds;
     }
 
     public void SetAppFocused(bool focused)
@@ -25,9 +27,17 @@ public sealed class SoundService : ISoundService
         _isAppFocused = focused;
     }
 
+    /// <summary>
+    /// Refreshes cached sound settings. Call after user changes settings.
+    /// </summary>
+    public void RefreshCachedSettings(SoundSettings settings)
+    {
+        _cachedSettings = settings;
+    }
+
     private SoundSettings GetSoundSettings()
     {
-        return _configurationService.Load().Settings.Sounds;
+        return _cachedSettings;
     }
 
     public void Play(SoundType soundType)

@@ -13,6 +13,7 @@ using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Windows.Interfaces;
 using TerminalHost.Windows.Platform;
+using TerminalHost.Windows.Services;
 
 namespace TerminalHost;
 
@@ -218,6 +219,10 @@ public partial class MainWindow : Window
         // Refresh cached values so hot paths don't need to hit disk
         _cachedAiName = config.Settings.CustomCommandName;
         _statusOverlayService.RefreshCachedSettings();
+
+        // Refresh sound service cached settings
+        if (_soundService is SoundService soundService)
+            soundService.RefreshCachedSettings(config.Settings.Sounds);
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
