@@ -526,7 +526,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (taskService != null)
         {
             WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService, claudeTaskFileService, dispatcherService);
-            WorkspaceTasksPanel.ShowForWorkspace(pair.WorkingDirectory);
+            WorkspaceTasksPanel.WorkspacePath = pair.WorkingDirectory;
             WorkspaceTasksPanel.ClaudeTasksPanelRequested += (s, e) => ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
         }
 
@@ -566,7 +566,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (taskService != null)
         {
             WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService, claudeTaskFileService, dispatcherService);
-            WorkspaceTasksPanel.ShowForWorkspace(pair.WorkingDirectory);
+            WorkspaceTasksPanel.WorkspacePath = pair.WorkingDirectory;
             WorkspaceTasksPanel.ClaudeTasksPanelRequested += (s, e) => ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
         }
 

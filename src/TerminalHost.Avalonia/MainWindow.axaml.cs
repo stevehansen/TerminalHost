@@ -156,6 +156,9 @@ public partial class MainWindow : Window
         _gitFilesViewModel.FileEditRequested += OnGitFilesFileEditRequested;
         _gitFilesViewModel.MergeConflictRequested += OnMergeConflictRequested;
 
+        // Wire up detected links file preview event
+        _detectedLinksViewModel.FilePreviewRequested += OnDetectedLinksFilePreviewRequested;
+
         // Wire up file viewer detach event
         _fileViewerViewModel.DetachRequested += OnFileViewerDetachRequested;
 
@@ -693,6 +696,15 @@ public partial class MainWindow : Window
         {
             terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel);
             await _unifiedGitPanelViewModel.OpenOnTabAsync(terminalTab, GitPanelTab.Changes);
+        }
+    }
+
+    private void OnDetectedLinksFilePreviewRequested(object? sender, FilePreviewRequestedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.FilePath))
+        {
+            var mode = e.OpenInEditMode ? FileViewerMode.Edit : FileViewerMode.Preview;
+            _fileViewerViewModel.Open(e.FilePath, mode, e.Line > 0 ? e.Line : null);
         }
     }
 
@@ -1616,15 +1628,16 @@ public partial class MainWindow : Window
 
     public void BringToFront()
     {
+        // On macOS, Show() is needed to deminiaturize (restore from dock)
+        // Setting WindowState alone doesn't reliably unminimize
+        Show();
+
         if (WindowState == WindowState.Minimized)
         {
             WindowState = WindowState.Normal;
         }
 
         Activate();
-        Topmost = true;
-        Topmost = false;
-        Focus();
     }
 
     private void SidebarSplitter_DragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)

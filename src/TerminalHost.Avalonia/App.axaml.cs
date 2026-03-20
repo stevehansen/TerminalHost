@@ -63,6 +63,18 @@ public partial class App : Application
                 _ = AutoStartApiServerAsync();
             }
 
+            // Handle dock icon click on macOS — restore minimized window
+            if (OperatingSystem.IsMacOS())
+            {
+                MacOsDockHelper.RegisterDockClickHandler(() =>
+                {
+                    if (desktop.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.BringToFront();
+                    }
+                });
+            }
+
             // Handle shutdown
             desktop.ShutdownRequested += OnShutdownRequested;
         }
