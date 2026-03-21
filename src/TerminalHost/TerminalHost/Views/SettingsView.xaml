@@ -382,6 +382,10 @@
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=ApiWebhooks}"/>
+                    <RadioButton Content="Channels"
+                                 GroupName="SettingsSection"
+                                 Style="{StaticResource SidebarItemButton}"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Channels}"/>
                 </StackPanel>
             </Border>
 
@@ -2663,6 +2667,83 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+                    </StackPanel>
+
+                    <!-- Channels Settings Section -->
+                    <StackPanel Margin="24"
+                                Visibility="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Channels}">
+                        <TextBlock Text="Claude Code Channels" Style="{StaticResource SectionHeader}" Margin="0,0,0,16"/>
+                        <TextBlock Text="Push TerminalHost events (git changes, terminal activity, user messages) into running Claude Code sessions via the MCP channel protocol."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,16"/>
+
+                        <!-- Enable Channels -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable Channel Integration"
+                                      IsChecked="{Binding ChannelEnabled}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="When enabled, Claude Code is launched with the channel server flag and TerminalHost events are forwarded to the session."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Requirements Notice -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Requirements" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                                <TextBlock Text="• REST API must be enabled (API &amp; Webhooks section)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="• SSE streaming must be enabled"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="• Claude Code v2.1.80+ with claude.ai login"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Channel Server Path -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Channel Server Path (optional)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding ChannelServerPath, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="500" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Leave empty for auto-detection. Override with absolute path to terminalhost-channel.exe."
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Event Filters -->
+                        <TextBlock Text="Event Filters" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="Which TerminalHost events to forward to Claude Code. Use wildcard patterns."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,12"/>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBox Text="{Binding ChannelEventFilters, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="500" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Comma-separated. Examples: * (all), repo.* (git events), repo.commit, channel.user_message"
+                                       Style="{StaticResource SectionDescription}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Advanced -->
+                        <TextBlock Text="Advanced" Style="{StaticResource SectionHeader}"/>
+
+                        <StackPanel Margin="0,8,0,12">
+                            <CheckBox Content="Use development channel flag"
+                                      IsChecked="{Binding ChannelUseDevelopmentFlag}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Uses --dangerously-load-development-channels (required during research preview). Uncheck when channels are generally available."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Auto-register in .mcp.json"
+                                      IsChecked="{Binding ChannelAutoRegisterMcp}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Automatically add the channel server to each project's .mcp.json file."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

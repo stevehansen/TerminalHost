@@ -694,6 +694,12 @@ public class AppSettings
     public ApiSettings Api { get; set; } = new();
 
     /// <summary>
+    /// Claude Code channel integration settings.
+    /// </summary>
+    [JsonPropertyName("channel")]
+    public ChannelSettings Channel { get; set; } = new();
+
+    /// <summary>
     /// Containerized workspace settings (Docker isolation for AI agents).
     /// </summary>
     [JsonPropertyName("container")]

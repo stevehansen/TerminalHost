@@ -3044,6 +3044,27 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => ShowWebhookStats()
             },
 
+            // Channel commands
+            new() {
+                Id = "channel-send-message",
+                Name = "Channel: Send Message to Claude",
+                Description = "Send a text message to the Claude Code session via the channel",
+                Icon = "📨",
+                Category = "Channel",
+                IntroducedOn = new DateOnly(2026, 3, 21),
+                Execute = () => SendChannelMessage(),
+                CanExecute = () => _apiServer?.IsRunning == true
+            },
+            new() {
+                Id = "channel-toggle",
+                Name = "Channel: Toggle Integration",
+                Description = "Enable or disable Claude Code channel integration",
+                Icon = "🔌",
+                Category = "Channel",
+                IntroducedOn = new DateOnly(2026, 3, 21),
+                Execute = () => ToggleChannelIntegration()
+            },
+
             // Status Overlay commands
             new() {
                 Id = "toggle-status-overlay",
@@ -3794,6 +3815,39 @@ public partial class MainViewModel : ObservableObject
         var stats = _webhookDeliveryService.GetStats();
         var msg = $"Delivered: {stats.TotalDelivered} | Failed: {stats.TotalFailed} | Pending retries: {stats.PendingRetries}";
         _toastService.Show(msg, ToastType.Info);
+    }
+
+    private void SendChannelMessage()
+    {
+        var message = _dialogService.ShowInput("Enter a message to send to Claude Code via the channel:", "Send to Claude");
+        if (string.IsNullOrWhiteSpace(message)) return;
+
+        // Get current repo index
+        int? repoIndex = null;
+        if (SelectedTab is TerminalPairTabViewModel termTab)
+        {
+            repoIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(termTab);
+        }
+
+        // Publish the message as a channel event via the event aggregator
+        _eventAggregator?.Publish(new ApiEvent
+        {
+            Type = "channel.user_message",
+            RepoIndex = repoIndex,
+            Data = new { message, sender = "user" }
+        });
+
+        _toastService.Show("Message sent to Claude via channel", ToastType.Success);
+    }
+
+    private void ToggleChannelIntegration()
+    {
+        var config = _configService.Load();
+        config.Settings.Channel.Enabled = !config.Settings.Channel.Enabled;
+        _configService.Save(config);
+
+        var status = config.Settings.Channel.Enabled ? "enabled" : "disabled";
+        _toastService.Show($"Channel integration {status}. Restart Claude Code terminals to apply.", ToastType.Info);
     }
 
     private List<ApiRepoInfo> BuildRepoList()

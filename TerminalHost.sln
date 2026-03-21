@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.macOS", "src\T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.Avalonia", "src\TerminalHost.Avalonia\TerminalHost.Avalonia.csproj", "{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.Channel", "src\TerminalHost.Channel\TerminalHost.Channel.csproj", "{4FD033F8-F906-4971-A153-9238D1BDF9B7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,18 @@ Global
 		{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0}.Release|x64.Build.0 = Release|Any CPU
 		{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0}.Release|x86.ActiveCfg = Release|Any CPU
 		{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0}.Release|x86.Build.0 = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|x64.Build.0 = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Debug|x86.Build.0 = Debug|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|x64.ActiveCfg = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|x64.Build.0 = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|x86.ActiveCfg = Release|Any CPU
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -138,5 +152,6 @@ Global
 		{F7851963-4A6D-4E3F-923E-AE4595CE1C34} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2987F034-834B-4223-B703-855E3D17B221} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{4FD033F8-F906-4971-A153-9238D1BDF9B7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

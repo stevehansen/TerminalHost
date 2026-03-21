@@ -14,12 +14,14 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
     private readonly IContainerService _containerService;
+    private readonly IConfigurationService _configService;
 
-    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService)
+    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService, IConfigurationService configService)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _containerService = containerService;
+        _configService = configService;
     }
 
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
@@ -197,7 +199,144 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         }
 
         // For other commands, run them from the directory using cmd
-        return $"cmd.exe /K cd /d \"{workingDir}\" && {command}";
+        // Append channel flags if this is a Claude Code command with channels enabled
+        var finalCommand = AppendChannelFlags(command, workingDir);
+        return $"cmd.exe /K cd /d \"{workingDir}\" && {finalCommand}";
+    }
+
+    /// <summary>
+    /// If channels are enabled and the command is Claude Code, append the channel server flags
+    /// and set up environment variables for the channel server.
+    /// </summary>
+    private string AppendChannelFlags(string command, string workingDir)
+    {
+        try
+        {
+            var commandExe = command.Split(' ')[0];
+            var binaryName = Path.GetFileNameWithoutExtension(
+                Environment.ExpandEnvironmentVariables(commandExe));
+
+            // Only add channel flags for Claude Code
+            if (!binaryName.Equals("claude", StringComparison.OrdinalIgnoreCase))
+                return command;
+
+            var config = _configService.Load();
+            var channelSettings = config.Settings.Channel;
+            if (!channelSettings.Enabled)
+                return command;
+
+            // Resolve channel server path
+            var channelServerPath = ResolveChannelServerPath(channelSettings);
+            if (string.IsNullOrEmpty(channelServerPath))
+                return command;
+
+            // Register .mcp.json for this project if auto-register is enabled
+            if (channelSettings.AutoRegisterMcp && !string.IsNullOrEmpty(workingDir))
+            {
+                EnsureMcpJsonRegistered(workingDir, channelServerPath, channelSettings);
+            }
+
+            // Build the channel flag
+            var channelFlag = channelSettings.UseDevelopmentFlag
+                ? "--dangerously-load-development-channels server:terminalhost"
+                : "--channels server:terminalhost";
+
+            // Set environment variables for the channel server
+            var apiSettings = config.Settings.Api;
+            var apiUrl = $"http://{(apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress)}:{apiSettings.Port}";
+            var eventFilters = string.Join(",", channelSettings.EventFilters);
+
+            // Prepend env vars so the channel server can find the API
+            return $"set \"TERMINALHOST_API_URL={apiUrl}\" && set \"TERMINALHOST_EVENTS={eventFilters}\" && {command} {channelFlag}";
+        }
+        catch
+        {
+            // If anything goes wrong with channel setup, fall back to plain command
+            return command;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the path to the channel bridge executable (terminalhost-channel.exe).
+    /// </summary>
+    private string? ResolveChannelServerPath(ChannelSettings channelSettings)
+    {
+        // Use explicit path if configured
+        if (!string.IsNullOrEmpty(channelSettings.ChannelServerPath))
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(channelSettings.ChannelServerPath);
+            return _fileSystem.FileExists(expanded) ? expanded : null;
+        }
+
+        // Auto-detect: look for the C# channel bridge executable relative to application directory
+        var appDir = AppDomain.CurrentDomain.BaseDirectory;
+        var exeName = OperatingSystem.IsWindows() ? "terminalhost-channel.exe" : "terminalhost-channel";
+        var candidates = new[]
+        {
+            Path.Combine(appDir, exeName),
+            Path.Combine(appDir, "terminalhost-channel", exeName),
+            // Development: relative to the WPF project bin output
+            Path.Combine(appDir, "..", "..", "..", "..", "TerminalHost.Channel", "bin", "Debug", "net8.0", exeName),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var fullPath = Path.GetFullPath(candidate);
+            if (_fileSystem.FileExists(fullPath))
+                return fullPath;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Ensures a .mcp.json file exists in the project directory with the terminalhost channel server registered.
+    /// </summary>
+    private void EnsureMcpJsonRegistered(string workingDir, string channelServerPath, ChannelSettings channelSettings)
+    {
+        try
+        {
+            var mcpJsonPath = Path.Combine(workingDir, ".mcp.json");
+
+            // Read existing .mcp.json or create new one
+            Dictionary<string, object>? mcpConfig = null;
+            if (_fileSystem.FileExists(mcpJsonPath))
+            {
+                var existing = _fileSystem.ReadAllText(mcpJsonPath);
+                mcpConfig = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing);
+            }
+
+            mcpConfig ??= new Dictionary<string, object>();
+
+            // Check if terminalhost server is already registered
+            Dictionary<string, object>? mcpServers = null;
+            if (mcpConfig.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
+            {
+                mcpServers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(serversElement.GetRawText());
+            }
+            mcpServers ??= new Dictionary<string, object>();
+
+            if (mcpServers.ContainsKey("terminalhost"))
+                return; // Already registered
+
+            // Register the C# channel bridge executable directly (no runtime needed)
+            mcpServers["terminalhost"] = new Dictionary<string, object>
+            {
+                ["command"] = channelServerPath.Replace("\\", "/")
+            };
+
+            mcpConfig["mcpServers"] = mcpServers;
+
+            var json = System.Text.Json.JsonSerializer.Serialize(mcpConfig, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            _fileSystem.WriteAllText(mcpJsonPath, json);
+        }
+        catch
+        {
+            // .mcp.json registration is best-effort
+        }
     }
 
     private static bool IsShellCommand(string command) =>

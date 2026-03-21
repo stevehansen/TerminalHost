@@ -262,6 +262,18 @@ public class ApiServer : IApiServer
                 return;
             }
 
+            // Channel endpoints — POST for pushing messages/replies into the event system
+            if (path == "/api/channel/message" && method == "POST")
+            {
+                await HandleChannelMessageAsync(request, response);
+                return;
+            }
+            if (path == "/api/channel/reply" && method == "POST")
+            {
+                await HandleChannelReplyAsync(request, response);
+                return;
+            }
+
             if (method != "GET")
             {
                 await WriteJsonError(response, 405, "METHOD_NOT_ALLOWED", "Only GET requests are supported.");
@@ -824,6 +836,95 @@ public class ApiServer : IApiServer
         var bytes = Encoding.UTF8.GetBytes(result.ResponseBody);
         response.ContentLength64 = bytes.Length;
         await response.OutputStream.WriteAsync(bytes);
+    }
+
+    #endregion
+
+    #region Channel Endpoints
+
+    /// <summary>
+    /// Handles POST /api/channel/message — pushes a user message into the event system
+    /// so the channel server can forward it to Claude Code as a channel notification.
+    /// </summary>
+    private async Task HandleChannelMessageAsync(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
+            var body = await reader.ReadToEndAsync();
+            var payload = JsonSerializer.Deserialize<ChannelMessagePayload>(body, JsonOptions);
+
+            if (payload == null || string.IsNullOrWhiteSpace(payload.Message))
+            {
+                await WriteJsonError(response, 400, "BAD_REQUEST", "Missing 'message' field.");
+                return;
+            }
+
+            // Publish as a channel.user_message event so the SSE/channel server picks it up
+            _eventAggregator.Publish(new ApiEvent
+            {
+                Type = "channel.user_message",
+                RepoIndex = payload.RepoIndex,
+                Data = new { message = payload.Message, sender = "user" }
+            });
+
+            await WriteJson(response, new { ok = true, message = "Message published" });
+        }
+        catch (JsonException)
+        {
+            await WriteJsonError(response, 400, "BAD_REQUEST", "Invalid JSON body.");
+        }
+    }
+
+    /// <summary>
+    /// Handles POST /api/channel/reply — receives replies from the channel server
+    /// (Claude's responses) and publishes them as events for UI display.
+    /// </summary>
+    private async Task HandleChannelReplyAsync(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
+            var body = await reader.ReadToEndAsync();
+            var payload = JsonSerializer.Deserialize<ChannelReplyPayload>(body, JsonOptions);
+
+            if (payload == null || string.IsNullOrWhiteSpace(payload.Text))
+            {
+                await WriteJsonError(response, 400, "BAD_REQUEST", "Missing 'text' field.");
+                return;
+            }
+
+            // Publish as a channel.reply event for the UI to display (e.g., as a toast)
+            _eventAggregator.Publish(new ApiEvent
+            {
+                Type = "channel.reply",
+                Data = new { text = payload.Text, type = payload.Type ?? "info" }
+            });
+
+            await WriteJson(response, new { ok = true });
+        }
+        catch (JsonException)
+        {
+            await WriteJsonError(response, 400, "BAD_REQUEST", "Invalid JSON body.");
+        }
+    }
+
+    private class ChannelMessagePayload
+    {
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+
+        [JsonPropertyName("repoIndex")]
+        public int? RepoIndex { get; set; }
+    }
+
+    private class ChannelReplyPayload
+    {
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
     }
 
     #endregion

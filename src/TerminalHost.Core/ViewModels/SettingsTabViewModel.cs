@@ -447,6 +447,22 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _editWhEnabled = true;
 
+    // Channel settings
+    [ObservableProperty]
+    private bool _channelEnabled;
+
+    [ObservableProperty]
+    private string _channelServerPath = "";
+
+    [ObservableProperty]
+    private string _channelEventFilters = "repo.git_status_changed, repo.branch_switched, repo.commit, channel.user_message";
+
+    [ObservableProperty]
+    private bool _channelUseDevelopmentFlag = true;
+
+    [ObservableProperty]
+    private bool _channelAutoRegisterMcp = true;
+
     // MCP Collab integration
     [ObservableProperty]
     private bool _mcpCollabInstalled;
@@ -604,6 +620,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ApiEnableWebhooks = config.Settings.Api.EnableWebhooks;
             ApiWebhooks = new ObservableCollection<WebhookEndpoint>(config.Settings.Api.Webhooks);
 
+            // Channel settings
+            ChannelEnabled = config.Settings.Channel.Enabled;
+            ChannelServerPath = config.Settings.Channel.ChannelServerPath ?? "";
+            ChannelEventFilters = string.Join(", ", config.Settings.Channel.EventFilters);
+            ChannelUseDevelopmentFlag = config.Settings.Channel.UseDevelopmentFlag;
+            ChannelAutoRegisterMcp = config.Settings.Channel.AutoRegisterMcp;
+
             // Directory settings
             Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
             if (Directories.Count > 0 && SelectedDirectory == null)
@@ -688,6 +711,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
                 .ToList();
             config.Settings.Api.EnableWebhooks = ApiEnableWebhooks;
             config.Settings.Api.Webhooks = ApiWebhooks.ToList();
+
+            // Channel settings
+            config.Settings.Channel.Enabled = ChannelEnabled;
+            config.Settings.Channel.ChannelServerPath = string.IsNullOrEmpty(ChannelServerPath) ? null : ChannelServerPath;
+            config.Settings.Channel.EventFilters = ChannelEventFilters
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            config.Settings.Channel.UseDevelopmentFlag = ChannelUseDevelopmentFlag;
+            config.Settings.Channel.AutoRegisterMcp = ChannelAutoRegisterMcp;
 
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
@@ -784,6 +816,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnApiCorsOriginsChanged(string value) => MarkDirtyFromRichMode();
     partial void OnApiEnableWebhooksChanged(bool value) => MarkDirtyFromRichMode();
+
+    // Channel change handlers
+    partial void OnChannelEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnChannelServerPathChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnChannelEventFiltersChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnChannelUseDevelopmentFlagChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnChannelAutoRegisterMcpChanged(bool value) => MarkDirtyFromRichMode();
 
     partial void OnSelectedWebhookChanged(WebhookEndpoint? value)
     {

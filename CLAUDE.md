@@ -44,6 +44,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 - [x] **Voice Commands**: Hands-free control via speech recognition (F4). Floating bar shows transcript, matched command preview with confidence-based countdown, "Send to AI" fallback for unmatched speech, and meta-commands (confirm/cancel/send-to-AI keywords). Two engines: Windows Speech (default, zero setup) and Whisper (opt-in, open-vocabulary, multi-language via whisper.cpp). Settings in Ctrl+, General section.
 - [x] **Status Overlay**: Floating always-on-top window showing terminal activity state (Ctrl+Shift+Y). Displays active/waiting/completed/idle with animated icons. Draggable, non-focus-stealing, click to restore main window. Multiple instances for multi-monitor setups. Auto-show/hide on window focus change (optional). Command palette commands for toggle/create/close.
 
+- [x] **Claude Code Channels**: C# stdio-to-HTTP bridge (`src/TerminalHost.Channel/`) that connects Claude Code's MCP channel protocol to TerminalHost's existing API. Pushes events via SSE, proxies MCP tool calls to the existing McpHandler. Settings UI (Ctrl+, Channels section), command palette actions (Send Message to Claude, Toggle Channel). Auto-registers in .mcp.json per project.
+
 - [x] **PowerToys CmdPal Extension**: Separate extension project (`src/TerminalHost.CmdPal/`) integrating with PowerToys Command Palette. Dock band widget showing active project/git/activity status, workspace switcher, git status markdown page, tasks list. Communicates via REST API.
 
 ### Deferred Features
@@ -295,10 +297,13 @@ src/
 │   ├── ViewModels/           # WPF-coupled ViewModels
 │   └── Services/             # WPF-coupled services (DialogService, etc.)
 │
-└── TerminalHost.Avalonia/    # macOS Avalonia application
-    ├── Views/                # Avalonia AXAML views
-    ├── ViewModels/           # Avalonia-coupled ViewModels
-    └── Services/             # Avalonia-coupled services
+├── TerminalHost.Avalonia/    # macOS Avalonia application
+│   ├── Views/                # Avalonia AXAML views
+│   ├── ViewModels/           # Avalonia-coupled ViewModels
+│   └── Services/             # Avalonia-coupled services
+│
+└── TerminalHost.Channel/     # Claude Code channel bridge (.NET 8 console)
+    └── Program.cs            # Stdio-to-HTTP MCP bridge with SSE event push
 ```
 
 ### Important: Cross-Platform Code Changes
