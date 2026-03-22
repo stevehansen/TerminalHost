@@ -375,6 +375,16 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Marks a workspace as containerized (running in Docker).
+    /// </summary>
+    public void UpdateContainerState(string path, bool isContainerized)
+    {
+        var workspace = FindWorkspaceByPath(path);
+        if (workspace != null)
+            workspace.IsContainerized = isContainerized;
+    }
+
+    /// <summary>
     /// Updates IsCurrentTab for all workspaces based on the selected tab's working directory.
     /// </summary>
     public void UpdateCurrentTab(string? currentPath)

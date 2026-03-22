@@ -475,10 +475,20 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? new GridLength(4, GridUnitType.Pixel)
         : new GridLength(0, GridUnitType.Pixel);
 
+    // Container state
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TitleWithGit))]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    [NotifyPropertyChangedFor(nameof(ContainerTooltip))]
+    private bool _isContainerized;
+
+    public string? ContainerTooltip => IsContainerized ? "Running in Docker container" : null;
+
     // Git display properties
-    public string TitleWithGit => GitStatus?.IsGitRepository == true
-        ? $"{Title} {GitStatus.BranchDisplayShort}"
-        : Title;
+    public string TitleWithGit => (IsContainerized ? "🐳 " : "") +
+        (GitStatus?.IsGitRepository == true
+            ? $"{Title} {GitStatus.BranchDisplayShort}"
+            : Title);
 
     public string DisplayTitle => DuplicateIndex > 0
         ? $"{TitleWithGit} ({DuplicateIndex})"

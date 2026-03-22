@@ -29,6 +29,9 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _isActive;
 
     [ObservableProperty]
+    private bool _isContainerized;
+
+    [ObservableProperty]
     private bool _hasUnreadActivity;
 
     [ObservableProperty]

@@ -27,8 +27,9 @@ AI agents like Claude Code run with your user permissions. A wrong `rm -rf`, acc
 │  │                         │    │
 │  │  /workspace     (rw) ←──── P:\HC
 │  │  /refs/Vidyano  (ro) ←──── P:\Vidyano
-│  │  /root/.claude  (rw) ←──── ~/.claude
-│  │  /root/.gitconfig (ro)     │
+│  │  ~/.claude      (rw) ←──── ~/.claude
+│  │  ~/.gitconfig   (ro) ←──── ~/.gitconfig
+│  │  ~/.gnupg      (copy) ←──── ~/.gnupg
 │  └─────────────────────────┘    │
 └─────────────────────────────────┘
 ```
@@ -53,11 +54,16 @@ Or use the **command palette** (`Ctrl+Shift+P`):
 | Mount | Container Path | Mode | Purpose |
 |-------|---------------|------|---------|
 | Project directory | `/workspace` | read-write | Your code — changes sync instantly both ways |
-| `~/.claude/` | `/root/.claude` | read-write | Settings, memory, sessions, tasks, plugins, commands |
-| `~/.claude.json` | `/root/.claude.json` | read-write | Claude Code metadata |
-| `~/.gitconfig` | `/root/.gitconfig` | readonly | Git identity |
-| `~/.ssh/` | `/root/.ssh` | readonly | SSH keys (opt-in, off by default) |
+| `~/.claude/` | `~/.claude` | read-write | Settings, memory, sessions, tasks, plugins, commands |
+| `~/.claude.json` | `~/.claude.json` | read-write | Claude Code metadata |
+| `~/.gitconfig` | `~/.gitconfig` | readonly | Git identity (gpg.program overridden via env) |
+| `~/.gnupg/` | `~/.gnupg` | copy | GPG keys for commit signing (copied with correct ownership) |
+| `~/.ssh/` | `~/.ssh` | readonly | SSH keys (opt-in, off by default) |
+| `~/.config/` | `~/.config` | read-write | Tool settings (ccstatusline, etc.) |
 | Reference volumes | `/refs/{name}` | readonly | Shared source code for inspection |
+| Generated CLAUDE.md | `~/.claude/CLAUDE.md` | readonly | Container context overlay (tools, refs, paths) |
+
+**Note:** Container user is `developer` (non-root), so `~` = `/home/developer`.
 
 ## Session & Memory Sharing
 
@@ -69,7 +75,7 @@ Claude Code stores sessions under `~/.claude/projects/{encoded-path}/`. The path
 TerminalHost solves this with an **overlay mount** — Docker's mount precedence lets a specific path override the broader `~/.claude` mount:
 
 ```
--v "~/.claude/projects/P--HC:/root/.claude/projects/-workspace"
+-v "~/.claude/projects/P--HC:/home/developer/.claude/projects/-workspace"
 ```
 
 This means sessions, memory, and transcripts written inside the container land in the correct host directory. TerminalHost's Timeline, Tasks, and Session panels see them seamlessly.
@@ -84,10 +90,36 @@ Claude Code hooks (session-start, file-changed, etc.) normally call `host.exe` o
 
 Path translation uses environment variables set at container creation:
 - `TERMINALHOST_HOST_WORKSPACE` — maps `/workspace` to host project path
-- `TERMINALHOST_HOST_USERPROFILE` — maps `/root` to host user profile
+- `TERMINALHOST_HOST_USERPROFILE` — maps `/home/developer` to host user profile
 - `TERMINALHOST_REF_{name}` — maps `/refs/{name}` to host reference volume
 
 **Requires:** REST API enabled in Settings → API & Webhooks.
+
+## Git & GPG Configuration
+
+The host's `.gitconfig` is mounted readonly, but some settings contain Windows-specific paths (e.g., `gpg.program=C:\Program Files\Git\usr\bin\gpg.exe`). The container overrides these using `GIT_CONFIG_COUNT` environment variables (highest precedence in git config):
+
+- **`gpg.program=gpg`** — replaces Windows GPG path with Linux binary
+- **`core.autocrlf=true`** — prevents phantom diffs from CRLF/LF mismatch on Windows-mounted files
+- **`safe.directory=*`** — trusts all mounted directories (set in `/etc/gitconfig`)
+
+**GPG keys** are copied (not mounted) from `~/.gnupg` to the container with correct ownership and permissions. Direct bind-mounting fails because Windows mounts appear as root-owned and GPG rejects "unsafe ownership on homedir". The copy runs on every container start to stay in sync.
+
+## Container-Specific CLAUDE.md
+
+TerminalHost generates a `~/.claude/CLAUDE.md` overlay inside each container. This file is read automatically by Claude Code and includes:
+
+- The host's global CLAUDE.md content (preserved)
+- Container environment notice
+- Pre-installed tools list
+- Reference volume paths with host↔container mapping
+- Working directory path mapping
+
+The file is generated on the host at `%APPDATA%\TerminalHost\container\CLAUDE.md` and overlay-mounted on top of the `~/.claude/` directory mount. The host's original `~/.claude/CLAUDE.md` is not modified.
+
+## Environment Variables
+
+All `CLAUDE_CODE_*` environment variables from the host are automatically forwarded to the container. This includes feature flags like `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 
 ## Default Docker Image
 
@@ -172,3 +204,11 @@ The threat model is **accidental damage**, not malicious agents. For network iso
 **Sessions don't appear in Timeline**: The overlay mount handles this. If you changed container settings, remove and recreate the container (`Container: Remove Current`, then reopen the tab).
 
 **Drive not shared in Docker Desktop**: For drives beyond C:, ensure the drive is shared in Docker Desktop → Settings → Resources → File Sharing.
+
+**GPG signing fails**: Delete the old Dockerfile, remove the container, and rebuild. The new image includes `gnupg` and overrides `gpg.program`. GPG keys are automatically copied with correct ownership on container start.
+
+**Phantom diffs (every file shows as modified)**: The image sets `core.autocrlf=true` via env vars. If using an old image, rebuild it. For existing repos, run `git config core.autocrlf true` inside the container.
+
+**CLAUDE_CODE_* env vars not available**: These are set at container creation time. If you added new env vars after the container was created, remove and recreate the container.
+
+**Settings changes require new container**: Mount paths and env vars are set at `docker run` time. After changing settings (SSH mount, reference volumes, etc.), remove the container and reopen the tab to recreate it.

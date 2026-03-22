@@ -79,6 +79,13 @@ public class ContainerSettings
     {
         ["TERM"] = "xterm-256color"
     };
+
+    /// <summary>
+    /// Whether to stop all running containers when TerminalHost exits.
+    /// Default: true. Set to false to leave containers running for faster reattach.
+    /// </summary>
+    [JsonPropertyName("stopContainersOnExit")]
+    public bool StopContainersOnExit { get; set; } = true;
 }
 
 /// <summary>

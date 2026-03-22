@@ -35,8 +35,8 @@ AI coding agents (Claude Code, Gemini CLI, etc.) run with the same permissions a
 │  │ - stop/remove    │    │  │  /workspace  (rw)      │  │ │
 │  │ - health check   │    │  │  /refs/Vidyano (ro)    │  │ │
 │  └─────────────────┘    │  │  /refs/CronosCore (ro) │  │ │
-│          │               │  │  /root/.claude (rw)    │  │ │
-│          ▼               │  │  /root/.gitconfig (ro) │  │ │
+│          │               │  │  /home/developer/.claude (rw)    │  │ │
+│          ▼               │  │  /home/developer/.gitconfig (ro) │  │ │
 │  ┌─────────────────┐    │  │                        │  │ │
 │  │ TerminalControl  │    │  │  Claude Code / AI CLI  │  │ │
 │  │ Factory          │    │  └────────────────────────┘  │ │
@@ -69,27 +69,14 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# System essentials
+# System essentials (as root)
 RUN apt-get update && apt-get install -y \
-    build-essential git curl wget unzip ca-certificates \
+    build-essential git curl wget unzip ca-certificates gnupg \
     libssl-dev zlib1g-dev libffi-dev vim tree jq ripgrep \
+    python3 python3-pip python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js 22 via NVM
-ENV NVM_DIR=/root/.nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" && nvm install 22 && nvm use 22
-
-# Bun (for statusline and fast npm scripts)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV BUN_INSTALL=/root/.bun
-ENV PATH="$BUN_INSTALL/bin:$PATH"
-
-# Python 3
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv \
-    && rm -rf /var/lib/apt/lists/*
-
-# .NET SDKs (8, 9, 10)
+# .NET SDKs (system-wide, as root)
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
@@ -100,15 +87,42 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
 ENV DOTNET_ROOT=/usr/share/dotnet
 ENV PATH="$DOTNET_ROOT:$PATH"
 
-# Claude Code
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# Host proxy (forwards hook calls to TerminalHost on the host machine)
+# Host proxy (as root, before switching user)
 COPY host-proxy.sh /usr/local/bin/host.exe
 RUN chmod +x /usr/local/bin/host.exe
 
-# Shell prompt
-RUN echo 'PS1="[container] \w\$ "' >> /root/.bashrc
+# Git: trust all mounted directories (system config survives readonly ~/.gitconfig mount)
+RUN git config --system --add safe.directory '*'
+
+# Override Windows-specific git config from host's readonly .gitconfig mount
+ENV GIT_CONFIG_COUNT=2
+ENV GIT_CONFIG_KEY_0=gpg.program
+ENV GIT_CONFIG_VALUE_0=gpg
+ENV GIT_CONFIG_KEY_1=core.autocrlf
+ENV GIT_CONFIG_VALUE_1=true
+
+# Create non-root user (required for --dangerously-skip-permissions)
+RUN useradd -m -s /bin/bash developer \
+    && mkdir -p /workspace && chown developer:developer /workspace
+USER developer
+
+# Node.js 22 via NVM (as developer)
+ENV NVM_DIR=/home/developer/.nvm
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" && nvm install 22 && nvm use 22
+
+# Bun (as developer)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV BUN_INSTALL=/home/developer/.bun
+ENV PATH="$BUN_INSTALL/bin:$PATH"
+
+# Claude Code (as developer — needs node via NVM)
+ENV PATH="/home/developer/.local/bin:$PATH"
+RUN . "$NVM_DIR/nvm.sh" && curl -fsSL https://claude.ai/install.sh | bash
+
+# Shell prompt + NVM in bash
+RUN echo 'PS1="[container] \w\$ "' >> /home/developer/.bashrc \
+    && echo '. "$NVM_DIR/nvm.sh"' >> /home/developer/.bashrc
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
@@ -144,7 +158,7 @@ The `TERMINALHOST_API` environment variable is set automatically when the contai
 
 ### Path Translation
 
-Inside the container, all paths use Linux conventions (`/workspace/src/file.cs`, `/root/.claude/...`). TerminalHost on the host expects Windows paths (`P:\HC\src\file.cs`, `C:\Users\steve\.claude\...`). The host proxy translates paths automatically using environment variables set at container creation:
+Inside the container, all paths use Linux conventions (`/workspace/src/file.cs`, `/home/developer/.claude/...`). TerminalHost on the host expects Windows paths (`P:\HC\src\file.cs`, `C:\Users\steve\.claude\...`). The host proxy translates paths automatically using environment variables set at container creation:
 
 | Container Path | Env Var | Host Path (example) |
 |---------------|---------|---------------------|
@@ -195,16 +209,16 @@ Without intervention, container sessions would land in `~/.claude/projects/-work
 **Solution: Overlapping Docker mounts.** When creating the container, an additional specific mount maps the host's project directory to the container's expected location:
 
 ```
--v "C:\Users\steve\.claude\projects\P--HC:/root/.claude/projects/-workspace"
+-v "C:\Users\steve\.claude\projects\P--HC:/home/developer/.claude/projects/-workspace"
 ```
 
 Docker's mount precedence makes this specific path override the broader `~/.claude` mount. The result:
 
 | What | Container writes to | Actually stored at |
 |------|--------------------|--------------------|
-| Sessions | `/root/.claude/projects/-workspace/sessions-index.json` | `~/.claude/projects/P--HC/sessions-index.json` |
-| Memory | `/root/.claude/projects/-workspace/memory/` | `~/.claude/projects/P--HC/memory/` |
-| JSONL transcripts | `/root/.claude/projects/-workspace/*.jsonl` | `~/.claude/projects/P--HC/*.jsonl` |
+| Sessions | `/home/developer/.claude/projects/-workspace/sessions-index.json` | `~/.claude/projects/P--HC/sessions-index.json` |
+| Memory | `/home/developer/.claude/projects/-workspace/memory/` | `~/.claude/projects/P--HC/memory/` |
+| JSONL transcripts | `/home/developer/.claude/projects/-workspace/*.jsonl` | `~/.claude/projects/P--HC/*.jsonl` |
 
 This means:
 - Container sessions appear seamlessly in TerminalHost's Timeline and Session panels
@@ -222,10 +236,13 @@ The project's own `.claude/` directory (containing `CLAUDE.md`, project memory, 
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
 | `{project-dir}` | `/workspace` | **rw** | The project being worked on |
-| `%USERPROFILE%\.claude` | `/root/.claude` | **rw** | Claude settings, memory, sessions, tasks, hooks, plugins |
-| `%USERPROFILE%\.claude.json` | `/root/.claude.json` | **rw** | Claude global metadata (startup count, tips, etc.) |
-| `%USERPROFILE%\.gitconfig` | `/root/.gitconfig` | **ro** | Git identity & settings |
-| `%USERPROFILE%\.ssh` | `/root/.ssh` | **ro** | SSH keys for git operations (optional, off by default) |
+| `%USERPROFILE%\.claude` | `/home/developer/.claude` | **rw** | Claude settings, memory, sessions, tasks, hooks, plugins |
+| `%USERPROFILE%\.claude.json` | `/home/developer/.claude.json` | **rw** | Claude global metadata (startup count, tips, etc.) |
+| `%USERPROFILE%\.gitconfig` | `/home/developer/.gitconfig` | **ro** | Git identity & settings (gpg.program overridden via env) |
+| `%USERPROFILE%\.gnupg` | `/mnt/gnupg-host` | **ro** | GPG keys staging (copied to ~/.gnupg with correct ownership on start) |
+| `%USERPROFILE%\.ssh` | `/home/developer/.ssh` | **ro** | SSH keys for git operations (optional, off by default) |
+| `%USERPROFILE%\.config` | `/home/developer/.config` | **rw** | Tool settings (ccstatusline, etc.) |
+| Generated CLAUDE.md | `/home/developer/.claude/CLAUDE.md` | **ro** | Container context overlay (tools, refs, path mappings) |
 
 ### Reference Volumes (user-configured, readonly)
 
@@ -265,7 +282,7 @@ For cases where additional writable directories are needed (e.g., shared NuGet c
 {
   "containerSettings": {
     "extraMounts": [
-      { "hostPath": "P:\\NuGetCache", "containerPath": "/root/.nuget", "readonly": false }
+      { "hostPath": "P:\\NuGetCache", "containerPath": "/home/developer/.nuget", "readonly": false }
     ]
   }
 }
@@ -570,7 +587,7 @@ src/TerminalHost/TerminalHost/
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure
+### Phase 1: Core Infrastructure ✅
 - `ContainerSettings` domain model added to `AppConfiguration`
 - `IContainerService` interface and `ContainerService` implementation
 - Docker availability detection (check `docker info` succeeds)
@@ -579,21 +596,26 @@ src/TerminalHost/TerminalHost/
 - Path translation (Windows → Linux mount paths)
 - `TerminalControlFactory` integration: wrap commands as `docker exec -it` when container enabled
 
-### Phase 2: Settings & UI
-- Container section in Settings view
-- Reference volume management (add/remove/reorder)
-- Per-directory container toggle in toolbar
-- Container status indicator on tabs
-- Image rebuild button with progress toast
-- Dockerfile editor (opens in built-in file viewer)
-- Active container list in settings with stop/remove actions
+### Phase 2: Settings & UI ✅
+- ✅ Container section in Settings view (enable, Docker path, image name/tag, auto-approve, SSH mount, network mode, stop-on-exit)
+- ✅ Per-directory container toggle via command palette with auto tab reload
+- ✅ Image rebuild with progress toast
+- ✅ All command palette commands registered (toggle, rebuild, stop, remove, list, clean, check status, reload tab)
+- ✅ Reference volume management (add/remove in Settings UI)
+- ✅ Container status indicator on tabs (🐳 prefix + tooltip)
+- ✅ Dockerfile editor button (opens in system default editor)
+- ✅ Active container list in settings with stop/remove per container
 
-### Phase 3: Command Palette & Polish
-- All command palette commands registered
-- `REFS.md` generation on container start
-- Graceful handling of Docker Desktop not running (toast + guidance)
-- Container cleanup on app exit (configurable: stop all / leave running)
-- First-run experience: detect Docker, offer to build image, configure SSH mount
+### Phase 3: Command Palette & Polish ✅
+- ✅ Container-specific `~/.claude/CLAUDE.md` overlay (tools, refs, path mappings)
+- ✅ Graceful handling of Docker Desktop not running (toast with guidance)
+- ✅ Container cleanup on app exit (configurable via `stopContainersOnExit` setting)
+- ✅ GPG signing support (key copy with correct ownership, gpg.program override)
+- ✅ Git autocrlf override (prevents phantom diffs from CRLF/LF mismatch)
+- ✅ `CLAUDE_CODE_*` env var forwarding from host
+- ✅ `~/.gnupg` GPG keys, `~/.config` tool settings mounted
+- ✅ Non-root `developer` user (required for `--dangerously-skip-permissions`)
+- ☐ First-run experience: detect Docker, offer to build image, configure SSH mount
 
 ### Phase 4: Advanced Features
 - Container health monitoring (periodic docker inspect)

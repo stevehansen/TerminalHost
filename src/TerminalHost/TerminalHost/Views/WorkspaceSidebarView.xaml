@@ -186,6 +186,12 @@
                                    VerticalAlignment="Center"
                                    ToolTip="Stashed changes"
                                    Visibility="{Binding StashCount, Converter={StaticResource CountToVisibilityConverter}}"/>
+                        <TextBlock Text="🐳"
+                                   FontSize="10"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"
+                                   ToolTip="Running in Docker container"
+                                   Visibility="{Binding IsContainerized, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </StackPanel>
 
                     <!-- Activity Indicators -->

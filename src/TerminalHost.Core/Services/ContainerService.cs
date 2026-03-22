@@ -119,11 +119,11 @@ public class ContainerService : IContainerService
         switch (state)
         {
             case ContainerState.Running:
-                return containerName;
+                break;
 
             case ContainerState.Stopped:
                 await StartContainerAsync(containerName);
-                return containerName;
+                break;
 
             case ContainerState.NotFound:
                 // Ensure image exists
@@ -135,11 +135,17 @@ public class ContainerService : IContainerService
                 }
 
                 await CreateContainerAsync(workspaceDir, containerName);
-                return containerName;
+                break;
 
             default:
                 throw new InvalidOperationException($"Unexpected container state: {state}");
         }
+
+        // Copy GPG keys from staging mount to container-local dir with correct ownership.
+        // Windows mounts appear as root-owned; GPG refuses "unsafe ownership on homedir".
+        await InitGpgKeysAsync(containerName);
+
+        return containerName;
     }
 
     public bool IsAutoApproveEnabled
@@ -276,6 +282,13 @@ public class ContainerService : IContainerService
             args.Append($" -e \"{key}={value}\"");
         }
 
+        // Forward all CLAUDE_CODE_* environment variables from the host
+        foreach (var key in Environment.GetEnvironmentVariables().Keys.Cast<string>()
+            .Where(k => k.StartsWith("CLAUDE_CODE_", StringComparison.OrdinalIgnoreCase)))
+        {
+            args.Append($" -e \"{key}={Environment.GetEnvironmentVariable(key)}\"");
+        }
+
         // TerminalHost API URL for host proxy communication
         // host.docker.internal resolves to the host machine from inside Docker Desktop containers
         var apiPort = config.Settings.Api.Port;
@@ -310,9 +323,9 @@ public class ContainerService : IContainerService
         var claudeJson = Path.Combine(userProfile, ".claude.json");
 
         if (_fileSystem.DirectoryExists(claudeDir))
-            args.Append($" -v \"{claudeDir}:/root/.claude\"");
+            args.Append($" -v \"{claudeDir}:{ContainerHome}/.claude\"");
         if (_fileSystem.FileExists(claudeJson))
-            args.Append($" -v \"{claudeJson}:/root/.claude.json\"");
+            args.Append($" -v \"{claudeJson}:{ContainerHome}/.claude.json\"");
 
         // Overlay mount: map the host's project session directory to where the container
         // will look for it. Claude Code stores sessions under ~/.claude/projects/{encoded-path}/
@@ -329,20 +342,40 @@ public class ContainerService : IContainerService
             Directory.CreateDirectory(hostProjectDir);
 
         // Specific mount overrides the broader ~/.claude mount (Docker mount precedence)
-        args.Append($" -v \"{hostProjectDir}:/root/.claude/projects/{containerProjectKey}\"");
+        args.Append($" -v \"{hostProjectDir}:{ContainerHome}/.claude/projects/{containerProjectKey}\"");
+
+        // Generate a container-specific CLAUDE.md that overlays ~/.claude/CLAUDE.md.
+        // This preserves the host's global instructions and appends container context
+        // (environment, tools, reference volumes). File mount overrides the dir mount.
+        var containerClaudeMd = GenerateContainerClaudeMd(
+            claudeDir, workspaceDir, referenceVolumes.Where(v => _fileSystem.DirectoryExists(v.HostPath)).ToList());
+        if (containerClaudeMd != null)
+            args.Append($" -v \"{containerClaudeMd}:{ContainerHome}/.claude/CLAUDE.md:ro\"");
 
         // Git config (readonly)
         var gitConfig = Path.Combine(userProfile, ".gitconfig");
         if (_fileSystem.FileExists(gitConfig))
-            args.Append($" -v \"{gitConfig}:/root/.gitconfig:ro\"");
+            args.Append($" -v \"{gitConfig}:{ContainerHome}/.gitconfig:ro\"");
+
+        // GPG keys for commit signing — mount to staging path, then copy with correct
+        // ownership after start. Direct mount fails because Windows ownership appears as
+        // root, and GPG refuses "unsafe ownership on homedir".
+        var gnupgDir = Path.Combine(userProfile, ".gnupg");
+        if (_fileSystem.DirectoryExists(gnupgDir))
+            args.Append($" -v \"{gnupgDir}:/mnt/gnupg-host:ro\"");
 
         // SSH keys (optional, readonly)
         if (cs.MountSsh)
         {
             var sshDir = Path.Combine(userProfile, ".ssh");
             if (_fileSystem.DirectoryExists(sshDir))
-                args.Append($" -v \"{sshDir}:/root/.ssh:ro\"");
+                args.Append($" -v \"{sshDir}:{ContainerHome}/.ssh:ro\"");
         }
+
+        // Share host ~/.config for tools that store settings there (e.g., ccstatusline)
+        var hostConfigDir = Path.Combine(userProfile, ".config");
+        if (_fileSystem.DirectoryExists(hostConfigDir))
+            args.Append($" -v \"{hostConfigDir}:{ContainerHome}/.config\"");
 
         // Reference volumes (readonly) — reuse the list from env var setup above
         foreach (var vol in referenceVolumes)
@@ -377,6 +410,42 @@ public class ContainerService : IContainerService
             throw new InvalidOperationException($"Failed to create container: {error}");
     }
 
+    /// <summary>
+    /// Copies GPG keys from the staging mount (/mnt/gnupg-host) into the container's
+    /// home directory with correct ownership and permissions. Skips if no keys mounted.
+    /// </summary>
+    private async Task InitGpgKeysAsync(string containerName)
+    {
+        try
+        {
+            var dockerPath = GetDockerPath();
+
+            // Check if the staging mount exists
+            var (checkExit, _, _) = await _processService.RunAsync(
+                dockerPath, $"exec {containerName} test -d /mnt/gnupg-host",
+                timeout: TimeSpan.FromSeconds(5));
+
+            if (checkExit != 0)
+                return; // No GPG keys mounted
+
+            // Copy keys, fix ownership/permissions, remove agent sockets (host-specific)
+            await _processService.RunAsync(
+                dockerPath,
+                $"exec {containerName} sh -c \"" +
+                $"rm -rf {ContainerHome}/.gnupg && " +
+                $"cp -r /mnt/gnupg-host {ContainerHome}/.gnupg && " +
+                $"chmod 700 {ContainerHome}/.gnupg && " +
+                $"find {ContainerHome}/.gnupg -type f -exec chmod 600 {{}} \\; && " +
+                $"rm -f {ContainerHome}/.gnupg/S.gpg-agent* {ContainerHome}/.gnupg/*.lock" +
+                $"\"",
+                timeout: TimeSpan.FromSeconds(10));
+        }
+        catch
+        {
+            // GPG key setup is best-effort
+        }
+    }
+
     private async Task StartContainerAsync(string containerName)
     {
         var dockerPath = GetDockerPath();
@@ -386,6 +455,80 @@ public class ContainerService : IContainerService
 
         if (exitCode != 0)
             throw new InvalidOperationException($"Failed to start container: {error}");
+    }
+
+    /// <summary>
+    /// Generates a container-specific CLAUDE.md that includes the host's global instructions
+    /// plus container context. Written to a host temp file and overlay-mounted into the container.
+    /// </summary>
+    private string? GenerateContainerClaudeMd(string claudeDir, string workspaceDir, List<ReferenceVolume> mountedVolumes)
+    {
+        try
+        {
+            var sb = new StringBuilder();
+
+            // Preserve the host's global CLAUDE.md content
+            var hostClaudeMd = Path.Combine(claudeDir, "CLAUDE.md");
+            if (_fileSystem.FileExists(hostClaudeMd))
+            {
+                sb.AppendLine(_fileSystem.ReadAllText(hostClaudeMd).TrimEnd());
+                sb.AppendLine();
+                sb.AppendLine("---");
+                sb.AppendLine();
+            }
+
+            // Container context section
+            sb.AppendLine("# Container Environment");
+            sb.AppendLine();
+            sb.AppendLine("You are running inside a Docker container managed by TerminalHost.");
+            sb.AppendLine("The project workspace is mounted at `/workspace` from the host.");
+            sb.AppendLine();
+
+            // Installed tools
+            sb.AppendLine("## Pre-installed Tools");
+            sb.AppendLine();
+            sb.AppendLine("- **Node.js 22** (via NVM) — `node`, `npm`, `npx`");
+            sb.AppendLine("- **Bun** — `bun`, `bunx`");
+            sb.AppendLine("- **.NET 8/9/10** — `dotnet`");
+            sb.AppendLine("- **Python 3** — `python3`, `pip3`");
+            sb.AppendLine("- **Build tools** — `git`, `curl`, `wget`, `jq`, `ripgrep`, `tree`, `vim`");
+            sb.AppendLine();
+
+            // Reference volumes
+            if (mountedVolumes.Count > 0)
+            {
+                sb.AppendLine("## Reference Libraries (readonly)");
+                sb.AppendLine();
+                sb.AppendLine("The following host directories are mounted read-only for reference.");
+                sb.AppendLine("Use the container path when reading files.");
+                sb.AppendLine();
+                foreach (var vol in mountedVolumes)
+                {
+                    sb.AppendLine($"- `/refs/{vol.Name}` ← host: `{vol.HostPath}`");
+                }
+                sb.AppendLine();
+            }
+
+            // Path mapping note
+            sb.AppendLine("## Path Mapping");
+            sb.AppendLine();
+            sb.AppendLine($"- `/workspace` ← host: `{workspaceDir}`");
+            sb.AppendLine($"- `~` = `{ContainerHome}` (non-root user: `developer`)");
+            sb.AppendLine();
+
+            // Write to a temp file per container
+            var containerDir = Path.Combine(_configDirectory, "container");
+            if (!_fileSystem.DirectoryExists(containerDir))
+                Directory.CreateDirectory(containerDir);
+
+            var claudeMdPath = Path.Combine(containerDir, $"CLAUDE.md");
+            _fileSystem.WriteAllText(claudeMdPath, sb.ToString());
+            return claudeMdPath;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private List<ReferenceVolume> GetReferenceVolumes(string workspaceDir, AppConfiguration config)
@@ -426,33 +569,26 @@ public class ContainerService : IContainerService
             .Replace('/', '-');
     }
 
+    /// <summary>
+    /// Home directory for the non-root container user.
+    /// Must match the user created in the Dockerfile.
+    /// </summary>
+    internal const string ContainerHome = "/home/developer";
+
     private const string DefaultDockerfile = """
         FROM ubuntu:24.04
 
         ENV DEBIAN_FRONTEND=noninteractive
         ENV TZ=UTC
 
-        # System essentials
+        # System essentials (as root)
         RUN apt-get update && apt-get install -y \
-            build-essential git curl wget unzip ca-certificates \
+            build-essential git curl wget unzip ca-certificates gnupg \
             libssl-dev zlib1g-dev libffi-dev vim tree jq ripgrep \
+            python3 python3-pip python3-venv \
             && rm -rf /var/lib/apt/lists/*
 
-        # Node.js 22 via NVM
-        ENV NVM_DIR=/root/.nvm
-        RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-            && . "$NVM_DIR/nvm.sh" && nvm install 22 && nvm use 22
-
-        # Bun (for statusline and fast npm scripts)
-        RUN curl -fsSL https://bun.sh/install | bash
-        ENV BUN_INSTALL=/root/.bun
-        ENV PATH="$BUN_INSTALL/bin:$PATH"
-
-        # Python 3
-        RUN apt-get update && apt-get install -y python3 python3-pip python3-venv \
-            && rm -rf /var/lib/apt/lists/*
-
-        # .NET SDKs (8, 9, 10)
+        # .NET SDKs (system-wide, as root)
         RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
             && chmod +x /tmp/dotnet-install.sh \
             && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
@@ -463,19 +599,47 @@ public class ContainerService : IContainerService
         ENV DOTNET_ROOT=/usr/share/dotnet
         ENV PATH="$DOTNET_ROOT:$PATH"
 
-        # Claude Code
-        RUN curl -fsSL https://claude.ai/install.sh | bash
-
-        # Host proxy: forwards hook calls from container to the TerminalHost REST API on the host.
-        # The TERMINALHOST_API env var is set at container creation time by TerminalHost.
+        # Host proxy (as root, before switching user)
         COPY host-proxy.sh /usr/local/bin/host.exe
         RUN chmod +x /usr/local/bin/host.exe
 
-        # Shell prompt
-        RUN echo 'PS1="[container] \\w\\$ "' >> /root/.bashrc
+        # Git: trust all mounted directories (as root, in system config so it
+        # survives the readonly ~/.gitconfig mount from host)
+        RUN git config --system --add safe.directory '*'
 
-        # Source NVM in bash
-        RUN echo '. "$NVM_DIR/nvm.sh"' >> /root/.bashrc
+        # Override Windows-specific git config that comes from the host's
+        # readonly .gitconfig mount. GIT_CONFIG_COUNT env vars have the
+        # HIGHEST precedence, above all file-based git config.
+        # 0: gpg.program — host path (C:\Program Files\...) doesn't exist in Linux
+        # 1: core.autocrlf — Windows CRLF files mounted into Linux cause phantom diffs
+        ENV GIT_CONFIG_COUNT=2
+        ENV GIT_CONFIG_KEY_0=gpg.program
+        ENV GIT_CONFIG_VALUE_0=gpg
+        ENV GIT_CONFIG_KEY_1=core.autocrlf
+        ENV GIT_CONFIG_VALUE_1=true
+
+        # Create non-root user (required for Claude Code --dangerously-skip-permissions)
+        RUN useradd -m -s /bin/bash developer \
+            && mkdir -p /workspace && chown developer:developer /workspace
+        USER developer
+
+        # Node.js 22 via NVM (as developer)
+        ENV NVM_DIR=/home/developer/.nvm
+        RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+            && . "$NVM_DIR/nvm.sh" && nvm install 22 && nvm use 22
+
+        # Bun (as developer)
+        RUN curl -fsSL https://bun.sh/install | bash
+        ENV BUN_INSTALL=/home/developer/.bun
+        ENV PATH="$BUN_INSTALL/bin:$PATH"
+
+        # Claude Code (as developer — needs node via NVM)
+        ENV PATH="/home/developer/.local/bin:$PATH"
+        RUN . "$NVM_DIR/nvm.sh" && curl -fsSL https://claude.ai/install.sh | bash
+
+        # Shell prompt + NVM in bash
+        RUN echo 'PS1="[container] \\w\\$ "' >> /home/developer/.bashrc \
+            && echo '. "$NVM_DIR/nvm.sh"' >> /home/developer/.bashrc
 
         WORKDIR /workspace
         CMD ["/bin/bash"]
@@ -508,12 +672,12 @@ public class ContainerService : IContainerService
                 data=$(printf '%s' "$data" | sed "s|/workspace|${escaped}|g")
             fi
 
-            # Translate /root → host user profile (e.g., C:\Users\steve)
-            # This covers /root/.claude/... paths in hook data
+            # Translate /home/developer → host user profile (e.g., C:\Users\steve)
+            # This covers /home/developer/.claude/... paths in hook data
             if [ -n "$HOST_UP" ]; then
                 local escaped
                 escaped=$(printf '%s' "$HOST_UP" | sed 's/\\/\\\\/g')
-                data=$(printf '%s' "$data" | sed "s|/root|${escaped}|g")
+                data=$(printf '%s' "$data" | sed "s|/home/developer|${escaped}|g")
             fi
 
             # Translate /refs/<name> → host reference volume paths
@@ -550,7 +714,7 @@ public class ContainerService : IContainerService
         echo "host.exe proxy: running inside a container."
         echo "Path mappings:"
         echo "  /workspace -> ${HOST_WS:-<not set>}"
-        echo "  /root      -> ${HOST_UP:-<not set>}"
+        echo "  /home/developer -> ${HOST_UP:-<not set>}"
         env | grep '^TERMINALHOST_REF_' | while IFS='=' read -r key value; do
             ref_name="${key#TERMINALHOST_REF_}"
             echo "  /refs/${ref_name} -> ${value}"

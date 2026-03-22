@@ -21,6 +21,7 @@
                     Padding="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToPaddingConverter}, ConverterParameter='8,4|14,8'}"
                     Margin="0,0,2,0"
                     MinWidth="{Binding DataContext.TouchMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource TouchModeToDoubleConverter}, ConverterParameter='100|140'}"
+                    ToolTip="{Binding ContainerTooltip}"
                     AllowDrop="True"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                     PreviewMouseLeftButtonDown="Tab_PreviewMouseLeftButtonDown"

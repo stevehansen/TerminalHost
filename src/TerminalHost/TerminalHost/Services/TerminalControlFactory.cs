@@ -143,8 +143,8 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         var binaryName = Path.GetFileNameWithoutExtension(
             Environment.ExpandEnvironmentVariables(commandExe));
 
-        // When auto-approve is enabled and this is Claude Code, pass --dangerously-skip-permissions
-        // since the container itself is the sandbox
+        // Pass --dangerously-skip-permissions for Claude Code in containers
+        // (container runs as non-root 'developer' user, container itself is the sandbox)
         string? extraArgs = null;
         if (_containerService.IsAutoApproveEnabled &&
             binaryName.Equals("claude", StringComparison.OrdinalIgnoreCase))

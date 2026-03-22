@@ -48,6 +48,8 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 
 - [x] **PowerToys CmdPal Extension**: Separate extension project (`src/TerminalHost.CmdPal/`) integrating with PowerToys Command Palette. Dock band widget showing active project/git/activity status, workspace switcher, git status markdown page, tasks list. Communicates via REST API.
 
+- [x] **Containerized Workspaces**: Docker-based isolated environments for AI agents. Settings UI (Ctrl+, Containers section) with global enable, Docker path, image name/tag, auto-approve, SSH mount, network mode, reference volume management, active container list with stop/remove, Dockerfile editor button, stop-on-exit setting. Per-project toggle via command palette with auto tab reload. 🐳 tab indicator for containerized workspaces. Progress toast for image builds. REFS.md auto-generation. Graceful Docker-not-running handling.
+
 ### Deferred Features
 
 (None currently)
@@ -590,7 +592,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
-| [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Draft** | 4 phases planned |
+| [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
 
 ## Remaining Work Summary
 
@@ -611,7 +613,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | **Low** | Playground Templates | RemainingFeatures.md |
 | **Future** | Timeline IDE (remaining) | TimelineIDE.md |
 | **Future** | Write Endpoints & MCP Server (API Phase 5) | RestApiAndWebhooks.md |
-| **Future** | Containerized Workspaces (Docker) | ContainerizedWorkspaces.md |
+| **Future** | Containerized Workspaces (remaining phases) | ContainerizedWorkspaces.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |
 
 ## Future Considerations

@@ -386,6 +386,10 @@
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Channels}"/>
+                    <RadioButton Content="Containers"
+                                 GroupName="SettingsSection"
+                                 Style="{StaticResource SidebarItemButton}"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Containers}"/>
                 </StackPanel>
             </Border>
 
@@ -2744,6 +2748,264 @@
                             <TextBlock Text="Automatically add the channel server to each project's .mcp.json file."
                                        Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
                         </StackPanel>
+                    </StackPanel>
+
+                    <!-- Containers Settings Section -->
+                    <StackPanel Margin="24"
+                                Visibility="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Containers}">
+                        <TextBlock Text="Containerized Workspaces" Style="{StaticResource SectionHeader}" Margin="0,0,0,16"/>
+                        <TextBlock Text="Run AI assistants inside Docker containers for isolation. Per-project overrides are available via the command palette (Container: Toggle)."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,16"/>
+
+                        <!-- Requirements Notice -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Requirements" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                                <TextBlock Text="&#x2022; Docker Desktop must be installed and running"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; First use builds a workspace image (~10 min, one-time)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; Existing tabs must be reloaded after enabling (Tab: Reload in command palette)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Enable Containers -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable containerized workspaces globally"
+                                      IsChecked="{Binding ContainerEnabled}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="When enabled, new project tabs run AI assistants and shells inside Docker containers. Per-project overrides take precedence."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Docker Path -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Docker Executable" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding ContainerDockerPath, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="400" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Path to the docker CLI. Default: docker (uses PATH)."
+                                       Style="{StaticResource HelpText}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Image Name + Tag -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Image Name" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding ContainerImageName, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource FormTextBox}" Width="300"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Image Tag" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding ContainerImageTag, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource FormTextBox}" Width="100"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Security & Mounts -->
+                        <TextBlock Text="Security &amp; Mounts" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
+
+                        <StackPanel Margin="0,0,0,8">
+                            <CheckBox Content="Auto-approve in container (--dangerously-skip-permissions)"
+                                      IsChecked="{Binding ContainerAutoApprove}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Skip Claude Code permission prompts inside containers. The container itself acts as the sandbox."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Mount SSH keys (readonly)"
+                                      IsChecked="{Binding ContainerMountSsh}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Mount ~/.ssh inside the container as readonly for git SSH access."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Network Mode -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Network Mode" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding ContainerNetworkMode, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource FormTextBox}" Width="200" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Docker network mode: bridge (default), host, or none."
+                                       Style="{StaticResource HelpText}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Stop on exit -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Stop containers when TerminalHost exits"
+                                      IsChecked="{Binding ContainerStopOnExit}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Disable to leave containers running for faster reattach on next launch."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Reference Volumes -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header + Toolbar -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Reference Volumes (readonly)" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <Button Content="+ Add" Command="{Binding AddReferenceVolumeCommand}" Style="{StaticResource SettingsToolbarButton}" Margin="0,0,4,0"/>
+                                <Button Content="Delete" Command="{Binding DeleteReferenceVolumeCommand}" Style="{StaticResource SettingsToolbarButton}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="0" Text="Shared source code mounted at /refs/{name} inside the container."
+                                       Style="{StaticResource SectionDescription}" Margin="0,20,0,0"/>
+
+                            <!-- List -->
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding ContainerReferenceVolumes}"
+                                     SelectedItem="{Binding SelectedReferenceVolume}"
+                                     Background="{StaticResource BackgroundDarkBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     MaxHeight="150" Margin="0,0,0,8">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                        <Setter Property="Padding" Value="8,4"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding HostPath, Mode=OneWay}"/>
+                                            <Run Text=" → " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <Run Text="/refs/" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <Run Text="{Binding Name, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Edit Panel -->
+                            <StackPanel Grid.Row="2"
+                                        Visibility="{Binding SelectedReferenceVolume, Converter={StaticResource NullToCollapsedConverter}}">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <StackPanel Margin="0,0,12,0">
+                                        <TextBlock Text="Host Path" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox Text="{Binding EditRefVolHostPath, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}" Width="350"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox Text="{Binding EditRefVolName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource FormTextBox}" Width="200"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Content="Apply" Command="{Binding ApplyReferenceVolumeCommand}"
+                                        Style="{StaticResource SettingsToolbarButton}" Padding="16,6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Docker Image -->
+                        <TextBlock Text="Docker Image" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Content="Edit Dockerfile" Command="{Binding EditDockerfileCommand}"
+                                    Style="{StaticResource SettingsToolbarButton}" Padding="12,6" Margin="0,0,8,0"/>
+                            <TextBlock Text="Opens the Dockerfile in your default editor. Rebuild the image after changes."
+                                       Style="{StaticResource HelpText}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Active Containers -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Active Containers" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Button Content="Refresh" Command="{Binding RefreshContainersAsyncCommand}"
+                                    Style="{StaticResource SettingsToolbarButton}" Margin="0,0,4,0"/>
+                            <Button Content="Clean Stopped" Command="{Binding CleanStoppedContainersAsyncCommand}"
+                                    Style="{StaticResource SettingsToolbarButton}"/>
+                        </StackPanel>
+
+                        <ListBox ItemsSource="{Binding ActiveContainers}"
+                                 Background="{StaticResource BackgroundDarkBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="1"
+                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 MaxHeight="200" Margin="0,0,0,8">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                    <Setter Property="Padding" Value="8,4"/>
+                                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Content="Stop"
+                                                    Command="{Binding Tag.StopContainerAsyncCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource SettingsToolbarButton}" Padding="8,2" Margin="4,0,0,0"/>
+                                            <Button Content="Remove"
+                                                    Command="{Binding Tag.RemoveContainerAsyncCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource SettingsToolbarButton}" Padding="8,2" Margin="4,0,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock VerticalAlignment="Center">
+                                            <Run Text="{Binding Name, Mode=OneWay}"/>
+                                            <Run Text=" — " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <Run Text="{Binding State, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        </TextBlock>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
