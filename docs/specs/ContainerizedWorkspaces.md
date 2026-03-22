@@ -67,7 +67,7 @@ Default Dockerfile contents:
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
+ENV TZ=Europe/Brussels
 
 # System essentials (as root)
 RUN apt-get update && apt-get install -y \
@@ -81,7 +81,7 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
     && /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/share/dotnet \
-    && /tmp/dotnet-install.sh --channel 10.0 --quality preview --install-dir /usr/share/dotnet \
+    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
     && ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet \
     && rm /tmp/dotnet-install.sh
 ENV DOTNET_ROOT=/usr/share/dotnet
