@@ -121,15 +121,26 @@ The file is generated on the host at `%APPDATA%\TerminalHost\container\CLAUDE.md
 
 All `CLAUDE_CODE_*` environment variables from the host are automatically forwarded to the container. This includes feature flags like `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 
+## Dockerfile Versioning
+
+TerminalHost embeds a hash in the first line of the generated Dockerfile (`# TerminalHost Dockerfile vN hash:XXXX`). When a new version of TerminalHost ships with an updated Dockerfile template, it compares the embedded hash against the user's current Dockerfile. If the hashes differ, the user is prompted to rebuild the image.
+
+- **Automatic detection**: On startup or when opening a containerized workspace, TerminalHost checks whether the Dockerfile is stale.
+- **Guided rebuild**: The command palette action "Container: Rebuild Image" automatically updates a stale Dockerfile to the latest template before building.
+- **Manual edits preserved**: If the user has manually edited the Dockerfile and removed or changed the hash header, TerminalHost treats it as a custom Dockerfile and will not overwrite it. A toast notification informs the user that a newer template is available but their custom file was left untouched.
+- **First-time build**: When no Dockerfile exists yet, TerminalHost shows a guided dialog explaining the container setup and offering to build the image immediately.
+
 ## Default Docker Image
 
 The image (`terminalhost-workspace:latest`) includes:
 
-- **Ubuntu 24.04** with build-essential, git, curl, jq, ripgrep
+- **Ubuntu 24.04** with build-essential, git, curl, jq, ripgrep, gnupg
 - **Node.js 22** (via NVM) + **Bun**
 - **Python 3** with pip and venv
 - **.NET 8, 9, 10** SDKs
 - **Claude Code** (pre-installed)
+- **Claude Code sandbox** — bubblewrap, socat, @anthropic-ai/sandbox-runtime
+- **.NET global tools** — HC.Dev (`dev`), dotnet-outdated, SqlInliner, AsicSharp.Cli
 
 Customize the Dockerfile at `%APPDATA%\TerminalHost\container\Dockerfile` and rebuild via command palette.
 
@@ -188,6 +199,7 @@ The threat model is **accidental damage**, not malicious agents. For network iso
 | Container: Toggle for Current Workspace | Enable/disable for active tab |
 | Container: Rebuild Image | Rebuild from Dockerfile |
 | Container: Stop Current | Stop the active container |
+| Container: Recreate Current | Remove and recreate container (applies settings changes) |
 | Container: Remove Current | Remove the active container |
 | Container: List All | Show all containers and their state |
 | Container: Clean Stopped | Remove stopped containers |

@@ -658,6 +658,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            // Step 1: Check Docker availability
             if (!await _containerService!.IsDockerAvailableAsync())
             {
                 _toastService.Show(
@@ -665,7 +666,83 @@ public partial class MainViewModel : ObservableObject
                     ToastType.Warning);
                 return;
             }
-            await _containerService.EnsureContainerRunningAsync(workspaceDir);
+
+            // Step 2: First-time image build
+            if (!await _containerService.IsImageBuiltAsync())
+            {
+                var choice = _dialogService.ShowCustomButtons(
+                    "The container workspace image needs to be built before first use. " +
+                    "This is a one-time operation that takes approximately 5-10 minutes.\n\n" +
+                    "Build the image now?",
+                    "Container Setup",
+                    "Build Now", "Skip", "Cancel");
+
+                if (choice == 0)
+                {
+                    using var toast = _toastService.ShowProgress("Building container image...");
+                    var success = await _containerService.BuildImageAsync(line =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+                    });
+
+                    if (!success)
+                    {
+                        toast.Fail("Image build failed. Check Docker Desktop logs.");
+                        return;
+                    }
+                    toast.Complete("Container image built successfully");
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            // Step 3: Check if Dockerfile has been updated (new TerminalHost version)
+            var dockerfileStatus = _containerService.CheckDockerfileStatus();
+            if (dockerfileStatus == DockerfileStatus.Stale)
+            {
+                var choice = _dialogService.ShowCustomButtons(
+                    "The container Dockerfile has been updated in this version of TerminalHost " +
+                    "(new tools or fixes available). Rebuilding the image is recommended.\n\n" +
+                    "You can also rebuild later via command palette (Container: Rebuild Image).",
+                    "Dockerfile Updated",
+                    "Rebuild Now", "Skip");
+
+                if (choice == 0)
+                {
+                    _containerService.UpdateDockerfileToLatest();
+                    using var toast = _toastService.ShowProgress("Rebuilding container image...");
+                    var success = await _containerService.BuildImageAsync(line =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+                    });
+
+                    if (success)
+                        toast.Complete("Image rebuilt successfully");
+                    else
+                        toast.Fail("Image rebuild failed");
+                }
+            }
+
+            // Step 4: Ensure container running
+            var result = await _containerService.EnsureContainerRunningAsync(workspaceDir);
+
+            // Step 5: Staleness warnings (non-blocking)
+            if (result.IsConfigStale)
+            {
+                _toastService.Show(
+                    "Container settings have changed. Use 'Container: Recreate Current' from the command palette to apply.",
+                    ToastType.Warning);
+            }
+            else if (result.IsImageStale && dockerfileStatus != DockerfileStatus.Stale)
+            {
+                _toastService.Show(
+                    "This container was built from an older image. Rebuild and recreate for latest tools.",
+                    ToastType.Info);
+            }
         }
         catch (Exception ex)
         {
@@ -3161,6 +3238,16 @@ public partial class MainViewModel : ObservableObject
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
             new() {
+                Id = "container-recreate",
+                Name = "Container: Recreate Current",
+                Description = "Remove and recreate the container (applies settings changes)",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 23),
+                Execute = () => _ = RecreateCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
                 Id = "container-list",
                 Name = "Container: List All",
                 Description = "Show all TerminalHost Docker containers",
@@ -3240,6 +3327,12 @@ public partial class MainViewModel : ObservableObject
     private async Task RebuildContainerImageAsync()
     {
         if (_containerService == null) return;
+
+        // Update the Dockerfile to the latest embedded version if stale
+        var status = _containerService.CheckDockerfileStatus();
+        if (status == DockerfileStatus.Stale)
+            _containerService.UpdateDockerfileToLatest();
+
         using var toast = _toastService.ShowProgress("Building Docker image...");
         try
         {
@@ -3258,6 +3351,29 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             toast.Fail($"Image build failed: {ex.Message}");
+        }
+    }
+
+    private async Task RecreateCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        var dir = tab.Pair.WorkingDirectory;
+
+        using var toast = _toastService.ShowProgress("Recreating container...");
+        try
+        {
+            toast.Update("Removing old container...");
+            await _containerService.RemoveContainerAsync(dir);
+
+            toast.Update("Creating new container...");
+            await _containerService.EnsureContainerRunningAsync(dir);
+
+            toast.Complete("Container recreated — reloading tab...");
+            ReloadTerminalTab(tab);
+        }
+        catch (Exception ex)
+        {
+            toast.Fail($"Recreate failed: {ex.Message}");
         }
     }
 

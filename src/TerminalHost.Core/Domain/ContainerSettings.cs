@@ -141,3 +141,37 @@ public class ContainerInfo
     public ContainerState State { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Status of the on-disk Dockerfile relative to the embedded default.
+/// </summary>
+public enum DockerfileStatus
+{
+    /// <summary>No Dockerfile exists on disk.</summary>
+    Missing,
+    /// <summary>Dockerfile matches the current embedded version.</summary>
+    UpToDate,
+    /// <summary>Embedded version has changed — rebuild recommended.</summary>
+    Stale,
+    /// <summary>User has manually edited the Dockerfile (no hash header found).</summary>
+    UserModified
+}
+
+/// <summary>
+/// Result of ensuring a container is running, including staleness info.
+/// </summary>
+public class ContainerEnsureResult
+{
+    public string ContainerName { get; init; } = "";
+    public ContainerEnsureAction Action { get; init; }
+    public bool IsConfigStale { get; init; }
+    public bool IsImageStale { get; init; }
+}
+
+public enum ContainerEnsureAction
+{
+    AlreadyRunning,
+    Started,
+    Created,
+    ImageBuilt
+}

@@ -2938,11 +2938,21 @@
 
                         <!-- Docker Image -->
                         <TextBlock Text="Docker Image" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Status:" Style="{StaticResource HelpText}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding ContainerImageStatus}" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                            <TextBlock Text=" — Rebuild recommended" VerticalAlignment="Center"
+                                       Foreground="#F0C674" FontSize="12"
+                                       Visibility="{Binding ContainerImageStale, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <Button Content="Edit Dockerfile" Command="{Binding EditDockerfileCommand}"
                                     Style="{StaticResource SettingsToolbarButton}" Padding="12,6" Margin="0,0,8,0"/>
-                            <TextBlock Text="Opens the Dockerfile in your default editor. Rebuild the image after changes."
-                                       Style="{StaticResource HelpText}" VerticalAlignment="Center"/>
+                            <Button Content="Rebuild Image" Command="{Binding RebuildContainerImageCommand}"
+                                    Style="{StaticResource SettingsToolbarButton}" Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="↻" Command="{Binding RefreshImageStatusCommand}" ToolTip="Refresh status"
+                                    Style="{StaticResource SettingsToolbarButton}" Padding="6,6" Margin="0,0,8,0"/>
                         </StackPanel>
 
                         <!-- Separator -->
@@ -2951,9 +2961,9 @@
                         <!-- Active Containers -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="Active Containers" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                            <Button Content="Refresh" Command="{Binding RefreshContainersAsyncCommand}"
+                            <Button Content="Refresh" Command="{Binding RefreshContainersCommand}"
                                     Style="{StaticResource SettingsToolbarButton}" Margin="0,0,4,0"/>
-                            <Button Content="Clean Stopped" Command="{Binding CleanStoppedContainersAsyncCommand}"
+                            <Button Content="Clean Stopped" Command="{Binding CleanStoppedContainersCommand}"
                                     Style="{StaticResource SettingsToolbarButton}"/>
                         </StackPanel>
 
@@ -2989,11 +2999,11 @@
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                             <Button Content="Stop"
-                                                    Command="{Binding Tag.StopContainerAsyncCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                    Command="{Binding Tag.StopContainerCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource SettingsToolbarButton}" Padding="8,2" Margin="4,0,0,0"/>
                                             <Button Content="Remove"
-                                                    Command="{Binding Tag.RemoveContainerAsyncCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                    Command="{Binding Tag.RemoveContainerCommand, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource SettingsToolbarButton}" Padding="8,2" Margin="4,0,0,0"/>
                                         </StackPanel>

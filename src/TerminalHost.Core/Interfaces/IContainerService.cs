@@ -29,9 +29,9 @@ public interface IContainerService
 
     /// <summary>
     /// Ensure a container is running for the given workspace (create or start as needed).
-    /// Returns the container name.
+    /// Returns result with container name and staleness info.
     /// </summary>
-    Task<string> EnsureContainerRunningAsync(string workspaceDir);
+    Task<ContainerEnsureResult> EnsureContainerRunningAsync(string workspaceDir);
 
     /// <summary>
     /// Build the docker exec command for launching an interactive session.
@@ -82,4 +82,24 @@ public interface IContainerService
     /// Creates the default one if missing.
     /// </summary>
     void EnsureDockerfileExists();
+
+    /// <summary>
+    /// Check if the on-disk Dockerfile is stale relative to the embedded default.
+    /// </summary>
+    DockerfileStatus CheckDockerfileStatus();
+
+    /// <summary>
+    /// Overwrite the on-disk Dockerfile with the current embedded version.
+    /// </summary>
+    void UpdateDockerfileToLatest();
+
+    /// <summary>
+    /// Check if a container's settings have changed since it was created.
+    /// </summary>
+    Task<bool> IsContainerConfigStaleAsync(string workspaceDir);
+
+    /// <summary>
+    /// Check if a container was built from an older Dockerfile than the current one.
+    /// </summary>
+    Task<bool> IsContainerImageStaleAsync(string workspaceDir);
 }

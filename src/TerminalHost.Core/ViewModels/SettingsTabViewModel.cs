@@ -491,6 +491,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _containerStopOnExit = true;
 
+    // Image status
+    [ObservableProperty]
+    private string _containerImageStatus = "Unknown";
+
+    [ObservableProperty]
+    private bool _containerImageStale;
+
     // Reference volumes
     [ObservableProperty]
     private ObservableCollection<ReferenceVolume> _containerReferenceVolumes = [];
@@ -684,6 +691,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ContainerNetworkMode = config.Settings.Container.NetworkMode;
             ContainerStopOnExit = config.Settings.Container.StopContainersOnExit;
             ContainerReferenceVolumes = new ObservableCollection<ReferenceVolume>(config.Settings.Container.ReferenceVolumes);
+            RefreshImageStatus();
+            _ = RefreshContainersAsync();
 
             // Directory settings
             Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
@@ -1038,6 +1047,56 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             _processService.Start(dockerfilePath);
         else
             _toastService.Show("Dockerfile not found", ToastType.Warning);
+    }
+
+    [RelayCommand]
+    private void RefreshImageStatus()
+    {
+        if (_containerService == null) return;
+
+        var status = _containerService.CheckDockerfileStatus();
+        ContainerImageStatus = status switch
+        {
+            DockerfileStatus.Missing => "Not Built",
+            DockerfileStatus.UpToDate => "Up to Date",
+            DockerfileStatus.Stale => "Update Available",
+            DockerfileStatus.UserModified => "Custom (user modified)",
+            _ => "Unknown"
+        };
+        ContainerImageStale = status == DockerfileStatus.Stale;
+    }
+
+    [RelayCommand]
+    private async Task RebuildContainerImageAsync()
+    {
+        if (_containerService == null) return;
+
+        // Update Dockerfile to latest if stale
+        var status = _containerService.CheckDockerfileStatus();
+        if (status == DockerfileStatus.Stale)
+            _containerService.UpdateDockerfileToLatest();
+
+        using var toast = _toastService.ShowProgress("Building Docker image...");
+        try
+        {
+            var success = await _containerService.BuildImageAsync(line =>
+            {
+                if (!string.IsNullOrWhiteSpace(line))
+                    toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+            });
+
+            if (success)
+            {
+                toast.Complete("Docker image built successfully");
+                RefreshImageStatus();
+            }
+            else
+                toast.Fail("Image build failed — check Docker Desktop logs");
+        }
+        catch (Exception ex)
+        {
+            toast.Fail($"Build failed: {ex.Message}");
+        }
     }
 
     partial void OnSelectedWebhookChanged(WebhookEndpoint? value)

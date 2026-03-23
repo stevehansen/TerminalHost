@@ -111,18 +111,26 @@ public class ContainerService : IContainerService
             : ContainerState.Stopped;
     }
 
-    public async Task<string> EnsureContainerRunningAsync(string workspaceDir)
+    public async Task<ContainerEnsureResult> EnsureContainerRunningAsync(string workspaceDir)
     {
         var containerName = GetContainerName(workspaceDir);
         var state = await GetContainerStateAsync(workspaceDir);
+        var action = ContainerEnsureAction.AlreadyRunning;
+        var configStale = false;
+        var imageStale = false;
 
         switch (state)
         {
             case ContainerState.Running:
+                configStale = await IsContainerConfigStaleAsync(workspaceDir);
+                imageStale = await IsContainerImageStaleAsync(workspaceDir);
                 break;
 
             case ContainerState.Stopped:
                 await StartContainerAsync(containerName);
+                action = ContainerEnsureAction.Started;
+                configStale = await IsContainerConfigStaleAsync(workspaceDir);
+                imageStale = await IsContainerImageStaleAsync(workspaceDir);
                 break;
 
             case ContainerState.NotFound:
@@ -132,6 +140,11 @@ public class ContainerService : IContainerService
                     var built = await BuildImageAsync();
                     if (!built)
                         throw new InvalidOperationException("Failed to build Docker image. Check Docker Desktop is running.");
+                    action = ContainerEnsureAction.ImageBuilt;
+                }
+                else
+                {
+                    action = ContainerEnsureAction.Created;
                 }
 
                 await CreateContainerAsync(workspaceDir, containerName);
@@ -145,7 +158,13 @@ public class ContainerService : IContainerService
         // Windows mounts appear as root-owned; GPG refuses "unsafe ownership on homedir".
         await InitGpgKeysAsync(containerName);
 
-        return containerName;
+        return new ContainerEnsureResult
+        {
+            ContainerName = containerName,
+            Action = action,
+            IsConfigStale = configStale,
+            IsImageStale = imageStale
+        };
     }
 
     public bool IsAutoApproveEnabled
@@ -259,12 +278,114 @@ public class ContainerService : IContainerService
         var dockerfilePath = Path.Combine(containerDir, "Dockerfile");
         if (!_fileSystem.FileExists(dockerfilePath))
         {
-            _fileSystem.WriteAllText(dockerfilePath, DefaultDockerfile);
+            _fileSystem.WriteAllText(dockerfilePath, $"{DockerfileHashPrefix}{ComputeDockerfileHash()}\n{DefaultDockerfile}");
         }
 
         // Always write the host proxy script (it's small and may be updated between versions)
         var proxyPath = Path.Combine(containerDir, "host-proxy.sh");
         _fileSystem.WriteAllText(proxyPath, HostProxyScript);
+    }
+
+    public DockerfileStatus CheckDockerfileStatus()
+    {
+        var dockerfilePath = Path.Combine(_configDirectory, "container", "Dockerfile");
+        if (!_fileSystem.FileExists(dockerfilePath))
+            return DockerfileStatus.Missing;
+
+        var content = _fileSystem.ReadAllText(dockerfilePath);
+        if (!content.StartsWith(DockerfileHashPrefix))
+            return DockerfileStatus.UserModified;
+
+        var newlineIdx = content.IndexOf('\n');
+        if (newlineIdx < 0)
+            return DockerfileStatus.UserModified;
+
+        var existingHash = content[DockerfileHashPrefix.Length..newlineIdx].Trim();
+        return existingHash == ComputeDockerfileHash()
+            ? DockerfileStatus.UpToDate
+            : DockerfileStatus.Stale;
+    }
+
+    public void UpdateDockerfileToLatest()
+    {
+        var containerDir = Path.Combine(_configDirectory, "container");
+        if (!_fileSystem.DirectoryExists(containerDir))
+            Directory.CreateDirectory(containerDir);
+
+        var dockerfilePath = Path.Combine(containerDir, "Dockerfile");
+        _fileSystem.WriteAllText(dockerfilePath, $"{DockerfileHashPrefix}{ComputeDockerfileHash()}\n{DefaultDockerfile}");
+    }
+
+    public async Task<bool> IsContainerConfigStaleAsync(string workspaceDir)
+    {
+        var containerName = GetContainerName(workspaceDir);
+        var labels = await GetContainerLabelsAsync(containerName);
+
+        // No label means container predates versioning — treat as stale
+        if (!labels.TryGetValue("terminalhost.config-hash", out var storedHash))
+            return true;
+
+        return storedHash != ComputeConfigHash(workspaceDir);
+    }
+
+    public async Task<bool> IsContainerImageStaleAsync(string workspaceDir)
+    {
+        var containerName = GetContainerName(workspaceDir);
+        var labels = await GetContainerLabelsAsync(containerName);
+
+        if (!labels.TryGetValue("terminalhost.dockerfile-hash", out var storedHash))
+            return true;
+
+        return storedHash != ComputeDockerfileHash();
+    }
+
+    private const string DockerfileHashPrefix = "# terminalhost-dockerfile-hash:";
+
+    internal static string ComputeDockerfileHash()
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(DefaultDockerfile));
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+
+    internal string ComputeConfigHash(string workspaceDir)
+    {
+        var config = _configService.Load();
+        var cs = config.Settings.Container;
+        var refVols = GetReferenceVolumes(workspaceDir, config);
+
+        var sb = new StringBuilder();
+        sb.Append(cs.MountSsh);
+        sb.Append(cs.NetworkMode);
+        sb.Append(cs.AutoApproveInContainer);
+        sb.Append(string.Join(",", cs.EnvVars.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}")));
+        sb.Append(string.Join(",", refVols.OrderBy(v => v.Name).Select(v => $"{v.HostPath}:{v.Name}")));
+        sb.Append(string.Join(",", cs.ExtraMounts.OrderBy(m => m.HostPath).Select(m => $"{m.HostPath}:{m.ContainerPath}:{m.Readonly}")));
+        sb.Append(string.Join(",", cs.ExtraDockerArgs.OrderBy(a => a)));
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+
+    private async Task<Dictionary<string, string>> GetContainerLabelsAsync(string containerName)
+    {
+        try
+        {
+            var dockerPath = GetDockerPath();
+            var (exitCode, output, _) = await _processService.RunAsync(
+                dockerPath,
+                $"inspect -f \"{{{{json .Config.Labels}}}}\" {containerName}",
+                timeout: TimeSpan.FromSeconds(10));
+
+            if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+                return new Dictionary<string, string>();
+
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(output.Trim())
+                ?? new Dictionary<string, string>();
+        }
+        catch
+        {
+            return new Dictionary<string, string>();
+        }
     }
 
     private async Task CreateContainerAsync(string workspaceDir, string containerName)
@@ -352,6 +473,19 @@ public class ContainerService : IContainerService
         if (containerClaudeMd != null)
             args.Append($" -v \"{containerClaudeMd}:{ContainerHome}/.claude/CLAUDE.md:ro\"");
 
+        // Generate container-specific settings.local.json overlay for sandbox seccomp paths.
+        // Claude Code can't find NVM's global packages, so we point it to the fixed copy.
+        var containerSettings = GenerateContainerSettings();
+        if (containerSettings != null)
+            args.Append($" -v \"{containerSettings}:{ContainerHome}/.claude/settings.local.json:ro\"");
+
+        // Generate container-specific plugin overlays — known_marketplaces.json and
+        // installed_plugins.json contain Windows absolute paths that are invalid in Linux.
+        // We convert them to container paths and mount as file overlays.
+        var pluginOverlays = GenerateContainerPluginOverlays(claudeDir);
+        foreach (var (hostPath, containerPath) in pluginOverlays)
+            args.Append($" -v \"{hostPath}:{containerPath}:ro\"");
+
         // Git config (readonly)
         var gitConfig = Path.Combine(userProfile, ".gitconfig");
         if (_fileSystem.FileExists(gitConfig))
@@ -398,6 +532,10 @@ public class ContainerService : IContainerService
         // Extra docker args
         foreach (var arg in cs.ExtraDockerArgs)
             args.Append($" {arg}");
+
+        // Versioning labels for staleness detection
+        args.Append($" --label terminalhost.config-hash={ComputeConfigHash(workspaceDir)}");
+        args.Append($" --label terminalhost.dockerfile-hash={ComputeDockerfileHash()}");
 
         // Image and command (sleep infinity to keep container alive)
         args.Append($" {cs.ImageName}:{cs.ImageTag} sleep infinity");
@@ -455,6 +593,155 @@ public class ContainerService : IContainerService
 
         if (exitCode != 0)
             throw new InvalidOperationException($"Failed to start container: {error}");
+    }
+
+    /// <summary>
+    /// Generates a container settings.local.json with sandbox seccomp paths.
+    /// </summary>
+    private string? GenerateContainerSettings()
+    {
+        try
+        {
+            var containerDir = Path.Combine(_configDirectory, "container");
+            if (!_fileSystem.DirectoryExists(containerDir))
+                Directory.CreateDirectory(containerDir);
+
+            // Merge with host's settings.local.json if it exists
+            var hostSettings = new Dictionary<string, object>();
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var hostSettingsPath = Path.Combine(userProfile, ".claude", "settings.local.json");
+            if (_fileSystem.FileExists(hostSettingsPath))
+            {
+                var existing = _fileSystem.ReadAllText(hostSettingsPath);
+                hostSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing)
+                    ?? new Dictionary<string, object>();
+            }
+
+            // Add sandbox seccomp paths pointing to the fixed copy in the container
+            hostSettings["sandbox.seccomp.bpfPath"] = "/usr/local/share/sandbox-seccomp/bpf";
+            hostSettings["sandbox.seccomp.applyPath"] = "/usr/local/share/sandbox-seccomp/apply";
+
+            var json = System.Text.Json.JsonSerializer.Serialize(hostSettings, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+            var settingsPath = Path.Combine(containerDir, "settings.local.json");
+            _fileSystem.WriteAllText(settingsPath, json);
+            return settingsPath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Generates container-specific overlays for plugin JSON files whose paths reference
+    /// the Windows host filesystem. Converts Windows user-home paths to container paths.
+    /// Returns a list of (hostOverlayPath, containerMountPath) tuples.
+    /// </summary>
+    private List<(string HostPath, string ContainerPath)> GenerateContainerPluginOverlays(string claudeDir)
+    {
+        var overlays = new List<(string, string)>();
+        try
+        {
+            var containerDir = Path.Combine(_configDirectory, "container");
+            if (!_fileSystem.DirectoryExists(containerDir))
+                Directory.CreateDirectory(containerDir);
+
+            var pluginsDir = Path.Combine(claudeDir, "plugins");
+            if (!_fileSystem.DirectoryExists(pluginsDir))
+                return overlays;
+
+            // Files that contain absolute Windows paths needing conversion
+            var filesToOverlay = new[] { "known_marketplaces.json", "installed_plugins.json" };
+
+            foreach (var fileName in filesToOverlay)
+            {
+                var hostFilePath = Path.Combine(pluginsDir, fileName);
+                if (!_fileSystem.FileExists(hostFilePath))
+                    continue;
+
+                var content = _fileSystem.ReadAllText(hostFilePath);
+
+                // Parse JSON, walk all string values, convert Windows paths to container paths
+                var node = System.Text.Json.Nodes.JsonNode.Parse(content);
+                if (node == null) continue;
+
+                ConvertWindowsPathsInJson(node);
+
+                var converted = node.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                var overlayPath = Path.Combine(containerDir, $"plugins-{fileName}");
+                _fileSystem.WriteAllText(overlayPath, converted);
+                overlays.Add((overlayPath, $"{ContainerHome}/.claude/plugins/{fileName}"));
+            }
+        }
+        catch
+        {
+            // Don't fail container creation over plugin path conversion
+        }
+        return overlays;
+    }
+
+    /// <summary>
+    /// Recursively walks a JSON tree and converts Windows absolute paths to container paths.
+    /// </summary>
+    private static void ConvertWindowsPathsInJson(System.Text.Json.Nodes.JsonNode node)
+    {
+        if (node is System.Text.Json.Nodes.JsonObject obj)
+        {
+            foreach (var prop in obj.ToList())
+            {
+                if (prop.Value is System.Text.Json.Nodes.JsonValue val && val.TryGetValue<string>(out var str))
+                {
+                    var converted = ConvertWindowsPathToContainer(str);
+                    if (converted != str)
+                        obj[prop.Key] = converted;
+                }
+                else if (prop.Value != null)
+                {
+                    ConvertWindowsPathsInJson(prop.Value);
+                }
+            }
+        }
+        else if (node is System.Text.Json.Nodes.JsonArray arr)
+        {
+            for (int i = 0; i < arr.Count; i++)
+            {
+                if (arr[i] is System.Text.Json.Nodes.JsonValue val && val.TryGetValue<string>(out var str))
+                {
+                    var converted = ConvertWindowsPathToContainer(str);
+                    if (converted != str)
+                        arr[i] = converted;
+                }
+                else if (arr[i] != null)
+                {
+                    ConvertWindowsPathsInJson(arr[i]!);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Converts a Windows path containing .claude to the equivalent container path.
+    /// E.g., C:\Users\steve\.claude\plugins\... → /home/developer/.claude/plugins/...
+    /// </summary>
+    private static string ConvertWindowsPathToContainer(string value)
+    {
+        // Only convert Windows absolute paths (drive letter + colon + backslash)
+        if (value.Length < 3 || !char.IsLetter(value[0]) || value[1] != ':' || value[2] != '\\')
+            return value;
+
+        // Find .claude\ segment and replace everything before it with container home
+        var idx = value.IndexOf("\\.claude\\", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var remainder = value.Substring(idx + 8); // skip \.claude\
+            return ContainerHome + "/.claude/" + remainder.Replace('\\', '/');
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -516,12 +803,14 @@ public class ContainerService : IContainerService
             sb.AppendLine($"- `~` = `{ContainerHome}` (non-root user: `developer`)");
             sb.AppendLine();
 
-            // Write to a temp file per container
+            // Write to a per-workspace file (each workspace has different refs/paths)
             var containerDir = Path.Combine(_configDirectory, "container");
             if (!_fileSystem.DirectoryExists(containerDir))
                 Directory.CreateDirectory(containerDir);
 
-            var claudeMdPath = Path.Combine(containerDir, $"CLAUDE.md");
+            var normalizedDir = NormalizePath(workspaceDir);
+            var dirHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedDir)))[..8].ToLowerInvariant();
+            var claudeMdPath = Path.Combine(containerDir, $"CLAUDE-{dirHash}.md");
             _fileSystem.WriteAllText(claudeMdPath, sb.ToString());
             return claudeMdPath;
         }
@@ -586,6 +875,7 @@ public class ContainerService : IContainerService
             build-essential git curl wget unzip ca-certificates gnupg \
             libicu-dev libssl-dev zlib1g-dev libffi-dev vim tree jq ripgrep \
             python3 python3-pip python3-venv \
+            bubblewrap socat \
             && rm -rf /var/lib/apt/lists/*
 
         # .NET SDKs (system-wide, as root)
@@ -636,6 +926,21 @@ public class ContainerService : IContainerService
         # Claude Code (as developer — needs node via NVM)
         ENV PATH="/home/developer/.local/bin:$PATH"
         RUN . "$NVM_DIR/nvm.sh" && curl -fsSL https://claude.ai/install.sh | bash
+
+        # Claude Code sandbox dependencies (seccomp filter for bwrap)
+        # Install package then copy seccomp filters to a fixed path — Claude Code
+        # uses its own node runtime and can't find NVM's global packages.
+        RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/sandbox-runtime \
+            && SECCOMP_SRC="$(npm root -g)/@anthropic-ai/sandbox-runtime/vendor/seccomp" \
+            && mkdir -p /usr/local/share/sandbox-seccomp \
+            && cp -r "$SECCOMP_SRC/"* /usr/local/share/sandbox-seccomp/ 2>/dev/null || true
+
+        # .NET global tools
+        RUN dotnet tool install --global HC.Dev \
+            && dotnet tool install --global dotnet-outdated-tool \
+            && dotnet tool install --global SqlInliner \
+            && dotnet tool install --global AsicSharp.Cli
+        ENV PATH="$PATH:/home/developer/.dotnet/tools"
 
         # Shell prompt + NVM in bash
         RUN echo 'PS1="[container] \\w\\$ "' >> /home/developer/.bashrc \

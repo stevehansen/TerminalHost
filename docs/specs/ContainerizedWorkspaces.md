@@ -120,6 +120,19 @@ ENV PATH="$BUN_INSTALL/bin:$PATH"
 ENV PATH="/home/developer/.local/bin:$PATH"
 RUN . "$NVM_DIR/nvm.sh" && curl -fsSL https://claude.ai/install.sh | bash
 
+# Claude Code sandbox dependencies (bubblewrap, socat, sandbox-runtime)
+USER root
+RUN apt-get update && apt-get install -y bubblewrap socat && rm -rf /var/lib/apt/lists/*
+USER developer
+RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/sandbox-runtime
+
+# .NET global tools
+RUN dotnet tool install -g HC.Dev \
+    && dotnet tool install -g dotnet-outdated-tool \
+    && dotnet tool install -g SqlInliner \
+    && dotnet tool install -g AsicSharp.Cli
+ENV PATH="/home/developer/.dotnet/tools:$PATH"
+
 # Shell prompt + NVM in bash
 RUN echo 'PS1="[container] \w\$ "' >> /home/developer/.bashrc \
     && echo '. "$NVM_DIR/nvm.sh"' >> /home/developer/.bashrc
@@ -542,6 +555,7 @@ When containerized, the tab shows a subtle container indicator (e.g., small 🐳
 | Container: Rebuild Image | Rebuild Docker image from Dockerfile |
 | Container: Edit Dockerfile | Open Dockerfile in file viewer/editor |
 | Container: Stop Current | Stop the active workspace's container |
+| Container: Recreate Current | Remove and recreate container (applies settings changes) |
 | Container: Remove Current | Remove the active workspace's container |
 | Container: List All | Show all containers with state |
 | Container: Clean Stopped | Remove all stopped containers |
@@ -615,7 +629,11 @@ src/TerminalHost/TerminalHost/
 - ✅ `CLAUDE_CODE_*` env var forwarding from host
 - ✅ `~/.gnupg` GPG keys, `~/.config` tool settings mounted
 - ✅ Non-root `developer` user (required for `--dangerously-skip-permissions`)
-- ☐ First-run experience: detect Docker, offer to build image, configure SSH mount
+- ✅ Dockerfile versioning with hash-based staleness detection
+- ✅ First-time build experience with guided dialog
+- ✅ Config staleness detection via Docker container labels
+- ✅ "Container: Recreate Current" command palette action
+- ✅ Per-workspace CLAUDE.md generation (was shared, now per-workspace hash filename)
 
 ### Phase 4: Advanced Features
 - Container health monitoring (periodic docker inspect)
