@@ -3907,8 +3907,8 @@ public partial class MainViewModel : ObservableObject
         // Save open folders before closing
         SaveOpenFolders();
 
-        // Stop containers if configured — fire-and-forget on background thread
-        // to avoid blocking the UI thread during shutdown
+        // Stop containers if configured — run on thread pool to avoid UI thread
+        // deadlock, but wait with a timeout so the process doesn't exit too early
         if (_containerService != null)
         {
             try
@@ -3917,19 +3917,21 @@ public partial class MainViewModel : ObservableObject
                 if (config.Settings.Container.StopContainersOnExit)
                 {
                     var dockerPath = config.Settings.Container.DockerPath;
-                    Task.Run(async () =>
+                    var stopTask = Task.Run(async () =>
                     {
                         try
                         {
                             var containers = await _containerService.ListContainersAsync();
-                            foreach (var c in containers.Where(c => c.State == ContainerState.Running))
-                            {
-                                _ = _processService.RunAsync(dockerPath, $"stop -t 2 {c.Name}",
-                                    timeout: TimeSpan.FromSeconds(5));
-                            }
+                            var stopTasks = containers
+                                .Where(c => c.State == ContainerState.Running)
+                                .Select(c => _processService.RunAsync(dockerPath, $"stop -t 2 {c.Name}",
+                                    timeout: TimeSpan.FromSeconds(5)))
+                                .ToList();
+                            await Task.WhenAll(stopTasks);
                         }
                         catch { }
                     });
+                    stopTask.Wait(TimeSpan.FromSeconds(10));
                 }
             }
             catch { }

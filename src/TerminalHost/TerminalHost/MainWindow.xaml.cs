@@ -567,6 +567,10 @@ public partial class MainWindow : Window
         // Escape: Close voice bar first, then center panel, then popups
         if (e.Key == Key.Escape)
         {
+            // Let popup views handle their own Escape key
+            if (_viewModel.IsCommandPaletteOpen || _viewModel.IsTabSwitcherOpen)
+                return;
+
             // First priority: dismiss voice bar if visible
             if (_viewModel.VoiceBar.IsVisible)
             {

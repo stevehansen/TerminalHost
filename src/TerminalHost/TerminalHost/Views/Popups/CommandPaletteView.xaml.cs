@@ -1,5 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Threading;
 using TerminalHost.Core.Domain; // For PaletteCommand
 using TerminalHost.ViewModels; // For MainViewModel
 
@@ -11,14 +14,36 @@ public partial class CommandPaletteView : UserControl
     {
         InitializeComponent();
         Loaded += CommandPaletteView_Loaded;
+        IsVisibleChanged += CommandPaletteView_IsVisibleChanged;
     }
 
     private void CommandPaletteView_Loaded(object sender, RoutedEventArgs e)
     {
-        // Set keyboard focus to the search box when the palette becomes visible
-        // Using Keyboard.Focus ensures proper keyboard input routing
-        Keyboard.Focus(PaletteSearchBox);
-        PaletteSearchBox.SelectAll();
+        FocusSearchBox();
+    }
+
+    private void CommandPaletteView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+            FocusSearchBox();
+    }
+
+    private void FocusSearchBox()
+    {
+        // Defer focus to Input priority so the Popup's HWND is fully created.
+        // Then force Win32 focus to the Popup's HWND so the terminal's HwndHost
+        // stops intercepting special keys (Backspace, Enter, Escape, arrows).
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            // Move Win32 focus from the terminal HwndHost to this Popup's HWND
+            var source = PresentationSource.FromVisual(PaletteSearchBox) as HwndSource;
+            if (source != null)
+                SetFocus(source.Handle);
+
+            PaletteSearchBox.Focus();
+            Keyboard.Focus(PaletteSearchBox);
+            PaletteSearchBox.SelectAll();
+        }), DispatcherPriority.Input);
     }
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -77,4 +102,7 @@ public partial class CommandPaletteView : UserControl
             command.Execute();
         }
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetFocus(IntPtr hWnd);
 }

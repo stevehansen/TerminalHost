@@ -1,5 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Threading;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.ViewModels;
 
@@ -29,9 +32,14 @@ public partial class TabSwitcherView : UserControl
     {
         Dispatcher.BeginInvoke(new Action(() =>
         {
+            // Move Win32 focus from the terminal HwndHost to this Popup's HWND
+            var source = PresentationSource.FromVisual(SwitcherSearchBox) as HwndSource;
+            if (source != null)
+                SetFocus(source.Handle);
+
             SwitcherSearchBox.Focus();
             Keyboard.Focus(SwitcherSearchBox);
-        }), System.Windows.Threading.DispatcherPriority.Input);
+        }), DispatcherPriority.Input);
     }
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -91,4 +99,7 @@ public partial class TabSwitcherView : UserControl
             mainViewModel.IsTabSwitcherOpen = false;
         }
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetFocus(IntPtr hWnd);
 }
