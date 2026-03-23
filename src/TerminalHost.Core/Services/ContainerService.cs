@@ -574,7 +574,10 @@ public class ContainerService : IContainerService
             if (checkExit != 0)
                 return; // No GPG keys mounted
 
-            // Copy keys, fix ownership/permissions, remove agent sockets (host-specific)
+            // Copy keys, fix ownership/permissions, remove all stale host artifacts.
+            // Must clean: agent sockets, *.lock files, public-keys.d/*.lock, and
+            // dotlock files (.#lk0x*) — all contain host PIDs that cause "waiting for lock" hangs.
+            // Also kill any stale gpg-agent inherited from the copy.
             await _processService.RunAsync(
                 dockerPath,
                 $"exec {containerName} sh -c \"" +
@@ -582,7 +585,10 @@ public class ContainerService : IContainerService
                 $"cp -r /mnt/gnupg-host {ContainerHome}/.gnupg && " +
                 $"chmod 700 {ContainerHome}/.gnupg && " +
                 $"find {ContainerHome}/.gnupg -type f -exec chmod 600 {{}} \\; && " +
-                $"rm -f {ContainerHome}/.gnupg/S.gpg-agent* {ContainerHome}/.gnupg/*.lock" +
+                $"rm -f {ContainerHome}/.gnupg/S.gpg-agent* && " +
+                $"find {ContainerHome}/.gnupg -name '*.lock' -delete && " +
+                $"find {ContainerHome}/.gnupg -name '.#lk*' -delete && " +
+                $"gpgconf --kill gpg-agent 2>/dev/null; true" +
                 $"\"",
                 timeout: TimeSpan.FromSeconds(10));
         }
