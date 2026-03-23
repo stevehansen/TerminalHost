@@ -35,7 +35,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         // Containerized session: use docker exec instead of local command
         if (!string.IsNullOrEmpty(profile.ContainerName))
         {
-            startupCommand = BuildContainerCommand(profile.ContainerName, command);
+            startupCommand = BuildContainerCommand(profile.ContainerName, workingDir, command);
         }
         else
         {
@@ -129,13 +129,13 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     /// <summary>
     /// Build a docker exec command for running inside a container.
     /// </summary>
-    private string BuildContainerCommand(string containerName, string command)
+    private string BuildContainerCommand(string containerName, string workspaceDir, string command)
     {
         // For shell profiles (pwsh, cmd, bash, etc.), launch bash inside the container
         var commandExe = command.Split(' ')[0];
         if (IsShellCommand(commandExe))
         {
-            return _containerService.BuildExecCommand(containerName, "/bin/bash");
+            return _containerService.BuildExecCommand(containerName, workspaceDir, "/bin/bash");
         }
 
         // For AI assistants and other commands, extract just the binary name
@@ -152,7 +152,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
             extraArgs = "--dangerously-skip-permissions";
         }
 
-        return _containerService.BuildExecCommand(containerName, binaryName, extraArgs);
+        return _containerService.BuildExecCommand(containerName, workspaceDir, binaryName, extraArgs);
     }
 
     /// <summary>

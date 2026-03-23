@@ -154,6 +154,12 @@ public class ContainerService : IContainerService
                 throw new InvalidOperationException($"Unexpected container state: {state}");
         }
 
+        // Fix workspace ownership — Windows bind mounts appear as root:root inside the
+        // container, causing EACCES when developer user tries to write (e.g., npm install).
+        // Only runs on fresh create/start to avoid unnecessary overhead on already-running containers.
+        if (action is ContainerEnsureAction.Created or ContainerEnsureAction.ImageBuilt or ContainerEnsureAction.Started)
+            await InitWorkspaceOwnershipAsync(containerName, workspaceDir);
+
         // Copy GPG keys from staging mount to container-local dir with correct ownership.
         // Windows mounts appear as root-owned; GPG refuses "unsafe ownership on homedir".
         await InitGpgKeysAsync(containerName);
@@ -176,13 +182,14 @@ public class ContainerService : IContainerService
         }
     }
 
-    public string BuildExecCommand(string containerName, string? command = null, string? extraArgs = null)
+    public string BuildExecCommand(string containerName, string workspaceDir, string? command = null, string? extraArgs = null)
     {
         var dockerPath = GetDockerPath();
+        var containerWs = GetContainerWorkspacePath(workspaceDir);
         var cmd = command ?? "/bin/bash";
         if (!string.IsNullOrEmpty(extraArgs))
             cmd = $"{cmd} {extraArgs}";
-        return $"\"{dockerPath}\" exec -it -w /workspace {containerName} {cmd}";
+        return $"\"{dockerPath}\" exec -it -w {containerWs} {containerName} {cmd}";
     }
 
     public async Task StopContainerAsync(string workspaceDir)
@@ -437,11 +444,18 @@ public class ContainerService : IContainerService
             }
         }
 
-        // Working directory
-        args.Append(" -w /workspace");
+        // Container workspace path preserves the folder name (e.g., /workspace/IT4C)
+        // so tools like npm and Claude Code see the correct project name.
+        var containerWs = GetContainerWorkspacePath(workspaceDir);
 
-        // Project directory (read-write)
-        args.Append($" -v \"{workspaceDir}:/workspace\"");
+        // Working directory
+        args.Append($" -w {containerWs}");
+
+        // Container workspace path env var for host proxy path translation
+        args.Append($" -e \"TERMINALHOST_CONTAINER_WORKSPACE={containerWs}\"");
+
+        // Project directory (read-write) — mounted under /workspace/{folderName}
+        args.Append($" -v \"{workspaceDir}:{containerWs}\"");
 
         // Claude Code config directories (read-write for sharing with host)
         var claudeDir = Path.Combine(userProfile, ".claude");
@@ -459,10 +473,10 @@ public class ContainerService : IContainerService
         // Overlay mount: map the host's project session directory to where the container
         // will look for it. Claude Code stores sessions under ~/.claude/projects/{encoded-path}/
         // where {encoded-path} replaces path separators with dashes.
-        // Host: P:\HC → P--HC, Container: /workspace → -workspace
-        // By mounting P--HC at -workspace, sessions/memory/tasks all land in the right place.
+        // Host: P:\HC → P--HC, Container: /workspace/HC → -workspace-HC
+        // By mounting P--HC at -workspace-HC, sessions/memory/tasks all land in the right place.
         var hostProjectKey = EncodeClaudeProjectPath(workspaceDir);
-        var containerProjectKey = EncodeClaudeProjectPath("/workspace");
+        var containerProjectKey = EncodeClaudeProjectPath(containerWs);
         var hostProjectDir = Path.Combine(claudeDir, "projects", hostProjectKey);
 
         // Create the host project directory if it doesn't exist yet
@@ -554,6 +568,43 @@ public class ContainerService : IContainerService
 
         if (exitCode != 0)
             throw new InvalidOperationException($"Failed to create container: {error}");
+    }
+
+    /// <summary>
+    /// Fixes ownership of workspace contents so the developer user can write.
+    /// Windows bind mounts appear as root:root inside the container, causing EACCES errors
+    /// for tools like npm that need to create/modify files (e.g., node_modules).
+    /// Runs chown as root, skips if no root-owned files are found.
+    /// </summary>
+    private async Task InitWorkspaceOwnershipAsync(string containerName, string workspaceDir)
+    {
+        try
+        {
+            var dockerPath = GetDockerPath();
+            var containerWs = GetContainerWorkspacePath(workspaceDir);
+
+            // Quick check: are there any root-owned files? (depth-limited for speed)
+            var (checkExit, output, _) = await _processService.RunAsync(
+                dockerPath,
+                $"exec {containerName} find {containerWs} -maxdepth 3 -user root -not -path {containerWs} -print -quit",
+                timeout: TimeSpan.FromSeconds(5));
+
+            if (checkExit != 0 || string.IsNullOrWhiteSpace(output?.Trim()))
+                return; // No root-owned files found
+
+            // Fix ownership recursively. Must run as root since developer can't chown root-owned files.
+            // On Docker Desktop VirtioFS this makes files appear developer-owned (satisfies permission checks).
+            // On Docker Engine/WSL2 this genuinely fixes the filesystem permissions.
+            await _processService.RunAsync(
+                dockerPath,
+                $"exec -u root {containerName} chown -R developer:developer {containerWs}",
+                timeout: TimeSpan.FromSeconds(120));
+        }
+        catch
+        {
+            // Workspace ownership fix is best-effort — some Docker configurations
+            // may not support chown on bind mounts (e.g., read-only mounts).
+        }
     }
 
     /// <summary>
@@ -820,8 +871,9 @@ public class ContainerService : IContainerService
             // Container context section
             sb.AppendLine("# Container Environment");
             sb.AppendLine();
+            var containerWs = GetContainerWorkspacePath(workspaceDir);
             sb.AppendLine("You are running inside a Docker container managed by TerminalHost.");
-            sb.AppendLine("The project workspace is mounted at `/workspace` from the host.");
+            sb.AppendLine($"The project workspace is mounted at `{containerWs}` from the host.");
             sb.AppendLine();
 
             // Installed tools
@@ -852,7 +904,7 @@ public class ContainerService : IContainerService
             // Path mapping note
             sb.AppendLine("## Path Mapping");
             sb.AppendLine();
-            sb.AppendLine($"- `/workspace` ← host: `{workspaceDir}`");
+            sb.AppendLine($"- `{containerWs}` ← host: `{workspaceDir}`");
             sb.AppendLine($"- `~` = `{ContainerHome}` (non-root user: `developer`)");
             sb.AppendLine();
 
@@ -900,7 +952,7 @@ public class ContainerService : IContainerService
     /// <summary>
     /// Encodes a path the same way Claude Code does for ~/.claude/projects/ directory names.
     /// Path separators (\, /, :) are replaced with dashes.
-    /// Examples: "P:\HC" → "P--HC", "/workspace" → "-workspace"
+    /// Examples: "P:\HC" → "P--HC", "/workspace/HC" → "-workspace-HC"
     /// </summary>
     internal static string EncodeClaudeProjectPath(string path)
     {
@@ -916,6 +968,23 @@ public class ContainerService : IContainerService
     /// Must match the user created in the Dockerfile.
     /// </summary>
     internal const string ContainerHome = "/home/developer";
+
+    /// <summary>
+    /// Get the container-side workspace path for a host directory.
+    /// Preserves the folder name so tools (npm, Claude Code) see the correct project name.
+    /// E.g., "P:\IT4C" → "/workspace/IT4C", "P:\MyProject" → "/workspace/MyProject"
+    /// </summary>
+    internal static string GetContainerWorkspacePath(string workspaceDir)
+    {
+        var trimmed = workspaceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folderName = Path.GetFileName(trimmed);
+
+        // Fallback for drive roots like "P:\" where GetFileName returns ""
+        if (string.IsNullOrEmpty(folderName))
+            folderName = trimmed.Replace(":", "").Replace("\\", "").Replace("/", "");
+
+        return $"/workspace/{folderName}";
+    }
 
     private const string DefaultDockerfile = """
         FROM ubuntu:24.04
@@ -1023,23 +1092,25 @@ public class ContainerService : IContainerService
         # Path translation: container paths are rewritten to host paths so that
         # TerminalHost can resolve files correctly. The mapping env vars are set
         # automatically by TerminalHost when creating the container:
-        #   TERMINALHOST_HOST_WORKSPACE   — host path for /workspace (e.g., P:\HC)
-        #   TERMINALHOST_HOST_USERPROFILE — host path for /root     (e.g., C:\Users\steve)
-        #   TERMINALHOST_REF_<name>       — host path for /refs/<name>
+        #   TERMINALHOST_CONTAINER_WORKSPACE — container path (e.g., /workspace/IT4C)
+        #   TERMINALHOST_HOST_WORKSPACE      — host path for workspace (e.g., P:\IT4C)
+        #   TERMINALHOST_HOST_USERPROFILE    — host path for /home/developer (e.g., C:\Users\steve)
+        #   TERMINALHOST_REF_<name>          — host path for /refs/<name>
 
         API_URL="${TERMINALHOST_API:-http://host.docker.internal:19280}"
+        CONTAINER_WS="${TERMINALHOST_CONTAINER_WORKSPACE:-/workspace}"
         HOST_WS="${TERMINALHOST_HOST_WORKSPACE}"
         HOST_UP="${TERMINALHOST_HOST_USERPROFILE}"
 
         translate_paths() {
             local data="$1"
 
-            # Translate /workspace → host workspace path (e.g., P:\HC)
-            # JSON-escape backslashes: P:\HC → P:\\HC
+            # Translate container workspace path → host workspace path
+            # e.g., /workspace/IT4C → P:\IT4C (JSON-escaped: P:\\IT4C)
             if [ -n "$HOST_WS" ]; then
                 local escaped
                 escaped=$(printf '%s' "$HOST_WS" | sed 's/\\/\\\\/g')
-                data=$(printf '%s' "$data" | sed "s|/workspace|${escaped}|g")
+                data=$(printf '%s' "$data" | sed "s|${CONTAINER_WS}|${escaped}|g")
             fi
 
             # Translate /home/developer → host user profile (e.g., C:\Users\steve)
@@ -1083,7 +1154,7 @@ public class ContainerService : IContainerService
         # For non-hook invocations, print a helpful message
         echo "host.exe proxy: running inside a container."
         echo "Path mappings:"
-        echo "  /workspace -> ${HOST_WS:-<not set>}"
+        echo "  ${CONTAINER_WS} -> ${HOST_WS:-<not set>}"
         echo "  /home/developer -> ${HOST_UP:-<not set>}"
         env | grep '^TERMINALHOST_REF_' | while IFS='=' read -r key value; do
             ref_name="${key#TERMINALHOST_REF_}"

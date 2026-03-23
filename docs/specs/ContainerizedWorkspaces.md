@@ -32,7 +32,7 @@ AI coding agents (Claude Code, Gemini CLI, etc.) run with the same permissions a
 │  │ - build image    │    │  ┌────────────────────────┐  │ │
 │  │ - create/start   │    │  │  terminalhost-ws-xxx   │  │ │
 │  │ - exec sessions  │    │  │                        │  │ │
-│  │ - stop/remove    │    │  │  /workspace  (rw)      │  │ │
+│  │ - stop/remove    │    │  │  /workspace/{name} (rw) │  │ │
 │  │ - health check   │    │  │  /refs/Vidyano (ro)    │  │ │
 │  └─────────────────┘    │  │  /refs/CronosCore (ro) │  │ │
 │          │               │  │  /home/developer/.claude (rw)    │  │ │
@@ -163,35 +163,40 @@ Claude Code hooks and plugins reference `host.exe` for communication with Termin
 #!/bin/bash
 # Forwards hook events from container to TerminalHost REST API
 API_URL="${TERMINALHOST_API:-http://host.docker.internal:19280}"
+CONTAINER_WS="${TERMINALHOST_CONTAINER_WORKSPACE:-/workspace}"
+HOST_WS="${TERMINALHOST_HOST_WORKSPACE}"
 
 if [ "$1" = "--hook" ] && [ -n "$2" ]; then
     PAYLOAD=$(cat)
+    # Translate container paths to host paths before forwarding
+    escaped=$(printf '%s' "$HOST_WS" | sed 's/\\/\\\\/g')
+    PAYLOAD=$(printf '%s' "$PAYLOAD" | sed "s|${CONTAINER_WS}|${escaped}|g")
     curl -s -X POST -H "Content-Type: application/json" \
         -d "$PAYLOAD" "$API_URL/api/hooks/$2" > /dev/null 2>&1
     exit 0
 fi
 ```
 
-The `TERMINALHOST_API` environment variable is set automatically when the container is created, pointing to the host's API server. This requires the REST API to be enabled in settings (`Ctrl+,` → API & Webhooks → Enable API Server).
+The `TERMINALHOST_API` and `TERMINALHOST_CONTAINER_WORKSPACE` environment variables are set automatically when the container is created. The API requires the REST API to be enabled in settings (`Ctrl+,` → API & Webhooks → Enable API Server).
 
 **How it works:**
 1. Claude Code fires a hook (e.g., `host.exe --hook session-start`)
 2. The proxy script reads the JSON payload from stdin
-3. **Path translation**: The proxy rewrites all container paths to host paths before forwarding (see below)
+3. **Path translation**: The proxy rewrites all container paths to host paths before forwarding using the `TERMINALHOST_CONTAINER_WORKSPACE` → `TERMINALHOST_HOST_WORKSPACE` mapping (and similar mappings for `/home/developer` and `/refs/*`)
 4. It POSTs the translated payload to `http://host.docker.internal:{port}/api/hooks/{type}`
 5. TerminalHost receives it and processes it (Timeline tracking, file change notifications, etc.)
 
 ### Path Translation
 
-Inside the container, all paths use Linux conventions (`/workspace/src/file.cs`, `/home/developer/.claude/...`). TerminalHost on the host expects Windows paths (`P:\HC\src\file.cs`, `C:\Users\steve\.claude\...`). The host proxy translates paths automatically using environment variables set at container creation:
+Inside the container, all paths use Linux conventions (`/workspace/HC/src/file.cs`, `/home/developer/.claude/...`). TerminalHost on the host expects Windows paths (`P:\HC\src\file.cs`, `C:\Users\steve\.claude\...`). The host proxy translates paths automatically using environment variables set at container creation:
 
 | Container Path | Env Var | Host Path (example) |
 |---------------|---------|---------------------|
-| `/workspace` | `TERMINALHOST_HOST_WORKSPACE` | `P:\HC` |
-| `/root` | `TERMINALHOST_HOST_USERPROFILE` | `C:\Users\steve` |
+| `/workspace/HC` | `TERMINALHOST_CONTAINER_WORKSPACE` + `TERMINALHOST_HOST_WORKSPACE` | `P:\HC` |
+| `/home/developer` | `TERMINALHOST_HOST_USERPROFILE` | `C:\Users\steve` |
 | `/refs/{name}` | `TERMINALHOST_REF_{name}` | `P:\Vidyano.Service` |
 
-The proxy performs string replacement on the JSON payload before forwarding, so by the time TerminalHost receives hook data, all paths are in the host's format. This ensures:
+The `TERMINALHOST_CONTAINER_WORKSPACE` env var holds the container-side path (e.g., `/workspace/HC`) and `TERMINALHOST_HOST_WORKSPACE` holds the corresponding host path (e.g., `P:\HC`). The proxy performs string replacement on the JSON payload before forwarding, so by the time TerminalHost receives hook data, all paths are in the host's format. This ensures:
 
 - **Session tracking**: `cwd` in hook payloads resolves to the correct project directory
 - **File change notifications**: File paths from `PostToolUse` hooks match host filesystem paths
@@ -202,13 +207,15 @@ The proxy performs string replacement on the JSON payload before forwarding, so 
 
 ### Auto-Approve in Container (--dangerously-skip-permissions)
 
-Since the container IS the sandbox, Claude Code's built-in permission system is redundant. When `autoApproveInContainer` is enabled (default: **true**), Claude Code launches with `--dangerously-skip-permissions`, allowing it to:
+Since the container provides filesystem isolation, Claude Code's built-in permission prompts are redundant for file safety. When `autoApproveInContainer` is enabled (default: **true**), Claude Code launches with `--dangerously-skip-permissions`, allowing it to:
 
 - Edit files without confirmation prompts
 - Run shell commands without approval
 - Use all tools freely
 
 This is the primary reason to use containerization — the agent can work at full speed without interruption, while the container prevents any damage to the host filesystem.
+
+**Note:** Claude Code's built-in sandbox (`/sandbox` mode using bubblewrap + seccomp) also works inside the container. The Dockerfile pre-installs `bubblewrap`, `socat`, and `@anthropic-ai/sandbox-runtime` with seccomp filters, and a `settings.local.json` overlay points Claude Code to the correct seccomp paths. This provides defense-in-depth: the container isolates the host filesystem, while the sandbox restricts network access and other syscalls for individual tool executions — helping prevent accidental outbound connections or network-dependent operations from causing issues.
 
 ### Shared Settings & Config
 
@@ -227,23 +234,23 @@ The host's `~/.claude/` directory is mounted read-write, which means the contain
 
 ### Session Directory Overlay Mount
 
-Claude Code stores sessions, memory, and tasks under `~/.claude/projects/{encoded-path}/` where the path is encoded by replacing separators with dashes (e.g., `P:\HC` → `P--HC`). Inside the container, the working directory is `/workspace`, which encodes to `-workspace` — a completely different folder.
+Claude Code stores sessions, memory, and tasks under `~/.claude/projects/{encoded-path}/` where the path is encoded by replacing separators with dashes (e.g., `P:\HC` → `P--HC`). Inside the container, the working directory is `/workspace/HC`, which encodes to `-workspace-HC` — a different folder.
 
-Without intervention, container sessions would land in `~/.claude/projects/-workspace/` while TerminalHost looks for them in `~/.claude/projects/P--HC/`. Sessions, memory, and tasks would all be invisible.
+Without intervention, container sessions would land in `~/.claude/projects/-workspace-HC/` while TerminalHost looks for them in `~/.claude/projects/P--HC/`. Sessions, memory, and tasks would all be invisible.
 
 **Solution: Overlapping Docker mounts.** When creating the container, an additional specific mount maps the host's project directory to the container's expected location:
 
 ```
--v "C:\Users\steve\.claude\projects\P--HC:/home/developer/.claude/projects/-workspace"
+-v "C:\Users\steve\.claude\projects\P--HC:/home/developer/.claude/projects/-workspace-HC"
 ```
 
 Docker's mount precedence makes this specific path override the broader `~/.claude` mount. The result:
 
 | What | Container writes to | Actually stored at |
 |------|--------------------|--------------------|
-| Sessions | `/home/developer/.claude/projects/-workspace/sessions-index.json` | `~/.claude/projects/P--HC/sessions-index.json` |
-| Memory | `/home/developer/.claude/projects/-workspace/memory/` | `~/.claude/projects/P--HC/memory/` |
-| JSONL transcripts | `/home/developer/.claude/projects/-workspace/*.jsonl` | `~/.claude/projects/P--HC/*.jsonl` |
+| Sessions | `/home/developer/.claude/projects/-workspace-HC/sessions-index.json` | `~/.claude/projects/P--HC/sessions-index.json` |
+| Memory | `/home/developer/.claude/projects/-workspace-HC/memory/` | `~/.claude/projects/P--HC/memory/` |
+| JSONL transcripts | `/home/developer/.claude/projects/-workspace-HC/*.jsonl` | `~/.claude/projects/P--HC/*.jsonl` |
 
 This means:
 - Container sessions appear seamlessly in TerminalHost's Timeline and Session panels
@@ -252,7 +259,7 @@ This means:
 
 ### Project-Level `.claude/` Directory
 
-The project's own `.claude/` directory (containing `CLAUDE.md`, project memory, local commands) is automatically available since it lives inside the project directory, which is mounted at `/workspace`.
+The project's own `.claude/` directory (containing `CLAUDE.md`, project memory, local commands) is automatically available since it lives inside the project directory, which is mounted at `/workspace/{folderName}`.
 
 ## Mount System
 
@@ -260,7 +267,7 @@ The project's own `.claude/` directory (containing `CLAUDE.md`, project memory, 
 
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
-| `{project-dir}` | `/workspace` | **rw** | The project being worked on |
+| `{project-dir}` | `/workspace/{folderName}` | **rw** | The project being worked on (folder name preserved for npm, Claude Code, etc.) |
 | `%USERPROFILE%\.claude` | `/home/developer/.claude` | **rw** | Claude settings, memory, sessions, tasks, hooks, plugins |
 | `%USERPROFILE%\.claude.json` | `/home/developer/.claude.json` | **rw** | Claude global metadata (startup count, tips, etc.) |
 | `%USERPROFILE%\.gitconfig` | `/home/developer/.gitconfig` | **ro** | Git identity & settings (gpg.program overridden via env) |
@@ -287,17 +294,7 @@ Shared source code libraries that the agent may need to inspect but should never
 
 These mount as `/refs/{name}` (readonly) inside the container. The agent can browse, grep, and read — but not modify.
 
-A `REFS.md` file is automatically generated at `/workspace/REFS.md` (gitignored) when the container starts, listing all reference volumes and their paths so the AI agent knows where to find them:
-
-```markdown
-# Reference Libraries (readonly)
-
-The following shared libraries are mounted for inspection:
-
-- `/refs/Vidyano.Service` — P:\Vidyano.Service
-- `/refs/Vidyano` — P:\Vidyano
-- `/refs/CronosCore` — P:\CronosCore
-```
+Reference volume information is included in the generated container `CLAUDE.md` overlay (mounted at `~/.claude/CLAUDE.md`), so the AI agent knows where to find them without a separate file.
 
 ### Extra Read-Write Mounts (advanced)
 
@@ -382,10 +379,10 @@ TerminalControlFactory → cmd.exe /K cd /d "P:\HC" && claude.exe
    ├── If stopped: docker start ...
    └── Health check: docker exec ... echo ok
 
-2. TerminalControlFactory → docker exec -it terminalhost-ws-hc-a3f2b1c9 /bin/bash
+2. TerminalControlFactory → docker exec -it -w /workspace/HC terminalhost-ws-hc-a3f2b1c9 /bin/bash
    (shell terminal)
 
-3. TerminalControlFactory → docker exec -it -w /workspace terminalhost-ws-hc-a3f2b1c9 claude
+3. TerminalControlFactory → docker exec -it -w /workspace/HC terminalhost-ws-hc-a3f2b1c9 claude
    (custom terminal — AI agent)
 ```
 
@@ -606,9 +603,9 @@ src/TerminalHost.Core/
 
 src/TerminalHost/TerminalHost/
 ├── Services/
-│   └── WindowsContainerService.cs # Windows path translation, Docker Desktop detection
+│   └── TerminalControlFactory.cs  # Wraps commands as docker exec when container enabled
 └── Views/
-    └── (Settings UI additions)
+    └── SettingsView.xaml           # Container settings section
 ```
 
 ## Implementation Phases
@@ -646,6 +643,8 @@ src/TerminalHost/TerminalHost/
 - ✅ Config staleness detection via Docker container labels
 - ✅ "Container: Recreate Current" command palette action
 - ✅ Per-workspace CLAUDE.md generation (was shared, now per-workspace hash filename)
+- ✅ Folder-name-preserving mount (`/workspace/{folderName}` instead of flat `/workspace`) — fixes npm defaulting to `name: "workspace"`, fixes Claude Code settings collision across projects
+- ✅ Workspace ownership init — `chown -R developer:developer` on container create/start to fix Windows bind mount root:root ownership (EACCES errors with npm install, etc.)
 
 ### Phase 3.5: Host Integration ✅
 - ✅ Clipboard bridge — REST API endpoints (`/api/clipboard/text`, `/api/clipboard/image`) + shim scripts (`xclip`, `xsel`, `wl-paste`, `wl-copy`, `pbcopy`, `pbpaste`) for transparent host clipboard access
@@ -687,6 +686,11 @@ src/TerminalHost/TerminalHost/
 - `.ssh` mount (optional, readonly) enables SSH-based git remotes
 - Git credential helpers that rely on Windows Credential Manager won't work inside the container. Recommend using SSH keys or configuring a credential cache inside the container.
 
+### Workspace Ownership (Windows Bind Mounts)
+- Docker Desktop on Windows shows bind-mounted files as `root:root` inside the container, which causes EACCES permission errors when the `developer` user tries to write (e.g., `npm install` creating `node_modules`).
+- **Fix**: On container create/start, `InitWorkspaceOwnershipAsync` runs `chown -R developer:developer` (as root) on the workspace directory. This is best-effort — on VirtioFS it makes files appear developer-owned; on Docker Engine/WSL2 it genuinely fixes permissions.
+- The check is depth-limited (`find -maxdepth 3`) for speed, and only runs when transitioning from NotFound/Stopped to Running.
+
 ### Performance
 - Bind mounts on Docker Desktop (Windows) can be slow for large node_modules or .git directories.
 - Consider recommending VirtioFS (Docker Desktop setting) for better performance.
@@ -708,10 +712,16 @@ src/TerminalHost/TerminalHost/
 - Network access (unless `networkMode: "none"`)
 - Mounted directories (project is rw, refs are ro)
 - Secrets in mounted config files (API keys in `.claude.json`, SSH keys)
-- Container runs as root (container root, not host root)
+- Container runs as non-root `developer` user (required for `--dangerously-skip-permissions`)
+
+### Defense in Depth
+The container provides two layers of protection:
+
+1. **Container isolation** (Docker) — prevents filesystem damage outside mounted directories, protects host system packages and processes
+2. **Claude Code sandbox** (bubblewrap + seccomp) — works inside the container, restricting network access and syscalls for individual tool executions. This catches accidental network issues (e.g., `npm publish`, unintended API calls) even when `--dangerously-skip-permissions` is active
 
 ### Threat Model
-The primary threat is **accidental damage** from AI agents (wrong `rm`, bad `apt install`, filesystem traversal). This is NOT designed to protect against **malicious** agents or prompt injection attacks that exfiltrate data over the network. For that, use `networkMode: "none"` (but this breaks most AI CLI tools that need API access).
+The primary threat is **accidental damage** from AI agents (wrong `rm`, bad `apt install`, filesystem traversal, unintended network operations). The sandbox layer helps with the network side even when file permissions are relaxed. This is NOT designed to protect against **malicious** agents or sophisticated prompt injection attacks. For maximum network isolation, use `networkMode: "none"` (but this breaks most AI CLI tools that need API access).
 
 ## Comparison with code-container
 

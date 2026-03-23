@@ -37,9 +37,10 @@ public interface IContainerService
     /// Build the docker exec command for launching an interactive session.
     /// </summary>
     /// <param name="containerName">The container name.</param>
+    /// <param name="workspaceDir">The host workspace directory (used to compute container working directory).</param>
     /// <param name="command">The command to run inside the container (e.g., "claude", "/bin/bash").</param>
     /// <param name="extraArgs">Extra arguments to append to the command (e.g., "--dangerously-skip-permissions").</param>
-    string BuildExecCommand(string containerName, string? command = null, string? extraArgs = null);
+    string BuildExecCommand(string containerName, string workspaceDir, string? command = null, string? extraArgs = null);
 
     /// <summary>
     /// Whether auto-approve (--dangerously-skip-permissions) is enabled for containerized AI agents.
