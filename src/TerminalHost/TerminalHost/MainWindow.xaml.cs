@@ -710,21 +710,33 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Ctrl+V for paste into terminal
+        // Handle Ctrl+V for paste into terminal.
+        // Text paste is always handled by us (SendText) since raw Ctrl+V sends 0x16 to the PTY.
+        // Image paste differs by environment:
+        //   Container: let Ctrl+V pass through → Claude Code reads clipboard via our shims.
+        //   Non-container: send Alt+V escape → Claude Code reads Windows clipboard directly.
         if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control && IsFocusInTerminal())
         {
-            // Paste clipboard content to the focused terminal
-            if (Clipboard.ContainsText())
+            var session = (_viewModel.SelectedTab as TerminalPairTabViewModel)?.GetFocusedSession()
+                ?? (_viewModel.SelectedTab as ProfileTerminalTabViewModel)?.Session;
+
+            if (Clipboard.ContainsImage())
             {
+                if (session != null && !string.IsNullOrEmpty(session.Profile.ContainerName))
+                {
+                    // Container: let Ctrl+V reach Claude Code — it reads the image
+                    // via our xclip shim that proxies to the host clipboard API.
+                    return;
+                }
+                // Non-container: send Alt+V escape — Claude Code on Windows uses this
+                session?.SendText("\x1bv", appendNewline: false);
+            }
+            else if (Clipboard.ContainsText())
+            {
+                // Text paste: always handle ourselves (both container and non-container)
                 var text = Clipboard.GetText();
-                if (!string.IsNullOrEmpty(text) && _viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
-                {
-                    terminalTab.GetFocusedSession()?.SendText(text, appendNewline: false);
-                }
-                else if (!string.IsNullOrEmpty(text) && _viewModel.SelectedTab is ProfileTerminalTabViewModel profileTab)
-                {
-                    profileTab.Session?.SendText(text, appendNewline: false);
-                }
+                if (!string.IsNullOrEmpty(text))
+                    session?.SendText(text, appendNewline: false);
             }
             e.Handled = true;
             return;

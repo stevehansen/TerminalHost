@@ -36,6 +36,7 @@ public class ApiServer : IApiServer
     private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly McpHandler? _mcpHandler;
+    private readonly IClipboardService? _clipboardService;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -83,7 +84,8 @@ public class ApiServer : IApiServer
         ITaskService? taskService = null,
         IClaudeTaskFileService? claudeTaskFileService = null,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
-        McpHandler? mcpHandler = null)
+        McpHandler? mcpHandler = null,
+        IClipboardService? clipboardService = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -94,6 +96,7 @@ public class ApiServer : IApiServer
         _claudeTaskFileService = claudeTaskFileService;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _mcpHandler = mcpHandler;
+        _clipboardService = clipboardService;
     }
 
     /// <summary>
@@ -271,6 +274,28 @@ public class ApiServer : IApiServer
             if (path == "/api/channel/reply" && method == "POST")
             {
                 await HandleChannelReplyAsync(request, response);
+                return;
+            }
+
+            // Clipboard bridge — enables containers to read/write host clipboard
+            if (path == "/api/clipboard/text" && method == "GET")
+            {
+                await HandleClipboardGetTextAsync(response);
+                return;
+            }
+            if (path == "/api/clipboard/text" && method == "POST")
+            {
+                await HandleClipboardSetTextAsync(request, response);
+                return;
+            }
+            if (path == "/api/clipboard/image" && method == "GET")
+            {
+                await HandleClipboardGetImageAsync(response);
+                return;
+            }
+            if (path == "/api/clipboard/image" && method == "POST")
+            {
+                await HandleClipboardSetImageAsync(request, response);
                 return;
             }
 
@@ -1090,6 +1115,107 @@ public class ApiServer : IApiServer
             response.Headers.Add("Access-Control-Max-Age", "86400");
         }
     }
+
+    #region Clipboard Handlers
+
+    private async Task HandleClipboardGetTextAsync(HttpListenerResponse response)
+    {
+        if (_clipboardService == null)
+        {
+            await WriteJsonError(response, 503, "UNAVAILABLE", "Clipboard service not available.");
+            return;
+        }
+
+        string? text = null;
+        if (!_dispatcherService.TryInvoke(() => { text = _clipboardService.GetTextAsync().GetAwaiter().GetResult(); }, UiTimeout))
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
+        await WriteJson(response, new { text });
+    }
+
+    private async Task HandleClipboardSetTextAsync(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        if (_clipboardService == null)
+        {
+            await WriteJsonError(response, 503, "UNAVAILABLE", "Clipboard service not available.");
+            return;
+        }
+
+        using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
+        var body = await reader.ReadToEndAsync();
+        var payload = JsonSerializer.Deserialize<ClipboardTextPayload>(body, JsonOptions);
+        if (payload?.Text == null)
+        {
+            await WriteJsonError(response, 400, "BAD_REQUEST", "Missing 'text' field.");
+            return;
+        }
+
+        if (!_dispatcherService.TryInvoke(() => { _clipboardService.SetTextAsync(payload.Text).GetAwaiter().GetResult(); }, UiTimeout))
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
+        await WriteJson(response, new { ok = true });
+    }
+
+    private async Task HandleClipboardGetImageAsync(HttpListenerResponse response)
+    {
+        if (_clipboardService == null)
+        {
+            await WriteJsonError(response, 503, "UNAVAILABLE", "Clipboard service not available.");
+            return;
+        }
+
+        byte[]? png = null;
+        if (!_dispatcherService.TryInvoke(() => { png = _clipboardService.GetImagePngAsync().GetAwaiter().GetResult(); }, UiTimeout))
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
+
+        if (png == null)
+        {
+            response.StatusCode = 204;
+            return;
+        }
+
+        // Return raw PNG binary — shim scripts pipe this directly
+        response.ContentType = "image/png";
+        response.StatusCode = 200;
+        response.ContentLength64 = png.Length;
+        await response.OutputStream.WriteAsync(png);
+    }
+
+    private async Task HandleClipboardSetImageAsync(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        if (_clipboardService == null)
+        {
+            await WriteJsonError(response, 503, "UNAVAILABLE", "Clipboard service not available.");
+            return;
+        }
+
+        using var ms = new MemoryStream();
+        await request.InputStream.CopyToAsync(ms);
+        var png = ms.ToArray();
+        if (png.Length == 0)
+        {
+            await WriteJsonError(response, 400, "BAD_REQUEST", "Empty request body.");
+            return;
+        }
+
+        if (!_dispatcherService.TryInvoke(() => { _clipboardService.SetImagePngAsync(png).GetAwaiter().GetResult(); }, UiTimeout))
+        {
+            await WriteJsonError(response, 503, "UI_BUSY", "UI thread did not respond in time.");
+            return;
+        }
+        await WriteJson(response, new { ok = true });
+    }
+
+    private record ClipboardTextPayload(string? Text);
+
+    #endregion
 
     private static async Task WriteJson(HttpListenerResponse response, object data)
     {

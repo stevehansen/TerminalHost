@@ -1294,8 +1294,13 @@ public partial class MainViewModel : ObservableObject
                     containerName = _containerService.GetContainerName(workingDirectory);
                     customProfile.ContainerName = containerName;
                     shellProfile.ContainerName = containerName;
-                    // Container will be started lazily on first terminal Loaded event
-                    // via EnsureContainerRunningAsync (called below)
+
+                    // Ensure container is running before terminals try to docker exec.
+                    // Call the lightweight EnsureContainerRunningAsync (no dialogs) on a
+                    // background thread to avoid UI deadlock, then run dialog-based checks async.
+                    Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
+
+                    // Fire-and-forget: staleness checks and dialog prompts (non-blocking)
                     _ = EnsureContainerForWorkspaceAsync(workingDirectory);
                 }
                 catch (Exception ex)

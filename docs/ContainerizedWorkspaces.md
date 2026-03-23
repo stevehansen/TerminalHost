@@ -55,13 +55,15 @@ Or use the **command palette** (`Ctrl+Shift+P`):
 |-------|---------------|------|---------|
 | Project directory | `/workspace` | read-write | Your code — changes sync instantly both ways |
 | `~/.claude/` | `~/.claude` | read-write | Settings, memory, sessions, tasks, plugins, commands |
-| `~/.claude.json` | `~/.claude.json` | read-write | Claude Code metadata |
+| `~/.claude.json` overlay | `~/.claude.json` | readonly | localhost → host.docker.internal URL rewrite for MCP servers |
 | `~/.gitconfig` | `~/.gitconfig` | readonly | Git identity (gpg.program overridden via env) |
 | `~/.gnupg/` | `~/.gnupg` | copy | GPG keys for commit signing (copied with correct ownership) |
 | `~/.ssh/` | `~/.ssh` | readonly | SSH keys (opt-in, off by default) |
 | `~/.config/` | `~/.config` | read-write | Tool settings (ccstatusline, etc.) |
 | Reference volumes | `/refs/{name}` | readonly | Shared source code for inspection |
 | Generated CLAUDE.md | `~/.claude/CLAUDE.md` | readonly | Container context overlay (tools, refs, paths) |
+| settings.local.json overlay | `~/.claude/settings.local.json` | readonly | Sandbox seccomp paths for container |
+| Plugin JSON overlays | `~/.claude/plugins/*.json` | readonly | Windows → container path conversion |
 
 **Note:** Container user is `developer` (non-root), so `~` = `/home/developer`.
 
@@ -94,6 +96,36 @@ Path translation uses environment variables set at container creation:
 - `TERMINALHOST_REF_{name}` — maps `/refs/{name}` to host reference volume
 
 **Requires:** REST API enabled in Settings → API & Webhooks.
+
+## Clipboard Bridge
+
+Docker containers cannot access the host's clipboard, which breaks clipboard operations in Claude Code (e.g., Alt+V for image paste, copy/paste in tools).
+
+TerminalHost solves this with a **clipboard API + shim scripts**:
+
+1. **REST API endpoints** on the host:
+   - `GET /api/clipboard/text` — read text from host clipboard
+   - `POST /api/clipboard/text` — write text to host clipboard
+   - `GET /api/clipboard/image` — read image (raw PNG) from host clipboard
+   - `POST /api/clipboard/image` — write image to host clipboard
+
+2. **Shim scripts** installed in the container as symlinks:
+   - `xclip`, `xsel`, `wl-paste`, `wl-copy`, `pbcopy`, `pbpaste`
+   - All point to `/usr/local/bin/clipboard-shim` which calls the host API via `TERMINALHOST_API`
+
+3. **Ctrl+V image detection**: When Ctrl+V is pressed and the clipboard contains an image (not text), TerminalHost sends Alt+V (escape sequence `\x1bv`) to the terminal so Claude Code triggers its image paste handler.
+
+Any tool inside the container that uses standard clipboard commands transparently reads/writes the host clipboard.
+
+## MCP Server URL Rewriting
+
+MCP servers registered at user level (e.g., `terminalhost-collab` at `http://localhost:19280/api/mcp`) use `localhost` which resolves to the container itself, not the host.
+
+TerminalHost generates a `.claude.json` overlay that replaces:
+- `http://localhost:` → `http://host.docker.internal:`
+- `http://127.0.0.1:` → `http://host.docker.internal:`
+
+This overlay is mounted on top of the host's `.claude.json`. Windows paths in the file are also converted to container paths.
 
 ## Git & GPG Configuration
 
@@ -141,6 +173,7 @@ The image (`terminalhost-workspace:latest`) includes:
 - **Claude Code** (pre-installed)
 - **Claude Code sandbox** — bubblewrap, socat, @anthropic-ai/sandbox-runtime
 - **.NET global tools** — HC.Dev (`dev`), dotnet-outdated, SqlInliner, AsicSharp.Cli
+- **Host clipboard bridge** — shim scripts for xclip/xsel/wl-paste/wl-copy/pbcopy/pbpaste
 
 Customize the Dockerfile at `%APPDATA%\TerminalHost\container\Dockerfile` and rebuild via command palette.
 

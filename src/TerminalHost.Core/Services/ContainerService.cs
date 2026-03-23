@@ -281,9 +281,13 @@ public class ContainerService : IContainerService
             _fileSystem.WriteAllText(dockerfilePath, $"{DockerfileHashPrefix}{ComputeDockerfileHash()}\n{DefaultDockerfile}");
         }
 
-        // Always write the host proxy script (it's small and may be updated between versions)
+        // Always write scripts with Unix line endings (LF) — Windows CRLF breaks
+        // the shebang line in Linux containers (#!/bin/bash\r → "file not found").
         var proxyPath = Path.Combine(containerDir, "host-proxy.sh");
-        _fileSystem.WriteAllText(proxyPath, HostProxyScript);
+        _fileSystem.WriteAllText(proxyPath, HostProxyScript.ReplaceLineEndings("\n"));
+
+        var clipboardPath = Path.Combine(containerDir, "clipboard-shim.sh");
+        _fileSystem.WriteAllText(clipboardPath, ClipboardShimScript.ReplaceLineEndings("\n"));
     }
 
     public DockerfileStatus CheckDockerfileStatus()
@@ -446,7 +450,11 @@ public class ContainerService : IContainerService
         if (_fileSystem.DirectoryExists(claudeDir))
             args.Append($" -v \"{claudeDir}:{ContainerHome}/.claude\"");
         if (_fileSystem.FileExists(claudeJson))
-            args.Append($" -v \"{claudeJson}:{ContainerHome}/.claude.json\"");
+        {
+            // Generate overlay with localhost → host.docker.internal for MCP server URLs
+            var containerClaudeJson = GenerateContainerClaudeJson(claudeJson);
+            args.Append($" -v \"{containerClaudeJson ?? claudeJson}:{ContainerHome}/.claude.json\"");
+        }
 
         // Overlay mount: map the host's project session directory to where the container
         // will look for it. Claude Code stores sessions under ~/.claude/projects/{encoded-path}/
@@ -629,6 +637,45 @@ public class ContainerService : IContainerService
             var settingsPath = Path.Combine(containerDir, "settings.local.json");
             _fileSystem.WriteAllText(settingsPath, json);
             return settingsPath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Generates a container-specific .claude.json overlay that replaces localhost URLs
+    /// with host.docker.internal so MCP servers and other services resolve correctly.
+    /// </summary>
+    private string? GenerateContainerClaudeJson(string hostClaudeJsonPath)
+    {
+        try
+        {
+            var containerDir = Path.Combine(_configDirectory, "container");
+            if (!_fileSystem.DirectoryExists(containerDir))
+                Directory.CreateDirectory(containerDir);
+
+            var content = _fileSystem.ReadAllText(hostClaudeJsonPath);
+
+            // Replace localhost/127.0.0.1 with host.docker.internal in URLs
+            var converted = content
+                .Replace("http://localhost:", "http://host.docker.internal:")
+                .Replace("http://127.0.0.1:", "http://host.docker.internal:")
+                .Replace("https://localhost:", "https://host.docker.internal:")
+                .Replace("https://127.0.0.1:", "https://host.docker.internal:");
+
+            // Also convert Windows paths in the JSON (e.g., command paths for stdio MCP servers)
+            var node = System.Text.Json.Nodes.JsonNode.Parse(converted);
+            if (node != null)
+            {
+                ConvertWindowsPathsInJson(node);
+                converted = node.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            }
+
+            var overlayPath = Path.Combine(containerDir, "claude.json");
+            _fileSystem.WriteAllText(overlayPath, converted);
+            return overlayPath;
         }
         catch
         {
@@ -893,6 +940,18 @@ public class ContainerService : IContainerService
         COPY host-proxy.sh /usr/local/bin/host.exe
         RUN chmod +x /usr/local/bin/host.exe
 
+        # Clipboard bridge — shim that proxies clipboard ops to TerminalHost's REST API.
+        # Symlinked as xclip/xsel/wl-paste/wl-copy so any tool using standard Linux
+        # clipboard commands transparently reads/writes the host clipboard.
+        COPY clipboard-shim.sh /usr/local/bin/clipboard-shim
+        RUN chmod +x /usr/local/bin/clipboard-shim \
+            && ln -sf clipboard-shim /usr/local/bin/xclip \
+            && ln -sf clipboard-shim /usr/local/bin/xsel \
+            && ln -sf clipboard-shim /usr/local/bin/wl-paste \
+            && ln -sf clipboard-shim /usr/local/bin/wl-copy \
+            && ln -sf clipboard-shim /usr/local/bin/pbcopy \
+            && ln -sf clipboard-shim /usr/local/bin/pbpaste
+
         # Git: trust all mounted directories (as root, in system config so it
         # survives the readonly ~/.gitconfig mount from host)
         RUN git config --system --add safe.directory '*'
@@ -1027,5 +1086,132 @@ public class ContainerService : IContainerService
         echo ""
         echo "API endpoint: $API_URL"
         echo "Use --hook <type> to forward hook events to TerminalHost."
+        """;
+
+    /// <summary>
+    /// Clipboard shim script that bridges Linux clipboard commands to the host
+    /// via TerminalHost's REST API. Installed as xclip, xsel, wl-paste, wl-copy,
+    /// pbcopy, pbpaste so any tool using standard clipboard commands works transparently.
+    /// </summary>
+    private const string ClipboardShimScript = """
+        #!/bin/bash
+        # Clipboard bridge: proxies clipboard operations to TerminalHost's REST API
+        # on the host machine. Symlinked as xclip/xsel/wl-paste/wl-copy/pbcopy/pbpaste.
+        #
+        # Supports:
+        #   - Text read/write (xclip -o, echo | xclip, xsel --output, wl-paste, etc.)
+        #   - Image read (xclip -t image/png -o, wl-paste --type image/png)
+        #   - Detects invocation name to determine behavior
+
+        API_URL="${TERMINALHOST_API:-http://host.docker.internal:19280}"
+        PROG="$(basename "$0")"
+
+        # Parse arguments to determine operation (read vs write) and type (text vs image)
+        MODE=""
+        TYPE="text"
+        SELECTION="clipboard"
+        RAW_TARGET=""
+
+        case "$PROG" in
+            pbpaste|wl-paste)
+                MODE="read"
+                ;;
+            pbcopy|wl-copy)
+                MODE="write"
+                ;;
+        esac
+
+        # Parse arguments for xclip/xsel/wl-paste/wl-copy
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -o|--output|-out)
+                    MODE="read"
+                    ;;
+                -i|--input|-in)
+                    MODE="write"
+                    ;;
+                -selection)
+                    shift
+                    SELECTION="${1:-clipboard}"
+                    ;;
+                --clipboard|-b)
+                    SELECTION="clipboard"
+                    ;;
+                --primary|-p)
+                    SELECTION="primary"
+                    ;;
+                -t|-target|--type|-type)
+                    shift
+                    RAW_TARGET="${1:-}"
+                    case "$RAW_TARGET" in
+                        image/png|image/*) TYPE="image" ;;
+                        TARGETS) TYPE="targets" ;;
+                        *) TYPE="text" ;;
+                    esac
+                    ;;
+            esac
+            shift
+        done
+
+        # xclip defaults: no -o means write; with -o means read
+        if [ -z "$MODE" ]; then
+            if [ "$PROG" = "xclip" ] || [ "$PROG" = "xsel" ]; then
+                # If stdin is a pipe/redirect, assume write; otherwise read
+                if [ ! -t 0 ]; then
+                    MODE="write"
+                else
+                    MODE="read"
+                fi
+            else
+                MODE="read"
+            fi
+        fi
+
+        # Only support clipboard selection (not primary/secondary)
+        if [ "$SELECTION" != "clipboard" ]; then
+            exit 0
+        fi
+
+        if [ "$MODE" = "read" ]; then
+            if [ "$TYPE" = "targets" ]; then
+                # Return available clipboard targets — Claude Code checks this first
+                # to see if image/png is available before trying to read it.
+                STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$API_URL/api/clipboard/image" 2>/dev/null)
+                if [ "$STATUS" = "200" ]; then
+                    printf 'TARGETS\nimage/png\ntext/plain;charset=utf-8\ntext/plain\nUTF8_STRING\nSTRING\n'
+                else
+                    printf 'TARGETS\ntext/plain;charset=utf-8\ntext/plain\nUTF8_STRING\nSTRING\n'
+                fi
+            elif [ "$TYPE" = "image" ]; then
+                # Read image as raw PNG from host clipboard
+                curl -sf "$API_URL/api/clipboard/image" 2>/dev/null
+            else
+                # Read text from host clipboard
+                RESULT=$(curl -sf "$API_URL/api/clipboard/text" 2>/dev/null)
+                if [ -n "$RESULT" ]; then
+                    printf '%s' "$RESULT" | jq -rj '.text // empty' 2>/dev/null
+                fi
+            fi
+        else
+            if [ "$TYPE" = "image" ]; then
+                # Write image (raw PNG from stdin) to host clipboard
+                curl -sf -X POST \
+                    -H "Content-Type: image/png" \
+                    --data-binary @- \
+                    "$API_URL/api/clipboard/image" \
+                    > /dev/null 2>&1
+            else
+                # Read text from stdin, send to host clipboard
+                INPUT=$(cat)
+                if [ -n "$INPUT" ]; then
+                    ESCAPED=$(printf '%s' "$INPUT" | jq -Rs '.')
+                    curl -sf -X POST \
+                        -H "Content-Type: application/json" \
+                        -d "{\"text\":$ESCAPED}" \
+                        "$API_URL/api/clipboard/text" \
+                        > /dev/null 2>&1
+                fi
+            fi
+        fi
         """;
 }

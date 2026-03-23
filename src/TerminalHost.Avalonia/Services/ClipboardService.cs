@@ -43,6 +43,22 @@ internal sealed class ClipboardService : IClipboardService
         }
     }
 
+    public Task<bool> ContainsImageAsync()
+    {
+        // Avalonia's clipboard API doesn't expose image directly — not supported on macOS yet
+        return Task.FromResult(false);
+    }
+
+    public Task<byte[]?> GetImagePngAsync()
+    {
+        return Task.FromResult<byte[]?>(null);
+    }
+
+    public Task SetImagePngAsync(byte[] pngData)
+    {
+        return Task.CompletedTask;
+    }
+
     private static IClipboard? GetClipboard()
     {
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

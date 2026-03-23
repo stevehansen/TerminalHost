@@ -110,7 +110,7 @@ public partial class CustomButtonDialog : Window
         if (sender is Button button && button.Tag is int index)
         {
             SelectedButtonIndex = index;
-            Close();
+            DialogResult = true;
         }
     }
 

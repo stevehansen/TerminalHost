@@ -27,4 +27,19 @@ public interface IClipboardService
     /// Clears the clipboard.
     /// </summary>
     Task ClearAsync();
+
+    /// <summary>
+    /// Checks if clipboard contains an image.
+    /// </summary>
+    Task<bool> ContainsImageAsync();
+
+    /// <summary>
+    /// Gets image from clipboard as PNG bytes. Returns null if no image.
+    /// </summary>
+    Task<byte[]?> GetImagePngAsync();
+
+    /// <summary>
+    /// Sets clipboard image from PNG bytes.
+    /// </summary>
+    Task SetImagePngAsync(byte[] pngData);
 }

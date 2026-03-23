@@ -72,8 +72,9 @@ ENV TZ=Europe/Brussels
 # System essentials (as root)
 RUN apt-get update && apt-get install -y \
     build-essential git curl wget unzip ca-certificates gnupg \
-    libssl-dev zlib1g-dev libffi-dev vim tree jq ripgrep \
+    libicu-dev libssl-dev zlib1g-dev libffi-dev vim tree jq ripgrep \
     python3 python3-pip python3-venv \
+    bubblewrap socat \
     && rm -rf /var/lib/apt/lists/*
 
 # .NET SDKs (system-wide, as root)
@@ -90,6 +91,16 @@ ENV PATH="$DOTNET_ROOT:$PATH"
 # Host proxy (as root, before switching user)
 COPY host-proxy.sh /usr/local/bin/host.exe
 RUN chmod +x /usr/local/bin/host.exe
+
+# Clipboard bridge — shim that proxies clipboard ops to TerminalHost's REST API
+COPY clipboard-shim.sh /usr/local/bin/clipboard-shim
+RUN chmod +x /usr/local/bin/clipboard-shim \
+    && ln -sf clipboard-shim /usr/local/bin/xclip \
+    && ln -sf clipboard-shim /usr/local/bin/xsel \
+    && ln -sf clipboard-shim /usr/local/bin/wl-paste \
+    && ln -sf clipboard-shim /usr/local/bin/wl-copy \
+    && ln -sf clipboard-shim /usr/local/bin/pbcopy \
+    && ln -sf clipboard-shim /usr/local/bin/pbpaste
 
 # Git: trust all mounted directories (system config survives readonly ~/.gitconfig mount)
 RUN git config --system --add safe.directory '*'
@@ -120,11 +131,12 @@ ENV PATH="$BUN_INSTALL/bin:$PATH"
 ENV PATH="/home/developer/.local/bin:$PATH"
 RUN . "$NVM_DIR/nvm.sh" && curl -fsSL https://claude.ai/install.sh | bash
 
-# Claude Code sandbox dependencies (bubblewrap, socat, sandbox-runtime)
-USER root
-RUN apt-get update && apt-get install -y bubblewrap socat && rm -rf /var/lib/apt/lists/*
-USER developer
-RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/sandbox-runtime
+# Claude Code sandbox dependencies (seccomp filter for bwrap)
+# bubblewrap and socat are installed in system essentials above
+RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/sandbox-runtime \
+    && SECCOMP_SRC="$(npm root -g)/@anthropic-ai/sandbox-runtime/vendor/seccomp" \
+    && mkdir -p /usr/local/share/sandbox-seccomp \
+    && cp -r "$SECCOMP_SRC/"* /usr/local/share/sandbox-seccomp/ 2>/dev/null || true
 
 # .NET global tools
 RUN dotnet tool install -g HC.Dev \
@@ -634,6 +646,13 @@ src/TerminalHost/TerminalHost/
 - ✅ Config staleness detection via Docker container labels
 - ✅ "Container: Recreate Current" command palette action
 - ✅ Per-workspace CLAUDE.md generation (was shared, now per-workspace hash filename)
+
+### Phase 3.5: Host Integration ✅
+- ✅ Clipboard bridge — REST API endpoints (`/api/clipboard/text`, `/api/clipboard/image`) + shim scripts (`xclip`, `xsel`, `wl-paste`, `wl-copy`, `pbcopy`, `pbpaste`) for transparent host clipboard access
+- ✅ MCP server URL rewriting — `.claude.json` overlay replaces `localhost`/`127.0.0.1` with `host.docker.internal` so MCP servers resolve correctly
+- ✅ Plugin path conversion — overlay mounts for `known_marketplaces.json` and `installed_plugins.json` with Windows → container path rewriting
+- ✅ Ctrl+V image detection — sends Alt+V escape sequence when clipboard has image, triggers Claude Code's image paste handler
+- ✅ Settings overlay — `settings.local.json` with sandbox seccomp paths for container environment
 
 ### Phase 4: Advanced Features
 - Container health monitoring (periodic docker inspect)
