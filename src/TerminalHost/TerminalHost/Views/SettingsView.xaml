@@ -2828,6 +2828,14 @@
                                        Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
                         </StackPanel>
 
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Mount GitHub CLI auth"
+                                      IsChecked="{Binding ContainerMountGhCli}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Share the host's gh CLI authentication with containers. Enables gh commands without re-authenticating."
+                                       Style="{StaticResource SectionDescription}" Margin="20,4,0,0"/>
+                        </StackPanel>
+
                         <!-- Separator -->
                         <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
 

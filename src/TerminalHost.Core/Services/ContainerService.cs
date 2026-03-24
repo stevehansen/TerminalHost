@@ -164,6 +164,9 @@ public class ContainerService : IContainerService
         // Windows mounts appear as root-owned; GPG refuses "unsafe ownership on homedir".
         await InitGpgKeysAsync(containerName);
 
+        // Copy GitHub CLI config from staging mount so gh uses the host's auth session.
+        await InitGhCliAsync(containerName);
+
         return new ContainerEnsureResult
         {
             ContainerName = containerName,
@@ -366,6 +369,7 @@ public class ContainerService : IContainerService
 
         var sb = new StringBuilder();
         sb.Append(cs.MountSsh);
+        sb.Append(cs.MountGhCli);
         sb.Append(cs.NetworkMode);
         sb.Append(cs.AutoApproveInContainer);
         sb.Append(string.Join(",", cs.EnvVars.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}")));
@@ -646,6 +650,82 @@ public class ContainerService : IContainerService
         catch
         {
             // GPG key setup is best-effort
+        }
+    }
+
+    /// <summary>
+    /// Extracts the GitHub CLI auth token from the host (via `gh auth token`) and writes
+    /// it into the container's ~/.config/gh/hosts.yml. This is necessary because Windows
+    /// stores the token in Credential Manager (keyring), not in the hosts.yml file, so
+    /// simply mounting the config directory doesn't transfer the auth session.
+    /// </summary>
+    private async Task InitGhCliAsync(string containerName)
+    {
+        try
+        {
+            var config = _configService.Load();
+            if (!config.Settings.Container.MountGhCli)
+                return;
+
+            // Extract token and username from host's gh CLI.
+            // gh auth token prints the token regardless of storage backend (keyring, file, env).
+            var (tokenExit, token, _) = await _processService.RunAsync(
+                "gh", "auth token",
+                timeout: TimeSpan.FromSeconds(10));
+
+            if (tokenExit != 0 || string.IsNullOrWhiteSpace(token))
+                return; // gh not installed or not authenticated on host
+
+            token = token.Trim();
+
+            // Get the username
+            var (userExit, user, _) = await _processService.RunAsync(
+                "gh", "api user --jq .login",
+                timeout: TimeSpan.FromSeconds(10));
+
+            var username = userExit == 0 && !string.IsNullOrWhiteSpace(user)
+                ? user.Trim()
+                : "";
+
+            // Get git protocol preference from host config
+            var ghConfigDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "GitHub CLI");
+            var hostsPath = Path.Combine(ghConfigDir, "hosts.yml");
+            var gitProtocol = "https";
+            if (_fileSystem.FileExists(hostsPath))
+            {
+                var hostsContent = _fileSystem.ReadAllText(hostsPath);
+                if (hostsContent.Contains("git_protocol: ssh"))
+                    gitProtocol = "ssh";
+            }
+
+            // Build hosts.yml with the actual token embedded (not keyring reference).
+            // YAML format that gh expects on Linux.
+            var hostsYaml = $"github.com:\\n" +
+                            $"    git_protocol: {gitProtocol}\\n" +
+                            $"    oauth_token: {token}\\n";
+            if (!string.IsNullOrEmpty(username))
+            {
+                hostsYaml += $"    users:\\n" +
+                             $"        {username}:\\n" +
+                             $"            oauth_token: {token}\\n" +
+                             $"    user: {username}\\n";
+            }
+
+            var dockerPath = GetDockerPath();
+            await _processService.RunAsync(
+                dockerPath,
+                $"exec -u root {containerName} sh -c \"" +
+                $"mkdir -p {ContainerHome}/.config/gh && " +
+                $"printf '{hostsYaml}' > {ContainerHome}/.config/gh/hosts.yml && " +
+                $"chown -R developer:developer {ContainerHome}/.config/gh" +
+                $"\"",
+                timeout: TimeSpan.FromSeconds(10));
+        }
+        catch
+        {
+            // gh CLI config setup is best-effort
         }
     }
 
@@ -999,6 +1079,13 @@ public class ContainerService : IContainerService
             python3 python3-pip python3-venv \
             bubblewrap socat \
             && rm -rf /var/lib/apt/lists/*
+
+        # GitHub CLI (system-wide, as root)
+        RUN (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg) \
+            && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+                > /etc/apt/sources.list.d/github-cli.list \
+            && apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/*
 
         # .NET SDKs (system-wide, as root)
         RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \

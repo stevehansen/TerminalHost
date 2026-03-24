@@ -77,6 +77,13 @@ RUN apt-get update && apt-get install -y \
     bubblewrap socat \
     && rm -rf /var/lib/apt/lists/*
 
+# GitHub CLI (system-wide, as root)
+RUN (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg) \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/*
+
 # .NET SDKs (system-wide, as root)
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
@@ -273,6 +280,7 @@ The project's own `.claude/` directory (containing `CLAUDE.md`, project memory, 
 | `%USERPROFILE%\.gitconfig` | `/home/developer/.gitconfig` | **ro** | Git identity & settings (gpg.program overridden via env) |
 | `%USERPROFILE%\.gnupg` | `/mnt/gnupg-host` | **ro** | GPG keys staging (copied to ~/.gnupg with correct ownership on start) |
 | `%USERPROFILE%\.ssh` | `/home/developer/.ssh` | **ro** | SSH keys for git operations (optional, off by default) |
+| *(runtime: `gh auth token`)* | `/home/developer/.config/gh/hosts.yml` | **generated** | GitHub CLI auth token extracted from host keyring and written into container on start (on by default) |
 | `%USERPROFILE%\.config` | `/home/developer/.config` | **rw** | Tool settings (ccstatusline, etc.) |
 | Generated CLAUDE.md | `/home/developer/.claude/CLAUDE.md` | **ro** | Container context overlay (tools, refs, path mappings) |
 
@@ -322,6 +330,7 @@ For cases where additional writable directories are needed (e.g., shared NuGet c
     "imageName": "terminalhost-workspace",
     "imageTag": "latest",
     "mountSsh": false,
+    "mountGhCli": true,
     "autoApproveInContainer": true,
     "referenceVolumes": [
       { "hostPath": "P:\\Vidyano.Service", "name": "Vidyano.Service" },
@@ -515,6 +524,9 @@ public record ContainerInfo(
 ║  ☐ Mount SSH keys (readonly)                         ║
 ║    Share ~/.ssh for git operations over SSH           ║
 ║                                                      ║
+║  ☑ Mount GitHub CLI auth                             ║
+║    Share host's gh authentication with containers    ║
+║                                                      ║
 ║  Network Mode                                        ║
 ║  ┌──────────────────────────────────┐                ║
 ║  │ bridge                     ▾     │                ║
@@ -620,7 +632,7 @@ src/TerminalHost/TerminalHost/
 - `TerminalControlFactory` integration: wrap commands as `docker exec -it` when container enabled
 
 ### Phase 2: Settings & UI ✅
-- ✅ Container section in Settings view (enable, Docker path, image name/tag, auto-approve, SSH mount, network mode, stop-on-exit)
+- ✅ Container section in Settings view (enable, Docker path, image name/tag, auto-approve, SSH mount, gh CLI mount, network mode, stop-on-exit)
 - ✅ Per-directory container toggle via command palette with auto tab reload
 - ✅ Image rebuild with progress toast
 - ✅ All command palette commands registered (toggle, rebuild, stop, remove, list, clean, check status, reload tab)
@@ -636,7 +648,7 @@ src/TerminalHost/TerminalHost/
 - ✅ GPG signing support (key copy with correct ownership, gpg.program override)
 - ✅ Git autocrlf override (prevents phantom diffs from CRLF/LF mismatch)
 - ✅ `CLAUDE_CODE_*` env var forwarding from host
-- ✅ `~/.gnupg` GPG keys, `~/.config` tool settings mounted
+- ✅ `~/.gnupg` GPG keys, `~/.config` tool settings, GitHub CLI auth mounted
 - ✅ Non-root `developer` user (required for `--dangerously-skip-permissions`)
 - ✅ Dockerfile versioning with hash-based staleness detection
 - ✅ First-time build experience with guided dialog
@@ -684,7 +696,8 @@ src/TerminalHost/TerminalHost/
 ### Git Inside Container
 - `.gitconfig` is mounted readonly — the agent can use git normally (commit, push, etc.)
 - `.ssh` mount (optional, readonly) enables SSH-based git remotes
-- Git credential helpers that rely on Windows Credential Manager won't work inside the container. Recommend using SSH keys or configuring a credential cache inside the container.
+- GitHub CLI (`gh`) is pre-installed. On container start, `InitGhCliAsync` extracts the auth token from the host via `gh auth token` (which reads from Windows Credential Manager / keyring) and writes it into the container's `~/.config/gh/hosts.yml`. This is necessary because Windows stores tokens in the keyring, not in the config file. Enabled by default via `mountGhCli` setting — no need to `gh auth login` per container.
+- Git credential helpers that rely on Windows Credential Manager won't work inside the container. Recommend using SSH keys, `gh` (pre-installed with shared auth), or configuring a credential cache inside the container.
 
 ### Workspace Ownership (Windows Bind Mounts)
 - Docker Desktop on Windows shows bind-mounted files as `root:root` inside the container, which causes EACCES permission errors when the `developer` user tries to write (e.g., `npm install` creating `node_modules`).

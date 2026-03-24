@@ -39,6 +39,13 @@ public class ContainerSettings
     public bool MountSsh { get; set; } = false;
 
     /// <summary>
+    /// Whether to mount the host's GitHub CLI auth config inside containers.
+    /// Enables gh CLI usage without re-authenticating per container.
+    /// </summary>
+    [JsonPropertyName("mountGhCli")]
+    public bool MountGhCli { get; set; } = true;
+
+    /// <summary>
     /// Pass --dangerously-skip-permissions to Claude Code inside containers.
     /// Since the container IS the sandbox, permission checks are redundant.
     /// Default: true.

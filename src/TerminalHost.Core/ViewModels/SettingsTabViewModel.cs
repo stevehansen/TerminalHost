@@ -483,6 +483,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _containerMountSsh;
 
     [ObservableProperty]
+    private bool _containerMountGhCli = true;
+
+    [ObservableProperty]
     private bool _containerAutoApprove = true;
 
     [ObservableProperty]
@@ -687,6 +690,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ContainerImageName = config.Settings.Container.ImageName;
             ContainerImageTag = config.Settings.Container.ImageTag;
             ContainerMountSsh = config.Settings.Container.MountSsh;
+            ContainerMountGhCli = config.Settings.Container.MountGhCli;
             ContainerAutoApprove = config.Settings.Container.AutoApproveInContainer;
             ContainerNetworkMode = config.Settings.Container.NetworkMode;
             ContainerStopOnExit = config.Settings.Container.StopContainersOnExit;
@@ -794,6 +798,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Container.ImageName = ContainerImageName;
             config.Settings.Container.ImageTag = ContainerImageTag;
             config.Settings.Container.MountSsh = ContainerMountSsh;
+            config.Settings.Container.MountGhCli = ContainerMountGhCli;
             config.Settings.Container.AutoApproveInContainer = ContainerAutoApprove;
             config.Settings.Container.NetworkMode = ContainerNetworkMode;
             config.Settings.Container.StopContainersOnExit = ContainerStopOnExit;
@@ -908,6 +913,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnContainerImageNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerImageTagChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerMountSshChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnContainerMountGhCliChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnContainerAutoApproveChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnContainerNetworkModeChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerStopOnExitChanged(bool value) => MarkDirtyFromRichMode();
