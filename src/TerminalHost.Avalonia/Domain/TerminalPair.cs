@@ -72,7 +72,8 @@ public class TerminalPair : IDisposable
             WorkingDir = workingDir,
             Icon = profile.Icon,
             Shortcut = profile.Shortcut,
-            AutoStart = profile.AutoStart
+            AutoStart = profile.AutoStart,
+            ContainerName = profile.ContainerName
         };
     }
 

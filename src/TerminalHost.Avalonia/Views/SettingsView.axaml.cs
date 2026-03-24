@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -362,5 +363,17 @@ public partial class SettingsView : UserControl
         // Focus the TextBox after clicking Record so it receives key events
         var shortcutTextBox = this.FindControl<TextBox>("ShortcutTextBox");
         shortcutTextBox?.Focus();
+    }
+
+    private void StopContainer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel vm && vm.SelectedContainer is { } container)
+            vm.StopContainerCommand.Execute(container);
+    }
+
+    private void RemoveContainer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel vm && vm.SelectedContainer is { } container)
+            vm.RemoveContainerCommand.Execute(container);
     }
 }

@@ -36,6 +36,8 @@ public enum SettingsSection
     ClaudeCommands,
     DirectorySettings,
     ApiWebhooks,
+    Channels,
+    Containers,
     StatusOverlay
 }
 
@@ -53,6 +55,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IToastService _toastService;
     private readonly IProcessService? _processService;
     private readonly IClipboardService? _clipboardService;
+    private readonly IContainerService? _containerService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -427,6 +430,77 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private bool _editWhEnabled = true;
 
+    // Channel settings
+    [ObservableProperty]
+    private bool _channelEnabled;
+
+    [ObservableProperty]
+    private string _channelServerPath = "";
+
+    [ObservableProperty]
+    private string _channelEventFilters = "repo.git_status_changed, repo.branch_switched, repo.commit, channel.user_message";
+
+    [ObservableProperty]
+    private bool _channelUseDevelopmentFlag = true;
+
+    [ObservableProperty]
+    private bool _channelAutoRegisterMcp = true;
+
+    // Container settings
+    [ObservableProperty]
+    private bool _containerEnabled;
+
+    [ObservableProperty]
+    private string _containerDockerPath = "docker";
+
+    [ObservableProperty]
+    private string _containerImageName = "terminalhost-workspace";
+
+    [ObservableProperty]
+    private string _containerImageTag = "latest";
+
+    [ObservableProperty]
+    private bool _containerMountSsh;
+
+    [ObservableProperty]
+    private bool _containerMountGhCli = true;
+
+    [ObservableProperty]
+    private bool _containerAutoApprove = true;
+
+    [ObservableProperty]
+    private string _containerNetworkMode = "bridge";
+
+    [ObservableProperty]
+    private bool _containerStopOnExit = true;
+
+    // Image status
+    [ObservableProperty]
+    private string _containerImageStatus = "Unknown";
+
+    [ObservableProperty]
+    private bool _containerImageStale;
+
+    // Reference volumes
+    [ObservableProperty]
+    private ObservableCollection<ReferenceVolume> _containerReferenceVolumes = [];
+
+    [ObservableProperty]
+    private ReferenceVolume? _selectedReferenceVolume;
+
+    [ObservableProperty]
+    private string _editRefVolHostPath = "";
+
+    [ObservableProperty]
+    private string _editRefVolName = "";
+
+    // Active containers
+    [ObservableProperty]
+    private ObservableCollection<ContainerInfo> _activeContainers = [];
+
+    [ObservableProperty]
+    private ContainerInfo? _selectedContainer;
+
     // MCP Collab integration
     [ObservableProperty]
     private bool _mcpCollabInstalled;
@@ -475,13 +549,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? ConfigSaved;
 
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
-        IProcessService? processService = null, IClipboardService? clipboardService = null)
+        IProcessService? processService = null, IClipboardService? clipboardService = null,
+        IContainerService? containerService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
         _toastService = toastService;
         _processService = processService;
         _clipboardService = clipboardService;
+        _containerService = containerService;
         LoadSettings();
     }
 
@@ -571,6 +647,26 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ApiEnableWebhooks = config.Settings.Api.EnableWebhooks;
             ApiWebhooks = new ObservableCollection<WebhookEndpoint>(config.Settings.Api.Webhooks);
 
+            // Channel settings
+            ChannelEnabled = config.Settings.Channel.Enabled;
+            ChannelServerPath = config.Settings.Channel.ChannelServerPath ?? "";
+            ChannelEventFilters = string.Join(", ", config.Settings.Channel.EventFilters);
+            ChannelUseDevelopmentFlag = config.Settings.Channel.UseDevelopmentFlag;
+            ChannelAutoRegisterMcp = config.Settings.Channel.AutoRegisterMcp;
+
+            // Container settings
+            ContainerEnabled = config.Settings.Container.Enabled;
+            ContainerDockerPath = config.Settings.Container.DockerPath;
+            ContainerImageName = config.Settings.Container.ImageName;
+            ContainerImageTag = config.Settings.Container.ImageTag;
+            ContainerMountSsh = config.Settings.Container.MountSsh;
+            ContainerMountGhCli = config.Settings.Container.MountGhCli;
+            ContainerAutoApprove = config.Settings.Container.AutoApproveInContainer;
+            ContainerNetworkMode = config.Settings.Container.NetworkMode;
+            ContainerStopOnExit = config.Settings.Container.StopContainersOnExit;
+            ContainerReferenceVolumes = new ObservableCollection<ReferenceVolume>(config.Settings.Container.ReferenceVolumes);
+            _ = RefreshContainersAsync();
+
             // Status Overlay settings
             OverlayAutoShowOnUnfocus = config.Settings.StatusOverlay.AutoShowOnUnfocus;
             OverlaySizeIndex = (int)config.Settings.StatusOverlay.Size;
@@ -646,6 +742,27 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
                 .ToList();
             config.Settings.Api.EnableWebhooks = ApiEnableWebhooks;
             config.Settings.Api.Webhooks = ApiWebhooks.ToList();
+
+            // Channel settings
+            config.Settings.Channel.Enabled = ChannelEnabled;
+            config.Settings.Channel.ChannelServerPath = string.IsNullOrEmpty(ChannelServerPath) ? null : ChannelServerPath;
+            config.Settings.Channel.EventFilters = ChannelEventFilters
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            config.Settings.Channel.UseDevelopmentFlag = ChannelUseDevelopmentFlag;
+            config.Settings.Channel.AutoRegisterMcp = ChannelAutoRegisterMcp;
+
+            // Container settings
+            config.Settings.Container.Enabled = ContainerEnabled;
+            config.Settings.Container.DockerPath = ContainerDockerPath;
+            config.Settings.Container.ImageName = ContainerImageName;
+            config.Settings.Container.ImageTag = ContainerImageTag;
+            config.Settings.Container.MountSsh = ContainerMountSsh;
+            config.Settings.Container.MountGhCli = ContainerMountGhCli;
+            config.Settings.Container.AutoApproveInContainer = ContainerAutoApprove;
+            config.Settings.Container.NetworkMode = ContainerNetworkMode;
+            config.Settings.Container.StopContainersOnExit = ContainerStopOnExit;
+            config.Settings.Container.ReferenceVolumes = ContainerReferenceVolumes.ToList();
 
             // Status Overlay settings
             config.Settings.StatusOverlay.AutoShowOnUnfocus = OverlayAutoShowOnUnfocus;
@@ -742,6 +859,30 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnApiEnableSseChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnApiCorsOriginsChanged(string value) => MarkDirtyFromRichMode();
     partial void OnApiEnableWebhooksChanged(bool value) => MarkDirtyFromRichMode();
+
+    // Channel change handlers
+    partial void OnChannelEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnChannelServerPathChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnChannelEventFiltersChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnChannelUseDevelopmentFlagChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnChannelAutoRegisterMcpChanged(bool value) => MarkDirtyFromRichMode();
+
+    // Container change handlers
+    partial void OnContainerEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnContainerDockerPathChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnContainerImageNameChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnContainerImageTagChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnContainerMountSshChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnContainerMountGhCliChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnContainerAutoApproveChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnContainerNetworkModeChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnContainerStopOnExitChanged(bool value) => MarkDirtyFromRichMode();
+
+    partial void OnSelectedReferenceVolumeChanged(ReferenceVolume? value)
+    {
+        if (value != null) { EditRefVolHostPath = value.HostPath; EditRefVolName = value.Name; }
+        else { EditRefVolHostPath = ""; EditRefVolName = ""; }
+    }
     partial void OnOverlayAutoShowOnUnfocusChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnOverlaySizeIndexChanged(int value) => MarkDirtyFromRichMode();
     partial void OnOverlayOpacityChanged(double value) => MarkDirtyFromRichMode();
@@ -794,6 +935,152 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         SelectedWebhook.MaxRetries = EditWhMaxRetries;
         SelectedWebhook.Enabled = EditWhEnabled;
         SyncRichModeToJson();
+    }
+
+    // Container commands
+
+    [RelayCommand]
+    private void AddReferenceVolume()
+    {
+        var vol = new ReferenceVolume { HostPath = "", Name = "new-volume" };
+        ContainerReferenceVolumes.Add(vol);
+        SelectedReferenceVolume = vol;
+        MarkDirtyFromRichMode();
+    }
+
+    [RelayCommand]
+    private void DeleteReferenceVolume()
+    {
+        if (SelectedReferenceVolume == null) return;
+        var index = ContainerReferenceVolumes.IndexOf(SelectedReferenceVolume);
+        ContainerReferenceVolumes.Remove(SelectedReferenceVolume);
+        if (ContainerReferenceVolumes.Count > 0)
+            SelectedReferenceVolume = ContainerReferenceVolumes[Math.Min(index, ContainerReferenceVolumes.Count - 1)];
+        else
+            SelectedReferenceVolume = null;
+        MarkDirtyFromRichMode();
+    }
+
+    [RelayCommand]
+    private void ApplyReferenceVolume()
+    {
+        if (SelectedReferenceVolume == null) return;
+        SelectedReferenceVolume.HostPath = EditRefVolHostPath;
+        SelectedReferenceVolume.Name = EditRefVolName;
+        var index = ContainerReferenceVolumes.IndexOf(SelectedReferenceVolume);
+        if (index >= 0)
+        {
+            var item = SelectedReferenceVolume;
+            ContainerReferenceVolumes.RemoveAt(index);
+            ContainerReferenceVolumes.Insert(index, item);
+            SelectedReferenceVolume = item;
+        }
+        MarkDirtyFromRichMode();
+    }
+
+    [RelayCommand]
+    private async Task RefreshContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var containers = await _containerService.ListContainersAsync();
+            ActiveContainers = new ObservableCollection<ContainerInfo>(containers);
+        }
+        catch { ActiveContainers = []; }
+    }
+
+    [RelayCommand]
+    private async Task StopContainerAsync(ContainerInfo? container)
+    {
+        if (_containerService == null || container == null) return;
+        try
+        {
+            var dockerPath = _configService.Load().Settings.Container.DockerPath;
+            await _processService!.RunAsync(dockerPath, $"stop {container.Name}", timeout: TimeSpan.FromSeconds(30));
+            _toastService.Show($"Stopped {container.Name}", ToastType.Success);
+            await RefreshContainersAsync();
+        }
+        catch (Exception ex) { _toastService.Show($"Failed to stop: {ex.Message}", ToastType.Error); }
+    }
+
+    [RelayCommand]
+    private async Task RemoveContainerAsync(ContainerInfo? container)
+    {
+        if (_containerService == null || container == null) return;
+        try
+        {
+            var dockerPath = _configService.Load().Settings.Container.DockerPath;
+            await _processService!.RunAsync(dockerPath, $"stop {container.Name}", timeout: TimeSpan.FromSeconds(30));
+            await _processService!.RunAsync(dockerPath, $"rm {container.Name}", timeout: TimeSpan.FromSeconds(10));
+            _toastService.Show($"Removed {container.Name}", ToastType.Success);
+            await RefreshContainersAsync();
+        }
+        catch (Exception ex) { _toastService.Show($"Failed to remove: {ex.Message}", ToastType.Error); }
+    }
+
+    [RelayCommand]
+    private async Task CleanStoppedContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var count = await _containerService.CleanStoppedContainersAsync();
+            _toastService.Show(count > 0 ? $"Removed {count} stopped container(s)" : "No stopped containers", ToastType.Success);
+            await RefreshContainersAsync();
+        }
+        catch (Exception ex) { _toastService.Show($"Failed to clean: {ex.Message}", ToastType.Error); }
+    }
+
+    [RelayCommand]
+    private void EditDockerfile()
+    {
+        var configDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost", "container");
+        var dockerfilePath = Path.Combine(configDir, "Dockerfile");
+        _containerService?.EnsureDockerfileExists();
+        if (File.Exists(dockerfilePath))
+            _processService?.Start(dockerfilePath);
+        else
+            _toastService.Show("Dockerfile not found", ToastType.Warning);
+    }
+
+    [RelayCommand]
+    private void RefreshImageStatus()
+    {
+        if (_containerService == null) return;
+        var status = _containerService.CheckDockerfileStatus();
+        ContainerImageStatus = status switch
+        {
+            DockerfileStatus.Missing => "Not Built",
+            DockerfileStatus.UpToDate => "Up to Date",
+            DockerfileStatus.Stale => "Update Available",
+            DockerfileStatus.UserModified => "Custom (user modified)",
+            _ => "Unknown"
+        };
+        ContainerImageStale = status == DockerfileStatus.Stale;
+    }
+
+    [RelayCommand]
+    private async Task RebuildContainerImageAsync()
+    {
+        if (_containerService == null) return;
+        var status = _containerService.CheckDockerfileStatus();
+        if (status == DockerfileStatus.Stale)
+            _containerService.UpdateDockerfileToLatest();
+        using var toast = _toastService.ShowProgress("Building Docker image...");
+        try
+        {
+            var success = await _containerService.BuildImageAsync(line =>
+            {
+                if (!string.IsNullOrWhiteSpace(line))
+                    toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+            });
+            if (success) { toast.Complete("Docker image built successfully"); RefreshImageStatus(); }
+            else toast.Fail("Image build failed — check Docker Desktop logs");
+        }
+        catch (Exception ex) { toast.Fail($"Build failed: {ex.Message}"); }
     }
 
     // MCP Collab integration commands

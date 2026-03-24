@@ -32,6 +32,7 @@ public partial class TabSwitcherView : UserControl
         Dispatcher.UIThread.Post(() =>
         {
             SwitcherSearchBox.Focus();
+            SwitcherSearchBox.SelectAll();
         }, DispatcherPriority.Input);
     }
 

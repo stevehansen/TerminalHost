@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly MarkdownPreviewViewModel _markdownPreviewViewModel;
     private readonly IFilePickerService _filePickerService;
     private readonly StatusOverlayService _statusOverlayService;
+    private readonly IToastService _toastService;
     private TerminalPairTabViewModel? _subscribedOverlayTab;
 
     public MainWindow(
@@ -73,12 +74,14 @@ public partial class MainWindow : Window
         UnifiedGitPanelViewModel unifiedGitPanelViewModel,
         MarkdownPreviewViewModel markdownPreviewViewModel,
         IFilePickerService filePickerService,
-        StatusOverlayService statusOverlayService)
+        StatusOverlayService statusOverlayService,
+        IToastService toastService)
     {
         InitializeComponent();
 
         _mainViewModel = mainViewModel;
         _configService = configService;
+        _toastService = toastService;
         _dialogService = dialogService;
         _gitBranchViewModel = gitBranchViewModel;
         _gitFilesViewModel = gitFilesViewModel;
@@ -457,6 +460,11 @@ public partial class MainWindow : Window
     {
         _mainViewModel.Initialize();
         _statusOverlayService.Initialize(this);
+
+        // Initialize toast overlay window
+        var toastWindow = new ToastWindow();
+        toastWindow.Initialize(this, _toastService);
+        toastWindow.Show();
 
         // Subscribe to all existing terminal tabs for overlay aggregation
         foreach (var tab in _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>())
@@ -972,6 +980,10 @@ public partial class MainWindow : Window
         // Handle Escape - priority-based cascade (close one thing at a time)
         if (e.Key == Key.Escape)
         {
+            // Let popup views handle their own Escape key
+            if (_mainViewModel.IsCommandPaletteOpen || _mainViewModel.IsTabSwitcherOpen)
+                return;
+
             // First priority: close active center panel (return to terminals)
             if (_mainViewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
             {
@@ -1337,18 +1349,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Handle Cmd/Ctrl+V for paste into terminal
+        // Handle Cmd/Ctrl+V for paste into terminal.
+        // Text paste is always handled by us (SendText) since raw Ctrl+V sends 0x16 to the PTY.
+        // Image paste differs by environment:
+        //   Container: let Ctrl+V pass through -> Claude Code reads clipboard via our shims.
+        //   Non-container: send Alt+V escape -> Claude Code reads clipboard directly.
         if (e.Key == Key.V && e.KeyModifiers == primaryModifier)
         {
-            if (_mainViewModel.SelectedTab is TerminalPairTabViewModel pasteTab)
+            var session = (_mainViewModel.SelectedTab as TerminalPairTabViewModel)?.GetFocusedSession()
+                ?? (_mainViewModel.SelectedTab as ProfileTerminalTabViewModel)?.Session;
+
+            if (session != null)
             {
-                var session = pasteTab.GetFocusedSession();
-                if (session != null)
-                {
-                    _ = PasteToTerminalAsync(session);
-                    e.Handled = true;
-                    return;
-                }
+                var isContainerized = (_mainViewModel.SelectedTab as TerminalPairTabViewModel)?.IsContainerized ?? false;
+                _ = PasteToTerminalAsync(session, isContainerized);
+                e.Handled = true;
+                return;
             }
         }
 
@@ -1553,20 +1569,44 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private async Task PasteToTerminalAsync(Domain.TerminalSession session)
+    private async Task PasteToTerminalAsync(Domain.TerminalSession session, bool isContainerized = false)
     {
         try
         {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-            if (clipboard != null)
-            {
-#pragma warning disable CS0618 // IClipboard.GetTextAsync is obsolete in newer Avalonia
-                var text = await clipboard.GetTextAsync();
+            if (clipboard == null) return;
+
+            // Check for image data on the clipboard.
+            // Avalonia may not fully support image detection on all platforms,
+            // so we check data formats as a best-effort approach.
+#pragma warning disable CS0618 // IClipboard APIs may be obsolete in newer Avalonia
+            var formats = await clipboard.GetFormatsAsync();
 #pragma warning restore CS0618
-                if (!string.IsNullOrEmpty(text))
+            var hasImage = formats != null && formats.Any(f =>
+                f.Contains("image", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("png", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("bitmap", StringComparison.OrdinalIgnoreCase));
+
+            if (hasImage)
+            {
+                if (isContainerized)
                 {
-                    session.SendText(text, appendNewline: false);
+                    // Container: let Ctrl+V reach Claude Code — it reads the image
+                    // via our xclip shim that proxies to the host clipboard API.
+                    return;
                 }
+                // Non-container: send Alt+V escape — Claude Code uses this to read clipboard
+                session.SendText("\x1bv", appendNewline: false);
+                return;
+            }
+
+            // Text paste: always handle ourselves (both container and non-container)
+#pragma warning disable CS0618 // IClipboard.GetTextAsync is obsolete in newer Avalonia
+            var text = await clipboard.GetTextAsync();
+#pragma warning restore CS0618
+            if (!string.IsNullOrEmpty(text))
+            {
+                session.SendText(text, appendNewline: false);
             }
         }
         catch

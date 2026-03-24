@@ -42,6 +42,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     private int _duplicateIndex;
 
+    // Container state
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TitleWithGit))]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    [NotifyPropertyChangedFor(nameof(ContainerTooltip))]
+    private bool _isContainerized;
+
+    public string? ContainerTooltip => IsContainerized ? "Running in Docker container" : null;
+
     [ObservableProperty]
     private string _customIcon = "🤖";
 
@@ -459,9 +468,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         : new GridLength(0, GridUnitType.Pixel);
 
     // Git display properties
-    public string TitleWithGit => GitStatus?.IsGitRepository == true
-        ? $"{Title} {GitStatus.BranchDisplayShort}"
-        : Title;
+    public string TitleWithGit => (IsContainerized ? "🐳 " : "") +
+        (GitStatus?.IsGitRepository == true
+            ? $"{Title} {GitStatus.BranchDisplayShort}"
+            : Title);
 
     public string DisplayTitle => DuplicateIndex > 0
         ? $"{TitleWithGit} ({DuplicateIndex})"

@@ -113,6 +113,14 @@ public class ContainerService : IContainerService
 
     public async Task<ContainerEnsureResult> EnsureContainerRunningAsync(string workspaceDir)
     {
+        // On macOS, export Claude Code credentials from Keychain before container start.
+        // Must happen before any container operation since the file is bind-mounted.
+        if (OperatingSystem.IsMacOS())
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            await ExportMacOsCredentialsAsync(userProfile);
+        }
+
         var containerName = GetContainerName(workspaceDir);
         var state = await GetContainerStateAsync(workspaceDir);
         var action = ContainerEnsureAction.AlreadyRunning;
@@ -1018,6 +1026,42 @@ public class ContainerService : IContainerService
 
         // Fall back to global
         return config.Settings.Container.ReferenceVolumes;
+    }
+
+    /// <summary>
+    /// Exports Claude Code credentials from macOS Keychain to ~/.claude/.credentials.json.
+    /// On macOS, credentials are stored in the Keychain and not available as a file,
+    /// so the container can't access them via the bind mount.
+    /// </summary>
+    private async Task ExportMacOsCredentialsAsync(string userProfile)
+    {
+        try
+        {
+            var credentialsPath = Path.Combine(userProfile, ".claude", ".credentials.json");
+
+            // Export from Keychain
+            var (exitCode, output, _) = await _processService.RunAsync(
+                "security", "find-generic-password -s \"Claude Code-credentials\" -w",
+                timeout: TimeSpan.FromSeconds(10));
+
+            if (exitCode == 0 && !string.IsNullOrWhiteSpace(output))
+            {
+                // Ensure .claude directory exists
+                var claudeDir = Path.Combine(userProfile, ".claude");
+                if (!_fileSystem.DirectoryExists(claudeDir))
+                    Directory.CreateDirectory(claudeDir);
+
+                _fileSystem.WriteAllText(credentialsPath, output.Trim());
+
+                // chmod 600 — owner read/write only
+                await _processService.RunAsync("chmod", $"600 \"{credentialsPath}\"",
+                    timeout: TimeSpan.FromSeconds(5));
+            }
+        }
+        catch
+        {
+            // Best-effort: if Keychain access fails, container will prompt for login
+        }
     }
 
     private string GetDockerPath()

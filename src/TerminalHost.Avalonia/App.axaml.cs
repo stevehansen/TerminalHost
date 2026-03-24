@@ -141,6 +141,9 @@ public partial class App : Application
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
 
+        // Container Services
+        services.AddSingleton<IContainerService, TerminalHost.Core.Services.ContainerService>();
+
         // Git Services (use Core implementations for consistency with WPF)
         services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
         services.AddSingleton<IGitHubService, global::TerminalHost.Services.GitHubService>();

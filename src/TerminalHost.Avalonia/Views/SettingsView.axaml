@@ -392,6 +392,14 @@
                                  GroupName="SettingsSection"
                                  Classes="SidebarItemButton"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=StatusOverlay}"/>
+                    <RadioButton Content="Channels"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Channels}"/>
+                    <RadioButton Content="Containers"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Containers}"/>
                 </StackPanel>
             </Border>
 
@@ -2511,6 +2519,333 @@
                         </StackPanel>
                         <TextBlock Text="Background opacity of the overlay window."
                                    Classes="HelpText"/>
+                    </StackPanel>
+
+                    <!-- Channels Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Channels}">
+                        <TextBlock Text="Claude Code Channels" Classes="SectionHeader" Margin="0,0,0,16"/>
+                        <TextBlock Text="Push TerminalHost events (git changes, terminal activity, user messages) into running Claude Code sessions via the MCP channel protocol."
+                                   Classes="SectionDescription" Margin="0,0,0,16"/>
+
+                        <!-- Enable Channels -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable Channel Integration"
+                                      IsChecked="{Binding ChannelEnabled}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="When enabled, Claude Code is launched with the channel server flag and TerminalHost events are forwarded to the session."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Requirements Notice -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Requirements" Classes="FieldLabel" Margin="0,0,0,4"/>
+                                <TextBlock Text="&#x2022; REST API must be enabled (API &amp; Webhooks section)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; SSE streaming must be enabled"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; Claude Code v2.1.80+ with claude.ai login"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Channel Server Path -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Channel Server Path (optional)" Classes="FieldLabel"/>
+                            <TextBox Text="{Binding ChannelServerPath}"
+                                     Classes="FormTextBox" Width="500" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Leave empty for auto-detection. Override with absolute path to terminalhost-channel."
+                                       Classes="SectionDescription" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Event Filters -->
+                        <TextBlock Text="Event Filters" Classes="SectionHeader"/>
+                        <TextBlock Text="Which TerminalHost events to forward to Claude Code. Use wildcard patterns."
+                                   Classes="SectionDescription" Margin="0,0,0,12"/>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBox Text="{Binding ChannelEventFilters}"
+                                     Classes="FormTextBox" Width="500" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Comma-separated. Examples: * (all), repo.* (git events), repo.commit, channel.user_message"
+                                       Classes="SectionDescription" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Advanced -->
+                        <TextBlock Text="Advanced" Classes="SectionHeader"/>
+
+                        <StackPanel Margin="0,8,0,12">
+                            <CheckBox Content="Use development channel flag"
+                                      IsChecked="{Binding ChannelUseDevelopmentFlag}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Uses --dangerously-load-development-channels (required during research preview). Uncheck when channels are generally available."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Auto-register in .mcp.json"
+                                      IsChecked="{Binding ChannelAutoRegisterMcp}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Automatically add the channel server to each project's .mcp.json file."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Containers Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Containers}">
+                        <TextBlock Text="Containerized Workspaces" Classes="SectionHeader" Margin="0,0,0,16"/>
+                        <TextBlock Text="Run AI assistants inside Docker containers for isolation. Per-project overrides are available via the command palette (Container: Toggle)."
+                                   Classes="SectionDescription" Margin="0,0,0,16"/>
+
+                        <!-- Requirements Notice -->
+                        <Border Background="{StaticResource BackgroundDarkBrush}"
+                                CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Requirements" Classes="FieldLabel" Margin="0,0,0,4"/>
+                                <TextBlock Text="&#x2022; Docker Desktop must be installed and running"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; First use builds a workspace image (~10 min, one-time)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                                <TextBlock Text="&#x2022; Existing tabs must be reloaded after enabling (Tab: Reload in command palette)"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeSmall}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Enable Containers -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Enable containerized workspaces globally"
+                                      IsChecked="{Binding ContainerEnabled}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="When enabled, new project tabs run AI assistants and shells inside Docker containers. Per-project overrides take precedence."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Docker Path -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Docker Executable" Classes="FieldLabel"/>
+                            <TextBox Text="{Binding ContainerDockerPath}"
+                                     Classes="FormTextBox" Width="400" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Path to the docker CLI. Default: docker (uses PATH)."
+                                       Classes="HelpText" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Image Name + Tag -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <StackPanel Margin="0,0,16,0">
+                                <TextBlock Text="Image Name" Classes="FieldLabel"/>
+                                <TextBox Text="{Binding ContainerImageName}"
+                                         Classes="FormTextBox" Width="300"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Image Tag" Classes="FieldLabel"/>
+                                <TextBox Text="{Binding ContainerImageTag}"
+                                         Classes="FormTextBox" Width="100"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Security & Mounts -->
+                        <TextBlock Text="Security &amp; Mounts" Classes="FieldLabel" Margin="0,0,0,8"/>
+
+                        <StackPanel Margin="0,0,0,8">
+                            <CheckBox Content="Auto-approve in container (--dangerously-skip-permissions)"
+                                      IsChecked="{Binding ContainerAutoApprove}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Skip Claude Code permission prompts inside containers. The container itself acts as the sandbox."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Mount SSH keys (readonly)"
+                                      IsChecked="{Binding ContainerMountSsh}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Mount ~/.ssh inside the container as readonly for git SSH access."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Mount GitHub CLI auth"
+                                      IsChecked="{Binding ContainerMountGhCli}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Share the host's gh CLI authentication with containers. Enables gh commands without re-authenticating."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Network Mode -->
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="Network Mode" Classes="FieldLabel"/>
+                            <TextBox Text="{Binding ContainerNetworkMode}"
+                                     Classes="FormTextBox" Width="200" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Docker network mode: bridge (default), host, or none."
+                                       Classes="HelpText" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Stop on exit -->
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Stop containers when TerminalHost exits"
+                                      IsChecked="{Binding ContainerStopOnExit}"
+                                      Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Disable to leave containers running for faster reattach on next launch."
+                                       Classes="SectionDescription" Margin="20,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Reference Volumes -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header + Toolbar -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Reference Volumes (readonly)" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <Button Content="+ Add" Command="{Binding AddReferenceVolumeCommand}" Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                                <Button Content="Delete" Command="{Binding DeleteReferenceVolumeCommand}" Classes="SettingsToolbarButton"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="0" Text="Shared source code mounted at /refs/{name} inside the container."
+                                       Classes="SectionDescription" Margin="0,28,0,0"/>
+
+                            <!-- List -->
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding ContainerReferenceVolumes}"
+                                     SelectedItem="{Binding SelectedReferenceVolume}"
+                                     Background="{StaticResource BackgroundDarkBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="1"
+                                     BorderBrush="{StaticResource BorderSubtleBrush}"
+                                     MaxHeight="150" Margin="0,0,0,8">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                        <Setter Property="Padding" Value="8,4"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding HostPath}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text=" &#x2192; " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <TextBlock Text="/refs/" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Edit Panel -->
+                            <StackPanel Grid.Row="2"
+                                        IsVisible="{Binding SelectedReferenceVolume, Converter={StaticResource NullToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <StackPanel Margin="0,0,12,0">
+                                        <TextBlock Text="Host Path" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditRefVolHostPath}"
+                                                 Classes="FormTextBox" Width="350"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Name" Classes="FieldLabel"/>
+                                        <TextBox Text="{Binding EditRefVolName}"
+                                                 Classes="FormTextBox" Width="200"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Content="Apply" Command="{Binding ApplyReferenceVolumeCommand}"
+                                        Classes="SettingsToolbarButton" Padding="16,6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Docker Image -->
+                        <TextBlock Text="Docker Image" Classes="FieldLabel" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Status:" Classes="HelpText" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding ContainerImageStatus}" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"/>
+                            <TextBlock Text=" &#x2014; Rebuild recommended" VerticalAlignment="Center"
+                                       Foreground="#F0C674" FontSize="12"
+                                       IsVisible="{Binding ContainerImageStale}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button Content="Edit Dockerfile" Command="{Binding EditDockerfileCommand}"
+                                    Classes="SettingsToolbarButton" Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="Rebuild Image" Command="{Binding RebuildContainerImageCommand}"
+                                    Classes="SettingsToolbarButton" Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="&#x21bb;" Command="{Binding RefreshImageStatusCommand}" ToolTip.Tip="Refresh status"
+                                    Classes="SettingsToolbarButton" Padding="6,6" Margin="0,0,8,0"/>
+                        </StackPanel>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,8,0,16"/>
+
+                        <!-- Active Containers -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Active Containers" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Button Content="Refresh" Command="{Binding RefreshContainersCommand}"
+                                    Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                            <Button Content="Stop" Click="StopContainer_Click"
+                                    Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                            <Button Content="Remove" Click="RemoveContainer_Click"
+                                    Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                            <Button Content="Clean Stopped" Command="{Binding CleanStoppedContainersCommand}"
+                                    Classes="SettingsToolbarButton"/>
+                        </StackPanel>
+
+                        <ListBox x:Name="ActiveContainersList"
+                                 ItemsSource="{Binding ActiveContainers}"
+                                 SelectedItem="{Binding SelectedContainer}"
+                                 Background="{StaticResource BackgroundDarkBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="1"
+                                 BorderBrush="{StaticResource BorderSubtleBrush}"
+                                 MaxHeight="200" Margin="0,0,0,8">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                    <Setter Property="Padding" Value="8,4"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock Text=" &#x2014; " Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding State}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

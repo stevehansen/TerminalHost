@@ -34,6 +34,9 @@ public partial class WorkspaceEntryViewModel : ObservableObject
     private bool _hasUnreadActivity;
 
     [ObservableProperty]
+    private bool _isContainerized;
+
+    [ObservableProperty]
     private bool _isWaitingForInput;
 
     [ObservableProperty]
@@ -805,6 +808,18 @@ public partial class WorkspaceSidebarViewModel : ObservableObject
         if (workspace != null)
         {
             workspace.HasUnreadActivity = false;
+        }
+    }
+
+    /// <summary>
+    /// Marks a workspace as containerized (running in Docker).
+    /// </summary>
+    public void UpdateContainerState(string path, bool isContainerized)
+    {
+        var workspace = FindWorkspaceByPath(path);
+        if (workspace != null)
+        {
+            workspace.IsContainerized = isContainerized;
         }
     }
 

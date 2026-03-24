@@ -1,7 +1,9 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using TerminalHost.Domain; // For PaletteCommand
 using TerminalHost.ViewModels; // For MainViewModel
 
@@ -13,14 +15,28 @@ public partial class CommandPaletteView : UserControl
     {
         InitializeComponent();
         AttachedToVisualTree += CommandPaletteView_AttachedToVisualTree;
+        this.GetObservable(IsVisibleProperty).Subscribe(OnIsVisibleChanged);
         KeyDown += CommandPaletteView_KeyDown;
     }
 
     private void CommandPaletteView_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
-        // Set keyboard focus to the search box when the palette becomes visible
-        PaletteSearchBox.Focus();
-        PaletteSearchBox.SelectAll();
+        FocusSearchBox();
+    }
+
+    private void OnIsVisibleChanged(bool isVisible)
+    {
+        if (isVisible)
+            FocusSearchBox();
+    }
+
+    private void FocusSearchBox()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            PaletteSearchBox.Focus();
+            PaletteSearchBox.SelectAll();
+        }, DispatcherPriority.Input);
     }
 
     private void CommandPaletteView_KeyDown(object? sender, KeyEventArgs e)

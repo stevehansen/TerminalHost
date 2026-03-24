@@ -269,6 +269,13 @@
                                                        FontSize="{StaticResource FontSizeSmall}"
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        TextTrimming="CharacterEllipsis"/>
+                                            <!-- Container indicator -->
+                                            <TextBlock Text="🐳"
+                                                       FontSize="10"
+                                                       Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="Running in Docker container"
+                                                       IsVisible="{ReflectionBinding IsContainerized, FallbackValue=False}"/>
                                             <!-- Stash count indicator -->
                                             <TextBlock Text="{ReflectionBinding StashCount, StringFormat='📦 {0}'}"
                                                        FontSize="{StaticResource FontSizeSmaller}"

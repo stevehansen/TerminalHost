@@ -50,6 +50,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IAiExecutionService? _aiExecutionService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly StatusOverlayService? _statusOverlayService;
+    private readonly IContainerService? _containerService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _gitAutoFetchTimer;
@@ -270,7 +271,8 @@ public partial class MainViewModel : ObservableObject
         IEventAggregatorService? eventAggregator = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
         IAiExecutionService? aiExecutionService = null,
-        StatusOverlayService? statusOverlayService = null)
+        StatusOverlayService? statusOverlayService = null,
+        IContainerService? containerService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -308,6 +310,7 @@ public partial class MainViewModel : ObservableObject
         _webhookDeliveryService = webhookDeliveryService;
         _aiExecutionService = aiExecutionService;
         _statusOverlayService = statusOverlayService;
+        _containerService = containerService;
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -706,6 +709,7 @@ public partial class MainViewModel : ObservableObject
         {
             tab.UpdateActivityState();
             tab.UpdateWaitingState(_inputPromptDetectionService);
+            SidebarViewModel?.UpdateContainerState(tab.Pair.WorkingDirectory, tab.IsContainerized);
         }
 
         // Also update profile terminal tabs
@@ -1078,11 +1082,41 @@ public partial class MainViewModel : ObservableObject
                 Icon = settings.ShellCommandIcon
             };
 
+            // Set up container if enabled for this workspace
+            string? containerName = null;
+            if (_containerService != null && _containerService.IsEnabledForDirectory(workingDirectory))
+            {
+                try
+                {
+                    containerName = _containerService.GetContainerName(workingDirectory);
+                    customProfile.ContainerName = containerName;
+                    shellProfile.ContainerName = containerName;
+
+                    // Ensure container is running before terminals try to docker exec.
+                    // Call the lightweight EnsureContainerRunningAsync (no dialogs) on a
+                    // background thread to avoid UI deadlock, then run dialog-based checks async.
+                    Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
+
+                    // Fire-and-forget: staleness checks and dialog prompts (non-blocking)
+                    _ = EnsureContainerForWorkspaceAsync(workingDirectory);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Container setup failed: {ex.Message}");
+                    _toastService.Show($"Container setup failed: {ex.Message}", ToastType.Warning);
+                    // Fall back to non-containerized
+                    customProfile.ContainerName = null;
+                    shellProfile.ContainerName = null;
+                }
+            }
+
             // Create the terminal pair
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
             var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService, _gitStatusService, _toastService, duplicateIndex);
+            tabViewModel.IsContainerized = containerName != null;
+            SidebarViewModel?.UpdateContainerState(workingDirectory, containerName != null);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;
             tabViewModel.ShellProfileSwitchRequested += OnShellProfileSwitchRequested;
             tabViewModel.CloseRequested += OnTabCloseRequested;
@@ -1732,7 +1766,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService);
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -1752,7 +1786,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab with Profiles section selected
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService);
         settingsTab.SelectedSection = SettingsSection.Profiles;
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
@@ -3017,6 +3051,105 @@ public partial class MainViewModel : ObservableObject
                 Category = "AI",
                 IntroducedOn = new DateOnly(2026, 2, 23),
                 Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
+            },
+
+            // Container commands
+            new() {
+                Id = "container-toggle",
+                Name = "Container: Toggle for Current Workspace",
+                Description = "Enable or disable Docker container isolation for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => ToggleContainerForCurrentWorkspace(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-rebuild-image",
+                Name = "Container: Rebuild Image",
+                Description = "Rebuild the Docker workspace image from Dockerfile",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = RebuildContainerImageAsync()
+            },
+            new() {
+                Id = "container-stop",
+                Name = "Container: Stop Current",
+                Description = "Stop the Docker container for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = StopCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-remove",
+                Name = "Container: Remove Current",
+                Description = "Remove the Docker container for the active workspace",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = RemoveCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-recreate",
+                Name = "Container: Recreate Current",
+                Description = "Remove and recreate the container (applies settings changes)",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = RecreateCurrentContainerAsync(),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "container-list",
+                Name = "Container: List All",
+                Description = "Show all TerminalHost Docker containers",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = ListContainersAsync()
+            },
+            new() {
+                Id = "container-clean",
+                Name = "Container: Clean Stopped",
+                Description = "Remove all stopped Docker containers",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = CleanStoppedContainersAsync()
+            },
+            new() {
+                Id = "container-check-docker",
+                Name = "Container: Check Docker Status",
+                Description = "Verify Docker Desktop is available and running",
+                Icon = "🐳",
+                Category = "Container",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => _ = CheckDockerStatusAsync()
+            },
+
+            // Channel commands
+            new() {
+                Id = "channel-send-message",
+                Name = "Channel: Send Message to Claude",
+                Description = "Send a text message to the Claude Code session via the channel",
+                Icon = "📨",
+                Category = "Channel",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => SendChannelMessage(),
+                CanExecute = () => _apiServer?.IsRunning == true
+            },
+            new() {
+                Id = "channel-toggle",
+                Name = "Channel: Toggle Integration",
+                Description = "Enable or disable Claude Code channel integration",
+                Icon = "🔌",
+                Category = "Channel",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () => ToggleChannelIntegration()
             }
         ];
     }
@@ -3348,6 +3481,320 @@ public partial class MainViewModel : ObservableObject
 
     #endregion
 
+    // ── Container command helpers ───────────────────────────────────────
+
+    private async Task EnsureContainerForWorkspaceAsync(string workspaceDir)
+    {
+        try
+        {
+            // Step 1: Check Docker availability
+            if (!await _containerService!.IsDockerAvailableAsync())
+            {
+                _toastService.Show(
+                    "Docker Desktop is not running. Start Docker Desktop or disable containers for this workspace (Container: Toggle in command palette).",
+                    ToastType.Warning);
+                return;
+            }
+
+            // Step 2: First-time image build
+            if (!await _containerService.IsImageBuiltAsync())
+            {
+                var choice = _dialogService.ShowCustomButtons(
+                    "The container workspace image needs to be built before first use. " +
+                    "This is a one-time operation that takes approximately 5-10 minutes.\n\n" +
+                    "Build the image now?",
+                    "Container Setup",
+                    "Build Now", "Skip", "Cancel");
+
+                if (choice == 0)
+                {
+                    using var toast = _toastService.ShowProgress("Building container image...");
+                    var success = await _containerService.BuildImageAsync(line =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+                    });
+
+                    if (!success)
+                    {
+                        toast.Fail("Image build failed. Check Docker Desktop logs.");
+                        return;
+                    }
+                    toast.Complete("Container image built successfully");
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            // Step 3: Check if Dockerfile has been updated (new TerminalHost version)
+            var dockerfileStatus = _containerService.CheckDockerfileStatus();
+            if (dockerfileStatus == DockerfileStatus.Stale)
+            {
+                var choice = _dialogService.ShowCustomButtons(
+                    "The container Dockerfile has been updated in this version of TerminalHost " +
+                    "(new tools or fixes available). Rebuilding the image is recommended.\n\n" +
+                    "You can also rebuild later via command palette (Container: Rebuild Image).",
+                    "Dockerfile Updated",
+                    "Rebuild Now", "Skip");
+
+                if (choice == 0)
+                {
+                    _containerService.UpdateDockerfileToLatest();
+                    using var toast = _toastService.ShowProgress("Rebuilding container image...");
+                    var success = await _containerService.BuildImageAsync(line =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+                    });
+
+                    if (success)
+                        toast.Complete("Image rebuilt successfully");
+                    else
+                        toast.Fail("Image rebuild failed");
+                }
+            }
+
+            // Step 4: Ensure container running
+            var result = await _containerService.EnsureContainerRunningAsync(workspaceDir);
+
+            // Step 5: Staleness warnings (non-blocking)
+            if (result.IsConfigStale)
+            {
+                _toastService.Show(
+                    "Container settings have changed. Use 'Container: Recreate Current' from the command palette to apply.",
+                    ToastType.Warning);
+            }
+            else if (result.IsImageStale && dockerfileStatus != DockerfileStatus.Stale)
+            {
+                _toastService.Show(
+                    "This container was built from an older image. Rebuild and recreate for latest tools.",
+                    ToastType.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to start container for {workspaceDir}: {ex.Message}");
+            _toastService.Show($"Docker container failed to start: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private void ToggleContainerForCurrentWorkspace()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab) return;
+        var dir = tab.Pair.WorkingDirectory;
+        var config = _configService.Load();
+        var normalizedPath = NormalizePath(dir);
+
+        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var dirSettings))
+        {
+            dirSettings = new DirectorySettings();
+            config.DirectorySettings[normalizedPath] = dirSettings;
+        }
+
+        // Toggle: if currently enabled (explicitly or via global), disable; otherwise enable
+        var currentlyEnabled = _containerService?.IsEnabledForDirectory(dir) ?? false;
+        dirSettings.ContainerEnabled = !currentlyEnabled;
+        _configService.Save(config);
+
+        var nowEnabled = dirSettings.ContainerEnabled.Value;
+        var state = nowEnabled ? "enabled" : "disabled";
+        _toastService.Show($"Container {state} for {Path.GetFileName(dir)}. Reloading tab...", ToastType.Info);
+
+        // Stop the container when toggling off
+        if (!nowEnabled && _containerService != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await _containerService.StopContainerAsync(dir); } catch { }
+            });
+        }
+
+        // Auto-reload the tab so container settings take effect immediately
+        ReloadTerminalTab(tab);
+    }
+
+    private void ReloadTerminalTab(TerminalPairTabViewModel tab)
+    {
+        var dir = tab.Pair.WorkingDirectory;
+
+        // Force-close without confirmation (we're reloading, not closing)
+        tab.CloseRequested -= OnTabCloseRequested;
+        tab.SettingsChanged -= OnTabSettingsChanged;
+        tab.RunStartRequested -= OnRunStartRequested;
+        tab.RunStopRequested -= OnRunStopRequested;
+        _sessionManager.CloseSession(tab.Pair.CustomTerminal);
+        _sessionManager.CloseSession(tab.Pair.ShellTerminal);
+        if (tab.Pair.RunTerminal != null)
+            _sessionManager.CloseSession(tab.Pair.RunTerminal);
+        tab.Pair.Dispose();
+        Tabs.Remove(tab);
+
+        // Reopen with fresh container state
+        OpenProjectTab(dir);
+    }
+
+    private async Task RebuildContainerImageAsync()
+    {
+        if (_containerService == null) return;
+
+        // Update the Dockerfile to the latest embedded version if stale
+        var status = _containerService.CheckDockerfileStatus();
+        if (status == DockerfileStatus.Stale)
+            _containerService.UpdateDockerfileToLatest();
+
+        using var toast = _toastService.ShowProgress("Building Docker image...");
+        try
+        {
+            var success = await _containerService.BuildImageAsync(line =>
+            {
+                // Show last meaningful build step in the progress toast
+                if (!string.IsNullOrWhiteSpace(line))
+                    toast.Update(line.Length > 80 ? line[..80] + "..." : line);
+            });
+
+            if (success)
+                toast.Complete("Docker image built successfully");
+            else
+                toast.Fail("Docker image build failed — check Docker Desktop logs");
+        }
+        catch (Exception ex)
+        {
+            toast.Fail($"Image build failed: {ex.Message}");
+        }
+    }
+
+    private async Task RecreateCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        var dir = tab.Pair.WorkingDirectory;
+
+        using var toast = _toastService.ShowProgress("Recreating container...");
+        try
+        {
+            toast.Update("Removing old container...");
+            await _containerService.RemoveContainerAsync(dir);
+
+            toast.Update("Creating new container...");
+            await _containerService.EnsureContainerRunningAsync(dir);
+
+            toast.Complete("Container recreated — reloading tab...");
+            ReloadTerminalTab(tab);
+        }
+        catch (Exception ex)
+        {
+            toast.Fail($"Recreate failed: {ex.Message}");
+        }
+    }
+
+    private async Task StopCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        try
+        {
+            await _containerService.StopContainerAsync(tab.Pair.WorkingDirectory);
+            _toastService.Show("Container stopped", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to stop container: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task RemoveCurrentContainerAsync()
+    {
+        if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
+        try
+        {
+            await _containerService.RemoveContainerAsync(tab.Pair.WorkingDirectory);
+            _toastService.Show("Container removed", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to remove container: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task ListContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var containers = await _containerService.ListContainersAsync();
+            if (containers.Count == 0)
+            {
+                _toastService.Show("No containers found", ToastType.Info);
+                return;
+            }
+
+            var lines = containers.Select(c => $"{c.Name}: {c.State}");
+            _toastService.Show($"{containers.Count} container(s):\n{string.Join("\n", lines)}", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to list containers: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task CleanStoppedContainersAsync()
+    {
+        if (_containerService == null) return;
+        try
+        {
+            var count = await _containerService.CleanStoppedContainersAsync();
+            _toastService.Show(count > 0 ? $"Removed {count} stopped container(s)" : "No stopped containers to remove", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to clean containers: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task CheckDockerStatusAsync()
+    {
+        if (_containerService == null) return;
+        var available = await _containerService.IsDockerAvailableAsync();
+        _toastService.Show(
+            available ? "Docker is available and running" : "Docker is not available. Ensure Docker Desktop is running.",
+            available ? ToastType.Success : ToastType.Warning);
+    }
+
+    // ── Channel command helpers ─────────────────────────────────────────
+
+    private void SendChannelMessage()
+    {
+        var message = _dialogService.ShowInput("Enter a message to send to Claude Code via the channel:", "Send to Claude");
+        if (string.IsNullOrWhiteSpace(message)) return;
+
+        // Get current repo index
+        int? repoIndex = null;
+        if (SelectedTab is TerminalPairTabViewModel termTab)
+        {
+            repoIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(termTab);
+        }
+
+        // Publish the message as a channel event via the event aggregator
+        _eventAggregator?.Publish(new ApiEvent
+        {
+            Type = "channel.user_message",
+            RepoIndex = repoIndex,
+            Data = new { message, sender = "user" }
+        });
+
+        _toastService.Show("Message sent to Claude via channel", ToastType.Success);
+    }
+
+    private void ToggleChannelIntegration()
+    {
+        var config = _configService.Load();
+        config.Settings.Channel.Enabled = !config.Settings.Channel.Enabled;
+        _configService.Save(config);
+
+        var status = config.Settings.Channel.Enabled ? "enabled" : "disabled";
+        _toastService.Show($"Channel integration {status}. Restart Claude Code terminals to apply.", ToastType.Info);
+    }
+
     public void Shutdown()
     {
         // Stop and dispose timers
@@ -3369,6 +3816,36 @@ public partial class MainViewModel : ObservableObject
 
         // Save open folders before closing
         SaveOpenFolders();
+
+        // Stop containers if configured — run on thread pool to avoid UI thread
+        // deadlock, but wait with a timeout so the process doesn't exit too early
+        if (_containerService != null)
+        {
+            try
+            {
+                var config = _configService.Load();
+                if (config.Settings.Container.StopContainersOnExit)
+                {
+                    var dockerPath = config.Settings.Container.DockerPath;
+                    var stopTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var containers = await _containerService.ListContainersAsync();
+                            var stopTasks = containers
+                                .Where(c => c.State == ContainerState.Running)
+                                .Select(c => _processService.RunAsync(dockerPath, $"stop -t 2 {c.Name}",
+                                    timeout: TimeSpan.FromSeconds(5)))
+                                .ToList();
+                            await Task.WhenAll(stopTasks);
+                        }
+                        catch { }
+                    });
+                    stopTask.Wait(TimeSpan.FromSeconds(10));
+                }
+            }
+            catch { }
+        }
 
         _sessionManager.CloseAllSessions();
         foreach (var tab in Tabs.OfType<TerminalPairTabViewModel>())
