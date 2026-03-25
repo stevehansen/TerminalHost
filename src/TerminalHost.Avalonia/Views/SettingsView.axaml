@@ -516,6 +516,22 @@
                                    Classes="SectionDescription"
                                    Margin="0,0,0,12"/>
 
+                        <!-- Path toolbar -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Browse..."
+                                    Classes="SettingsToolbarButton"
+                                    Margin="0,0,4,0"
+                                    Click="BrowseCustomPath_Click"/>
+                            <Button Content="+ Add"
+                                    Classes="SettingsToolbarButton"
+                                    Command="{Binding AddCustomPathCommand}"
+                                    Margin="0,0,4,0"/>
+                            <Button Content="- Remove"
+                                    Classes="SettingsToolbarButton"
+                                    Command="{Binding RemoveCustomPathCommand}"
+                                    IsEnabled="{Binding SelectedCustomPath, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        </StackPanel>
+
                         <!-- Path list -->
                         <Border Background="{StaticResource BackgroundDarkBrush}"
                                 BorderBrush="{StaticResource BorderSubtleBrush}"
@@ -539,36 +555,12 @@
                             </ListBox>
                         </Border>
 
-                        <!-- Add new path -->
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     Text="{Binding NewCustomPath}"
-                                     Classes="FormTextBox"
-                                     FontFamily="{StaticResource FontFamilyMonospace}"
-                                     Watermark="Enter path (e.g., /usr/local/share/dotnet)"/>
-                            <Button Grid.Column="1"
-                                    Content="Browse..."
-                                    Classes="SettingsToolbarButton"
-                                    Margin="8,0,0,0"
-                                    Click="BrowseCustomPath_Click"/>
-                            <Button Grid.Column="2"
-                                    Content="+ Add"
-                                    Classes="SettingsToolbarButton"
-                                    Command="{Binding AddCustomPathCommand}"
-                                    Margin="8,0,0,0"/>
-                            <Button Grid.Column="3"
-                                    Content="- Remove"
-                                    Classes="SettingsToolbarButton"
-                                    Command="{Binding RemoveCustomPathCommand}"
-                                    IsEnabled="{Binding SelectedCustomPath, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                    Margin="8,0,0,0"/>
-                        </Grid>
+                        <!-- New path input -->
+                        <TextBox Text="{Binding NewCustomPath}"
+                                 Classes="FormTextBox"
+                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                 Watermark="Enter path (e.g., /usr/local/share/dotnet)"
+                                 Margin="0,8,0,0"/>
                         <TextBlock Text="Paths are added in order, with earlier entries taking priority. Changes take effect for new terminals."
                                    Classes="HelpText"/>
                     </StackPanel>

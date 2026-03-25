@@ -993,53 +993,40 @@ public partial class MainWindow : Window
             }
 
             // Then close individual popups in priority order
-            if (_reflogViewModel.IsOpen)
+            // Check all popup ViewModels that have IsOpen
+            var openPopups = new (bool isOpen, Action close)[]
             {
-                _reflogViewModel.IsOpen = false;
-                e.Handled = true;
-                return;
-            }
-            if (_manageWorktreesViewModel.IsOpen)
+                (_prReviewViewModel.IsOpen, () => _prReviewViewModel.IsOpen = false),
+                (_mergeConflictViewModel.IsOpen, () => _mergeConflictViewModel.IsOpen = false),
+                (_unifiedGitPanelViewModel.IsOpen, () => _unifiedGitPanelViewModel.CloseCommand.Execute(null)),
+                (_searchAcrossFilesViewModel.IsOpen, () => _searchAcrossFilesViewModel.CloseCommand.Execute(null)),
+                (_commitHistoryViewModel.IsOpen, () => _commitHistoryViewModel.IsOpen = false),
+                (_gitStashViewModel.IsOpen, () => _gitStashViewModel.IsOpen = false),
+                (_gitTagsViewModel.IsOpen, () => _gitTagsViewModel.IsOpen = false),
+                (_branchComparisonViewModel.IsOpen, () => _branchComparisonViewModel.IsOpen = false),
+                (_gitBranchViewModel.IsOpen, () => _gitBranchViewModel.IsOpen = false),
+                (_gitFilesViewModel.IsOpen, () => _gitFilesViewModel.CloseCommand.Execute(null)),
+                (_fileHistoryViewModel.IsOpen, () => _fileHistoryViewModel.IsOpen = false),
+                (_fileBlameViewModel.IsOpen, () => _fileBlameViewModel.IsOpen = false),
+                (_reflogViewModel.IsOpen, () => _reflogViewModel.IsOpen = false),
+                (_manageWorktreesViewModel.IsOpen, () => _manageWorktreesViewModel.IsOpen = false),
+                (_recentFeaturesViewModel.IsOpen, () => _recentFeaturesViewModel.CloseCommand.Execute(null)),
+                (_taskPanelViewModel.IsOpen, () => _taskPanelViewModel.IsOpen = false),
+                (_scratchPadViewModel.IsOpen, () => _scratchPadViewModel.CloseCommand.Execute(null)),
+                (_detectedLinksViewModel.IsOpen, () => _detectedLinksViewModel.CloseCommand.Execute(null)),
+                (_fileViewerViewModel.IsOpen, () => _fileViewerViewModel.CloseCommand.Execute(null)),
+                (_claudeTasksPanelViewModel.IsOpen, () => _claudeTasksPanelViewModel.CloseCommand.Execute(null)),
+                (_mainViewModel.IsHelpOpen, () => _mainViewModel.IsHelpOpen = false),
+            };
+
+            foreach (var (isOpen, close) in openPopups)
             {
-                _manageWorktreesViewModel.IsOpen = false;
-                e.Handled = true;
-                return;
-            }
-            if (_scratchPadViewModel.IsOpen)
-            {
-                _scratchPadViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_detectedLinksViewModel.IsOpen)
-            {
-                _detectedLinksViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_gitFilesViewModel.IsOpen)
-            {
-                _gitFilesViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_fileViewerViewModel.IsOpen)
-            {
-                _fileViewerViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_claudeTasksPanelViewModel.IsOpen)
-            {
-                _claudeTasksPanelViewModel.CloseCommand.Execute(null);
-                e.Handled = true;
-                return;
-            }
-            if (_mainViewModel.IsHelpOpen)
-            {
-                _mainViewModel.IsHelpOpen = false;
-                e.Handled = true;
-                return;
+                if (isOpen)
+                {
+                    close();
+                    e.Handled = true;
+                    return;
+                }
             }
 
             // If nothing was open, don't consume the key event

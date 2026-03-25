@@ -1067,7 +1067,26 @@ public class ContainerService : IContainerService
     private string GetDockerPath()
     {
         var config = _configService.Load();
-        return config.Settings.Container.DockerPath;
+        var path = config.Settings.Container.DockerPath;
+
+        // On macOS, GUI apps don't inherit the shell's PATH.
+        // If the configured path is just "docker" (no full path), resolve to common locations.
+        if (OperatingSystem.IsMacOS() && path == "docker")
+        {
+            var candidates = new[]
+            {
+                "/usr/local/bin/docker",
+                "/opt/homebrew/bin/docker",
+                "/Applications/Docker.app/Contents/Resources/bin/docker",
+            };
+            foreach (var candidate in candidates)
+            {
+                if (_fileSystem.FileExists(candidate))
+                    return candidate;
+            }
+        }
+
+        return path;
     }
 
     private static string NormalizePath(string path) =>
