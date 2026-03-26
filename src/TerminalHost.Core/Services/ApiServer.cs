@@ -807,11 +807,24 @@ public class ApiServer : IApiServer
             return;
         }
 
+        var collabSessions = _collabService.GetSessions();
         var topics = _collabService.GetTopics().Select(t => new
         {
             name = t.Name,
             description = t.Description,
             subscribers = t.Subscribers.ToList(),
+            // Enriched subscriber info with identity fields
+            subscriberDetails = t.Subscribers.Select(subName =>
+            {
+                var cs = collabSessions.FirstOrDefault(s => s.Name == subName);
+                return new
+                {
+                    name = subName,
+                    claudeSessionId = cs?.ClaudeSessionId,
+                    projectName = cs?.ProjectName,
+                    workingDir = cs?.WorkingDir
+                };
+            }).ToList(),
             createdBy = t.CreatedBy,
             messageCount = t.MessageCount,
             createdAt = t.CreatedAt
@@ -831,6 +844,8 @@ public class ApiServer : IApiServer
         {
             name = s.Name,
             workingDir = s.WorkingDir,
+            claudeSessionId = s.ClaudeSessionId,
+            projectName = s.ProjectName,
             lastSeen = s.LastSeen
         });
         await WriteJson(response, new { sessions });

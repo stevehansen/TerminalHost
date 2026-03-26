@@ -679,15 +679,6 @@ public sealed class TimelineService : ITimelineService, IDisposable
         }
         if (string.IsNullOrEmpty(topic)) return;
 
-        // Find auto-generated subscriber on this topic and rename
-        var topics = _collabService.GetTopics();
-        var collabTopic = topics.FirstOrDefault(ct => ct.Name == topic);
-        if (collabTopic == null) return;
-
-        // Look for a "session-N" or "unknown" subscriber to rename
-        var autoSub = collabTopic.Subscribers
-            .FirstOrDefault(s => s.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || s == "unknown");
-
         // Get full identity from live session
         string? workingDir = null;
         lock (_lock)
@@ -696,42 +687,40 @@ public sealed class TimelineService : ITimelineService, IDisposable
                 workingDir = ls.WorkingDirectory;
         }
 
-        // Enrich the collab session with Claude session identity
         var collabSessions = _collabService.GetSessions();
+        var allTopics = _collabService.GetTopics();
+        var collabTopic = allTopics.FirstOrDefault(ct => ct.Name == topic);
+        if (collabTopic == null) return;
 
-        if (autoSub != null && autoSub != projectName)
+        // Find which collab session made this call.
+        // Priority: 1) already tagged with this claudeSessionId
+        //           2) subscriber with auto-generated name ("session-N" / "unknown")
+        //           3) any subscriber not yet tagged with a claudeSessionId
+        var collabSession = collabSessions.FirstOrDefault(s => s.ClaudeSessionId == hookEvent.SessionId)
+            ?? collabSessions.FirstOrDefault(s =>
+                collabTopic.Subscribers.Contains(s.Name) &&
+                (s.Name.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || s.Name == "unknown"))
+            ?? collabSessions.FirstOrDefault(s =>
+                collabTopic.Subscribers.Contains(s.Name) &&
+                string.IsNullOrEmpty(s.ClaudeSessionId));
+
+        if (collabSession == null) return;
+
+        // Always enrich with identity fields from hooks
+        collabSession.ClaudeSessionId = hookEvent.SessionId;
+        collabSession.WorkingDir ??= workingDir;
+        collabSession.ProjectName ??= projectName;
+
+        // Rename auto-generated names to project name
+        var oldName = collabSession.Name;
+        if (oldName.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || oldName == "unknown")
         {
-            // Check that the target name isn't already a subscriber (avoid duplicates)
             if (!collabTopic.Subscribers.Contains(projectName))
             {
-                // Rename: remove old, add new in topic + collab sessions
-                collabTopic.Subscribers.Remove(autoSub);
+                collabTopic.Subscribers.Remove(oldName);
                 collabTopic.Subscribers.Add(projectName);
-                if (collabTopic.CreatedBy == autoSub) collabTopic.CreatedBy = projectName;
-
-                // Enrich the collab session with identity
-                var collabSession = collabSessions.FirstOrDefault(s => s.Name == autoSub);
-                if (collabSession != null)
-                {
-                    collabSession.Name = projectName;
-                    collabSession.ClaudeSessionId = hookEvent.SessionId;
-                    collabSession.WorkingDir = workingDir;
-                    collabSession.ProjectName = projectName;
-                }
-            }
-        }
-        else
-        {
-            // Name already correct — just enrich with identity fields
-            var collabSession = collabSessions.FirstOrDefault(s => s.Name == projectName || s.Name == autoSub);
-            if (collabSession != null)
-            {
-                if (string.IsNullOrEmpty(collabSession.ClaudeSessionId))
-                    collabSession.ClaudeSessionId = hookEvent.SessionId;
-                if (string.IsNullOrEmpty(collabSession.WorkingDir))
-                    collabSession.WorkingDir = workingDir;
-                if (string.IsNullOrEmpty(collabSession.ProjectName))
-                    collabSession.ProjectName = projectName;
+                if (collabTopic.CreatedBy == oldName) collabTopic.CreatedBy = projectName;
+                collabSession.Name = projectName;
             }
         }
     }

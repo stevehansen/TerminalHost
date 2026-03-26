@@ -337,42 +337,43 @@ async function pollCollab() {
         const newEdges = [];
 
         for (const topic of topics) {
-            const subscribers = topic.subscribers || [];
-            if (subscribers.length < 2) continue;
+            const details = topic.subscriberDetails || [];
+            if (details.length < 2) continue;
 
-            // Match each subscriber to a canvas session (case-insensitive, multi-strategy)
+            // Match each subscriber to a canvas session using enriched identity
             const matchedSessions = [];
-            for (const sub of subscribers) {
-                const subLower = sub.toLowerCase();
+            for (const sub of details) {
                 let matched = false;
 
-                // 1. Direct match by canvas session name (case-insensitive)
-                for (const [sid, session] of sparkCanvas.sessions) {
-                    if (session.name.toLowerCase() === subLower) {
-                        matchedSessions.push(sid);
-                        matched = true;
-                        break;
-                    }
-                }
-                if (matched) continue;
-
-                // 2. Match by projectPath folder name (case-insensitive)
-                for (const [sid, session] of sparkCanvas.sessions) {
-                    const folder = session.projectPath?.split(/[/\\]/).filter(Boolean).pop()?.toLowerCase();
-                    if (folder === subLower) {
-                        matchedSessions.push(sid);
-                        matched = true;
-                        break;
-                    }
-                }
-                if (matched) continue;
-
-                // 3. Match via collab session's workingDir → canvas session
-                const collabS = collabSessions.find(cs => cs.name.toLowerCase() === subLower);
-                if (collabS?.workingDir) {
-                    const cwdFolder = collabS.workingDir.split(/[/\\]/).filter(Boolean).pop()?.toLowerCase();
+                // 1. Direct match by claudeSessionId (most reliable)
+                if (sub.claudeSessionId) {
                     for (const [sid, session] of sparkCanvas.sessions) {
-                        if (session.name.toLowerCase() === cwdFolder) {
+                        // Canvas session IDs are Claude session IDs
+                        if (sid === sub.claudeSessionId) {
+                            matchedSessions.push(sid);
+                            matched = true;
+                            break;
+                        }
+                    }
+                }
+                if (matched) continue;
+
+                // 2. Match by projectName (case-insensitive)
+                const projName = (sub.projectName || sub.name || '').toLowerCase();
+                for (const [sid, session] of sparkCanvas.sessions) {
+                    if (session.name.toLowerCase() === projName) {
+                        matchedSessions.push(sid);
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) continue;
+
+                // 3. Match by workingDir folder name
+                if (sub.workingDir) {
+                    const folder = sub.workingDir.split(/[/\\]/).filter(Boolean).pop()?.toLowerCase();
+                    for (const [sid, session] of sparkCanvas.sessions) {
+                        if (session.name.toLowerCase() === folder) {
                             matchedSessions.push(sid);
                             break;
                         }

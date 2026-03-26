@@ -638,9 +638,9 @@ public class McpHandler
             tools.Add(new McpToolDefinition
             {
                 Name = "set_session_name",
-                Description = "IMPORTANT: Call this first before using any other collab tools. Sets a human-friendly name for this session (e.g., 'backend', 'frontend'). Other sessions will see this name on messages and claims. Pass working_dir for reliable session matching.",
+                Description = "IMPORTANT: Call this first before using any other collab tools. Use your project folder name as the session name (e.g., if your cwd is /workspace/Api, use 'Api'). This identifies your session to other collaborators. Also pass working_dir for reliable matching.",
                 InputSchema = Schema(new[] {
-                    Prop("name", "string", "Session name (e.g., 'backend', 'frontend', 'api-service')"),
+                    Prop("name", "string", "Session name — use the project/folder name from your working directory (e.g., 'Api', 'cronos', 'frontend')"),
                     Prop("working_dir", "string", "Working directory of this session (optional, helps match to project)"),
                     Prop("project_name", "string", "Project/folder name (optional, derived from working_dir if not set)") },
                     new[] { "name" })
