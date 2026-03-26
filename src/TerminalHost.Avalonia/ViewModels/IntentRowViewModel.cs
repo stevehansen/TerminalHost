@@ -24,9 +24,8 @@ public partial class IntentRowViewModel : ObservableObject
         // Initialize sessions
         RefreshSessions();
 
-        // Subscribe to service events
-        _timelineService.SessionsChanged += OnSessionsChanged;
-        _timelineService.SessionStatusChanged += OnSessionStatusChanged;
+        // Note: SessionsChanged/SessionStatusChanged events were removed from ITimelineService.
+        // These are macOS stubs - live session tracking is not yet implemented on this platform.
     }
 
     // Properties from intent
@@ -56,21 +55,7 @@ public partial class IntentRowViewModel : ObservableObject
     public int SessionCount => Sessions.Count;
     public int CompletedSessionCount => Sessions.Count(s => s.IsCompleted);
 
-    // Event handlers
-    private void OnSessionsChanged(object? sender, EventArgs e)
-    {
-        RefreshSessions();
-    }
-
-    private void OnSessionStatusChanged(object? sender, ClaudeSession session)
-    {
-        if (session.IntentId == Id)
-        {
-            var vm = Sessions.FirstOrDefault(s => s.Id == session.Id);
-            vm?.Refresh();
-            OnPropertyChanged(nameof(HasRunningSession));
-        }
-    }
+    // Note: OnSessionsChanged/OnSessionStatusChanged removed - events no longer on ITimelineService.
 
     // Commands
     [RelayCommand]
@@ -89,7 +74,7 @@ public partial class IntentRowViewModel : ObservableObject
     [RelayCommand]
     private void StartNewSession()
     {
-        _timelineService.StartSession(Id);
+        // StartSession was removed from ITimelineService - no-op stub for macOS
     }
 
     [RelayCommand]
@@ -168,14 +153,9 @@ public partial class IntentRowViewModel : ObservableObject
     /// </summary>
     public void RefreshSessions()
     {
-        var sessions = _timelineService.GetSessionsForIntent(Id);
-
-        // Clear and repopulate
+        // GetSessionsForIntent was removed from ITimelineService.
+        // Sessions are no longer tracked per-intent in the slim interface.
         Sessions.Clear();
-        foreach (var session in sessions.OrderBy(s => s.StartTime))
-        {
-            Sessions.Add(new SessionBlockViewModel(session, _timelineService));
-        }
 
         OnPropertyChanged(nameof(HasRunningSession));
         OnPropertyChanged(nameof(SessionCount));
@@ -203,7 +183,6 @@ public partial class IntentRowViewModel : ObservableObject
     /// </summary>
     public void Dispose()
     {
-        _timelineService.SessionsChanged -= OnSessionsChanged;
-        _timelineService.SessionStatusChanged -= OnSessionStatusChanged;
+        // No event subscriptions to clean up (removed events)
     }
 }

@@ -39,7 +39,6 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.IntentsChanged += OnIntentsChanged;
         _timelineService.CurrentIntentChanged += OnCurrentIntentChanged;
         _timelineService.FocusStateChanged += OnFocusStateChanged;
-        _timelineService.TimeScaleChanged += OnTimeScaleChanged;
 
         // Set up refresh timer for time displays (1 second)
         _refreshTimer = _timerService.CreateTimer(TimeSpan.FromSeconds(1), RefreshTimeDisplays);
@@ -151,11 +150,6 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         UpdateFocusTimeDisplay();
     }
 
-    private void OnTimeScaleChanged(object? sender, TimeScale scale)
-    {
-        CurrentTimeScale = scale;
-    }
-
     private void RefreshTimeDisplays()
     {
         var now = DateTime.Now;
@@ -228,7 +222,8 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
     [RelayCommand]
     private void SetTimeScale(TimeScale scale)
     {
-        _timelineService.SetTimeScale(scale);
+        // SetTimeScale was removed from ITimelineService - just update local state
+        CurrentTimeScale = scale;
     }
 
     [RelayCommand]
@@ -377,7 +372,6 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel
         _timelineService.IntentsChanged -= OnIntentsChanged;
         _timelineService.CurrentIntentChanged -= OnCurrentIntentChanged;
         _timelineService.FocusStateChanged -= OnFocusStateChanged;
-        _timelineService.TimeScaleChanged -= OnTimeScaleChanged;
 
         foreach (var intent in Intents)
         {

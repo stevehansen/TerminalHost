@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using TerminalHost.Core.Domain;
 
 namespace TerminalHost.Core.Interfaces;
 
@@ -22,4 +23,10 @@ public interface IApiServer : IDisposable
 
     /// <summary>Number of active SSE connections.</summary>
     int ActiveSseConnections { get; }
+
+    /// <summary>
+    /// Fired when a hook event is received via the /api/hooks/:type endpoint (container proxy).
+    /// App.xaml.cs subscribes to route these through the same pipeline as CLI hooks.
+    /// </summary>
+    event EventHandler<HookEvent>? HookEventReceived;
 }

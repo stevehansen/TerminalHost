@@ -5,25 +5,33 @@ using TerminalHost.Core.Interfaces;
 namespace TerminalHost.Core.Services;
 
 /// <summary>
-/// Service for managing Timeline IDE state, intents, and Claude Code sessions.
-/// Persists data through ConfigurationService.
+/// Service for managing Timeline IDE state, intents, and live Claude Code sessions.
+/// Historical session data comes from IClaudeSessionIndexService — this service
+/// only tracks in-memory live sessions from hook events. No file persistence for sessions.
 /// </summary>
-public sealed class TimelineService : ITimelineService
+public sealed class TimelineService : ITimelineService, IDisposable
 {
     private readonly IConfigurationService _configService;
     private readonly IGitWorktreeService _worktreeService;
     private readonly IGitProcessRunner _gitRunner;
     private readonly IFileSystem _fileSystem;
-    private readonly IClaudeTaskFileService? _taskFileService;
-    private readonly IClaudeSessionIndexService? _sessionIndexService;
-    private readonly string _userDataDirectory;
     private readonly object _lock = new();
 
-    // Cached state (loaded from config)
+    // Inactivity timeout for detecting stuck sessions
+    private Timer? _inactivityTimer;
+    private const int InactivityCheckIntervalMs = 30_000;
+    private const int InactivityTimeoutMinutes = 2;
+    private const int NoActivityTimeoutMinutes = 5;
+    private const int CompletedSessionRetentionSeconds = 60;
+
+    // Cached state (loaded from config) — intents, focus time, preferences
     private TimelineState _state = new();
 
-    // In-memory sessions collection (loaded from individual files)
-    private readonly List<ClaudeSession> _sessions = new();
+    // In-memory live sessions only — no file persistence
+    private readonly Dictionary<string, LiveSession> _liveSessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IClaudeSessionIndexService? _sessionIndexService;
+    private readonly ITranscriptWatcher? _transcriptWatcher;
+    private readonly ISessionActivityService? _activityService;
 
     public TimelineService(
         IConfigurationService configService,
@@ -32,33 +40,26 @@ public sealed class TimelineService : ITimelineService
         IFileSystem fileSystem,
         IClaudeTaskFileService? taskFileService = null,
         IClaudeSessionIndexService? sessionIndexService = null,
+        ITranscriptWatcher? transcriptWatcher = null,
+        ISessionActivityService? activityService = null,
         string? userDataDir = null)
     {
         _configService = configService;
         _worktreeService = worktreeService;
         _gitRunner = gitRunner;
         _fileSystem = fileSystem;
-        _taskFileService = taskFileService;
         _sessionIndexService = sessionIndexService;
-        _userDataDirectory = userDataDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TerminalHost");
+        _transcriptWatcher = transcriptWatcher;
+        _activityService = activityService;
+
+        // Subscribe to transcript watcher events
+        if (_transcriptWatcher != null)
+        {
+            _transcriptWatcher.OnEvent += OnTranscriptWatcherEvent;
+            _transcriptWatcher.OnSessionInactive += OnTranscriptSessionInactive;
+        }
+
         LoadFromConfig();
-        LoadSessions();
-        PopulateSessionTasks();
-        EnrichSessionsFromIndex();
-
-        // Subscribe to task file changes to keep sessions in sync
-        if (_taskFileService != null)
-        {
-            _taskFileService.TasksChanged += (s, e) => PopulateSessionTasks();
-        }
-
-        // Subscribe to session index changes to enrich sessions with metadata
-        if (_sessionIndexService != null)
-        {
-            _sessionIndexService.SessionsChanged += (s, e) => EnrichSessionsFromIndex();
-        }
     }
 
     #region Events
@@ -66,36 +67,15 @@ public sealed class TimelineService : ITimelineService
     public event EventHandler<bool>? EnabledChanged;
     public event EventHandler? IntentsChanged;
     public event EventHandler<Intent?>? CurrentIntentChanged;
-    public event EventHandler? SessionsChanged;
-    public event EventHandler<ClaudeSession>? SessionStatusChanged;
     public event EventHandler<bool>? FocusStateChanged;
-    public event EventHandler<TimeScale>? TimeScaleChanged;
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
-    public event EventHandler? OrphanSessionsChanged;
+    public event EventHandler? LiveSessionsChanged;
 
-    private void OnEnabledChanged(bool enabled) =>
-        EnabledChanged?.Invoke(this, enabled);
-
-    private void OnIntentsChanged() =>
-        IntentsChanged?.Invoke(this, EventArgs.Empty);
-
-    private void OnCurrentIntentChanged(Intent? intent) =>
-        CurrentIntentChanged?.Invoke(this, intent);
-
-    private void OnSessionsChanged() =>
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-
-    private void OnSessionStatusChanged(ClaudeSession session) =>
-        SessionStatusChanged?.Invoke(this, session);
-
-    private void OnFocusStateChanged(bool isFocusing) =>
-        FocusStateChanged?.Invoke(this, isFocusing);
-
-    private void OnTimeScaleChanged(TimeScale scale) =>
-        TimeScaleChanged?.Invoke(this, scale);
-
-    private void OnOrphanSessionsChanged() =>
-        OrphanSessionsChanged?.Invoke(this, EventArgs.Empty);
+    private void OnEnabledChanged(bool enabled) => EnabledChanged?.Invoke(this, enabled);
+    private void OnIntentsChanged() => IntentsChanged?.Invoke(this, EventArgs.Empty);
+    private void OnCurrentIntentChanged(Intent? intent) => CurrentIntentChanged?.Invoke(this, intent);
+    private void OnFocusStateChanged(bool isFocusing) => FocusStateChanged?.Invoke(this, isFocusing);
+    private void OnLiveSessionsChanged() => LiveSessionsChanged?.Invoke(this, EventArgs.Empty);
 
     #endregion
 
@@ -116,269 +96,14 @@ public sealed class TimelineService : ITimelineService
 
     public Task SaveAsync()
     {
-        lock (_lock)
-        {
-            SaveToConfig();
-        }
+        lock (_lock) { SaveToConfig(); }
         return Task.CompletedTask;
     }
 
     public Task LoadAsync()
     {
-        lock (_lock)
-        {
-            LoadFromConfig();
-            LoadSessions();
-        }
+        lock (_lock) { LoadFromConfig(); }
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Gets the session storage directory path.
-    /// </summary>
-    private string GetSessionsDirectory()
-    {
-        return Path.Combine(_userDataDirectory, "timeline", "sessions");
-    }
-
-    /// <summary>
-    /// Loads sessions from individual files.
-    /// Performs migration from legacy Sessions list if needed.
-    /// </summary>
-    private void LoadSessions()
-    {
-        // Check if migration is needed (legacy Sessions list exists)
-        if (_state.Sessions != null && _state.Sessions.Count > 0)
-        {
-            MigrateLegacySessions();
-            return;
-        }
-
-        // Load from individual session files
-        var sessionsDir = GetSessionsDirectory();
-        if (!_fileSystem.DirectoryExists(sessionsDir))
-        {
-            return; // No sessions yet
-        }
-
-        _sessions.Clear();
-        var sessionFiles = _fileSystem.GetFiles(sessionsDir, "session-*.json", SearchOption.TopDirectoryOnly);
-
-        foreach (var filePath in sessionFiles)
-        {
-            try
-            {
-                var json = _fileSystem.ReadAllText(filePath);
-                var session = System.Text.Json.JsonSerializer.Deserialize<ClaudeSession>(json);
-                if (session != null)
-                {
-                    _sessions.Add(session);
-                }
-            }
-            catch
-            {
-                // Ignore corrupted session files
-            }
-        }
-    }
-
-    /// <summary>
-    /// Migrates sessions from legacy TimelineState.Sessions list to individual files.
-    /// </summary>
-    private void MigrateLegacySessions()
-    {
-        if (_state.Sessions == null || _state.Sessions.Count == 0)
-            return;
-
-        var sessionsDir = GetSessionsDirectory();
-        _fileSystem.CreateDirectory(sessionsDir);
-
-        // Migrate each session to individual file
-        _sessions.Clear();
-        foreach (var session in _state.Sessions)
-        {
-            try
-            {
-                SaveSessionFile(session);
-                _sessions.Add(session);
-            }
-            catch
-            {
-                // Continue migration even if one session fails
-            }
-        }
-
-        // Clear legacy list and save config
-        _state.Sessions = null;
-        SaveToConfig();
-    }
-
-    /// <summary>
-    /// Populates Tasks collection for all sessions from ClaudeTaskFileService.
-    /// This links persisted Claude Code tasks with Timeline sessions.
-    /// </summary>
-    private void PopulateSessionTasks()
-    {
-        if (_taskFileService == null)
-            return;
-
-        lock (_lock)
-        {
-            foreach (var session in _sessions)
-            {
-                // Get tasks for this session from the file service
-                var tasks = _taskFileService.GetSessionTasks(session.Id);
-
-                // Convert FocusTask to ClaudeTaskSnapshot
-                session.Tasks.Clear();
-                foreach (var task in tasks)
-                {
-                    var snapshot = new ClaudeTaskSnapshot
-                    {
-                        Id = task.Id.ToString(),
-                        Title = task.Title,
-                        ActiveForm = task.ActiveForm,
-                        Status = task.Status,
-                        StartedAt = task.StartedAt,
-                        CompletedAt = task.CompletedAt
-                    };
-                    session.Tasks.Add(snapshot);
-                }
-            }
-        }
-
-        // Notify that sessions have changed
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    /// Enriches Timeline sessions with metadata from Claude Code's sessions-index.json.
-    /// Adds summary, gitBranch, messageCount, and timestamps from the session index.
-    /// </summary>
-    private void EnrichSessionsFromIndex()
-    {
-        if (_sessionIndexService == null)
-            return;
-
-        var enrichedAny = false;
-
-        lock (_lock)
-        {
-            foreach (var session in _sessions)
-            {
-                // Try to find matching entry in the session index
-                // First, try the ContinueSessionId (which is the Claude Code session ID)
-                ClaudeSessionIndexEntry? indexEntry = null;
-
-                if (!string.IsNullOrEmpty(session.ContinueSessionId))
-                {
-                    indexEntry = _sessionIndexService.GetSessionById(session.ContinueSessionId);
-                }
-
-                // If no ContinueSessionId, try matching by transcript path filename
-                if (indexEntry == null && !string.IsNullOrEmpty(session.TranscriptPath))
-                {
-                    var sessionId = Path.GetFileNameWithoutExtension(session.TranscriptPath);
-                    if (!string.IsNullOrEmpty(sessionId))
-                    {
-                        indexEntry = _sessionIndexService.GetSessionById(sessionId);
-                    }
-                }
-
-                if (indexEntry != null)
-                {
-                    // Enrich session with metadata from the index
-                    var changed = false;
-
-                    // Only update if we don't already have the value (prefer existing data)
-                    if (string.IsNullOrEmpty(session.Summary) && !string.IsNullOrEmpty(indexEntry.Summary))
-                    {
-                        session.Summary = indexEntry.Summary;
-                        changed = true;
-                    }
-
-                    if (string.IsNullOrEmpty(session.GitBranch) && !string.IsNullOrEmpty(indexEntry.GitBranch))
-                    {
-                        session.GitBranch = indexEntry.GitBranch;
-                        changed = true;
-                    }
-
-                    if (!session.MessageCount.HasValue && indexEntry.MessageCount > 0)
-                    {
-                        session.MessageCount = indexEntry.MessageCount;
-                        changed = true;
-                    }
-
-                    if (string.IsNullOrEmpty(session.InitialPrompt) && !string.IsNullOrEmpty(indexEntry.FirstPrompt))
-                    {
-                        session.InitialPrompt = indexEntry.FirstPrompt;
-                        changed = true;
-                    }
-
-                    // Update timestamps from index if our data is less precise
-                    if (indexEntry.Created.HasValue)
-                    {
-                        // If index has more precise created time, use it
-                        var indexCreated = indexEntry.Created.Value;
-                        if (Math.Abs((session.StartTime - indexCreated).TotalSeconds) > 60)
-                        {
-                            // Index time differs significantly - prefer it for new sessions
-                            if (session.StartTime == DateTime.MinValue || session.StartTime == default)
-                            {
-                                session.StartTime = indexCreated;
-                                changed = true;
-                            }
-                        }
-                    }
-
-                    if (changed)
-                    {
-                        enrichedAny = true;
-                        SaveSessionFile(session);
-                    }
-                }
-            }
-        }
-
-        // Only notify if we actually changed something
-        if (enrichedAny)
-        {
-            SessionsChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    /// <summary>
-    /// Saves a session to its individual file.
-    /// </summary>
-    private void SaveSessionFile(ClaudeSession session)
-    {
-        var sessionsDir = GetSessionsDirectory();
-        _fileSystem.CreateDirectory(sessionsDir);
-
-        var fileName = $"session-{session.Id}.json";
-        var filePath = Path.Combine(sessionsDir, fileName);
-
-        var json = System.Text.Json.JsonSerializer.Serialize(session, new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-
-        _fileSystem.WriteAllText(filePath, json);
-    }
-
-    /// <summary>
-    /// Deletes a session file.
-    /// </summary>
-    private void DeleteSessionFile(string sessionId)
-    {
-        var sessionsDir = GetSessionsDirectory();
-        var fileName = $"session-{sessionId}.json";
-        var filePath = Path.Combine(sessionsDir, fileName);
-
-        if (_fileSystem.FileExists(filePath))
-        {
-            _fileSystem.DeleteFile(filePath);
-        }
     }
 
     #endregion
@@ -387,13 +112,7 @@ public sealed class TimelineService : ITimelineService
 
     public bool IsEnabled
     {
-        get
-        {
-            lock (_lock)
-            {
-                return _state.Enabled;
-            }
-        }
+        get { lock (_lock) { return _state.Enabled; } }
     }
 
     public void Enable()
@@ -401,7 +120,6 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             if (_state.Enabled) return;
-
             _state.Enabled = true;
             SaveToConfig();
         }
@@ -413,8 +131,6 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             if (!_state.Enabled) return;
-
-            // Pause focus timer if running
             _state.PauseFocus();
             _state.Enabled = false;
             SaveToConfig();
@@ -424,33 +140,7 @@ public sealed class TimelineService : ITimelineService
 
     public TimelineState GetState()
     {
-        lock (_lock)
-        {
-            return _state;
-        }
-    }
-
-    public TimeScale CurrentScale
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _state.CurrentScale;
-            }
-        }
-    }
-
-    public void SetTimeScale(TimeScale scale)
-    {
-        lock (_lock)
-        {
-            if (_state.CurrentScale == scale) return;
-
-            _state.CurrentScale = scale;
-            SaveToConfig();
-        }
-        OnTimeScaleChanged(scale);
+        lock (_lock) { return _state; }
     }
 
     #endregion
@@ -458,118 +148,72 @@ public sealed class TimelineService : ITimelineService
     #region Intent Management
 
     public async Task<Intent?> CreateIntentAsync(
-        string name,
-        string branchName,
-        string mainRepoPath,
-        string? baseBranch = null,
-        string? context = null)
+        string name, string branchName, string mainRepoPath,
+        string? baseBranch = null, string? context = null)
     {
-        // Generate worktree path (sibling to main repo)
         var parentDir = Path.GetDirectoryName(mainRepoPath);
-        if (string.IsNullOrEmpty(parentDir))
-            return null;
+        if (string.IsNullOrEmpty(parentDir)) return null;
 
         var repoName = Path.GetFileName(mainRepoPath);
         var safeBranchName = branchName.Replace("/", "-").Replace("\\", "-");
         var worktreePath = Path.Combine(parentDir, $"{repoName}-{safeBranchName}");
 
-        // Create the git worktree
         var result = await _worktreeService.CreateWorktreeAsync(
-            mainRepoPath,
-            branchName,
-            worktreePath,
-            createBranch: true);
+            mainRepoPath, branchName, worktreePath, createBranch: true);
 
-        if (!result.Success)
-            return null;
+        if (!result.Success) return null;
 
         Intent intent;
         lock (_lock)
         {
             intent = Intent.Create(name, branchName, worktreePath, mainRepoPath);
-
             if (!string.IsNullOrEmpty(context))
-            {
                 intent.ContextContent = context;
-            }
-
             _state.AddIntent(intent);
             SaveToConfig();
         }
-
-        // Import any orphan sessions that were tracked for this directory
-        AssignOrphansToIntent(worktreePath, intent.Id);
-
         OnIntentsChanged();
         return intent;
     }
 
     public async Task<Intent> CreateIntentFromExistingFolderAsync(
-        string name,
-        string existingFolderPath,
-        string? context = null)
+        string name, string existingFolderPath, string? context = null)
     {
-        // Get the current branch name from the folder (if it's a git repo)
         string branchName = "main";
         try
         {
-            var output = await _gitRunner.RunGitCommandAsync(
-                existingFolderPath,
-                "rev-parse --abbrev-ref HEAD");
-
+            var output = await _gitRunner.RunGitCommandAsync(existingFolderPath, "rev-parse --abbrev-ref HEAD");
             if (!string.IsNullOrWhiteSpace(output))
-            {
                 branchName = output.Trim();
-            }
         }
-        catch
-        {
-            // Not a git repo or git not available - use default branch name
-        }
+        catch { }
 
         Intent intent;
         lock (_lock)
         {
             intent = Intent.Create(name, branchName, existingFolderPath, existingFolderPath);
-
             if (!string.IsNullOrEmpty(context))
-            {
                 intent.ContextContent = context;
-            }
-
             _state.AddIntent(intent);
             SaveToConfig();
         }
-
-        // Import any orphan sessions that were tracked for this directory
-        var imported = AssignOrphansToIntent(existingFolderPath, intent.Id);
-
         OnIntentsChanged();
         return intent;
     }
 
     public Intent? GetIntent(string intentId)
     {
-        lock (_lock)
-        {
-            return _state.GetIntent(intentId);
-        }
+        lock (_lock) { return _state.GetIntent(intentId); }
     }
 
     public IReadOnlyList<Intent> GetAllIntents()
     {
-        lock (_lock)
-        {
-            return _state.Intents.ToList();
-        }
+        lock (_lock) { return _state.Intents.ToList(); }
     }
 
     public IReadOnlyList<Intent> GetOrderedIntents()
     {
-        lock (_lock)
-        {
-            return _state.GetOrderedIntents().ToList();
-        }
+        lock (_lock) { return _state.GetOrderedIntents().ToList(); }
     }
 
     public IReadOnlyList<Intent> GetActiveIntents()
@@ -596,11 +240,8 @@ public sealed class TimelineService : ITimelineService
             }
         }
         OnIntentsChanged();
-
         if (_state.CurrentIntentId == intent.Id)
-        {
             OnCurrentIntentChanged(intent);
-        }
     }
 
     public void UpdateIntentStatus(string intentId, IntentStatus status)
@@ -610,22 +251,14 @@ public sealed class TimelineService : ITimelineService
         {
             intent = _state.GetIntent(intentId);
             if (intent == null) return;
-
             intent.Status = status;
-
             if (status == IntentStatus.Completed || status == IntentStatus.Abandoned)
-            {
                 intent.CompletedAt = DateTime.UtcNow;
-            }
-
             SaveToConfig();
         }
         OnIntentsChanged();
-
         if (_state.CurrentIntentId == intentId)
-        {
             OnCurrentIntentChanged(intent);
-        }
     }
 
     public void SetIntentContext(string intentId, string? context)
@@ -634,7 +267,6 @@ public sealed class TimelineService : ITimelineService
         {
             var intent = _state.GetIntent(intentId);
             if (intent == null) return;
-
             intent.ContextContent = context;
             SaveToConfig();
         }
@@ -650,41 +282,20 @@ public sealed class TimelineService : ITimelineService
             if (intent == null) return false;
         }
 
-        // Try to remove worktree if requested (don't fail if worktree removal fails)
         if (removeWorktree && !string.IsNullOrEmpty(intent.WorktreePath))
         {
-            try
-            {
-                await _worktreeService.RemoveWorktreeAsync(intent.WorktreePath, force: true);
-            }
-            catch
-            {
-                // Ignore worktree removal errors - still delete the intent
-            }
+            try { await _worktreeService.RemoveWorktreeAsync(intent.WorktreePath, force: true); }
+            catch { }
         }
 
-        // Always delete the intent from state and its sessions
         lock (_lock)
         {
-            // Delete all session files for this intent
-            var sessionsToDelete = _sessions.Where(s => s.IntentId == intentId).ToList();
-            foreach (var session in sessionsToDelete)
-            {
-                DeleteSessionFile(session.Id);
-                _sessions.Remove(session);
-            }
-
             _state.RemoveIntent(intentId);
             SaveToConfig();
         }
-
         OnIntentsChanged();
-
         if (_state.CurrentIntentId == intentId)
-        {
             OnCurrentIntentChanged(null);
-        }
-
         return true;
     }
 
@@ -694,18 +305,11 @@ public sealed class TimelineService : ITimelineService
         {
             var currentIndex = _state.IntentOrder.IndexOf(intentId);
             if (currentIndex < 0) return;
-
             _state.IntentOrder.RemoveAt(currentIndex);
-
             if (newIndex >= _state.IntentOrder.Count)
-            {
                 _state.IntentOrder.Add(intentId);
-            }
             else
-            {
                 _state.IntentOrder.Insert(Math.Max(0, newIndex), intentId);
-            }
-
             SaveToConfig();
         }
         OnIntentsChanged();
@@ -715,9 +319,7 @@ public sealed class TimelineService : ITimelineService
     {
         lock (_lock)
         {
-            if (string.IsNullOrEmpty(_state.CurrentIntentId))
-                return null;
-
+            if (string.IsNullOrEmpty(_state.CurrentIntentId)) return null;
             return _state.GetIntent(_state.CurrentIntentId);
         }
     }
@@ -728,15 +330,12 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             if (_state.CurrentIntentId == intentId) return;
-
             _state.CurrentIntentId = intentId;
-
             if (!string.IsNullOrEmpty(intentId))
             {
                 intent = _state.GetIntent(intentId);
                 intent?.Activate();
             }
-
             SaveToConfig();
         }
         OnCurrentIntentChanged(intent);
@@ -744,440 +343,24 @@ public sealed class TimelineService : ITimelineService
 
     #endregion
 
-    #region Session Management
+    #region Live Sessions
 
-    public ClaudeSession StartSession(string intentId, string? initialPrompt = null)
-    {
-        ClaudeSession session;
-        string? worktreePath = null;
-
-        lock (_lock)
-        {
-            session = ClaudeSession.Create(intentId);
-            session.InitialPrompt = initialPrompt;
-
-            // Add to in-memory collection and save to file
-            _sessions.Add(session);
-            SaveSessionFile(session);
-
-            // Update intent's session list and last active time
-            var intent = _state.GetIntent(intentId);
-            if (intent != null)
-            {
-                intent.AddSession(session.Id);
-                intent.LastActiveAt = DateTime.UtcNow;
-                worktreePath = intent.WorktreePath;
-            }
-
-            SaveToConfig();
-        }
-
-        OnSessionsChanged();
-
-        // Request opening the project (this will open a new terminal tab)
-        if (!string.IsNullOrEmpty(worktreePath))
-        {
-            OpenProjectRequested?.Invoke(this, (worktreePath, initialPrompt));
-        }
-
-        return session;
-    }
-
-    public async Task<ClaudeSession?> ForkSessionAsync(string parentSessionId, string? initialPrompt = null)
-    {
-        ClaudeSession? parentSession;
-        Intent? intent;
-
-        lock (_lock)
-        {
-            parentSession = _sessions.FirstOrDefault(s => s.Id == parentSessionId);
-            if (parentSession == null) return null;
-
-            intent = _state.GetIntent(parentSession.IntentId);
-            if (intent == null) return null;
-        }
-
-        // If the parent session has a commit, we need to checkout that commit
-        // in the worktree before starting the fork
-        if (!string.IsNullOrEmpty(parentSession.CommitHash) && !string.IsNullOrEmpty(intent.WorktreePath))
-        {
-            var checkoutResult = await _gitRunner.RunGitOperationAsync(
-                intent.WorktreePath,
-                $"checkout {parentSession.CommitHash}");
-
-            if (!checkoutResult.Success)
-                return null;
-        }
-
-        ClaudeSession forkedSession;
-        lock (_lock)
-        {
-            forkedSession = ClaudeSession.Create(parentSession.IntentId, parentSessionId);
-            forkedSession.InitialPrompt = initialPrompt;
-
-            // Add to in-memory collection and save to file
-            _sessions.Add(forkedSession);
-            SaveSessionFile(forkedSession);
-
-            // Update intent's session list (intent was already fetched above)
-            intent?.AddSession(forkedSession.Id);
-            SaveToConfig();
-        }
-
-        OnSessionsChanged();
-        return forkedSession;
-    }
-
-    public ClaudeSession? GetSession(string sessionId)
+    public IReadOnlyList<LiveSession> GetLiveSessions()
     {
         lock (_lock)
         {
-            return _sessions.FirstOrDefault(s => s.Id == sessionId);
+            return _liveSessions.Values.ToList();
         }
     }
 
-    public IReadOnlyList<ClaudeSession> GetAllSessions()
+    public LiveSession? GetLiveSessionByClaudeId(string claudeSessionId)
     {
+        if (string.IsNullOrEmpty(claudeSessionId)) return null;
         lock (_lock)
         {
-            return _sessions.ToList();
+            _liveSessions.TryGetValue(claudeSessionId, out var session);
+            return session;
         }
-    }
-
-    public IReadOnlyList<ClaudeSession> GetSessionsForIntent(string intentId)
-    {
-        lock (_lock)
-        {
-            return _sessions.Where(s => s.IntentId == intentId).ToList();
-        }
-    }
-
-    public IReadOnlyList<ClaudeSession> GetRunningSessions()
-    {
-        lock (_lock)
-        {
-            return _sessions
-                .Where(s => s.Status == ClaudeSessionStatus.Running)
-                .ToList();
-        }
-    }
-
-    public void UpdateSession(ClaudeSession session)
-    {
-        lock (_lock)
-        {
-            var existing = _sessions.FirstOrDefault(s => s.Id == session.Id);
-            if (existing != null)
-            {
-                var index = _sessions.IndexOf(existing);
-                _sessions[index] = session;
-                SaveSessionFile(session);
-            }
-        }
-        OnSessionsChanged();
-    }
-
-    public void MarkSessionSuccess(string sessionId, string? commitHash = null, string? commitMessage = null, string? agentNotes = null)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.MarkSuccess(commitHash, commitMessage, agentNotes);
-            SaveSessionFile(session);
-        }
-        OnSessionsChanged();
-        OnSessionStatusChanged(session);
-    }
-
-    public void MarkSessionFailed(string sessionId, string? agentNotes = null)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.MarkFailed(agentNotes);
-            SaveSessionFile(session);
-        }
-        OnSessionsChanged();
-        OnSessionStatusChanged(session);
-    }
-
-    public void MarkSessionAbandoned(string sessionId)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.MarkAbandoned();
-            SaveSessionFile(session);
-        }
-        OnSessionsChanged();
-        OnSessionStatusChanged(session);
-    }
-
-    public void AddFileChange(string sessionId, string filePath, int additions, int deletions)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.AddFileChange(filePath, additions, deletions);
-            SaveSessionFile(session);
-        }
-        OnSessionsChanged();
-    }
-
-    public void AddCommand(string sessionId, string command)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.AddCommand(command);
-            SaveSessionFile(session);
-        }
-    }
-
-    public void SetContinueSessionId(string sessionId, string continueId)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.ContinueSessionId = continueId;
-            SaveSessionFile(session);
-        }
-    }
-
-    /// <summary>
-    /// Gets the currently active (running) Claude session for a specific project path.
-    /// Returns the most recent running session if multiple exist.
-    /// </summary>
-    /// <param name="projectPath">The project directory path</param>
-    /// <returns>Active session or null if none found</returns>
-    public ClaudeSession? GetActiveClaudeSession(string projectPath)
-    {
-        lock (_lock)
-        {
-            // Normalize path for comparison
-            var normalizedPath = Path.GetFullPath(projectPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .ToLowerInvariant();
-
-            // Find running sessions, match by intent's main repo path
-            return _sessions
-                .Where(s => s.Status == ClaudeSessionStatus.Running)
-                .Select(s => new
-                {
-                    Session = s,
-                    Intent = _state.GetIntent(s.IntentId)
-                })
-                .Where(x => x.Intent != null && !string.IsNullOrEmpty(x.Intent.MainRepoPath))
-                .Where(x =>
-                {
-                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath!)
-                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                        .ToLowerInvariant();
-                    return intentPath == normalizedPath;
-                })
-                .OrderByDescending(x => x.Session.StartTime)
-                .Select(x => x.Session)
-                .FirstOrDefault();
-        }
-    }
-
-    /// <summary>
-    /// Adds or updates a Claude task in the specified session.
-    /// Creates a snapshot of the task and stores it in the session's task list.
-    /// </summary>
-    /// <param name="sessionId">The session ID to add the task to</param>
-    /// <param name="task">The FocusTask to add/update</param>
-    public void AddTaskToSession(string sessionId, FocusTask task)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.AddOrUpdateTask(task);
-            SaveSessionFile(session);
-        }
-        OnSessionsChanged();
-    }
-
-    #endregion
-
-    #region Orphan Sessions
-
-    /// <summary>
-    /// Gets all unassigned orphan sessions.
-    /// </summary>
-    public IReadOnlyList<OrphanSession> GetOrphanSessions()
-    {
-        lock (_lock)
-        {
-            return _state.GetUnassignedOrphanSessions().ToList();
-        }
-    }
-
-    /// <summary>
-    /// Gets orphan sessions for a specific working directory.
-    /// </summary>
-    public IReadOnlyList<OrphanSession> GetOrphanSessionsForPath(string path)
-    {
-        lock (_lock)
-        {
-            return _state.GetOrphanSessionsForCwd(path).ToList();
-        }
-    }
-
-    /// <summary>
-    /// Gets the count of unassigned orphan sessions.
-    /// </summary>
-    public int GetOrphanSessionCount()
-    {
-        lock (_lock)
-        {
-            return _state.OrphanSessionCount;
-        }
-    }
-
-    /// <summary>
-    /// Assigns an orphan session to an intent, converting it to a proper ClaudeSession.
-    /// </summary>
-    public ClaudeSession? AssignOrphanToIntent(string orphanSessionId, string intentId)
-    {
-        ClaudeSession? session = null;
-        lock (_lock)
-        {
-            var orphan = _state.OrphanSessions.FirstOrDefault(o =>
-                o.SessionId == orphanSessionId && !o.IsAssigned);
-            if (orphan == null) return null;
-
-            var intent = _state.GetIntent(intentId);
-            if (intent == null) return null;
-
-            session = orphan.ToClaudeSession(intentId);
-            orphan.IsAssigned = true;
-            orphan.AssignedSessionId = session.Id;
-
-            // Add to in-memory collection and save to file
-            _sessions.Add(session);
-            SaveSessionFile(session);
-
-            // Update intent's session list (intent was already fetched above)
-            intent.AddSession(session.Id);
-            SaveToConfig();
-        }
-
-        OnSessionsChanged();
-        OnOrphanSessionsChanged();
-        return session;
-    }
-
-    /// <summary>
-    /// Assigns all orphan sessions from a directory to an intent.
-    /// Called when creating an intent - imports any previous sessions.
-    /// </summary>
-    public List<ClaudeSession> AssignOrphansToIntent(string cwd, string intentId)
-    {
-        var assigned = new List<ClaudeSession>();
-        lock (_lock)
-        {
-            var orphans = _state.GetOrphanSessionsForCwd(cwd).ToList();
-            var intent = _state.GetIntent(intentId);
-
-            foreach (var orphan in orphans)
-            {
-                var session = orphan.ToClaudeSession(intentId);
-                orphan.IsAssigned = true;
-                orphan.AssignedSessionId = session.Id;
-
-                // Add to in-memory collection and save to file
-                _sessions.Add(session);
-                SaveSessionFile(session);
-
-                // Update intent's session list
-                intent?.AddSession(session.Id);
-
-                assigned.Add(session);
-            }
-
-            if (assigned.Count > 0)
-                SaveToConfig();
-        }
-
-        if (assigned.Count > 0)
-        {
-            OnSessionsChanged();
-            OnOrphanSessionsChanged();
-        }
-        return assigned;
-    }
-
-    /// <summary>
-    /// Removes an orphan session (if user dismisses it).
-    /// </summary>
-    public void RemoveOrphanSession(string orphanSessionId)
-    {
-        lock (_lock)
-        {
-            var orphan = _state.OrphanSessions.FirstOrDefault(o => o.SessionId == orphanSessionId);
-            if (orphan != null)
-            {
-                _state.OrphanSessions.Remove(orphan);
-                SaveToConfig();
-            }
-        }
-        OnOrphanSessionsChanged();
-    }
-
-    #endregion
-
-    #region Cherry-pick
-
-    public async Task<GitOperationResult> CherryPickSessionAsync(string sourceSessionId, string targetIntentId)
-    {
-        ClaudeSession? sourceSession;
-        Intent? targetIntent;
-
-        lock (_lock)
-        {
-            sourceSession = _state.GetSession(sourceSessionId);
-            if (sourceSession == null || string.IsNullOrEmpty(sourceSession.CommitHash))
-            {
-                return new GitOperationResult
-                {
-                    Success = false,
-                    Error = "Source session has no commit to cherry-pick"
-                };
-            }
-
-            targetIntent = _state.GetIntent(targetIntentId);
-            if (targetIntent == null || string.IsNullOrEmpty(targetIntent.WorktreePath))
-            {
-                return new GitOperationResult
-                {
-                    Success = false,
-                    Error = "Target intent not found or has no worktree"
-                };
-            }
-        }
-
-        // Run git cherry-pick in the target worktree
-        return await _gitRunner.RunGitOperationAsync(
-            targetIntent.WorktreePath,
-            $"cherry-pick {sourceSession.CommitHash}");
     }
 
     #endregion
@@ -1186,29 +369,17 @@ public sealed class TimelineService : ITimelineService
 
     public TimeSpan GetTotalFocusTime()
     {
-        lock (_lock)
-        {
-            return _state.TotalFocusTime;
-        }
+        lock (_lock) { return _state.TotalFocusTime; }
     }
 
     public TimeSpan GetCurrentFocusTime()
     {
-        lock (_lock)
-        {
-            return _state.CurrentFocusTime;
-        }
+        lock (_lock) { return _state.CurrentFocusTime; }
     }
 
     public bool IsFocusing
     {
-        get
-        {
-            lock (_lock)
-            {
-                return _state.IsFocusing;
-            }
-        }
+        get { lock (_lock) { return _state.IsFocusing; } }
     }
 
     public void StartFocusTimer()
@@ -1216,7 +387,6 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             if (_state.IsFocusing) return;
-
             _state.StartFocus();
             SaveToConfig();
         }
@@ -1228,7 +398,6 @@ public sealed class TimelineService : ITimelineService
         lock (_lock)
         {
             if (!_state.IsFocusing) return;
-
             _state.PauseFocus();
             SaveToConfig();
         }
@@ -1244,436 +413,485 @@ public sealed class TimelineService : ITimelineService
             _state.ResetFocusTime();
             SaveToConfig();
         }
-
-        if (wasFocusing)
-        {
-            OnFocusStateChanged(false);
-        }
+        if (wasFocusing) OnFocusStateChanged(false);
     }
 
     #endregion
 
     #region Hook Event Handling
 
-    /// <summary>
-    /// Finds an intent by matching the working directory to worktree paths.
-    /// </summary>
     public Intent? FindIntentByWorkingDirectory(string workingDirectory)
     {
-        if (string.IsNullOrEmpty(workingDirectory))
-            return null;
-
-        // Normalize the path for comparison
-        var normalizedCwd = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        lock (_lock)
-        {
-            return _state.Intents.FirstOrDefault(intent =>
-            {
-                if (string.IsNullOrEmpty(intent.WorktreePath))
-                    return false;
-
-                var normalizedWorktree = Path.GetFullPath(intent.WorktreePath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                return string.Equals(normalizedCwd, normalizedWorktree, StringComparison.OrdinalIgnoreCase);
-            });
-        }
+        if (string.IsNullOrEmpty(workingDirectory)) return null;
+        lock (_lock) { return FindIntentByWorkingDirectoryLocked(workingDirectory); }
     }
 
-    /// <summary>
-    /// Gets a session by its Claude Code session ID (from hooks).
-    /// </summary>
-    public ClaudeSession? GetSessionByClaudeId(string claudeSessionId)
+    private Intent? FindIntentByWorkingDirectoryLocked(string workingDirectory)
     {
-        if (string.IsNullOrEmpty(claudeSessionId))
-            return null;
+        var normalizedCwd = Path.GetFullPath(workingDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        lock (_lock)
+        return _state.Intents.FirstOrDefault(intent =>
         {
-            return _state.Sessions?.FirstOrDefault(s =>
-                string.Equals(s.ContinueSessionId, claudeSessionId, StringComparison.OrdinalIgnoreCase));
-        }
+            if (string.IsNullOrEmpty(intent.WorktreePath)) return false;
+            var normalizedWorktree = Path.GetFullPath(intent.WorktreePath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(normalizedCwd, normalizedWorktree, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
-    /// <summary>
-    /// Handles session start events from Claude Code hooks.
-    /// </summary>
     public void HandleSessionStart(HookEvent hookEvent)
     {
         if (string.IsNullOrEmpty(hookEvent.SessionId) || string.IsNullOrEmpty(hookEvent.Cwd))
             return;
 
-        // Find the intent by working directory
+        // Find or auto-create intent
         var intent = FindIntentByWorkingDirectory(hookEvent.Cwd);
         if (intent == null)
         {
-            // No matching intent - store as orphan session for later assignment
+            var dirName = Path.GetFileName(hookEvent.Cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrEmpty(dirName)) dirName = hookEvent.Cwd;
+
             lock (_lock)
             {
-                var existingOrphan = _state.GetOrphanSession(hookEvent.SessionId);
-                if (existingOrphan != null)
+                intent = FindIntentByWorkingDirectoryLocked(hookEvent.Cwd);
+                if (intent == null)
                 {
-                    // Update existing orphan (might be a --continue)
-                    // Keep the earliest start time
-                    if (hookEvent.Timestamp < existingOrphan.StartTime)
-                        existingOrphan.StartTime = hookEvent.Timestamp;
-                    existingOrphan.TranscriptPath = hookEvent.TranscriptPath ?? existingOrphan.TranscriptPath;
+                    intent = Intent.Create(dirName, "", hookEvent.Cwd, hookEvent.Cwd);
+                    _state.Intents.Add(intent);
+                    _state.IntentOrder.Add(intent.Id);
+                    SaveToConfig();
                 }
-                else
-                {
-                    var orphan = new OrphanSession
-                    {
-                        SessionId = hookEvent.SessionId,
-                        Cwd = hookEvent.Cwd,
-                        TranscriptPath = hookEvent.TranscriptPath,
-                        StartTime = hookEvent.Timestamp
-                    };
-                    _state.AddOrUpdateOrphanSession(orphan);
-                }
-                SaveToConfig();
             }
-            OnOrphanSessionsChanged();
-            return;
+            OnIntentsChanged();
         }
 
-        // Check if we already have a session with this Claude session ID
-        var existingSession = GetSessionByClaudeId(hookEvent.SessionId);
-        if (existingSession != null)
-        {
-            // Session already exists - only reactivate if it was still in Running status
-            // Don't reactivate sessions that were explicitly marked as Success/Failed/Abandoned
-            // This prevents /compact and other commands from incorrectly restarting completed sessions
-            lock (_lock)
-            {
-                if (hookEvent.Timestamp < existingSession.StartTime)
-                    existingSession.StartTime = hookEvent.Timestamp;
-
-                // Only update to Running if it wasn't explicitly completed/failed/abandoned
-                if (existingSession.Status == ClaudeSessionStatus.Running)
-                {
-                    existingSession.RecordActivity();
-                }
-                // If session was explicitly ended, don't touch it - this is likely a follow-up command
-                // like /compact that shouldn't restart the session
-
-                SaveToConfig();
-            }
-            OnSessionsChanged();
-            return;
-        }
-
-        // Check if there's an orphan session that should be converted
-        OrphanSession? orphanToConvert;
         lock (_lock)
         {
-            orphanToConvert = _state.GetOrphanSession(hookEvent.SessionId);
-        }
-
-        // Create a new session
-        ClaudeSession session;
-        lock (_lock)
-        {
-            session = ClaudeSession.Create(intent.Id);
-            session.ContinueSessionId = hookEvent.SessionId;
-            session.TranscriptPath = hookEvent.TranscriptPath;
-
-            // Use the earliest timestamp between hook event and any existing orphan data
-            session.StartTime = orphanToConvert != null && orphanToConvert.StartTime < hookEvent.Timestamp
-                ? orphanToConvert.StartTime
-                : hookEvent.Timestamp;
-
-            // Copy files and transcript from orphan if present
-            if (orphanToConvert != null)
+            // Check if we already track this session
+            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var existing))
             {
-                foreach (var file in orphanToConvert.FilesModified)
-                    session.AddFileChange(file, 0, 0);
-                session.TranscriptPath ??= orphanToConvert.TranscriptPath;
-                orphanToConvert.IsAssigned = true;
-                orphanToConvert.AssignedSessionId = session.Id;
+                // Reactivate if it was ended (e.g., by timeout)
+                if (!existing.IsActive)
+                {
+                    existing.EndTime = null;
+                    existing.LastActivityTime = DateTime.UtcNow;
+                }
+                return; // Already tracked
             }
 
-            _state.AddSession(session);
+            // Create new live session
+            var live = new LiveSession
+            {
+                ClaudeSessionId = hookEvent.SessionId,
+                WorkingDirectory = hookEvent.Cwd,
+                ProjectPath = hookEvent.Cwd,
+                TranscriptPath = hookEvent.TranscriptPath,
+                IntentId = intent.Id,
+                StartTime = hookEvent.Timestamp,
+            };
+            _liveSessions[hookEvent.SessionId] = live;
 
-            // Update intent's last active time
+            // Update intent
             intent.LastActiveAt = DateTime.UtcNow;
-
             SaveToConfig();
         }
 
-        OnSessionsChanged();
+        // Start watching the transcript file for this session
+        if (!string.IsNullOrEmpty(hookEvent.TranscriptPath))
+        {
+            _transcriptWatcher?.Watch(hookEvent.SessionId, hookEvent.TranscriptPath);
+        }
+
+        OnLiveSessionsChanged();
     }
 
-    /// <summary>
-    /// Handles file changed events from Claude Code hooks.
-    /// </summary>
     public void HandleFileChanged(HookEvent hookEvent)
     {
-        if (string.IsNullOrEmpty(hookEvent.SessionId) || string.IsNullOrEmpty(hookEvent.FilePath))
-            return;
+        if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
 
-        // Find the session by Claude session ID
-        var session = GetSessionByClaudeId(hookEvent.SessionId);
-        if (session != null)
-        {
-            lock (_lock)
-            {
-                // Only track file changes for running sessions
-                // Don't reactivate completed/failed/abandoned sessions - the file change
-                // might be from a follow-up command like /compact that modifies files
-                if (session.Status == ClaudeSessionStatus.Running)
-                {
-                    // Add the file to the session (we don't have line counts from hooks yet)
-                    // Note: AddFileChange already updates LastActivityTime
-                    session.AddFileChange(hookEvent.FilePath, 0, 0);
-                    SaveToConfig();
-                }
-                // If session was explicitly ended, ignore file changes
-            }
-            OnSessionsChanged();
-            return;
-        }
+        // Ensure live session exists (handles sessions that started before we did)
+        EnsureLiveSession(hookEvent);
 
-        // Check if there's an orphan session for this
         lock (_lock)
         {
-            var orphan = _state.GetOrphanSession(hookEvent.SessionId);
-            if (orphan != null)
+            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
             {
-                orphan.AddFile(hookEvent.FilePath);
-                // Also clear end time if session continues
-                if (orphan.EndTime.HasValue)
-                    orphan.EndTime = null;
-                SaveToConfig();
-                OnOrphanSessionsChanged();
+                live.LastActivityTime = DateTime.UtcNow;
             }
-            // If no session and no orphan, the file change is lost
-            // This shouldn't happen in normal flow since session_start should create one
         }
     }
 
-    /// <summary>
-    /// Handles session stop events from Claude Code hooks.
-    /// </summary>
-    public async Task HandleSessionStopAsync(HookEvent hookEvent)
+    public Task HandleSessionStopAsync(HookEvent hookEvent)
     {
         if (string.IsNullOrEmpty(hookEvent.SessionId))
-            return;
+            return Task.CompletedTask;
 
-        // Find the session by Claude session ID
-        var session = GetSessionByClaudeId(hookEvent.SessionId);
-        if (session == null)
+        lock (_lock)
         {
-            // Check if there's an orphan session to finalize
-            lock (_lock)
+            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live))
             {
-                var orphan = _state.GetOrphanSession(hookEvent.SessionId);
-                if (orphan != null)
+                live.EndTime = hookEvent.Timestamp;
+                live.TranscriptPath ??= hookEvent.TranscriptPath;
+                live.EndReason = "explicit";
+
+                // Populate status hints from activity data
+                var activityState = _activityService?.GetState(hookEvent.SessionId);
+                if (activityState != null)
                 {
-                    orphan.EndTime = hookEvent.Timestamp;
-                    orphan.TranscriptPath = hookEvent.TranscriptPath ?? orphan.TranscriptPath;
-                    CleanupOldOrphanSessions();
-                    SaveToConfig();
-                    OnOrphanSessionsChanged();
+                    live.HadFileWrites = activityState.FileActivities.Values.Any(f => f.WriteCount > 0);
+                    live.HadErrors = activityState.ToolCalls.Values.Any(t => t.State == ToolCallState.Error);
                 }
             }
-            return;
         }
 
-        // Find the intent to get the worktree path for git operations
-        Intent? intent;
+        // Stop watching the transcript file
+        _transcriptWatcher?.Unwatch(hookEvent.SessionId);
+
+        OnLiveSessionsChanged();
+
+        // Schedule removal after retention period (gives ClaudeSessionIndexService time to update)
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(CompletedSessionRetentionSeconds));
+            lock (_lock)
+            {
+                if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && !live.IsActive)
+                {
+                    _liveSessions.Remove(hookEvent.SessionId);
+                }
+            }
+            OnLiveSessionsChanged();
+        });
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Ensures a live session exists for the given hook event.
+    /// Handles the case where we missed the session_start hook (e.g., session started
+    /// before TerminalHost launched, or before hooks were installed).
+    /// Hydrates from ClaudeSessionIndexService if available to preserve real start time and metadata.
+    /// </summary>
+    private void EnsureLiveSession(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
+
         lock (_lock)
         {
-            intent = _state.GetIntent(session.IntentId);
+            if (_liveSessions.ContainsKey(hookEvent.SessionId))
+                return; // Already tracked
         }
 
-        // Set end time and transcript path first
-        lock (_lock)
-        {
-            session.EndTime = hookEvent.Timestamp;
-            session.TranscriptPath ??= hookEvent.TranscriptPath;
-        }
+        // Try to hydrate from the session index (has real start time, summary, etc.)
+        var indexEntry = _sessionIndexService?.GetSessionById(hookEvent.SessionId);
 
-        // Gather git data if we have a worktree
-        if (intent != null && !string.IsNullOrEmpty(intent.WorktreePath))
+        if (indexEntry != null)
         {
-            await GatherSessionGitDataAsync(session, intent.WorktreePath);
+            // Build a hook event enriched with index data, then let HandleSessionStart do the work
+            var enriched = new HookEvent
+            {
+                SessionId = hookEvent.SessionId,
+                Cwd = !string.IsNullOrEmpty(hookEvent.Cwd) ? hookEvent.Cwd : indexEntry.ProjectPath ?? "",
+                TranscriptPath = hookEvent.TranscriptPath ?? indexEntry.FullPath,
+                Timestamp = indexEntry.Created ?? hookEvent.Timestamp,
+                EventType = HookEventType.SessionStart,
+                ToolName = hookEvent.ToolName,
+            };
+            HandleSessionStart(enriched);
         }
         else
         {
-            // No worktree - just mark as complete without git data
-            lock (_lock)
+            // No index data — fall back to current hook event (start time will be "now")
+            HandleSessionStart(hookEvent);
+        }
+    }
+
+    public void HandleToolStart(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
+
+        EnsureLiveSession(hookEvent);
+
+        lock (_lock)
+        {
+            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
             {
-                if (session.FilesChanged.Count > 0)
+                live.LastActivityTime = DateTime.UtcNow;
+            }
+        }
+    }
+
+    public void HandleToolEnd(HookEvent hookEvent)
+    {
+        if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
+
+        EnsureLiveSession(hookEvent);
+
+        lock (_lock)
+        {
+            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
+            {
+                live.LastActivityTime = DateTime.UtcNow;
+            }
+        }
+    }
+
+    public void StartInactivityTimer()
+    {
+        _inactivityTimer?.Dispose();
+        _inactivityTimer = new Timer(
+            _ => CheckInactiveSessions(),
+            null,
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromMilliseconds(InactivityCheckIntervalMs));
+    }
+
+    public void StopInactivityTimer()
+    {
+        _inactivityTimer?.Dispose();
+        _inactivityTimer = null;
+    }
+
+    private void CheckInactiveSessions()
+    {
+        bool changed = false;
+        lock (_lock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var live in _liveSessions.Values)
+            {
+                if (!live.IsActive) continue;
+
+                // Cross-reference with transcript file mtime before timing out
+                var lastFileChange = _transcriptWatcher?.GetLastFileChangeTime(live.ClaudeSessionId);
+                if (lastFileChange.HasValue)
                 {
-                    session.Status = ClaudeSessionStatus.Success;
+                    // Use the most recent activity signal from either hooks or file changes
+                    if (!live.LastActivityTime.HasValue || lastFileChange.Value > live.LastActivityTime.Value)
+                    {
+                        live.LastActivityTime = lastFileChange.Value;
+                    }
                 }
+
+                bool timedOut;
+                if (live.LastActivityTime.HasValue)
+                    timedOut = (now - live.LastActivityTime.Value).TotalMinutes > InactivityTimeoutMinutes;
                 else
+                    timedOut = (now - live.StartTime).TotalMinutes > NoActivityTimeoutMinutes;
+
+                if (timedOut)
                 {
-                    // No files changed - could be a failed or cancelled session
-                    session.Status = ClaudeSessionStatus.Success; // Default to success
-                }
-                SaveToConfig();
-            }
-        }
+                    live.EndTime = live.LastActivityTime ?? now;
+                    live.EndReason = "timeout";
 
-        // Try to parse transcript for commands and summary
-        await TryParseTranscriptAsync(session);
-
-        OnSessionsChanged();
-        OnSessionStatusChanged(session);
-    }
-
-    /// <summary>
-    /// Attempts to parse the transcript file to extract commands and agent notes.
-    /// </summary>
-    private async Task TryParseTranscriptAsync(ClaudeSession session)
-    {
-        if (string.IsNullOrEmpty(session.TranscriptPath))
-            return;
-
-        // Only parse if we don't already have commands/notes
-        if (session.CommandsExecuted.Count > 0 || !string.IsNullOrEmpty(session.AgentNotes))
-            return;
-
-        try
-        {
-            var parser = new TranscriptParserService();
-            var result = await parser.ParseTranscriptAsync(session.TranscriptPath);
-
-            if (result.ParsedSuccessfully)
-            {
-                lock (_lock)
-                {
-                    foreach (var command in result.Commands)
+                    // Update activity state lifecycle
+                    var activityState = _activityService?.GetState(live.ClaudeSessionId);
+                    if (activityState != null)
                     {
-                        session.AddCommand(command);
+                        activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
+                        activityState.EndTime = live.EndTime;
                     }
 
-                    if (!string.IsNullOrEmpty(result.Summary))
-                    {
-                        session.AgentNotes = result.Summary;
-                    }
-
-                    SaveToConfig();
+                    _transcriptWatcher?.Unwatch(live.ClaudeSessionId);
+                    changed = true;
                 }
             }
         }
-        catch
+
+        if (changed) OnLiveSessionsChanged();
+    }
+
+    private void OnTranscriptWatcherEvent(object? sender, TranscriptWatcherEventArgs e)
+    {
+        // Forward transcript events to SessionActivityService
+        _activityService?.ProcessTranscriptEvents(e.SessionId, e.Events, e.Summary, e.Model);
+
+        // Update live session last activity time
+        lock (_lock)
         {
-            // Transcript parsing is best-effort, don't fail the session
+            if (_liveSessions.TryGetValue(e.SessionId, out var live) && live.IsActive)
+            {
+                live.LastActivityTime = DateTime.UtcNow;
+            }
         }
     }
 
-    /// <summary>
-    /// Cleans up old orphan sessions, keeping only the most recent unassigned ones.
-    /// </summary>
-    private void CleanupOldOrphanSessions()
+    private void OnTranscriptSessionInactive(object? sender, string sessionId)
     {
-        const int maxOrphanSessions = 20;
-
-        // Get unassigned orphans ordered by start time (most recent first)
-        var unassigned = _state.OrphanSessions
-            .Where(o => !o.IsAssigned)
-            .OrderByDescending(o => o.StartTime)
-            .ToList();
-
-        if (unassigned.Count > maxOrphanSessions)
+        bool changed = false;
+        lock (_lock)
         {
-            // Remove the oldest ones
-            var toRemove = unassigned.Skip(maxOrphanSessions).ToList();
-            foreach (var orphan in toRemove)
+            if (_liveSessions.TryGetValue(sessionId, out var live) && live.IsActive)
             {
-                _state.OrphanSessions.Remove(orphan);
+                live.EndTime = live.LastActivityTime ?? DateTime.UtcNow;
+                live.EndReason = "timeout";
+
+                // Update activity state lifecycle
+                var activityState = _activityService?.GetState(sessionId);
+                if (activityState != null)
+                {
+                    activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
+                    activityState.EndTime = live.EndTime;
+                }
+
+                changed = true;
             }
         }
 
-        // Also remove old assigned orphans (keep for 7 days for reference)
-        var oldAssigned = _state.OrphanSessions
-            .Where(o => o.IsAssigned && o.EndTime.HasValue &&
-                (DateTime.UtcNow - o.EndTime.Value).TotalDays > 7)
-            .ToList();
-        foreach (var orphan in oldAssigned)
+        _transcriptWatcher?.Unwatch(sessionId);
+        if (changed) OnLiveSessionsChanged();
+    }
+
+    public void Dispose()
+    {
+        StopInactivityTimer();
+        if (_transcriptWatcher != null)
         {
-            _state.OrphanSessions.Remove(orphan);
+            _transcriptWatcher.OnEvent -= OnTranscriptWatcherEvent;
+            _transcriptWatcher.OnSessionInactive -= OnTranscriptSessionInactive;
+            _transcriptWatcher.UnwatchAll();
         }
     }
 
-    /// <summary>
-    /// Gathers git commit data for a completed session.
-    /// </summary>
-    private async Task GatherSessionGitDataAsync(ClaudeSession session, string worktreePath)
+    #endregion
+
+    #region Hook Installation
+
+    private const string HookMarker = "--hook";
+
+    private static string GetClaudeSettingsPath()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(userProfile, ".claude", "settings.json");
+    }
+
+    public bool AreHooksInstalled()
     {
         try
         {
-            // Get the latest commit info
-            var logResult = await _gitRunner.RunGitOperationAsync(
-                worktreePath,
-                "log -1 --format=%H|||%s");
-
-            if (logResult.Success && !string.IsNullOrEmpty(logResult.Output))
-            {
-                var parts = logResult.Output.Trim().Split("|||", 2);
-                if (parts.Length >= 1)
-                {
-                    lock (_lock)
-                    {
-                        session.CommitHash = parts[0].Trim();
-                        if (parts.Length >= 2)
-                        {
-                            session.CommitMessage = parts[1].Trim();
-                        }
-                    }
-                }
-            }
-
-            // Get file stats from the last commit
-            var diffStatResult = await _gitRunner.RunGitOperationAsync(
-                worktreePath,
-                "diff --stat HEAD~1 HEAD 2>/dev/null || git diff --stat HEAD");
-
-            if (diffStatResult.Success && !string.IsNullOrEmpty(diffStatResult.Output))
-            {
-                // Parse diff stat output (e.g., " src/file.cs | 10 +++++-----")
-                var lines = diffStatResult.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines)
-                {
-                    if (line.Contains("|"))
-                    {
-                        var lineParts = line.Split('|', 2);
-                        if (lineParts.Length == 2)
-                        {
-                            var filePath = lineParts[0].Trim();
-                            var stats = lineParts[1].Trim();
-
-                            // Count + and - characters for rough additions/deletions
-                            var additions = stats.Count(c => c == '+');
-                            var deletions = stats.Count(c => c == '-');
-
-                            lock (_lock)
-                            {
-                                session.AddFileChange(filePath, additions, deletions);
-                            }
-                        }
-                    }
-                }
-            }
-
-            lock (_lock)
-            {
-                session.Status = ClaudeSessionStatus.Success;
-                SaveToConfig();
-            }
+            var settingsPath = GetClaudeSettingsPath();
+            if (!_fileSystem.FileExists(settingsPath)) return false;
+            var json = _fileSystem.ReadAllText(settingsPath);
+            return json.Contains("--hook session-start", StringComparison.OrdinalIgnoreCase)
+                && json.Contains("--hook subagent-start", StringComparison.OrdinalIgnoreCase);
         }
-        catch
+        catch { return false; }
+    }
+
+    public void UpgradeHooksIfNeeded()
+    {
+        try
         {
-            // Git operations failed - still mark session as complete
-            lock (_lock)
+            var settingsPath = GetClaudeSettingsPath();
+            if (!_fileSystem.FileExists(settingsPath)) return;
+            var json = _fileSystem.ReadAllText(settingsPath);
+
+            var hasHooks = json.Contains("--hook session-start", StringComparison.OrdinalIgnoreCase);
+            if (!hasHooks) return;
+
+            // Reinstall if missing new hook types or async flag
+            var needsUpgrade = !json.Contains("--hook subagent-start", StringComparison.OrdinalIgnoreCase)
+                || !json.Contains("\"async\"", StringComparison.OrdinalIgnoreCase);
+
+            if (needsUpgrade)
             {
-                session.Status = ClaudeSessionStatus.Success;
-                SaveToConfig();
+                InstallHooks();
             }
         }
+        catch { }
+    }
+
+    public bool InstallHooks()
+    {
+        try
+        {
+            var settingsPath = GetClaudeSettingsPath();
+            var dir = Path.GetDirectoryName(settingsPath);
+            if (dir != null && !_fileSystem.DirectoryExists(dir))
+                _fileSystem.CreateDirectory(dir);
+
+            System.Text.Json.Nodes.JsonObject root;
+            if (_fileSystem.FileExists(settingsPath))
+            {
+                var existingJson = _fileSystem.ReadAllText(settingsPath);
+                root = System.Text.Json.Nodes.JsonNode.Parse(existingJson)?.AsObject()
+                    ?? new System.Text.Json.Nodes.JsonObject();
+            }
+            else
+            {
+                root = new System.Text.Json.Nodes.JsonObject();
+            }
+
+            const string hostExe = "host.exe";
+            var hooks = root["hooks"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
+            root["hooks"] = hooks;
+
+            hooks["SessionStart"] = CreateHookArray($"{hostExe} --hook session-start", 10);
+            hooks["Stop"] = CreateHookArray($"{hostExe} --hook session-stop", 10);
+            hooks["SessionEnd"] = CreateHookArray($"{hostExe} --hook session-end", 10);
+            hooks["PreToolUse"] = CreateHookArray($"{hostExe} --hook tool-start", 5);
+            hooks["PostToolUse"] = CreateHookArray($"{hostExe} --hook tool-end", 5);
+            hooks["PostToolUseFailure"] = CreateHookArray($"{hostExe} --hook tool-error", 5);
+            hooks["SubagentStart"] = CreateHookArray($"{hostExe} --hook subagent-start", 5);
+            hooks["SubagentStop"] = CreateHookArray($"{hostExe} --hook subagent-stop", 5);
+            hooks["Notification"] = CreateHookArray($"{hostExe} --hook notification", 5);
+
+            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+            _fileSystem.WriteAllText(settingsPath, root.ToJsonString(options));
+            return true;
+        }
+        catch { return false; }
+    }
+
+    public bool UninstallHooks()
+    {
+        try
+        {
+            var settingsPath = GetClaudeSettingsPath();
+            if (!_fileSystem.FileExists(settingsPath)) return true;
+
+            var existingJson = _fileSystem.ReadAllText(settingsPath);
+            var root = System.Text.Json.Nodes.JsonNode.Parse(existingJson)?.AsObject();
+            if (root == null) return true;
+
+            var hooks = root["hooks"]?.AsObject();
+            if (hooks == null) return true;
+
+            var keysToRemove = new List<string>();
+            foreach (var kvp in hooks)
+            {
+                if (kvp.Value?.ToJsonString().Contains(HookMarker, StringComparison.OrdinalIgnoreCase) == true)
+                    keysToRemove.Add(kvp.Key);
+            }
+            foreach (var key in keysToRemove)
+                hooks.Remove(key);
+
+            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+            _fileSystem.WriteAllText(settingsPath, root.ToJsonString(options));
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private static System.Text.Json.Nodes.JsonArray CreateHookArray(string command, int timeout)
+    {
+        return new System.Text.Json.Nodes.JsonArray
+        {
+            new System.Text.Json.Nodes.JsonObject
+            {
+                ["hooks"] = new System.Text.Json.Nodes.JsonArray
+                {
+                    new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["type"] = "command",
+                        ["command"] = command,
+                        ["timeout"] = timeout,
+                        ["async"] = true
+                    }
+                }
+            }
+        };
     }
 
     #endregion

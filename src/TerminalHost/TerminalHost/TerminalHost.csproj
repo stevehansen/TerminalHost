@@ -87,6 +87,13 @@
     <Using Include="System.Windows.Media.FontFamily" Alias="FontFamily" />
   </ItemGroup>
 
+  <!-- Spark Canvas web assets — copied to output for WebView2 virtual host mapping -->
+  <ItemGroup>
+    <Content Include="web\spark\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Copy conpty.dll from NuGet package to output -->
   <ItemGroup>
     <None Include="$(NuGetPackageRoot)ci.microsoft.windows.console.conpty\1.22.250314001\runtimes\win10-x64\native\conpty.dll">

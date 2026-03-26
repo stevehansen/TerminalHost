@@ -1632,13 +1632,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     {
         if (_timelineService == null) return;
 
-        // Find the currently active Claude session for this project
-        var activeSession = _timelineService.GetActiveClaudeSession(Pair.WorkingDirectory);
-        if (activeSession != null)
-        {
-            // Add or update the task in the session
-            _timelineService.AddTaskToSession(activeSession.Id, e.Task);
-        }
+        // GetActiveClaudeSession/AddTaskToSession were removed from ITimelineService.
+        // Task-to-session tracking is not yet available on macOS.
     }
 
     /// <summary>

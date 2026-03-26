@@ -1,5 +1,5 @@
 {
-  "description": "TerminalHost session tracking hooks - notifies TerminalHost of Claude Code session lifecycle events",
+  "description": "TerminalHost session tracking hooks - notifies TerminalHost of Claude Code session lifecycle and tool activity events",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "host.exe --hook session-start",
-            "timeout": 5000
+            "timeout": 10,
+            "async": true
           }
         ]
       }
@@ -18,19 +19,92 @@
           {
             "type": "command",
             "command": "host.exe --hook session-stop",
-            "timeout": 5000
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook session-end",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook tool-start",
+            "timeout": 5,
+            "async": true
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "host.exe --hook file-changed",
-            "timeout": 3000
+            "command": "host.exe --hook tool-end",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook tool-error",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook subagent-start",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook subagent-stop",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "host.exe --hook notification",
+            "timeout": 5,
+            "async": true
           }
         ]
       }

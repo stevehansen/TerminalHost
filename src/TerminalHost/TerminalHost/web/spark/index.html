@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spark Canvas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="mainCanvas"></canvas>
+
+    <!-- Session Picker (top center) -->
+    <div id="sessionPicker" class="glass-panel picker-panel">
+        <select id="sessionSelect" class="session-select">
+            <option value="">Select session...</option>
+        </select>
+        <button id="btnRefreshSessions" class="control-btn" title="Refresh sessions">&#x21BB;</button>
+    </div>
+
+    <!-- Multi-Session Badge (top center, shown in multi-mode) -->
+    <div id="multiBadge" class="glass-panel multi-badge" style="display:none;">
+        <span class="multi-badge-icon">&#x1F50D;</span>
+        <span id="multiBadgeText">Observatory</span>
+        <span class="control-sep">|</span>
+        <span id="multiSessionCount" class="multi-badge-count">0 sessions</span>
+    </div>
+
+    <!-- Control Bar (bottom) -->
+    <div id="controlBar" class="glass-panel">
+        <div class="control-left">
+            <span id="sessionName" class="control-label">No session</span>
+            <span class="control-sep">|</span>
+            <span id="sessionDuration" class="control-value">--:--</span>
+            <span class="control-sep">|</span>
+            <span id="agentCount" class="control-value">0 agents</span>
+            <span class="control-sep">|</span>
+            <span id="toolCount" class="control-value">0 tools</span>
+        </div>
+        <div class="control-center">
+            <button id="btnMultiMode" class="control-btn toggle-btn" title="Multi-Session Observatory — show all sessions">Multi</button>
+            <span class="control-sep">|</span>
+            <button id="btnToggleTimeline" class="control-btn toggle-btn" title="Timeline panel">&#x23F1;</button>
+            <button id="btnToggleFiles" class="control-btn toggle-btn" title="File attention panel">&#x1F4C4;</button>
+            <button id="btnToggleTranscript" class="control-btn toggle-btn" title="Transcript panel">&#x1F4DD;</button>
+            <span class="control-sep">|</span>
+            <button id="btnToggleCards" class="control-btn toggle-btn active" title="Show tool cards">Cards</button>
+            <button id="btnToggleEdges" class="control-btn toggle-btn active" title="Show edges">Edges</button>
+            <button id="btnToggleBubbles" class="control-btn toggle-btn active" title="Show message bubbles">Bubbles</button>
+        </div>
+        <div class="control-right">
+            <select id="themeSelect" class="theme-select" title="Visual theme">
+                <option value="holographic">Holographic</option>
+                <option value="matrix">Matrix Rain</option>
+                <option value="warroom">War Room</option>
+                <option value="tron">Tron Circuit</option>
+                <option value="lcars">LCARS</option>
+                <option value="bladerunner">Blade Runner</option>
+                <option value="swordfish">Swordfish</option>
+                <option value="minority">Minority Report</option>
+            </select>
+            <span class="control-sep">|</span>
+            <button id="btnFitView" class="control-btn" title="Fit to view">Fit</button>
+            <button id="btnZoomIn" class="control-btn" title="Zoom in">+</button>
+            <button id="btnZoomOut" class="control-btn" title="Zoom out">-</button>
+            <span id="zoomLevel" class="control-value">100%</span>
+            <span class="control-sep">|</span>
+            <span id="connectionStatus" class="status-live">LIVE</span>
+        </div>
+    </div>
+
+    <!-- Agent Detail Card (left side, shown on click) -->
+    <div id="agentDetail" class="glass-panel detail-panel" style="display:none;">
+        <div class="detail-header">
+            <span id="detailDot" class="state-dot"></span>
+            <span id="detailName" class="detail-title">Agent</span>
+            <button id="detailClose" class="detail-close">&times;</button>
+        </div>
+        <div class="detail-body">
+            <div class="detail-row">
+                <span class="detail-label">State</span>
+                <span id="detailState" class="detail-value">Active</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Model</span>
+                <span id="detailModel" class="detail-value">--</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Tools</span>
+                <span id="detailTools" class="detail-value">0</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Time</span>
+                <span id="detailTime" class="detail-value">--</span>
+            </div>
+            <div id="detailContextSection">
+                <div class="detail-label" style="margin-top:8px;">Context Usage</div>
+                <div id="detailContextBar" class="context-bar">
+                    <div id="ctxSystem" class="ctx-segment ctx-system"></div>
+                    <div id="ctxUser" class="ctx-segment ctx-user"></div>
+                    <div id="ctxTools" class="ctx-segment ctx-tools"></div>
+                    <div id="ctxReasoning" class="ctx-segment ctx-reasoning"></div>
+                    <div id="ctxSubagent" class="ctx-segment ctx-subagent"></div>
+                </div>
+                <span id="detailContextPct" class="detail-value" style="font-size:10px;">0%</span>
+            </div>
+            <div id="detailCurrentTool" style="margin-top:8px; display:none;">
+                <div class="detail-label">Current Tool</div>
+                <span id="detailCurrentToolName" class="tool-badge"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tool Detail Card (left side, shown on tool card click) -->
+    <div id="toolDetail" class="glass-panel detail-panel" style="display:none; top: 240px;">
+        <div class="detail-header">
+            <span id="toolDetailDot" class="state-dot"></span>
+            <span id="toolDetailName" class="detail-title">Tool</span>
+            <button id="toolDetailClose" class="detail-close">&times;</button>
+        </div>
+        <div class="detail-body">
+            <div class="detail-row">
+                <span class="detail-label">State</span>
+                <span id="toolDetailState" class="detail-value">Running</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Agent</span>
+                <span id="toolDetailAgent" class="detail-value">--</span>
+            </div>
+            <div id="toolDetailInputSection" style="margin-top:8px;">
+                <div class="detail-label">Input</div>
+                <div id="toolDetailInput" class="detail-value" style="font-size:10px; word-break:break-all; max-height:80px; overflow-y:auto; margin-top:2px;"></div>
+            </div>
+            <div id="toolDetailResultSection" style="margin-top:8px; display:none;">
+                <div class="detail-label">Result</div>
+                <div id="toolDetailResult" class="detail-value" style="font-size:10px; word-break:break-all; max-height:80px; overflow-y:auto; margin-top:2px;"></div>
+            </div>
+            <div id="toolDetailErrorSection" style="margin-top:8px; display:none;">
+                <div class="detail-label" style="color:var(--error-color, #ff5566);">Error</div>
+                <div id="toolDetailError" class="detail-value" style="font-size:10px; color:#ff5566; word-break:break-all; max-height:60px; overflow-y:auto; margin-top:2px;"></div>
+            </div>
+            <div class="detail-row" style="margin-top:6px;">
+                <span class="detail-label">Duration</span>
+                <span id="toolDetailDuration" class="detail-value">--</span>
+            </div>
+            <div class="detail-row" id="toolDetailTokenRow" style="display:none;">
+                <span class="detail-label">Tokens</span>
+                <span id="toolDetailTokens" class="detail-value">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Feed (top-right, always visible) -->
+    <div id="messageFeed" class="glass-panel feed-panel">
+        <div id="feedContent" class="feed-content">
+            <span class="feed-empty">Waiting for activity...</span>
+        </div>
+    </div>
+
+    <!-- Timeline/Gantt Panel (bottom, toggle) -->
+    <div id="timelinePanel" class="glass-panel timeline-panel" style="display:none;">
+        <div class="timeline-header">
+            <span class="timeline-title">Timeline</span>
+            <div class="timeline-controls">
+                <button id="btnTimelineZoomOut" class="control-btn" title="Zoom out">-</button>
+                <button id="btnTimelineZoomIn" class="control-btn" title="Zoom in">+</button>
+                <button id="btnTimelineFit" class="control-btn" title="Fit">Fit</button>
+            </div>
+            <button id="btnTimelineClose" class="detail-close">&times;</button>
+        </div>
+        <div id="timelineBody" class="timeline-body">
+            <canvas id="timelineCanvas"></canvas>
+        </div>
+    </div>
+
+    <!-- File Attention Panel (right side, toggle) -->
+    <div id="filePanel" class="glass-panel file-panel" style="display:none;">
+        <div class="detail-header">
+            <span class="detail-title">Files</span>
+            <button id="btnFileClose" class="detail-close">&times;</button>
+        </div>
+        <div id="filePanelBody" class="file-panel-body"></div>
+    </div>
+
+    <!-- Transcript Panel (right side, toggle) -->
+    <div id="transcriptPanel" class="glass-panel transcript-panel" style="display:none;">
+        <div class="detail-header">
+            <span class="detail-title">Transcript</span>
+            <div style="flex:1"></div>
+            <input id="transcriptSearch" class="transcript-search" type="text" placeholder="Search..." />
+            <button id="btnTranscriptClose" class="detail-close">&times;</button>
+        </div>
+        <div id="transcriptBody" class="transcript-body"></div>
+    </div>
+
+    <script src="simulation.js"></script>
+    <script src="themes.js"></script>
+    <script src="fx.js"></script>
+    <script src="canvas.js"></script>
+    <script src="panels.js"></script>
+    <script src="ui.js"></script>
+    <script src="events.js"></script>
+</body>
+</html>

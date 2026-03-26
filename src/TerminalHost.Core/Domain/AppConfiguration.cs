@@ -251,7 +251,7 @@ public class AppConfiguration
             Target = QuickCommandTarget.Custom,
             AppendNewline = true,
             UseUserInput = true,
-            Shortcut = "Ctrl+Shift+V"
+            Shortcut = ""
         },
         // Git pull/push are now toolbar buttons (not quick commands)
         // Dev tool commands
@@ -791,6 +791,12 @@ public class TimelineSettings
     /// </summary>
     [JsonPropertyName("trackUnassignedSessions")]
     public bool TrackUnassignedSessions { get; set; } = true;
+
+    /// <summary>
+    /// Spark Canvas visual theme (e.g., "holographic", "matrix").
+    /// </summary>
+    [JsonPropertyName("sparkTheme")]
+    public string SparkTheme { get; set; } = "holographic";
 }
 
 /// <summary>

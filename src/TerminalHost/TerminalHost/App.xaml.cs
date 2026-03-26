@@ -191,6 +191,35 @@ public partial class App : Application
         // Process any queued hook events from when the app wasn't running
         _ = ProcessQueuedHookEventsAsync();
 
+        // Start inactivity timer for detecting stuck sessions
+        var timelineService = Services.GetService<ITimelineService>();
+        timelineService?.StartInactivityTimer();
+
+        // Auto-upgrade hooks if partially installed (e.g., old 4-hook version → 9 hooks)
+        timelineService?.UpgradeHooksIfNeeded();
+
+        // Bridge ActivityEvents to EventAggregator for SSE distribution
+        var activityService = Services.GetService<ISessionActivityService>();
+        var eventAggregator = Services.GetService<IEventAggregatorService>();
+        if (activityService != null && eventAggregator != null)
+        {
+            activityService.ActivityEventProcessed += (_, evt) =>
+            {
+                eventAggregator.Publish(new ApiEvent
+                {
+                    Type = "activity.event",
+                    Data = new
+                    {
+                        type = evt.Type.ToString(),
+                        sessionId = evt.SessionId,
+                        agentId = evt.AgentId,
+                        timestamp = evt.Timestamp,
+                        data = evt.Data
+                    }
+                });
+            };
+        }
+
         // Auto-start API server if enabled
         _ = AutoStartApiServerAsync();
     }
@@ -204,6 +233,7 @@ public partial class App : Application
             if (config.Settings.Api.Enabled)
             {
                 var apiServer = _services.GetRequiredService<IApiServer>();
+                apiServer.HookEventReceived += (_, hookEvent) => ProcessHookEvent(hookEvent);
                 await apiServer.StartAsync();
             }
         }
@@ -247,6 +277,8 @@ public partial class App : Application
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<ITimelineService, TimelineService>();
+        services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
+        services.AddSingleton<ISessionActivityService, SessionActivityService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
@@ -360,25 +392,72 @@ public partial class App : Application
         });
     }
 
-    private void ProcessHookEvent(HookEvent hookEvent)
+    private async void ProcessHookEvent(HookEvent hookEvent)
     {
         var timelineService = Services.GetService<ITimelineService>();
         if (timelineService == null) return;
 
-        switch (hookEvent.EventType)
+        // Route to SessionActivityService for rich activity tracking
+        var activityService = Services.GetService<ISessionActivityService>();
+        activityService?.ProcessHookEvent(hookEvent);
+
+        try
         {
-            case HookEventType.SessionStart:
-                timelineService.HandleSessionStart(hookEvent);
-                break;
+            switch (hookEvent.EventType)
+            {
+                case HookEventType.SessionStart:
+                    timelineService.HandleSessionStart(hookEvent);
+                    break;
 
-            case HookEventType.FileChanged:
-                timelineService.HandleFileChanged(hookEvent);
-                break;
+                case HookEventType.FileChanged:
+                    timelineService.HandleFileChanged(hookEvent);
+                    break;
 
-            case HookEventType.SessionStop:
-                // Run async but don't block
-                _ = timelineService.HandleSessionStopAsync(hookEvent);
-                break;
+                case HookEventType.SessionStop:
+                    await timelineService.HandleSessionStopAsync(hookEvent);
+                    // Enrich activity state from transcript after session ends
+                    if (activityService != null)
+                    {
+                        try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
+                    }
+                    break;
+
+                case HookEventType.ToolStart:
+                    timelineService.HandleToolStart(hookEvent);
+                    break;
+
+                case HookEventType.ToolEnd:
+                    timelineService.HandleToolEnd(hookEvent);
+                    break;
+
+                case HookEventType.ToolError:
+                    timelineService.HandleToolEnd(hookEvent); // Same activity tracking
+                    break;
+
+                case HookEventType.SubagentStart:
+                case HookEventType.SubagentStop:
+                    timelineService.HandleToolStart(hookEvent); // Updates LastActivityTime
+                    break;
+
+                case HookEventType.Notification:
+                    timelineService.HandleToolStart(hookEvent); // Updates LastActivityTime
+                    break;
+
+                case HookEventType.SessionEnd:
+                    // SessionEnd is a fallback for Stop — only process if not already stopped
+                    await timelineService.HandleSessionStopAsync(hookEvent);
+                    if (activityService != null)
+                    {
+                        try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Hook event processing error: {ex.Message}");
         }
     }
 
@@ -677,7 +756,14 @@ public partial class App : Application
             {
                 "session-start" => HookEvent.CreateSessionStart(hookData),
                 "session-stop" => HookEvent.CreateSessionStop(hookData),
-                "file-changed" => hookData.IsFileModificationTool() ? HookEvent.CreateFileChanged(hookData) : null,
+                "session-end" => HookEvent.CreateSessionEnd(hookData),
+                "tool-start" => HookEvent.CreateToolStart(hookData),
+                "tool-end" => HookEvent.CreateToolEnd(hookData),
+                "tool-error" => HookEvent.CreateToolError(hookData),
+                "subagent-start" => HookEvent.CreateSubagentStart(hookData),
+                "subagent-stop" => HookEvent.CreateSubagentStop(hookData),
+                "notification" => HookEvent.CreateNotification(hookData),
+                "file-changed" => hookData.IsFileModificationTool() ? HookEvent.CreateFileChanged(hookData) : null, // backward compat
                 _ => null
             };
 

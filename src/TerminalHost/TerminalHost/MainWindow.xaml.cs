@@ -1028,6 +1028,12 @@ public partial class MainWindow : Window
             _statusOverlayService.Toggle();
             e.Handled = true;
         }
+        // Ctrl+Shift+V: Open Spark Canvas window
+        else if (e.Key == Key.V && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _viewModel.OpenSparkCanvasWindow();
+            e.Handled = true;
+        }
         // Ctrl+Shift+D: Git Pull
         else if (e.Key == Key.D && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {

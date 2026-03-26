@@ -71,7 +71,8 @@ public partial class SessionBlockViewModel : ObservableObject
     [RelayCommand]
     private async Task Fork()
     {
-        await _timelineService.ForkSessionAsync(_session.Id);
+        // ForkSessionAsync was removed from ITimelineService - no-op stub for macOS
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -85,34 +86,19 @@ public partial class SessionBlockViewModel : ObservableObject
     [RelayCommand]
     private void MarkSuccess()
     {
-        _timelineService.MarkSessionSuccess(_session.Id);
-        OnPropertyChanged(nameof(Status));
-        OnPropertyChanged(nameof(StatusIcon));
-        OnPropertyChanged(nameof(StatusColorHex));
-        OnPropertyChanged(nameof(IsRunning));
-        OnPropertyChanged(nameof(IsCompleted));
+        // MarkSessionSuccess was removed from ITimelineService - no-op stub for macOS
     }
 
     [RelayCommand]
     private void MarkFailed()
     {
-        _timelineService.MarkSessionFailed(_session.Id);
-        OnPropertyChanged(nameof(Status));
-        OnPropertyChanged(nameof(StatusIcon));
-        OnPropertyChanged(nameof(StatusColorHex));
-        OnPropertyChanged(nameof(IsRunning));
-        OnPropertyChanged(nameof(IsCompleted));
+        // MarkSessionFailed was removed from ITimelineService - no-op stub for macOS
     }
 
     [RelayCommand]
     private void MarkAbandoned()
     {
-        _timelineService.MarkSessionAbandoned(_session.Id);
-        OnPropertyChanged(nameof(Status));
-        OnPropertyChanged(nameof(StatusIcon));
-        OnPropertyChanged(nameof(StatusColorHex));
-        OnPropertyChanged(nameof(IsRunning));
-        OnPropertyChanged(nameof(IsCompleted));
+        // MarkSessionAbandoned was removed from ITimelineService - no-op stub for macOS
     }
 
     /// <summary>
@@ -120,19 +106,8 @@ public partial class SessionBlockViewModel : ObservableObject
     /// </summary>
     public void Refresh()
     {
-        var updated = _timelineService.GetSession(_session.Id);
-        if (updated == null) return;
-
-        // Update collections
-        FilesChanged.Clear();
-        foreach (var f in updated.FilesChanged)
-            FilesChanged.Add(new FileChangeViewModel(f));
-
-        Commands.Clear();
-        foreach (var c in updated.CommandsExecuted)
-            Commands.Add(c);
-
-        // Notify all property changes
+        // GetSession was removed from ITimelineService.
+        // Just notify property changes from the existing session data.
         OnPropertyChanged(nameof(Status));
         OnPropertyChanged(nameof(StatusIcon));
         OnPropertyChanged(nameof(StatusColorHex));

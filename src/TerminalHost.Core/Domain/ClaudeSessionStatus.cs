@@ -15,5 +15,8 @@ public enum ClaudeSessionStatus
     Failed,
 
     /// <summary>Session was abandoned in favor of a different approach.</summary>
-    Abandoned
+    Abandoned,
+
+    /// <summary>Session was closed due to inactivity timeout (no Stop hook received).</summary>
+    TimedOut
 }

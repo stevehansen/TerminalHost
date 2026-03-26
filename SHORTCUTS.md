@@ -48,6 +48,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
 | `F4` | Toggle voice commands | Global | Start/stop voice listening |
 | `Ctrl+Shift+Y` | Toggle status overlay | Global | Floating activity indicator |
+| `Ctrl+Shift+V` | Open Spark Canvas window | Global | Standalone visualization window |
 
 ### Git & GitHub Shortcuts (Requires Project Tab Selected)
 
@@ -111,7 +112,7 @@ These are user-configurable in settings. Default shortcuts:
 |----------|--------|--------|-------|
 | `Ctrl+Shift+C` | Commit | Custom terminal | Sends "commit" |
 | `Ctrl+Shift+L` | Launch IDE | Shell terminal | Sends "dev" |
-| `Ctrl+Shift+V` | Review PR | Custom terminal | Claude Code prompt |
+| *(unassigned)* | Review PR | Custom terminal | Claude Code prompt (was Ctrl+Shift+V, now used by Spark Canvas) |
 
 **Note:** Additional quick commands (Rate Code, Build, etc.) are available via Command Palette. Users can assign custom shortcuts in Settings.
 
@@ -210,7 +211,7 @@ These shortcuts are reserved by the system or have special meaning:
 - `Ctrl+Shift+Y` - Status overlay toggle
 - `Ctrl+Shift+Z` - Available
 
-**Note:** `Ctrl+Shift+C`, `Ctrl+Shift+L`, `Ctrl+Shift+V` are used by default Quick Commands but are user-configurable. `Ctrl+Shift+D` (Git Pull) and `Ctrl+Shift+U` (Git Push) are built-in shortcuts.
+**Note:** `Ctrl+Shift+C`, `Ctrl+Shift+L` are used by default Quick Commands but are user-configurable. `Ctrl+Shift+D` (Git Pull), `Ctrl+Shift+U` (Git Push), and `Ctrl+Shift+V` (Spark Canvas Window) are built-in shortcuts.
 
 ### Unused Function Keys:
 - `F2` - Available
@@ -267,4 +268,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-03-26*

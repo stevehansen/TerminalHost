@@ -100,10 +100,22 @@ public class ViewModelFactory : IViewModelFactory
     {
         return new TimelineTabViewModel(
             _serviceProvider.GetRequiredService<ITimelineService>(),
+            _serviceProvider.GetService<IClaudeSessionIndexService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
-            _serviceProvider.GetRequiredService<IConfigurationService>(),
-            _serviceProvider.GetRequiredService<IGitStatusService>(),
-            _serviceProvider.GetRequiredService<ITimerService>()
+            _serviceProvider.GetRequiredService<ITimerService>(),
+            _serviceProvider.GetService<ISessionActivityService>(),
+            _serviceProvider.GetRequiredService<IProcessService>(),
+            _serviceProvider.GetRequiredService<IClipboardService>()
+        );
+    }
+
+    public SparkCanvasViewModel CreateSparkCanvas()
+    {
+        return new SparkCanvasViewModel(
+            _serviceProvider.GetService<ISessionActivityService>(),
+            _serviceProvider.GetService<IApiServer>(),
+            _serviceProvider.GetService<ITimelineService>(),
+            _serviceProvider.GetRequiredService<IConfigurationService>()
         );
     }
 }

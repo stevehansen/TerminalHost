@@ -7,8 +7,6 @@ namespace TerminalHost.Views;
 
 public partial class TimelineView : UserControl
 {
-    private bool _isSyncingScroll;
-
     public TimelineView()
     {
         InitializeComponent();
@@ -17,185 +15,52 @@ public partial class TimelineView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Set focus to enable keyboard navigation
         Focus();
-
-        var timeRulerScroll = FindName("TimeRulerScroll") as ScrollViewer;
-        var swimlaneScroll = FindName("SwimlaneScroll") as ScrollViewer;
-        var leftPanelScroll = FindName("LeftPanelScroll") as ScrollViewer;
-
-        // Report container width for responsive scaling
-        if (swimlaneScroll != null)
-        {
-            swimlaneScroll.SizeChanged += (s, args) =>
-            {
-                if (DataContext is TimelineTabViewModel vm)
-                {
-                    vm.SetContainerWidth(args.NewSize.Width);
-                }
-            };
-
-            // Initial width report
-            if (DataContext is TimelineTabViewModel vm && swimlaneScroll.ActualWidth > 0)
-            {
-                vm.SetContainerWidth(swimlaneScroll.ActualWidth);
-            }
-        }
-
-        // Synchronize horizontal scroll between time ruler and swimlanes
-        if (timeRulerScroll != null && swimlaneScroll != null)
-        {
-            swimlaneScroll.ScrollChanged += (s, args) =>
-            {
-                if (_isSyncingScroll) return;
-                _isSyncingScroll = true;
-                timeRulerScroll.ScrollToHorizontalOffset(args.HorizontalOffset);
-                _isSyncingScroll = false;
-            };
-        }
-
-        // Synchronize vertical scroll between left panel and swimlanes
-        if (leftPanelScroll != null && swimlaneScroll != null)
-        {
-            swimlaneScroll.ScrollChanged += (s, args) =>
-            {
-                if (_isSyncingScroll) return;
-                _isSyncingScroll = true;
-                leftPanelScroll.ScrollToVerticalOffset(args.VerticalOffset);
-                _isSyncingScroll = false;
-            };
-
-            leftPanelScroll.ScrollChanged += (s, args) =>
-            {
-                if (_isSyncingScroll) return;
-                _isSyncingScroll = true;
-                swimlaneScroll.ScrollToVerticalOffset(args.VerticalOffset);
-                _isSyncingScroll = false;
-            };
-        }
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
 
-        if (DataContext is not TimelineTabViewModel viewModel)
+        if (DataContext is not TimelineTabViewModel vm)
             return;
 
         switch (e.Key)
         {
             case Key.Up:
-                NavigateIntent(viewModel, -1);
+                NavigateSession(vm, -1);
                 e.Handled = true;
                 break;
-
             case Key.Down:
-                NavigateIntent(viewModel, 1);
+                NavigateSession(vm, 1);
                 e.Handled = true;
                 break;
-
-            case Key.Left:
-                NavigateSession(viewModel, -1);
-                e.Handled = true;
-                break;
-
-            case Key.Right:
-                NavigateSession(viewModel, 1);
-                e.Handled = true;
-                break;
-
-            case Key.Enter:
-                // If an intent is selected but no session, select first session
-                if (viewModel.SelectedIntent != null && viewModel.SelectedSession == null)
-                {
-                    var firstSession = viewModel.SelectedIntent.Sessions.FirstOrDefault();
-                    if (firstSession != null)
-                    {
-                        viewModel.SelectSessionCommand.Execute(firstSession);
-                    }
-                }
-                e.Handled = true;
-                break;
-
             case Key.Escape:
-                if (viewModel.IsSessionDetailVisible)
+                if (vm.IsDetailVisible)
                 {
-                    viewModel.CloseSessionDetailCommand.Execute(null);
+                    vm.CloseDetailCommand.Execute(null);
                     e.Handled = true;
                 }
                 break;
-
-            // Ctrl+Alt+N: New Intent
             case Key.N when Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                viewModel.CreateNewIntentCommand.Execute(null);
-                e.Handled = true;
-                break;
-
-            // Ctrl+Alt+S: Start session in current intent
-            case Key.S when Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                if (viewModel.SelectedIntent != null)
-                {
-                    viewModel.StartSession(viewModel.SelectedIntent.Id);
-                }
-                e.Handled = true;
-                break;
-
-            // Ctrl+Alt+F: Fork from selected session
-            case Key.F when Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                if (viewModel.SelectedSession != null)
-                {
-                    _ = viewModel.ForkSession(viewModel.SelectedSession.Id);
-                }
+                vm.CreateNewIntentCommand.Execute(null);
                 e.Handled = true;
                 break;
         }
     }
 
-    private static void NavigateIntent(TimelineTabViewModel viewModel, int direction)
+    private static void NavigateSession(TimelineTabViewModel vm, int direction)
     {
-        if (viewModel.Intents.Count == 0)
-            return;
+        if (vm.Sessions.Count == 0) return;
 
-        var currentIndex = viewModel.SelectedIntent != null
-            ? viewModel.Intents.IndexOf(viewModel.SelectedIntent)
+        var currentIndex = vm.SelectedSession != null
+            ? vm.Sessions.IndexOf(vm.SelectedSession)
             : -1;
 
         var newIndex = currentIndex + direction;
+        if (newIndex < 0) newIndex = vm.Sessions.Count - 1;
+        else if (newIndex >= vm.Sessions.Count) newIndex = 0;
 
-        if (newIndex < 0)
-            newIndex = viewModel.Intents.Count - 1;
-        else if (newIndex >= viewModel.Intents.Count)
-            newIndex = 0;
-
-        viewModel.SelectedIntent = viewModel.Intents[newIndex];
-
-        // Close session detail when changing intents
-        if (viewModel.IsSessionDetailVisible)
-        {
-            viewModel.CloseSessionDetailCommand.Execute(null);
-        }
-    }
-
-    private static void NavigateSession(TimelineTabViewModel viewModel, int direction)
-    {
-        if (viewModel.SelectedIntent == null)
-            return;
-
-        var sessions = viewModel.SelectedIntent.Sessions.ToList();
-        if (sessions.Count == 0)
-            return;
-
-        var currentIndex = viewModel.SelectedSession != null
-            ? sessions.FindIndex(s => s.Id == viewModel.SelectedSession.Id)
-            : -1;
-
-        var newIndex = currentIndex + direction;
-
-        if (newIndex < 0)
-            newIndex = sessions.Count - 1;
-        else if (newIndex >= sessions.Count)
-            newIndex = 0;
-
-        viewModel.SelectSessionCommand.Execute(sessions[newIndex]);
+        vm.SelectSession(vm.Sessions[newIndex]);
     }
 }

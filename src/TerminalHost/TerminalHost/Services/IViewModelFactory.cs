@@ -12,4 +12,5 @@ public interface IViewModelFactory
     SettingsTabViewModel CreateSettings();
     StatisticsTabViewModel CreateStatistics();
     TimelineTabViewModel CreateTimeline();
+    SparkCanvasViewModel CreateSparkCanvas();
 }

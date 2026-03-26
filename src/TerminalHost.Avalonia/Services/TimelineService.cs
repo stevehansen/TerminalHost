@@ -5,23 +5,15 @@ using TerminalHost.Core.Interfaces;
 namespace TerminalHost.Services;
 
 /// <summary>
-/// Stub implementation of the Timeline Mode service.
-/// STUB: Core types differ significantly from Avalonia types - major refactoring needed.
+/// Stub implementation of the Timeline Mode service for macOS/Avalonia.
 /// </summary>
 public class TimelineService : ITimelineService
 {
     private readonly IConfigurationService _configService;
     private readonly IGitWorktreeService _worktreeService;
     private readonly IGitProcessRunner _gitRunner;
-    private readonly IFileSystem _fileSystem;
-    private readonly IClaudeTaskFileService? _taskFileService;
-    private readonly IClaudeSessionIndexService? _sessionIndexService;
-    private readonly string _userDataDirectory;
     private readonly object _lock = new();
     private TimelineState _state;
-
-    // In-memory sessions collection (loaded from individual files)
-    private readonly List<ClaudeSession> _sessions = new();
 
     public TimelineService(
         IConfigurationService configService,
@@ -35,232 +27,37 @@ public class TimelineService : ITimelineService
         _configService = configService;
         _worktreeService = worktreeService;
         _gitRunner = gitRunner;
-        _fileSystem = fileSystem;
-        _taskFileService = taskFileService;
-        _sessionIndexService = sessionIndexService;
-        _userDataDirectory = userDataDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TerminalHost");
         _state = LoadState();
-        LoadSessions();
-        PopulateSessionTasks();
-
-        // Subscribe to task file changes to keep sessions in sync
-        if (_taskFileService != null)
-        {
-            _taskFileService.TasksChanged += (s, e) => PopulateSessionTasks();
-        }
     }
 
     // Events
     public event EventHandler<bool>? EnabledChanged;
     public event EventHandler? IntentsChanged;
     public event EventHandler<Intent?>? CurrentIntentChanged;
-    public event EventHandler? SessionsChanged;
-    public event EventHandler<ClaudeSession>? SessionStatusChanged;
     public event EventHandler<bool>? FocusStateChanged;
-    public event EventHandler<TimeScale>? TimeScaleChanged;
-#pragma warning disable CS0067 // Events required by interface but not yet implemented on macOS
+    public event EventHandler? LiveSessionsChanged;
+#pragma warning disable CS0067
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
-    public event EventHandler? OrphanSessionsChanged;
 #pragma warning restore CS0067
 
-    // Session file management
-
-    private string GetSessionsDirectory()
-    {
-        return Path.Combine(_userDataDirectory, "timeline", "sessions");
-    }
-
-    private void LoadSessions()
-    {
-        // Check for legacy sessions that need migration
-        if (_state.Sessions != null && _state.Sessions.Count > 0)
-        {
-            MigrateLegacySessions();
-            return;
-        }
-
-        // Load from individual session files
-        var sessionsDir = GetSessionsDirectory();
-        if (!_fileSystem.DirectoryExists(sessionsDir))
-        {
-            return; // No sessions yet
-        }
-
-        _sessions.Clear();
-        var sessionFiles = _fileSystem.GetFiles(sessionsDir, "session-*.json", SearchOption.TopDirectoryOnly);
-
-        foreach (var filePath in sessionFiles)
-        {
-            try
-            {
-                var json = _fileSystem.ReadAllText(filePath);
-                var session = System.Text.Json.JsonSerializer.Deserialize<ClaudeSession>(json);
-                if (session != null)
-                {
-                    _sessions.Add(session);
-                }
-            }
-            catch
-            {
-                // Skip invalid session files
-            }
-        }
-    }
-
-    /// <summary>
-    /// Migrates sessions from legacy TimelineState.Sessions list to individual files.
-    /// </summary>
-    private void MigrateLegacySessions()
-    {
-        if (_state.Sessions == null || _state.Sessions.Count == 0)
-            return;
-
-        var sessionsDir = GetSessionsDirectory();
-        _fileSystem.CreateDirectory(sessionsDir);
-
-        // Copy all sessions to individual files
-        _sessions.Clear();
-        foreach (var session in _state.Sessions)
-        {
-            try
-            {
-                SaveSessionFile(session);
-                _sessions.Add(session);
-            }
-            catch
-            {
-                // Continue with other sessions if one fails
-            }
-        }
-
-        // Clear the legacy sessions list and save config
-        _state.Sessions = null;
-        SaveState();
-    }
-
-    /// <summary>
-    /// Populates Tasks collection for all sessions from ClaudeTaskFileService.
-    /// This links persisted Claude Code tasks with Timeline sessions.
-    /// </summary>
-    private void PopulateSessionTasks()
-    {
-        if (_taskFileService == null)
-            return;
-
-        lock (_lock)
-        {
-            foreach (var session in _sessions)
-            {
-                // Get tasks for this session from the file service
-                var tasks = _taskFileService.GetSessionTasks(session.Id);
-
-                // Convert FocusTask to ClaudeTaskSnapshot
-                session.Tasks.Clear();
-                foreach (var task in tasks)
-                {
-                    var snapshot = new ClaudeTaskSnapshot
-                    {
-                        Id = task.Id.ToString(),
-                        Title = task.Title,
-                        ActiveForm = task.ActiveForm,
-                        Status = task.Status,
-                        StartedAt = task.StartedAt,
-                        CompletedAt = task.CompletedAt
-                    };
-                    session.Tasks.Add(snapshot);
-                }
-            }
-        }
-
-        // Notify that sessions have changed
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void SaveSessionFile(ClaudeSession session)
-    {
-        var sessionsDir = GetSessionsDirectory();
-        _fileSystem.CreateDirectory(sessionsDir);
-
-        var fileName = $"session-{session.Id}.json";
-        var filePath = Path.Combine(sessionsDir, fileName);
-
-        var json = System.Text.Json.JsonSerializer.Serialize(session, new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-
-        _fileSystem.WriteAllText(filePath, json);
-    }
-
-    private void DeleteSessionFile(string sessionId)
-    {
-        var sessionsDir = GetSessionsDirectory();
-        var fileName = $"session-{sessionId}.json";
-        var filePath = Path.Combine(sessionsDir, fileName);
-
-        if (_fileSystem.FileExists(filePath))
-        {
-            _fileSystem.DeleteFile(filePath);
-        }
-    }
-
-    // Timeline Mode state
-
-    public bool IsEnabled
-    {
-        get { lock (_lock) return _state.Enabled; }
-    }
+    // Timeline state
+    public bool IsEnabled { get { lock (_lock) return _state.Enabled; } }
 
     public void Enable()
     {
-        lock (_lock)
-        {
-            if (_state.Enabled) return;
-            _state.Enabled = true;
-            SaveState();
-        }
+        lock (_lock) { _state.Enabled = true; SaveState(); }
         EnabledChanged?.Invoke(this, true);
     }
 
     public void Disable()
     {
-        lock (_lock)
-        {
-            if (!_state.Enabled) return;
-            _state.Enabled = false;
-            SaveState();
-        }
+        lock (_lock) { _state.Enabled = false; SaveState(); }
         EnabledChanged?.Invoke(this, false);
     }
 
-    public TimeScale CurrentScale
-    {
-        get { lock (_lock) return _state.CurrentScale; }
-    }
-
-    // Alias for compatibility
-    public TimeScale CurrentTimeScale => CurrentScale;
-
-    public TimelineState GetState()
-    {
-        lock (_lock) return _state;
-    }
-
-    public void SetTimeScale(TimeScale scale)
-    {
-        lock (_lock)
-        {
-            if (_state.CurrentScale == scale) return;
-            _state.CurrentScale = scale;
-            SaveState();
-        }
-        TimeScaleChanged?.Invoke(this, scale);
-    }
+    public TimelineState GetState() { lock (_lock) return _state; }
 
     // Intent management
-
     public Task<Intent?> CreateIntentAsync(string name, string branchName, string mainRepoPath, string? baseBranch = null, string? context = null)
     {
         Intent intent;
@@ -269,11 +66,9 @@ public class TimelineService : ITimelineService
             intent = Intent.Create(name, "", mainRepoPath);
             _state.Intents.Add(intent);
             _state.IntentOrder.Add(intent.Id);
-            _state.CurrentIntentId = intent.Id;
             SaveState();
         }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
-        CurrentIntentChanged?.Invoke(this, intent);
         return Task.FromResult<Intent?>(intent);
     }
 
@@ -285,498 +80,116 @@ public class TimelineService : ITimelineService
             intent = Intent.Create(name, existingFolderPath, existingFolderPath);
             _state.Intents.Add(intent);
             _state.IntentOrder.Add(intent.Id);
-            _state.CurrentIntentId = intent.Id;
             SaveState();
         }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
-        CurrentIntentChanged?.Invoke(this, intent);
         return Task.FromResult(intent);
     }
 
-    public Intent? GetIntent(string id)
-    {
-        lock (_lock) return _state.GetIntent(id);
-    }
-
-    IReadOnlyList<Intent> ITimelineService.GetAllIntents()
-    {
-        lock (_lock) return [.. _state.Intents];
-    }
-
-    // Internal version returns List for compatibility
-    public List<Intent> GetAllIntents()
-    {
-        lock (_lock) return [.. _state.Intents];
-    }
-
+    public Intent? GetIntent(string id) { lock (_lock) return _state.GetIntent(id); }
+    public IReadOnlyList<Intent> GetAllIntents() { lock (_lock) return [.. _state.Intents]; }
     public IReadOnlyList<Intent> GetOrderedIntents()
     {
-        lock (_lock)
-        {
-            return _state.IntentOrder
-                .Select(id => _state.GetIntent(id))
-                .Where(i => i != null)
-                .ToList()!;
-        }
+        lock (_lock) return _state.GetOrderedIntents().ToList();
     }
-
-    public IReadOnlyList<Intent> GetIntentsInOrder() => GetOrderedIntents();
-
     public IReadOnlyList<Intent> GetActiveIntents()
     {
-        lock (_lock)
-        {
-            return _state.Intents
-                .Where(i => i.Status == IntentStatus.Active || i.Status == IntentStatus.Paused)
-                .ToList();
-        }
+        lock (_lock) return _state.Intents.Where(i => i.Status == IntentStatus.Active).ToList();
     }
-
     public void UpdateIntent(Intent intent)
     {
-        lock (_lock)
-        {
-            var existing = _state.GetIntent(intent.Id);
-            if (existing == null) return;
-            existing.Name = intent.Name;
-            existing.Status = intent.Status;
-            SaveState();
-        }
+        lock (_lock) { SaveState(); }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
     }
-
     public void UpdateIntentStatus(string intentId, IntentStatus status)
     {
         lock (_lock)
         {
             var intent = _state.GetIntent(intentId);
-            if (intent == null) return;
-            intent.Status = status;
-            SaveState();
+            if (intent != null) { intent.Status = status; SaveState(); }
         }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
     }
-
-    public void SetIntentContext(string intentId, string? context)
-    {
-        lock (_lock)
-        {
-            var intent = _state.GetIntent(intentId);
-            if (intent == null) return;
-            SaveState();
-        }
-    }
-
+    public void SetIntentContext(string intentId, string? context) { }
     public Task<bool> DeleteIntentAsync(string intentId, bool removeWorktree = false)
     {
-        lock (_lock)
-        {
-            var intent = _state.GetIntent(intentId);
-            if (intent == null) return Task.FromResult(false);
-            _state.Intents.Remove(intent);
-            _state.IntentOrder.Remove(intentId);
-            SaveState();
-        }
+        lock (_lock) { _state.RemoveIntent(intentId); SaveState(); }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
         return Task.FromResult(true);
     }
-
     public void ReorderIntent(string intentId, int newIndex)
     {
         lock (_lock)
         {
             _state.IntentOrder.Remove(intentId);
-            newIndex = Math.Clamp(newIndex, 0, _state.IntentOrder.Count);
-            _state.IntentOrder.Insert(newIndex, intentId);
+            _state.IntentOrder.Insert(Math.Clamp(newIndex, 0, _state.IntentOrder.Count), intentId);
             SaveState();
         }
         IntentsChanged?.Invoke(this, EventArgs.Empty);
     }
-
     public Intent? GetCurrentIntent()
     {
-        lock (_lock)
-        {
-            return _state.CurrentIntentId != null ? _state.GetIntent(_state.CurrentIntentId) : null;
-        }
+        lock (_lock) return _state.CurrentIntentId != null ? _state.GetIntent(_state.CurrentIntentId) : null;
     }
-
     public void SetCurrentIntent(string? intentId)
     {
-        Intent? intent = null;
-        lock (_lock)
-        {
-            if (_state.CurrentIntentId == intentId) return;
-            _state.CurrentIntentId = intentId;
-            intent = intentId != null ? _state.GetIntent(intentId) : null;
-            SaveState();
-        }
-        CurrentIntentChanged?.Invoke(this, intent);
+        lock (_lock) { _state.CurrentIntentId = intentId; SaveState(); }
+        CurrentIntentChanged?.Invoke(this, intentId != null ? _state.GetIntent(intentId) : null);
     }
 
-    // Session management
+    // Live sessions (stub)
+    public IReadOnlyList<LiveSession> GetLiveSessions() => [];
+    public LiveSession? GetLiveSessionByClaudeId(string claudeSessionId) => null;
 
-    public ClaudeSession StartSession(string intentId, string? parentSessionId = null)
-    {
-        ClaudeSession session;
-        lock (_lock)
-        {
-            session = ClaudeSession.Create(intentId, parentSessionId);
-
-            // Add to in-memory collection and save to file
-            _sessions.Add(session);
-            SaveSessionFile(session);
-
-            // Update intent's session list
-            var intent = _state.GetIntent(intentId);
-            intent?.AddSession(session.Id);
-            SaveState();
-        }
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-        return session;
-    }
-
-    public Task<ClaudeSession?> ForkSessionAsync(string parentSessionId, string? initialPrompt = null)
-    {
-        ClaudeSession newSession;
-        lock (_lock)
-        {
-            var parentSession = _sessions.FirstOrDefault(s => s.Id == parentSessionId);
-            if (parentSession == null)
-                return Task.FromResult<ClaudeSession?>(null);
-
-            newSession = ClaudeSession.Create(parentSession.IntentId, parentSessionId);
-
-            // Add to in-memory collection and save to file
-            _sessions.Add(newSession);
-            SaveSessionFile(newSession);
-
-            // Update intent's session list
-            var intent = _state.GetIntent(parentSession.IntentId);
-            intent?.AddSession(newSession.Id);
-            SaveState();
-        }
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-        return Task.FromResult<ClaudeSession?>(newSession);
-    }
-
-    public ClaudeSession? GetSession(string id)
-    {
-        lock (_lock) return _sessions.FirstOrDefault(s => s.Id == id);
-    }
-
-    IReadOnlyList<ClaudeSession> ITimelineService.GetAllSessions()
-    {
-        lock (_lock) return [.. _sessions];
-    }
-
-    public List<ClaudeSession> GetAllSessions()
-    {
-        lock (_lock) return [.. _sessions];
-    }
-
-    IReadOnlyList<ClaudeSession> ITimelineService.GetSessionsForIntent(string intentId)
-    {
-        lock (_lock) return _sessions.Where(s => s.IntentId == intentId).ToList();
-    }
-
-    public List<ClaudeSession> GetSessionsForIntent(string intentId)
-    {
-        lock (_lock) return _sessions.Where(s => s.IntentId == intentId).ToList();
-    }
-
-    IReadOnlyList<ClaudeSession> ITimelineService.GetRunningSessions()
-    {
-        lock (_lock) return _sessions.Where(s => s.Status == ClaudeSessionStatus.Running).ToList();
-    }
-
-    public List<ClaudeSession> GetRunningSessions()
-    {
-        lock (_lock) return _sessions.Where(s => s.Status == ClaudeSessionStatus.Running).ToList();
-    }
-
-    public void UpdateSession(ClaudeSession session)
-    {
-        lock (_lock)
-        {
-            var existing = _sessions.FirstOrDefault(s => s.Id == session.Id);
-            if (existing == null) return;
-            existing.Status = session.Status;
-            existing.EndTime = session.EndTime;
-            SaveSessionFile(existing);
-        }
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public void MarkSessionSuccess(string sessionId, string? commitHash = null, string? commitMessage = null, string? agentNotes = null)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.MarkSuccess(commitHash, commitMessage);
-            SaveSessionFile(session);
-        }
-        SessionStatusChanged?.Invoke(this, session);
-    }
-
-    public void MarkSessionFailed(string sessionId, string? agentNotes = null)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.MarkFailed();
-            SaveSessionFile(session);
-        }
-        SessionStatusChanged?.Invoke(this, session);
-    }
-
-    public void MarkSessionAbandoned(string sessionId)
-    {
-        ClaudeSession? session;
-        lock (_lock)
-        {
-            session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.MarkAbandoned();
-            SaveSessionFile(session);
-        }
-        SessionStatusChanged?.Invoke(this, session);
-    }
-
-    public void AddFileChange(string sessionId, string filePath, int additions = 0, int deletions = 0)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.FilesChanged.Add(new FileChange { Path = filePath, Additions = additions, Deletions = deletions });
-            SaveSessionFile(session);
-        }
-    }
-
-    public void AddCommand(string sessionId, string command)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.CommandsExecuted.Add(command);
-            SaveSessionFile(session);
-        }
-    }
-
-    public void SetContinueSessionId(string sessionId, string continueSessionId)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-            session.ContinueSessionId = continueSessionId;
-            SaveSessionFile(session);
-        }
-    }
-
-    // Cherry-pick
-
-    public Task<GitOperationResult> CherryPickSessionAsync(string sourceSessionId, string targetIntentId)
-    {
-        // STUB: Not implemented
-        return Task.FromResult(new GitOperationResult { Success = false, Error = "Not implemented in this version" });
-    }
-
-    public async Task<(bool Success, string? Error)> CherryPickAsync(string sessionId, string targetIntentId)
-    {
-        var result = await CherryPickSessionAsync(sessionId, targetIntentId);
-        return (result.Success, result.Error);
-    }
-
-    // Focus time tracking
-
-    public bool IsFocusing
-    {
-        get { lock (_lock) return _state.IsFocusing; }
-    }
-
+    // Focus time
+    public bool IsFocusing { get { lock (_lock) return _state.IsFocusing; } }
     public void StartFocusTimer()
     {
-        lock (_lock)
-        {
-            _state.StartFocus();
-            SaveState();
-        }
+        lock (_lock) { _state.StartFocus(); SaveState(); }
         FocusStateChanged?.Invoke(this, true);
     }
-
     public void PauseFocusTimer()
     {
-        lock (_lock)
-        {
-            _state.PauseFocus();
-            SaveState();
-        }
+        lock (_lock) { _state.PauseFocus(); SaveState(); }
         FocusStateChanged?.Invoke(this, false);
     }
-
     public void ResetFocusTime()
     {
-        lock (_lock)
-        {
-            _state.ResetFocusTime();
-            SaveState();
-        }
+        lock (_lock) { _state.ResetFocusTime(); SaveState(); }
     }
+    public TimeSpan GetTotalFocusTime() { lock (_lock) return _state.TotalFocusTime; }
+    public TimeSpan GetCurrentFocusTime() { lock (_lock) return _state.CurrentFocusTime; }
 
-    public TimeSpan GetTotalFocusTime()
-    {
-        lock (_lock) return _state.TotalFocusTime;
-    }
-
-    public TimeSpan GetCurrentFocusTime()
-    {
-        lock (_lock) return _state.CurrentFocusTime;
-    }
-
-    // Hook event processing
-
-    public void HandleSessionStart(HookEvent hookEvent)
-    {
-        // STUB: Not fully implemented
-    }
-
-    public void HandleFileChanged(HookEvent hookEvent)
-    {
-        // STUB: Not fully implemented
-    }
-
-    public Task HandleSessionStopAsync(HookEvent hookEvent)
-    {
-        return Task.CompletedTask; // STUB
-    }
-
+    // Hook handling (stub)
+    public void HandleSessionStart(HookEvent hookEvent) { }
+    public void HandleFileChanged(HookEvent hookEvent) { }
+    public Task HandleSessionStopAsync(HookEvent hookEvent) => Task.CompletedTask;
     public Intent? FindIntentByWorkingDirectory(string workingDirectory)
     {
-        lock (_lock)
-        {
-            return _state.Intents.FirstOrDefault(i =>
-                string.Equals(i.WorktreePath, workingDirectory, StringComparison.OrdinalIgnoreCase));
-        }
+        lock (_lock) return _state.Intents.FirstOrDefault(i =>
+            string.Equals(i.WorktreePath, workingDirectory, StringComparison.OrdinalIgnoreCase));
     }
-
-    public ClaudeSession? GetSessionByClaudeId(string claudeSessionId)
-    {
-        lock (_lock)
-        {
-            return _sessions.FirstOrDefault(s => s.ContinueSessionId == claudeSessionId);
-        }
-    }
-
-    // Legacy methods for compatibility
-    public Task HandleSessionStartAsync(string sessionId, string cwd, string? transcriptPath)
-    {
-        return Task.CompletedTask; // STUB
-    }
-
-    public Task HandleFileChangedAsync(string sessionId, string filePath)
-    {
-        return Task.CompletedTask; // STUB
-    }
-
-    public Task HandleSessionStopAsync(string sessionId)
-    {
-        return Task.CompletedTask; // STUB
-    }
-
-    public List<ClaudeSession> AssignOrphansToIntent(string intentId, string cwd)
-    {
-        return []; // STUB
-    }
-
-    // Orphan sessions (stub implementation)
-    public IReadOnlyList<OrphanSession> GetOrphanSessions()
-    {
-        return []; // STUB: macOS version doesn't track orphan sessions yet
-    }
-
-    public void RemoveOrphanSession(string orphanSessionId)
-    {
-        // STUB: macOS version doesn't track orphan sessions yet
-    }
-
-    public ClaudeSession? GetActiveClaudeSession(string projectPath)
-    {
-        lock (_lock)
-        {
-            // Normalize path for comparison
-            var normalizedPath = Path.GetFullPath(projectPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .ToLowerInvariant();
-
-            // Find running sessions, match by intent's main repo path
-            return _sessions
-                .Where(s => s.Status == ClaudeSessionStatus.Running)
-                .Select(s => new
-                {
-                    Session = s,
-                    Intent = _state.GetIntent(s.IntentId)
-                })
-                .Where(x => x.Intent != null && !string.IsNullOrEmpty(x.Intent.MainRepoPath))
-                .Where(x =>
-                {
-                    var intentPath = Path.GetFullPath(x.Intent!.MainRepoPath!)
-                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                        .ToLowerInvariant();
-                    return intentPath == normalizedPath;
-                })
-                .OrderByDescending(x => x.Session.StartTime)
-                .Select(x => x.Session)
-                .FirstOrDefault();
-        }
-    }
-
-    public void AddTaskToSession(string sessionId, FocusTask task)
-    {
-        lock (_lock)
-        {
-            var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            if (session == null) return;
-
-            session.AddOrUpdateTask(task);
-            SaveSessionFile(session);
-        }
-        SessionsChanged?.Invoke(this, EventArgs.Empty);
-    }
+    public void HandleToolStart(HookEvent hookEvent) { }
+    public void HandleToolEnd(HookEvent hookEvent) { }
+    public void StartInactivityTimer() { }
+    public void StopInactivityTimer() { }
+    public bool AreHooksInstalled() => false;
+    public bool InstallHooks() => false;
+    public bool UninstallHooks() => false;
+    public void UpgradeHooksIfNeeded() { }
 
     // Persistence
-
     private TimelineState LoadState()
     {
         var config = _configService.Load();
         return config.TimelineState ?? new TimelineState();
     }
-
     private void SaveState()
     {
         var config = _configService.Load();
         config.TimelineState = _state;
         _configService.Save(config);
     }
-
-    public Task SaveAsync()
-    {
-        SaveState();
-        return Task.CompletedTask;
-    }
-
-    public Task LoadAsync()
-    {
-        lock (_lock)
-        {
-            _state = LoadState();
-        }
-        return Task.CompletedTask;
-    }
+    public Task SaveAsync() { SaveState(); return Task.CompletedTask; }
+    public Task LoadAsync() { lock (_lock) _state = LoadState(); return Task.CompletedTask; }
 }

@@ -226,7 +226,7 @@ public class ClaudeSession
     /// Whether this session has completed (success or failed).
     /// </summary>
     [JsonIgnore]
-    public bool IsCompleted => Status == ClaudeSessionStatus.Success || Status == ClaudeSessionStatus.Failed;
+    public bool IsCompleted => Status is ClaudeSessionStatus.Success or ClaudeSessionStatus.Failed or ClaudeSessionStatus.TimedOut;
 
     /// <summary>
     /// Gets a display title for the session.
@@ -337,6 +337,7 @@ public class ClaudeSession
         ClaudeSessionStatus.Success => "✓",
         ClaudeSessionStatus.Failed => "✗",
         ClaudeSessionStatus.Abandoned => "○",
+        ClaudeSessionStatus.TimedOut => "⏱",
         _ => "○"
     };
 
@@ -350,6 +351,7 @@ public class ClaudeSession
         ClaudeSessionStatus.Success => "#4EC9B0",  // Green
         ClaudeSessionStatus.Failed => "#F14C4C",   // Red
         ClaudeSessionStatus.Abandoned => "#808080", // Gray
+        ClaudeSessionStatus.TimedOut => "#D4A543",  // Amber
         _ => "#808080"
     };
 
@@ -410,6 +412,16 @@ public class ClaudeSession
     {
         Status = ClaudeSessionStatus.Abandoned;
         // Use LastActivityTime if available and EndTime not already set
+        EndTime ??= LastActivityTime ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Marks the session as timed out (no Stop hook received, detected via inactivity).
+    /// Uses LastActivityTime as EndTime if available.
+    /// </summary>
+    public void MarkTimedOut()
+    {
+        Status = ClaudeSessionStatus.TimedOut;
         EndTime ??= LastActivityTime ?? DateTime.UtcNow;
     }
 

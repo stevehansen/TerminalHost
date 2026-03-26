@@ -730,17 +730,18 @@ public partial class MainViewModel : ObservableObject
             // Step 4: Ensure container running
             var result = await _containerService.EnsureContainerRunningAsync(workspaceDir);
 
-            // Step 5: Staleness warnings (non-blocking)
+            // Step 5: Staleness warnings (non-blocking) — include project name for identification
+            var projectName = Path.GetFileName(workspaceDir);
             if (result.IsConfigStale)
             {
                 _toastService.Show(
-                    "Container settings have changed. Use 'Container: Recreate Current' from the command palette to apply.",
+                    $"Container for '{projectName}' has stale settings. Use 'Container: Recreate Current' from the command palette to apply.",
                     ToastType.Warning);
             }
             else if (result.IsImageStale && dockerfileStatus != DockerfileStatus.Stale)
             {
                 _toastService.Show(
-                    "This container was built from an older image. Rebuild and recreate for latest tools.",
+                    $"Container for '{projectName}' was built from an older image. Rebuild and recreate for latest tools.",
                     ToastType.Info);
             }
         }
@@ -959,6 +960,40 @@ public partial class MainViewModel : ObservableObject
 
         // Collect tabs for deferred git refresh
         var restoredTabs = new List<TerminalPairTabViewModel>();
+
+        // Pre-warm containers in parallel so the per-tab synchronous ensure is near-instant.
+        // Without this, each tab blocks sequentially on docker inspect/start (~6s each).
+        if (_containerService != null)
+        {
+            var containerizedFolders = config.OpenFolders
+                .Where(f => _fileSystem.DirectoryExists(f) && _containerService.IsEnabledForDirectory(f))
+                .ToList();
+
+            if (containerizedFolders.Count > 0)
+            {
+                sp.Log($"Pre-warming {containerizedFolders.Count} containers in parallel");
+                var containerSw = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    Task.Run(async () =>
+                    {
+                        await Task.WhenAll(containerizedFolders.Select(f =>
+                            _containerService.EnsureContainerRunningAsync(f)));
+                    }).GetAwaiter().GetResult();
+                }
+                catch (AggregateException ex)
+                {
+                    // Log but don't fail — individual tabs will handle errors
+                    foreach (var inner in ex.InnerExceptions)
+                        Debug.WriteLine($"Container pre-warm failed: {inner.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Container pre-warm failed: {ex.Message}");
+                }
+                sp.Log($"Containers pre-warmed in {containerSw.ElapsedMilliseconds}ms");
+            }
+        }
 
         sp.Log($"Restoring {config.OpenFolders.Count} tabs");
         var tabSw = System.Diagnostics.Stopwatch.StartNew();
@@ -1296,9 +1331,10 @@ public partial class MainViewModel : ObservableObject
                     shellProfile.ContainerName = containerName;
 
                     // Ensure container is running before terminals try to docker exec.
-                    // Call the lightweight EnsureContainerRunningAsync (no dialogs) on a
-                    // background thread to avoid UI deadlock, then run dialog-based checks async.
-                    Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
+                    // During restore, containers were pre-warmed in parallel by RestoreOpenFolders,
+                    // so skip the blocking call to avoid sequential per-tab startup delays.
+                    if (!isRestore)
+                        Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
 
                     // Fire-and-forget: staleness checks and dialog prompts (non-blocking)
                     _ = EnsureContainerForWorkspaceAsync(workingDirectory);
@@ -2072,6 +2108,7 @@ public partial class MainViewModel : ObservableObject
             // Create new timeline tab
             var timelineTab = _viewModelFactory.CreateTimeline();
             timelineTab.CloseRequested += OnTabCloseRequested;
+            timelineTab.PopOutRequested += OnTimelinePopOutRequested;
             Tabs.Add(timelineTab);
             SelectedTab = timelineTab;
 
@@ -2083,6 +2120,52 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _dialogService.ShowError($"An error occurred while opening Timeline Mode:\n\n{ex.Message}");
+        }
+    }
+
+    private SparkCanvasViewModel? _sparkCanvasViewModel;
+
+    private void OpenSparkCanvas(string? sessionId = null)
+    {
+        try
+        {
+            if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+            {
+                _toastService.Show("Select a project tab first", ToastType.Warning);
+                return;
+            }
+
+            _sparkCanvasViewModel ??= _viewModelFactory.CreateSparkCanvas();
+
+            if (sessionId != null)
+            {
+                _sparkCanvasViewModel.OpenSession(sessionId);
+            }
+
+            terminalTab.ShowCenterPanel(_sparkCanvasViewModel);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to open Spark Canvas:\n\n{ex.Message}");
+        }
+    }
+
+    public void OpenSparkCanvasWindow(string? sessionId = null)
+    {
+        try
+        {
+            var vm = _viewModelFactory.CreateSparkCanvas();
+            if (sessionId != null)
+            {
+                vm.OpenSession(sessionId);
+            }
+
+            var window = new Views.SparkCanvasWindow { DataContext = vm };
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to open Spark Canvas window:\n\n{ex.Message}");
         }
     }
 
@@ -2540,6 +2623,83 @@ public partial class MainViewModel : ObservableObject
                 Category = "Tools",
                 IntroducedOn = new DateOnly(2025, 12, 26),
                 Execute = () => OpenTimelineCommand.Execute(null)
+            },
+            new() {
+                Id = "timeline-install-hooks",
+                Name = "Timeline: Install Session Tracking Hooks",
+                Description = "Install hooks into ~/.claude/settings.json to track Claude Code sessions",
+                Icon = "🔗",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () =>
+                {
+                    if (_timelineService.InstallHooks())
+                    {
+                        _toastService.Show("Session tracking hooks installed", ToastType.Success);
+                        var timeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+                        timeline?.InstallHooksCommand.Execute(null);
+                    }
+                    else
+                    {
+                        _toastService.Show("Failed to install hooks", ToastType.Error);
+                    }
+                }
+            },
+            new() {
+                Id = "timeline-popout",
+                Name = "Timeline: Pop Out to Window",
+                Description = "Open timeline in a standalone window for multi-monitor use",
+                Icon = "⧉",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 25),
+                Execute = () =>
+                {
+                    var windowVm = _viewModelFactory.CreateTimeline();
+                    var window = new Views.TimelineWindow { DataContext = windowVm };
+                    window.Show();
+                }
+            },
+            new() {
+                Id = "timeline-uninstall-hooks",
+                Name = "Timeline: Uninstall Session Tracking Hooks",
+                Description = "Remove TerminalHost hooks from ~/.claude/settings.json",
+                Icon = "🔗",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 24),
+                Execute = () =>
+                {
+                    if (_timelineService.UninstallHooks())
+                    {
+                        _toastService.Show("Session tracking hooks removed", ToastType.Success);
+                        var timeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
+                        timeline?.UninstallHooksCommand.Execute(null);
+                    }
+                    else
+                    {
+                        _toastService.Show("Failed to remove hooks", ToastType.Error);
+                    }
+                }
+            },
+
+            // Spark Canvas
+            new() {
+                Id = "spark-canvas",
+                Name = "Spark: Open Canvas",
+                Description = "Real-time force-directed visualization of active AI agent sessions",
+                Icon = "\u2728",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 26),
+                Execute = () => OpenSparkCanvas()
+            },
+            new() {
+                Id = "spark-canvas-window",
+                Name = "Spark: Open in Window",
+                Description = "Open Spark Canvas in a standalone fullscreen window",
+                Icon = "\u2728",
+                Category = "Tools",
+                Shortcut = "Ctrl+Shift+V",
+                IntroducedOn = new DateOnly(2026, 3, 26),
+                Execute = () => OpenSparkCanvasWindow()
             },
 
             // GitHub Dashboard
@@ -3739,6 +3899,23 @@ public partial class MainViewModel : ObservableObject
                     // TODO: If there's an initial prompt, we could send it to the terminal after focus
                 }
             });
+    }
+
+    private void OnTimelinePopOutRequested(object? sender, EventArgs e)
+    {
+        if (sender is not TimelineTabViewModel timelineTab) return;
+
+        // Remove from tabs and dispose old VM (stops its timer and event subscriptions)
+        timelineTab.CloseRequested -= OnTabCloseRequested;
+        timelineTab.PopOutRequested -= OnTimelinePopOutRequested;
+        Tabs.Remove(timelineTab);
+        timelineTab.Dispose();
+
+        // Create a new ViewModel for the standalone window
+        var windowVm = _viewModelFactory.CreateTimeline();
+
+        var window = new Views.TimelineWindow { DataContext = windowVm };
+        window.Show();
     }
 
     /// <summary>

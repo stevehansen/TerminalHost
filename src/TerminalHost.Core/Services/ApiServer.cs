@@ -37,6 +37,7 @@ public class ApiServer : IApiServer
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
+    private readonly ISessionActivityService? _sessionActivityService;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -54,6 +55,7 @@ public class ApiServer : IApiServer
     private Func<List<ApiWorkspaceInfo>>? _getWorkspaces;
 
     public bool IsRunning { get; private set; }
+    public event EventHandler<HookEvent>? HookEventReceived;
     public string? BaseUrl { get; private set; }
 
     // Cached config to avoid loading 145KB JSON on every HTTP request.
@@ -85,7 +87,8 @@ public class ApiServer : IApiServer
         IClaudeTaskFileService? claudeTaskFileService = null,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         McpHandler? mcpHandler = null,
-        IClipboardService? clipboardService = null)
+        IClipboardService? clipboardService = null,
+        ISessionActivityService? sessionActivityService = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -97,6 +100,7 @@ public class ApiServer : IApiServer
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
+        _sessionActivityService = sessionActivityService;
     }
 
     /// <summary>
@@ -331,6 +335,10 @@ public class ApiServer : IApiServer
                 await HandleTimelineAsync(response, request);
             else if (path == "/api/config")
                 await HandleConfigAsync(response, _cachedConfig);
+            else if (path.StartsWith("/api/sessions/") && path.EndsWith("/state"))
+                await HandleSessionStateAsync(response, path);
+            else if (path == "/api/sessions")
+                await HandleActiveSessionsAsync(response);
             else if (path == "/api/events")
             {
                 if (apiSettings.EnableSse)
@@ -338,6 +346,8 @@ public class ApiServer : IApiServer
                 else
                     await WriteJsonError(response, 403, "SSE_DISABLED", "SSE streaming is not enabled.");
             }
+            else if (path.StartsWith("/api/hooks/") && request.HttpMethod == "POST")
+                await HandleHookAsync(response, request, path["/api/hooks/".Length..]);
             else
                 await WriteJsonError(response, 404, "NOT_FOUND", $"Unknown endpoint: {path}");
         }
@@ -617,20 +627,169 @@ public class ApiServer : IApiServer
                 BranchName = intent.BranchName,
                 RepoPath = intent.MainRepoPath,
                 CreatedAt = intent.CreatedAt,
-                Sessions = _timelineService.GetSessionsForIntent(intent.Id)
+                Sessions = _timelineService.GetLiveSessions()
+                    .Where(s => s.IntentId == intent.Id)
                     .Select(s => new ApiTimelineSessionInfo
                     {
-                        Id = s.Id,
-                        Status = s.Status.ToString(),
+                        Id = s.ClaudeSessionId,
+                        Status = s.IsActive ? "Running" : "Completed",
                         StartedAt = s.StartTime,
                         EndedAt = s.EndTime,
-                        CommitHash = s.CommitHash,
-                        CommitMessage = s.CommitMessage
                     }).ToList()
             }).ToList();
         }
 
         await WriteJson(response, new { intents });
+    }
+
+    private async Task HandleSessionStateAsync(HttpListenerResponse response, string path)
+    {
+        // Extract session ID from /api/sessions/{id}/state
+        var parts = path.Split('/');
+        // parts: ["", "api", "sessions", "{id}", "state"]
+        if (parts.Length < 5)
+        {
+            await WriteJsonError(response, 400, "BAD_REQUEST", "Invalid session state path.");
+            return;
+        }
+
+        var sessionId = parts[3];
+
+        if (_sessionActivityService == null)
+        {
+            await WriteJsonError(response, 503, "SERVICE_UNAVAILABLE", "Session activity service not available.");
+            return;
+        }
+
+        var state = _sessionActivityService.GetState(sessionId);
+        if (state == null)
+        {
+            await WriteJsonError(response, 404, "NOT_FOUND", $"Session {sessionId} not found.");
+            return;
+        }
+
+        var result = new
+        {
+            sessionId = state.SessionId,
+            workingDirectory = state.WorkingDirectory,
+            transcriptPath = state.TranscriptPath,
+            startTime = state.StartTime,
+            endTime = state.EndTime,
+            lastActivityTime = state.LastActivityTime,
+            lifecycle = state.Lifecycle.ToString(),
+            initialPrompt = state.InitialPrompt,
+            summary = state.Summary,
+            gitBranch = state.GitBranch,
+            totalToolCalls = state.TotalToolCalls,
+            totalAgents = state.TotalAgents,
+            filesRead = state.FilesRead,
+            filesWritten = state.FilesWritten,
+            agents = state.Agents.ToDictionary(
+                kv => kv.Key,
+                kv => new
+                {
+                    id = kv.Value.Id,
+                    name = kv.Value.Name,
+                    isMain = kv.Value.IsMain,
+                    parentId = kv.Value.ParentId,
+                    state = kv.Value.State.ToString(),
+                    model = kv.Value.Model,
+                    task = kv.Value.Task,
+                    spawnTime = kv.Value.SpawnTime,
+                    completeTime = kv.Value.CompleteTime,
+                    toolCallCount = kv.Value.ToolCallCount,
+                    tokensUsed = kv.Value.Context?.Total ?? 0,
+                    tokensMax = ModelContextSizes.GetMaxTokens(kv.Value.Model),
+                    currentToolUseId = kv.Value.CurrentToolUseId,
+                    context = kv.Value.Context != null ? new
+                    {
+                        systemPrompt = kv.Value.Context.SystemPrompt,
+                        userMessages = kv.Value.Context.UserMessages,
+                        toolResults = kv.Value.Context.ToolResults,
+                        reasoning = kv.Value.Context.Reasoning,
+                        subagentResults = kv.Value.Context.SubagentResults
+                    } : (object?)null
+                }),
+            toolCalls = state.ToolCalls
+                .Where(kv => kv.Value.State == ToolCallState.Running)
+                .ToDictionary(
+                    kv => kv.Key,
+                    kv => new
+                    {
+                        toolUseId = kv.Value.ToolUseId,
+                        agentId = kv.Value.AgentId,
+                        toolName = kv.Value.ToolName,
+                        inputSummary = kv.Value.InputSummary,
+                        state = kv.Value.State.ToString(),
+                        startTime = kv.Value.StartTime,
+                        endTime = kv.Value.EndTime
+                    }),
+            fileActivities = state.FileActivities.ToDictionary(
+                kv => kv.Key,
+                kv => new
+                {
+                    filePath = kv.Value.FilePath,
+                    readCount = kv.Value.ReadCount,
+                    writeCount = kv.Value.WriteCount,
+                    searchHitCount = kv.Value.SearchHitCount
+                })
+        };
+
+        await WriteJson(response, result);
+    }
+
+    private async Task HandleActiveSessionsAsync(HttpListenerResponse response)
+    {
+        var sessions = new List<object>();
+        var seenIds = new HashSet<string>();
+
+        // Primary source: live sessions from TimelineService (most reliable for active sessions)
+        var liveSessions = _timelineService?.GetLiveSessions();
+        if (liveSessions != null)
+        {
+            foreach (var s in liveSessions)
+            {
+                if (!seenIds.Add(s.ClaudeSessionId)) continue;
+                sessions.Add(new
+                {
+                    sessionId = s.ClaudeSessionId,
+                    workingDirectory = s.WorkingDirectory,
+                    lifecycle = s.IsActive ? "Active" : "Completed",
+                    startTime = s.StartTime,
+                    lastActivityTime = s.LastActivityTime,
+                    totalAgents = 0,
+                    totalToolCalls = 0,
+                    summary = (string?)null,
+                    gitBranch = (string?)null,
+                    initialPrompt = (string?)null
+                });
+            }
+        }
+
+        // Enrich with activity service data (has richer stats)
+        var states = _sessionActivityService?.GetActiveStates();
+        if (states != null)
+        {
+            foreach (var s in states)
+            {
+                if (!seenIds.Add(s.SessionId)) continue;
+                sessions.Add(new
+                {
+                    sessionId = s.SessionId,
+                    workingDirectory = s.WorkingDirectory,
+                    lifecycle = s.Lifecycle.ToString(),
+                    startTime = s.StartTime,
+                    lastActivityTime = s.LastActivityTime,
+                    totalAgents = s.TotalAgents,
+                    totalToolCalls = s.TotalToolCalls,
+                    summary = s.Summary,
+                    gitBranch = s.GitBranch,
+                    initialPrompt = s.InitialPrompt
+                });
+            }
+        }
+
+        await WriteJson(response, new { sessions });
     }
 
     private async Task HandleConfigAsync(HttpListenerResponse response, AppConfiguration config)
@@ -954,6 +1113,69 @@ public class ApiServer : IApiServer
 
     #endregion
 
+    #region Hook Endpoint (Container Proxy)
+
+    private async Task HandleHookAsync(HttpListenerResponse response, HttpListenerRequest request, string hookType)
+    {
+        try
+        {
+            string body;
+            using (var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding))
+            {
+                body = await reader.ReadToEndAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                await WriteJsonError(response, 400, "EMPTY_BODY", "No hook payload provided.");
+                return;
+            }
+
+            var hookData = HookEventData.Parse(body);
+            if (hookData == null)
+            {
+                await WriteJsonError(response, 400, "PARSE_ERROR", "Failed to parse hook payload.");
+                return;
+            }
+
+            HookEvent? hookEvent = hookType switch
+            {
+                "session-start" => HookEvent.CreateSessionStart(hookData),
+                "session-stop" => HookEvent.CreateSessionStop(hookData),
+                "session-end" => HookEvent.CreateSessionEnd(hookData),
+                "tool-start" => HookEvent.CreateToolStart(hookData),
+                "tool-end" => HookEvent.CreateToolEnd(hookData),
+                "tool-error" => HookEvent.CreateToolError(hookData),
+                "subagent-start" => HookEvent.CreateSubagentStart(hookData),
+                "subagent-stop" => HookEvent.CreateSubagentStop(hookData),
+                "notification" => HookEvent.CreateNotification(hookData),
+                "file-changed" => hookData.IsFileModificationTool() ? HookEvent.CreateFileChanged(hookData) : null,
+                _ => null
+            };
+
+            if (hookEvent == null)
+            {
+                await WriteJsonError(response, 400, "UNKNOWN_HOOK", $"Unknown hook type: {hookType}");
+                return;
+            }
+
+            // Fire event for App.xaml.cs to route through the standard pipeline
+            HookEventReceived?.Invoke(this, hookEvent);
+
+            response.StatusCode = 200;
+            response.ContentType = "application/json";
+            var okBytes = System.Text.Encoding.UTF8.GetBytes("{\"ok\":true}");
+            await response.OutputStream.WriteAsync(okBytes);
+            response.Close();
+        }
+        catch (Exception ex)
+        {
+            await WriteJsonError(response, 500, "HOOK_ERROR", ex.Message);
+        }
+    }
+
+    #endregion
+
     #region SSE Streaming
 
     private async Task HandleSseAsync(HttpListenerContext httpContext, HttpListenerRequest request, CancellationToken serverCt)
@@ -1031,7 +1253,16 @@ public class ApiServer : IApiServer
                 if (completedTask == readTask)
                 {
                     var evt = await readTask;
-                    await WriteSseEvent(writer, evt);
+                    try
+                    {
+                        await WriteSseEvent(writer, evt);
+                    }
+                    catch (IOException) { throw; } // Client gone — rethrow to exit loop
+                    catch (Exception ex)
+                    {
+                        // Serialization or write error on a single event — skip it, don't kill the connection
+                        System.Diagnostics.Debug.WriteLine($"SSE event write failed: {ex.Message}");
+                    }
                 }
                 else
                 {
@@ -1095,7 +1326,11 @@ public class ApiServer : IApiServer
         var origin = request.Headers["Origin"];
         if (string.IsNullOrEmpty(origin)) return;
 
-        var allowed = settings.CorsOrigins.Any(pattern =>
+        // Always allow our own WebView2 virtual hosts (Spark Canvas, Markdown viewer)
+        var isInternalOrigin = origin.StartsWith("https://spark.local", StringComparison.OrdinalIgnoreCase)
+            || origin.StartsWith("https://localmd.files", StringComparison.OrdinalIgnoreCase);
+
+        var allowed = isInternalOrigin || settings.CorsOrigins.Any(pattern =>
         {
             if (pattern == "*") return true;
             if (pattern.Contains('*'))

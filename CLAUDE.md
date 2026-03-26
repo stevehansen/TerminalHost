@@ -578,6 +578,8 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [GitHubWorkflows.md](docs/specs/GitHubWorkflows.md) | Dashboard, PR review, test runner, markdown preview | **Completed** | All features implemented |
 | [ToastNotifications.md](docs/specs/ToastNotifications.md) | Non-intrusive toast notifications with progress support | **Completed** | WPF airspace workaround included |
 | [TimelineIDE.md](docs/specs/TimelineIDE.md) | Visual timeline for AI sessions, intents, worktrees | **Partial** | Core UI done; context files, stats remaining |
+| [SessionLifecycle.md](docs/specs/SessionLifecycle.md) | Session lifecycle, activity tracking, tool calls, subagents | **Partial** | Phase 0-2 complete; Phase 3 (Spark Canvas) in progress |
+| [SparkCanvas.md](docs/specs/SparkCanvas.md) | Real-time force-directed visualization of AI agent sessions | **Partial** | Phase 3a scaffolding complete; rendering verification pending |
 | [RemainingFeatures.md](docs/specs/RemainingFeatures.md) | Consolidated roadmap of remaining items | **Tracking** | ~54% complete (7/13 features) |
 | [GitGuiParity.md](docs/specs/GitGuiParity.md) | Git GUI feature parity (vs GitKraken/Fork) | **Completed** | Phase 1-4 all complete |
 | [AiWorkflowAssistance.md](docs/specs/AiWorkflowAssistance.md) | AI assistance in workflow panels (conflicts, tests, PR review, diffs, regex, blame, history, commit, reflog, stash, merge risk, version, CI, PR priority, markdown) | **Completed** | 16 AI features implemented across all panels |

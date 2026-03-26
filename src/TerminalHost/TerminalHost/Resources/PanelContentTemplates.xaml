@@ -83,4 +83,9 @@
         <views:RecentFeaturesContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for SparkCanvasViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:SparkCanvasViewModel}">
+        <views:SparkCanvasView/>
+    </DataTemplate>
+
 </ResourceDictionary>

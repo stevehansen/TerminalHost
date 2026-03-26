@@ -80,6 +80,46 @@ public class HookEventData
     [JsonPropertyName("source")]
     public string? Source { get; set; }
 
+    // --- SubagentStart / SubagentStop fields ---
+
+    /// <summary>
+    /// Subagent ID (for SubagentStart/SubagentStop hooks).
+    /// </summary>
+    [JsonPropertyName("agent_id")]
+    public string? AgentId { get; set; }
+
+    /// <summary>
+    /// Subagent type (for SubagentStart hooks, e.g., "general-purpose", "code-simplifier").
+    /// </summary>
+    [JsonPropertyName("agent_type")]
+    public string? AgentType { get; set; }
+
+    /// <summary>
+    /// Path to the subagent's transcript file (for SubagentStart/SubagentStop hooks).
+    /// </summary>
+    [JsonPropertyName("agent_transcript_path")]
+    public string? AgentTranscriptPath { get; set; }
+
+    // --- Notification fields ---
+
+    /// <summary>
+    /// Type of notification (for Notification hooks, e.g., "permission_prompt").
+    /// </summary>
+    [JsonPropertyName("notification_type")]
+    public string? NotificationType { get; set; }
+
+    /// <summary>
+    /// Notification message text.
+    /// </summary>
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    /// <summary>
+    /// Notification title.
+    /// </summary>
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
     // Helper methods to extract common data
 
     /// <summary>
