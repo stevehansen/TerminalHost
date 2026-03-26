@@ -6,14 +6,25 @@ namespace TerminalHost.Core.Domain;
 
 /// <summary>
 /// A session participating in MCP collaboration (e.g., "backend", "frontend").
+/// Enriched with identity fields for reliable matching to Claude Code sessions.
 /// </summary>
 public class CollabSession
 {
+    /// <summary>Free-text name chosen by the agent (e.g., "backend", "api-service").</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
+    /// <summary>Working directory of the Claude Code session (from hooks or set_session_name).</summary>
     [JsonPropertyName("workingDir")]
     public string? WorkingDir { get; set; }
+
+    /// <summary>Claude Code's session ID (from hooks correlation). Primary key for canvas matching.</summary>
+    [JsonPropertyName("claudeSessionId")]
+    public string? ClaudeSessionId { get; set; }
+
+    /// <summary>Project folder name derived from working directory.</summary>
+    [JsonPropertyName("projectName")]
+    public string? ProjectName { get; set; }
 
     [JsonPropertyName("lastSeen")]
     public DateTime LastSeen { get; set; } = DateTime.UtcNow;

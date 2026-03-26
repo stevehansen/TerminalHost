@@ -304,25 +304,24 @@ function stopCollabPolling() {
     }
 }
 
-let collabAvailable = null; // null = untested, true/false = cached result
+let collabFailCount = 0;
 
 async function pollCollab() {
     if (!sparkCanvas.multiMode) return;
-    // Skip if we already know collab REST isn't available
-    if (collabAvailable === false) return;
+    // Back off after repeated failures, but retry every ~60s
+    if (collabFailCount > 3 && collabFailCount % 12 !== 0) {
+        collabFailCount++;
+        return;
+    }
 
     try {
-        // Fetch collab topics via REST API (if endpoint exists)
         const topicsResp = await fetch(`${apiBase}/api/collab/topics`);
         if (!topicsResp.ok) {
-            collabAvailable = false;
+            collabFailCount++;
             return;
         }
-        collabAvailable = true;
-        const topics = await topicsResp.json();
-
-        // Build edges from topic subscriptions
-        const newEdges = [];
+        collabFailCount = 0;
+        const topicsData = await topicsResp.json();
 
         // Also fetch collab sessions to map collab names → working directories
         let collabSessions = [];
@@ -334,39 +333,63 @@ async function pollCollab() {
             }
         } catch { /* ignore */ }
 
-        for (const topic of (topics.topics || topics || [])) {
+        const topics = topicsData.topics || topicsData || [];
+        const newEdges = [];
+
+        for (const topic of topics) {
             const subscribers = topic.subscribers || [];
-            // Match subscribers to canvas sessions by collab name → workingDir → session projectPath
+            if (subscribers.length < 2) continue;
+
+            // Match each subscriber to a canvas session (case-insensitive, multi-strategy)
             const matchedSessions = [];
             for (const sub of subscribers) {
-                // Try direct match by session name or projectPath
+                const subLower = sub.toLowerCase();
+                let matched = false;
+
+                // 1. Direct match by canvas session name (case-insensitive)
                 for (const [sid, session] of sparkCanvas.sessions) {
-                    if (session.name === sub || session.projectPath?.endsWith(sub)) {
+                    if (session.name.toLowerCase() === subLower) {
                         matchedSessions.push(sid);
+                        matched = true;
                         break;
                     }
                 }
-                // Try via collab session's workingDir
-                if (!matchedSessions.some(ms => sparkCanvas.sessions.get(ms)?.name === sub)) {
-                    const collabS = collabSessions.find(cs => cs.name === sub);
-                    if (collabS?.workingDir) {
-                        for (const [sid, session] of sparkCanvas.sessions) {
-                            if (session.projectPath && collabS.workingDir.endsWith(session.name)) {
-                                matchedSessions.push(sid);
-                                break;
-                            }
+                if (matched) continue;
+
+                // 2. Match by projectPath folder name (case-insensitive)
+                for (const [sid, session] of sparkCanvas.sessions) {
+                    const folder = session.projectPath?.split(/[/\\]/).filter(Boolean).pop()?.toLowerCase();
+                    if (folder === subLower) {
+                        matchedSessions.push(sid);
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) continue;
+
+                // 3. Match via collab session's workingDir → canvas session
+                const collabS = collabSessions.find(cs => cs.name.toLowerCase() === subLower);
+                if (collabS?.workingDir) {
+                    const cwdFolder = collabS.workingDir.split(/[/\\]/).filter(Boolean).pop()?.toLowerCase();
+                    for (const [sid, session] of sparkCanvas.sessions) {
+                        if (session.name.toLowerCase() === cwdFolder) {
+                            matchedSessions.push(sid);
+                            break;
                         }
                     }
                 }
             }
 
+            // Deduplicate matched sessions
+            const unique = [...new Set(matchedSessions)];
+
             // Create edges between all pairs of matched sessions
-            for (let i = 0; i < matchedSessions.length; i++) {
-                for (let j = i + 1; j < matchedSessions.length; j++) {
+            for (let i = 0; i < unique.length; i++) {
+                for (let j = i + 1; j < unique.length; j++) {
                     newEdges.push({
-                        sourceSessionId: matchedSessions[i],
-                        targetSessionId: matchedSessions[j],
-                        topic: topic.name || topic.topic,
+                        sourceSessionId: unique[i],
+                        targetSessionId: unique[j],
+                        topic: topic.name,
                         lastMessageTime: topic.lastMessageTime ? new Date(topic.lastMessageTime) : null,
                         opacity: 1.0,
                     });
@@ -374,11 +397,14 @@ async function pollCollab() {
             }
         }
 
+        const hadEdges = sparkCanvas.collabEdges.length > 0;
         sparkCanvas.collabEdges = newEdges;
+        if (newEdges.length > 0 && !hadEdges) {
+            addFeedEntry('COLLAB', `${newEdges.length} connection${newEdges.length !== 1 ? 's' : ''} via ${topics.length} topic${topics.length !== 1 ? 's' : ''}`, 'assistant');
+        }
 
     } catch {
-        // Collab REST endpoint not available — silently disable
-        collabAvailable = false;
+        collabFailCount++;
     }
 }
 

@@ -24,14 +24,16 @@ public class McpHandler
     };
 
     private readonly ICollabService _collab;
+    private readonly ITimelineService? _timelineService;
     private readonly object _sessionLock = new();
     private int _nextAutoSessionId;
     // Maps Mcp-Session-Id → session name
     private readonly Dictionary<string, string> _sessionMap = new();
 
-    public McpHandler(ICollabService collab)
+    public McpHandler(ICollabService collab, ITimelineService? timelineService = null)
     {
         _collab = collab;
+        _timelineService = timelineService;
     }
 
     /// <summary>
@@ -72,7 +74,8 @@ public class McpHandler
         {
             // Assign a new session — prefer X-Session header, then try roots from params
             var nameHint = sessionHint ?? TryExtractRootsName(request.Params);
-            var newId = AssignSession(nameHint);
+            var rootsDir = TryExtractRootsDir(request.Params);
+            var newId = AssignSession(nameHint, rootsDir);
             sessionName = _sessionMap[newId];
             returnSessionId = newId;
         }
@@ -90,7 +93,9 @@ public class McpHandler
             sessionName = "unknown";
         }
 
-        _collab.EnsureSession(sessionName);
+        // Register collab session with working directory (for discovery)
+        var collabDir = request.Method == "initialize" ? TryExtractRootsDir(request.Params) : null;
+        _collab.EnsureSession(sessionName, collabDir);
 
         JsonRpcResponse? response;
         if (request.Method == "tools/call")
@@ -110,15 +115,59 @@ public class McpHandler
         return new McpResult(body, returnSessionId);
     }
 
-    private string AssignSession(string? hint)
+    private string AssignSession(string? hint, string? rootsDir = null)
     {
         lock (_sessionLock)
         {
             var id = Guid.NewGuid().ToString("N")[..12];
-            var name = !string.IsNullOrEmpty(hint) ? hint : $"session-{++_nextAutoSessionId}";
+            string name;
+            if (!string.IsNullOrEmpty(hint))
+            {
+                name = hint;
+            }
+            else
+            {
+                // Try to derive name from live sessions (hooks know cwd)
+                name = TryMatchLiveSession(rootsDir) ?? $"session-{++_nextAutoSessionId}";
+            }
             _sessionMap[id] = name;
             return id;
         }
+    }
+
+    /// <summary>
+    /// Tries to find a live session whose working directory matches the given path
+    /// and returns the project folder name. Falls back to null.
+    /// </summary>
+    private string? TryMatchLiveSession(string? rootsDir)
+    {
+        if (_timelineService == null) return null;
+
+        var liveSessions = _timelineService.GetLiveSessions();
+        if (liveSessions.Count == 0) return null;
+
+        if (string.IsNullOrEmpty(rootsDir)) return null;
+
+        var normalized = rootsDir.Replace('\\', '/').TrimEnd('/');
+        // Extract folder name for container path matching (e.g., /workspace/Api → Api)
+        var folderName = normalized.Contains('/') ? normalized[(normalized.LastIndexOf('/') + 1)..] : normalized;
+
+        foreach (var ls in liveSessions)
+        {
+            var lsDir = (ls.WorkingDirectory ?? "").Replace('\\', '/').TrimEnd('/');
+
+            // Exact path match (host paths)
+            if (string.Equals(lsDir, normalized, StringComparison.OrdinalIgnoreCase))
+                return ls.DisplayName;
+
+            // Container path match: /workspace/X matches a live session whose folder name is X
+            if (normalized.StartsWith("/workspace/", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(ls.DisplayName, folderName, StringComparison.OrdinalIgnoreCase))
+                return ls.DisplayName;
+        }
+
+        // Don't guess — wrong matches are worse than "session-N"
+        return null;
     }
 
     /// <summary>
@@ -182,6 +231,57 @@ public class McpHandler
     /// Extracts the directory name from a file URI or path.
     /// "file:///P:/MyProject" → "MyProject", "/home/user/backend" → "backend"
     /// </summary>
+    /// <summary>
+    /// Tries to extract the full directory path from MCP initialize params' roots list.
+    /// Used to match MCP sessions to live sessions via working directory.
+    /// </summary>
+    private static string? TryExtractRootsDir(JsonElement? initParams)
+    {
+        if (initParams == null || initParams.Value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (initParams.Value.TryGetProperty("roots", out var roots) && roots.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var root in roots.EnumerateArray())
+            {
+                if (root.TryGetProperty("uri", out var uri) && uri.ValueKind == JsonValueKind.String)
+                {
+                    var dir = ExtractDirPath(uri.GetString());
+                    if (dir != null) return dir;
+                }
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    var dir = ExtractDirPath(root.GetString());
+                    if (dir != null) return dir;
+                }
+            }
+        }
+
+        if (initParams.Value.TryGetProperty("workspaceFolders", out var folders) && folders.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var folder in folders.EnumerateArray())
+            {
+                if (folder.TryGetProperty("uri", out var uri) && uri.ValueKind == JsonValueKind.String)
+                {
+                    var dir = ExtractDirPath(uri.GetString());
+                    if (dir != null) return dir;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractDirPath(string? uriOrPath)
+    {
+        if (string.IsNullOrEmpty(uriOrPath)) return null;
+        var path = uriOrPath;
+        if (path.StartsWith("file:///")) path = path["file:///".Length..];
+        else if (path.StartsWith("file://")) path = path["file://".Length..];
+        path = Uri.UnescapeDataString(path).Replace('\\', '/').TrimEnd('/');
+        return string.IsNullOrEmpty(path) ? null : path;
+    }
+
     private static string? ExtractDirName(string? uriOrPath)
     {
         if (string.IsNullOrEmpty(uriOrPath)) return null;
@@ -314,7 +414,27 @@ public class McpHandler
         if (string.IsNullOrEmpty(name))
             return ErrorResult("Missing required parameter: name");
 
+        var workingDir = GetString(args, "working_dir");
+        var projectName = GetString(args, "project_name");
+
         RenameSession(currentSession, name);
+
+        // Enrich the collab session with identity fields
+        var sessions = _collab.GetSessions();
+        var session = sessions.FirstOrDefault(s => s.Name == name);
+        if (session != null)
+        {
+            if (!string.IsNullOrEmpty(workingDir)) session.WorkingDir = workingDir;
+            if (!string.IsNullOrEmpty(projectName)) session.ProjectName = projectName;
+            else if (!string.IsNullOrEmpty(workingDir))
+            {
+                // Derive project name from working directory
+                var folder = workingDir.Replace('\\', '/').TrimEnd('/');
+                var lastSlash = folder.LastIndexOf('/');
+                session.ProjectName = lastSlash >= 0 ? folder[(lastSlash + 1)..] : folder;
+            }
+        }
+
         return TextResult($"Session renamed to '{name}'. Other sessions will see you as '{name}'.");
     }
 
@@ -518,9 +638,11 @@ public class McpHandler
             tools.Add(new McpToolDefinition
             {
                 Name = "set_session_name",
-                Description = "IMPORTANT: Call this first before using any other collab tools. Sets a human-friendly name for this session (e.g., 'backend', 'frontend'). Other sessions will see this name on messages and claims.",
+                Description = "IMPORTANT: Call this first before using any other collab tools. Sets a human-friendly name for this session (e.g., 'backend', 'frontend'). Other sessions will see this name on messages and claims. Pass working_dir for reliable session matching.",
                 InputSchema = Schema(new[] {
-                    Prop("name", "string", "Session name (e.g., 'backend', 'frontend', 'api-service')") },
+                    Prop("name", "string", "Session name (e.g., 'backend', 'frontend', 'api-service')"),
+                    Prop("working_dir", "string", "Working directory of this session (optional, helps match to project)"),
+                    Prop("project_name", "string", "Project/folder name (optional, derived from working_dir if not set)") },
                     new[] { "name" })
             });
         }

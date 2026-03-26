@@ -80,6 +80,7 @@ class SparkCanvas {
         this.sessions = new Map();     // sessionId -> { id, name, projectPath, startTime, isActive, color, agentCount, toolCount }
         this._sessionColorIdx = 0;
         this.collabEdges = [];         // { sourceSessionId, targetSessionId, topic, lastMessageTime, opacity }
+        this.collabSubscriptions = new Map(); // topic -> Set<sessionId> — built from activity events
 
         // Search/filter (Phase 3c)
         this.searchTerm = '';
@@ -225,6 +226,10 @@ class SparkCanvas {
                 recordTimelineEvent(tc.agentId, tc.toolUseId || id, tc.toolName, tc.state || 'Complete', startTime, endTime);
                 const filePath = extractFilePath(tc.inputSummary);
                 if (filePath) recordFileAccess(filePath, tc.toolName, tc.agentId);
+                // Detect collab subscriptions from historical tool calls
+                if (this.multiMode) {
+                    this._detectCollabFromTool(tc.toolName, tc.inputSummary, sessionId);
+                }
             }
         }
 
@@ -276,6 +281,7 @@ class SparkCanvas {
         this.sim.groups.clear();
         this.sessions.clear();
         this.collabEdges.length = 0;
+        this.collabSubscriptions.clear();
         this._sessionColorIdx = 0;
         this.sessionId = null;
         this.sessionName = '';
@@ -412,6 +418,11 @@ class SparkCanvas {
                 const filePath = extractFilePath(tc.inputSummary);
                 if (filePath) recordFileAccess(filePath, tc.toolName, tc.agentId);
                 recordTranscriptEntry(tc.agentId, 'tool', `${tc.toolName} ${tc.inputSummary || ''}`);
+
+                // Track collab subscriptions from MCP tool calls (multi-session)
+                if (this.multiMode && sessionId) {
+                    this._detectCollabFromTool(tc.toolName, tc.inputSummary, sessionId);
+                }
                 break;
             }
 
@@ -955,7 +966,8 @@ class SparkCanvas {
     // ─── Collab Edges (Inter-Session) ────────────────────────
 
     _drawCollabEdges(ctx) {
-        for (const edge of this.collabEdges) {
+        for (let edgeIdx = 0; edgeIdx < this.collabEdges.length; edgeIdx++) {
+            const edge = this.collabEdges[edgeIdx];
             const sourceSession = this.sessions.get(edge.sourceSessionId);
             const targetSession = this.sessions.get(edge.targetSessionId);
             if (!sourceSession || !targetSession) continue;
@@ -970,11 +982,12 @@ class SparkCanvas {
             const tx = targetBounds.x + targetBounds.width / 2;
             const ty = targetBounds.y + targetBounds.height / 2;
 
-            // Bezier control
+            // Bezier control (offset per edge so multiple topics don't overlap)
             const dx = tx - sx;
             const dy = ty - sy;
-            const ctrlX = (sx + tx) / 2 + (-dy * 0.2);
-            const ctrlY = (sy + ty) / 2 + (dx * 0.2);
+            const spread = (edgeIdx - (this.collabEdges.length - 1) / 2) * 0.1;
+            const ctrlX = (sx + tx) / 2 + (-dy * (0.2 + spread));
+            const ctrlY = (sy + ty) / 2 + (dx * (0.2 + spread));
 
             // Gradient edge from source color to target color
             const gradient = ctx.createLinearGradient(sx, sy, tx, ty);
@@ -1018,6 +1031,61 @@ class SparkCanvas {
 
             ctx.restore();
         }
+    }
+
+    // ─── Collab Detection from Tool Calls ──────────────────
+
+    /** Detect collab topic subscriptions from MCP tool call names */
+    _detectCollabFromTool(toolName, inputSummary, sessionId) {
+        const name = (toolName || '').toLowerCase();
+        // Match collab subscribe, send_message, create_topic, read_messages
+        const isCollabTool = name.includes('collab__subscribe')
+            || name.includes('collab__send_message')
+            || name.includes('collab__create_topic')
+            || name.includes('collab__read_messages');
+        if (!isCollabTool) return;
+
+        // Extract topic name from inputSummary
+        const topic = this._extractCollabTopic(inputSummary);
+        if (!topic) return;
+
+        if (!this.collabSubscriptions.has(topic)) {
+            this.collabSubscriptions.set(topic, new Set());
+        }
+        this.collabSubscriptions.get(topic).add(sessionId);
+        this._rebuildCollabEdges();
+    }
+
+    /** Try to extract a topic name from a collab tool's inputSummary */
+    _extractCollabTopic(summary) {
+        if (!summary) return null;
+        // inputSummary may be like "topic: cronos-api" or just "cronos-api"
+        // or JSON-like "{topic: cronos-api, ...}"
+        const m = summary.match(/(?:topic[:\s=]+)?["']?([a-zA-Z0-9_-]+)["']?/);
+        return m ? m[1] : null;
+    }
+
+    /** Rebuild collabEdges from the subscriptions map */
+    _rebuildCollabEdges() {
+        const edges = [];
+        for (const [topic, sessionIds] of this.collabSubscriptions) {
+            const sids = [...sessionIds];
+            for (let i = 0; i < sids.length; i++) {
+                for (let j = i + 1; j < sids.length; j++) {
+                    // Only create edge if both sessions are on the canvas
+                    if (this.sessions.has(sids[i]) && this.sessions.has(sids[j])) {
+                        edges.push({
+                            sourceSessionId: sids[i],
+                            targetSessionId: sids[j],
+                            topic,
+                            lastMessageTime: new Date(),
+                            opacity: 1.0,
+                        });
+                    }
+                }
+            }
+        }
+        this.collabEdges = edges;
     }
 
     // ─── Edge Particle Spawning ─────────────────────────────

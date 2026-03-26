@@ -32,6 +32,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
     private readonly IClaudeSessionIndexService? _sessionIndexService;
     private readonly ITranscriptWatcher? _transcriptWatcher;
     private readonly ISessionActivityService? _activityService;
+    private readonly ICollabService? _collabService;
 
     public TimelineService(
         IConfigurationService configService,
@@ -42,6 +43,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
         IClaudeSessionIndexService? sessionIndexService = null,
         ITranscriptWatcher? transcriptWatcher = null,
         ISessionActivityService? activityService = null,
+        ICollabService? collabService = null,
         string? userDataDir = null)
     {
         _configService = configService;
@@ -51,6 +53,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
         _sessionIndexService = sessionIndexService;
         _transcriptWatcher = transcriptWatcher;
         _activityService = activityService;
+        _collabService = collabService;
 
         // Subscribe to transcript watcher events
         if (_transcriptWatcher != null)
@@ -633,6 +636,102 @@ public sealed class TimelineService : ITimelineService, IDisposable
             if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
             {
                 live.LastActivityTime = DateTime.UtcNow;
+            }
+        }
+
+        // If this was a collab tool call, try to fix auto-generated session names
+        TryFixCollabSessionName(hookEvent);
+    }
+
+    /// <summary>
+    /// When a collab tool (subscribe, create_topic, send_message) completes,
+    /// correlate the Claude session ID with the collab subscriber name.
+    /// If the subscriber used an auto-generated name like "session-3",
+    /// rename it to the project folder name from the Claude session's cwd.
+    /// </summary>
+    private void TryFixCollabSessionName(HookEvent hookEvent)
+    {
+        if (_collabService == null) return;
+        var toolName = (hookEvent.ToolName ?? "").ToLowerInvariant();
+        if (!toolName.Contains("collab__subscribe") &&
+            !toolName.Contains("collab__create_topic") &&
+            !toolName.Contains("collab__send_message"))
+            return;
+
+        // Get the project name from the Claude session's working directory
+        string? projectName = null;
+        lock (_lock)
+        {
+            if (_liveSessions.TryGetValue(hookEvent.SessionId!, out var live))
+            {
+                projectName = live.DisplayName;
+            }
+        }
+        if (string.IsNullOrEmpty(projectName) || projectName == "Unknown") return;
+
+        // Extract topic name from tool input
+        string? topic = null;
+        if (hookEvent.RawData?.ToolInput is { } input && input.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            topic = input.TryGetProperty("topic", out var t) ? t.GetString()
+                  : input.TryGetProperty("name", out var n) ? n.GetString()
+                  : null;
+        }
+        if (string.IsNullOrEmpty(topic)) return;
+
+        // Find auto-generated subscriber on this topic and rename
+        var topics = _collabService.GetTopics();
+        var collabTopic = topics.FirstOrDefault(ct => ct.Name == topic);
+        if (collabTopic == null) return;
+
+        // Look for a "session-N" or "unknown" subscriber to rename
+        var autoSub = collabTopic.Subscribers
+            .FirstOrDefault(s => s.StartsWith("session-", StringComparison.OrdinalIgnoreCase) || s == "unknown");
+
+        // Get full identity from live session
+        string? workingDir = null;
+        lock (_lock)
+        {
+            if (_liveSessions.TryGetValue(hookEvent.SessionId!, out var ls))
+                workingDir = ls.WorkingDirectory;
+        }
+
+        // Enrich the collab session with Claude session identity
+        var collabSessions = _collabService.GetSessions();
+
+        if (autoSub != null && autoSub != projectName)
+        {
+            // Check that the target name isn't already a subscriber (avoid duplicates)
+            if (!collabTopic.Subscribers.Contains(projectName))
+            {
+                // Rename: remove old, add new in topic + collab sessions
+                collabTopic.Subscribers.Remove(autoSub);
+                collabTopic.Subscribers.Add(projectName);
+                if (collabTopic.CreatedBy == autoSub) collabTopic.CreatedBy = projectName;
+
+                // Enrich the collab session with identity
+                var collabSession = collabSessions.FirstOrDefault(s => s.Name == autoSub);
+                if (collabSession != null)
+                {
+                    collabSession.Name = projectName;
+                    collabSession.ClaudeSessionId = hookEvent.SessionId;
+                    collabSession.WorkingDir = workingDir;
+                    collabSession.ProjectName = projectName;
+                }
+            }
+        }
+        else
+        {
+            // Name already correct — just enrich with identity fields
+            var collabSession = collabSessions.FirstOrDefault(s => s.Name == projectName || s.Name == autoSub);
+            if (collabSession != null)
+            {
+                if (string.IsNullOrEmpty(collabSession.ClaudeSessionId))
+                    collabSession.ClaudeSessionId = hookEvent.SessionId;
+                if (string.IsNullOrEmpty(collabSession.WorkingDir))
+                    collabSession.WorkingDir = workingDir;
+                if (string.IsNullOrEmpty(collabSession.ProjectName))
+                    collabSession.ProjectName = projectName;
             }
         }
     }
