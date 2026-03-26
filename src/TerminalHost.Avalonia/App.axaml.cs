@@ -141,8 +141,18 @@ public partial class App : Application
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
 
-        // Container Services
-        services.AddSingleton<IContainerService, TerminalHost.Core.Services.ContainerService>();
+        // Container Services — pass the same config directory as ConfigurationService
+        // (~/Library/Application Support/TerminalHost/) since the default
+        // SpecialFolder.ApplicationData resolves to ~/.config/ on macOS .NET.
+        var containerConfigDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library", "Application Support", "TerminalHost");
+        services.AddSingleton<IContainerService>(sp =>
+            new TerminalHost.Core.Services.ContainerService(
+                sp.GetRequiredService<IConfigurationService>(),
+                sp.GetRequiredService<IProcessService>(),
+                sp.GetRequiredService<IFileSystem>(),
+                containerConfigDir));
 
         // Git Services (use Core implementations for consistency with WPF)
         services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
