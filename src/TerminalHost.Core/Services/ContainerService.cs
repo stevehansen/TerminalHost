@@ -235,6 +235,8 @@ public class ContainerService : IContainerService
             return [];
 
         var results = new List<ContainerInfo>();
+        var currentDockerfileHash = ComputeDockerfileHash();
+
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = line.Split('\t');
@@ -249,11 +251,29 @@ public class ContainerService : IContainerService
                 _ => ContainerState.Stopped
             };
 
-            results.Add(new ContainerInfo
+            var info = new ContainerInfo { Name = name, State = state };
+
+            // Fetch labels to determine workspace dir and staleness
+            var labels = await GetContainerLabelsAsync(name);
+            if (labels.TryGetValue("terminalhost.workspace-dir", out var wsDir))
+                info.WorkspaceDir = wsDir;
+
+            // Check image staleness (global — doesn't need workspace dir)
+            if (labels.TryGetValue("terminalhost.dockerfile-hash", out var storedImgHash))
+                info.IsImageStale = storedImgHash != currentDockerfileHash;
+            else
+                info.IsImageStale = true; // pre-dates versioning
+
+            // Check config staleness (needs workspace dir)
+            if (!string.IsNullOrEmpty(info.WorkspaceDir))
             {
-                Name = name,
-                State = state
-            });
+                if (labels.TryGetValue("terminalhost.config-hash", out var storedCfgHash))
+                    info.IsConfigStale = storedCfgHash != ComputeConfigHash(info.WorkspaceDir);
+                else
+                    info.IsConfigStale = true;
+            }
+
+            results.Add(info);
         }
 
         return results;
@@ -597,6 +617,11 @@ public class ContainerService : IContainerService
             args.Append($" -v \"{mount.HostPath}:{mount.ContainerPath}{roFlag}\"");
         }
 
+        // Allow bubblewrap (bwrap) to create user namespaces inside the container.
+        // Ubuntu 24.04 restricts unprivileged user namespaces via AppArmor, causing
+        // "No permissions to create new namespace" errors in Claude Code's Bash sandbox.
+        args.Append(" --security-opt apparmor=unconfined");
+
         // Network mode
         if (!string.IsNullOrEmpty(cs.NetworkMode) && cs.NetworkMode != "bridge")
             args.Append($" --network {cs.NetworkMode}");
@@ -608,6 +633,7 @@ public class ContainerService : IContainerService
         // Versioning labels for staleness detection
         args.Append($" --label terminalhost.config-hash={ComputeConfigHash(workspaceDir)}");
         args.Append($" --label terminalhost.dockerfile-hash={ComputeDockerfileHash()}");
+        args.Append($" --label terminalhost.workspace-dir={workspaceDir}");
 
         // Image and command (sleep infinity to keep container alive)
         args.Append($" {cs.ImageName}:{cs.ImageTag} sleep infinity");

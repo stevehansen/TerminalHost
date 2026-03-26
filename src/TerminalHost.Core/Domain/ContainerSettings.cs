@@ -147,6 +147,20 @@ public class ContainerInfo
     public string WorkspaceDir { get; set; } = "";
     public ContainerState State { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public bool IsConfigStale { get; set; }
+    public bool IsImageStale { get; set; }
+
+    /// <summary>Whether config or image is stale (for Recreate button visibility).</summary>
+    public bool IsStale => IsConfigStale || IsImageStale;
+
+    /// <summary>
+    /// Human-readable staleness summary for display in settings UI.
+    /// </summary>
+    public string StalenessStatus =>
+        IsConfigStale ? "Settings changed"
+        : IsImageStale ? "Image outdated"
+        : State == ContainerState.Running ? "Up to date"
+        : "";
 }
 
 /// <summary>

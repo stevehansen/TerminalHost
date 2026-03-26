@@ -1039,6 +1039,26 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     }
 
     [RelayCommand]
+    private async Task RecreateContainerAsync(ContainerInfo? container)
+    {
+        if (_containerService == null || container == null || string.IsNullOrEmpty(container.WorkspaceDir)) return;
+        try
+        {
+            using var toast = _toastService.ShowProgress($"Recreating {container.Name}...");
+            toast.Update("Removing old container...");
+            await _containerService.RemoveContainerAsync(container.WorkspaceDir);
+            toast.Update("Creating new container...");
+            await _containerService.EnsureContainerRunningAsync(container.WorkspaceDir);
+            toast.Complete($"Recreated {container.Name}");
+            await RefreshContainersAsync();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to recreate: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand]
     private void EditDockerfile()
     {
         var configDir = Path.Combine(
