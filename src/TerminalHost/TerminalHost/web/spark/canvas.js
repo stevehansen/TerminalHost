@@ -81,6 +81,10 @@ class SparkCanvas {
         this._sessionColorIdx = 0;
         this.collabEdges = [];         // { sourceSessionId, targetSessionId, topic, lastMessageTime, opacity }
 
+        // Search/filter (Phase 3c)
+        this.searchTerm = '';
+        this.highlightedAgentId = null;  // Agent filter — highlight one agent
+
         // Phase 3b systems
         this.fx = new SparkFX();
         this.edgeParticles = new EdgeParticleSystem();
@@ -234,6 +238,32 @@ class SparkCanvas {
         this.sim.stabilize(80);
         this._fitToView(true);
         updateControlBar(this);
+    }
+
+    /** Set search term for highlighting matching agents/tools */
+    setSearch(term) {
+        this.searchTerm = (term || '').toLowerCase().trim();
+    }
+
+    /** Check if an agent matches the current search/filter */
+    _isAgentHighlighted(agentId, agent) {
+        if (this.highlightedAgentId) return agentId === this.highlightedAgentId;
+        if (!this.searchTerm) return true; // No filter = all highlighted
+        const term = this.searchTerm;
+        return agent.name.toLowerCase().includes(term)
+            || (agent.model || '').toLowerCase().includes(term)
+            || (agent.task || '').toLowerCase().includes(term)
+            || (agent.sessionId || '').toLowerCase().includes(term);
+    }
+
+    /** Check if a tool card matches the current search/filter */
+    _isToolHighlighted(card) {
+        if (this.highlightedAgentId) return card.agentId === this.highlightedAgentId;
+        if (!this.searchTerm) return true;
+        const term = this.searchTerm;
+        return card.toolName.toLowerCase().includes(term)
+            || (card.inputSummary || '').toLowerCase().includes(term)
+            || (card.resultSummary || '').toLowerCase().includes(term);
     }
 
     /** Clear all multi-session data */
@@ -1063,6 +1093,12 @@ class SparkCanvas {
             }
             if (alpha <= 0) continue;
 
+            // Dim non-matching agents when search/filter is active
+            const isSearchMatch = this._isAgentHighlighted(id, agent);
+            if ((this.searchTerm || this.highlightedAgentId) && !isSearchMatch) {
+                alpha *= 0.2;
+            }
+
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.translate(node.x, node.y);
@@ -1281,6 +1317,11 @@ class SparkCanvas {
                     alpha = Math.max(0, 1 - (elapsed - 4) / 1.5);
                 }
                 if (alpha <= 0) continue;
+            }
+
+            // Dim non-matching tool cards when search/filter is active
+            if ((this.searchTerm || this.highlightedAgentId) && !this._isToolHighlighted(card)) {
+                alpha *= 0.15;
             }
 
             // Position: offset from agent node (max 6 visible, compact if more)

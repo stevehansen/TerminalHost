@@ -196,16 +196,21 @@ async function enterMultiMode() {
         // Load state for each session
         let loadedCount = 0;
         const loadPromises = sessions.map(async (s) => {
+            // Best display name from the sessions list (always has workingDirectory)
+            const listName = s.displayName || s.workingDirectory?.split(/[/\\]/).filter(Boolean).pop() || null;
             try {
                 const stateResp = await fetch(`${apiBase}/api/sessions/${s.sessionId}/state`);
                 if (stateResp.ok) {
                     const state = await stateResp.json();
+                    // Use sessions-list name as fallback if state has no workingDirectory
+                    if (!state.workingDirectory && s.workingDirectory) {
+                        state.workingDirectory = s.workingDirectory;
+                    }
                     console.log(`[Multi] Session ${s.sessionId}: ${Object.keys(state.agents || {}).length} agents, ${Object.keys(state.toolCalls || {}).length} tools`);
                     sparkCanvas.loadState(state);
                     loadedCount++;
                 } else {
                     console.log(`[Multi] Session ${s.sessionId}: state returned ${stateResp.status}, creating placeholder`);
-                    // Create a placeholder session with a stub main agent so it's visible on canvas
                     sparkCanvas._loadSessionState({
                         sessionId: s.sessionId,
                         workingDirectory: s.workingDirectory,
@@ -224,6 +229,13 @@ async function enterMultiMode() {
                         toolCalls: {},
                     });
                     loadedCount++;
+                }
+                // Override name from list if session still has generic "Session" name
+                if (listName) {
+                    const session = sparkCanvas.sessions.get(s.sessionId);
+                    if (session && session.name === 'Session') {
+                        session.name = listName;
+                    }
                 }
             } catch (err) {
                 console.warn(`Failed to load session ${s.sessionId}:`, err);
@@ -312,15 +324,38 @@ async function pollCollab() {
         // Build edges from topic subscriptions
         const newEdges = [];
 
+        // Also fetch collab sessions to map collab names → working directories
+        let collabSessions = [];
+        try {
+            const csResp = await fetch(`${apiBase}/api/collab/sessions`);
+            if (csResp.ok) {
+                const csData = await csResp.json();
+                collabSessions = csData.sessions || [];
+            }
+        } catch { /* ignore */ }
+
         for (const topic of (topics.topics || topics || [])) {
             const subscribers = topic.subscribers || [];
-            // Match subscribers to sessions by name/working directory
+            // Match subscribers to canvas sessions by collab name → workingDir → session projectPath
             const matchedSessions = [];
             for (const sub of subscribers) {
+                // Try direct match by session name or projectPath
                 for (const [sid, session] of sparkCanvas.sessions) {
                     if (session.name === sub || session.projectPath?.endsWith(sub)) {
                         matchedSessions.push(sid);
                         break;
+                    }
+                }
+                // Try via collab session's workingDir
+                if (!matchedSessions.some(ms => sparkCanvas.sessions.get(ms)?.name === sub)) {
+                    const collabS = collabSessions.find(cs => cs.name === sub);
+                    if (collabS?.workingDir) {
+                        for (const [sid, session] of sparkCanvas.sessions) {
+                            if (session.projectPath && collabS.workingDir.endsWith(session.name)) {
+                                matchedSessions.push(sid);
+                                break;
+                            }
+                        }
                     }
                 }
             }

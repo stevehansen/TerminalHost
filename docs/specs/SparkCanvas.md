@@ -122,8 +122,8 @@ Side panels and overlays for deeper inspection. New file: `panels.js`.
 **Control Bar Enhancements**
 - [x] Filter toggles: show/hide tool cards, edges, bubbles (toggle buttons in control bar)
 - [x] Panel toggle buttons: Timeline, Files, Transcript
-- [ ] Agent filter: highlight specific agents
-- [ ] Search within canvas (highlight matching tools/files)
+- [x] Agent filter: "Focus" button in agent detail panel, dims all other agents and tools
+- [x] Canvas search: input in control bar, highlights matching agents/tools, dims non-matches
 
 ### Phase 3d — Multi-Session & Replay (Partial)
 
@@ -138,7 +138,8 @@ Side panels and overlays for deeper inspection. New file: `panels.js`.
 - [x] Collab edge visualization framework (dashed gradient edges with topic labels and flow particles)
 - [x] Placeholder sessions: stub main agent when state unavailable (containerized sessions)
 - [x] Adaptive cluster spacing and final fit-to-view after all sessions load
-- [ ] Inter-session communication edges via MCP topics/collab channels (needs REST endpoint for collab)
+- [x] REST endpoints for collab: GET /api/collab/topics, GET /api/collab/sessions
+- [x] Collab polling matches topic subscribers to canvas sessions by name/workingDir
 - [ ] Claude channels visualized as data flow between sessions
 
 **JSONL Replay Mode**

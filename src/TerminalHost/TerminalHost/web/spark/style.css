@@ -94,6 +94,27 @@ canvas:active { cursor: grabbing; }
     color: rgba(204, 136, 255, 0.8);
 }
 
+/* Canvas Search Input */
+.canvas-search {
+    background: rgba(10, 15, 30, 0.9);
+    border: 1px solid rgba(100, 200, 255, 0.2);
+    color: #aaeeff;
+    font-size: 10px;
+    font-family: inherit;
+    padding: 2px 8px;
+    border-radius: 4px;
+    width: 100px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.canvas-search:focus {
+    border-color: rgba(100, 200, 255, 0.5);
+    width: 140px;
+}
+.canvas-search::placeholder {
+    color: rgba(100, 200, 255, 0.3);
+}
+
 .session-select {
     background: rgba(10, 15, 30, 0.9);
     border: 1px solid rgba(100, 200, 255, 0.2);

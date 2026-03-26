@@ -46,6 +46,8 @@
             <button id="btnToggleCards" class="control-btn toggle-btn active" title="Show tool cards">Cards</button>
             <button id="btnToggleEdges" class="control-btn toggle-btn active" title="Show edges">Edges</button>
             <button id="btnToggleBubbles" class="control-btn toggle-btn active" title="Show message bubbles">Bubbles</button>
+            <span class="control-sep">|</span>
+            <input id="canvasSearch" class="canvas-search" type="text" placeholder="Search..." title="Search agents, tools, files" />
         </div>
         <div class="control-right">
             <select id="themeSelect" class="theme-select" title="Visual theme">
@@ -73,6 +75,7 @@
         <div class="detail-header">
             <span id="detailDot" class="state-dot"></span>
             <span id="detailName" class="detail-title">Agent</span>
+            <button id="btnAgentFocus" class="control-btn" title="Focus this agent (dim others)" style="font-size:10px; margin-left:auto; margin-right:4px;">Focus</button>
             <button id="detailClose" class="detail-close">&times;</button>
         </div>
         <div class="detail-body">

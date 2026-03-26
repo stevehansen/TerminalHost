@@ -11,6 +11,9 @@ function showAgentDetail(canvas, agentId) {
 
     const panel = document.getElementById('agentDetail');
     panel.style.display = 'block';
+    // Reset focus button label
+    document.getElementById('btnAgentFocus').textContent =
+        canvas.highlightedAgentId === agentId ? 'Unfocus' : 'Focus';
     updateAgentDetail(canvas, agentId);
 }
 
@@ -390,7 +393,18 @@ function initControls(canvas) {
     document.getElementById('btnZoomOut').addEventListener('click', () => canvas.zoomOut());
     document.getElementById('detailClose').addEventListener('click', () => {
         canvas.selectedAgentId = null;
+        canvas.highlightedAgentId = null;
         hideAgentDetail();
+    });
+    document.getElementById('btnAgentFocus').addEventListener('click', () => {
+        if (canvas.highlightedAgentId === canvas.selectedAgentId) {
+            // Toggle off
+            canvas.highlightedAgentId = null;
+            document.getElementById('btnAgentFocus').textContent = 'Focus';
+        } else {
+            canvas.highlightedAgentId = canvas.selectedAgentId;
+            document.getElementById('btnAgentFocus').textContent = 'Unfocus';
+        }
     });
     document.getElementById('toolDetailClose').addEventListener('click', () => {
         canvas.selectedToolId = null;
@@ -409,6 +423,18 @@ function initControls(canvas) {
     // Multi-session observatory toggle
     document.getElementById('btnMultiMode').addEventListener('click', () => {
         toggleMultiMode();
+    });
+
+    // Canvas search
+    document.getElementById('canvasSearch').addEventListener('input', (e) => {
+        canvas.setSearch(e.target.value);
+    });
+    document.getElementById('canvasSearch').addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            e.target.value = '';
+            canvas.setSearch('');
+            e.target.blur();
+        }
     });
 
     // Theme selector

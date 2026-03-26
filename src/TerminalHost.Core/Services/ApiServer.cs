@@ -38,6 +38,7 @@ public class ApiServer : IApiServer
     private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
     private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ICollabService? _collabService;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -88,7 +89,8 @@ public class ApiServer : IApiServer
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         McpHandler? mcpHandler = null,
         IClipboardService? clipboardService = null,
-        ISessionActivityService? sessionActivityService = null)
+        ISessionActivityService? sessionActivityService = null,
+        ICollabService? collabService = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -101,6 +103,7 @@ public class ApiServer : IApiServer
         _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
         _sessionActivityService = sessionActivityService;
+        _collabService = collabService;
     }
 
     /// <summary>
@@ -339,6 +342,10 @@ public class ApiServer : IApiServer
                 await HandleSessionStateAsync(response, path);
             else if (path == "/api/sessions")
                 await HandleActiveSessionsAsync(response);
+            else if (path == "/api/collab/topics")
+                await HandleCollabTopicsAsync(response);
+            else if (path == "/api/collab/sessions")
+                await HandleCollabSessionsAsync(response);
             else if (path == "/api/events")
             {
                 if (apiSettings.EnableSse)
@@ -789,6 +796,43 @@ public class ApiServer : IApiServer
             }
         }
 
+        await WriteJson(response, new { sessions });
+    }
+
+    private async Task HandleCollabTopicsAsync(HttpListenerResponse response)
+    {
+        if (_collabService == null)
+        {
+            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Collab service not available");
+            return;
+        }
+
+        var topics = _collabService.GetTopics().Select(t => new
+        {
+            name = t.Name,
+            description = t.Description,
+            subscribers = t.Subscribers.ToList(),
+            createdBy = t.CreatedBy,
+            messageCount = t.MessageCount,
+            createdAt = t.CreatedAt
+        });
+        await WriteJson(response, new { topics });
+    }
+
+    private async Task HandleCollabSessionsAsync(HttpListenerResponse response)
+    {
+        if (_collabService == null)
+        {
+            await WriteJsonError(response, 404, "NOT_AVAILABLE", "Collab service not available");
+            return;
+        }
+
+        var sessions = _collabService.GetSessions().Select(s => new
+        {
+            name = s.Name,
+            workingDir = s.WorkingDir,
+            lastSeen = s.LastSeen
+        });
         await WriteJson(response, new { sessions });
     }
 
