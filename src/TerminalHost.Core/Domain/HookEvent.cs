@@ -271,7 +271,10 @@ public class HookEvent
             ?? TryGetString(input, "prompt")
             ?? TryGetString(input, "query")
             ?? TryGetString(input, "pattern")
-            ?? TryGetString(input, "url");
+            ?? TryGetString(input, "url")
+            ?? TryGetString(input, "topic")
+            ?? TryGetString(input, "name")
+            ?? TryGetString(input, "key");
 
         // Make file paths relative to workspace for readability
         var displayPath = MakeRelative(filePath, data.Cwd);
