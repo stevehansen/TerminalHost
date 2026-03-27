@@ -168,6 +168,10 @@ public class ContainerService : IContainerService
         if (action is ContainerEnsureAction.Created or ContainerEnsureAction.ImageBuilt or ContainerEnsureAction.Started)
             await InitWorkspaceOwnershipAsync(containerName, workspaceDir);
 
+        // Mark worktree workspace as safe for git (the .git file overlay is handled via mount).
+        if (action is ContainerEnsureAction.Created or ContainerEnsureAction.ImageBuilt or ContainerEnsureAction.Started)
+            await InitWorktreeGitLinkAsync(containerName, workspaceDir);
+
         // Copy GPG keys from staging mount to container-local dir with correct ownership.
         // Windows mounts appear as root-owned; GPG refuses "unsafe ownership on homedir".
         await InitGpgKeysAsync(containerName);
@@ -469,6 +473,40 @@ public class ContainerService : IContainerService
         // Project directory (read-write) — mounted under /workspace/{folderName}
         args.Append($" -v \"{workspaceDir}:{containerWs}\"");
 
+        // Git worktree support: a worktree's .git is a file containing "gitdir: <path>"
+        // pointing to the main repo's .git/worktrees/<name>. That path is outside the
+        // mounted workspace, so git commands fail inside the container.
+        // Fix: mount the main .git directory and overlay the .git file with a container-side path.
+        var dotGitPath = Path.Combine(workspaceDir, ".git");
+        if (_fileSystem.FileExists(dotGitPath))
+        {
+            var gitFileContent = _fileSystem.ReadAllText(dotGitPath).Trim();
+            if (gitFileContent.StartsWith("gitdir:"))
+            {
+                var gitDir = gitFileContent.Substring(7).Trim();
+                if (!Path.IsPathRooted(gitDir))
+                    gitDir = Path.GetFullPath(Path.Combine(workspaceDir, gitDir));
+
+                // gitDir is e.g. /path/to/main-repo/.git/worktrees/<name>
+                // The main .git directory is two levels up from worktrees/<name>
+                var mainGitDir = Path.GetFullPath(Path.Combine(gitDir, "..", ".."));
+                if (_fileSystem.DirectoryExists(mainGitDir))
+                {
+                    // Mount the main .git directory so all objects/refs/worktree data is accessible
+                    args.Append($" -v \"{mainGitDir}:/workspace/.git-main\"");
+
+                    // Create a temporary .git file with the container-side gitdir path
+                    // and mount it as a file overlay over the workspace's .git file.
+                    // This avoids modifying the host's .git file through the bind mount.
+                    var relativePath = Path.GetRelativePath(mainGitDir, gitDir).Replace('\\', '/');
+                    var containerGitDir = $"/workspace/.git-main/{relativePath}";
+                    var overlayGitFile = Path.Combine(_configDirectory, $"container-worktree-{containerName}");
+                    File.WriteAllText(overlayGitFile, $"gitdir: {containerGitDir}\n");
+                    args.Append($" -v \"{overlayGitFile}:{containerWs}/.git\"");
+                }
+            }
+        }
+
         // Claude Code config directories (read-write for sharing with host)
         var claudeDir = Path.Combine(userProfile, ".claude");
         var claudeJson = Path.Combine(userProfile, ".claude.json");
@@ -580,6 +618,37 @@ public class ContainerService : IContainerService
 
         if (exitCode != 0)
             throw new InvalidOperationException($"Failed to create container: {error}");
+    }
+
+    /// <summary>
+    /// Marks the workspace as a safe directory for git inside the container.
+    /// Required for worktrees where the .git directory is mounted separately.
+    /// </summary>
+    private async Task InitWorktreeGitLinkAsync(string containerName, string workspaceDir)
+    {
+        try
+        {
+            var dotGitPath = Path.Combine(workspaceDir, ".git");
+            if (!_fileSystem.FileExists(dotGitPath))
+                return;
+
+            var gitFileContent = _fileSystem.ReadAllText(dotGitPath).Trim();
+            if (!gitFileContent.StartsWith("gitdir:"))
+                return;
+
+            var dockerPath = GetDockerPath();
+            var containerWs = GetContainerWorkspacePath(workspaceDir);
+
+            // Mark the workspace as safe for git (ownership may differ due to bind mounts)
+            await _processService.RunAsync(
+                dockerPath,
+                $"exec {containerName} git config --global --add safe.directory {containerWs}",
+                timeout: TimeSpan.FromSeconds(5));
+        }
+        catch
+        {
+            // Best-effort
+        }
     }
 
     /// <summary>
@@ -1099,11 +1168,13 @@ public class ContainerService : IContainerService
     /// </summary>
     internal static string EncodeClaudeProjectPath(string path)
     {
-        // Claude Code replaces all path separator characters with dashes
+        // Claude Code replaces path separators, dots, and underscores with dashes
         return path
             .Replace(':', '-')
             .Replace('\\', '-')
-            .Replace('/', '-');
+            .Replace('/', '-')
+            .Replace('.', '-')
+            .Replace('_', '-');
     }
 
     /// <summary>
