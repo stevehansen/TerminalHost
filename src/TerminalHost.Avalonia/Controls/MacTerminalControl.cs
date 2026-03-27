@@ -54,10 +54,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Font settings
     private double _charWidth = 8;
     private double _charHeight = 16;
+    private double _baselineOffset;
     private Typeface _typeface;
     private Typeface _fallbackTypeface;
     private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
+
+    // GlyphTypeface cache for GlyphRun rendering (maps Typeface variants to their IGlyphTypeface)
+    private readonly Dictionary<Typeface, IGlyphTypeface?> _glyphTypefaceCache = new();
 
     // Emoji overlay system - TextBlocks for emoji since DrawingContext doesn't support emoji fallback
     private readonly List<TextBlock> _emojiOverlays = new();
@@ -284,8 +288,25 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             _fontSize,
             Brushes.White);
 
-        _charWidth = formattedText.Width;
+        // Use the font's actual glyph advance for accurate character width.
+        // FormattedText.Width returns the ink/bounding width which can be narrower than the
+        // advance width, causing column count to be too high and right-edge text to be clipped.
+        if (_primaryGlyphTypeface != null
+            && _primaryGlyphTypeface.TryGetGlyph('M', out var glyphIndex))
+        {
+            var metrics = _primaryGlyphTypeface.Metrics;
+            if (metrics.DesignEmHeight > 0)
+            {
+                _charWidth = _primaryGlyphTypeface.GetGlyphAdvance(glyphIndex)
+                    * _fontSize / metrics.DesignEmHeight;
+            }
+        }
+
+        if (_charWidth <= 0)
+            _charWidth = formattedText.Width;
+
         _charHeight = formattedText.Height;
+        _baselineOffset = formattedText.Baseline;
 
         // Menlo has tighter line spacing than Cascadia Code NF
         // Add padding to match expected terminal line height
@@ -1090,6 +1111,50 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Gets or creates a cached IGlyphTypeface for the given Typeface.
+    /// </summary>
+    private IGlyphTypeface? GetCachedGlyphTypeface(Typeface typeface)
+    {
+        if (!_glyphTypefaceCache.TryGetValue(typeface, out var glyphTypeface))
+        {
+            FontManager.Current.TryGetGlyphTypeface(typeface, out glyphTypeface);
+            _glyphTypefaceCache[typeface] = glyphTypeface;
+        }
+        return glyphTypeface;
+    }
+
+    /// <summary>
+    /// Renders text using GlyphRun with explicit advance widths set to _charWidth.
+    /// This ensures every glyph is positioned at its exact grid cell, preventing
+    /// accumulated drift from font-engine glyph positioning.
+    /// </summary>
+    private bool TryRenderWithGlyphRun(DrawingContext context, string text, double x, double y,
+        Typeface typeface, IBrush foregroundBrush)
+    {
+        var glyphTypeface = GetCachedGlyphTypeface(typeface);
+        if (glyphTypeface == null)
+            return false;
+
+        var glyphInfos = new GlyphInfo[text.Length];
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (!glyphTypeface.TryGetGlyph((uint)text[i], out var gi))
+                gi = 0;
+            glyphInfos[i] = new GlyphInfo(gi, i, _charWidth, default);
+        }
+
+        var glyphRun = new GlyphRun(
+            glyphTypeface,
+            _fontSize,
+            text.AsMemory(),
+            glyphInfos,
+            new Point(x, y + _baselineOffset));
+
+        context.DrawGlyphRun(foregroundBrush, glyphRun);
+        return true;
+    }
+
     private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
         Typeface primaryTypeface, IBrush foregroundBrush)
     {
@@ -1108,31 +1173,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             return;
         }
 
-        // Ultra-fast path for pure ASCII text (most common case)
-        if (IsPureAscii(text))
-        {
-            var formattedText = new FormattedText(
-                text,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                primaryTypeface,
-                _fontSize,
-                foregroundBrush);
-            context.DrawText(formattedText, new Point(x, y));
-            return;
-        }
-
+        // Grid-aligned rendering: use GlyphRun with explicit _charWidth advances
+        // to prevent accumulated drift from font-engine glyph positioning.
+        // This ensures text at the right edge of the terminal isn't clipped.
         if (!ContainsFallbackCharacters(text))
         {
-            // Fast path: use TextLayout which has proper font fallback for emoji
-            var textLayout = new TextLayout(
-                text,
-                primaryTypeface,
-                _fontSize,
-                foregroundBrush,
-                TextAlignment.Left);
-            textLayout.Draw(context, new Point(x, y));
-            return;
+            if (TryRenderWithGlyphRun(context, text, x, y, primaryTypeface, foregroundBrush))
+                return;
         }
 
         // Slow path: render with font fallback support
@@ -1199,14 +1246,17 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 }
                 else
                 {
-                    // Render normal text run with TextLayout for proper font fallback
-                    var textLayout = new TextLayout(
-                        run,
-                        primaryTypeface,
-                        _fontSize,
-                        foregroundBrush,
-                        TextAlignment.Left);
-                    textLayout.Draw(context, new Point(currentX, y));
+                    // Render normal text run with grid-aligned GlyphRun
+                    if (!TryRenderWithGlyphRun(context, run, currentX, y, primaryTypeface, foregroundBrush))
+                    {
+                        var textLayout = new TextLayout(
+                            run,
+                            primaryTypeface,
+                            _fontSize,
+                            foregroundBrush,
+                            TextAlignment.Left);
+                        textLayout.Draw(context, new Point(currentX, y));
+                    }
                     currentX += run.Length * _charWidth;
                 }
 
