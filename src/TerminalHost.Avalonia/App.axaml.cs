@@ -11,6 +11,9 @@ using TerminalHost.Core.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
+#if LINUX
+using TerminalHost.Linux.Services;
+#endif
 using ITimerService = TerminalHost.Services.ITimerService;
 
 namespace TerminalHost;
@@ -139,8 +142,12 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Platform Services (new for macOS migration)
+        // Platform Services
+#if MACOS
         services.AddSingleton<ISystemInfoService, SystemInfoService>();
+#elif LINUX
+        services.AddSingleton<ISystemInfoService, LinuxSystemInfoService>();
+#endif
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IStatisticsService, TerminalHost.Core.Services.StatisticsService>();
@@ -160,12 +167,19 @@ public partial class App : Application
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
 
-        // Container Services — pass the same config directory as ConfigurationService
-        // (~/Library/Application Support/TerminalHost/) since the default
+        // Container Services — pass the same config directory as ConfigurationService.
+#if MACOS
+        // macOS: ~/Library/Application Support/TerminalHost/ since the default
         // SpecialFolder.ApplicationData resolves to ~/.config/ on macOS .NET.
         var containerConfigDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library", "Application Support", "TerminalHost");
+#elif LINUX
+        // Linux: ~/.config/TerminalHost/ (XDG Base Directory)
+        var containerConfigDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost");
+#endif
         services.AddSingleton<IContainerService>(sp =>
             new TerminalHost.Core.Services.ContainerService(
                 sp.GetRequiredService<IConfigurationService>(),
