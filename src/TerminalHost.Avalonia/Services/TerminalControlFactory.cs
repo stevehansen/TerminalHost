@@ -300,27 +300,30 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     }
 
     /// <summary>
-    /// Ensures a .mcp.json file exists in the project directory with the terminalhost channel server registered.
+    /// Ensures the user's global Claude settings (~/.claude/settings.json) has the terminalhost channel server registered.
+    /// Uses global settings instead of per-project .mcp.json to avoid polluting every workspace.
     /// </summary>
     private void EnsureMcpJsonRegistered(string workingDir, string channelServerPath, ChannelSettings channelSettings)
     {
         try
         {
-            var mcpJsonPath = Path.Combine(workingDir, ".mcp.json");
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var claudeDir = Path.Combine(home, ".claude");
+            if (!Directory.Exists(claudeDir))
+                return;
 
-            // Read existing .mcp.json or create new one
-            Dictionary<string, object>? mcpConfig = null;
-            if (_fileSystem.FileExists(mcpJsonPath))
+            var settingsPath = Path.Combine(claudeDir, "settings.json");
+
+            Dictionary<string, object>? config = null;
+            if (_fileSystem.FileExists(settingsPath))
             {
-                var existing = _fileSystem.ReadAllText(mcpJsonPath);
-                mcpConfig = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing);
+                var existing = _fileSystem.ReadAllText(settingsPath);
+                config = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing);
             }
+            config ??= new Dictionary<string, object>();
 
-            mcpConfig ??= new Dictionary<string, object>();
-
-            // Check if terminalhost server is already registered
             Dictionary<string, object>? mcpServers = null;
-            if (mcpConfig.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
+            if (config.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
             {
                 mcpServers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(serversElement.GetRawText());
             }
@@ -335,17 +338,17 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
                 ["command"] = channelServerPath.Replace("\\", "/")
             };
 
-            mcpConfig["mcpServers"] = mcpServers;
+            config["mcpServers"] = mcpServers;
 
-            var json = System.Text.Json.JsonSerializer.Serialize(mcpConfig, new System.Text.Json.JsonSerializerOptions
+            var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions
             {
                 WriteIndented = true
             });
-            _fileSystem.WriteAllText(mcpJsonPath, json);
+            _fileSystem.WriteAllText(settingsPath, json);
         }
         catch
         {
-            // .mcp.json registration is best-effort
+            // MCP registration is best-effort
         }
     }
 

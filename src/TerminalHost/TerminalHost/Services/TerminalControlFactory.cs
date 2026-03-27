@@ -198,6 +198,9 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
             return $"{command} -NoExit -WorkingDirectory \"{workingDir}\" ";
         }
 
+        // Register MCP collab server for any AI agent (HTTP transport, universal)
+        EnsureMcpCollabRegistered(workingDir);
+
         // For other commands, run them from the directory using cmd
         // Append channel flags if this is a Claude Code command with channels enabled
         var finalCommand = AppendChannelFlags(command, workingDir);
@@ -290,31 +293,19 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     }
 
     /// <summary>
-    /// Ensures a .mcp.json file exists in the project directory with the terminalhost channel server registered.
+    /// Ensures the user's global Claude settings (~/.claude/settings.json) has the terminalhost channel server registered.
+    /// Called for Claude Code sessions when channels are enabled.
+    /// Uses global settings instead of per-project .mcp.json to avoid polluting every workspace.
     /// </summary>
     private void EnsureMcpJsonRegistered(string workingDir, string channelServerPath, ChannelSettings channelSettings)
     {
         try
         {
-            var mcpJsonPath = Path.Combine(workingDir, ".mcp.json");
+            var settingsPath = GetClaudeSettingsPath();
+            if (settingsPath == null) return;
 
-            // Read existing .mcp.json or create new one
-            Dictionary<string, object>? mcpConfig = null;
-            if (_fileSystem.FileExists(mcpJsonPath))
-            {
-                var existing = _fileSystem.ReadAllText(mcpJsonPath);
-                mcpConfig = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing);
-            }
-
-            mcpConfig ??= new Dictionary<string, object>();
-
-            // Check if terminalhost server is already registered
-            Dictionary<string, object>? mcpServers = null;
-            if (mcpConfig.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
-            {
-                mcpServers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(serversElement.GetRawText());
-            }
-            mcpServers ??= new Dictionary<string, object>();
+            var config = ReadClaudeSettings(settingsPath);
+            var mcpServers = GetOrCreateMcpServers(config);
 
             if (mcpServers.ContainsKey("terminalhost"))
                 return; // Already registered
@@ -325,18 +316,117 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
                 ["command"] = channelServerPath.Replace("\\", "/")
             };
 
-            mcpConfig["mcpServers"] = mcpServers;
-
-            var json = System.Text.Json.JsonSerializer.Serialize(mcpConfig, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-            _fileSystem.WriteAllText(mcpJsonPath, json);
+            config["mcpServers"] = mcpServers;
+            WriteClaudeSettings(settingsPath, config);
         }
         catch
         {
-            // .mcp.json registration is best-effort
+            // MCP registration is best-effort
         }
+    }
+
+    /// <summary>
+    /// Ensures the user's global Claude settings (~/.claude/settings.json) has an HTTP-based
+    /// terminalhost-collab entry that any MCP-capable AI agent can use.
+    /// Uses MCP Streamable HTTP transport (url-based), which is the universal format supported by
+    /// Claude Code, Gemini CLI, Codex CLI, and other modern AI agents.
+    /// Uses global settings instead of per-project .mcp.json to avoid polluting every workspace.
+    /// </summary>
+    private void EnsureMcpCollabRegistered(string workingDir)
+    {
+        try
+        {
+            var appConfig = _configService.Load();
+            if (!appConfig.Settings.Api.Enabled)
+                return;
+
+            var apiSettings = appConfig.Settings.Api;
+            var host = apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress;
+            var mcpUrl = $"http://{host}:{apiSettings.Port}/api/mcp";
+
+            var settingsPath = GetClaudeSettingsPath();
+            if (settingsPath == null) return;
+
+            var config = ReadClaudeSettings(settingsPath);
+            var mcpServers = GetOrCreateMcpServers(config);
+
+            if (mcpServers.ContainsKey("terminalhost-collab"))
+                return; // Already registered
+
+            // HTTP transport entry — works with any agent that supports MCP Streamable HTTP
+            var serverEntry = new Dictionary<string, object>
+            {
+                ["url"] = mcpUrl
+            };
+
+            // Include API key header if required (non-loopback binding)
+            if (!string.IsNullOrEmpty(apiSettings.ApiKey))
+            {
+                serverEntry["headers"] = new Dictionary<string, string>
+                {
+                    ["Authorization"] = $"Bearer {apiSettings.ApiKey}"
+                };
+            }
+
+            mcpServers["terminalhost-collab"] = serverEntry;
+            config["mcpServers"] = mcpServers;
+            WriteClaudeSettings(settingsPath, config);
+        }
+        catch
+        {
+            // MCP registration is best-effort
+        }
+    }
+
+    /// <summary>
+    /// Returns the path to ~/.claude/settings.json, or null if the directory doesn't exist.
+    /// </summary>
+    private string? GetClaudeSettingsPath()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var claudeDir = Path.Combine(home, ".claude");
+        if (!Directory.Exists(claudeDir))
+            return null;
+        return Path.Combine(claudeDir, "settings.json");
+    }
+
+    /// <summary>
+    /// Reads and parses the Claude settings.json file, returning an empty dictionary if it doesn't exist.
+    /// </summary>
+    private Dictionary<string, object> ReadClaudeSettings(string settingsPath)
+    {
+        if (_fileSystem.FileExists(settingsPath))
+        {
+            var existing = _fileSystem.ReadAllText(settingsPath);
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing)
+                   ?? new Dictionary<string, object>();
+        }
+        return new Dictionary<string, object>();
+    }
+
+    /// <summary>
+    /// Extracts or creates the mcpServers dictionary from a Claude settings config.
+    /// </summary>
+    private static Dictionary<string, object> GetOrCreateMcpServers(Dictionary<string, object> config)
+    {
+        if (config.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(serversElement.GetRawText())
+                   ?? new Dictionary<string, object>();
+        }
+        return new Dictionary<string, object>();
+    }
+
+    /// <summary>
+    /// Writes the Claude settings config back to disk.
+    /// </summary>
+    private void WriteClaudeSettings(string settingsPath, Dictionary<string, object> config)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        _fileSystem.WriteAllText(settingsPath, json);
     }
 
     private static bool IsShellCommand(string command) =>
