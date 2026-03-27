@@ -1021,17 +1021,26 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private static readonly Dictionary<char, Typeface?> CharacterTypefaceCache = new();
     private const int MaxCharacterTypefaceCacheSize = 1024; // Limit cache size
 
-    private static bool NeedsFallbackFont(char c)
+    private bool NeedsFallbackFont(char c)
     {
-        // Use fallback for Nerd Font icons and emoji (surrogate pairs)
+        if (c < '\u0080') return false; // ASCII - always in primary font
         if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts icons)
         if (char.IsHighSurrogate(c)) return true; // Emoji and other non-BMP characters
         if (char.IsLowSurrogate(c)) return true;
+
+        // For other non-ASCII characters (symbols, dingbats, etc.), check if the
+        // primary font actually has the glyph. Characters like ❄ (U+2744) and
+        // variation selectors (U+FE0F) need fallback when the primary font lacks them.
+        if (_primaryGlyphTypeface != null)
+        {
+            if (!_primaryGlyphTypeface.TryGetGlyph((uint)c, out var gi) || gi == 0)
+                return true;
+        }
+
         return false;
     }
 
-
-    private static bool ContainsFallbackCharacters(string text)
+    private bool ContainsFallbackCharacters(string text)
     {
         foreach (var c in text)
         {
@@ -1139,8 +1148,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         var glyphInfos = new GlyphInfo[text.Length];
         for (int i = 0; i < text.Length; i++)
         {
-            if (!glyphTypeface.TryGetGlyph((uint)text[i], out var gi))
+            if (!glyphTypeface.TryGetGlyph((uint)text[i], out var gi) || gi == 0)
+            {
+                // Font doesn't have this glyph - bail out so caller uses fallback path
+                if (text[i] >= ' ')
+                    return false;
                 gi = 0;
+            }
             glyphInfos[i] = new GlyphInfo(gi, i, _charWidth, default);
         }
 
