@@ -22,7 +22,11 @@ using Avalonia.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
+#if MACOS
 using TerminalHost.macOS.Services;
+#elif LINUX
+using TerminalHost.Linux.Services;
+#endif
 using TerminalHost.Services;
 using VtNetCore.VirtualTerminal;
 using VtNetCore.VirtualTerminal.Layout;
@@ -157,10 +161,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     {
         // On Intel Mac, use Menlo for better performance (no embedded font loading, no Rosetta overhead)
         // On Apple Silicon, use Cascadia Code NF (Nerd Font with icons built-in)
+        // On Linux, use Cascadia Code NF with Linux-appropriate fallback fonts
         if (IsIntelMac)
         {
             _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
             _fallbackTypeface = new Typeface(new FontFamily("Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
+            _fallbackTypeface = new Typeface(new FontFamily("DejaVu Sans Mono, Noto Sans Mono, Liberation Mono, monospace"), FontStyle.Normal, FontWeight.Normal);
         }
         else
         {
@@ -320,7 +330,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _viewPort = new VirtualTerminalViewPort(_terminalController);
 
         // Create PTY service
+#if MACOS
         _ptyService = new MacPtyService();
+#elif LINUX
+        _ptyService = new LinuxPtyService();
+#endif
         _ptyService.ProcessExited += OnProcessExited;
 
         await _ptyService.StartAsync(_columns, _rows, workingDirectory, command, customPaths);
@@ -851,16 +865,58 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     }
 
     // Fallback font names in order of preference
-    // On Intel Mac, we use a minimal list for performance
-    private static readonly string[] FallbackFontNames = IsIntelMac
-        ? new[]
+    // Platform-specific: Intel Mac uses minimal list, Linux uses Linux fonts, Apple Silicon uses full macOS list
+    private static readonly string[] FallbackFontNames = GetFallbackFontNames();
+
+    private static string[] GetFallbackFontNames()
+    {
+        if (IsIntelMac)
         {
-            // Minimal list for Intel Mac - just the essentials
-            "Menlo",              // Primary terminal font
-            "Apple Symbols",      // macOS symbols
-            "LastResort",         // Ultimate fallback
+            return new[]
+            {
+                // Minimal list for Intel Mac - just the essentials
+                "Menlo",              // Primary terminal font
+                "Apple Symbols",      // macOS symbols
+                "LastResort",         // Ultimate fallback
+            };
         }
-        : new[]
+
+        if (OperatingSystem.IsLinux())
+        {
+            return new[]
+            {
+                // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
+                "avares://host/Assets/Fonts#Symbols Nerd Font Mono", // Embedded Nerd Font (bundled with app)
+                "Cascadia Code NF",        // Bundled Nerd Font
+                "JetBrainsMono Nerd Font", // Popular Nerd Font
+                "JetBrainsMono NF",
+                "FiraCode Nerd Font",      // Popular Nerd Font
+                "Hack Nerd Font",          // Popular Nerd Font
+                "MesloLGS NF",
+                "Symbols Nerd Font Mono",
+                "Symbols Nerd Font",
+                // Linux monospace fonts - for Unicode characters Nerd Fonts don't cover
+                "DejaVu Sans Mono",        // Standard Linux font with good Unicode coverage
+                "Liberation Mono",         // Common on RHEL/Fedora
+                "Ubuntu Mono",             // Ubuntu default
+                "Noto Sans Mono",          // Google Noto family
+                "Droid Sans Mono",         // Android/Linux
+                "Fira Mono",              // Mozilla font
+                "Source Code Pro",         // Adobe font
+                "Inconsolata",            // Popular monospace
+                // Emoji and symbol fonts
+                "Noto Color Emoji",       // Emoji support on Linux
+                "Segoe UI Emoji",         // Emoji fallback
+                "Symbola",                // Wide Unicode coverage
+                "DejaVu Math TeX Gyre",   // Mathematical symbols
+                "STIX Two Math",          // Mathematical symbols
+                "DejaVu Sans",            // General Unicode fallback
+                "monospace",              // Generic fallback
+            };
+        }
+
+        // Apple Silicon (macOS default)
+        return new[]
         {
             // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
             // These must come before standard fonts to ensure Private Use Area glyphs render correctly
@@ -883,6 +939,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             "Menlo",              // Fallback terminal font
             "LastResort",         // Ultimate fallback
         };
+    }
 
     // Cache for typeface/glyphTypeface pairs - initialized lazily
     private static List<(Typeface typeface, IGlyphTypeface glyphTypeface)>? _fallbackFontsCache;
