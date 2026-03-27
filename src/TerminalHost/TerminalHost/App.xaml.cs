@@ -233,7 +233,7 @@ public partial class App : Application
             if (config.Settings.Api.Enabled)
             {
                 var apiServer = _services.GetRequiredService<IApiServer>();
-                apiServer.HookEventReceived += (_, hookEvent) => ProcessHookEvent(hookEvent);
+                apiServer.HookEventReceived += (_, hookEvent) => Dispatcher.BeginInvoke(() => ProcessHookEvent(hookEvent));
                 await apiServer.StartAsync();
             }
         }
@@ -385,6 +385,10 @@ public partial class App : Application
 
     private void OnHookEventReceived(object? sender, HookEvent hookEvent)
     {
+        // Log named-pipe hooks to the API debug log too (so all sources are visible)
+        var apiServer = Services.GetService<IApiServer>() as TerminalHost.Core.Services.ApiServer;
+        apiServer?.AddPipeHookDebugEntry(hookEvent);
+
         // This runs on a background thread, so dispatch to UI thread
         Dispatcher.BeginInvoke(() =>
         {

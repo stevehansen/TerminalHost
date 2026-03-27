@@ -1,0 +1,146 @@
+<Window x:Class="TerminalHost.Views.Dialogs.HookDebugDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TerminalHost.Views.Dialogs"
+        Title="Hook Debug Log"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Width="900" Height="650"
+        MinWidth="600" MinHeight="400"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Window.Resources>
+        <local:BoolToSuccessColorConverter x:Key="BoolToSuccessColorConverter"/>
+        <local:BoolToStringConverter x:Key="BoolToCheckConverter" TrueValue="✓" FalseValue="✗"/>
+    </Window.Resources>
+    <Border Background="{StaticResource BackgroundDarkBrush}"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="12,8" CornerRadius="6,6,0,0"
+                    MouseLeftButtonDown="Header_MouseLeftButtonDown" Cursor="SizeAll">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Hook Debug Log" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Refresh" Click="Refresh_Click" Margin="0,0,8,0"
+                            Background="{StaticResource BackgroundLightBrush}" Foreground="{StaticResource TextPrimaryBrush}"
+                            BorderThickness="0" Padding="12,4" Cursor="Hand"/>
+                    <Button Grid.Column="2" Content="✕" Click="Close_Click"
+                            Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                            BorderThickness="0" FontSize="16" Padding="8,2" Cursor="Hand"/>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <Grid Grid.Row="1" Margin="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="200"/>
+                </Grid.RowDefinitions>
+
+                <!-- Event list -->
+                <ListBox x:Name="EventList" Grid.Row="0"
+                         Background="{StaticResource BackgroundLightBrush}"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="EventList_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="4,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat=HH:mm:ss.ff}"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontFamily="Cascadia Code NF" FontSize="11"/>
+                                <TextBlock Grid.Column="1" FontSize="11" FontFamily="Cascadia Code NF"
+                                           Text="{Binding Success, Converter={StaticResource BoolToCheckConverter}}"
+                                           Foreground="{Binding Success, Converter={StaticResource BoolToSuccessColorConverter}}"/>
+                                <TextBlock Grid.Column="2" Text="{Binding HookType}" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="Cascadia Code NF"/>
+                                <TextBlock Grid.Column="3" Text="{Binding ToolName}"
+                                           Foreground="#FFB86C" FontSize="11" FontFamily="Cascadia Code NF"/>
+                                <TextBlock Grid.Column="4" Text="{Binding Cwd}"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Cascadia Code NF"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="5" Text="{Binding Source}"
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" FontFamily="Cascadia Code NF"
+                                           Margin="8,0,0,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="Transparent" Cursor="SizeNS"/>
+
+                <!-- Detail panel -->
+                <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="4,4,4,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Raw Payload" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                            <TextBlock x:Name="DetailSessionId" FontSize="11" FontFamily="Cascadia Code NF"
+                                       Foreground="#8BE9FD" Margin="0,0,12,0"/>
+                            <TextBlock x:Name="DetailStatus" FontSize="11" FontFamily="Cascadia Code NF"/>
+                        </StackPanel>
+                        <TextBlock x:Name="DetailSubscribers" Grid.Column="2" FontSize="10"
+                                   Foreground="{StaticResource TextSecondaryBrush}" FontFamily="Cascadia Code NF"/>
+                    </Grid>
+                    <TextBox x:Name="DetailBody" Grid.Row="1"
+                             Background="{StaticResource BackgroundLightBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             BorderThickness="0" IsReadOnly="True"
+                             FontFamily="Cascadia Code NF" FontSize="11"
+                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             Padding="8"/>
+                </Grid>
+            </Grid>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="{StaticResource BackgroundMediumBrush}" Padding="12,6" CornerRadius="0,0,6,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="StatusText" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="AutoRefresh" Grid.Column="1" Content="Auto-refresh (2s)" IsChecked="True"
+                              Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"
+                              Checked="AutoRefresh_Changed" Unchecked="AutoRefresh_Changed"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

@@ -59,6 +59,15 @@ public class ApiServer : IApiServer
     public event EventHandler<HookEvent>? HookEventReceived;
     public string? BaseUrl { get; private set; }
 
+    // Hook debug log — ring buffer of last 200 entries
+    private readonly List<HookDebugEntry> _hookDebugLog = new();
+    private readonly object _hookDebugLock = new();
+    private const int MaxHookDebugEntries = 200;
+    public IReadOnlyList<HookDebugEntry> HookDebugLog
+    {
+        get { lock (_hookDebugLock) return _hookDebugLog.ToList(); }
+    }
+
     // Cached config to avoid loading 145KB JSON on every HTTP request.
     // Refreshed when user changes settings.
     private ApiSettings _cachedApiSettings = new();
@@ -305,6 +314,11 @@ public class ApiServer : IApiServer
                 await HandleClipboardSetImageAsync(request, response);
                 return;
             }
+            if (path.StartsWith("/api/hooks/") && method == "POST")
+            {
+                await HandleHookAsync(response, request, path["/api/hooks/".Length..]);
+                return;
+            }
 
             if (method != "GET")
             {
@@ -353,8 +367,6 @@ public class ApiServer : IApiServer
                 else
                     await WriteJsonError(response, 403, "SSE_DISABLED", "SSE streaming is not enabled.");
             }
-            else if (path.StartsWith("/api/hooks/") && request.HttpMethod == "POST")
-                await HandleHookAsync(response, request, path["/api/hooks/".Length..]);
             else
                 await WriteJsonError(response, 404, "NOT_FOUND", $"Unknown endpoint: {path}");
         }
@@ -1176,9 +1188,11 @@ public class ApiServer : IApiServer
 
     private async Task HandleHookAsync(HttpListenerResponse response, HttpListenerRequest request, string hookType)
     {
+        var source = request.RemoteEndPoint?.ToString() ?? "unknown";
+        string? body = null;
+
         try
         {
-            string body;
             using (var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding))
             {
                 body = await reader.ReadToEndAsync();
@@ -1186,6 +1200,7 @@ public class ApiServer : IApiServer
 
             if (string.IsNullOrWhiteSpace(body))
             {
+                AddHookDebugEntry(hookType, source, null, null, null, false, "EMPTY_BODY", 400, body);
                 await WriteJsonError(response, 400, "EMPTY_BODY", "No hook payload provided.");
                 return;
             }
@@ -1193,6 +1208,7 @@ public class ApiServer : IApiServer
             var hookData = HookEventData.Parse(body);
             if (hookData == null)
             {
+                AddHookDebugEntry(hookType, source, null, null, null, false, "PARSE_ERROR", 400, body);
                 await WriteJsonError(response, 400, "PARSE_ERROR", "Failed to parse hook payload.");
                 return;
             }
@@ -1214,12 +1230,18 @@ public class ApiServer : IApiServer
 
             if (hookEvent == null)
             {
+                AddHookDebugEntry(hookType, source, hookData.SessionId, hookData.Cwd, hookData.ToolName, false, $"UNKNOWN_HOOK: {hookType}", 400, body);
                 await WriteJsonError(response, 400, "UNKNOWN_HOOK", $"Unknown hook type: {hookType}");
                 return;
             }
 
+            // Count subscribers before firing
+            var subscriberCount = HookEventReceived?.GetInvocationList().Length ?? 0;
+
             // Fire event for App.xaml.cs to route through the standard pipeline
             HookEventReceived?.Invoke(this, hookEvent);
+
+            AddHookDebugEntry(hookType, source, hookEvent.SessionId, hookEvent.Cwd, hookEvent.ToolName, true, null, 200, body, subscriberCount);
 
             response.StatusCode = 200;
             response.ContentType = "application/json";
@@ -1229,7 +1251,50 @@ public class ApiServer : IApiServer
         }
         catch (Exception ex)
         {
+            AddHookDebugEntry(hookType, source, null, null, null, false, ex.Message, 500, body);
             await WriteJsonError(response, 500, "HOOK_ERROR", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Adds a debug entry for hooks received via named pipe (non-API path).
+    /// </summary>
+    public void AddPipeHookDebugEntry(HookEvent hookEvent)
+    {
+        AddHookDebugEntry(
+            hookEvent.EventType.ToString(),
+            "named-pipe",
+            hookEvent.SessionId,
+            hookEvent.Cwd,
+            hookEvent.ToolName,
+            true,
+            null,
+            0,
+            null,
+            1);
+    }
+
+    private void AddHookDebugEntry(string hookType, string source, string? sessionId, string? cwd, string? toolName, bool success, string? error, int statusCode, string? rawBody, int subscriberCount = 0)
+    {
+        var entry = new HookDebugEntry
+        {
+            HookType = hookType,
+            Source = source,
+            SessionId = sessionId,
+            Cwd = cwd,
+            ToolName = toolName,
+            Success = success,
+            Error = error,
+            StatusCode = statusCode,
+            RawBody = rawBody?.Length > 2000 ? rawBody[..2000] + "…" : rawBody,
+            SubscriberCount = subscriberCount
+        };
+
+        lock (_hookDebugLock)
+        {
+            _hookDebugLog.Add(entry);
+            while (_hookDebugLog.Count > MaxHookDebugEntries)
+                _hookDebugLog.RemoveAt(0);
         }
     }
 

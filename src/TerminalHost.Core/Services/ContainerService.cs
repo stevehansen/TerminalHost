@@ -527,6 +527,12 @@ public class ContainerService : IContainerService
             }
         }
 
+        // Overlay .mcp.json with localhost → host.docker.internal so MCP servers
+        // registered by TerminalHost resolve correctly from inside the container.
+        var containerMcpJson = GenerateContainerMcpJson(workspaceDir);
+        if (containerMcpJson != null)
+            args.Append($" -v \"{containerMcpJson}:{containerWs}/.mcp.json:ro\"");
+
         // Claude Code config directories (read-write for sharing with host)
         var claudeDir = Path.Combine(userProfile, ".claude");
         var claudeJson = Path.Combine(userProfile, ".claude.json");
@@ -877,6 +883,46 @@ public class ContainerService : IContainerService
             var settingsPath = Path.Combine(containerDir, "settings.local.json");
             _fileSystem.WriteAllText(settingsPath, json);
             return settingsPath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Generates a container-specific .mcp.json overlay that replaces localhost URLs
+    /// with host.docker.internal so HTTP MCP servers resolve correctly from inside the container.
+    /// </summary>
+    private string? GenerateContainerMcpJson(string workspaceDir)
+    {
+        try
+        {
+            var mcpJsonPath = Path.Combine(workspaceDir, ".mcp.json");
+            if (!_fileSystem.FileExists(mcpJsonPath))
+                return null;
+
+            var content = _fileSystem.ReadAllText(mcpJsonPath);
+
+            // Replace localhost/127.0.0.1 with host.docker.internal in URLs
+            var converted = content
+                .Replace("http://localhost:", "http://host.docker.internal:")
+                .Replace("http://127.0.0.1:", "http://host.docker.internal:")
+                .Replace("https://localhost:", "https://host.docker.internal:")
+                .Replace("https://127.0.0.1:", "https://host.docker.internal:");
+
+            if (converted == content)
+                return null; // No changes needed
+
+            var containerDir = Path.Combine(_configDirectory, "container");
+            if (!_fileSystem.DirectoryExists(containerDir))
+                Directory.CreateDirectory(containerDir);
+
+            // Include workspace folder name in overlay filename for multi-project support
+            var folderName = Path.GetFileName(workspaceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var overlayPath = Path.Combine(containerDir, $"mcp-{folderName}.json");
+            _fileSystem.WriteAllText(overlayPath, converted);
+            return overlayPath;
         }
         catch
         {
@@ -1349,34 +1395,38 @@ public class ContainerService : IContainerService
         HOST_WS="${TERMINALHOST_HOST_WORKSPACE}"
         HOST_UP="${TERMINALHOST_HOST_USERPROFILE}"
 
+        # Convert Windows backslash paths to forward slashes for JSON safety.
+        # Windows accepts both P:\HC and P:/HC, but only P:/HC is valid JSON.
+        fwd_path() {
+            printf '%s' "${1//\\//}"
+        }
+
         translate_paths() {
             local data="$1"
 
-            # Translate container workspace path → host workspace path
-            # e.g., /workspace/IT4C → P:\IT4C (JSON-escaped: P:\\IT4C)
+            # Translate container workspace path → host workspace path (forward slashes)
+            # e.g., /workspace/IT4C → P:/IT4C
             if [ -n "$HOST_WS" ]; then
-                local escaped
-                escaped=$(printf '%s' "$HOST_WS" | sed 's/\\/\\\\/g')
-                data=$(printf '%s' "$data" | sed "s|${CONTAINER_WS}|${escaped}|g")
+                local safe
+                safe=$(fwd_path "$HOST_WS")
+                data="${data//${CONTAINER_WS}/${safe}}"
             fi
 
-            # Translate /home/developer → host user profile (e.g., C:\Users\steve)
-            # This covers /home/developer/.claude/... paths in hook data
+            # Translate /home/developer → host user profile (forward slashes)
+            # e.g., /home/developer/.claude → C:/Users/steve/.claude
             if [ -n "$HOST_UP" ]; then
-                local escaped
-                escaped=$(printf '%s' "$HOST_UP" | sed 's/\\/\\\\/g')
-                data=$(printf '%s' "$data" | sed "s|/home/developer|${escaped}|g")
+                local safe
+                safe=$(fwd_path "$HOST_UP")
+                data="${data//\/home\/developer/${safe}}"
             fi
 
-            # Translate /refs/<name> → host reference volume paths
-            # Reads TERMINALHOST_REF_* env vars
+            # Translate /refs/<name> → host reference volume paths (forward slashes)
             while IFS='=' read -r key value; do
                 if [[ "$key" == TERMINALHOST_REF_* ]]; then
                     local ref_name="${key#TERMINALHOST_REF_}"
-                    # Restore dots/hyphens from underscores (best-effort)
-                    local escaped
-                    escaped=$(printf '%s' "$value" | sed 's/\\/\\\\/g')
-                    data=$(printf '%s' "$data" | sed "s|/refs/${ref_name}|${escaped}|g")
+                    local safe
+                    safe=$(fwd_path "$value")
+                    data="${data//\/refs\/${ref_name}/${safe}}"
                 fi
             done < <(env)
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TerminalHost.Core.Domain;
 
@@ -29,4 +30,9 @@ public interface IApiServer : IDisposable
     /// App.xaml.cs subscribes to route these through the same pipeline as CLI hooks.
     /// </summary>
     event EventHandler<HookEvent>? HookEventReceived;
+
+    /// <summary>
+    /// Ring buffer of recent hook debug entries for troubleshooting.
+    /// </summary>
+    IReadOnlyList<HookDebugEntry> HookDebugLog { get; }
 }

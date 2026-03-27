@@ -2681,6 +2681,25 @@ public partial class MainViewModel : ObservableObject
                 }
             },
 
+            new() {
+                Id = "timeline-hook-debug",
+                Name = "Timeline: Hook Debug Log",
+                Description = "Show incoming hook events from API and named pipe (troubleshoot container/session tracking)",
+                Icon = "🔍",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 27),
+                Execute = () =>
+                {
+                    if (_apiServer == null)
+                    {
+                        _toastService.Show("API server not available", ToastType.Error);
+                        return;
+                    }
+                    var dialog = new Views.Dialogs.HookDebugDialog(_apiServer);
+                    dialog.Show();
+                }
+            },
+
             // Spark Canvas
             new() {
                 Id = "spark-canvas",
