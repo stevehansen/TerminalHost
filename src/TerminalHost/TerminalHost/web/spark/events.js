@@ -245,6 +245,9 @@ async function enterMultiMode() {
         await Promise.all(loadPromises);
         console.log(`[Multi] Loaded ${loadedCount}/${sessions.length} sessions, canvas has ${sparkCanvas.agents.size} agents`);
 
+        // Deduplicate sessions from the same workspace — keep newest
+        deduplicateSessions();
+
         // Final stabilize and fit all sessions into view
         sparkCanvas.sim.arrangeGroups();
         sparkCanvas.sim.stabilize(120);
@@ -253,6 +256,13 @@ async function enterMultiMode() {
         // Connect SSE without session filter (null sessionId = accept all)
         connectSSE(apiBase, null);
         setConnectionStatus('live');
+
+        // Periodically dedup sessions (handles new sessions replacing old from same workspace)
+        if (!window._dedupTimer) {
+            window._dedupTimer = setInterval(() => {
+                if (sparkCanvas.multiMode) deduplicateSessions();
+            }, 30000);
+        }
 
         addFeedEntry('SPARK', `Observatory: ${sparkCanvas.sessions.size} sessions loaded`, 'assistant');
 
@@ -398,8 +408,19 @@ async function pollCollab() {
             }
         }
 
+        // Merge REST-discovered edges with event-based edges (don't overwrite)
+        sparkCanvas._rebuildCollabEdges(); // rebuild from event-based subscriptions
+        // Add REST edges that aren't already covered by event-based ones
+        const existingKeys = new Set(sparkCanvas.collabEdges.map(e =>
+            `${e.sourceSessionId}|${e.targetSessionId}|${e.topic}`));
+        for (const edge of newEdges) {
+            const key = `${edge.sourceSessionId}|${edge.targetSessionId}|${edge.topic}`;
+            const keyRev = `${edge.targetSessionId}|${edge.sourceSessionId}|${edge.topic}`;
+            if (!existingKeys.has(key) && !existingKeys.has(keyRev)) {
+                sparkCanvas.collabEdges.push(edge);
+            }
+        }
         const hadEdges = sparkCanvas.collabEdges.length > 0;
-        sparkCanvas.collabEdges = newEdges;
         if (newEdges.length > 0 && !hadEdges) {
             addFeedEntry('COLLAB', `${newEdges.length} connection${newEdges.length !== 1 ? 's' : ''} via ${topics.length} topic${topics.length !== 1 ? 's' : ''}`, 'assistant');
         }
@@ -407,6 +428,60 @@ async function pollCollab() {
     } catch {
         collabFailCount++;
     }
+}
+
+// ─── Session Deduplication ───────────────────────────────
+
+/** Remove duplicate sessions from the same workspace — keep the one with the most activity */
+function deduplicateSessions() {
+    if (!sparkCanvas.multiMode || sparkCanvas.sessions.size < 2) return;
+
+    // Group sessions by name (workspace folder)
+    const byName = new Map();
+    for (const [sid, session] of sparkCanvas.sessions) {
+        const key = session.name.toLowerCase();
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(sid);
+    }
+
+    for (const [name, sids] of byName) {
+        if (sids.length < 2) continue;
+
+        // Pick the best session: prefer active, then most agents, then newest
+        let bestId = sids[0];
+        let bestScore = -1;
+        for (const sid of sids) {
+            const session = sparkCanvas.sessions.get(sid);
+            const agentCount = [...sparkCanvas.agents.values()].filter(a => a.sessionId === sid).length;
+            const isActive = session.isActive ? 1000 : 0;
+            const score = isActive + agentCount;
+            if (score > bestScore) {
+                bestScore = score;
+                bestId = sid;
+            }
+        }
+
+        // Remove all but the best
+        for (const sid of sids) {
+            if (sid === bestId) continue;
+            // Remove agents belonging to this session
+            for (const [aid, agent] of sparkCanvas.agents) {
+                if (agent.sessionId === sid) {
+                    sparkCanvas.agents.delete(aid);
+                    sparkCanvas.sim.removeNode(aid);
+                }
+            }
+            // Remove tool cards
+            for (const [tid, card] of sparkCanvas.toolCards) {
+                const agent = sparkCanvas.agents.get(card.agentId);
+                if (!agent) sparkCanvas.toolCards.delete(tid);
+            }
+            sparkCanvas.sessions.delete(sid);
+            sparkCanvas.sim.removeGroup(sid);
+        }
+    }
+
+    sparkCanvas.sim.arrangeGroups();
 }
 
 // ─── WebView2 Message Bridge ───────────────────────────

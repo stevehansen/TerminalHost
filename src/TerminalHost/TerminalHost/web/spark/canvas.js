@@ -81,6 +81,7 @@ class SparkCanvas {
         this._sessionColorIdx = 0;
         this.collabEdges = [];         // { sourceSessionId, targetSessionId, topic, lastMessageTime, opacity }
         this.collabSubscriptions = new Map(); // topic -> Set<sessionId> — built from activity events
+        this.collabTopicNodes = new Map();    // topic name -> { name, description, x, y, sessions, messageCount }
 
         // Search/filter (Phase 3c)
         this.searchTerm = '';
@@ -282,6 +283,7 @@ class SparkCanvas {
         this.sessions.clear();
         this.collabEdges.length = 0;
         this.collabSubscriptions.clear();
+        this.collabTopicNodes.clear();
         this._sessionColorIdx = 0;
         this.sessionId = null;
         this.sessionName = '';
@@ -966,37 +968,46 @@ class SparkCanvas {
     // ─── Collab Edges (Inter-Session) ────────────────────────
 
     _drawCollabEdges(ctx) {
+        // Draw edges — either session-to-topic or session-to-session
         for (let edgeIdx = 0; edgeIdx < this.collabEdges.length; edgeIdx++) {
             const edge = this.collabEdges[edgeIdx];
             const sourceSession = this.sessions.get(edge.sourceSessionId);
-            const targetSession = this.sessions.get(edge.targetSessionId);
-            if (!sourceSession || !targetSession) continue;
+
+            // Resolve target: either a session or a topic node
+            const isTopicTarget = edge.targetSessionId?.startsWith('topic:');
+            const topicNode = isTopicTarget ? this.collabTopicNodes.get(edge.topic) : null;
+            const targetSession = isTopicTarget ? null : this.sessions.get(edge.targetSessionId);
+
+            if (!sourceSession) continue;
+            if (!targetSession && !topicNode) continue;
 
             const sourceBounds = this.sim.getGroupBounds(edge.sourceSessionId);
-            const targetBounds = this.sim.getGroupBounds(edge.targetSessionId);
-            if (!sourceBounds || !targetBounds) continue;
+            if (!sourceBounds) continue;
 
-            // Center points of each session
             const sx = sourceBounds.x + sourceBounds.width / 2;
             const sy = sourceBounds.y + sourceBounds.height / 2;
-            const tx = targetBounds.x + targetBounds.width / 2;
-            const ty = targetBounds.y + targetBounds.height / 2;
+            let tx, ty;
 
-            // Bezier control (offset per edge so multiple topics don't overlap)
+            if (topicNode) {
+                tx = topicNode.x;
+                ty = topicNode.y;
+            } else {
+                const targetBounds = this.sim.getGroupBounds(edge.targetSessionId);
+                if (!targetBounds) continue;
+                tx = targetBounds.x + targetBounds.width / 2;
+                ty = targetBounds.y + targetBounds.height / 2;
+            }
+
+            // Bezier control
             const dx = tx - sx;
             const dy = ty - sy;
-            const spread = (edgeIdx - (this.collabEdges.length - 1) / 2) * 0.1;
-            const ctrlX = (sx + tx) / 2 + (-dy * (0.2 + spread));
-            const ctrlY = (sy + ty) / 2 + (dx * (0.2 + spread));
-
-            // Gradient edge from source color to target color
-            const gradient = ctx.createLinearGradient(sx, sy, tx, ty);
-            gradient.addColorStop(0, sourceSession.color + '44');
-            gradient.addColorStop(1, targetSession.color + '44');
+            const spread = (edgeIdx - (this.collabEdges.length - 1) / 2) * 0.08;
+            const ctrlX = (sx + tx) / 2 + (-dy * (0.15 + spread));
+            const ctrlY = (sy + ty) / 2 + (dx * (0.15 + spread));
 
             ctx.save();
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = sourceSession.color + '44';
+            ctx.lineWidth = 1.5;
             ctx.setLineDash([10, 6]);
             ctx.lineDashOffset = -this._time * 30;
             ctx.beginPath();
@@ -1005,29 +1016,70 @@ class SparkCanvas {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Topic label at midpoint
-            if (edge.topic) {
-                const mx = (sx + tx) / 2;
-                const my = (sy + ty) / 2;
-                ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                ctx.font = '8px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(edge.topic, mx, my - 6);
-            }
-
-            // Animated flow particles along collab edge
-            const numParticles = 3;
-            for (let i = 0; i < numParticles; i++) {
-                const t = ((this._time * 0.3 + i / numParticles) % 1);
+            // Flow particles
+            for (let i = 0; i < 2; i++) {
+                const t = ((this._time * 0.25 + i / 2) % 1);
                 const inv = 1 - t;
                 const px = inv * inv * sx + 2 * inv * t * ctrlX + t * t * tx;
                 const py = inv * inv * sy + 2 * inv * t * ctrlY + t * t * ty;
                 ctx.fillStyle = sourceSession.color;
-                ctx.globalAlpha = 0.6;
+                ctx.globalAlpha = 0.5;
                 ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.arc(px, py, 2.5, 0, Math.PI * 2);
                 ctx.fill();
             }
+
+            ctx.restore();
+        }
+
+        // Draw topic nodes (hexagonal badges)
+        for (const [name, topicNode] of this.collabTopicNodes) {
+            const { x, y, sessions } = topicNode;
+            if (sessions.size === 0) continue;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Hexagonal background
+            const r = 16;
+            ctx.fillStyle = 'rgba(204, 136, 255, 0.12)';
+            ctx.strokeStyle = 'rgba(204, 136, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                const hx = Math.cos(angle) * r;
+                const hy = Math.sin(angle) * r;
+                i === 0 ? ctx.moveTo(hx, hy) : ctx.lineTo(hx, hy);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Pulsing glow
+            const pulse = 0.3 + Math.sin(this._time * 2) * 0.15;
+            ctx.save();
+            ctx.globalAlpha = pulse;
+            ctx.shadowColor = '#cc88ff';
+            ctx.shadowBlur = 10;
+            ctx.stroke();
+            ctx.restore();
+
+            // Topic icon (speech bubble)
+            ctx.fillStyle = '#cc88ff';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u2709', 0, 4); // envelope icon
+
+            // Label below
+            ctx.fillStyle = 'rgba(204, 136, 255, 0.8)';
+            ctx.font = '9px monospace';
+            ctx.fillText(name, 0, r + 14);
+
+            // Session count
+            ctx.fillStyle = 'rgba(204, 136, 255, 0.5)';
+            ctx.font = '7px monospace';
+            ctx.fillText(`${sessions.size} sessions`, 0, r + 24);
 
             ctx.restore();
         }
@@ -1047,13 +1099,16 @@ class SparkCanvas {
 
         // Extract topic name from inputSummary
         const topic = this._extractCollabTopic(inputSummary);
+        console.log(`[CollabDetect] tool=${toolName} summary="${inputSummary}" topic=${topic} session=${sessionId} onCanvas=${this.sessions.has(sessionId)}`);
         if (!topic) return;
 
         if (!this.collabSubscriptions.has(topic)) {
             this.collabSubscriptions.set(topic, new Set());
         }
         this.collabSubscriptions.get(topic).add(sessionId);
+        console.log(`[CollabDetect] topic "${topic}" now has ${this.collabSubscriptions.get(topic).size} sessions: [${[...this.collabSubscriptions.get(topic)].join(', ')}]`);
         this._rebuildCollabEdges();
+        console.log(`[CollabDetect] collabEdges: ${this.collabEdges.length}`);
     }
 
     /** Try to extract a topic name from a collab tool's inputSummary */
@@ -1065,26 +1120,60 @@ class SparkCanvas {
         return m ? m[1] : null;
     }
 
-    /** Rebuild collabEdges from the subscriptions map */
+    /** Rebuild collabEdges from the subscriptions map and create topic nodes */
     _rebuildCollabEdges() {
         const edges = [];
         for (const [topic, sessionIds] of this.collabSubscriptions) {
-            const sids = [...sessionIds];
-            for (let i = 0; i < sids.length; i++) {
-                for (let j = i + 1; j < sids.length; j++) {
-                    // Only create edge if both sessions are on the canvas
-                    if (this.sessions.has(sids[i]) && this.sessions.has(sids[j])) {
-                        edges.push({
-                            sourceSessionId: sids[i],
-                            targetSessionId: sids[j],
-                            topic,
-                            lastMessageTime: new Date(),
-                            opacity: 1.0,
-                        });
-                    }
+            const sids = [...sessionIds].filter(s => this.sessions.has(s));
+            if (sids.length < 2) continue;
+
+            // Create topic node positioned between connected sessions
+            if (!this.collabTopicNodes.has(topic)) {
+                this.collabTopicNodes.set(topic, {
+                    name: topic,
+                    description: '',
+                    x: 0, y: 0,
+                    sessions: new Set(sids),
+                    messageCount: 0,
+                });
+            }
+            const topicNode = this.collabTopicNodes.get(topic);
+            topicNode.sessions = new Set(sids);
+
+            // Position topic node at centroid of connected sessions
+            let cx = 0, cy = 0, count = 0;
+            for (const sid of sids) {
+                const bounds = this.sim.getGroupBounds(sid);
+                if (bounds) {
+                    cx += bounds.x + bounds.width / 2;
+                    cy += bounds.y + bounds.height / 2;
+                    count++;
                 }
             }
+            if (count > 0) {
+                topicNode.x = cx / count;
+                topicNode.y = cy / count;
+            }
+
+            // Create edges from each session to the topic node (star topology)
+            for (const sid of sids) {
+                edges.push({
+                    sourceSessionId: sid,
+                    targetSessionId: `topic:${topic}`,
+                    topic,
+                    lastMessageTime: new Date(),
+                    opacity: 1.0,
+                });
+            }
         }
+
+        // Remove stale topic nodes
+        for (const [name] of this.collabTopicNodes) {
+            if (!this.collabSubscriptions.has(name)) {
+                this.collabTopicNodes.delete(name);
+            }
+        }
+
         this.collabEdges = edges;
     }
 
