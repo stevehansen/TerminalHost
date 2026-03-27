@@ -406,3 +406,4 @@ FodyWeavers.xsd
 
 
 .claude/settings.local.json
+.direnv/
