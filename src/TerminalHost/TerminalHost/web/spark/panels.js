@@ -13,6 +13,54 @@ const filters = {
 
 function getFilters() { return filters; }
 
+// ─── State Persistence (localStorage) ─────────────
+const SPARK_STATE_KEY = 'spark-canvas-state';
+
+function saveSparkState() {
+    try {
+        const state = {
+            multiMode: sparkCanvas?.multiMode || false,
+            timelineVisible: timelineState.visible,
+            fileVisible: fileState.visible,
+            transcriptVisible: transcriptState.visible,
+            showCards: filters.showCards,
+            showEdges: filters.showEdges,
+            showBubbles: filters.showBubbles,
+        };
+        localStorage.setItem(SPARK_STATE_KEY, JSON.stringify(state));
+    } catch { /* quota exceeded or private mode */ }
+}
+
+function loadSparkState() {
+    try {
+        const raw = localStorage.getItem(SPARK_STATE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function restoreSparkState() {
+    const saved = loadSparkState();
+    if (!saved) return;
+
+    // Restore visibility filters immediately
+    if (saved.showCards === false) { filters.showCards = false; document.getElementById('btnToggleCards')?.classList.remove('active'); }
+    if (saved.showEdges === false) { filters.showEdges = false; document.getElementById('btnToggleEdges')?.classList.remove('active'); }
+    if (saved.showBubbles === false) { filters.showBubbles = false; document.getElementById('btnToggleBubbles')?.classList.remove('active'); }
+
+    // Restore panels (defer so DOM is ready)
+    setTimeout(() => {
+        if (saved.timelineVisible && !timelineState.visible) toggleTimelinePanel();
+        if (saved.fileVisible && !fileState.visible) toggleFilePanel();
+        if (saved.transcriptVisible && !transcriptState.visible) toggleTranscriptPanel();
+    }, 100);
+}
+
+/** Returns true if saved state had multi-mode enabled */
+function getSavedMultiMode() {
+    const saved = loadSparkState();
+    return saved?.multiMode || false;
+}
+
 // ─── Timeline / Gantt Panel ─────────────────────────
 
 const timelineState = {
@@ -34,6 +82,7 @@ function toggleTimelinePanel() {
         initTimelineCanvas();
         renderTimeline();
     }
+    saveSparkState();
 }
 
 function initTimelineCanvas() {
@@ -240,6 +289,7 @@ function toggleFilePanel() {
     panel.style.display = fileState.visible ? 'flex' : 'none';
     document.getElementById('btnToggleFiles').classList.toggle('active', fileState.visible);
     if (fileState.visible) renderFilePanel();
+    saveSparkState();
 }
 
 /** Record a file access */
@@ -316,6 +366,7 @@ function toggleTranscriptPanel() {
         document.getElementById('filePanel').style.display = 'none';
         document.getElementById('btnToggleFiles').classList.remove('active');
     }
+    saveSparkState();
     // Close agent/tool detail panels
     if (transcriptState.visible) {
         hideAgentDetail();
@@ -434,6 +485,7 @@ function initPanels(canvas) {
         btn.addEventListener('click', () => {
             filters[key] = !filters[key];
             btn.classList.toggle('active', filters[key]);
+            saveSparkState();
         });
     };
     toggleFilter('btnToggleCards', 'showCards');

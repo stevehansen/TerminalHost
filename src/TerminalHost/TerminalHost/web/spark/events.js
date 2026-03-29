@@ -27,11 +27,15 @@ function initSpark() {
     // Always listen for WebView2 messages
     listenForWebViewMessages();
 
+    // Restore persisted state (panels, filters — NOT multi-mode, that's handled below)
+    restoreSparkState();
+
     if (mode === 'replay') {
         setConnectionStatus('offline');
-    } else if (multi) {
-        // Start in multi-session mode
-        enterMultiMode();
+    } else if (multi || getSavedMultiMode()) {
+        // Start in multi-session mode (from URL param or saved state)
+        // API may not be ready yet on startup — retry with backoff
+        enterMultiModeWithRetry();
     } else if (sessionId) {
         // Direct session ID — load immediately
         loadAndConnect(sessionId);
@@ -44,38 +48,48 @@ function initSpark() {
 
 // ─── Session Discovery (direct API) ────────────────────
 
-async function discoverSessions() {
-    try {
-        const resp = await fetch(`${apiBase}/api/sessions`);
-        if (!resp.ok) {
-            setConnectionStatus('offline');
-            showEmptyState(`API returned ${resp.status}. Is the API server enabled?`);
-            return;
-        }
-        const data = await resp.json();
-        const sessions = (data.sessions || []).map(s => ({
-            sessionId: s.sessionId,
-            displayName: s.workingDirectory ? s.workingDirectory.split(/[/\\]/).filter(Boolean).pop() : 'Session',
-            projectPath: s.workingDirectory || '',
-            isLive: s.lifecycle === 'Active',
-            startTime: s.startTime
-        }));
+async function discoverSessions(maxRetries = 5) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const resp = await fetch(`${apiBase}/api/sessions`);
+            if (!resp.ok) {
+                if (attempt === maxRetries) {
+                    setConnectionStatus('offline');
+                    showEmptyState(`API returned ${resp.status}. Is the API server enabled?`);
+                    return;
+                }
+            } else {
+                const data = await resp.json();
+                const sessions = (data.sessions || []).map(s => ({
+                    sessionId: s.sessionId,
+                    displayName: s.workingDirectory ? s.workingDirectory.split(/[/\\]/).filter(Boolean).pop() : 'Session',
+                    projectPath: s.workingDirectory || '',
+                    isLive: s.lifecycle === 'Active',
+                    startTime: s.startTime
+                }));
 
-        updateSessionList(sessions);
+                updateSessionList(sessions);
 
-        // Auto-connect to first active session
-        const active = sessions.find(s => s.isLive) || sessions[0];
-        if (active) {
-            document.getElementById('sessionSelect').value = active.sessionId;
-            loadAndConnect(active.sessionId);
-        } else {
-            setConnectionStatus('offline');
-            showEmptyState('No active sessions. Start a Claude Code session to visualize.');
+                const active = sessions.find(s => s.isLive) || sessions[0];
+                if (active) {
+                    document.getElementById('sessionSelect').value = active.sessionId;
+                    loadAndConnect(active.sessionId);
+                } else {
+                    setConnectionStatus('offline');
+                    showEmptyState('No active sessions. Start a Claude Code session to visualize.');
+                }
+                return;
+            }
+        } catch (err) {
+            if (attempt === maxRetries) {
+                console.warn('Session discovery failed:', err);
+                setConnectionStatus('offline');
+                showEmptyState(`Cannot reach API at ${apiBase}. Is the API server enabled in Settings?`);
+                return;
+            }
         }
-    } catch (err) {
-        console.warn('Session discovery failed:', err);
-        setConnectionStatus('offline');
-        showEmptyState(`Cannot reach API at ${apiBase}. Is the API server enabled in Settings?`);
+        // Backoff: 500ms, 1s, 1.5s, 2s, 2.5s
+        await new Promise(r => setTimeout(r, Math.min(500 + attempt * 500, 3000)));
     }
 }
 
@@ -160,6 +174,26 @@ function connectSSE(apiBase, sessionId) {
 // ─── Multi-Session Observatory (Phase 3d) ───────────────
 
 let collabPollTimer = null;
+
+/** Enter multi-mode with retries — used on startup when API may not be ready yet */
+async function enterMultiModeWithRetry(maxRetries = 8) {
+    setConnectionStatus('connecting');
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            const resp = await fetch(`${apiBase}/api/sessions`);
+            if (resp.ok) {
+                // API is ready — enter multi-mode normally
+                await enterMultiMode();
+                return;
+            }
+        } catch { /* API not ready yet */ }
+        // Backoff: 500ms, 1s, 1.5s, 2s, 2.5s, 3s, 3s, 3s
+        await new Promise(r => setTimeout(r, Math.min(500 + attempt * 500, 3000)));
+    }
+    // All retries exhausted — fall back to single-session discovery
+    console.warn('[Spark] Multi-mode API not reachable after retries, falling back to single-session');
+    discoverSessions();
+}
 
 async function enterMultiMode() {
     sparkCanvas.clearAll();
@@ -300,6 +334,7 @@ function toggleMultiMode() {
     } else {
         enterMultiMode();
     }
+    saveSparkState();
 }
 
 // ─── Collab Polling (Inter-Session Communication) ───────

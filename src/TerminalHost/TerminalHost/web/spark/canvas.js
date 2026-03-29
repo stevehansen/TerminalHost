@@ -40,6 +40,62 @@ SPARK_PATH.bezierCurveTo(-2, 3, -3, 2, -8, 0);
 SPARK_PATH.bezierCurveTo(-3, -2, -2, -3, 0, -8);
 SPARK_PATH.closePath();
 
+// ─── Pre-computed Hexagon Offsets ────────────────────────
+const HEX_OFFSETS = Array.from({ length: 6 }, (_, i) => {
+    const angle = (Math.PI / 3) * i - Math.PI / 2;
+    return { cos: Math.cos(angle), sin: Math.sin(angle) };
+});
+
+function drawHexagon(ctx, cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const px = cx + HEX_OFFSETS[i].cos * r;
+        const py = cy + HEX_OFFSETS[i].sin * r;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+}
+
+// ─── Glow Sprite Cache ──────────────────────────────────
+// Pre-renders radial gradient glows to offscreen canvases, keyed by color+size.
+const _glowCache = new Map();
+
+function getGlowSprite(color, innerR, outerR, alphaHex) {
+    const key = `${color}_${innerR}_${outerR}_${alphaHex}`;
+    if (_glowCache.has(key)) return _glowCache.get(key);
+
+    const size = outerR * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(outerR, outerR, innerR, outerR, outerR, outerR);
+    grad.addColorStop(0, color + alphaHex);
+    grad.addColorStop(0.6, color + _hexAlpha(parseInt(alphaHex, 16) / 255 * 0.4));
+    grad.addColorStop(1, color + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    _glowCache.set(key, canvas);
+    return canvas;
+}
+
+function _hexAlpha(a) {
+    return Math.max(0, Math.min(255, Math.round(a * 255))).toString(16).padStart(2, '0');
+}
+
+// ─── Tool Card Constants (agent-flow aligned) ────────────
+const TOOL_CARD_W = 160;
+const TOOL_CARD_H = 28;
+const TOOL_SLOT = {
+    maxRings: 5,
+    baseDistance: 90,
+    ringIncrement: 35,
+    baseSteps: 5,
+    stepsPerRing: 2,
+    fallbackDistance: 90,
+};
+
 class SparkCanvas {
     constructor(canvasEl) {
         this.canvas = canvasEl;
@@ -773,8 +829,7 @@ class SparkCanvas {
 
     _drawEdges(ctx) {
         const theme = getTheme();
-        const activeColor = theme?.edgeActiveColor || 'rgba(102, 204, 255, 0.30)';
-        const dimColor = theme?.edgeColor || 'rgba(102, 204, 255, 0.12)';
+        const beamColor = theme?.edgeBaseColor || tc().cyan;
 
         for (const edge of this.edges) {
             const sourceNode = this.sim.getNode(edge.sourceId);
@@ -795,107 +850,98 @@ class SparkCanvas {
             const isParentChild = edge.type === 'parent-child';
             const isActive = targetAgent && (targetAgent.state === 'Active' || targetAgent.state === 'ToolCalling' || targetAgent.state === 'Thinking');
 
-            // Bezier control point
+            // Cubic bezier control points (agent-flow style)
             const dx = targetNode.x - sourceNode.x;
             const dy = targetNode.y - sourceNode.y;
-            const midX = (sourceNode.x + targetNode.x) / 2;
-            const midY = (sourceNode.y + targetNode.y) / 2;
-            const perpX = -dy * 0.15;
-            const perpY = dx * 0.15;
-            const ctrlX = midX + perpX;
-            const ctrlY = midY + perpY;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const curvature = dist * 0.15;
+            const perpX = (-dy / dist) * curvature;
+            const perpY = (dx / dist) * curvature;
+            const cp1x = sourceNode.x + dx * 0.33 + perpX;
+            const cp1y = sourceNode.y + dy * 0.33 + perpY;
+            const cp2x = sourceNode.x + dx * 0.66 + perpX;
+            const cp2y = sourceNode.y + dy * 0.66 + perpY;
+
+            // Beam widths and alpha (agent-flow aligned: very subtle idle, visible active)
+            const baseAlpha = isActive ? 0.20 : 0.08;
+            const pulsing = isActive ? Math.sin(this._time * 4) * 0.1 + 0.9 : 1;
+            const startW = isParentChild ? 2.5 : 1.2;
+            const endW = isParentChild ? 0.8 : 0.4;
 
             ctx.save();
-            ctx.globalAlpha = edgeAlpha;
 
-            if (isActive && isParentChild) {
-                // Tapered edge: wider at source, narrower at target
-                this._drawTaperedEdge(ctx, sourceNode, targetNode, ctrlX, ctrlY,
-                    isParentChild ? 4 : 2,  // source width
-                    isParentChild ? 1 : 0.5, // target width
-                    activeColor);
-            } else {
-                // Dashed animation for inactive/waiting edges
-                const color = isActive ? activeColor : dimColor;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = isParentChild ? 1.5 : 0.8;
+            // Always draw tapered bezier (agent-flow approach)
+            this._drawTaperedBezier(ctx,
+                sourceNode.x, sourceNode.y, cp1x, cp1y, cp2x, cp2y, targetNode.x, targetNode.y,
+                startW, endW, beamColor, baseAlpha * pulsing * edgeAlpha);
 
-                if (!isActive) {
-                    // Animated dashes
-                    const dashOffset = this._time * 20;
-                    ctx.setLineDash([6, 8]);
-                    ctx.lineDashOffset = -dashOffset;
-                }
-
-                ctx.beginPath();
-                ctx.moveTo(sourceNode.x, sourceNode.y);
-                ctx.quadraticCurveTo(ctrlX, ctrlY, targetNode.x, targetNode.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
+            // Active glow beam (wider, dimmer overlay)
+            if (isActive) {
+                this._drawTaperedBezier(ctx,
+                    sourceNode.x, sourceNode.y, cp1x, cp1y, cp2x, cp2y, targetNode.x, targetNode.y,
+                    startW + 3, endW + 1, beamColor, 0.08 * edgeAlpha);
             }
 
             ctx.restore();
         }
     }
 
-    /** Draw a tapered bezier edge as a filled polygon */
-    _drawTaperedEdge(ctx, source, target, ctrlX, ctrlY, startWidth, endWidth, color) {
+    /** Draw a tapered cubic bezier edge as a filled polygon (agent-flow aligned) */
+    _drawTaperedBezier(ctx, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY, startWidth, endWidth, color, alpha) {
         const steps = 16;
-        const leftPoints = [];
-        const rightPoints = [];
+        ctx.beginPath();
 
+        // Forward pass: left side
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
-            const inv = 1 - t;
-
-            // Bezier point
-            const bx = inv * inv * source.x + 2 * inv * t * ctrlX + t * t * target.x;
-            const by = inv * inv * source.y + 2 * inv * t * ctrlY + t * t * target.y;
-
-            // Tangent
-            const tx = 2 * inv * (ctrlX - source.x) + 2 * t * (target.x - ctrlX);
-            const ty = 2 * inv * (ctrlY - source.y) + 2 * t * (target.y - ctrlY);
-            const len = Math.sqrt(tx * tx + ty * ty) || 1;
-
-            // Normal (perpendicular)
-            const nx = -ty / len;
-            const ny = tx / len;
-
-            // Width at this point (linear taper)
-            const w = startWidth * (1 - t) + endWidth * t;
-
-            leftPoints.push({ x: bx + nx * w, y: by + ny * w });
-            rightPoints.push({ x: bx - nx * w, y: by - ny * w });
+            const halfW = (startWidth + (endWidth - startWidth) * t) / 2;
+            const p = this._bezierNormalAt(t, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY, halfW);
+            if (i === 0) ctx.moveTo(p.x + p.nx, p.y + p.ny);
+            else ctx.lineTo(p.x + p.nx, p.y + p.ny);
         }
 
-        // Draw filled polygon
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(leftPoints[0].x, leftPoints[0].y);
-        for (let i = 1; i < leftPoints.length; i++) {
-            ctx.lineTo(leftPoints[i].x, leftPoints[i].y);
+        // Reverse pass: right side
+        for (let i = steps; i >= 0; i--) {
+            const t = i / steps;
+            const halfW = (startWidth + (endWidth - startWidth) * t) / 2;
+            const p = this._bezierNormalAt(t, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY, halfW);
+            ctx.lineTo(p.x - p.nx, p.y - p.ny);
         }
-        for (let i = rightPoints.length - 1; i >= 0; i--) {
-            ctx.lineTo(rightPoints[i].x, rightPoints[i].y);
-        }
+
         ctx.closePath();
+        ctx.fillStyle = color + _hexAlpha(alpha);
         ctx.fill();
+    }
 
-        // Bright core line
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 0.5;
-        ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(source.x, source.y);
-        ctx.quadraticCurveTo(ctrlX, ctrlY, target.x, target.y);
-        ctx.stroke();
+    /** Compute cubic bezier position + perpendicular normal at parameter t */
+    _bezierNormalAt(t, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY, halfW) {
+        const mt = 1 - t;
+        const x = mt*mt*mt*fromX + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*toX;
+        const y = mt*mt*mt*fromY + 3*mt*mt*t*cp1y + 3*mt*t*t*cp2y + t*t*t*toY;
+        const dt = 0.001;
+        const t0 = Math.max(0, t - dt), t1 = Math.min(1, t + dt);
+        const m0 = 1-t0, m1 = 1-t1;
+        const tx = (m1*m1*m1*fromX + 3*m1*m1*t1*cp1x + 3*m1*t1*t1*cp2x + t1*t1*t1*toX)
+                 - (m0*m0*m0*fromX + 3*m0*m0*t0*cp1x + 3*m0*t0*t0*cp2x + t0*t0*t0*toX);
+        const ty = (m1*m1*m1*fromY + 3*m1*m1*t1*cp1y + 3*m1*t1*t1*cp2y + t1*t1*t1*toY)
+                 - (m0*m0*m0*fromY + 3*m0*m0*t0*cp1y + 3*m0*t0*t0*cp2y + t0*t0*t0*toY);
+        const len = Math.sqrt(tx*tx + ty*ty) || 1;
+        return { x, y, nx: (-ty / len) * halfW, ny: (tx / len) * halfW };
     }
 
     // ─── Session Boundaries (Multi-Mode) ──────────────────────
 
     _drawSessionBoundaries(ctx) {
         for (const [sessionId, session] of this.sessions) {
-            const bounds = this.sim.getGroupBounds(sessionId, 60);
+            // Dynamic padding: tight for completed/small sessions, generous for active ones
+            const nAgents = [...this.agents.values()].filter(a => a.sessionId === sessionId).length;
+            const hasActiveAgent = [...this.agents.values()].some(a => a.sessionId === sessionId && a.state !== 'Complete' && a.state !== 'Error' && a.state !== 'TimedOut');
+            const nActiveTools = [...this.toolCards.values()].filter(t => {
+                const a = this.agents.get(t.agentId);
+                return a && a.sessionId === sessionId && t.state === 'Running';
+            }).length;
+            const padding = hasActiveAgent ? (50 + Math.min(nAgents * 10, 40) + nActiveTools * 15) : 50;
+            const bounds = this.sim.getGroupBounds(sessionId, padding);
             if (!bounds) continue;
 
             const { x, y, width: w, height: h } = bounds;
@@ -1213,11 +1259,15 @@ class SparkCanvas {
             // Only parent-child edges get flow particles
             if (edge.type !== 'parent-child') continue;
 
-            // Bezier control point
+            // Cubic bezier control points (matching edge rendering)
             const dx = targetNode.x - sourceNode.x;
             const dy = targetNode.y - sourceNode.y;
-            const ctrlX = (sourceNode.x + targetNode.x) / 2 + (-dy * 0.15);
-            const ctrlY = (sourceNode.y + targetNode.y) / 2 + (dx * 0.15);
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const curvature = dist * 0.15;
+            const perpX = (-dy / dist) * curvature;
+            const perpY = (dx / dist) * curvature;
+            const cp1 = { x: sourceNode.x + dx * 0.33 + perpX, y: sourceNode.y + dy * 0.33 + perpY };
+            const cp2 = { x: sourceNode.x + dx * 0.66 + perpX, y: sourceNode.y + dy * 0.66 + perpY };
 
             // Particle type based on agent state
             const isCalling = targetAgent.state === 'ToolCalling';
@@ -1227,16 +1277,16 @@ class SparkCanvas {
 
             this.edgeParticles.spawn(
                 sourceNode, targetNode,
-                { x: ctrlX, y: ctrlY },
-                { color, speed, label, size: 2.5, wobble: 5 }
+                cp1, cp2,
+                { color, speed, label, size: 2.5, wobble: 3 }
             );
 
             // Bidirectional: return particle from target to source
             if (Math.random() < 0.3) {
                 this.edgeParticles.spawn(
                     targetNode, sourceNode,
-                    { x: ctrlX, y: ctrlY },
-                    { color: colors.green, speed: 0.3, label: 'return', size: 2, wobble: 4 }
+                    cp2, cp1,
+                    { color: colors.green, speed: 0.3, label: 'return', size: 2, wobble: 3 }
                 );
             }
         }
@@ -1254,12 +1304,13 @@ class SparkCanvas {
             if (!node) continue;
 
             const stateColor = stateColors[agent.state] || colors.cyan;
-            const radius = node.radius;
+            const baseRadius = node.radius;
             const isSelected = id === this.selectedAgentId;
             const isHovered = id === this.hoveredAgentId;
+            const isWaiting = agent.state === 'WaitingPermission';
+            const isActive = agent.state === 'Active' || agent.state === 'ToolCalling' || agent.state === 'Thinking';
 
             // Fade out completed subagents (60s visible, then 3s fade)
-            // Main agent never fades — it anchors the graph
             let alpha = 1.0;
             if (!agent.isMain && agent.fadeStart != null) {
                 const elapsed = this._time - agent.fadeStart;
@@ -1275,171 +1326,273 @@ class SparkCanvas {
                 alpha *= 0.2;
             }
 
+            // Breathing animation (agent-flow aligned: subtle)
+            const breathe = isWaiting
+                ? Math.sin(this._time * 1.2) * 0.08 + 1
+                : agent.state === 'Thinking'
+                ? Math.sin(this._time * 2) * 0.03 + 1
+                : (agent.state === 'Active' || agent.state === 'Idle')
+                ? Math.sin(this._time * 0.7) * 0.015 + 1
+                : 1;
+            const r = baseRadius * breathe;
+
             ctx.save();
             ctx.globalAlpha = alpha;
-            ctx.translate(node.x, node.y);
 
-            // Breathing animation
-            let breathScale = 1.0;
-            if (agent.state === 'Active' || agent.state === 'Idle') {
-                breathScale = 1 + Math.sin(this._time * 2) * 0.02;
-            } else if (agent.state === 'Thinking') {
-                breathScale = 1 + Math.sin(this._time * 4) * 0.04;
-            } else if (agent.state === 'ToolCalling') {
-                breathScale = 1 + Math.sin(this._time * 6) * 0.015;
-            }
-            ctx.scale(breathScale, breathScale);
-
-            // Bloom glow (multi-layer for richer effect)
-            const glowSize = isSelected ? 35 : (isHovered ? 28 : 20);
-            const isActive = agent.state === 'Active' || agent.state === 'ToolCalling' || agent.state === 'Thinking';
-
-            // Outermost bloom (very faint, large)
-            if (isActive || isSelected) {
-                const bloom = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius + glowSize + 10);
-                bloom.addColorStop(0, stateColor + '18');
-                bloom.addColorStop(0.5, stateColor + '08');
-                bloom.addColorStop(1, stateColor + '00');
-                ctx.fillStyle = bloom;
-                ctx.beginPath();
-                ctx.arc(0, 0, radius + glowSize + 10, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Inner glow
-            const gradient = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius + glowSize);
-            gradient.addColorStop(0, stateColor + '50');
-            gradient.addColorStop(0.6, stateColor + '20');
-            gradient.addColorStop(1, stateColor + '00');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(0, 0, radius + glowSize, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Node fill with subtle inner gradient
-            const fillGrad = ctx.createRadialGradient(0, -radius * 0.3, radius * 0.1, 0, 0, radius);
-            fillGrad.addColorStop(0, stateColor + '12');
-            fillGrad.addColorStop(1, colors.nodeFill);
-            ctx.fillStyle = fillGrad;
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // State ring (double ring for active)
-            ctx.strokeStyle = stateColor;
-            ctx.lineWidth = isSelected ? 2.5 : 1.5;
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Secondary ring (active agents pulse)
-            if (isActive) {
-                const pulseRadius = radius + 4 + Math.sin(this._time * 3) * 2;
-                ctx.strokeStyle = stateColor;
-                ctx.lineWidth = 0.5;
-                ctx.globalAlpha = alpha * (0.3 + Math.sin(this._time * 3) * 0.15);
-                ctx.beginPath();
-                ctx.arc(0, 0, pulseRadius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.globalAlpha = alpha;
-            }
-
-            // Orbiting dots for ToolCalling state
-            if (agent.state === 'ToolCalling') {
-                const orbitR = radius + 8;
-                for (let d = 0; d < 3; d++) {
-                    const angle = this._time * 4 + d * (Math.PI * 2 / 3);
-                    const dx = Math.cos(angle) * orbitR;
-                    const dy = Math.sin(angle) * orbitR;
-                    ctx.fillStyle = stateColor;
-                    ctx.globalAlpha = alpha * 0.6;
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                ctx.globalAlpha = alpha;
-            }
-
-            // Center icon
+            // 1. Depth shadow (subtle, behind hex)
             ctx.save();
-            const iconScale = radius * 0.035;
-            ctx.scale(iconScale, iconScale);
-            ctx.fillStyle = '#ffffff';
-            if (agent.isMain) {
-                // Rotating spark for active main agent
-                if (isActive) {
-                    ctx.rotate(this._time * 0.3);
-                }
-                ctx.fill(SPARK_PATH);
-            } else {
-                // Diamond for subagent
-                ctx.beginPath();
-                ctx.moveTo(0, -7);
-                ctx.lineTo(7, 0);
-                ctx.lineTo(0, 7);
-                ctx.lineTo(-7, 0);
-                ctx.closePath();
-                ctx.fill();
-            }
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 3;
+            drawHexagon(ctx, node.x, node.y, r * 0.85);
+            ctx.fillStyle = 'rgba(10, 15, 40, 0.08)';
+            ctx.fill();
             ctx.restore();
 
-            // Context usage bar (stacked, below agent)
-            this._drawContextBar(ctx, agent, radius, alpha);
+            // 2. Glow (pre-cached sprite — subtle)
+            const glowAlpha = isHovered || isSelected ? 0.25 : isWaiting ? 0.2 : agent.state === 'Thinking' ? 0.15 : 0.08;
+            const glowR = r + 14;
+            const sprite = getGlowSprite(stateColor, Math.round(r * 0.4), Math.ceil(glowR), _hexAlpha(glowAlpha));
+            ctx.drawImage(sprite, node.x - Math.ceil(glowR), node.y - Math.ceil(glowR));
 
-            // State label (above agent name)
+            // Ambient outer hex ring (very faint)
+            drawHexagon(ctx, node.x, node.y, r + 3);
+            ctx.strokeStyle = stateColor + '25';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 3. Inner hex fill (semi-transparent, lighter than agent-flow to not look like a dark block)
+            drawHexagon(ctx, node.x, node.y, r);
+            ctx.fillStyle = 'rgba(10, 15, 40, 0.35)';
+            ctx.fill();
+
+            // 4. Scanline effect (agent-flow style — sweeping gradient band)
+            const scanSpeed = agent.state === 'Thinking' || isHovered || isWaiting ? 40 : 15;
+            const scanY = node.y - r + ((this._time * scanSpeed) % (r * 2));
+            ctx.save();
+            drawHexagon(ctx, node.x, node.y, r);
+            ctx.clip();
+            const scanGrad = ctx.createLinearGradient(node.x, scanY - 4, node.x, scanY + 4);
+            const scanAlpha = isHovered ? '35' : '20';
+            scanGrad.addColorStop(0, stateColor + '00');
+            scanGrad.addColorStop(0.5, stateColor + scanAlpha);
+            scanGrad.addColorStop(1, stateColor + '00');
+            ctx.fillStyle = scanGrad;
+            ctx.fillRect(node.x - r, scanY - 4, r * 2, 8);
+            ctx.restore();
+
+            // 5. State ring (hexagonal outline — thinner, subtler)
+            drawHexagon(ctx, node.x, node.y, r);
+            ctx.strokeStyle = stateColor;
+            ctx.lineWidth = (isSelected || isHovered) ? 2 : 1.5;
+            if (agent.state === 'Complete') {
+                ctx.setLineDash([4, 4]);
+                ctx.strokeStyle = stateColor + '60';
+                ctx.lineWidth = 1;
+            } else if (isWaiting) {
+                ctx.setLineDash([6, 4]);
+                ctx.lineDashOffset = -this._time * 25;
+                ctx.lineWidth = 2;
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.lineDashOffset = 0;
+
+            // 6. Center icon
+            if (isWaiting) {
+                // Geometric lock icon
+                const s = r * 0.3;
+                ctx.save();
+                ctx.strokeStyle = stateColor + '90';
+                ctx.fillStyle = stateColor + '90';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(node.x - s * 0.6, node.y - s * 0.1, s * 1.2, s * 1.0, 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(node.x, node.y - s * 0.15, s * 0.4, Math.PI, 0);
+                ctx.stroke();
+                ctx.restore();
+            } else if (agent.isMain) {
+                // Claude spark logo
+                ctx.save();
+                ctx.translate(node.x, node.y);
+                const iconScale = r * 0.03;
+                ctx.scale(iconScale, iconScale);
+                ctx.fillStyle = stateColor + 'cc';
+                ctx.shadowColor = stateColor;
+                ctx.shadowBlur = 4 / iconScale;
+                if (isActive) ctx.rotate(this._time * 0.3);
+                ctx.fill(SPARK_PATH);
+                ctx.restore();
+            } else {
+                // Diamond for subagent
+                ctx.fillStyle = stateColor + '90';
+                ctx.font = `${r * 0.45}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(agent.state === 'ToolCalling' ? '\u2699' : '\u25C7', node.x, node.y);
+            }
+
+            // 7. Orbiting particles (thinking state)
+            if (agent.state === 'Thinking') {
+                for (let i = 0; i < 4; i++) {
+                    const angle = this._time * 1.5 + (i / 4) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.fillStyle = stateColor + '80';
+                    ctx.arc(
+                        node.x + Math.cos(angle) * (r + 12),
+                        node.y + Math.sin(angle) * (r + 12),
+                        1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 8. Waiting ripples (radar effect)
+            if (isWaiting) {
+                for (let i = 0; i < 2; i++) {
+                    const ripplePhase = ((this._time * 0.65 + i * 0.5) % 1.0);
+                    const rippleR = r + 5 + ripplePhase * 45;
+                    const rippleAlpha = (1 - ripplePhase) * 0.4;
+                    drawHexagon(ctx, node.x, node.y, rippleR);
+                    ctx.strokeStyle = stateColor + _hexAlpha(rippleAlpha);
+                    ctx.lineWidth = 1.5 * (1 - ripplePhase);
+                    ctx.stroke();
+                }
+                for (let i = 0; i < 3; i++) {
+                    const angle = this._time * 0.8 + (i / 3) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.fillStyle = stateColor + '70';
+                    ctx.arc(
+                        node.x + Math.cos(angle) * (r + 14),
+                        node.y + Math.sin(angle) * (r + 14),
+                        2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 9. Agent label
+            ctx.fillStyle = isHovered ? '#ffffff' : (theme?.labelColor || colors.brightCyan);
+            ctx.font = theme?.labelFont || '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(agent.name, node.x, node.y + r + 8);
+
+            // Context composition: ring for main agent, bar for all
+            if (agent.state !== 'Complete' || alpha > 0.5) {
+                if (agent.isMain) {
+                    this._drawContextRing(ctx, agent, node, r);
+                }
+                this._drawContextBar(ctx, agent, node, r, alpha);
+            }
+
+            // State label above
             if (agent.state !== 'Active' && agent.state !== 'Idle') {
                 ctx.fillStyle = stateColor;
                 ctx.globalAlpha = alpha * 0.6;
                 ctx.font = '7px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText(agent.state.toUpperCase(), 0, -(radius + 8));
+                ctx.fillText(agent.state.toUpperCase(), node.x, node.y - (r + 10));
                 ctx.globalAlpha = alpha;
             }
-
-            // Label below
-            const labelY = radius + (agent.isMain ? 30 : 20);
-            ctx.fillStyle = theme?.labelColor || colors.brightCyan;
-            ctx.font = theme?.labelFont || '10px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(agent.name, 0, labelY);
 
             ctx.restore();
         }
     }
 
+    // ─── Context Ring (main agent, agent-flow style) ──────
+
+    _drawContextRing(ctx, agent, node, radius) {
+        const total = agent.tokensUsed || 0;
+        if (!agent.tokensMax || total <= 0) return;
+
+        const usage = total / agent.tokensMax;
+        const ringR = radius + 8;
+        const ringW = 4;
+        const startAngle = -Math.PI / 2;
+
+        // Background ring
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(102, 204, 255, 0.06)';
+        ctx.lineWidth = ringW;
+        ctx.stroke();
+
+        // Filled segments
+        const ctxData = agent.context || {};
+        const segments = [
+            { key: 'systemPrompt', color: '#6666aa' },
+            { key: 'userMessages', color: '#4488cc' },
+            { key: 'toolResults', color: tc().amber },
+            { key: 'reasoning', color: tc().cyan },
+            { key: 'subagentResults', color: tc().purple },
+        ];
+        let currentAngle = startAngle;
+        for (const seg of segments) {
+            const val = ctxData[seg.key] || 0;
+            if (val <= 0) continue;
+            const sweep = (val / agent.tokensMax) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, ringR, currentAngle, currentAngle + sweep);
+            ctx.strokeStyle = seg.color;
+            ctx.lineWidth = ringW;
+            ctx.stroke();
+            currentAngle += sweep;
+        }
+
+        // Warning glow at high usage
+        if (usage > 0.8) {
+            const warningColor = usage > 0.9 ? tc().red : tc().amber;
+            const intensity = usage > 0.9
+                ? 0.35 + Math.sin(this._time * 6) * 0.2
+                : 0.15 + Math.sin(this._time * 3) * 0.1;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, ringR + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = warningColor;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = intensity;
+            ctx.shadowColor = warningColor;
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Percentage label when high
+        if (usage > 0.7) {
+            ctx.font = '7px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = usage > 0.9 ? tc().red : usage > 0.8 ? tc().amber : tc().cyan;
+            ctx.fillText(`${Math.floor(usage * 100)}%`, node.x, node.y - radius - 10);
+        }
+    }
+
     // ─── Context Usage Bar ──────────────────────────────────
 
-    _drawContextBar(ctx, agent, radius, alpha) {
+    _drawContextBar(ctx, agent, node, radius, alpha) {
         if (!agent.tokensMax || agent.tokensMax <= 0) return;
         const total = agent.tokensUsed || 0;
         if (total <= 0) return;
 
-        const pct = Math.min(1, total / agent.tokensMax);
-        const barW = radius * 2.4;
-        const barH = 4;
-        const barX = -barW / 2;
-        const barY = radius + 10;
+        const barW = Math.max(60, radius * 2.2);
+        const barH = 6;
+        const barX = node.x - barW / 2;
+        const barY = node.y + radius + 22;
         const colors = tc();
 
-        // Background track
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        roundRect(ctx, barX, barY, barW, barH, 2);
+        // Background card
+        ctx.fillStyle = 'rgba(10, 15, 40, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(barX - 2, barY - 2, barW + 4, barH + 14, 3);
         ctx.fill();
 
-        // Threshold glow
-        if (pct > 0.8) {
-            const glowColor = pct > 0.9 ? colors.red : colors.amber;
-            const pulse = 0.5 + Math.sin(this._time * (pct > 0.9 ? 6 : 3)) * 0.3;
-            ctx.save();
-            ctx.globalAlpha = alpha * pulse * 0.4;
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = glowColor;
-            roundRect(ctx, barX, barY, barW * pct, barH, 2);
-            ctx.fill();
-            ctx.restore();
-            ctx.globalAlpha = alpha;
-        }
+        // Token count label
+        ctx.fillStyle = 'rgba(136, 136, 153, 0.8)';
+        ctx.font = '7px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${formatTokens(total)} / ${formatTokens(agent.tokensMax)} tokens`, node.x, barY + barH + 9);
 
         // Stacked segments
         const ctxData = agent.context || {};
@@ -1450,31 +1603,67 @@ class SparkCanvas {
             { key: 'reasoning', color: colors.cyan },
             { key: 'subagentResults', color: colors.purple },
         ];
-
+        const maxWidth = barW * Math.min(1, total / agent.tokensMax);
         let xOff = 0;
         for (const seg of segments) {
             const val = ctxData[seg.key] || 0;
             if (val <= 0) continue;
-            const segW = (val / agent.tokensMax) * barW;
+            const segW = (val / total) * maxWidth;
             ctx.fillStyle = seg.color;
-            ctx.globalAlpha = alpha * 0.7;
-            roundRect(ctx, barX + xOff, barY, Math.max(1, segW), barH, xOff === 0 ? 2 : 0);
-            ctx.fill();
+            ctx.fillRect(barX + xOff, barY, segW, barH);
             xOff += segW;
         }
-        ctx.globalAlpha = alpha;
 
-        // Percentage label when above 70%
-        if (pct > 0.7) {
-            const labelColor = pct > 0.9 ? colors.red : pct > 0.8 ? colors.amber : colors.cyan;
-            ctx.fillStyle = labelColor;
-            ctx.font = '7px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${Math.round(pct * 100)}%`, 0, barY + barH + 9);
+        // Remaining capacity
+        if (barX + xOff < barX + barW) {
+            ctx.fillStyle = 'rgba(102, 204, 255, 0.05)';
+            ctx.fillRect(barX + xOff, barY, barX + barW - barX - xOff, barH);
         }
+
+        ctx.strokeStyle = 'rgba(102, 204, 255, 0.15)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(barX, barY, barW, barH);
     }
 
     // ─── Tool Card Rendering ────────────────────────────────
+
+    /** Find a clear slot for a tool card using radial ring search (agent-flow style) */
+    _findToolSlot(agentNode, agent) {
+        const overlaps = (cx, cy) => {
+            for (const tc of this.toolCards.values()) {
+                if (!tc._bounds) continue;
+                if (Math.abs(cx - (tc._bounds.x + tc._bounds.w / 2)) < TOOL_CARD_W &&
+                    Math.abs(cy - (tc._bounds.y + tc._bounds.h / 2)) < TOOL_CARD_H) return true;
+            }
+            return false;
+        };
+
+        // Compute outward direction: away from parent (or default upward for main agent)
+        let outAngle = -Math.PI / 2;
+        if (agent.parentId) {
+            const parentNode = this.sim.getNode(agent.parentId);
+            if (parentNode) {
+                outAngle = Math.atan2(agentNode.y - parentNode.y, agentNode.x - parentNode.x);
+            }
+        }
+
+        // Arc centered on outward direction, sweeping ±90°
+        for (let ring = 1; ring <= TOOL_SLOT.maxRings; ring++) {
+            const dist = TOOL_SLOT.baseDistance + ring * TOOL_SLOT.ringIncrement;
+            const steps = TOOL_SLOT.baseSteps + ring * TOOL_SLOT.stepsPerRing;
+            for (let i = 0; i < steps; i++) {
+                const sweep = (i / (steps - 1) - 0.5) * Math.PI;
+                const angle = outAngle + sweep;
+                const cx = agentNode.x + Math.cos(angle) * dist;
+                const cy = agentNode.y + Math.sin(angle) * dist;
+                if (!overlaps(cx, cy)) return { x: cx - TOOL_CARD_W / 2, y: cy - TOOL_CARD_H / 2 };
+            }
+        }
+        return {
+            x: agentNode.x + Math.cos(outAngle) * TOOL_SLOT.fallbackDistance - TOOL_CARD_W / 2,
+            y: agentNode.y + Math.sin(outAngle) * TOOL_SLOT.fallbackDistance - TOOL_CARD_H / 2
+        };
+    }
 
     _drawToolCards(ctx) {
         const theme = getTheme();
@@ -1484,6 +1673,10 @@ class SparkCanvas {
             const agent = this.agents.get(card.agentId);
             const agentNode = agent ? this.sim.getNode(card.agentId) : null;
             if (!agentNode) continue;
+
+            const isRunning = card.state === 'Running';
+            const isError = card.state === 'Error';
+            const isCompleted = !isRunning;
 
             // Fade out completed cards
             let alpha = 1.0;
@@ -1500,25 +1693,22 @@ class SparkCanvas {
                 alpha *= 0.15;
             }
 
-            // Position: offset from agent node (max 6 visible, compact if more)
-            const visibleCards = [...this.toolCards.values()]
-                .filter(c => c.agentId === card.agentId && (c.state === 'Running' || (c.fadeStart && this._time - c.fadeStart < 5.5)));
-            const cardIdx = visibleCards.indexOf(card);
-            const maxVisible = 6;
-            if (cardIdx >= maxVisible) continue;
+            // Measure text to get dynamic card width (agent-flow style)
+            ctx.font = '8px monospace';
+            const cardLabel = getToolCardLabel(card.toolName, card.inputSummary);
+            const toolLabel = truncate(`${card.toolName}: ${cardLabel}`, 24);
+            const textWidth = Math.min(ctx.measureText(toolLabel).width + 12, TOOL_CARD_W);
+            const hasTwoLines = isCompleted && (card.tokenCost || isError);
+            const w = Math.max(60, textWidth);
+            const h = hasTwoLines ? 30 : 24;
 
-            const isCompleted = card.state !== 'Running';
-            const isError = card.state === 'Error';
-            const hasTwoLines = isCompleted && (card.resultSummary || card.error || card.tokenCost);
-
-            const spacing = visibleCards.length > 4 ? 26 : 34;
-            const offsetX = agentNode.radius + 20;
-            const offsetY = -10 + cardIdx * spacing;
-
-            const x = agentNode.x + offsetX;
-            const y = agentNode.y + offsetY;
-            const w = 220;
-            const h = hasTwoLines ? 34 : 24;
+            // Radial tool slot placement — compute offset once, then follow agent
+            if (!card._slotOffset) {
+                const slot = this._findToolSlot(agentNode, agent);
+                card._slotOffset = { dx: slot.x - agentNode.x, dy: slot.y - agentNode.y };
+            }
+            const x = agentNode.x + card._slotOffset.dx + (TOOL_CARD_W - w) / 2;
+            const y = agentNode.y + card._slotOffset.dy;
 
             // Store world-space bounds for hit testing
             card._bounds = { x, y, w, h };
@@ -1526,107 +1716,78 @@ class SparkCanvas {
             ctx.save();
             ctx.globalAlpha = alpha;
 
-            // Error pulsing glow
+            // Error glow
             if (isError) {
-                const pulse = 0.4 + Math.sin(this._time * 5) * 0.3;
-                ctx.save();
-                ctx.globalAlpha = alpha * pulse;
                 ctx.shadowColor = colors.red;
-                ctx.shadowBlur = 12;
-                ctx.fillStyle = 'rgba(255, 85, 102, 0.15)';
-                roundRect(ctx, x - 2, y - 2, w + 4, h + 4, 6);
-                ctx.fill();
-                ctx.restore();
-                ctx.globalAlpha = alpha;
-
-                // Crack lines for errors
-                if (card.fadeStart == null || this._time - card.fadeStart < 2) {
-                    ctx.save();
-                    ctx.strokeStyle = colors.red;
-                    ctx.lineWidth = 0.8;
-                    ctx.globalAlpha = alpha * 0.5;
-                    const cx = x + w / 2;
-                    const cy = y + h / 2;
-                    for (let i = 0; i < 3; i++) {
-                        const angle = (i / 3) * Math.PI * 2 + 0.5;
-                        const len = 8 + Math.random() * 12;
-                        ctx.beginPath();
-                        ctx.moveTo(cx, cy);
-                        ctx.lineTo(
-                            cx + Math.cos(angle) * len + Math.sin(i * 7.3) * 3,
-                            cy + Math.sin(angle) * len + Math.cos(i * 5.7) * 3
-                        );
-                        ctx.stroke();
-                    }
-                    ctx.restore();
-                    ctx.globalAlpha = alpha;
-                }
+                ctx.shadowBlur = 8 + Math.sin(this._time * 6) * 4;
             }
 
-            // Highlight if selected
+            // Background (stable fill, no flashing)
             const isSelectedCard = this.selectedToolId === card.toolUseId;
-            if (isSelectedCard) {
-                ctx.strokeStyle = tc().brightCyan;
-                ctx.lineWidth = 2;
-                roundRect(ctx, x - 2, y - 2, w + 4, h + 4, 6);
-                ctx.stroke();
-            }
-
-            // Background
-            ctx.fillStyle = isError ? 'rgba(255, 85, 102, 0.12)' : 'rgba(10, 15, 30, 0.7)';
-            roundRect(ctx, x, y, w, h, 4);
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 4);
+            ctx.fillStyle = isError
+                ? 'rgba(80, 20, 25, 0.7)'
+                : isSelectedCard ? 'rgba(20, 40, 60, 0.6)' : 'rgba(10, 15, 30, 0.7)';
             ctx.fill();
 
-            // Border — color by tool type when running, by state when done
+            // Border
             const toolAccent = getToolAccentColor(card.toolName);
-            const borderColor = theme?.toolCardBorder
-                ? theme.toolCardBorder(card.state)
-                : (card.state === 'Running' ? toolAccent
-                    : isError ? colors.red
-                    : colors.green);
-            ctx.strokeStyle = borderColor;
-            ctx.lineWidth = isError ? 2 : 1;
-            roundRect(ctx, x, y, w, h, 4);
+            ctx.strokeStyle = isError ? colors.red + '90'
+                : isSelectedCard ? colors.cyan + 'aa'
+                : isRunning ? toolAccent + '60' : colors.green + '40';
+            ctx.lineWidth = isError ? 2 : isSelectedCard ? 1.5 : 1;
             ctx.stroke();
+            ctx.shadowBlur = 0;
 
-            // Spinning ring indicator for running tools
-            if (card.state === 'Running') {
-                const cx = x + 10;
-                const cy = y + h / 2;
-                const angle = this._time * 3;
+            // Running indicator: small spinner dot at left edge of card
+            if (isRunning) {
+                const spX = x + 8;
+                const spY = y + h / 2;
+                const angle = this._time * 4;
                 ctx.strokeStyle = toolAccent;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.arc(cx, cy, 5, angle, angle + Math.PI * 1.2);
+                ctx.arc(spX, spY, 4, angle, angle + Math.PI * 1.3);
                 ctx.stroke();
             }
 
-            // State icon for completed/error
-            if (isCompleted) {
-                ctx.fillStyle = isError ? colors.red : colors.green;
-                ctx.font = '10px monospace';
-                ctx.fillText(isError ? '\u2716' : '\u2714', x + 6, y + 14);
+            // Error crack lines
+            if (isError) {
+                ctx.save();
+                ctx.strokeStyle = colors.red + '40';
+                ctx.lineWidth = 0.8;
+                for (let i = 0; i < 3; i++) {
+                    const a = (i / 3) * Math.PI * 2 + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x + w / 2, y + h / 2);
+                    ctx.lineTo(x + w / 2 + Math.cos(a) * w * 0.5, y + h / 2 + Math.sin(a) * h * 0.6);
+                    ctx.stroke();
+                }
+                ctx.restore();
             }
 
-            // Tool name + short label (first line)
-            ctx.fillStyle = '#aaeeff';
+            // Tool label (agent-flow: 8px monospace, centered)
             ctx.font = '8px monospace';
-            const textX = card.state === 'Running' ? x + 20 : x + 18;
-            const cardLabel = getToolCardLabel(card.toolName, card.inputSummary);
-            ctx.fillText(truncate(`${card.toolName} ${cardLabel}`, 30), textX, y + 14);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
 
-            // Second line: result/error summary or token cost
-            if (hasTwoLines) {
-                ctx.font = '7px monospace';
-                if (isError && card.error) {
-                    ctx.fillStyle = 'rgba(255, 85, 102, 0.7)';
-                    ctx.fillText(truncate(card.error, 35), x + 18, y + 26);
-                } else if (card.resultSummary) {
-                    ctx.fillStyle = 'rgba(102, 255, 170, 0.5)';
-                    ctx.fillText(truncate(card.resultSummary, 35), x + 18, y + 26);
-                } else if (card.tokenCost) {
-                    ctx.fillStyle = 'rgba(102, 204, 255, 0.5)';
-                    ctx.fillText(`${formatTokens(card.tokenCost)} tokens`, x + 18, y + 26);
+            if (isRunning) {
+                ctx.fillStyle = toolAccent;
+                ctx.fillText(toolLabel, x + w / 2, y + h / 2);
+            } else if (isError) {
+                ctx.fillStyle = colors.red;
+                ctx.fillText(truncate(`${card.toolName}: FAILED`, 24), x + w / 2, y + h / 2 - 5);
+                ctx.font = '6px monospace';
+                ctx.fillStyle = colors.red + 'aa';
+                ctx.fillText(truncate(card.error || '', 24), x + w / 2, y + h / 2 + 7);
+            } else {
+                ctx.fillStyle = colors.green;
+                ctx.fillText(toolLabel, x + w / 2, y + h / 2 - (hasTwoLines ? 5 : 0));
+                if (card.tokenCost) {
+                    ctx.fillStyle = toolAccent + '90';
+                    ctx.font = '6px monospace';
+                    ctx.fillText(`${card.tokenCost} tok`, x + w / 2, y + h / 2 + 7);
                 }
             }
 
@@ -1660,6 +1821,12 @@ class SparkCanvas {
         this.canvas.style.height = window.innerHeight + 'px';
         this.sim.setCenter(0, 0);
         this._ambientDirty = true;
+
+        // Re-init theme ambient (stars, particles, grids sized to canvas)
+        const theme = getTheme();
+        if (theme?.initAmbient) {
+            theme.initAmbient(this.canvas);
+        }
     }
 
     _bindEvents() {

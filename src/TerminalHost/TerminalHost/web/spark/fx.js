@@ -382,38 +382,42 @@ class SparkFX {
 // ─── Edge Particle System ────────────────────────────
 
 /**
- * Manages data-flow particles along edges.
- * Supports comet trails, sinusoidal wobble, and labeled particles.
+ * Manages data-flow particles along cubic bezier edges.
+ * Agent-flow aligned: comet trail with individual circles, sinusoidal wobble
+ * with per-particle phase offset, pre-cached glow sprites.
  */
 class EdgeParticleSystem {
     constructor() {
         /** @type {EdgeParticle[]} */
         this.particles = [];
         this._nextId = 0;
+        this._glowCache = new Map();
     }
 
     /**
-     * Spawn a particle along a bezier edge.
+     * Spawn a particle along a cubic bezier edge.
      * @param {Object} source - {x, y} source node
      * @param {Object} target - {x, y} target node
-     * @param {Object} control - {x, y} bezier control point
-     * @param {Object} opts - { color, speed, label, size }
+     * @param {Object} cp1 - {x, y} first control point
+     * @param {Object} cp2 - {x, y} second control point
+     * @param {Object} opts - { color, speed, label, size, wobble }
      */
-    spawn(source, target, control, opts = {}) {
+    spawn(source, target, cp1, cp2, opts = {}) {
         this.particles.push({
             id: this._nextId++,
             sx: source.x, sy: source.y,
             tx: target.x, ty: target.y,
-            cx: control.x, cy: control.y,
-            t: 0, // progress 0→1
+            c1x: cp1.x, c1y: cp1.y,
+            c2x: cp2.x, c2y: cp2.y,
+            t: 0,
             speed: opts.speed || 0.4,
             color: opts.color || '#66ccff',
             size: opts.size || 2.5,
             label: opts.label || null,
-            wobbleAmp: opts.wobble || 6,
-            wobbleFreq: 3 + Math.random() * 2,
-            wobblePhase: Math.random() * Math.PI * 2,
-            trail: [],
+            wobbleAmp: opts.wobble || 3,
+            wobbleFreq: 10,
+            wobbleTimeFreq: 3,
+            wobblePhase: (this._nextId * 0.7) % (Math.PI * 2),
         });
     }
 
@@ -421,94 +425,112 @@ class EdgeParticleSystem {
     update(dt) {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
-            p.t += p.speed * dt;
-
-            // Store trail
-            const pos = this._evalBezier(p, p.t);
-            p.trail.unshift(pos);
-            if (p.trail.length > 8) p.trail.pop();
-
+            p.t += p.speed * 1.2 * dt;
             if (p.t >= 1) {
                 this.particles.splice(i, 1);
             }
         }
     }
 
-    /** Render all edge particles */
+    /** Render all edge particles (agent-flow style: individual trail circles + glow sprite) */
     render(ctx, time) {
-        for (const p of this.particles) {
-            const pos = this._evalBezier(p, p.t);
+        const trailSegments = 8;
+        const trailOffset = 0.15;
 
-            // Wobble perpendicular to edge direction
-            const tangent = this._evalBezierTangent(p, p.t);
-            const len = Math.sqrt(tangent.x * tangent.x + tangent.y * tangent.y) || 1;
-            const nx = -tangent.y / len;
-            const ny = tangent.x / len;
-            const wobble = Math.sin(time * p.wobbleFreq + p.wobblePhase) * p.wobbleAmp * (1 - p.t);
-            const wx = pos.x + nx * wobble;
-            const wy = pos.y + ny * wobble;
+        for (const p of this.particles) {
+            const t = p.t;
+
+            // Compute edge direction for wobble normal
+            const dx = p.tx - p.sx, dy = p.ty - p.sy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const normalX = -dy / dist;
+            const normalY = dx / dist;
+
+            // Wobble amount — sine wave with per-particle phase, fades at endpoints
+            const wobbleAmt = Math.sin(t * p.wobbleFreq + time * p.wobbleTimeFreq + p.wobblePhase)
+                * p.wobbleAmp * Math.sin(t * Math.PI);
+
+            const baseX = this._cubicBezierX(p, t);
+            const baseY = this._cubicBezierY(p, t);
+            const px = baseX + normalX * wobbleAmt;
+            const py = baseY + normalY * wobbleAmt;
 
             ctx.save();
 
-            // Comet trail
-            if (p.trail.length > 1) {
+            // Comet trail — individual circles with fading alpha (agent-flow style)
+            const isReturn = p.label === 'return';
+            for (let i = trailSegments; i >= 0; i--) {
+                const offset = (i / trailSegments) * trailOffset;
+                const tt = isReturn
+                    ? Math.min(1, t + offset)
+                    : Math.max(0, t - offset);
+                const wob = Math.sin(tt * p.wobbleFreq + time * p.wobbleTimeFreq + p.wobblePhase)
+                    * p.wobbleAmp * Math.sin(tt * Math.PI);
+                const tx = this._cubicBezierX(p, tt) + normalX * wob;
+                const ty = this._cubicBezierY(p, tt) + normalY * wob;
+                const alpha = ((trailSegments - i) / trailSegments) * 0.6;
                 ctx.beginPath();
-                ctx.moveTo(wx, wy);
-                for (let i = 0; i < p.trail.length; i++) {
-                    const tp = p.trail[i];
-                    ctx.lineTo(tp.x, tp.y);
-                }
-                ctx.strokeStyle = p.color;
-                ctx.lineWidth = p.size * 0.6;
-                ctx.globalAlpha = 0.3;
-                ctx.stroke();
+                ctx.fillStyle = p.color + hexAlpha(alpha);
+                ctx.arc(tx, ty, p.size * ((trailSegments - i) / trailSegments), 0, Math.PI * 2);
+                ctx.fill();
             }
 
-            // Main particle with glow
-            ctx.globalAlpha = 0.9;
-            const grad = ctx.createRadialGradient(wx, wy, 0, wx, wy, p.size * 2.5);
-            grad.addColorStop(0, p.color + 'cc');
-            grad.addColorStop(0.5, p.color + '44');
-            grad.addColorStop(1, p.color + '00');
-            ctx.fillStyle = grad;
+            // Glow (pre-cached sprite)
+            const glowR = 15;
+            const glowSprite = this._getGlowSprite(p.color, glowR);
+            ctx.drawImage(glowSprite, px - glowR, py - glowR);
+
+            // Particle core
             ctx.beginPath();
-            ctx.arc(wx, wy, p.size * 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.arc(px, py, p.size, 0, Math.PI * 2);
             ctx.fill();
 
-            // Core
-            ctx.fillStyle = '#ffffff';
-            ctx.globalAlpha = 0.9;
+            // Core highlight
             ctx.beginPath();
-            ctx.arc(wx, wy, p.size * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff80';
+            ctx.arc(px, py, p.size * 0.4, 0, Math.PI * 2);
             ctx.fill();
 
-            // Label
-            if (p.label) {
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = 0.6;
-                ctx.font = '7px monospace';
+            // Label near particle (only mid-journey)
+            if (p.label && t > 0.2 && t < 0.8) {
+                ctx.fillStyle = p.color + 'aa';
+                ctx.font = '8px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText(p.label, wx, wy - p.size * 3);
+                ctx.fillText(p.label, px, py - 12);
             }
 
             ctx.restore();
         }
     }
 
-    _evalBezier(p, t) {
-        const inv = 1 - t;
-        return {
-            x: inv * inv * p.sx + 2 * inv * t * p.cx + t * t * p.tx,
-            y: inv * inv * p.sy + 2 * inv * t * p.cy + t * t * p.ty,
-        };
+    _cubicBezierX(p, t) {
+        const mt = 1 - t;
+        return mt*mt*mt*p.sx + 3*mt*mt*t*p.c1x + 3*mt*t*t*p.c2x + t*t*t*p.tx;
     }
 
-    _evalBezierTangent(p, t) {
-        const inv = 1 - t;
-        return {
-            x: 2 * inv * (p.cx - p.sx) + 2 * t * (p.tx - p.cx),
-            y: 2 * inv * (p.cy - p.sy) + 2 * t * (p.ty - p.cy),
-        };
+    _cubicBezierY(p, t) {
+        const mt = 1 - t;
+        return mt*mt*mt*p.sy + 3*mt*mt*t*p.c1y + 3*mt*t*t*p.c2y + t*t*t*p.ty;
+    }
+
+    _getGlowSprite(color, radius) {
+        const key = `${color}_${radius}`;
+        if (this._glowCache.has(key)) return this._glowCache.get(key);
+
+        const size = radius * 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
+        grad.addColorStop(0, color + '60');
+        grad.addColorStop(1, color + '00');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        this._glowCache.set(key, canvas);
+        return canvas;
     }
 }
 

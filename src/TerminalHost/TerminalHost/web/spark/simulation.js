@@ -89,10 +89,10 @@ class ForceSimulation {
             this.groups.get(ids[0]).cy = this.centerY;
             return;
         }
-        // For 2 sessions: place side by side. For more: ring layout.
+        // For 2 sessions: place closer. For more: ring layout.
         const radius = n === 2
-            ? this.clusterSpacing * 0.7
-            : this.clusterSpacing * Math.max(0.8, n / (2 * Math.PI));
+            ? this.clusterSpacing * 0.5
+            : this.clusterSpacing * Math.max(0.6, n / (2 * Math.PI));
         for (let i = 0; i < n; i++) {
             const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
             const g = this.groups.get(ids[i]);
@@ -106,7 +106,8 @@ class ForceSimulation {
         const groupNodes = this.nodes.filter(n => n.groupId === groupId);
         if (groupNodes.length === 0) {
             const g = this.groups.get(groupId);
-            return g ? { x: g.cx - 100, y: g.cy - 100, width: 200, height: 200 } : null;
+            // Compact empty/single-agent groups
+            return g ? { x: g.cx - 60, y: g.cy - 60, width: 120, height: 120 } : null;
         }
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const node of groupNodes) {
@@ -121,6 +122,13 @@ class ForceSimulation {
             width: (maxX - minX) + padding * 2,
             height: (maxY - minY) + padding * 2
         };
+    }
+
+    /** Get the "effective radius" of a group for dynamic spacing */
+    getGroupRadius(groupId) {
+        const bounds = this.getGroupBounds(groupId, 20);
+        if (!bounds) return 60;
+        return Math.max(bounds.width, bounds.height) / 2;
     }
 
     tick() {
@@ -230,7 +238,8 @@ class ForceSimulation {
             }
         }
 
-        // Repel group centers from each other (update group center positions slowly)
+        // Repel group centers from each other — dynamic spacing based on content size
+        // Groups with more nodes/tools need more space; empty groups can be close
         const ids = [...this.groups.keys()];
         for (let i = 0; i < ids.length; i++) {
             for (let j = i + 1; j < ids.length; j++) {
@@ -239,8 +248,14 @@ class ForceSimulation {
                 let dx = b.cx - a.cx;
                 let dy = b.cy - a.cy;
                 let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                if (dist < this.clusterSpacing) {
-                    const push = (this.clusterSpacing - dist) * 0.01;
+
+                // Dynamic minimum distance: sum of group radii + small gap
+                const rA = this.getGroupRadius(ids[i]);
+                const rB = this.getGroupRadius(ids[j]);
+                const minSpacing = rA + rB + 30; // 30px gap between boundaries
+
+                if (dist < minSpacing) {
+                    const push = (minSpacing - dist) * 0.008;
                     const nx = dx / dist;
                     const ny = dy / dist;
                     a.cx -= nx * push;
