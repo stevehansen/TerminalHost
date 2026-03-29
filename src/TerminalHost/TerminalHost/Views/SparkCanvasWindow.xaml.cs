@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using TerminalHost.Windows.Platform;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;
@@ -9,6 +10,12 @@ public partial class SparkCanvasWindow : Window
     public SparkCanvasWindow()
     {
         InitializeComponent();
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DarkModeHelper.EnableDarkMode(this);
     }
 
     protected override void OnClosing(CancelEventArgs e)

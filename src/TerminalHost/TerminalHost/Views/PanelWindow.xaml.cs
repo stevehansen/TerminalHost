@@ -1,5 +1,6 @@
 using System.Windows;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Windows.Platform;
 
 namespace TerminalHost.Views;
 
@@ -15,6 +16,12 @@ public partial class PanelWindow : Window
     {
         InitializeComponent();
         Closed += OnClosed;
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DarkModeHelper.EnableDarkMode(this);
     }
 
     /// <summary>

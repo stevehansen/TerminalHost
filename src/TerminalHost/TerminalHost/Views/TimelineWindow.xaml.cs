@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using TerminalHost.Windows.Platform;
 using TerminalHost.Core.ViewModels;
 
 namespace TerminalHost.Views;
@@ -10,6 +11,12 @@ public partial class TimelineWindow : Window
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DarkModeHelper.EnableDarkMode(this);
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
