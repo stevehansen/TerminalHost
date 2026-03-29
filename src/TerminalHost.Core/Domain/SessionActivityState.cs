@@ -101,6 +101,19 @@ public class SessionActivityState
     public string? GitBranch { get; set; }
 
     /// <summary>
+    /// Origin of the session (Local, Container, DevContainer).
+    /// </summary>
+    [JsonPropertyName("source")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public SessionSource Source { get; set; } = SessionSource.Local;
+
+    /// <summary>
+    /// Container display name (for Container/DevContainer sessions).
+    /// </summary>
+    [JsonPropertyName("containerName")]
+    public string? ContainerName { get; set; }
+
+    /// <summary>
     /// All agents (main + subagents) keyed by agent ID.
     /// </summary>
     [JsonPropertyName("agents")]
@@ -312,7 +325,8 @@ public class SessionActivityState
     /// <summary>
     /// Creates a new SessionActivityState for a session.
     /// </summary>
-    public static SessionActivityState Create(string sessionId, string? cwd = null, string? transcriptPath = null)
+    public static SessionActivityState Create(string sessionId, string? cwd = null, string? transcriptPath = null,
+        SessionSource source = SessionSource.Local, string? containerName = null)
     {
         var state = new SessionActivityState
         {
@@ -320,7 +334,9 @@ public class SessionActivityState
             WorkingDirectory = cwd,
             TranscriptPath = transcriptPath,
             StartTime = DateTime.UtcNow,
-            Lifecycle = SessionLifecycle.Active
+            Lifecycle = SessionLifecycle.Active,
+            Source = source,
+            ContainerName = containerName
         };
 
         // Always create the main agent

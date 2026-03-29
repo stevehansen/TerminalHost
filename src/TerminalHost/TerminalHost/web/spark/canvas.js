@@ -135,7 +135,7 @@ class SparkCanvas {
     }
 
     /** Register a session for multi-mode tracking */
-    _registerSession(sessionId, name, projectPath, startTime, isActive) {
+    _registerSession(sessionId, name, projectPath, startTime, isActive, source, containerName) {
         if (this.sessions.has(sessionId)) return this.sessions.get(sessionId);
         const color = SESSION_COLORS[this._sessionColorIdx % SESSION_COLORS.length];
         this._sessionColorIdx++;
@@ -148,6 +148,8 @@ class SparkCanvas {
             color,
             agentCount: 0,
             toolCount: 0,
+            source: source || 'Local',
+            containerName: containerName || null,
         };
         this.sessions.set(sessionId, session);
         this.sim.setGroup(sessionId, 0, 0);
@@ -207,7 +209,8 @@ class SparkCanvas {
             ? state.workingDirectory.split(/[/\\]/).filter(Boolean).pop() || 'Session'
             : 'Session';
 
-        this._registerSession(sessionId, name, state.workingDirectory, state.startTime, true);
+        this._registerSession(sessionId, name, state.workingDirectory, state.startTime, true,
+            state.source, state.containerName);
 
         // Create agents with session grouping
         if (state.agents) {
@@ -300,7 +303,7 @@ class SparkCanvas {
         if (this.multiMode && sessionId) {
             if (!this.sessions.has(sessionId)) {
                 const name = (data.cwd || '').split(/[/\\]/).filter(Boolean).pop() || 'Session';
-                this._registerSession(sessionId, name, data.cwd, null, true);
+                this._registerSession(sessionId, name, data.cwd, null, true, data.source, data.containerName);
             }
         }
 
@@ -308,7 +311,7 @@ class SparkCanvas {
             case 'SessionStart':
                 if (this.multiMode) {
                     const name = (data.cwd || '').split(/[/\\]/).filter(Boolean).pop() || 'Session';
-                    this._registerSession(sessionId, name, data.cwd, new Date(), true);
+                    this._registerSession(sessionId, name, data.cwd, new Date(), true, data.source, data.containerName);
                 } else {
                     this.sessionId = sessionId;
                     this.sessionStart = evt.timestamp ? new Date(evt.timestamp || evt.Timestamp) : new Date();
@@ -939,6 +942,17 @@ class SparkCanvas {
             const textY = y + 14;
             ctx.fillText(label, x + 10, textY);
 
+            // Devcontainer cloud icon after name
+            const isDevContainer = session.source === 'DevContainer';
+            if (isDevContainer) {
+                const labelWidth = ctx.measureText(label).width;
+                ctx.fillStyle = color + 'aa';
+                ctx.font = '10px sans-serif';
+                ctx.fillText('\u2601', x + 10 + labelWidth + 5, textY);  // cloud symbol
+                ctx.font = 'bold 11px monospace';
+                ctx.fillStyle = color;
+            }
+
             // Stats below label
             ctx.font = '9px monospace';
             ctx.fillStyle = color + '88';
@@ -947,7 +961,12 @@ class SparkCanvas {
                 const a = this.agents.get(t.agentId);
                 return a && a.sessionId === sessionId;
             }).length;
-            ctx.fillText(`${agentCount} agent${agentCount !== 1 ? 's' : ''} · ${toolCount} tools`, x + 10, textY + 13);
+            let statsText = `${agentCount} agent${agentCount !== 1 ? 's' : ''} \u00b7 ${toolCount} tools`;
+            if (isDevContainer) {
+                statsText += ' \u00b7 devcontainer';
+                if (session.containerName) statsText += ` (${session.containerName})`;
+            }
+            ctx.fillText(statsText, x + 10, textY + 13);
 
             // Status indicator dot
             if (isActive) {

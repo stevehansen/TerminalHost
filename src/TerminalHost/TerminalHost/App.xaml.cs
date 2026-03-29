@@ -198,6 +198,10 @@ public partial class App : Application
         // Auto-upgrade hooks if partially installed (e.g., old 4-hook version → 9 hooks)
         timelineService?.UpgradeHooksIfNeeded();
 
+        // Clean up old session archive entries (devcontainer sessions older than 7 days)
+        var archiveService = Services.GetService<ISessionArchiveService>();
+        archiveService?.CleanupOldEntries(TimeSpan.FromDays(7));
+
         // Bridge ActivityEvents to EventAggregator for SSE distribution
         var activityService = Services.GetService<ISessionActivityService>();
         var eventAggregator = Services.GetService<IEventAggregatorService>();
@@ -279,6 +283,7 @@ public partial class App : Application
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
         services.AddSingleton<ISessionActivityService, SessionActivityService>();
+        services.AddSingleton<ISessionArchiveService, SessionArchiveService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();
         services.AddSingleton<ITestRunnerService, TestRunnerService>();
@@ -424,6 +429,8 @@ public partial class App : Application
                     {
                         try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
+                        // Archive devcontainer sessions (they can't be rediscovered from host file system)
+                        ArchiveDevcontainerSession(activityService, hookEvent.SessionId);
                     }
                     break;
 
@@ -455,6 +462,7 @@ public partial class App : Application
                     {
                         try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
+                        ArchiveDevcontainerSession(activityService, hookEvent.SessionId);
                     }
                     break;
             }
@@ -462,6 +470,16 @@ public partial class App : Application
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Hook event processing error: {ex.Message}");
+        }
+    }
+
+    private void ArchiveDevcontainerSession(ISessionActivityService activityService, string sessionId)
+    {
+        var state = activityService.GetState(sessionId);
+        if (state?.Source == SessionSource.DevContainer)
+        {
+            var archiveService = Services.GetService<ISessionArchiveService>();
+            archiveService?.ArchiveSession(state);
         }
     }
 

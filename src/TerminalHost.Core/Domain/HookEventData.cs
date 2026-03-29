@@ -120,6 +120,14 @@ public class HookEventData
     [JsonPropertyName("title")]
     public string? Title { get; set; }
 
+    // --- Devcontainer fields ---
+
+    /// <summary>
+    /// Devcontainer display name (set by devcontainer proxy script).
+    /// </summary>
+    [JsonPropertyName("_devcontainer_name")]
+    public string? DevcontainerName { get; set; }
+
     // Helper methods to extract common data
 
     /// <summary>
@@ -157,6 +165,16 @@ public class HookEventData
     {
         return ToolName is "Write" or "Edit" or "MultiEdit";
     }
+
+    /// <summary>
+    /// Determines the session source from the source field.
+    /// </summary>
+    public SessionSource GetSessionSource() => Source?.ToLowerInvariant() switch
+    {
+        "devcontainer" => SessionSource.DevContainer,
+        "container" => SessionSource.Container,
+        _ => SessionSource.Local
+    };
 
     /// <summary>
     /// Parses hook event data from JSON string (stdin content).

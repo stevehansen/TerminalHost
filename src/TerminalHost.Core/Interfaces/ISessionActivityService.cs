@@ -27,7 +27,8 @@ public interface ISessionActivityService
     /// Creates or retrieves the activity state for a session.
     /// Called when a SessionStart hook arrives.
     /// </summary>
-    SessionActivityState GetOrCreateState(string sessionId, string? cwd = null, string? transcriptPath = null);
+    SessionActivityState GetOrCreateState(string sessionId, string? cwd = null, string? transcriptPath = null,
+        SessionSource source = SessionSource.Local, string? containerName = null);
 
     /// <summary>
     /// Removes the activity state for a session (cleanup after session ends).

@@ -34,6 +34,12 @@ public class LiveSession
     /// <summary>Whether the session had tool errors (used for status determination).</summary>
     public bool HadErrors { get; set; }
 
+    /// <summary>Origin of the session (Local, Container, DevContainer).</summary>
+    public SessionSource Source { get; set; } = SessionSource.Local;
+
+    /// <summary>Container display name (for Container/DevContainer sessions).</summary>
+    public string? ContainerName { get; set; }
+
     /// <summary>Whether this session is still active (no EndTime set).</summary>
     public bool IsActive => !EndTime.HasValue;
 
@@ -43,8 +49,10 @@ public class LiveSession
         get
         {
             if (string.IsNullOrEmpty(WorkingDirectory)) return "Unknown";
-            var name = Path.GetFileName(WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            return string.IsNullOrEmpty(name) ? WorkingDirectory : name;
+            // Use Split for cross-platform safety (Linux paths on Windows host)
+            var segments = WorkingDirectory.TrimEnd('/', '\\').Split('/', '\\');
+            var baseName = segments.LastOrDefault(s => s.Length > 0) ?? WorkingDirectory;
+            return Source == SessionSource.DevContainer ? $"{baseName} [devcontainer]" : baseName;
         }
     }
 

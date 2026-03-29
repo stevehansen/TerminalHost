@@ -431,14 +431,31 @@ public sealed class TimelineService : ITimelineService, IDisposable
 
     private Intent? FindIntentByWorkingDirectoryLocked(string workingDirectory)
     {
-        var normalizedCwd = Path.GetFullPath(workingDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string normalizedCwd;
+        try
+        {
+            normalizedCwd = Path.GetFullPath(workingDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            // Path might be a container-native Linux path on a Windows host
+            normalizedCwd = workingDirectory.TrimEnd('/', '\\');
+        }
 
         return _state.Intents.FirstOrDefault(intent =>
         {
             if (string.IsNullOrEmpty(intent.WorktreePath)) return false;
-            var normalizedWorktree = Path.GetFullPath(intent.WorktreePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string normalizedWorktree;
+            try
+            {
+                normalizedWorktree = Path.GetFullPath(intent.WorktreePath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                normalizedWorktree = intent.WorktreePath.TrimEnd('/', '\\');
+            }
             return string.Equals(normalizedCwd, normalizedWorktree, StringComparison.OrdinalIgnoreCase);
         });
     }
@@ -448,12 +465,17 @@ public sealed class TimelineService : ITimelineService, IDisposable
         if (string.IsNullOrEmpty(hookEvent.SessionId) || string.IsNullOrEmpty(hookEvent.Cwd))
             return;
 
+        bool isDevContainer = hookEvent.Source == SessionSource.DevContainer;
+
         // Find or auto-create intent
         var intent = FindIntentByWorkingDirectory(hookEvent.Cwd);
         if (intent == null)
         {
-            var dirName = Path.GetFileName(hookEvent.Cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrEmpty(dirName)) dirName = hookEvent.Cwd;
+            // Use Split for cross-platform safety (Linux paths on Windows host)
+            var segments = hookEvent.Cwd.TrimEnd('/', '\\').Split('/', '\\');
+            var dirName = segments.LastOrDefault(s => s.Length > 0) ?? hookEvent.Cwd;
+            if (isDevContainer && !string.IsNullOrEmpty(hookEvent.ContainerName))
+                dirName = $"{dirName} [{hookEvent.ContainerName}]";
 
             lock (_lock)
             {
@@ -492,6 +514,8 @@ public sealed class TimelineService : ITimelineService, IDisposable
                 TranscriptPath = hookEvent.TranscriptPath,
                 IntentId = intent.Id,
                 StartTime = hookEvent.Timestamp,
+                Source = hookEvent.Source,
+                ContainerName = hookEvent.ContainerName,
             };
             _liveSessions[hookEvent.SessionId] = live;
 
@@ -500,8 +524,8 @@ public sealed class TimelineService : ITimelineService, IDisposable
             SaveToConfig();
         }
 
-        // Start watching the transcript file for this session
-        if (!string.IsNullOrEmpty(hookEvent.TranscriptPath))
+        // Start watching the transcript file (skip for devcontainer — file doesn't exist on host)
+        if (!isDevContainer && !string.IsNullOrEmpty(hookEvent.TranscriptPath))
         {
             _transcriptWatcher?.Watch(hookEvent.SessionId, hookEvent.TranscriptPath);
         }
@@ -600,6 +624,8 @@ public sealed class TimelineService : ITimelineService, IDisposable
                 Timestamp = indexEntry.Created ?? hookEvent.Timestamp,
                 EventType = HookEventType.SessionStart,
                 ToolName = hookEvent.ToolName,
+                Source = hookEvent.Source,
+                ContainerName = hookEvent.ContainerName,
             };
             HandleSessionStart(enriched);
         }

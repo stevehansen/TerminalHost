@@ -215,6 +215,8 @@ async function enterMultiMode() {
                         sessionId: s.sessionId,
                         workingDirectory: s.workingDirectory,
                         startTime: s.startTime,
+                        source: s.source,
+                        containerName: s.containerName,
                         agents: {
                             [s.sessionId]: {
                                 id: s.sessionId,
@@ -231,11 +233,12 @@ async function enterMultiMode() {
                     loadedCount++;
                 }
                 // Override name from list if session still has generic "Session" name
-                if (listName) {
-                    const session = sparkCanvas.sessions.get(s.sessionId);
-                    if (session && session.name === 'Session') {
-                        session.name = listName;
-                    }
+                const session = sparkCanvas.sessions.get(s.sessionId);
+                if (session) {
+                    if (listName && session.name === 'Session') session.name = listName;
+                    // Propagate source metadata from session list
+                    if (s.source) session.source = s.source;
+                    if (s.containerName) session.containerName = s.containerName;
                 }
             } catch (err) {
                 console.warn(`Failed to load session ${s.sessionId}:`, err);
@@ -436,10 +439,10 @@ async function pollCollab() {
 function deduplicateSessions() {
     if (!sparkCanvas.multiMode || sparkCanvas.sessions.size < 2) return;
 
-    // Group sessions by name (workspace folder)
+    // Group sessions by name + source (devcontainer and local sessions with same name coexist)
     const byName = new Map();
     for (const [sid, session] of sparkCanvas.sessions) {
-        const key = session.name.toLowerCase();
+        const key = session.name.toLowerCase() + '|' + (session.source || 'Local');
         if (!byName.has(key)) byName.set(key, []);
         byName.get(key).push(sid);
     }

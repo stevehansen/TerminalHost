@@ -38,6 +38,7 @@ public class ApiServer : IApiServer
     private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
     private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionArchiveService? _sessionArchiveService;
     private readonly ICollabService? _collabService;
 
     private HttpListener? _listener;
@@ -99,6 +100,7 @@ public class ApiServer : IApiServer
         McpHandler? mcpHandler = null,
         IClipboardService? clipboardService = null,
         ISessionActivityService? sessionActivityService = null,
+        ISessionArchiveService? sessionArchiveService = null,
         ICollabService? collabService = null)
     {
         _configService = configService;
@@ -112,6 +114,7 @@ public class ApiServer : IApiServer
         _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
         _sessionActivityService = sessionActivityService;
+        _sessionArchiveService = sessionArchiveService;
         _collabService = collabService;
     }
 
@@ -356,6 +359,8 @@ public class ApiServer : IApiServer
                 await HandleSessionStateAsync(response, path);
             else if (path == "/api/sessions")
                 await HandleActiveSessionsAsync(response);
+            else if (path == "/api/devcontainer/setup")
+                await HandleDevcontainerSetupAsync(response);
             else if (path == "/api/collab/topics")
                 await HandleCollabTopicsAsync(response);
             else if (path == "/api/collab/sessions")
@@ -699,6 +704,8 @@ public class ApiServer : IApiServer
             initialPrompt = state.InitialPrompt,
             summary = state.Summary,
             gitBranch = state.GitBranch,
+            source = state.Source.ToString(),
+            containerName = state.ContainerName,
             totalToolCalls = state.TotalToolCalls,
             totalAgents = state.TotalAgents,
             filesRead = state.FilesRead,
@@ -780,7 +787,9 @@ public class ApiServer : IApiServer
                     totalToolCalls = 0,
                     summary = (string?)null,
                     gitBranch = (string?)null,
-                    initialPrompt = (string?)null
+                    initialPrompt = (string?)null,
+                    source = s.Source.ToString(),
+                    containerName = s.ContainerName
                 });
             }
         }
@@ -803,7 +812,34 @@ public class ApiServer : IApiServer
                     totalToolCalls = s.TotalToolCalls,
                     summary = s.Summary,
                     gitBranch = s.GitBranch,
-                    initialPrompt = s.InitialPrompt
+                    initialPrompt = s.InitialPrompt,
+                    source = s.Source.ToString(),
+                    containerName = s.ContainerName
+                });
+            }
+        }
+
+        // Include recently archived devcontainer sessions (can't be rediscovered from host file system)
+        var archived = _sessionArchiveService?.GetArchivedSessions(TimeSpan.FromHours(24));
+        if (archived != null)
+        {
+            foreach (var a in archived)
+            {
+                if (!seenIds.Add(a.SessionId)) continue;
+                sessions.Add(new
+                {
+                    sessionId = a.SessionId,
+                    workingDirectory = a.WorkingDirectory,
+                    lifecycle = a.Lifecycle.ToString(),
+                    startTime = a.StartTime,
+                    lastActivityTime = a.EndTime,
+                    totalAgents = a.TotalAgents,
+                    totalToolCalls = a.TotalToolCalls,
+                    summary = a.Summary,
+                    gitBranch = (string?)null,
+                    initialPrompt = a.InitialPrompt,
+                    source = a.Source.ToString(),
+                    containerName = a.ContainerName
                 });
             }
         }
@@ -1184,6 +1220,155 @@ public class ApiServer : IApiServer
 
     #endregion
 
+    #region Devcontainer Setup
+
+    private async Task HandleDevcontainerSetupAsync(HttpListenerResponse response)
+    {
+        var port = _cachedApiSettings.Port;
+        var script = DevcontainerSetupScript.Replace("{PORT}", port.ToString());
+        response.StatusCode = 200;
+        response.ContentType = "text/plain";
+        var bytes = System.Text.Encoding.UTF8.GetBytes(script);
+        await response.OutputStream.WriteAsync(bytes);
+        response.Close();
+    }
+
+    // Hook name mapping: Claude Code event name → host.exe --hook argument → API route.
+    // Must match ApiServer.HandleHookAsync switch and TimelineService.InstallHooks().
+    //   SessionStart      → session-start
+    //   Stop              → session-stop
+    //   SessionEnd        → session-end
+    //   PreToolUse        → tool-start
+    //   PostToolUse       → tool-end
+    //   PostToolUseFailure→ tool-error
+    //   SubagentStart     → subagent-start
+    //   SubagentStop      → subagent-stop
+    //   Notification      → notification
+    private const string DevcontainerSetupScript = """
+#!/bin/bash
+# TerminalHost devcontainer setup — installs hook proxy and configures Claude Code.
+# Usage: curl -sf http://host.docker.internal:{PORT}/api/devcontainer/setup | bash
+set -e
+
+API_URL="http://host.docker.internal:{PORT}"
+CONTAINER_NAME="${TERMINALHOST_DEVCONTAINER_NAME:-$(hostname)}"
+
+echo "=== TerminalHost Devcontainer Setup ==="
+echo "API endpoint: $API_URL"
+echo "Container:    $CONTAINER_NAME"
+
+# 1. Install host.exe proxy
+cat > /usr/local/bin/host.exe << 'PROXY_EOF'
+#!/bin/bash
+API_URL="${TERMINALHOST_API:-http://host.docker.internal:{PORT}}"
+CONTAINER_NAME="${TERMINALHOST_DEVCONTAINER_NAME:-$(hostname)}"
+if [ "$1" = "--hook" ] && [ -n "$2" ]; then
+    PAYLOAD=$(cat)
+    curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -H "X-TerminalHost-Source: devcontainer" \
+        -H "X-TerminalHost-Container: ${CONTAINER_NAME}" \
+        -d "$PAYLOAD" \
+        "$API_URL/api/hooks/$2" > /dev/null 2>&1
+    exit 0
+fi
+echo "TerminalHost devcontainer proxy | API: $API_URL | Container: $CONTAINER_NAME"
+PROXY_EOF
+chmod +x /usr/local/bin/host.exe
+echo "[OK] Installed /usr/local/bin/host.exe"
+
+# 2. Set environment variable
+echo "export TERMINALHOST_API=\"$API_URL\"" >> ~/.bashrc
+echo "export TERMINALHOST_DEVCONTAINER_NAME=\"$CONTAINER_NAME\"" >> ~/.bashrc
+export TERMINALHOST_API="$API_URL"
+echo "[OK] Set TERMINALHOST_API in ~/.bashrc"
+
+# 3. Register Claude Code hooks in ~/.claude/settings.json
+# Uses the same nested format as TerminalHost's InstallHooks():
+#   "EventName": [{"hooks": [{"type": "command", "command": "...", "timeout": N, "async": true}]}]
+CLAUDE_DIR="$HOME/.claude"
+SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+mkdir -p "$CLAUDE_DIR"
+
+# Build the hooks JSON — merge into existing settings if present
+# Shared merge logic — identical for python3 and node, just different runtimes.
+# The HOOKS_JSON variable holds the hook definitions to merge.
+HOOKS_JSON='{
+  "SessionStart":       [{"hooks": [{"type":"command","command":"host.exe --hook session-start","timeout":10,"async":true}]}],
+  "Stop":               [{"hooks": [{"type":"command","command":"host.exe --hook session-stop","timeout":10,"async":true}]}],
+  "SessionEnd":         [{"hooks": [{"type":"command","command":"host.exe --hook session-end","timeout":10,"async":true}]}],
+  "PreToolUse":         [{"hooks": [{"type":"command","command":"host.exe --hook tool-start","timeout":5,"async":true}]}],
+  "PostToolUse":        [{"hooks": [{"type":"command","command":"host.exe --hook tool-end","timeout":5,"async":true}]}],
+  "PostToolUseFailure": [{"hooks": [{"type":"command","command":"host.exe --hook tool-error","timeout":5,"async":true}]}],
+  "SubagentStart":      [{"hooks": [{"type":"command","command":"host.exe --hook subagent-start","timeout":5,"async":true}]}],
+  "SubagentStop":       [{"hooks": [{"type":"command","command":"host.exe --hook subagent-stop","timeout":5,"async":true}]}],
+  "Notification":       [{"hooks": [{"type":"command","command":"host.exe --hook notification","timeout":5,"async":true}]}]
+}'
+
+merge_hooks() {
+    # Merges HOOKS_JSON into existing settings.json, preserving non-hook settings.
+    # Only overwrites a hook event if it doesn't already contain a host.exe hook.
+    # $1 = runtime ("python3" or "node")
+    if [ "$1" = "python3" ]; then
+        python3 - "$SETTINGS_FILE" "$HOOKS_JSON" << 'PYEOF'
+import json, sys
+settings_file, hooks_json = sys.argv[1], sys.argv[2]
+settings = {}
+try:
+    with open(settings_file, "r") as f:
+        settings = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
+hooks = settings.setdefault("hooks", {})
+new_hooks = json.loads(hooks_json)
+for event_name, entry in new_hooks.items():
+    existing = hooks.get(event_name, [])
+    has_host_hook = any(
+        any(h.get("command", "").startswith("host.exe --hook") for h in item.get("hooks", []))
+        for item in existing if isinstance(item, dict)
+    )
+    if not has_host_hook:
+        hooks[event_name] = entry
+with open(settings_file, "w") as f:
+    json.dump(settings, f, indent=2)
+PYEOF
+    elif [ "$1" = "node" ]; then
+        node -e "
+const fs = require('fs');
+const [,, settingsFile, hooksJson] = process.argv;
+let settings = {};
+try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
+const hooks = settings.hooks = settings.hooks || {};
+const newHooks = JSON.parse(hooksJson);
+for (const [eventName, entry] of Object.entries(newHooks)) {
+    const existing = hooks[eventName] || [];
+    const hasHostHook = existing.some(item =>
+        (item.hooks || []).some(h => (h.command || '').startsWith('host.exe --hook'))
+    );
+    if (!hasHostHook) hooks[eventName] = entry;
+}
+fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+" "$SETTINGS_FILE" "$HOOKS_JSON"
+    fi
+}
+
+if command -v python3 &> /dev/null; then
+    merge_hooks python3
+    echo "[OK] Configured Claude Code hooks in $SETTINGS_FILE (merged via python3)"
+elif command -v node &> /dev/null; then
+    merge_hooks node
+    echo "[OK] Configured Claude Code hooks in $SETTINGS_FILE (merged via node)"
+else
+    # No python or node — write hooks directly (overwrites any existing settings)
+    echo "{\"hooks\": $HOOKS_JSON}" | if command -v jq &> /dev/null; then jq .; else cat; fi > "$SETTINGS_FILE"
+    echo "[OK] Configured Claude Code hooks in $SETTINGS_FILE (fresh — no python3/node for merge)"
+fi
+
+echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
+""";
+
+    #endregion
+
     #region Hook Endpoint (Container Proxy)
 
     private async Task HandleHookAsync(HttpListenerResponse response, HttpListenerRequest request, string hookType)
@@ -1212,6 +1397,15 @@ public class ApiServer : IApiServer
                 await WriteJsonError(response, 400, "PARSE_ERROR", "Failed to parse hook payload.");
                 return;
             }
+
+            // Allow HTTP headers to set source (devcontainer proxy uses this instead of JSON mutation)
+            var sourceHeader = request.Headers["X-TerminalHost-Source"];
+            if (!string.IsNullOrEmpty(sourceHeader) && string.IsNullOrEmpty(hookData.Source))
+                hookData.Source = sourceHeader;
+
+            var containerHeader = request.Headers["X-TerminalHost-Container"];
+            if (!string.IsNullOrEmpty(containerHeader) && string.IsNullOrEmpty(hookData.DevcontainerName))
+                hookData.DevcontainerName = containerHeader;
 
             HookEvent? hookEvent = hookType switch
             {

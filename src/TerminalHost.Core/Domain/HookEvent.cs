@@ -129,6 +129,19 @@ public class HookEvent
     public string? Message { get; set; }
 
     /// <summary>
+    /// Origin of the session (Local, Container, DevContainer).
+    /// </summary>
+    [JsonPropertyName("source")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public SessionSource Source { get; set; } = SessionSource.Local;
+
+    /// <summary>
+    /// Container display name (for Container/DevContainer sessions).
+    /// </summary>
+    [JsonPropertyName("container_name")]
+    public string? ContainerName { get; set; }
+
+    /// <summary>
     /// Original parsed hook data (for rich tool input/output extraction).
     /// Not serialized — only available within the same process.
     /// </summary>
@@ -159,6 +172,8 @@ public class HookEvent
             SessionId = data.SessionId,
             Cwd = data.Cwd,
             TranscriptPath = data.TranscriptPath,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -175,6 +190,8 @@ public class HookEvent
             Cwd = data.Cwd,
             FilePath = data.GetFilePath(),
             ToolName = data.ToolName,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -190,6 +207,8 @@ public class HookEvent
             SessionId = data.SessionId,
             Cwd = data.Cwd,
             TranscriptPath = data.TranscriptPath,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -211,6 +230,8 @@ public class HookEvent
             FilePath = filePath ?? data.GetFilePath(),
             InputSummary = inputSummary,
             RawData = data,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -231,6 +252,8 @@ public class HookEvent
             FilePath = data.GetFilePath(),
             ResultSummary = ExtractResultSummary(data),
             RawData = data,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -251,6 +274,8 @@ public class HookEvent
             FilePath = data.GetFilePath(),
             ResultSummary = ExtractResultSummary(data),
             RawData = data,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -327,6 +352,8 @@ public class HookEvent
             AgentId = data.AgentId,
             AgentType = data.AgentType,
             AgentTranscriptPath = data.AgentTranscriptPath,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -343,6 +370,8 @@ public class HookEvent
             Cwd = data.Cwd,
             AgentId = data.AgentId,
             AgentTranscriptPath = data.AgentTranscriptPath,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -359,6 +388,8 @@ public class HookEvent
             Cwd = data.Cwd,
             NotificationType = data.NotificationType,
             Message = data.Message,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -374,6 +405,8 @@ public class HookEvent
             SessionId = data.SessionId,
             Cwd = data.Cwd,
             TranscriptPath = data.TranscriptPath,
+            Source = data.GetSessionSource(),
+            ContainerName = data.DevcontainerName,
             Timestamp = DateTime.UtcNow
         };
     }

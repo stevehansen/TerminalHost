@@ -41,7 +41,8 @@ public class SessionActivityService : ISessionActivityService
         }
     }
 
-    public SessionActivityState GetOrCreateState(string sessionId, string? cwd = null, string? transcriptPath = null)
+    public SessionActivityState GetOrCreateState(string sessionId, string? cwd = null, string? transcriptPath = null,
+        SessionSource source = SessionSource.Local, string? containerName = null)
     {
         lock (_lock)
         {
@@ -50,10 +51,12 @@ public class SessionActivityService : ISessionActivityService
                 // Update paths if provided
                 if (cwd != null) existing.WorkingDirectory = cwd;
                 if (transcriptPath != null) existing.TranscriptPath = transcriptPath;
+                if (source != SessionSource.Local) existing.Source = source;
+                if (containerName != null) existing.ContainerName = containerName;
                 return existing;
             }
 
-            var state = SessionActivityState.Create(sessionId, cwd, transcriptPath);
+            var state = SessionActivityState.Create(sessionId, cwd, transcriptPath, source, containerName);
             _states[sessionId] = state;
             return state;
         }
@@ -239,7 +242,8 @@ public class SessionActivityService : ISessionActivityService
     private List<ActivityEvent> ProcessSessionStart(HookEvent hookEvent)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath);
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath,
+            hookEvent.Source, hookEvent.ContainerName);
 
         var evt = ActivityEvent.CreateSessionStart(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath);
         evt.Timestamp = hookEvent.Timestamp;
@@ -255,7 +259,8 @@ public class SessionActivityService : ISessionActivityService
     private List<ActivityEvent> ProcessToolStart(HookEvent hookEvent, HookEventData? rawData)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd);
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+            source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? Guid.NewGuid().ToString();
         var toolName = hookEvent.ToolName ?? "unknown";
@@ -313,7 +318,8 @@ public class SessionActivityService : ISessionActivityService
     private List<ActivityEvent> ProcessToolEnd(HookEvent hookEvent, HookEventData? rawData)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd);
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+            source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? "";
         var toolName = hookEvent.ToolName ?? "unknown";
@@ -453,7 +459,8 @@ public class SessionActivityService : ISessionActivityService
     private List<ActivityEvent> ProcessToolError(HookEvent hookEvent, HookEventData? rawData)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd);
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+            source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var toolUseId = hookEvent.ToolUseId ?? "";
         var toolName = hookEvent.ToolName ?? "unknown";
@@ -484,7 +491,8 @@ public class SessionActivityService : ISessionActivityService
     private List<ActivityEvent> ProcessSubagentStart(HookEvent hookEvent)
     {
         var events = new List<ActivityEvent>();
-        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd);
+        var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd,
+            source: hookEvent.Source, containerName: hookEvent.ContainerName);
 
         var agentId = hookEvent.AgentId ?? Guid.NewGuid().ToString();
         var parentId = state.MainAgent?.Id ?? hookEvent.SessionId;
@@ -650,17 +658,21 @@ public class SessionActivityService : ISessionActivityService
 
     // Helpers
 
-    private SessionActivityState GetOrCreateStateLocked(string sessionId, string? cwd = null, string? transcriptPath = null)
+    private SessionActivityState GetOrCreateStateLocked(string sessionId, string? cwd = null, string? transcriptPath = null,
+        SessionSource source = SessionSource.Local, string? containerName = null)
     {
         if (_states.TryGetValue(sessionId, out var existing))
         {
             if (cwd != null) existing.WorkingDirectory = cwd;
             if (transcriptPath != null) existing.TranscriptPath = transcriptPath;
+            // Upgrade source if a more specific one is provided
+            if (source != SessionSource.Local) existing.Source = source;
+            if (containerName != null) existing.ContainerName = containerName;
             existing.LastActivityTime = DateTime.UtcNow;
             return existing;
         }
 
-        var state = SessionActivityState.Create(sessionId, cwd, transcriptPath);
+        var state = SessionActivityState.Create(sessionId, cwd, transcriptPath, source, containerName);
         _states[sessionId] = state;
         return state;
     }
