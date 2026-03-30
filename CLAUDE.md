@@ -595,6 +595,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
 | [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
+| [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Spec complete; not yet implemented |
 
 ## Remaining Work Summary
 
@@ -617,6 +618,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | **Future** | Write Endpoints & MCP Server (API Phase 5) | RestApiAndWebhooks.md |
 | **Future** | Containerized Workspaces (remaining phases) | ContainerizedWorkspaces.md |
 | **Future** | Versioning & Auto-Updates | Versioning.md |
+| **Future** | Multi-Device Collaboration Sync Bridge | CollabSync.md |
 
 ## Future Considerations
 

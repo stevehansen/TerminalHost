@@ -44,6 +44,13 @@ public class CollabTopic
     [JsonPropertyName("subscribers")]
     public HashSet<string> Subscribers { get; set; } = new();
 
+    /// <summary>
+    /// Tracks whether any session has subscribed since this topic was loaded.
+    /// Prevents auto-delete on restart before sessions have a chance to reconnect.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasHadSubscriber { get; set; }
+
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -73,5 +80,41 @@ public class CollabMessage
 
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Persisted topic data (excludes transient subscribers).
+/// </summary>
+public class PersistedTopic
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("createdBy")]
+    public string CreatedBy { get; set; } = "";
+
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Root object persisted to collab-state.json.
+/// </summary>
+public class CollabPersistedState
+{
+    [JsonPropertyName("nextMessageId")]
+    public int NextMessageId { get; set; }
+
+    [JsonPropertyName("topics")]
+    public List<PersistedTopic> Topics { get; set; } = new();
+
+    [JsonPropertyName("messages")]
+    public List<CollabMessage> Messages { get; set; } = new();
+
+    [JsonPropertyName("cursors")]
+    public Dictionary<string, Dictionary<string, int>> Cursors { get; set; } = new();
 }
 

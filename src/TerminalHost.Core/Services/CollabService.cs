@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using TerminalHost.Core.Domain;
@@ -9,9 +11,9 @@ using TerminalHost.Core.Interfaces;
 namespace TerminalHost.Core.Services;
 
 /// <summary>
-/// In-memory collaboration service. Thread-safe via locking.
-/// Topics auto-create on first use and auto-delete when empty.
-/// State resets on app restart (no persistence).
+/// Collaboration service with persistence. Thread-safe via locking.
+/// Topics auto-create on first use and auto-delete when empty (after at least one subscriber has joined).
+/// State persists to collab-state.json with debounced writes.
 /// </summary>
 public class CollabService : ICollabService
 {
@@ -24,9 +26,174 @@ public class CollabService : ICollabService
     private readonly Dictionary<string, List<TaskCompletionSource<bool>>> _topicWaiters = new(StringComparer.OrdinalIgnoreCase);
     private int _nextMessageId;
 
+    // Persistence
+    private readonly JsonFileService<CollabPersistedState>? _jsonFileService;
+    private readonly Timer? _saveTimer;
+    private bool _isDirty;
+    private bool _disposed;
+
+    // Retention limits
+    private const int MaxMessagesPerTopic = 500;
+    private const int MaxMessagesTotal = 5000;
+    private static readonly TimeSpan TopicMaxAge = TimeSpan.FromHours(24);
+
     public event Action? StateChanged;
 
     private void RaiseChanged() => StateChanged?.Invoke();
+
+    /// <summary>
+    /// Creates a CollabService with persistence.
+    /// </summary>
+    public CollabService(IFileSystem fileSystem)
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var configDir = Path.Combine(appData, "TerminalHost");
+        fileSystem.CreateDirectory(configDir);
+        var filePath = Path.Combine(configDir, "collab-state.json");
+
+        var options = new JsonSerializerOptions { WriteIndented = true, PropertyNameCaseInsensitive = true };
+        _jsonFileService = new JsonFileService<CollabPersistedState>(fileSystem, filePath, options);
+
+        LoadState();
+
+        // Save every 5 seconds if dirty
+        _saveTimer = new Timer(_ => SaveIfDirty(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>
+    /// Creates a CollabService without persistence (for testing).
+    /// </summary>
+    public CollabService()
+    {
+    }
+
+    private void LoadState()
+    {
+        if (_jsonFileService == null) return;
+
+        var state = _jsonFileService.Load();
+        if (state.Topics.Count == 0 && state.Messages.Count == 0) return;
+
+        lock (_lock)
+        {
+            _nextMessageId = state.NextMessageId;
+
+            var cutoff = DateTime.UtcNow - TopicMaxAge;
+
+            foreach (var pt in state.Topics)
+            {
+                // Skip stale topics with no messages
+                if (pt.CreatedAt < cutoff)
+                {
+                    var hasMessages = state.Messages.Any(m =>
+                        m.Topic.Equals(pt.Name, StringComparison.OrdinalIgnoreCase) && m.CreatedAt >= cutoff);
+                    if (!hasMessages) continue;
+                }
+
+                _topics[pt.Name] = new CollabTopic
+                {
+                    Name = pt.Name,
+                    Description = pt.Description,
+                    CreatedBy = pt.CreatedBy,
+                    CreatedAt = pt.CreatedAt,
+                    HasHadSubscriber = false // No subscribers yet after restart
+                };
+            }
+
+            // Load messages only for topics that survived retention
+            foreach (var msg in state.Messages)
+            {
+                if (_topics.ContainsKey(msg.Topic))
+                    _messages.Add(msg);
+            }
+
+            // Apply per-topic retention
+            EnforceRetention();
+
+            // Load cursors (only for topics that exist)
+            foreach (var (session, topicCursors) in state.Cursors)
+            {
+                var filtered = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (topic, cursor) in topicCursors)
+                {
+                    if (_topics.ContainsKey(topic))
+                        filtered[topic] = cursor;
+                }
+                if (filtered.Count > 0)
+                    _cursors[session] = filtered;
+            }
+        }
+    }
+
+    private CollabPersistedState BuildSnapshot()
+    {
+        // Must be called under _lock
+        var state = new CollabPersistedState
+        {
+            NextMessageId = _nextMessageId,
+            Topics = _topics.Values.Select(t => new PersistedTopic
+            {
+                Name = t.Name,
+                Description = t.Description,
+                CreatedBy = t.CreatedBy,
+                CreatedAt = t.CreatedAt
+            }).ToList(),
+            Messages = _messages.ToList(),
+            Cursors = _cursors.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new Dictionary<string, int>(kvp.Value))
+        };
+        return state;
+    }
+
+    private void SaveIfDirty()
+    {
+        if (!_isDirty || _disposed || _jsonFileService == null) return;
+
+        CollabPersistedState snapshot;
+        lock (_lock)
+        {
+            if (!_isDirty) return;
+            _isDirty = false;
+            EnforceRetention();
+            snapshot = BuildSnapshot();
+        }
+
+        // Save outside the lock so disk I/O doesn't block messaging
+        try
+        {
+            _jsonFileService.Save(snapshot);
+        }
+        catch
+        {
+            // Mark dirty again so we retry next cycle
+            _isDirty = true;
+        }
+    }
+
+    /// <summary>
+    /// Enforces retention limits. Must be called under _lock.
+    /// </summary>
+    private void EnforceRetention()
+    {
+        // Per-topic limit
+        var topicGroups = _messages
+            .GroupBy(m => m.Topic, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > MaxMessagesPerTopic);
+
+        foreach (var group in topicGroups)
+        {
+            var toKeep = group.OrderByDescending(m => m.Id).Take(MaxMessagesPerTopic).Select(m => m.Id).ToHashSet();
+            _messages.RemoveAll(m => m.Topic.Equals(group.Key, StringComparison.OrdinalIgnoreCase) && !toKeep.Contains(m.Id));
+        }
+
+        // Global limit
+        if (_messages.Count > MaxMessagesTotal)
+        {
+            var toKeep = _messages.OrderByDescending(m => m.Id).Take(MaxMessagesTotal).Select(m => m.Id).ToHashSet();
+            _messages.RemoveAll(m => !toKeep.Contains(m.Id));
+        }
+    }
 
     #region Sessions
 
@@ -60,6 +227,7 @@ public class CollabService : ICollabService
         lock (_lock)
         {
             EnsureTopicAndSubscribe(session, topic, description);
+            _isDirty = true;
         }
         RaiseChanged();
     }
@@ -73,8 +241,8 @@ public class CollabService : ICollabService
 
             t.Subscribers.Remove(session);
 
-            // Auto-delete empty topics
-            if (t.Subscribers.Count == 0)
+            // Auto-delete empty topics only if at least one session has subscribed since load
+            if (t.Subscribers.Count == 0 && t.HasHadSubscriber)
             {
                 _topics.Remove(topic);
                 _messages.RemoveAll(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase));
@@ -83,6 +251,8 @@ public class CollabService : ICollabService
                 foreach (var c in _cursors.Values)
                     c.Remove(topic);
             }
+
+            _isDirty = true;
         }
         RaiseChanged();
         return (true, null);
@@ -134,6 +304,8 @@ public class CollabService : ICollabService
                     tcs.TrySetResult(true);
                 waiters.Clear();
             }
+
+            _isDirty = true;
         }
         RaiseChanged();
     }
@@ -154,6 +326,7 @@ public class CollabService : ICollabService
             EnsureCursor(session, topic);
             _cursors[session][topic] = maxId;
 
+            _isDirty = true;
             return (msgs, maxId);
         }
     }
@@ -176,6 +349,7 @@ public class CollabService : ICollabService
                 var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
                 EnsureCursor(session, topic);
                 _cursors[session][topic] = maxId;
+                _isDirty = true;
                 return (msgs, maxId);
             }
 
@@ -223,6 +397,7 @@ public class CollabService : ICollabService
             var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
             EnsureCursor(session, topic);
             _cursors[session][topic] = maxId;
+            _isDirty = true;
             return (msgs, maxId);
         }
     }
@@ -273,6 +448,7 @@ public class CollabService : ICollabService
             t.Description = description;
 
         t.Subscribers.Add(session);
+        t.HasHadSubscriber = true;
         EnsureCursor(session, topic);
     }
 
@@ -282,5 +458,25 @@ public class CollabService : ICollabService
             _cursors[session] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         if (!_cursors[session].ContainsKey(topic))
             _cursors[session][topic] = 0;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _saveTimer?.Dispose();
+        // Final synchronous save
+        if (_jsonFileService != null && _isDirty)
+        {
+            CollabPersistedState snapshot;
+            lock (_lock)
+            {
+                _isDirty = false;
+                EnforceRetention();
+                snapshot = BuildSnapshot();
+            }
+            try { _jsonFileService.Save(snapshot); } catch { }
+        }
     }
 }

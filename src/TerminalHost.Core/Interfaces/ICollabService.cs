@@ -10,7 +10,7 @@ namespace TerminalHost.Core.Interfaces;
 /// In-memory collaboration service for MCP-based inter-session communication.
 /// Manages topics and messages. Topics auto-create on first use and auto-delete when empty.
 /// </summary>
-public interface ICollabService
+public interface ICollabService : IDisposable
 {
     // Sessions
     void EnsureSession(string name, string? workingDir = null);
