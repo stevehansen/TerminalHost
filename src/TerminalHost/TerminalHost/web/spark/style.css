@@ -53,6 +53,10 @@ canvas:active { cursor: grabbing; }
     font-size: 11px;
     color: #aaeeff;
     font-weight: 600;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .control-value {

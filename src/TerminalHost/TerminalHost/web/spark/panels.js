@@ -82,7 +82,22 @@ function toggleTimelinePanel() {
         initTimelineCanvas();
         renderTimeline();
     }
+    _adjustBarPositions();
     saveSparkState();
+}
+
+/** Adjust control bar and replay bar positions based on timeline visibility */
+function _adjustBarPositions() {
+    const controlBar = document.getElementById('controlBar');
+    const replayBar = document.getElementById('replayBar');
+    if (timelineState.visible) {
+        // Push bars above the timeline panel (36px bottom + 180px height = 216px)
+        controlBar.style.bottom = '220px';
+        replayBar.style.bottom = '256px';
+    } else {
+        controlBar.style.bottom = '';
+        replayBar.style.bottom = '';
+    }
 }
 
 function initTimelineCanvas() {

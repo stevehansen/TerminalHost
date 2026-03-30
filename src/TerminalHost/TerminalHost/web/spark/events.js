@@ -303,6 +303,7 @@ function updateReplayButton() {
 function showReplayControls(show) {
     const el = document.getElementById('replayBar');
     if (el) el.style.display = show ? '' : 'none';
+    if (typeof _adjustBarPositions === 'function') _adjustBarPositions();
 }
 
 // ─── REST: Initial State Load ──────────────────────────
@@ -796,6 +797,11 @@ function listenForWebViewMessages() {
         });
     }
 
+    // WKWebView (macOS): PostWebMessageAsString calls __dispatchMessageCallback(msg)
+    window.__dispatchMessageCallback = function(msg) {
+        handleHostMessage(msg);
+    };
+
     // Generic postMessage fallback
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'spark') {
@@ -876,9 +882,9 @@ function notifyHost(action, data) {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(msg);
     }
-    // Avalonia NativeWebView (macOS) — invokeCSharpAction is injected by the control
-    else if (typeof invokeCSharpAction === 'function') {
-        invokeCSharpAction(msg);
+    // WKWebView (macOS) — WebView.Avalonia.Cross registers handler named "webview"
+    else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.webview) {
+        window.webkit.messageHandlers.webview.postMessage(msg);
     }
 }
 

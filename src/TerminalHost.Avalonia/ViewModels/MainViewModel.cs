@@ -1848,6 +1848,25 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private void OpenSparkCanvasAndLoadJsonl()
+    {
+        if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+        {
+            _toastService.Show("Select a project tab first", ToastType.Warning);
+            return;
+        }
+
+        var vm = new SparkCanvasViewModel(
+            activityService: _sessionActivityService,
+            apiServer: _apiServer,
+            timelineService: _timelineService,
+            configService: _configService);
+        terminalTab.ShowCenterPanel(vm);
+
+        // Trigger the file open dialog via the ViewModel's event
+        vm.OpenJsonlFileCommand.Execute(null);
+    }
+
     [RelayCommand]
     private void OpenTimeline()
     {
@@ -2772,6 +2791,15 @@ public partial class MainViewModel : ObservableObject
                     var window = new Views.SparkCanvasWindow(vm);
                     window.Show();
                 }
+            },
+            new() {
+                Id = "spark-load-jsonl",
+                Name = "Spark: Load JSONL File",
+                Description = "Open a .jsonl transcript file in Spark Canvas for visualization",
+                Icon = "\u2728",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 30),
+                Execute = () => OpenSparkCanvasAndLoadJsonl()
             },
 
             // Run commands

@@ -230,8 +230,11 @@ public class TranscriptParserService
                     var type = TryGetString(root, "type");
                     var role = TryGetString(root, "role");
 
-                    // Handle the entry.message format (nested JSONL structure)
+                    // Handle nested message format: entry.message or root.message
+                    // Claude Code JSONL uses { type: "assistant", message: { role, content: [...] } }
                     var messageElement = TryGetNestedElement(root, "entry", "message");
+                    if (!messageElement.HasValue && (type == "user" || type == "assistant"))
+                        messageElement = TryGetNestedElement(root, "message");
                     if (messageElement.HasValue)
                     {
                         role ??= TryGetString(messageElement.Value, "role");

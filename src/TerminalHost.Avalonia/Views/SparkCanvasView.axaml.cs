@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using WebViewCore.Events;
 using TerminalHost.ViewModels;
@@ -12,6 +14,12 @@ namespace TerminalHost.Views;
 /// Hosts the Spark Canvas WebView instance.
 /// Maps local web assets via file:// URI and bridges messages between C# and JS.
 /// Uses WebView.Avalonia.Cross (WKWebView on macOS).
+///
+/// Communication:
+///   JS → C#: window.webkit.messageHandlers.webview.postMessage(msg)
+///             Received via WebMessageReceived event.
+///   C# → JS: PostWebMessageAsString(json) which calls __dispatchMessageCallback(msg)
+///             in JS. The JS registers this callback in listenForWebViewMessages().
 /// </summary>
 public partial class SparkCanvasView : UserControl
 {
@@ -29,12 +37,22 @@ public partial class SparkCanvasView : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (_viewModel != null)
+        {
             _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
+        }
 
         _viewModel = DataContext as SparkCanvasViewModel;
 
         if (_viewModel != null)
+        {
             _viewModel.SendMessageToCanvas += OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile += OnRequestOpenJsonlFile;
+
+            // Check if a JSONL open was requested before the view was ready
+            if (_viewModel.HasPendingJsonlOpen)
+                Dispatcher.UIThread.Post(() => _viewModel.OpenJsonlFileCommand.Execute(null));
+        }
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -66,7 +84,10 @@ public partial class SparkCanvasView : UserControl
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
         if (_viewModel != null)
+        {
             _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
+        }
     }
 
     private void SparkWebView_NavigationCompleted(object? sender, WebViewUrlLoadedEventArg e)
@@ -120,14 +141,15 @@ public partial class SparkCanvasView : UserControl
 
         try
         {
-            Dispatcher.UIThread.InvokeAsync(async () =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 try
                 {
-                    // Call handleHostMessage directly via ExecuteScriptAsync
-                    // PostWebMessageAsString doesn't reliably deliver to JS on WKWebView
-                    var escaped = json.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
-                    await SparkWebView.ExecuteScriptAsync($"if(typeof handleHostMessage==='function')handleHostMessage('{escaped}')");
+                    // PostWebMessageAsString calls __dispatchMessageCallback(msg) in JS
+                    // which is registered by listenForWebViewMessages() in events.js.
+                    // Do NOT use ExecuteScriptAsync — it crashes on macOS due to a bug
+                    // in WebView.Avalonia.Cross (null NSObject in result callback).
+                    SparkWebView.PostWebMessageAsString(json, null);
                 }
                 catch
                 {
@@ -138,6 +160,45 @@ public partial class SparkCanvasView : UserControl
         catch
         {
             // Dispatcher may fail if window is closing
+        }
+    }
+
+    private async void OnRequestOpenJsonlFile(object? sender, EventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var claudeProjectsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".claude", "projects");
+
+        var options = new FilePickerOpenOptions
+        {
+            Title = "Open JSONL Transcript",
+            AllowMultiple = false,
+            FileTypeFilter = new List<FilePickerFileType>
+            {
+                new("JSONL files")
+                {
+                    Patterns = new[] { "*.jsonl" },
+                    AppleUniformTypeIdentifiers = new[] { "public.json", "public.plain-text" }
+                },
+                new("All files") { Patterns = new[] { "*" } }
+            }
+        };
+
+        if (Directory.Exists(claudeProjectsDir))
+        {
+            options.SuggestedStartLocation = await topLevel.StorageProvider
+                .TryGetFolderFromPathAsync(new Uri($"file://{claudeProjectsDir}"));
+        }
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+        if (files.Count > 0 && _viewModel != null)
+        {
+            var path = files[0].TryGetLocalPath();
+            if (path != null)
+                await _viewModel.LoadJsonlFileAsync(path);
         }
     }
 

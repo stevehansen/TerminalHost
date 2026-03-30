@@ -692,7 +692,7 @@ class SparkCanvas {
             return;
         }
 
-        this.toolCards.set(tc.toolUseId, {
+        const card = {
             toolUseId: tc.toolUseId,
             agentId: tc.agentId,
             toolName: tc.toolName,
@@ -704,7 +704,18 @@ class SparkCanvas {
             resultSummary: null,
             tokenCost: null,
             fadeStart: null,
-        });
+        };
+        this.toolCards.set(tc.toolUseId, card);
+
+        // Pre-compute slot position immediately so cards that start+complete
+        // in the same frame (common during replay) still get unique positions
+        const agent = this.agents.get(tc.agentId);
+        const agentNode = agent ? this.sim.getNode(tc.agentId) : null;
+        if (agentNode) {
+            const slot = this._findToolSlot(agentNode, agent);
+            card._slotOffset = { dx: slot.x - agentNode.x, dy: slot.y - agentNode.y };
+            card._bounds = { x: slot.x, y: slot.y, w: TOOL_CARD_W, h: TOOL_CARD_H };
+        }
 
         addFeedEntry(toolRole.label, `${tc.toolName} ${truncate(tc.inputSummary, 60)}`, toolRole.css);
     }
@@ -1766,6 +1777,8 @@ class SparkCanvas {
         const overlaps = (cx, cy) => {
             for (const tc of this.toolCards.values()) {
                 if (!tc._bounds) continue;
+                // Skip fully faded cards (invisible, about to be GC'd)
+                if (tc.fadeStart != null && (this._time - tc.fadeStart) > 5.5) continue;
                 if (Math.abs(cx - (tc._bounds.x + tc._bounds.w / 2)) < TOOL_CARD_W &&
                     Math.abs(cy - (tc._bounds.y + tc._bounds.h / 2)) < TOOL_CARD_H) return true;
             }
@@ -1840,11 +1853,14 @@ class SparkCanvas {
             if (!card._slotOffset) {
                 const slot = this._findToolSlot(agentNode, agent);
                 card._slotOffset = { dx: slot.x - agentNode.x, dy: slot.y - agentNode.y };
+                // Eagerly set _bounds so subsequent cards in the same render pass
+                // see this card's position and avoid overlapping it
+                card._bounds = { x: slot.x + (TOOL_CARD_W - w) / 2, y: slot.y, w, h };
             }
             const x = agentNode.x + card._slotOffset.dx + (TOOL_CARD_W - w) / 2;
             const y = agentNode.y + card._slotOffset.dy;
 
-            // Store world-space bounds for hit testing
+            // Update world-space bounds for hit testing (agent may have moved)
             card._bounds = { x, y, w, h };
 
             ctx.save();
