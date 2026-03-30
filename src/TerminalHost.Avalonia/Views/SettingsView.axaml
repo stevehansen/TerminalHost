@@ -2800,6 +2800,8 @@
                             <TextBlock Text="Active Containers" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <Button Content="Refresh" Command="{Binding RefreshContainersCommand}"
                                     Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
+                            <Button Content="Recreate" Click="RecreateContainer_Click"
+                                    Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
                             <Button Content="Stop" Click="StopContainer_Click"
                                     Classes="SettingsToolbarButton" Margin="0,0,4,0"/>
                             <Button Content="Remove" Click="RemoveContainer_Click"
@@ -2834,6 +2836,10 @@
                                         <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"/>
                                         <TextBlock Text=" &#x2014; " Foreground="{StaticResource TextSecondaryBrush}"/>
                                         <TextBlock Text="{Binding State}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding StalenessStatus}"
+                                                   Foreground="{StaticResource StatusWarningBrush}"
+                                                   IsVisible="{Binding IsStale}"
+                                                   Margin="6,0,0,0"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

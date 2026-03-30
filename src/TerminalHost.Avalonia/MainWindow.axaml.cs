@@ -461,10 +461,9 @@ public partial class MainWindow : Window
         _mainViewModel.Initialize();
         _statusOverlayService.Initialize(this);
 
-        // Initialize toast overlay window
+        // Initialize toast overlay window (shown on demand when toasts appear)
         var toastWindow = new ToastWindow();
         toastWindow.Initialize(this, _toastService);
-        toastWindow.Show();
 
         // Subscribe to all existing terminal tabs for overlay aggregation
         foreach (var tab in _mainViewModel.Tabs.OfType<TerminalPairTabViewModel>())
@@ -1183,6 +1182,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.I && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
             _mainViewModel.OpenTimelineCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Handle Cmd/Ctrl+Shift+J for Spark Canvas
+        if (e.Key == Key.J && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
+        {
+            _mainViewModel.OpenSparkCanvasCommand.Execute(null);
             e.Handled = true;
             return;
         }

@@ -1,0 +1,11 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:TerminalHost.Views"
+        x:Class="TerminalHost.Views.SparkCanvasWindow"
+        Title="Spark Canvas"
+        Width="1200" Height="800"
+        MinWidth="600" MinHeight="400"
+        Background="#FF050510"
+        WindowStartupLocation="CenterScreen">
+    <views:SparkCanvasView x:Name="CanvasView"/>
+</Window>

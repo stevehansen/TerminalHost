@@ -98,6 +98,7 @@ function showEmptyState(message) {
 }
 
 async function loadAndConnect(sessionId) {
+    sparkCanvas.clearAll();
     setConnectionStatus('connecting');
     await loadInitialState(apiBase, sessionId);
     connectSSE(apiBase, sessionId);
@@ -522,15 +523,17 @@ function deduplicateSessions() {
     sparkCanvas.sim.arrangeGroups();
 }
 
-// ─── WebView2 Message Bridge ───────────────────────────
+// ─── Host Message Bridge (WebView2 + Avalonia NativeWebView) ─
 
 function listenForWebViewMessages() {
+    // WebView2 (Windows): chrome.webview.postMessage/addEventListener
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.addEventListener('message', (e) => {
             handleHostMessage(e.data);
         });
     }
 
+    // Generic postMessage fallback
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'spark') {
             handleHostMessage(e.data.payload);
@@ -592,8 +595,14 @@ function handleHostMessage(msg) {
 // ─── Notify host of readiness ──────────────────────────
 
 function notifyHost(action, data) {
+    const msg = JSON.stringify({ action, ...data });
+    // WebView2 (Windows)
     if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify({ action, ...data }));
+        window.chrome.webview.postMessage(msg);
+    }
+    // Avalonia NativeWebView (macOS) — invokeCSharpAction is injected by the control
+    else if (typeof invokeCSharpAction === 'function') {
+        invokeCSharpAction(msg);
     }
 }
 

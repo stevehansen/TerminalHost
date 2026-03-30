@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv="using:AvaloniaWebView"
+             x:Class="TerminalHost.Views.SparkCanvasView">
+    <Grid>
+        <wv:WebView x:Name="SparkWebView"
+                     NavigationCompleted="SparkWebView_NavigationCompleted"
+                     WebMessageReceived="SparkWebView_WebMessageReceived"/>
+
+        <!-- Fallback overlay when WebView is not ready -->
+        <Border x:Name="LoadingOverlay" Background="#FF050510"
+                IsVisible="True">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="✨" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                <TextBlock Text="Initializing Spark Canvas..."
+                           FontSize="13" Foreground="#66ccff"
+                           FontFamily="Cascadia Code NF,Consolas,monospace"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

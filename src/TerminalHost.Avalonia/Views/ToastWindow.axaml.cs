@@ -15,6 +15,7 @@ namespace TerminalHost.Views;
 public partial class ToastWindow : Window
 {
     private Window? _ownerWindow;
+    private bool _hasBeenShown;
 
     public ToastWindow()
     {
@@ -23,21 +24,46 @@ public partial class ToastWindow : Window
 
     /// <summary>
     /// Initializes the toast window with the owner window and toast service.
+    /// Window is NOT shown until toasts appear — prevents transparent overlay from
+    /// intercepting clicks on other apps (especially on the right side of the screen).
     /// </summary>
     public void Initialize(Window owner, IToastService toastService)
     {
         _ownerWindow = owner;
         ToastContainer.DataContext = toastService;
 
-        // Position initially
-        UpdatePosition();
+        // Track toast count to show/hide the window
+        if (toastService is ToastService ts)
+        {
+            ts.Toasts.CollectionChanged += (_, _) =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var hasToasts = ts.Toasts.Count > 0;
+                    if (hasToasts)
+                    {
+                        if (!_hasBeenShown)
+                        {
+                            _hasBeenShown = true;
+                            Show();
+                        }
+                        else if (!IsVisible)
+                        {
+                            IsVisible = true;
+                        }
+                        UpdatePosition();
+                    }
+                    else if (_hasBeenShown && IsVisible)
+                    {
+                        IsVisible = false;
+                    }
+                });
+            };
+        }
 
-        // Also schedule a delayed position update after layout is complete
-        Dispatcher.UIThread.Post(UpdatePosition, DispatcherPriority.Loaded);
-
-        // Track owner window changes
-        owner.PositionChanged += (_, _) => UpdatePosition();
-        owner.Resized += (_, _) => UpdatePosition();
+        // Track owner window changes (position updates deferred until shown)
+        owner.PositionChanged += (_, _) => { if (IsVisible) UpdatePosition(); };
+        owner.Resized += (_, _) => { if (IsVisible) UpdatePosition(); };
         owner.PropertyChanged += (_, e) =>
         {
             if (e.Property.Name == nameof(WindowState))

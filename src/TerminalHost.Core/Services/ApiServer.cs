@@ -1644,8 +1644,10 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
         var origin = request.Headers["Origin"];
         if (string.IsNullOrEmpty(origin)) return;
 
-        // Always allow our own WebView2 virtual hosts (Spark Canvas, Markdown viewer)
-        var isInternalOrigin = origin.StartsWith("https://spark.local", StringComparison.OrdinalIgnoreCase)
+        // Always allow our own WebView hosts (Spark Canvas, Markdown viewer)
+        // "null" origin comes from file:// URIs (Avalonia WebView on macOS)
+        var isInternalOrigin = origin == "null"
+            || origin.StartsWith("https://spark.local", StringComparison.OrdinalIgnoreCase)
             || origin.StartsWith("https://localmd.files", StringComparison.OrdinalIgnoreCase);
 
         var allowed = isInternalOrigin || settings.CorsOrigins.Any(pattern =>
@@ -1661,7 +1663,8 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
 
         if (allowed)
         {
-            response.Headers.Add("Access-Control-Allow-Origin", origin);
+            // file:// origins send "null" — respond with "*" since "null" isn't a valid ACAO value
+            response.Headers.Add("Access-Control-Allow-Origin", origin == "null" ? "*" : origin);
             response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
             response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Session, Mcp-Session-Id");
             response.Headers.Add("Access-Control-Expose-Headers", "Mcp-Session-Id");

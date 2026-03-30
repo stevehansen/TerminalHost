@@ -14,7 +14,7 @@ namespace TerminalHost.ViewModels;
 
 /// <summary>
 /// ViewModel for the Spark Canvas — real-time force-directed visualization of AI agent execution.
-/// Hosted as a center panel inside TerminalPairView via WebView2.
+/// Hosted as a center panel inside TerminalPairView via NativeWebView.
 /// Manages session selection, activity event forwarding, and initial state loading.
 /// </summary>
 public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
@@ -35,13 +35,13 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     [
         new PanelHeaderCommand
         {
-            Icon = "\u21BB", // Refresh
+            Icon = "\u21BB",
             Tooltip = "Refresh session list",
             Command = RefreshSessionsCommand
         },
         new PanelHeaderCommand
         {
-            Icon = "\u2716", // X
+            Icon = "\u2716",
             Tooltip = "Close Spark Canvas",
             Command = CloseCommand
         }
@@ -67,14 +67,8 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     [ObservableProperty]
     private string _connectionStatus = "Connecting";
 
-    /// <summary>
-    /// Available sessions for the picker.
-    /// </summary>
     public ObservableCollection<SparkSessionItem> AvailableSessions { get; } = new();
 
-    /// <summary>
-    /// Whether the API server is running and accessible.
-    /// </summary>
     public bool IsApiServerRunning => _apiServer?.IsRunning ?? false;
 
     #endregion
@@ -82,7 +76,7 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     #region Events
 
     /// <summary>
-    /// Raised when the ViewModel needs to send a message to the WebView2 canvas.
+    /// Raised when the ViewModel needs to send a message to the WebView canvas.
     /// </summary>
     public event EventHandler<string>? SendMessageToCanvas;
 
@@ -100,19 +94,12 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
         _configService = configService;
 
         if (_apiServer != null)
-        {
             ApiBaseUrl = _apiServer.BaseUrl ?? "http://localhost:19280";
-        }
 
         if (_activityService != null)
-        {
             _activityService.ActivityEventProcessed += OnActivityEvent;
-        }
     }
 
-    /// <summary>
-    /// Open the canvas for a specific session.
-    /// </summary>
     public void OpenSession(string sessionId)
     {
         CurrentSessionId = sessionId;
@@ -122,7 +109,6 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
         // Clear previous session data before loading new one
         PostToCanvas(new { action = "clear" });
 
-        // Push state directly via postMessage (works regardless of API server)
         var state = _activityService?.GetState(sessionId);
         if (state != null)
         {
@@ -133,7 +119,6 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             });
         }
 
-        // If API server is running, also connect SSE for live updates
         if (IsApiServerRunning)
         {
             PostToCanvas(new
@@ -145,33 +130,21 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
         }
     }
 
-    /// <summary>
-    /// Called by the view when WebView2 canvas reports ready.
-    /// </summary>
     public void OnCanvasReady()
     {
         IsCanvasReady = true;
 
-        // Push saved theme to canvas
         var savedTheme = _configService?.Load().Settings.Timeline.SparkTheme ?? "holographic";
         PostToCanvas(new { action = "setTheme", theme = savedTheme });
 
         RefreshSessions();
 
-        // Auto-connect to first active session if none specified
         if (CurrentSessionId != null)
-        {
             OpenSession(CurrentSessionId);
-        }
         else
-        {
             AutoConnectToActiveSession();
-        }
     }
 
-    /// <summary>
-    /// Called by the view when a message is received from the WebView2 canvas.
-    /// </summary>
     public void OnCanvasMessage(string json)
     {
         try
@@ -206,7 +179,6 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     {
         AvailableSessions.Clear();
 
-        // Get live sessions from TimelineService
         var liveSessions = _timelineService?.GetLiveSessions();
         if (liveSessions != null)
         {
@@ -223,7 +195,6 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             }
         }
 
-        // Get activity states (may include sessions not in live list)
         var activityStates = _activityService?.GetActiveStates();
         if (activityStates != null)
         {
@@ -244,7 +215,6 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             }
         }
 
-        // Push session list to canvas for the JS picker
         if (IsCanvasReady)
         {
             PostToCanvas(new
@@ -264,23 +234,18 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
 
     private void AutoConnectToActiveSession()
     {
-        // Pick the first active live session
         var first = AvailableSessions.FirstOrDefault(s => s.IsLive)
             ?? AvailableSessions.FirstOrDefault();
 
         if (first != null)
-        {
             OpenSession(first.SessionId);
-        }
     }
 
     [RelayCommand]
     private void SelectSession(string? sessionId)
     {
         if (sessionId != null)
-        {
             OpenSession(sessionId);
-        }
     }
 
     #endregion
@@ -290,7 +255,7 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     private void OnActivityEvent(object? sender, ActivityEvent evt)
     {
         if (CurrentSessionId == null || evt.SessionId != CurrentSessionId) return;
-        if (IsApiServerRunning) return; // SSE handles it
+        if (IsApiServerRunning) return;
 
         if (IsCanvasReady)
         {
@@ -398,15 +363,10 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     public void Dispose()
     {
         if (_activityService != null)
-        {
             _activityService.ActivityEventProcessed -= OnActivityEvent;
-        }
     }
 }
 
-/// <summary>
-/// Lightweight item for the session picker dropdown.
-/// </summary>
 public class SparkSessionItem
 {
     public string SessionId { get; set; } = "";

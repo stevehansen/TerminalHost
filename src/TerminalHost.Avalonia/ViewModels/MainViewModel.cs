@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly IClaudeTaskFileService? _claudeTaskFileService;
     private readonly IApiServer? _apiServer;
+    private readonly ISessionActivityService? _sessionActivityService;
     private readonly IEventAggregatorService? _eventAggregator;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly IAiExecutionService? _aiExecutionService;
@@ -268,6 +269,7 @@ public partial class MainViewModel : ObservableObject
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         IClaudeTaskFileService? claudeTaskFileService = null,
         IApiServer? apiServer = null,
+        ISessionActivityService? sessionActivityService = null,
         IEventAggregatorService? eventAggregator = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
         IAiExecutionService? aiExecutionService = null,
@@ -306,6 +308,7 @@ public partial class MainViewModel : ObservableObject
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _claudeTaskFileService = claudeTaskFileService;
         _apiServer = apiServer;
+        _sessionActivityService = sessionActivityService;
         _eventAggregator = eventAggregator;
         _webhookDeliveryService = webhookDeliveryService;
         _aiExecutionService = aiExecutionService;
@@ -1822,6 +1825,30 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenSparkCanvas()
+    {
+        if (SelectedTab is TerminalPairTabViewModel tab)
+        {
+            var vm = new SparkCanvasViewModel(
+                activityService: _sessionActivityService,
+                apiServer: _apiServer,
+                timelineService: _timelineService,
+                configService: _configService);
+
+            // Auto-select the session matching this tab's working directory
+            var tabDir = tab.WorkingDirectory;
+            var matchingSession = _timelineService.GetLiveSessions()
+                .FirstOrDefault(s => s.IsActive && string.Equals(s.WorkingDirectory, tabDir, StringComparison.OrdinalIgnoreCase))
+                ?? _timelineService.GetLiveSessions()
+                    .FirstOrDefault(s => string.Equals(s.WorkingDirectory, tabDir, StringComparison.OrdinalIgnoreCase));
+            if (matchingSession != null)
+                vm.OpenSession(matchingSession.ClaudeSessionId);
+
+            tab.ShowCenterPanel(vm);
+        }
+    }
+
+    [RelayCommand]
     private void OpenTimeline()
     {
         // Check if timeline tab already exists
@@ -2698,6 +2725,53 @@ public partial class MainViewModel : ObservableObject
                 IntroducedOn = new DateOnly(2026, 2, 5),
                 Execute = () => { }, // TODO: Not yet implemented in Avalonia
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "timeline-hook-debug",
+                Name = "Timeline: Hook Debug Log",
+                Description = "Show incoming hook events from API and named pipe (troubleshoot container/session tracking)",
+                Icon = "🔍",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 27),
+                Execute = () =>
+                {
+                    if (_apiServer == null)
+                    {
+                        _toastService.Show("API server not available", ToastType.Error);
+                        return;
+                    }
+                    var dialog = new Views.Dialogs.HookDebugDialog(_apiServer);
+                    dialog.Show();
+                }
+            },
+            new() {
+                Id = "spark-canvas",
+                Name = "Spark: Open Canvas",
+                Description = "Open real-time force-directed AI session visualization",
+                Shortcut = "Ctrl+Shift+J",
+                Icon = "✨",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 27),
+                Execute = () => OpenSparkCanvasCommand.Execute(null),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "spark-canvas-window",
+                Name = "Spark: Open Canvas (Window)",
+                Description = "Open Spark Canvas in a standalone window",
+                Icon = "✨",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 27),
+                Execute = () =>
+                {
+                    var vm = new SparkCanvasViewModel(
+                        activityService: _sessionActivityService,
+                        apiServer: _apiServer,
+                        timelineService: _timelineService,
+                        configService: _configService);
+                    var window = new Views.SparkCanvasWindow(vm);
+                    window.Show();
+                }
             },
 
             // Run commands

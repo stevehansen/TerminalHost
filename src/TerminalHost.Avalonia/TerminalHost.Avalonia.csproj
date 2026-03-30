@@ -36,6 +36,13 @@
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 
+  <!-- Spark Canvas web assets (shared with WPF, linked from WPF project) -->
+  <ItemGroup>
+    <Content Include="..\..\src\TerminalHost\TerminalHost\web\spark\**\*" Link="web\spark\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!--
     Avalonia-specific files kept (all others use Core via global usings):
     - Domain: TerminalSession, TerminalPair, FileSystemNode, TerminalTheme, SearchMatch, SearchResult, TimelineFileChange, ClaudeCodeSession
@@ -51,6 +58,10 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11" Condition="'$(Configuration)' == 'Debug'" />
+
+    <!-- WebView (native WKWebView on macOS, MIT licensed) -->
+    <PackageReference Include="WebView.Avalonia.Cross" Version="11.3.1" />
+    <PackageReference Include="WebView.Avalonia.Desktop.Cross" Version="11.3.1" />
 
     <!-- Cross-platform packages -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />

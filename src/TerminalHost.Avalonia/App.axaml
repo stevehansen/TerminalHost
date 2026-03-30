@@ -104,5 +104,8 @@
         <DataTemplate DataType="{x:Type vm:UnifiedGitPanelViewModel}">
             <popups:UnifiedGitPanelView/>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SparkCanvasViewModel}">
+            <views:SparkCanvasView/>
+        </DataTemplate>
     </Application.DataTemplates>
 </Application>

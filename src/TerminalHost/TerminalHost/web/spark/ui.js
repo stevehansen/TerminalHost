@@ -380,6 +380,8 @@ function updateSessionList(sessions) {
 
 function onSessionSelected(sessionId) {
     if (!sessionId) return;
+    // Clear previous session before loading new one
+    sparkCanvas.clearAll();
     // Notify C# host (if available) and also load directly via API
     notifyHost('selectSession', { sessionId });
     loadAndConnect(sessionId);

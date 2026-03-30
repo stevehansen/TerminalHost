@@ -22,9 +22,7 @@ internal sealed class SingleInstanceService : ISingleInstanceService
     private Task? _pipeServerTask;
 
     public event EventHandler<CommandLineArgs>? CommandReceived;
-#pragma warning disable CS0067 // Event is required by interface but not raised on macOS
     public event EventHandler<HookEvent>? HookEventReceived;
-#pragma warning restore CS0067
 
     public bool TryAcquireLock()
     {
@@ -87,6 +85,19 @@ internal sealed class SingleInstanceService : ISingleInstanceService
 
                 if (!string.IsNullOrEmpty(json))
                 {
+                    // Try to parse as HookEvent first (has EventType property)
+                    try
+                    {
+                        var hookEvent = JsonSerializer.Deserialize<HookEvent>(json);
+                        if (hookEvent != null && hookEvent.EventType != default)
+                        {
+                            HookEventReceived?.Invoke(this, hookEvent);
+                            continue;
+                        }
+                    }
+                    catch (JsonException) { }
+
+                    // Fall back to CommandLineArgs
                     var args = JsonSerializer.Deserialize<CommandLineArgs>(json);
                     if (args != null)
                     {

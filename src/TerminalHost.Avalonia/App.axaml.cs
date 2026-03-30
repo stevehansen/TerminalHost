@@ -18,6 +18,7 @@ namespace TerminalHost;
 public partial class App : Application
 {
     private IServiceProvider? _services;
+    private SingleInstanceService? _singleInstanceService;
 
     public new static App Current => (App)Application.Current!;
     public IServiceProvider Services => _services!;
@@ -32,6 +33,12 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
+    public override void RegisterServices()
+    {
+        base.RegisterServices();
+        AvaloniaWebView.AvaloniaWebViewBuilder.Initialize(default);
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -43,6 +50,15 @@ public partial class App : Application
             var services = new ServiceCollection();
             ConfigureServices(services);
             _services = services.BuildServiceProvider();
+
+            // Start pipe server for receiving hook events from CLI invocations
+            _singleInstanceService = new SingleInstanceService();
+            _singleInstanceService.TryAcquireLock();
+            _singleInstanceService.StartPipeServer();
+            _singleInstanceService.HookEventReceived += (_, hookEvent) =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => ProcessHookEvent(hookEvent));
+            };
 
             // Load configuration to check for first run
             var configService = _services.GetRequiredService<IConfigurationService>();
@@ -189,6 +205,10 @@ public partial class App : Application
         services.AddSingleton<ITestRunnerService, global::TerminalHost.Services.TestRunnerService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
 
+        // Session Activity & Transcript Watching
+        services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
+        services.AddSingleton<ISessionActivityService, TerminalHost.Core.Services.SessionActivityService>();
+
         // API & Webhooks Services
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
@@ -234,11 +254,52 @@ public partial class App : Application
         try
         {
             if (_services == null) return;
+
+            // Wire ActivityEventProcessed → EventAggregator for SSE distribution
+            var activityService = _services.GetService<ISessionActivityService>();
+            var eventAggregator = _services.GetService<IEventAggregatorService>();
+            if (activityService != null && eventAggregator != null)
+            {
+                activityService.ActivityEventProcessed += (_, evt) =>
+                {
+                    eventAggregator.Publish(new ApiEvent
+                    {
+                        Type = "activity.event",
+                        Data = new
+                        {
+                            type = evt.Type.ToString(),
+                            sessionId = evt.SessionId,
+                            agentId = evt.AgentId,
+                            timestamp = evt.Timestamp,
+                            data = evt.Data
+                        }
+                    });
+                };
+            }
+
             var config = _services.GetRequiredService<IConfigurationService>().Load();
             if (config.Settings.Api.Enabled)
             {
                 var apiServer = _services.GetRequiredService<IApiServer>();
+
+                // Route hook events to SessionActivityService and TimelineService
+                apiServer.HookEventReceived += (_, hookEvent) =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => ProcessHookEvent(hookEvent));
+                };
+
                 await apiServer.StartAsync();
+
+                // Auto-install Claude Code hooks so sessions are tracked
+                var timelineService = _services.GetService<ITimelineService>();
+                if (timelineService != null && !timelineService.AreHooksInstalled())
+                {
+                    timelineService.InstallHooks();
+                }
+                else
+                {
+                    timelineService?.UpgradeHooksIfNeeded();
+                }
             }
         }
         catch (Exception ex)
@@ -248,11 +309,50 @@ public partial class App : Application
         }
     }
 
+    private void ProcessHookEvent(HookEvent hookEvent)
+    {
+        if (_services == null) return;
+
+        // Route to SessionActivityService for rich activity tracking
+        var activityService = _services.GetService<ISessionActivityService>();
+        activityService?.ProcessHookEvent(hookEvent);
+
+        // Route to TimelineService for live session tracking
+        var timelineService = _services.GetService<ITimelineService>();
+        if (timelineService != null)
+        {
+            switch (hookEvent.EventType)
+            {
+                case HookEventType.SessionStart:
+                    timelineService.HandleSessionStart(hookEvent);
+                    break;
+                case HookEventType.ToolStart:
+                    timelineService.HandleToolStart(hookEvent);
+                    break;
+                case HookEventType.ToolEnd:
+                case HookEventType.ToolError:
+                    timelineService.HandleToolEnd(hookEvent);
+                    break;
+                case HookEventType.FileChanged:
+                    timelineService.HandleFileChanged(hookEvent);
+                    break;
+                case HookEventType.SessionStop:
+                case HookEventType.SessionEnd:
+                    _ = timelineService.HandleSessionStopAsync(hookEvent);
+                    break;
+            }
+        }
+    }
+
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         // Dispose API and webhook services
         _services?.GetService<IApiServer>()?.Dispose();
         (_services?.GetService<IWebhookDeliveryService>() as IDisposable)?.Dispose();
+
+        // Dispose transcript watcher and single instance service
+        (_services?.GetService<ITranscriptWatcher>() as IDisposable)?.Dispose();
+        _singleInstanceService?.Dispose();
 
         // Dispose other services
         (_services?.GetService<IStatisticsService>() as IDisposable)?.Dispose();

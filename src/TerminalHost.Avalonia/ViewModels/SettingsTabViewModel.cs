@@ -991,6 +991,40 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     }
 
     [RelayCommand]
+    private async Task RecreateContainerAsync(ContainerInfo? container)
+    {
+        if (_containerService == null || container == null) return;
+        try
+        {
+            using var toast = _toastService.ShowProgress($"Recreating {container.Name}...");
+
+            // Remove by name (works even without workspace dir)
+            var dockerPath = _configService.Load().Settings.Container.DockerPath;
+            toast.Update("Removing old container...");
+            await _processService!.RunAsync(dockerPath, $"stop {container.Name}", timeout: TimeSpan.FromSeconds(30));
+            await _processService!.RunAsync(dockerPath, $"rm {container.Name}", timeout: TimeSpan.FromSeconds(10));
+
+            // Recreate requires workspace dir to know what to mount
+            if (!string.IsNullOrEmpty(container.WorkspaceDir))
+            {
+                toast.Update("Creating new container...");
+                await _containerService.EnsureContainerRunningAsync(container.WorkspaceDir);
+                toast.Complete($"Recreated {container.Name}");
+            }
+            else
+            {
+                toast.Complete($"Removed {container.Name} (no workspace dir — reopen the project tab to recreate)");
+            }
+
+            await RefreshContainersAsync();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to recreate: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand]
     private async Task StopContainerAsync(ContainerInfo? container)
     {
         if (_containerService == null || container == null) return;

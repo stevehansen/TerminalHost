@@ -365,6 +365,12 @@ public partial class SettingsView : UserControl
         shortcutTextBox?.Focus();
     }
 
+    private void RecreateContainer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsTabViewModel vm && vm.SelectedContainer is { } container)
+            vm.RecreateContainerCommand.Execute(container);
+    }
+
     private void StopContainer_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is SettingsTabViewModel vm && vm.SelectedContainer is { } container)
