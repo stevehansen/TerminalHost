@@ -103,6 +103,12 @@ class SparkCanvas {
         this.sim = new ForceSimulation();
         this.dpr = window.devicePixelRatio || 1;
 
+        // Let simulation use actual rendered session bounds for overlap detection
+        this.sim.setRenderedBoundsCallback((groupId) => {
+            const session = this.sessions.get(groupId);
+            return session?._smoothBounds || null;
+        });
+
         // Camera
         this.camera = { x: 0, y: 0, zoom: 1.0, targetX: 0, targetY: 0, targetZoom: 1.0 };
         this.autoFit = true;
@@ -382,6 +388,8 @@ class SparkCanvas {
                 if (this.multiMode) {
                     const name = (data.cwd || '').split(/[/\\]/).filter(Boolean).pop() || 'Session';
                     this._registerSession(sessionId, name, data.cwd, new Date(), true, data.source, data.containerName);
+                    // Immediately dedup: a new session for the same workspace should replace old ones
+                    if (typeof deduplicateSessions === 'function') deduplicateSessions();
                 } else {
                     this.sessionId = sessionId;
                     this.sessionStart = evt.timestamp ? new Date(evt.timestamp || evt.Timestamp) : new Date();
@@ -391,9 +399,33 @@ class SparkCanvas {
 
             case 'AgentSpawn': {
                 const agentId = data.agentId || sessionId;
+                let agentName = data.name || (data.isMain ? 'main' : `agent-${this.agents.size}`);
+
+                // For subagents: absorb the parent's "Agent" tool card to combine them
+                // The Agent tool card has the description (e.g., "Explore: Analyze codebase")
+                // which is more informative than just the agent type name
+                if (!data.isMain && data.parentId) {
+                    const parentAgentCards = [...this.toolCards.entries()]
+                        .filter(([, c]) => c.agentId === data.parentId
+                            && (c.toolName === 'Agent' || c.toolName === 'Task')
+                            && c.state === 'Running');
+                    if (parentAgentCards.length > 0) {
+                        // Take the most recent running Agent card
+                        const [cardId, card] = parentAgentCards[parentAgentCards.length - 1];
+                        // Use the card's description as the agent name
+                        if (card.inputSummary) {
+                            agentName = truncate(card.inputSummary, 30);
+                        }
+                        // Absorb the card — complete it immediately with instant fade
+                        card.state = 'Complete';
+                        card.endTime = new Date();
+                        card.fadeStart = this._time - 6; // Near-instant fade (already past 5.5s threshold)
+                    }
+                }
+
                 this._addAgent(agentId, {
                     id: agentId,
-                    name: data.name || (data.isMain ? 'main' : `agent-${this.agents.size}`),
+                    name: agentName,
                     isMain: !!data.isMain,
                     parentId: data.parentId,
                     state: 'Active',
@@ -1060,6 +1092,9 @@ class SparkCanvas {
             if (!session._smoothBounds) {
                 session._smoothBounds = { ...rawBounds };
                 session._lastActiveTime = this._time;
+                session._boundsCreatedTime = this._time;
+                session._prevRawBounds = { ...rawBounds };
+                session._rawStableSince = this._time;
             }
             const sb = session._smoothBounds;
 
@@ -1073,17 +1108,38 @@ class SparkCanvas {
                 session._lastActiveTime = this._time;
             }
 
-            // Grow quickly (lerp 0.15), shrink slowly (lerp 0.02)
-            // After activity stops, wait 3 seconds before starting to shrink
+            // Debounce: track when raw bounds became "stable" (stopped changing significantly)
+            const prev = session._prevRawBounds;
+            const rawDelta = Math.abs(rawBounds.x - prev.x) + Math.abs(rawBounds.y - prev.y)
+                + Math.abs(rawBounds.width - prev.width) + Math.abs(rawBounds.height - prev.height);
+            if (rawDelta > 5) {
+                session._rawStableSince = this._time; // bounds still changing
+            }
+            session._prevRawBounds = { ...rawBounds };
+            const stableFor = this._time - session._rawStableSince;
+
+            // Determine lerp rates based on state
+            const age = this._time - (session._boundsCreatedTime || 0);
             const timeSinceActive = this._time - (session._lastActiveTime || 0);
-            const canShrink = timeSinceActive > 3.0;
+            const isFullyComplete = !hasActiveAgent && !hasRunningTools;
 
-            const growRate = 0.15;
-            const shrinkRate = canShrink ? 0.02 : 0.001; // Very slow until grace period
+            let growRate, shrinkRate;
+            if (age < 1.5) {
+                // New session: snap quickly to position as simulation settles
+                growRate = 0.5;
+                shrinkRate = 0.4;
+            } else if (isFullyComplete && timeSinceActive > 3.0) {
+                // Completed session with no activity: shrink faster to actual content
+                growRate = 0.15;
+                shrinkRate = stableFor > 0.5 ? 0.08 : 0.02; // faster once bounds are stable
+            } else {
+                // Normal active session
+                const canShrink = timeSinceActive > 3.0;
+                growRate = 0.15;
+                shrinkRate = canShrink ? 0.03 : 0.001;
+            }
 
-            // Lerp each dimension: "growing" means boundary expands outward
-            // For x/y: smaller value = boundary moved outward (grow), larger = shrink
-            // For width/height: larger value = boundary grew, smaller = shrink
+            // Lerp each dimension
             sb.x += (rawBounds.x - sb.x) * (rawBounds.x < sb.x ? growRate : shrinkRate);
             sb.y += (rawBounds.y - sb.y) * (rawBounds.y < sb.y ? growRate : shrinkRate);
             sb.width += (rawBounds.width - sb.width) * (rawBounds.width > sb.width ? growRate : shrinkRate);
@@ -1845,7 +1901,8 @@ class SparkCanvas {
             const toolLabel = truncate(`${card.toolName}: ${cardLabel}`, 24);
             const textWidth = Math.min(ctx.measureText(toolLabel).width + 12, TOOL_CARD_W);
             const hasTwoLines = isCompleted && (card.tokenCost || isError);
-            const w = Math.max(60, textWidth);
+            // Add spinner width (18px) for running cards so text doesn't overflow
+            const w = Math.max(60, textWidth + (isRunning ? 18 : 0));
             const h = hasTwoLines ? 30 : 24;
 
             // Radial tool slot placement — compute offset once, then follow agent

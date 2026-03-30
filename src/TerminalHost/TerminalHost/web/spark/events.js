@@ -506,7 +506,7 @@ async function enterMultiMode() {
         if (!window._dedupTimer) {
             window._dedupTimer = setInterval(() => {
                 if (sparkCanvas.multiMode) deduplicateSessions();
-            }, 30000);
+            }, 10000);
         }
 
         addFeedEntry('SPARK', `Observatory: ${sparkCanvas.sessions.size} sessions loaded`, 'assistant');
@@ -750,14 +750,15 @@ function deduplicateSessions() {
     for (const [name, sids] of byName) {
         if (sids.length < 2) continue;
 
-        // Pick the best session: prefer active, then most agents, then newest
+        // Pick the best session: strongly prefer active, then newest start time, then most agents
         let bestId = sids[0];
         let bestScore = -1;
         for (const sid of sids) {
             const session = sparkCanvas.sessions.get(sid);
             const agentCount = [...sparkCanvas.agents.values()].filter(a => a.sessionId === sid).length;
-            const isActive = session.isActive ? 1000 : 0;
-            const score = isActive + agentCount;
+            const isActive = session.isActive ? 100000 : 0;
+            const recency = session.startTime ? session.startTime.getTime() / 1000 : 0;
+            const score = isActive + recency + agentCount;
             if (score > bestScore) {
                 bestScore = score;
                 bestId = sid;

@@ -124,11 +124,22 @@ class ForceSimulation {
         };
     }
 
-    /** Get the "effective radius" of a group for dynamic spacing */
+    /** Get the "effective radius" of a group for dynamic spacing.
+     *  Uses external bounds callback if available (for rendered session boundaries). */
     getGroupRadius(groupId) {
+        // Prefer actual rendered bounds if available (includes tool cards + smooth bounds)
+        if (this._getRenderedBounds) {
+            const rb = this._getRenderedBounds(groupId);
+            if (rb) return Math.max(rb.width, rb.height) / 2;
+        }
         const bounds = this.getGroupBounds(groupId, 20);
         if (!bounds) return 60;
         return Math.max(bounds.width, bounds.height) / 2;
+    }
+
+    /** Set a callback to get actual rendered session bounds (includes tool cards, smoothing) */
+    setRenderedBoundsCallback(fn) {
+        this._getRenderedBounds = fn;
     }
 
     tick() {
@@ -249,13 +260,15 @@ class ForceSimulation {
                 let dy = b.cy - a.cy;
                 let dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-                // Dynamic minimum distance: sum of group radii + small gap
+                // Dynamic minimum distance: sum of group radii + gap
                 const rA = this.getGroupRadius(ids[i]);
                 const rB = this.getGroupRadius(ids[j]);
-                const minSpacing = rA + rB + 30; // 30px gap between boundaries
+                const minSpacing = rA + rB + 50; // 50px gap between boundaries
 
                 if (dist < minSpacing) {
-                    const push = (minSpacing - dist) * 0.008;
+                    // Stronger push when deeply overlapping, gentler near boundary
+                    const overlap = (minSpacing - dist) / minSpacing; // 0..1
+                    const push = (minSpacing - dist) * (0.02 + overlap * 0.04);
                     const nx = dx / dist;
                     const ny = dy / dist;
                     a.cx -= nx * push;
