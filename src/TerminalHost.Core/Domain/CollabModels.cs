@@ -75,38 +75,3 @@ public class CollabMessage
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
-/// <summary>
-/// An exclusive file claim by a session to prevent edit conflicts.
-/// </summary>
-public class CollabClaim
-{
-    [JsonPropertyName("filePath")]
-    public string FilePath { get; set; } = "";
-
-    [JsonPropertyName("session")]
-    public string Session { get; set; } = "";
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("claimedAt")]
-    public DateTime ClaimedAt { get; set; } = DateTime.UtcNow;
-}
-
-/// <summary>
-/// A key-value entry in shared memory.
-/// </summary>
-public class CollabSharedEntry
-{
-    [JsonPropertyName("key")]
-    public string Key { get; set; } = "";
-
-    [JsonPropertyName("value")]
-    public string Value { get; set; } = "";
-
-    [JsonPropertyName("setBy")]
-    public string SetBy { get; set; } = "";
-
-    [JsonPropertyName("updatedAt")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-}

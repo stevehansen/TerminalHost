@@ -670,7 +670,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
     }
 
     /// <summary>
-    /// When a collab tool (subscribe, create_topic, send_message) completes,
+    /// When a collab tool (subscribe, send_message, read_messages) completes,
     /// correlate the Claude session ID with the collab subscriber name.
     /// If the subscriber used an auto-generated name like "session-3",
     /// rename it to the project folder name from the Claude session's cwd.
@@ -680,8 +680,8 @@ public sealed class TimelineService : ITimelineService, IDisposable
         if (_collabService == null) return;
         var toolName = (hookEvent.ToolName ?? "").ToLowerInvariant();
         if (!toolName.Contains("collab__subscribe") &&
-            !toolName.Contains("collab__create_topic") &&
-            !toolName.Contains("collab__send_message"))
+            !toolName.Contains("collab__send_message") &&
+            !toolName.Contains("collab__read_messages"))
             return;
 
         // Get the project name from the Claude session's working directory

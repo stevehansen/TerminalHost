@@ -1300,10 +1300,9 @@ class SparkCanvas {
     /** Detect collab topic subscriptions from MCP tool call names */
     _detectCollabFromTool(toolName, inputSummary, sessionId) {
         const name = (toolName || '').toLowerCase();
-        // Match collab subscribe, send_message, create_topic, read_messages
+        // Match collab subscribe, send_message, read_messages
         const isCollabTool = name.includes('collab__subscribe')
             || name.includes('collab__send_message')
-            || name.includes('collab__create_topic')
             || name.includes('collab__read_messages');
         if (!isCollabTool) return;
 

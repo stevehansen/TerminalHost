@@ -10,6 +10,7 @@ namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// In-memory collaboration service. Thread-safe via locking.
+/// Topics auto-create on first use and auto-delete when empty.
 /// State resets on app restart (no persistence).
 /// </summary>
 public class CollabService : ICollabService
@@ -18,8 +19,6 @@ public class CollabService : ICollabService
     private readonly Dictionary<string, CollabSession> _sessions = new();
     private readonly Dictionary<string, CollabTopic> _topics = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<CollabMessage> _messages = new();
-    private readonly Dictionary<string, CollabClaim> _claims = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, CollabSharedEntry> _shared = new(StringComparer.OrdinalIgnoreCase);
     // session → topic → last read message ID
     private readonly Dictionary<string, Dictionary<string, int>> _cursors = new();
     private readonly Dictionary<string, List<TaskCompletionSource<bool>>> _topicWaiters = new(StringComparer.OrdinalIgnoreCase);
@@ -56,39 +55,13 @@ public class CollabService : ICollabService
 
     #region Topics
 
-    public (bool ok, string? error) CreateTopic(string session, string name, string? description)
+    public void Subscribe(string session, string topic, string? description = null)
     {
         lock (_lock)
         {
-            if (_topics.ContainsKey(name))
-                return (false, $"Topic '{name}' already exists.");
-
-            var topic = new CollabTopic
-            {
-                Name = name,
-                Description = description,
-                CreatedBy = session,
-                Subscribers = { session }
-            };
-            _topics[name] = topic;
-            EnsureCursor(session, name);
+            EnsureTopicAndSubscribe(session, topic, description);
         }
         RaiseChanged();
-        return (true, null);
-    }
-
-    public (bool ok, string? error) Subscribe(string session, string topic)
-    {
-        lock (_lock)
-        {
-            if (!_topics.TryGetValue(topic, out var t))
-                return (false, $"Topic '{topic}' does not exist.");
-
-            t.Subscribers.Add(session);
-            EnsureCursor(session, topic);
-        }
-        RaiseChanged();
-        return (true, null);
     }
 
     public (bool ok, string? error) Unsubscribe(string session, string topic)
@@ -99,6 +72,17 @@ public class CollabService : ICollabService
                 return (false, $"Topic '{topic}' does not exist.");
 
             t.Subscribers.Remove(session);
+
+            // Auto-delete empty topics
+            if (t.Subscribers.Count == 0)
+            {
+                _topics.Remove(topic);
+                _messages.RemoveAll(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase));
+                _topicWaiters.Remove(topic);
+                // Clean up cursors for this topic
+                foreach (var c in _cursors.Values)
+                    c.Remove(topic);
+            }
         }
         RaiseChanged();
         return (true, null);
@@ -124,15 +108,11 @@ public class CollabService : ICollabService
 
     #region Messages
 
-    public (bool ok, string? error) SendMessage(string session, string topic, string content)
+    public void SendMessage(string session, string topic, string content)
     {
         lock (_lock)
         {
-            if (!_topics.TryGetValue(topic, out var t))
-                return (false, $"Topic '{topic}' does not exist.");
-
-            if (!t.Subscribers.Contains(session))
-                return (false, $"Session '{session}' is not subscribed to topic '{topic}'.");
+            EnsureTopicAndSubscribe(session, topic);
 
             var msg = new CollabMessage
             {
@@ -156,18 +136,13 @@ public class CollabService : ICollabService
             }
         }
         RaiseChanged();
-        return (true, null);
     }
 
-    public (List<CollabMessage> messages, int cursor, string? error) ReadMessages(string session, string topic, int sinceId)
+    public (List<CollabMessage> messages, int cursor) ReadMessages(string session, string topic, int sinceId)
     {
         lock (_lock)
         {
-            if (!_topics.TryGetValue(topic, out var t))
-                return (new(), 0, $"Topic '{topic}' does not exist.");
-
-            if (!t.Subscribers.Contains(session))
-                return (new(), 0, $"Session '{session}' is not subscribed to topic '{topic}'.");
+            EnsureTopicAndSubscribe(session, topic);
 
             var msgs = _messages
                 .Where(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase) && m.Id > sinceId)
@@ -179,22 +154,18 @@ public class CollabService : ICollabService
             EnsureCursor(session, topic);
             _cursors[session][topic] = maxId;
 
-            return (msgs, maxId, null);
+            return (msgs, maxId);
         }
     }
 
-    public async Task<(List<CollabMessage> messages, int cursor, string? error)> ReadMessagesAsync(
+    public async Task<(List<CollabMessage> messages, int cursor)> ReadMessagesAsync(
         string session, string topic, int sinceId, int timeoutMs, CancellationToken ct)
     {
         // Fast path: check for messages immediately
         TaskCompletionSource<bool>? tcs = null;
         lock (_lock)
         {
-            if (!_topics.TryGetValue(topic, out var t))
-                return (new(), 0, $"Topic '{topic}' does not exist.");
-
-            if (!t.Subscribers.Contains(session))
-                return (new(), 0, $"Session '{session}' is not subscribed to topic '{topic}'.");
+            EnsureTopicAndSubscribe(session, topic);
 
             var msgs = _messages
                 .Where(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase) && m.Id > sinceId)
@@ -205,7 +176,7 @@ public class CollabService : ICollabService
                 var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
                 EnsureCursor(session, topic);
                 _cursors[session][topic] = maxId;
-                return (msgs, maxId, null);
+                return (msgs, maxId);
             }
 
             // No messages — register a waiter
@@ -238,8 +209,12 @@ public class CollabService : ICollabService
         // Re-read messages under lock
         lock (_lock)
         {
-            if (!_topics.TryGetValue(topic, out var t))
-                return (new(), 0, $"Topic '{topic}' does not exist.");
+            // Topic may have been deleted while waiting (all unsubscribed)
+            if (!_topics.ContainsKey(topic))
+            {
+                EnsureTopicAndSubscribe(session, topic);
+                return (new(), sinceId);
+            }
 
             var msgs = _messages
                 .Where(m => m.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase) && m.Id > sinceId)
@@ -248,7 +223,7 @@ public class CollabService : ICollabService
             var maxId = msgs.Count > 0 ? msgs.Max(m => m.Id) : sinceId;
             EnsureCursor(session, topic);
             _cursors[session][topic] = maxId;
-            return (msgs, maxId, null);
+            return (msgs, maxId);
         }
     }
 
@@ -278,90 +253,28 @@ public class CollabService : ICollabService
 
     #endregion
 
-    #region Claims
-
-    public (bool ok, string? error) ClaimFile(string session, string filePath, string? description)
+    /// <summary>
+    /// Ensures a topic exists and the session is subscribed. Must be called under _lock.
+    /// </summary>
+    private void EnsureTopicAndSubscribe(string session, string topic, string? description = null)
     {
-        var normalizedPath = NormalizePath(filePath);
-        lock (_lock)
+        if (!_topics.TryGetValue(topic, out var t))
         {
-            if (_claims.TryGetValue(normalizedPath, out var existing))
+            t = new CollabTopic
             {
-                if (existing.Session != session)
-                    return (false, $"File '{filePath}' is already claimed by session '{existing.Session}'.");
-                // Re-claiming own file is OK (update description)
-                existing.Description = description;
-                existing.ClaimedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                _claims[normalizedPath] = new CollabClaim
-                {
-                    FilePath = filePath,
-                    Session = session,
-                    Description = description
-                };
-            }
-        }
-        RaiseChanged();
-        return (true, null);
-    }
-
-    public (bool ok, string? error) ReleaseFile(string session, string filePath)
-    {
-        var normalizedPath = NormalizePath(filePath);
-        lock (_lock)
-        {
-            if (!_claims.TryGetValue(normalizedPath, out var existing))
-                return (false, $"File '{filePath}' is not claimed.");
-
-            if (existing.Session != session)
-                return (false, $"File '{filePath}' is claimed by session '{existing.Session}', not '{session}'.");
-
-            _claims.Remove(normalizedPath);
-        }
-        RaiseChanged();
-        return (true, null);
-    }
-
-    public List<CollabClaim> GetClaims()
-    {
-        lock (_lock) return _claims.Values.ToList();
-    }
-
-    #endregion
-
-    #region Shared Memory
-
-    public void SetShared(string key, string value, string setBy)
-    {
-        lock (_lock)
-        {
-            _shared[key] = new CollabSharedEntry
-            {
-                Key = key,
-                Value = value,
-                SetBy = setBy,
-                UpdatedAt = DateTime.UtcNow
+                Name = topic,
+                CreatedBy = session,
             };
+            _topics[topic] = t;
         }
-        RaiseChanged();
-    }
 
-    public CollabSharedEntry? GetShared(string key)
-    {
-        lock (_lock)
-        {
-            return _shared.TryGetValue(key, out var entry) ? entry : null;
-        }
-    }
+        // Update description if provided (allows changing it after creation)
+        if (description != null)
+            t.Description = description;
 
-    public List<CollabSharedEntry> ListShared()
-    {
-        lock (_lock) return _shared.Values.ToList();
+        t.Subscribers.Add(session);
+        EnsureCursor(session, topic);
     }
-
-    #endregion
 
     private void EnsureCursor(string session, string topic)
     {
@@ -369,10 +282,5 @@ public class CollabService : ICollabService
             _cursors[session] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         if (!_cursors[session].ContainsKey(topic))
             _cursors[session][topic] = 0;
-    }
-
-    private static string NormalizePath(string path)
-    {
-        return path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
     }
 }

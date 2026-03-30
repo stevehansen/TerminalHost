@@ -381,17 +381,10 @@ public class McpHandler
                 result = name switch
                 {
                     "set_session_name" => ExecuteSetSessionName(args, session),
-                    "create_topic" => ExecuteCreateTopic(args, session),
                     "subscribe" => ExecuteSubscribe(args, session),
                     "unsubscribe" => ExecuteUnsubscribe(args, session),
                     "list_topics" => ExecuteListTopics(),
                     "send_message" => ExecuteSendMessage(args, session),
-                    "claim_file" => ExecuteClaimFile(args, session),
-                    "release_file" => ExecuteReleaseFile(args, session),
-                    "list_claims" => ExecuteListClaims(),
-                    "set_shared" => ExecuteSetShared(args, session),
-                    "get_shared" => ExecuteGetShared(args),
-                    "list_shared" => ExecuteListShared(),
                     _ => ErrorResult($"Unknown tool: {name}")
                 };
             }
@@ -438,29 +431,15 @@ public class McpHandler
         return TextResult($"Session renamed to '{name}'. Other sessions will see you as '{name}'.");
     }
 
-    private McpCallToolResult ExecuteCreateTopic(JsonElement args, string session)
-    {
-        var name = GetString(args, "name");
-        if (string.IsNullOrEmpty(name))
-            return ErrorResult("Missing required parameter: name");
-
-        var description = GetString(args, "description");
-        var (ok, error) = _collab.CreateTopic(session, name, description);
-        return ok
-            ? TextResult($"Topic '{name}' created. You are subscribed.")
-            : ErrorResult(error!);
-    }
-
     private McpCallToolResult ExecuteSubscribe(JsonElement args, string session)
     {
         var topic = GetString(args, "topic");
         if (string.IsNullOrEmpty(topic))
             return ErrorResult("Missing required parameter: topic");
 
-        var (ok, error) = _collab.Subscribe(session, topic);
-        return ok
-            ? TextResult($"Subscribed to topic '{topic}'.")
-            : ErrorResult(error!);
+        var description = GetString(args, "description");
+        _collab.Subscribe(session, topic, description);
+        return TextResult($"Subscribed to topic '{topic}'.");
     }
 
     private McpCallToolResult ExecuteUnsubscribe(JsonElement args, string session)
@@ -500,10 +479,8 @@ public class McpHandler
         if (string.IsNullOrEmpty(content))
             return ErrorResult("Missing required parameter: content");
 
-        var (ok, error) = _collab.SendMessage(session, topic, content);
-        return ok
-            ? TextResult($"Message sent to topic '{topic}'.")
-            : ErrorResult(error!);
+        _collab.SendMessage(session, topic, content);
+        return TextResult($"Message sent to topic '{topic}'.");
     }
 
     private async Task<McpCallToolResult> ExecuteReadMessagesAsync(JsonElement args, string session, CancellationToken ct)
@@ -515,9 +492,7 @@ public class McpHandler
         var sinceId = GetInt(args, "since_id");
         var timeoutMs = Math.Clamp(GetInt(args, "timeout"), 0, 300_000);
 
-        var (messages, cursor, error) = await _collab.ReadMessagesAsync(session, topic, sinceId, timeoutMs, ct);
-        if (error != null)
-            return ErrorResult(error);
+        var (messages, cursor) = await _collab.ReadMessagesAsync(session, topic, sinceId, timeoutMs, ct);
 
         if (messages.Count == 0)
             return TextResult($"No new messages on topic '{topic}'. (cursor: {cursor})");
@@ -530,82 +505,6 @@ public class McpHandler
         return TextResult(text);
     }
 
-    private McpCallToolResult ExecuteClaimFile(JsonElement args, string session)
-    {
-        var filePath = GetString(args, "file_path");
-        if (string.IsNullOrEmpty(filePath))
-            return ErrorResult("Missing required parameter: file_path");
-
-        var description = GetString(args, "description");
-        var (ok, error) = _collab.ClaimFile(session, filePath, description);
-        return ok
-            ? TextResult($"Claimed file '{filePath}'.")
-            : ErrorResult(error!);
-    }
-
-    private McpCallToolResult ExecuteReleaseFile(JsonElement args, string session)
-    {
-        var filePath = GetString(args, "file_path");
-        if (string.IsNullOrEmpty(filePath))
-            return ErrorResult("Missing required parameter: file_path");
-
-        var (ok, error) = _collab.ReleaseFile(session, filePath);
-        return ok
-            ? TextResult($"Released claim on file '{filePath}'.")
-            : ErrorResult(error!);
-    }
-
-    private McpCallToolResult ExecuteListClaims()
-    {
-        var claims = _collab.GetClaims();
-        if (claims.Count == 0)
-            return TextResult("No active file claims.");
-
-        var lines = claims.Select(c =>
-        {
-            var desc = !string.IsNullOrEmpty(c.Description) ? $" ({c.Description})" : "";
-            return $"- {c.FilePath} → {c.Session}{desc}";
-        });
-        return TextResult(string.Join("\n", lines));
-    }
-
-    private McpCallToolResult ExecuteSetShared(JsonElement args, string session)
-    {
-        var key = GetString(args, "key");
-        if (string.IsNullOrEmpty(key))
-            return ErrorResult("Missing required parameter: key");
-
-        var value = GetString(args, "value");
-        if (value == null)
-            return ErrorResult("Missing required parameter: value");
-
-        _collab.SetShared(key, value, session);
-        return TextResult($"Shared key '{key}' set.");
-    }
-
-    private McpCallToolResult ExecuteGetShared(JsonElement args)
-    {
-        var key = GetString(args, "key");
-        if (string.IsNullOrEmpty(key))
-            return ErrorResult("Missing required parameter: key");
-
-        var entry = _collab.GetShared(key);
-        if (entry == null)
-            return ErrorResult($"Key '{key}' not found.");
-
-        return TextResult($"Key: {entry.Key}\nSet by: {entry.SetBy} at {entry.UpdatedAt:HH:mm:ss}\n\n{entry.Value}");
-    }
-
-    private McpCallToolResult ExecuteListShared()
-    {
-        var entries = _collab.ListShared();
-        if (entries.Count == 0)
-            return TextResult("No shared entries.");
-
-        var lines = entries.Select(e =>
-            $"- {e.Key} (set by {e.SetBy} at {e.UpdatedAt:HH:mm:ss})");
-        return TextResult(string.Join("\n", lines));
-    }
 
     #endregion
 
@@ -651,27 +550,19 @@ public class McpHandler
         [
         new McpToolDefinition
         {
-            Name = "create_topic",
-            Description = "Create a collaboration topic and auto-subscribe. Other sessions can then subscribe to exchange messages.",
-            InputSchema = Schema(new[] {
-                Prop("name", "string", "Topic name (e.g., 'user-api')"),
-                Prop("description", "string", "Optional topic description") },
-                new[] { "name" })
-        },
-        new()
-        {
             Name = "subscribe",
-            Description = "Subscribe to an existing topic to send and receive messages.",
+            Description = "Join a topic (creates it if it doesn't exist). Idempotent — safe to call multiple times. Use to explicitly join before reading, or to set/update a topic's description.",
             InputSchema = Schema(new[] {
-                Prop("topic", "string", "Topic name to subscribe to") },
+                Prop("topic", "string", "Topic name (e.g., 'user-api')"),
+                Prop("description", "string", "Optional topic description (sets or updates)") },
                 new[] { "topic" })
         },
         new()
         {
             Name = "unsubscribe",
-            Description = "Unsubscribe from a topic.",
+            Description = "Leave a topic. If you're the last subscriber, the topic and its messages are automatically deleted.",
             InputSchema = Schema(new[] {
-                Prop("topic", "string", "Topic name to unsubscribe from") },
+                Prop("topic", "string", "Topic name to leave") },
                 new[] { "topic" })
         },
         new()
@@ -683,67 +574,21 @@ public class McpHandler
         new()
         {
             Name = "send_message",
-            Description = "Send a message to a topic. Must be subscribed to the topic.",
+            Description = "Send a message to a topic. Auto-creates the topic and subscribes you if needed — just send.",
             InputSchema = Schema(new[] {
-                Prop("topic", "string", "Topic to send to"),
+                Prop("topic", "string", "Topic to send to (auto-created if needed)"),
                 Prop("content", "string", "Message content") },
                 new[] { "topic", "content" })
         },
-        new()
+        new McpToolDefinition
         {
             Name = "read_messages",
-            Description = "Read messages from a topic. Returns messages since the given cursor. Must be subscribed.",
+            Description = "Read messages from a topic. Auto-subscribes you if needed. Returns messages after the given cursor.",
             InputSchema = Schema(new[] {
-                Prop("topic", "string", "Topic to read from"),
+                Prop("topic", "string", "Topic to read from (auto-created if needed)"),
                 Prop("since_id", "integer", "Read messages after this ID (cursor). Omit or 0 for all."),
                 Prop("timeout", "integer", "Max ms to wait for new messages. 0 = return immediately (default).") },
                 new[] { "topic" })
-        },
-        new()
-        {
-            Name = "claim_file",
-            Description = "Claim exclusive work on a file to prevent edit conflicts with other sessions.",
-            InputSchema = Schema(new[] {
-                Prop("file_path", "string", "File path to claim"),
-                Prop("description", "string", "Optional description of planned changes") },
-                new[] { "file_path" })
-        },
-        new()
-        {
-            Name = "release_file",
-            Description = "Release your claim on a file so other sessions can work on it.",
-            InputSchema = Schema(new[] {
-                Prop("file_path", "string", "File path to release") },
-                new[] { "file_path" })
-        },
-        new()
-        {
-            Name = "list_claims",
-            Description = "List all active file claims across sessions.",
-            InputSchema = Schema(Array.Empty<(string, JsonObject)>(), null)
-        },
-        new()
-        {
-            Name = "set_shared",
-            Description = "Set a key-value pair in shared memory. Use for API contracts, type definitions, or shared state.",
-            InputSchema = Schema(new[] {
-                Prop("key", "string", "Key name"),
-                Prop("value", "string", "Value to store") },
-                new[] { "key", "value" })
-        },
-        new()
-        {
-            Name = "get_shared",
-            Description = "Get a value from shared memory by key.",
-            InputSchema = Schema(new[] {
-                Prop("key", "string", "Key to retrieve") },
-                new[] { "key" })
-        },
-        new McpToolDefinition
-        {
-            Name = "list_shared",
-            Description = "List all keys in shared memory with metadata.",
-            InputSchema = Schema(Array.Empty<(string, JsonObject)>(), null)
         }
         ]);
 
