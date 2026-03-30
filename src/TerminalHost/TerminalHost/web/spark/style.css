@@ -144,6 +144,24 @@ canvas:active { cursor: grabbing; }
     font-size: 11px;
 }
 
+/* Context Menu */
+.spark-context-menu {
+    position: fixed;
+    z-index: 500;
+    padding: 4px 0;
+    min-width: 160px;
+}
+.spark-context-item {
+    padding: 6px 14px;
+    font-size: 11px;
+    color: #aaeeff;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.spark-context-item:hover {
+    background: rgba(100, 200, 255, 0.15);
+}
+
 .control-btn {
     background: rgba(100, 200, 255, 0.08);
     border: 1px solid rgba(100, 200, 255, 0.2);

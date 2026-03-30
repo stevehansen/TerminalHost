@@ -130,7 +130,7 @@ class SparkCanvas {
 
         // Animation time
         this._time = 0;
-        this._lastFrame = 0;
+        this._lastFrame = performance.now();
 
         // Session info (single-session mode)
         this.sessionId = null;
@@ -148,6 +148,7 @@ class SparkCanvas {
         // Search/filter (Phase 3c)
         this.searchTerm = '';
         this.highlightedAgentId = null;  // Agent filter — highlight one agent
+        this._hoveredDismissSession = null;  // Dismiss button hover state
 
         // Phase 3b systems
         this.fx = new SparkFX();
@@ -165,7 +166,7 @@ class SparkCanvas {
 
         this._resize();
         this._bindEvents();
-        this._animate(0);
+        this._animate();
     }
 
     // ─── Public API ─────────────────────────────────────────
@@ -353,6 +354,43 @@ class SparkCanvas {
         this.sessionId = null;
         this.sessionName = '';
         this.sessionStart = null;
+    }
+
+    /** Remove a single session and all its agents/tools/edges */
+    removeSession(sessionId) {
+        if (!this.sessions.has(sessionId)) return;
+        // Remove agents belonging to this session
+        for (const [id, agent] of this.agents) {
+            if (agent.sessionId === sessionId) {
+                this.agents.delete(id);
+                this.sim.removeNode(id);
+            }
+        }
+        // Remove tool cards belonging to removed agents
+        for (const [id, card] of this.toolCards) {
+            if (!this.agents.has(card.agentId)) {
+                this.toolCards.delete(id);
+            }
+        }
+        // Remove edges referencing removed agents
+        this.edges = this.edges.filter(e =>
+            this.agents.has(e.source) && this.agents.has(e.target));
+        // Remove collab edges for this session
+        this.collabEdges = this.collabEdges.filter(e =>
+            e.sourceSessionId !== sessionId && e.targetSessionId !== sessionId);
+        // Remove session group from simulation
+        this.sim.groups.delete(sessionId);
+        this.sessions.delete(sessionId);
+        // Deselect if the selected agent/tool was in this session
+        if (this.selectedAgentId && !this.agents.has(this.selectedAgentId)) {
+            this.selectedAgentId = null;
+            hideAgentDetail();
+        }
+        if (this.selectedToolId && !this.toolCards.has(this.selectedToolId)) {
+            this.selectedToolId = null;
+            hideToolDetail();
+        }
+        this.sim.reheat();
     }
 
     /** Clear feed and transcript panels (for replay restart/seek) */
@@ -831,9 +869,10 @@ class SparkCanvas {
 
     // ─── Rendering ──────────────────────────────────────────
 
-    _animate(timestamp) {
-        const dt = Math.min((timestamp - this._lastFrame) / 1000, 0.05);
-        this._lastFrame = timestamp;
+    _animate() {
+        const now = performance.now();
+        const dt = Math.min((now - this._lastFrame) / 1000, 0.05);
+        this._lastFrame = now;
         this._time += dt;
         this._dt = dt;
 
@@ -861,7 +900,7 @@ class SparkCanvas {
         // Garbage collect faded tool cards
         this._gcToolCards();
 
-        requestAnimationFrame(t => this._animate(t));
+        requestAnimationFrame(() => this._animate());
     }
 
     _render() {
@@ -1215,7 +1254,7 @@ class SparkCanvas {
             }
             ctx.fillText(statsText, x + 10, textY + 13);
 
-            // Status indicator dot
+            // Status indicator dot (active) or dismiss button (inactive)
             if (isActive) {
                 const dotX = x + 10 + ctx.measureText(label).width + 8;
                 const pulse = 0.4 + Math.sin(this._time * 3) * 0.3;
@@ -1225,6 +1264,23 @@ class SparkCanvas {
                 ctx.arc(dotX, textY - 4, 3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
+            }
+
+            // Dismiss button (× in top-right corner)
+            if (this.multiMode) {
+                const btnX = x + w - 18;
+                const btnY = y + 6;
+                const btnR = 8;
+                const isHoverBtn = this._hoveredDismissSession === sessionId;
+                ctx.globalAlpha = isHoverBtn ? 0.9 : 0.35;
+                ctx.fillStyle = color;
+                ctx.font = 'bold 11px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('\u00d7', btnX, btnY + btnR);
+                ctx.globalAlpha = 1;
+                // Store bounds for hit testing
+                session._dismissBtn = { x: btnX - btnR, y: btnY, w: btnR * 2, h: btnR * 2 };
             }
 
             ctx.restore();
@@ -1568,8 +1624,14 @@ class SparkCanvas {
             ctx.fill();
 
             // 4. Scanline effect (agent-flow style — sweeping gradient band)
+            // Uses performance.now() for wall-clock accuracy (this._time can drift
+            // behind real time when frames drop due to the dt cap) and a triangle
+            // wave so the line smoothly bounces up/down instead of teleporting.
             const scanSpeed = agent.state === 'Thinking' || isHovered || isWaiting ? 40 : 15;
-            const scanY = node.y - r + ((this._time * scanSpeed) % (r * 2));
+            const scanRange = r * 2;
+            const scanPhase = (performance.now() / 1000 * scanSpeed) % (scanRange * 2);
+            const scanOffset = scanPhase < scanRange ? scanPhase : scanRange * 2 - scanPhase;
+            const scanY = node.y - r + scanOffset;
             ctx.save();
             drawHexagon(ctx, node.x, node.y, r);
             ctx.clip();
@@ -2046,6 +2108,9 @@ class SparkCanvas {
         this.canvas.addEventListener('mouseup', e => this._onMouseUp(e));
         this.canvas.addEventListener('wheel', e => this._onWheel(e), { passive: false });
         this.canvas.addEventListener('dblclick', e => this._onDoubleClick(e));
+        this.canvas.addEventListener('contextmenu', e => this._onContextMenu(e));
+        this.canvas.setAttribute('tabindex', '0');
+        this.canvas.addEventListener('keydown', e => this._onKeyDown(e));
     }
 
     _hitTestAgent(worldX, worldY) {
@@ -2072,8 +2137,41 @@ class SparkCanvas {
         return null;
     }
 
+    _hitTestSession(worldX, worldY) {
+        for (const [id, session] of this.sessions) {
+            const sb = session._smoothBounds;
+            if (!sb) continue;
+            if (worldX >= sb.x && worldX <= sb.x + sb.width &&
+                worldY >= sb.y && worldY <= sb.y + sb.height) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    _hitTestDismissBtn(worldX, worldY) {
+        for (const [id, session] of this.sessions) {
+            const btn = session._dismissBtn;
+            if (!btn) continue;
+            if (worldX >= btn.x && worldX <= btn.x + btn.w &&
+                worldY >= btn.y && worldY <= btn.y + btn.h) {
+                return id;
+            }
+        }
+        return null;
+    }
+
     _onMouseDown(e) {
         const world = this._screenToWorld(e.clientX, e.clientY);
+
+        // Dismiss button click (× on session boundary)
+        if (this.multiMode) {
+            const dismissHit = this._hitTestDismissBtn(world.x, world.y);
+            if (dismissHit) {
+                this.removeSession(dismissHit);
+                return;
+            }
+        }
 
         // Check tool cards first (they're on top visually)
         const toolHit = this._hitTestToolCard(world.x, world.y);
@@ -2119,7 +2217,10 @@ class SparkCanvas {
             const hitId = this._hitTestAgent(world.x, world.y);
             const toolHit = !hitId ? this._hitTestToolCard(world.x, world.y) : null;
             this.hoveredAgentId = hitId;
-            this.canvas.style.cursor = (hitId || toolHit) ? 'pointer' : 'grab';
+            // Dismiss button hover
+            const dismissHit = this.multiMode ? this._hitTestDismissBtn(world.x, world.y) : null;
+            this._hoveredDismissSession = dismissHit;
+            this.canvas.style.cursor = (hitId || toolHit || dismissHit) ? 'pointer' : 'grab';
         }
     }
 
@@ -2187,6 +2288,71 @@ class SparkCanvas {
     _onDoubleClick(e) {
         this._fitToView(true);
         this.autoFit = true;
+    }
+
+    _onContextMenu(e) {
+        e.preventDefault();
+        if (!this.multiMode) return;
+
+        const world = this._screenToWorld(e.clientX, e.clientY);
+        // Check agents first, then sessions
+        const agentHit = this._hitTestAgent(world.x, world.y);
+        const sessionId = agentHit
+            ? this.agents.get(agentHit)?.sessionId
+            : this._hitTestSession(world.x, world.y);
+        if (!sessionId || !this.sessions.has(sessionId)) return;
+
+        this._showSessionContextMenu(e.clientX, e.clientY, sessionId);
+    }
+
+    _onKeyDown(e) {
+        if (e.key === 'Delete' && this.selectedAgentId && this.multiMode) {
+            const agent = this.agents.get(this.selectedAgentId);
+            if (agent?.sessionId) {
+                this.removeSession(agent.sessionId);
+            }
+        }
+    }
+
+    _showSessionContextMenu(screenX, screenY, sessionId) {
+        // Remove existing menu
+        this._dismissContextMenu();
+
+        const session = this.sessions.get(sessionId);
+        if (!session) return;
+
+        const menu = document.createElement('div');
+        menu.className = 'spark-context-menu glass-panel';
+        menu.style.left = screenX + 'px';
+        menu.style.top = screenY + 'px';
+
+        const removeItem = document.createElement('div');
+        removeItem.className = 'spark-context-item';
+        removeItem.textContent = `Remove "${session.name}"`;
+        removeItem.addEventListener('click', () => {
+            this.removeSession(sessionId);
+            this._dismissContextMenu();
+        });
+        menu.appendChild(removeItem);
+
+        document.body.appendChild(menu);
+        this._contextMenu = menu;
+
+        // Close on next click anywhere
+        const dismiss = (e) => {
+            if (!menu.contains(e.target)) {
+                this._dismissContextMenu();
+            }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', dismiss, { once: true }), 0);
+        this._contextMenuDismiss = dismiss;
+    }
+
+    _dismissContextMenu() {
+        if (this._contextMenu) {
+            this._contextMenu.remove();
+            this._contextMenu = null;
+        }
     }
 
     // ─── Public Controls ────────────────────────────────────
