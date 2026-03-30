@@ -74,6 +74,23 @@
         </div>
     </div>
 
+    <!-- Replay Controls (shown only during JSONL replay) -->
+    <div id="replayBar" class="glass-panel replay-bar" style="display:none;">
+        <button id="btnReplayRestart" class="control-btn" title="Restart">&#x23EE;</button>
+        <button id="btnReplayToggle" class="control-btn" title="Play/Pause">&#x25B6;</button>
+        <div id="replayProgressTrack" class="replay-progress-track" title="Click to seek">
+            <div id="replayProgressFill" class="replay-progress-fill"></div>
+        </div>
+        <span id="replayProgressLabel" class="control-value replay-label">0/0</span>
+        <span class="control-sep">|</span>
+        <button class="control-btn replay-speed-btn" data-speed="1">1x</button>
+        <button class="control-btn replay-speed-btn" data-speed="5">5x</button>
+        <button class="control-btn replay-speed-btn active" data-speed="10">10x</button>
+        <button class="control-btn replay-speed-btn" data-speed="50">50x</button>
+        <button class="control-btn replay-speed-btn" data-speed="0">Max</button>
+        <span id="replaySpeed" class="control-value" style="display:none;">10x</span>
+    </div>
+
     <!-- Agent Detail Card (left side, shown on click) -->
     <div id="agentDetail" class="glass-panel detail-panel" style="display:none;">
         <div class="detail-header">

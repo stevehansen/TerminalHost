@@ -349,17 +349,31 @@ class SparkCanvas {
         this.sessionStart = null;
     }
 
+    /** Clear feed and transcript panels (for replay restart/seek) */
+    clearFeedAndTranscript() {
+        const feed = document.getElementById('feedContent');
+        if (feed) feed.innerHTML = '<span class="feed-empty">Replaying...</span>';
+        const transcript = document.getElementById('transcriptBody');
+        if (transcript) transcript.innerHTML = '';
+    }
+
     /** Process a single ActivityEvent */
     processEvent(evt) {
         const type = evt.type || evt.Type;
         const data = evt.data || evt.Data || {};
         const sessionId = evt.sessionId || evt.SessionId;
 
-        // Multi-mode: ensure session is registered
+        // Multi-mode: ensure session is registered, re-activate if new activity arrives
         if (this.multiMode && sessionId) {
             if (!this.sessions.has(sessionId)) {
                 const name = (data.cwd || '').split(/[/\\]/).filter(Boolean).pop() || 'Session';
                 this._registerSession(sessionId, name, data.cwd, null, true, data.source, data.containerName);
+            } else if (type === 'ToolCallStart' || type === 'AgentSpawn' || type === 'AgentStateChange') {
+                // Re-activate session on new meaningful activity
+                const session = this.sessions.get(sessionId);
+                if (session && !session.isActive) {
+                    session.isActive = true;
+                }
             }
         }
 
@@ -410,12 +424,21 @@ class SparkCanvas {
                     const prevState = agent.state;
                     agent.state = 'Complete';
                     agent.completeTime = new Date();
+                    agent.currentToolUseId = null;
                     agent.fadeStart = this._time;
                     const node = this.sim.getNode(agentId);
                     if (node) {
                         node.state = 'Complete';
                         // Complete FX
                         this.fx.triggerComplete(node.x, node.y, tc().green, node.radius);
+                    }
+                    // Complete any running tool cards belonging to this agent
+                    for (const [tid, card] of this.toolCards) {
+                        if (card.agentId === agentId && card.state === 'Running') {
+                            card.state = 'Complete';
+                            card.endTime = new Date();
+                            card.fadeStart = this._time;
+                        }
                     }
                 }
                 break;
@@ -559,6 +582,7 @@ class SparkCanvas {
                     if (agent.state !== 'Complete' && agent.state !== 'Error') {
                         agent.state = type === 'SessionTimeout' ? 'TimedOut' : 'Complete';
                         agent.completeTime = new Date();
+                        agent.currentToolUseId = null;
                         agent.fadeStart = this._time;
                         const node = this.sim.getNode(id);
                         if (node) {
@@ -567,6 +591,16 @@ class SparkCanvas {
                                 node.radius);
                         }
                     }
+                }
+                // Complete all running tool cards for this session's agents
+                for (const [tid, card] of this.toolCards) {
+                    if (card.state !== 'Running') continue;
+                    const cardAgent = this.agents.get(card.agentId);
+                    if (!cardAgent) continue;
+                    if (this.multiMode && cardAgent.sessionId !== sessionId) continue;
+                    card.state = 'Complete';
+                    card.endTime = new Date();
+                    card.fadeStart = this._time;
                 }
                 // Mark session inactive in multi-mode
                 if (this.multiMode) {
@@ -678,7 +712,7 @@ class SparkCanvas {
     // ─── Camera ─────────────────────────────────────────────
 
     _fitToView(smooth = true) {
-        const bounds = this.sim.getBounds(120);
+        const bounds = this._getFullBounds(120);
         const vw = this.canvas.width / this.dpr;
         const vh = this.canvas.height / this.dpr;
 
@@ -698,6 +732,33 @@ class SparkCanvas {
             this.camera.y = this.camera.targetY = cy;
             this.camera.zoom = this.camera.targetZoom = zoom;
         }
+    }
+
+    /** Get full bounding box including agent nodes AND visible tool cards */
+    _getFullBounds(padding = 100) {
+        const nodeBounds = this.sim.getBounds(0);
+        let minX = nodeBounds.x;
+        let minY = nodeBounds.y;
+        let maxX = nodeBounds.x + nodeBounds.width;
+        let maxY = nodeBounds.y + nodeBounds.height;
+
+        // Expand to include visible tool cards
+        for (const [, card] of this.toolCards) {
+            if (!card._bounds) continue;
+            if (card.fadeStart != null && (this._time - card.fadeStart) > 5.5) continue;
+            const b = card._bounds;
+            minX = Math.min(minX, b.x);
+            minY = Math.min(minY, b.y);
+            maxX = Math.max(maxX, b.x + b.w);
+            maxY = Math.max(maxY, b.y + b.h);
+        }
+
+        return {
+            x: minX - padding,
+            y: minY - padding,
+            width: (maxX - minX) + padding * 2,
+            height: (maxY - minY) + padding * 2
+        };
     }
 
     _updateCamera() {
@@ -929,22 +990,95 @@ class SparkCanvas {
         return { x, y, nx: (-ty / len) * halfW, ny: (tx / len) * halfW };
     }
 
+    // ─── Session Bounds Calculation (includes tool cards) ─────
+
+    /** Get session bounds including both agent nodes and their visible tool cards */
+    _getSessionBoundsWithTools(sessionId) {
+        const padding = 50;
+        const groupNodes = this.sim.nodes.filter(n => n.groupId === sessionId);
+        const group = this.sim.groups.get(sessionId);
+
+        if (groupNodes.length === 0 && !group) return null;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+        // Include agent nodes
+        for (const node of groupNodes) {
+            minX = Math.min(minX, node.x - node.radius);
+            minY = Math.min(minY, node.y - node.radius);
+            maxX = Math.max(maxX, node.x + node.radius);
+            maxY = Math.max(maxY, node.y + node.radius);
+        }
+
+        // Include visible tool cards belonging to this session's agents
+        for (const [, card] of this.toolCards) {
+            if (!card._bounds) continue;
+            // Skip fully faded cards
+            if (card.fadeStart != null && (this._time - card.fadeStart) > 5.5) continue;
+            const cardAgent = this.agents.get(card.agentId);
+            if (!cardAgent || cardAgent.sessionId !== sessionId) continue;
+            const b = card._bounds;
+            minX = Math.min(minX, b.x);
+            minY = Math.min(minY, b.y);
+            maxX = Math.max(maxX, b.x + b.w);
+            maxY = Math.max(maxY, b.y + b.h);
+        }
+
+        if (minX === Infinity) {
+            // No content — use group center with compact size
+            return group ? { x: group.cx - 60, y: group.cy - 60, width: 120, height: 120 } : null;
+        }
+
+        return {
+            x: minX - padding,
+            y: minY - padding,
+            width: (maxX - minX) + padding * 2,
+            height: (maxY - minY) + padding * 2
+        };
+    }
+
     // ─── Session Boundaries (Multi-Mode) ──────────────────────
 
     _drawSessionBoundaries(ctx) {
         for (const [sessionId, session] of this.sessions) {
-            // Dynamic padding: tight for completed/small sessions, generous for active ones
-            const nAgents = [...this.agents.values()].filter(a => a.sessionId === sessionId).length;
+            // Include tool card positions in bounds calculation
+            const rawBounds = this._getSessionBoundsWithTools(sessionId);
+            if (!rawBounds) continue;
+
+            // Smoothed boundary: grow fast, shrink gradually
+            if (!session._smoothBounds) {
+                session._smoothBounds = { ...rawBounds };
+                session._lastActiveTime = this._time;
+            }
+            const sb = session._smoothBounds;
+
+            // Track when session last had active tools/agents
             const hasActiveAgent = [...this.agents.values()].some(a => a.sessionId === sessionId && a.state !== 'Complete' && a.state !== 'Error' && a.state !== 'TimedOut');
-            const nActiveTools = [...this.toolCards.values()].filter(t => {
+            const hasRunningTools = [...this.toolCards.values()].some(t => {
                 const a = this.agents.get(t.agentId);
                 return a && a.sessionId === sessionId && t.state === 'Running';
-            }).length;
-            const padding = hasActiveAgent ? (50 + Math.min(nAgents * 10, 40) + nActiveTools * 15) : 50;
-            const bounds = this.sim.getGroupBounds(sessionId, padding);
-            if (!bounds) continue;
+            });
+            if (hasActiveAgent || hasRunningTools) {
+                session._lastActiveTime = this._time;
+            }
 
-            const { x, y, width: w, height: h } = bounds;
+            // Grow quickly (lerp 0.15), shrink slowly (lerp 0.02)
+            // After activity stops, wait 3 seconds before starting to shrink
+            const timeSinceActive = this._time - (session._lastActiveTime || 0);
+            const canShrink = timeSinceActive > 3.0;
+
+            const growRate = 0.15;
+            const shrinkRate = canShrink ? 0.02 : 0.001; // Very slow until grace period
+
+            // Lerp each dimension: "growing" means boundary expands outward
+            // For x/y: smaller value = boundary moved outward (grow), larger = shrink
+            // For width/height: larger value = boundary grew, smaller = shrink
+            sb.x += (rawBounds.x - sb.x) * (rawBounds.x < sb.x ? growRate : shrinkRate);
+            sb.y += (rawBounds.y - sb.y) * (rawBounds.y < sb.y ? growRate : shrinkRate);
+            sb.width += (rawBounds.width - sb.width) * (rawBounds.width > sb.width ? growRate : shrinkRate);
+            sb.height += (rawBounds.height - sb.height) * (rawBounds.height > sb.height ? growRate : shrinkRate);
+
+            const { x, y, width: w, height: h } = sb;
             const color = session.color;
             const isActive = session.isActive;
 
@@ -1742,13 +1876,13 @@ class SparkCanvas {
 
             // Running indicator: small spinner dot at left edge of card
             if (isRunning) {
-                const spX = x + 8;
+                const spX = x + 10;
                 const spY = y + h / 2;
                 const angle = this._time * 4;
                 ctx.strokeStyle = toolAccent;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.arc(spX, spY, 4, angle, angle + Math.PI * 1.3);
+                ctx.arc(spX, spY, 3.5, angle, angle + Math.PI * 1.3);
                 ctx.stroke();
             }
 
@@ -1773,8 +1907,11 @@ class SparkCanvas {
             ctx.textBaseline = 'middle';
 
             if (isRunning) {
+                // Offset text right to avoid spinner overlap (spinner ends at ~x+14)
+                const textAreaLeft = x + 18;
+                const textCenterX = textAreaLeft + (x + w - textAreaLeft) / 2;
                 ctx.fillStyle = toolAccent;
-                ctx.fillText(toolLabel, x + w / 2, y + h / 2);
+                ctx.fillText(toolLabel, textCenterX, y + h / 2);
             } else if (isError) {
                 ctx.fillStyle = colors.red;
                 ctx.fillText(truncate(`${card.toolName}: FAILED`, 24), x + w / 2, y + h / 2 - 5);

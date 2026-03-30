@@ -350,6 +350,7 @@ function setConnectionStatus(status) {
     el.textContent = status.toUpperCase();
     el.className = status === 'live' ? 'status-live'
         : status === 'connecting' ? 'status-connecting'
+        : status === 'replay' ? 'status-replay'
         : 'status-offline';
 }
 
@@ -452,6 +453,27 @@ function initControls(canvas) {
 
     // Duration update timer
     setInterval(() => updateDurationDisplay(canvas), 1000);
+
+    // Replay controls
+    document.getElementById('btnReplayToggle')?.addEventListener('click', replayToggle);
+    document.getElementById('btnReplayRestart')?.addEventListener('click', () => {
+        replayRestart();
+        replayPlay();
+    });
+    document.getElementById('replayProgressTrack')?.addEventListener('click', (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        replaySeek(fraction);
+    });
+    for (const btn of document.querySelectorAll('.replay-speed-btn')) {
+        btn.addEventListener('click', (e) => {
+            const speed = parseInt(e.target.dataset.speed, 10);
+            replaySetSpeed(speed);
+            // Update active state
+            for (const b of document.querySelectorAll('.replay-speed-btn')) b.classList.remove('active');
+            e.target.classList.add('active');
+        });
+    }
 }
 
 // ─── Utilities ─────────────────────────────────────────

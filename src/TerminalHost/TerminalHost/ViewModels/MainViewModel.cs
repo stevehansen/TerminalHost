@@ -2169,6 +2169,28 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private void OpenSparkCanvasAndLoadJsonl()
+    {
+        try
+        {
+            if (SelectedTab is not TerminalPairTabViewModel terminalTab)
+            {
+                _toastService.Show("Select a project tab first", ToastType.Warning);
+                return;
+            }
+
+            _sparkCanvasViewModel ??= _viewModelFactory.CreateSparkCanvas();
+            terminalTab.ShowCenterPanel(_sparkCanvasViewModel);
+
+            // Trigger the file open dialog via the ViewModel's event
+            _sparkCanvasViewModel.OpenJsonlFileCommand.Execute(null);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowError($"Failed to open Spark Canvas:\n\n{ex.Message}");
+        }
+    }
+
     private void OnConfigSaved(object? sender, EventArgs e)
     {
         // Reload quick commands when config is saved
@@ -2719,6 +2741,15 @@ public partial class MainViewModel : ObservableObject
                 Shortcut = "Ctrl+Shift+V",
                 IntroducedOn = new DateOnly(2026, 3, 26),
                 Execute = () => OpenSparkCanvasWindow()
+            },
+            new() {
+                Id = "spark-load-jsonl",
+                Name = "Spark: Load JSONL File",
+                Description = "Open a .jsonl transcript file in Spark Canvas for visualization",
+                Icon = "\u2728",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 3, 30),
+                Execute = () => OpenSparkCanvasAndLoadJsonl()
             },
 
             // GitHub Dashboard

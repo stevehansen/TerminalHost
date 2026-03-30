@@ -177,6 +177,62 @@ canvas:active { cursor: grabbing; }
     letter-spacing: 1px;
 }
 
+.status-replay {
+    font-size: 10px;
+    font-weight: 700;
+    color: #bb88ff;
+    letter-spacing: 1px;
+}
+
+/* Replay Controls Bar */
+.replay-bar {
+    position: fixed;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    z-index: 120;
+    min-width: 400px;
+}
+
+.replay-progress-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    cursor: pointer;
+    min-width: 120px;
+    position: relative;
+}
+
+.replay-progress-fill {
+    height: 100%;
+    background: #bb88ff;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.15s ease-out;
+}
+
+.replay-label {
+    font-size: 10px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.replay-speed-btn {
+    font-size: 10px !important;
+    padding: 2px 5px !important;
+    min-width: 28px;
+}
+
+.replay-speed-btn.active {
+    color: #bb88ff !important;
+    border-color: rgba(187, 136, 255, 0.4) !important;
+}
+
 @keyframes pulse-live {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }

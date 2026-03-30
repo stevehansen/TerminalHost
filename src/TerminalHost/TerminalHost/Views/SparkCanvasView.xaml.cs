@@ -30,6 +30,7 @@ public partial class SparkCanvasView : UserControl
         if (_viewModel != null)
         {
             _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
         }
 
         _viewModel = DataContext as SparkCanvasViewModel;
@@ -38,6 +39,7 @@ public partial class SparkCanvasView : UserControl
         if (_viewModel != null)
         {
             _viewModel.SendMessageToCanvas += OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile += OnRequestOpenJsonlFile;
         }
     }
 
@@ -65,6 +67,7 @@ public partial class SparkCanvasView : UserControl
         if (_viewModel != null)
         {
             _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
+            _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
         }
     }
 
@@ -183,6 +186,28 @@ public partial class SparkCanvasView : UserControl
         catch
         {
             // Dispatcher may fail if window is closing
+        }
+    }
+
+    private async void OnRequestOpenJsonlFile(object? sender, EventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Open JSONL Transcript",
+            Filter = "JSONL files (*.jsonl)|*.jsonl|All files (*.*)|*.*",
+            DefaultExt = ".jsonl"
+        };
+
+        // Default to Claude projects directory
+        var claudeProjectsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".claude", "projects");
+        if (Directory.Exists(claudeProjectsDir))
+            dialog.InitialDirectory = claudeProjectsDir;
+
+        if (dialog.ShowDialog() == true && _viewModel != null)
+        {
+            await _viewModel.LoadJsonlFileAsync(dialog.FileName);
         }
     }
 

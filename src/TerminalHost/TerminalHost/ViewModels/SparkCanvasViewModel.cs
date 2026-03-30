@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.Services;
 using TerminalHost.Core.ViewModels;
 
 namespace TerminalHost.ViewModels;
@@ -33,6 +35,12 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
 
     public override IEnumerable<PanelHeaderCommand>? HeaderCommands =>
     [
+        new PanelHeaderCommand
+        {
+            Icon = "\uD83D\uDCC2", // Open folder
+            Tooltip = "Load JSONL transcript file",
+            Command = OpenJsonlFileCommand
+        },
         new PanelHeaderCommand
         {
             Icon = "\u21BB", // Refresh
@@ -68,6 +76,12 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     private string _connectionStatus = "Connecting";
 
     /// <summary>
+    /// Whether the canvas is in multi-session observatory mode.
+    /// When true, events from ALL sessions are forwarded (not just CurrentSessionId).
+    /// </summary>
+    private bool _isMultiMode;
+
+    /// <summary>
     /// Available sessions for the picker.
     /// </summary>
     public ObservableCollection<SparkSessionItem> AvailableSessions { get; } = new();
@@ -85,6 +99,11 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     /// Raised when the ViewModel needs to send a message to the WebView2 canvas.
     /// </summary>
     public event EventHandler<string>? SendMessageToCanvas;
+
+    /// <summary>
+    /// Raised when the user wants to open a JSONL file. The View handles the file dialog.
+    /// </summary>
+    public event EventHandler? RequestOpenJsonlFile;
 
     #endregion
 
@@ -133,16 +152,8 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             });
         }
 
-        // If API server is running, also connect SSE for live updates
-        if (IsApiServerRunning)
-        {
-            PostToCanvas(new
-            {
-                action = "connectSSE",
-                apiBase = ApiBaseUrl,
-                sessionId
-            });
-        }
+        // Events are pushed via postMessage from OnActivityEvent — no SSE needed.
+        // SSE from WebView2's HTTPS virtual host to http://localhost can fail as mixed content.
     }
 
     /// <summary>
@@ -179,25 +190,162 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             using var doc = JsonDocument.Parse(json);
             var action = doc.RootElement.GetProperty("action").GetString();
 
-            if (action == "selectSession")
+            switch (action)
             {
-                var sessionId = doc.RootElement.GetProperty("sessionId").GetString();
-                if (sessionId != null)
-                    OpenSession(sessionId);
-            }
-            else if (action == "themeChanged")
-            {
-                var theme = doc.RootElement.GetProperty("theme").GetString();
-                if (theme != null && _configService != null)
+                case "selectSession":
                 {
-                    var config = _configService.Load();
-                    config.Settings.Timeline.SparkTheme = theme;
-                    _configService.Save(config);
+                    var sessionId = doc.RootElement.GetProperty("sessionId").GetString();
+                    if (sessionId != null)
+                    {
+                        _isMultiMode = false;
+                        OpenSession(sessionId);
+                    }
+                    break;
+                }
+                case "requestMultiMode":
+                    LoadMultiMode();
+                    break;
+                case "exitMultiMode":
+                    _isMultiMode = false;
+                    break;
+                case "themeChanged":
+                {
+                    var theme = doc.RootElement.GetProperty("theme").GetString();
+                    if (theme != null && _configService != null)
+                    {
+                        var config = _configService.Load();
+                        config.Settings.Timeline.SparkTheme = theme;
+                        _configService.Save(config);
+                    }
+                    break;
                 }
             }
         }
         catch { }
     }
+
+    #region JSONL File Loading
+
+    [RelayCommand]
+    private void OpenJsonlFile()
+    {
+        RequestOpenJsonlFile?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Loads a JSONL transcript file and pushes the parsed session to the canvas.
+    /// </summary>
+    public async Task LoadJsonlFileAsync(string filePath)
+    {
+        var parser = new TranscriptParserService();
+        var sessionId = Path.GetFileNameWithoutExtension(filePath);
+        var result = await parser.ParseTranscriptRichAsync(filePath, sessionId);
+
+        if (!result.ParsedSuccessfully || result.Events.Count == 0)
+            return;
+
+        // Build a SessionActivityState from the parsed events
+        var state = SessionActivityState.Create(sessionId);
+        state.WorkingDirectory = Path.GetDirectoryName(filePath);
+        state.Lifecycle = SessionLifecycle.Completed;
+
+        foreach (var evt in result.Events)
+        {
+            state.ApplyEvent(evt);
+        }
+
+        if (result.Summary != null)
+            state.Summary = result.Summary;
+        if (result.Model != null && state.MainAgent != null)
+            state.MainAgent.Model = result.Model;
+
+        // Mark session as completed
+        state.EndTime = state.LastActivityTime ?? DateTime.UtcNow;
+        if (state.MainAgent != null)
+        {
+            state.MainAgent.State = AgentState.Complete;
+            state.MainAgent.CompleteTime = state.EndTime;
+        }
+
+        CurrentSessionId = sessionId;
+
+        if (!IsCanvasReady)
+            return;
+
+        // Push to canvas with full tool call history + events for feed/transcript
+        PostToCanvas(new { action = "clear" });
+        PostToCanvas(new
+        {
+            action = "loadReplay",
+            state = SerializeStateForReplay(state),
+            events = result.Events.Select(SerializeEvent).ToList()
+        });
+    }
+
+    /// <summary>
+    /// Serializes state with ALL tool calls (not just running ones) for replay mode.
+    /// </summary>
+    private static object SerializeStateForReplay(SessionActivityState state)
+    {
+        return new
+        {
+            sessionId = state.SessionId,
+            workingDirectory = state.WorkingDirectory,
+            startTime = state.StartTime,
+            endTime = state.EndTime,
+            lifecycle = state.Lifecycle.ToString(),
+            agents = state.Agents.ToDictionary(
+                kv => kv.Key,
+                kv => new
+                {
+                    id = kv.Value.Id,
+                    name = kv.Value.Name,
+                    isMain = kv.Value.IsMain,
+                    parentId = kv.Value.ParentId,
+                    state = kv.Value.State.ToString(),
+                    model = kv.Value.Model,
+                    task = kv.Value.Task,
+                    spawnTime = kv.Value.SpawnTime,
+                    completeTime = kv.Value.CompleteTime,
+                    toolCallCount = kv.Value.ToolCallCount,
+                    tokensUsed = kv.Value.Context?.Total ?? 0,
+                    tokensMax = ModelContextSizes.GetMaxTokens(kv.Value.Model),
+                    currentToolUseId = kv.Value.CurrentToolUseId,
+                    context = kv.Value.Context != null ? new
+                    {
+                        systemPrompt = kv.Value.Context.SystemPrompt,
+                        userMessages = kv.Value.Context.UserMessages,
+                        toolResults = kv.Value.Context.ToolResults,
+                        reasoning = kv.Value.Context.Reasoning,
+                        subagentResults = kv.Value.Context.SubagentResults
+                    } : (object?)null
+                }),
+            toolCalls = state.ToolCalls.ToDictionary(
+                kv => kv.Key,
+                kv => new
+                {
+                    toolUseId = kv.Value.ToolUseId,
+                    agentId = kv.Value.AgentId,
+                    toolName = kv.Value.ToolName,
+                    inputSummary = kv.Value.InputSummary,
+                    resultSummary = kv.Value.ResultSummary,
+                    state = kv.Value.State.ToString(),
+                    startTime = kv.Value.StartTime,
+                    endTime = kv.Value.EndTime,
+                    tokenCost = kv.Value.TokenCost,
+                    errorMessage = kv.Value.ErrorMessage
+                }),
+            fileActivities = state.FileActivities.ToDictionary(
+                kv => kv.Key,
+                kv => new
+                {
+                    readCount = kv.Value.ReadCount,
+                    writeCount = kv.Value.WriteCount
+                })
+        };
+    }
+
+    #endregion
 
     #region Session Picker
 
@@ -272,6 +420,11 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
         {
             OpenSession(first.SessionId);
         }
+        else
+        {
+            // No sessions yet — tell canvas to show waiting state (will go live when a session starts)
+            PostToCanvas(new { action = "setSession", sessionId = (string?)null, sessionName = "Waiting for session..." });
+        }
     }
 
     [RelayCommand]
@@ -283,15 +436,78 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
         }
     }
 
+    /// <summary>
+    /// Enter multi-session observatory mode — push all session states to canvas via postMessage.
+    /// </summary>
+    private void LoadMultiMode()
+    {
+        _isMultiMode = true;
+        CurrentSessionId = null;
+
+        var allStates = _activityService?.GetAllStates() ?? [];
+        var liveSessions = _timelineService?.GetLiveSessions();
+
+        var serializedStates = new List<object>();
+        foreach (var state in allStates)
+        {
+            serializedStates.Add(SerializeState(state));
+        }
+
+        // Include sessions from timeline that aren't in activity service yet
+        if (liveSessions != null)
+        {
+            var existingIds = new HashSet<string>(allStates.Select(s => s.SessionId));
+            foreach (var live in liveSessions.Where(s => s.IsActive && !existingIds.Contains(s.ClaudeSessionId)))
+            {
+                serializedStates.Add(new
+                {
+                    sessionId = live.ClaudeSessionId,
+                    workingDirectory = live.WorkingDirectory,
+                    startTime = live.StartTime,
+                    lifecycle = "Active",
+                    agents = new Dictionary<string, object>
+                    {
+                        [live.ClaudeSessionId] = new
+                        {
+                            id = live.ClaudeSessionId,
+                            name = "main",
+                            isMain = true,
+                            state = "Active",
+                            spawnTime = live.StartTime,
+                            toolCallCount = 0
+                        }
+                    },
+                    toolCalls = new Dictionary<string, object>()
+                });
+            }
+        }
+
+        PostToCanvas(new
+        {
+            action = "loadMultiState",
+            sessions = serializedStates
+        });
+    }
+
     #endregion
 
     #region Event Handling
 
     private void OnActivityEvent(object? sender, ActivityEvent evt)
     {
-        if (CurrentSessionId == null || evt.SessionId != CurrentSessionId) return;
-        if (IsApiServerRunning) return; // SSE handles it
+        // Auto-connect to first session if none selected yet (single-session mode)
+        if (!_isMultiMode && CurrentSessionId == null && evt.Type == ActivityEventType.SessionStart)
+        {
+            OpenSession(evt.SessionId);
+            return;
+        }
 
+        // In multi-mode, forward events from ALL sessions
+        // In single-mode, only forward events for the current session
+        if (!_isMultiMode && (CurrentSessionId == null || evt.SessionId != CurrentSessionId)) return;
+
+        // Always forward events via postMessage — SSE may not work from WebView2's
+        // HTTPS virtual host context (mixed-content blocks to http://localhost).
         if (IsCanvasReady)
         {
             PostToCanvas(new

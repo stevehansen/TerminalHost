@@ -571,89 +571,11 @@ public class SessionActivityService : ISessionActivityService
 
     /// <summary>
     /// Applies a transcript-derived ActivityEvent to the session state.
-    /// Called under lock during transcript enrichment.
+    /// Delegates to SessionActivityState.ApplyEvent().
     /// </summary>
     private static void ApplyEventToState(SessionActivityState state, ActivityEvent evt)
     {
-        switch (evt.Type)
-        {
-            case ActivityEventType.ToolCallStart:
-            {
-                var toolUseId = evt.GetString("toolUseId") ?? "";
-                var toolName = evt.GetString("toolName") ?? "unknown";
-                var inputSummary = evt.GetString("inputSummary");
-                state.RecordToolCallStart(toolUseId, toolName, evt.AgentId, inputSummary, null);
-                break;
-            }
-            case ActivityEventType.ToolCallEnd:
-            {
-                var toolUseId = evt.GetString("toolUseId") ?? "";
-                var resultSummary = evt.GetString("resultSummary");
-                var tokenCost = evt.GetInt("tokenCost");
-                var error = evt.GetString("error");
-                state.RecordToolCallEnd(toolUseId, resultSummary, tokenCost, error, null);
-                break;
-            }
-            case ActivityEventType.AgentSpawn:
-            {
-                var agentId = evt.GetString("agentId") ?? "";
-                var parentId = evt.GetString("parentId");
-                var name = evt.GetString("name") ?? "subagent";
-                var task = evt.GetString("task");
-                var isMain = evt.Data.TryGetValue("isMain", out var isMainObj) && isMainObj is true;
-                if (!isMain && !state.Agents.ContainsKey(agentId))
-                    state.AddSubagent(agentId, parentId ?? state.SessionId, name, task);
-                break;
-            }
-            case ActivityEventType.AgentComplete:
-            {
-                var agentId = evt.GetString("agentId") ?? "";
-                state.CompleteSubagent(agentId);
-                break;
-            }
-            case ActivityEventType.FileAccessed:
-            {
-                var filePath = evt.GetString("filePath");
-                var accessType = evt.GetString("accessType") ?? "read";
-                if (!string.IsNullOrEmpty(filePath))
-                    state.RecordFileAccess(filePath, accessType);
-                break;
-            }
-            case ActivityEventType.UserMessage:
-            case ActivityEventType.AssistantMessage:
-            case ActivityEventType.ThinkingBlock:
-            {
-                var content = evt.GetString("content");
-                var tokens = evt.GetInt("estimatedTokens");
-                var msgType = evt.Type switch
-                {
-                    ActivityEventType.UserMessage => MessageType.UserMessage,
-                    ActivityEventType.AssistantMessage => MessageType.AssistantText,
-                    ActivityEventType.ThinkingBlock => MessageType.Thinking,
-                    _ => MessageType.SystemMessage
-                };
-                state.Messages.Add(new ConversationMessage
-                {
-                    Uuid = Guid.NewGuid().ToString(),
-                    SessionId = state.SessionId,
-                    AgentId = evt.AgentId,
-                    Type = msgType,
-                    Role = evt.Type == ActivityEventType.UserMessage ? "user" : "assistant",
-                    Content = content,
-                    Timestamp = evt.Timestamp,
-                    EstimatedTokens = tokens
-                });
-                break;
-            }
-            case ActivityEventType.ModelDetected:
-            {
-                var agentId = evt.GetString("agentId") ?? state.SessionId;
-                var model = evt.GetString("model");
-                if (model != null && state.Agents.TryGetValue(agentId, out var agent))
-                    agent.Model = model;
-                break;
-            }
-        }
+        state.ApplyEvent(evt);
     }
 
     // Helpers

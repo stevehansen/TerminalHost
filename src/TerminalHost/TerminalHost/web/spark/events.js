@@ -30,8 +30,19 @@ function initSpark() {
     // Restore persisted state (panels, filters — NOT multi-mode, that's handled below)
     restoreSparkState();
 
+    // Detect if hosted inside WebView2 (Windows) or Avalonia NativeWebView (macOS)
+    const isHosted = !!(window.chrome && window.chrome.webview) || typeof invokeCSharpAction === 'function';
+
     if (mode === 'replay') {
         setConnectionStatus('offline');
+    } else if (isHosted) {
+        // Hosted in WebView2/Avalonia — C# host will push state via postMessage.
+        // Don't try HTTP discovery (HTTPS→HTTP mixed-content can fail).
+        setConnectionStatus('connecting');
+        // Restore saved multi-mode: defer until after 'ready' so C# OnCanvasReady runs first
+        if (getSavedMultiMode()) {
+            setTimeout(() => notifyHost('requestMultiMode'), 200);
+        }
     } else if (multi || getSavedMultiMode()) {
         // Start in multi-session mode (from URL param or saved state)
         // API may not be ready yet on startup — retry with backoff
@@ -40,7 +51,7 @@ function initSpark() {
         // Direct session ID — load immediately
         loadAndConnect(sessionId);
     } else {
-        // No session specified — try to discover via API, then auto-connect
+        // Standalone browser — discover sessions via REST API
         setConnectionStatus('connecting');
         discoverSessions();
     }
@@ -99,9 +110,199 @@ function showEmptyState(message) {
 
 async function loadAndConnect(sessionId) {
     sparkCanvas.clearAll();
+    replayPause();
+    showReplayControls(false);
     setConnectionStatus('connecting');
     await loadInitialState(apiBase, sessionId);
     connectSSE(apiBase, sessionId);
+}
+
+// ─── JSONL Replay Mode ─────────────────────────────────
+
+const replay = {
+    events: [],
+    index: 0,
+    speed: 10,          // multiplier: 1=realtime, 0=instant
+    playing: false,
+    timer: null,
+    startWallTime: null, // real clock when play started
+    startEventTime: null, // event-time when play started (from current index)
+};
+
+function loadReplay(state, events) {
+    // Disconnect any live SSE
+    if (sseConnection) {
+        sseConnection.close();
+        sseConnection = null;
+    }
+
+    // Stop any existing replay
+    replayPause();
+
+    // Load state for agent structure + tool timeline + file panel
+    sparkCanvas.loadState(state);
+
+    // Sort events by timestamp and store
+    replay.events = (events || []).map(e => ({
+        ...e,
+        _ts: e.timestamp ? new Date(e.timestamp).getTime() : 0
+    })).sort((a, b) => a._ts - b._ts);
+    replay.index = 0;
+
+    // Stabilize layout from loaded state
+    sparkCanvas.sim.stabilize(100);
+    sparkCanvas.fitView();
+
+    setConnectionStatus('replay');
+    showReplayControls(true);
+    updateReplayProgress();
+
+    const name = state.workingDirectory
+        ? state.workingDirectory.split(/[/\\]/).filter(Boolean).pop() || 'Replay'
+        : 'Replay';
+    const toolCount = Object.keys(state.toolCalls || {}).length;
+    const agentCount = Object.keys(state.agents || {}).length;
+    addFeedEntry('SPARK', `Loaded: ${name} (${toolCount} tools, ${agentCount} agents, ${replay.events.length} events)`, 'assistant');
+
+    // Auto-start playback
+    replayPlay();
+}
+
+function replayPlay() {
+    if (replay.events.length === 0) return;
+    if (replay.index >= replay.events.length) {
+        // Restart from beginning
+        replayRestart();
+    }
+    replay.playing = true;
+    replay.startWallTime = performance.now();
+    replay.startEventTime = replay.events[replay.index]._ts;
+    updateReplayButton();
+    replayTick();
+}
+
+function replayPause() {
+    replay.playing = false;
+    if (replay.timer) {
+        cancelAnimationFrame(replay.timer);
+        replay.timer = null;
+    }
+    updateReplayButton();
+}
+
+function replayToggle() {
+    if (replay.playing) replayPause();
+    else replayPlay();
+}
+
+function replayRestart() {
+    replayPause();
+    replay.index = 0;
+    // Clear canvas and reload just the base state (agents from loadState)
+    // We keep agent nodes but clear dynamic feed/transcript state
+    sparkCanvas.clearFeedAndTranscript?.();
+    updateReplayProgress();
+}
+
+function replaySetSpeed(speed) {
+    const wasPlaying = replay.playing;
+    if (wasPlaying) replayPause();
+    replay.speed = speed;
+    document.getElementById('replaySpeed').textContent = speed === 0 ? 'Max' : `${speed}x`;
+    if (wasPlaying) replayPlay();
+}
+
+function replayTick() {
+    if (!replay.playing || replay.index >= replay.events.length) {
+        if (replay.index >= replay.events.length) {
+            replay.playing = false;
+            updateReplayButton();
+            addFeedEntry('SPARK', 'Replay complete', 'assistant');
+        }
+        return;
+    }
+
+    const now = performance.now();
+
+    if (replay.speed === 0) {
+        // Instant: dump all remaining events
+        while (replay.index < replay.events.length) {
+            sparkCanvas.processEvent(replay.events[replay.index]);
+            replay.index++;
+        }
+        updateReplayProgress();
+        replay.playing = false;
+        updateReplayButton();
+        addFeedEntry('SPARK', 'Replay complete', 'assistant');
+        return;
+    }
+
+    // Calculate how far ahead in event-time we should be
+    const wallElapsed = now - replay.startWallTime;
+    const eventTimeTarget = replay.startEventTime + (wallElapsed * replay.speed);
+
+    // Process all events up to the target time
+    let processed = 0;
+    while (replay.index < replay.events.length) {
+        const evt = replay.events[replay.index];
+        if (evt._ts > eventTimeTarget) break;
+        sparkCanvas.processEvent(evt);
+        replay.index++;
+        processed++;
+        // Batch limit: yield to renderer every 50 events
+        if (processed >= 50) break;
+    }
+
+    updateReplayProgress();
+
+    if (replay.index >= replay.events.length) {
+        replay.playing = false;
+        updateReplayButton();
+        addFeedEntry('SPARK', 'Replay complete', 'assistant');
+        return;
+    }
+
+    replay.timer = requestAnimationFrame(replayTick);
+}
+
+function replaySeek(fraction) {
+    const wasPlaying = replay.playing;
+    replayPause();
+
+    // Clear feed/transcript for clean replay
+    sparkCanvas.clearFeedAndTranscript?.();
+
+    const targetIndex = Math.min(Math.floor(fraction * replay.events.length), replay.events.length);
+
+    // Reset and replay up to target
+    replay.index = 0;
+    while (replay.index < targetIndex) {
+        sparkCanvas.processEvent(replay.events[replay.index]);
+        replay.index++;
+    }
+    updateReplayProgress();
+
+    if (wasPlaying && replay.index < replay.events.length) replayPlay();
+}
+
+function updateReplayProgress() {
+    const total = replay.events.length;
+    const current = replay.index;
+    const pct = total > 0 ? (current / total) * 100 : 0;
+    const bar = document.getElementById('replayProgressFill');
+    const label = document.getElementById('replayProgressLabel');
+    if (bar) bar.style.width = `${pct}%`;
+    if (label) label.textContent = `${current}/${total}`;
+}
+
+function updateReplayButton() {
+    const btn = document.getElementById('btnReplayToggle');
+    if (btn) btn.textContent = replay.playing ? '\u23F8' : '\u25B6'; // ⏸ or ▶
+}
+
+function showReplayControls(show) {
+    const el = document.getElementById('replayBar');
+    if (el) el.style.display = show ? '' : 'none';
 }
 
 // ─── REST: Initial State Load ──────────────────────────
@@ -165,10 +366,15 @@ function connectSSE(apiBase, sessionId) {
         sseFailCount++;
         // EventSource auto-reconnects — don't flash status on brief interruptions.
         // Only show offline after multiple consecutive failures (truly disconnected).
-        if (sseFailCount >= 3) {
+        // But don't downgrade if host is pushing events via postMessage.
+        const isHosted = !!(window.chrome && window.chrome.webview) || typeof invokeCSharpAction === 'function';
+        if (sseFailCount >= 3 && !isHosted) {
             setConnectionStatus('offline');
+        } else if (sseFailCount >= 3 && isHosted) {
+            // SSE failed but host pushes events — close SSE silently, stay live
+            sseConnection?.close();
+            sseConnection = null;
         }
-        // Don't show 'connecting' flicker at all — just quietly reconnect
     };
 }
 
@@ -314,6 +520,44 @@ async function enterMultiMode() {
     }
 }
 
+/** Enter multi-mode from host-pushed session states (no HTTP needed) */
+function enterMultiModeFromHost(sessions) {
+    sparkCanvas.clearAll();
+    sparkCanvas.setMultiMode(true);
+
+    document.getElementById('sessionPicker').style.display = 'none';
+    const btn = document.getElementById('btnMultiMode');
+    if (btn) btn.classList.add('active');
+
+    if (sessions.length === 0) {
+        setConnectionStatus('connecting');
+        addFeedEntry('SPARK', 'No sessions found. Start Claude Code sessions to visualize.', 'assistant');
+        saveSparkState();
+        return;
+    }
+
+    addFeedEntry('SPARK', `Loading ${sessions.length} session${sessions.length !== 1 ? 's' : ''}...`, 'assistant');
+
+    for (const state of sessions) {
+        sparkCanvas.loadState(state);
+        // Override name from workingDirectory if still generic
+        const session = sparkCanvas.sessions.get(state.sessionId);
+        if (session && session.name === 'Session' && state.workingDirectory) {
+            const name = state.workingDirectory.split(/[/\\]/).filter(Boolean).pop();
+            if (name) session.name = name;
+        }
+    }
+
+    deduplicateSessions();
+    sparkCanvas.sim.arrangeGroups();
+    sparkCanvas.sim.stabilize(120);
+    sparkCanvas.fitView();
+
+    setConnectionStatus('live');
+    addFeedEntry('SPARK', `Observatory: ${sparkCanvas.sessions.size} sessions loaded`, 'assistant');
+    saveSparkState();
+}
+
 function exitMultiMode() {
     stopCollabPolling();
     sparkCanvas.clearAll();
@@ -330,10 +574,29 @@ function exitMultiMode() {
 }
 
 function toggleMultiMode() {
+    const isHosted = !!(window.chrome && window.chrome.webview) || typeof invokeCSharpAction === 'function';
+
     if (sparkCanvas.multiMode) {
-        exitMultiMode();
+        if (isHosted) {
+            // Tell host to exit multi-mode and push single-session state
+            notifyHost('exitMultiMode');
+            sparkCanvas.clearAll();
+            sparkCanvas.setMultiMode(false);
+            document.getElementById('sessionPicker').style.display = '';
+            const btn = document.getElementById('btnMultiMode');
+            if (btn) btn.classList.remove('active');
+            setConnectionStatus('connecting');
+            // Host will push single-session state via OnCanvasReady flow
+            notifyHost('ready');
+        } else {
+            exitMultiMode();
+        }
     } else {
-        enterMultiMode();
+        if (isHosted) {
+            notifyHost('requestMultiMode');
+        } else {
+            enterMultiMode();
+        }
     }
     saveSparkState();
 }
@@ -562,11 +825,15 @@ function handleHostMessage(msg) {
         case 'setSession':
             sparkCanvas.sessionId = msg.sessionId;
             sparkCanvas.sessionName = msg.sessionName || '';
-            setConnectionStatus('live');
+            setConnectionStatus(msg.sessionId ? 'live' : 'connecting');
             break;
 
         case 'connectSSE':
-            loadAndConnect(msg.sessionId);
+            // Host already pushed state via loadState — just start SSE stream
+            // (don't clearAll/re-fetch, which would wipe the state and fail on mixed-content)
+            if (msg.apiBase) apiBase = msg.apiBase;
+            sparkCanvas.sessionId = msg.sessionId;
+            connectSSE(apiBase, msg.sessionId);
             break;
 
         case 'setTheme':
@@ -580,9 +847,18 @@ function handleHostMessage(msg) {
             }
             break;
 
+        case 'loadReplay':
+            loadReplay(msg.state, msg.events);
+            break;
+
         case 'multiMode':
             if (msg.enabled) enterMultiMode();
             else exitMultiMode();
+            break;
+
+        case 'loadMultiState':
+            // Host-pushed multi-session observatory (no HTTP needed)
+            enterMultiModeFromHost(msg.sessions || []);
             break;
 
         case 'clear':

@@ -311,6 +311,93 @@ public class SessionActivityState
     }
 
     /// <summary>
+    /// Applies a single ActivityEvent to this state, updating agents, tool calls, messages, and file activities.
+    /// Used for both live transcript enrichment and offline JSONL replay.
+    /// </summary>
+    public void ApplyEvent(ActivityEvent evt)
+    {
+        switch (evt.Type)
+        {
+            case ActivityEventType.ToolCallStart:
+            {
+                var toolUseId = evt.GetString("toolUseId") ?? "";
+                var toolName = evt.GetString("toolName") ?? "unknown";
+                var inputSummary = evt.GetString("inputSummary");
+                RecordToolCallStart(toolUseId, toolName, evt.AgentId, inputSummary, null);
+                break;
+            }
+            case ActivityEventType.ToolCallEnd:
+            {
+                var toolUseId = evt.GetString("toolUseId") ?? "";
+                var resultSummary = evt.GetString("resultSummary");
+                var tokenCost = evt.GetInt("tokenCost");
+                var error = evt.GetString("error");
+                RecordToolCallEnd(toolUseId, resultSummary, tokenCost, error, null);
+                break;
+            }
+            case ActivityEventType.AgentSpawn:
+            {
+                var agentId = evt.GetString("agentId") ?? "";
+                var parentId = evt.GetString("parentId");
+                var name = evt.GetString("name") ?? "subagent";
+                var task = evt.GetString("task");
+                var isMain = evt.Data.TryGetValue("isMain", out var isMainObj) && isMainObj is true;
+                if (!isMain && !Agents.ContainsKey(agentId))
+                    AddSubagent(agentId, parentId ?? SessionId, name, task);
+                break;
+            }
+            case ActivityEventType.AgentComplete:
+            {
+                var agentId = evt.GetString("agentId") ?? "";
+                CompleteSubagent(agentId);
+                break;
+            }
+            case ActivityEventType.FileAccessed:
+            {
+                var filePath = evt.GetString("filePath");
+                var accessType = evt.GetString("accessType") ?? "read";
+                if (!string.IsNullOrEmpty(filePath))
+                    RecordFileAccess(filePath, accessType);
+                break;
+            }
+            case ActivityEventType.UserMessage:
+            case ActivityEventType.AssistantMessage:
+            case ActivityEventType.ThinkingBlock:
+            {
+                var content = evt.GetString("content");
+                var tokens = evt.GetInt("estimatedTokens");
+                var msgType = evt.Type switch
+                {
+                    ActivityEventType.UserMessage => MessageType.UserMessage,
+                    ActivityEventType.AssistantMessage => MessageType.AssistantText,
+                    ActivityEventType.ThinkingBlock => MessageType.Thinking,
+                    _ => MessageType.SystemMessage
+                };
+                Messages.Add(new ConversationMessage
+                {
+                    Uuid = Guid.NewGuid().ToString(),
+                    SessionId = SessionId,
+                    AgentId = evt.AgentId,
+                    Type = msgType,
+                    Role = evt.Type == ActivityEventType.UserMessage ? "user" : "assistant",
+                    Content = content,
+                    Timestamp = evt.Timestamp,
+                    EstimatedTokens = tokens
+                });
+                break;
+            }
+            case ActivityEventType.ModelDetected:
+            {
+                var agentId = evt.GetString("agentId") ?? SessionId;
+                var model = evt.GetString("model");
+                if (model != null && Agents.TryGetValue(agentId, out var agent))
+                    agent.Model = model;
+                break;
+            }
+        }
+    }
+
+    /// <summary>
     /// Marks a subagent as complete.
     /// </summary>
     public void CompleteSubagent(string agentId)
