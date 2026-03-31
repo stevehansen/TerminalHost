@@ -6,12 +6,8 @@
     <Nullable>enable</Nullable>
     <RootNamespace>TerminalHost.Linux</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
+<ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\pty_helper.py">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="../../lib/PtySharp/PtySharp.Linux/PtySharp.Linux.csproj" />
   </ItemGroup>
 </Project>
