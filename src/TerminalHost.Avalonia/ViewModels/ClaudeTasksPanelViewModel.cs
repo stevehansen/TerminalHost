@@ -187,7 +187,14 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     /// </summary>
     public bool HasCollabTopics => CollabTopics.Count > 0;
 
+    /// <summary>
+    /// Whether there are any recent collab messages.
+    /// </summary>
+    public bool HasCollabMessages => RecentCollabMessages.Count > 0;
+
     #endregion
+
+    private int _lastSeenMessageId;
 
     private readonly MainViewModel _mainViewModel;
 
@@ -263,10 +270,21 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
             CollabTopics.Add(topic);
 
         // Gather recent messages across all topics
-        // Note: We don't have a session name for the UI observer, so we just display topic metadata
+        var messages = _collabService.GetRecentMessages(30);
+
+        var previousMax = _lastSeenMessageId;
+        if (messages.Count > 0)
+            _lastSeenMessageId = messages.Max(m => m.Id);
+
         RecentCollabMessages.Clear();
+        foreach (var msg in messages)
+        {
+            msg.IsNew = msg.Id > previousMax && previousMax > 0;
+            RecentCollabMessages.Add(msg);
+        }
 
         OnPropertyChanged(nameof(HasCollabTopics));
+        OnPropertyChanged(nameof(HasCollabMessages));
         IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
     }
 

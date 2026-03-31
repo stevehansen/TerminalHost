@@ -80,6 +80,13 @@ public class CollabMessage
 
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Transient flag — true when message arrived after the last UI refresh.
+    /// Used for bubble-up entrance animation.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsNew { get; set; }
 }
 
 /// <summary>

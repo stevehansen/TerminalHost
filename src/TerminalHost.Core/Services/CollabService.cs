@@ -402,6 +402,18 @@ public class CollabService : ICollabService
         }
     }
 
+    public List<CollabMessage> GetRecentMessages(int count = 20)
+    {
+        lock (_lock)
+        {
+            return _messages
+                .OrderByDescending(m => m.Id)
+                .Take(count)
+                .OrderBy(m => m.Id)
+                .ToList();
+        }
+    }
+
     public Dictionary<string, int> GetUnreadCounts(string session)
     {
         lock (_lock)

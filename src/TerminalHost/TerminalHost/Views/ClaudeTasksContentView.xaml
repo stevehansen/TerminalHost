@@ -341,6 +341,107 @@
                     </ItemsControl>
                 </StackPanel>
 
+                <!-- Collab Messages Section (bubble-up feed) -->
+                <StackPanel Visibility="{Binding HasCollabMessages, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="MESSAGES"
+                               Foreground="#CBD5E1"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               Margin="0,8,0,4"/>
+                    <ItemsControl ItemsSource="{Binding RecentCollabMessages}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type domain:CollabMessage}">
+                                <Border CornerRadius="6"
+                                        Padding="8,6"
+                                        Margin="0,0,0,4"
+                                        MaxWidth="320"
+                                        RenderTransformOrigin="0.5,1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#1A1E293B"/>
+                                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                                            <Setter Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <TransformGroup>
+                                                        <TranslateTransform Y="0"/>
+                                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                                    </TransformGroup>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter Property="Opacity" Value="1"/>
+                                            <Style.Triggers>
+                                                <!-- Bubble-up entrance animation for new messages -->
+                                                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                                                    <DataTrigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <!-- Slide up from below -->
+                                                                <DoubleAnimation
+                                                                    Storyboard.TargetProperty="RenderTransform.Children[0].Y"
+                                                                    From="20" To="0"
+                                                                    Duration="0:0:0.35"
+                                                                    DecelerationRatio="0.6"/>
+                                                                <!-- Fade in -->
+                                                                <DoubleAnimation
+                                                                    Storyboard.TargetProperty="Opacity"
+                                                                    From="0" To="1"
+                                                                    Duration="0:0:0.3"/>
+                                                                <!-- Subtle scale pop -->
+                                                                <DoubleAnimation
+                                                                    Storyboard.TargetProperty="RenderTransform.Children[1].ScaleX"
+                                                                    From="0.95" To="1"
+                                                                    Duration="0:0:0.3"
+                                                                    DecelerationRatio="0.5"/>
+                                                                <DoubleAnimation
+                                                                    Storyboard.TargetProperty="RenderTransform.Children[1].ScaleY"
+                                                                    From="0.95" To="1"
+                                                                    Duration="0:0:0.3"
+                                                                    DecelerationRatio="0.5"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </DataTrigger.EnterActions>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <!-- Sender + timestamp row -->
+                                        <DockPanel Margin="0,0,0,2">
+                                            <TextBlock Text="{Binding Sender}"
+                                                       Foreground="#60A5FA"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="10"
+                                                       DockPanel.Dock="Left"/>
+                                            <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:HH:mm}'}"
+                                                       Foreground="#475569"
+                                                       FontSize="9"
+                                                       HorizontalAlignment="Right"
+                                                       DockPanel.Dock="Right"/>
+                                        </DockPanel>
+                                        <!-- Message content -->
+                                        <TextBlock Text="{Binding Content}"
+                                                   Foreground="#CBD5E1"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   MaxHeight="60"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <!-- Topic badge -->
+                                        <Border Background="#0F172A"
+                                                CornerRadius="2"
+                                                Padding="4,1"
+                                                Margin="0,3,0,0"
+                                                HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding Topic}"
+                                                       Foreground="#64748B"
+                                                       FontSize="9"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <!-- Empty State -->
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center"

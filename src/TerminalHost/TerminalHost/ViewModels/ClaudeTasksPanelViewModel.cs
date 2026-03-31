@@ -185,6 +185,11 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     /// </summary>
     public bool HasCollabTopics => CollabTopics.Count > 0;
 
+    /// <summary>
+    /// Whether there are any recent collab messages.
+    /// </summary>
+    public bool HasCollabMessages => RecentCollabMessages.Count > 0;
+
     #endregion
 
     public ClaudeTasksPanelViewModel(
@@ -241,6 +246,11 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     }
 
     /// <summary>
+    /// Highest message ID we've seen — messages above this get the "new" animation.
+    /// </summary>
+    private int _lastSeenMessageId;
+
+    /// <summary>
     /// Refreshes the collab topics and recent messages from the collab service.
     /// </summary>
     private void RefreshCollabState()
@@ -253,16 +263,23 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         foreach (var topic in topics)
             CollabTopics.Add(topic);
 
-        // Gather recent messages across all topics (latest 20)
+        // Gather recent messages across all topics
+        var messages = _collabService.GetRecentMessages(30);
+
+        // Track which messages are new (for bubble-up animation)
+        var previousMax = _lastSeenMessageId;
+        if (messages.Count > 0)
+            _lastSeenMessageId = messages.Max(m => m.Id);
+
         RecentCollabMessages.Clear();
-        foreach (var topic in topics)
+        foreach (var msg in messages)
         {
-            // Read messages for display (since ID 0 = all, read as a neutral observer)
-            var allSessions = _collabService.GetSessions();
-            // We don't have a session name for the UI, so just read all messages via the service
+            msg.IsNew = msg.Id > previousMax && previousMax > 0;
+            RecentCollabMessages.Add(msg);
         }
 
         OnPropertyChanged(nameof(HasCollabTopics));
+        OnPropertyChanged(nameof(HasCollabMessages));
         IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
     }
 

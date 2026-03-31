@@ -27,6 +27,7 @@ public interface ICollabService : IDisposable
     Task<(List<CollabMessage> messages, int cursor)> ReadMessagesAsync(string session, string topic, int sinceId, int timeoutMs, CancellationToken ct);
     Dictionary<string, int> GetUnreadCounts(string session);
 
-    // UI observation
+    // UI observation — read-only, no cursor side-effects
+    List<CollabMessage> GetRecentMessages(int count = 20);
     event Action? StateChanged;
 }
