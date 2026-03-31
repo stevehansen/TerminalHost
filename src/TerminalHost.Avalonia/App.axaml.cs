@@ -350,8 +350,9 @@ public partial class App : Application
         _services?.GetService<IApiServer>()?.Dispose();
         (_services?.GetService<IWebhookDeliveryService>() as IDisposable)?.Dispose();
 
-        // Dispose transcript watcher and single instance service
+        // Dispose transcript watcher, timeline service, and single instance service
         (_services?.GetService<ITranscriptWatcher>() as IDisposable)?.Dispose();
+        (_services?.GetService<ITimelineService>() as IDisposable)?.Dispose();
         _singleInstanceService?.Dispose();
 
         // Dispose other services
