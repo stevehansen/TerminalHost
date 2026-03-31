@@ -92,7 +92,7 @@
     </div>
 
     <!-- Agent Detail Card (left side, shown on click) -->
-    <div id="agentDetail" class="glass-panel detail-panel" style="display:none;">
+    <div id="agentDetail" class="glass-panel detail-panel" style="display:none;" data-resizable data-resize-edges="right,bottom">
         <div class="detail-header">
             <span id="detailDot" class="state-dot"></span>
             <span id="detailName" class="detail-title">Agent</span>
@@ -135,7 +135,7 @@
     </div>
 
     <!-- Tool Detail Card (left side, shown on tool card click) -->
-    <div id="toolDetail" class="glass-panel detail-panel" style="display:none; top: 240px;">
+    <div id="toolDetail" class="glass-panel detail-panel" style="display:none; top: 240px;" data-resizable data-resize-edges="right,bottom">
         <div class="detail-header">
             <span id="toolDetailDot" class="state-dot"></span>
             <span id="toolDetailName" class="detail-title">Tool</span>
@@ -174,14 +174,14 @@
     </div>
 
     <!-- Message Feed (top-right, always visible) -->
-    <div id="messageFeed" class="glass-panel feed-panel">
+    <div id="messageFeed" class="glass-panel feed-panel" data-resizable data-resize-edges="left,bottom">
         <div id="feedContent" class="feed-content">
             <span class="feed-empty">Waiting for activity...</span>
         </div>
     </div>
 
     <!-- Timeline/Gantt Panel (bottom, toggle) -->
-    <div id="timelinePanel" class="glass-panel timeline-panel" style="display:none;">
+    <div id="timelinePanel" class="glass-panel timeline-panel" style="display:none;" data-resizable data-resize-edges="top">
         <div class="timeline-header">
             <span class="timeline-title">Timeline</span>
             <div class="timeline-controls">
@@ -197,7 +197,7 @@
     </div>
 
     <!-- File Attention Panel (right side, toggle) -->
-    <div id="filePanel" class="glass-panel file-panel" style="display:none;">
+    <div id="filePanel" class="glass-panel file-panel" style="display:none;" data-resizable data-resize-edges="right,bottom">
         <div class="detail-header">
             <span class="detail-title">Files</span>
             <button id="btnFileClose" class="detail-close">&times;</button>
@@ -206,7 +206,7 @@
     </div>
 
     <!-- Transcript Panel (right side, toggle) -->
-    <div id="transcriptPanel" class="glass-panel transcript-panel" style="display:none;">
+    <div id="transcriptPanel" class="glass-panel transcript-panel" style="display:none;" data-resizable data-resize-edges="right,bottom">
         <div class="detail-header">
             <span class="detail-title">Transcript</span>
             <div style="flex:1"></div>

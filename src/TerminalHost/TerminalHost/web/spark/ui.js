@@ -10,7 +10,7 @@ function showAgentDetail(canvas, agentId) {
     if (!agent) return;
 
     const panel = document.getElementById('agentDetail');
-    panel.style.display = 'block';
+    panel.style.display = 'flex';
     // Reset focus button label
     document.getElementById('btnAgentFocus').textContent =
         canvas.highlightedAgentId === agentId ? 'Unfocus' : 'Focus';
@@ -82,7 +82,7 @@ function showToolDetail(canvas, toolUseId) {
     if (!card) return;
 
     const panel = document.getElementById('toolDetail');
-    panel.style.display = 'block';
+    panel.style.display = 'flex';
 
     const stateColor = card.state === 'Error' ? '#ff5566' : card.state === 'Running' ? '#ffbb44' : '#66ffaa';
     document.getElementById('toolDetailDot').style.background = stateColor;

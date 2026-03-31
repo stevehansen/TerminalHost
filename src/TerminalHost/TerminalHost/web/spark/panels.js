@@ -26,6 +26,7 @@ function saveSparkState() {
             showCards: filters.showCards,
             showEdges: filters.showEdges,
             showBubbles: filters.showBubbles,
+            panelSizes: _panelSizes,
         };
         localStorage.setItem(SPARK_STATE_KEY, JSON.stringify(state));
     } catch { /* quota exceeded or private mode */ }
@@ -91,9 +92,10 @@ function _adjustBarPositions() {
     const controlBar = document.getElementById('controlBar');
     const replayBar = document.getElementById('replayBar');
     if (timelineState.visible) {
-        // Push bars above the timeline panel (36px bottom + 180px height = 216px)
-        controlBar.style.bottom = '220px';
-        replayBar.style.bottom = '256px';
+        const timelinePanel = document.getElementById('timelinePanel');
+        const tlHeight = timelinePanel ? timelinePanel.getBoundingClientRect().height : 180;
+        controlBar.style.bottom = (tlHeight + 40) + 'px';
+        replayBar.style.bottom = (tlHeight + 76) + 'px';
     } else {
         controlBar.style.bottom = '';
         replayBar.style.bottom = '';
@@ -511,4 +513,120 @@ function initPanels(canvas) {
     setInterval(() => {
         if (timelineState.visible) renderTimeline();
     }, 1000);
+
+    // Initialize resizable panels
+    initResizablePanels();
+}
+
+// ─── Panel Resize System ───────────────────────────
+
+/** Persisted panel sizes: { panelId: { width, height } } */
+let _panelSizes = {};
+
+function initResizablePanels() {
+    // Restore saved sizes
+    const saved = loadSparkState();
+    if (saved?.panelSizes) _panelSizes = saved.panelSizes;
+
+    // Set up each panel with data-resizable attribute
+    for (const panel of document.querySelectorAll('[data-resizable]')) {
+        const edges = (panel.dataset.resizeEdges || '').split(',').map(s => s.trim()).filter(Boolean);
+        _setupPanelResize(panel, edges);
+
+        // Restore saved size
+        const savedSize = _panelSizes[panel.id];
+        if (savedSize) {
+            if (savedSize.width) panel.style.width = savedSize.width + 'px';
+            if (savedSize.height) {
+                panel.style.height = savedSize.height + 'px';
+                panel.style.maxHeight = 'none';
+            }
+        }
+    }
+}
+
+function _setupPanelResize(panel, edges) {
+    for (const edge of edges) {
+        const handle = document.createElement('div');
+        handle.className = `resize-handle resize-handle-${edge}`;
+        panel.appendChild(handle);
+        _attachResizeHandler(panel, handle, edge);
+    }
+
+    // Add corner handle for combined edges
+    if (edges.includes('right') && edges.includes('bottom')) {
+        const corner = document.createElement('div');
+        corner.className = 'resize-handle resize-handle-corner-br';
+        panel.appendChild(corner);
+        _attachResizeHandler(panel, corner, 'corner-br');
+    }
+    if (edges.includes('left') && edges.includes('bottom')) {
+        const corner = document.createElement('div');
+        corner.className = 'resize-handle resize-handle-corner-bl';
+        panel.appendChild(corner);
+        _attachResizeHandler(panel, corner, 'corner-bl');
+    }
+}
+
+function _attachResizeHandler(panel, handle, edge) {
+    let startX, startY, startW, startH, startLeft;
+
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = panel.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = rect.width;
+        startH = rect.height;
+        startLeft = rect.left;
+        handle.classList.add('active');
+        document.body.style.cursor = getComputedStyle(handle).cursor;
+        document.body.style.userSelect = 'none';
+
+        const onMove = (e) => {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (edge === 'right' || edge === 'corner-br') {
+                panel.style.width = Math.max(150, startW + dx) + 'px';
+            }
+            if (edge === 'left' || edge === 'corner-bl') {
+                const newW = Math.max(150, startW - dx);
+                panel.style.width = newW + 'px';
+                // Keep right edge fixed by adjusting left
+                panel.style.right = (window.innerWidth - startLeft - startW) + 'px';
+            }
+            if (edge === 'bottom' || edge === 'corner-br' || edge === 'corner-bl') {
+                panel.style.height = Math.max(80, startH + dy) + 'px';
+                panel.style.maxHeight = 'none';
+            }
+            if (edge === 'top') {
+                const newH = Math.max(80, startH - dy);
+                panel.style.height = newH + 'px';
+                // Keep bottom edge fixed (for timeline)
+                _adjustBarPositions();
+            }
+        };
+
+        const onUp = () => {
+            handle.classList.remove('active');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+
+            // Persist size
+            const rect = panel.getBoundingClientRect();
+            _panelSizes[panel.id] = {
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+            };
+            saveSparkState();
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
 }

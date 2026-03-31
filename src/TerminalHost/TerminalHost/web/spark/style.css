@@ -266,8 +266,12 @@ canvas:active { cursor: grabbing; }
     top: 16px;
     left: 16px;
     width: 220px;
+    min-width: 180px;
     padding: 12px;
     z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .detail-header {
@@ -301,7 +305,7 @@ canvas:active { cursor: grabbing; }
 }
 .detail-close:hover { color: #aaeeff; }
 
-.detail-body { font-size: 11px; }
+.detail-body { font-size: 11px; overflow-y: auto; flex: 1; }
 
 .detail-row {
     display: flex;
@@ -398,6 +402,7 @@ canvas:active { cursor: grabbing; }
     top: 16px;
     right: 16px;
     width: 280px;
+    min-width: 180px;
     max-height: 200px;
     padding: 8px 12px;
     z-index: 100;
@@ -490,6 +495,7 @@ canvas:active { cursor: grabbing; }
     left: 0;
     right: 0;
     height: 180px;
+    min-height: 80px;
     flex-direction: column;
     border-radius: 8px 8px 0 0;
     z-index: 15;
@@ -530,6 +536,7 @@ canvas:active { cursor: grabbing; }
     top: 16px;
     left: 10px;
     width: 260px;
+    min-width: 180px;
     max-height: calc(100vh - 80px);
     flex-direction: column;
     z-index: 14;
@@ -600,6 +607,7 @@ canvas:active { cursor: grabbing; }
     top: 16px;
     left: 10px;
     width: 380px;
+    min-width: 200px;
     max-height: calc(100vh - 80px);
     flex-direction: column;
     z-index: 14;
@@ -673,6 +681,42 @@ canvas:active { cursor: grabbing; }
     color: #ffbb44;
     border-radius: 2px;
     padding: 0 1px;
+}
+
+/* ─── Panel Resize Handles ──────────────────────────── */
+
+.resize-handle {
+    position: absolute;
+    z-index: 10;
+}
+.resize-handle-right {
+    top: 0; right: -3px; width: 6px; height: 100%;
+    cursor: ew-resize;
+}
+.resize-handle-left {
+    top: 0; left: -3px; width: 6px; height: 100%;
+    cursor: ew-resize;
+}
+.resize-handle-bottom {
+    bottom: -3px; left: 0; width: 100%; height: 6px;
+    cursor: ns-resize;
+}
+.resize-handle-top {
+    top: -3px; left: 0; width: 100%; height: 6px;
+    cursor: ns-resize;
+}
+.resize-handle-corner-bl {
+    bottom: -3px; left: -3px; width: 12px; height: 12px;
+    cursor: nesw-resize;
+}
+.resize-handle-corner-br {
+    bottom: -3px; right: -3px; width: 12px; height: 12px;
+    cursor: nwse-resize;
+}
+.resize-handle:hover,
+.resize-handle.active {
+    background: rgba(100, 200, 255, 0.1);
+    border-radius: 2px;
 }
 
 /* Scrollbar */
