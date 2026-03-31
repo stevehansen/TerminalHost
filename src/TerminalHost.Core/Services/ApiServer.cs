@@ -1225,7 +1225,7 @@ public class ApiServer : IApiServer
     private async Task HandleDevcontainerSetupAsync(HttpListenerResponse response)
     {
         var port = _cachedApiSettings.Port;
-        var script = DevcontainerSetupScript.Replace("{PORT}", port.ToString());
+        var script = DevcontainerSetupScript.Replace("{PORT}", port.ToString()).ReplaceLineEndings("\n");
         response.StatusCode = 200;
         response.ContentType = "text/plain";
         var bytes = System.Text.Encoding.UTF8.GetBytes(script);
@@ -1257,9 +1257,9 @@ echo "=== TerminalHost Devcontainer Setup ==="
 echo "API endpoint: $API_URL"
 echo "Container:    $CONTAINER_NAME"
 
-# 1. Install host.exe proxy
-cat > /usr/local/bin/host.exe << 'PROXY_EOF'
-#!/bin/bash
+# 1. Install host.exe proxy — try /usr/local/bin (needs sudo in most devcontainers),
+#    fall back to ~/.local/bin if sudo is unavailable.
+PROXY_CONTENT='#!/bin/bash
 API_URL="${TERMINALHOST_API:-http://host.docker.internal:{PORT}}"
 CONTAINER_NAME="${TERMINALHOST_DEVCONTAINER_NAME:-$(hostname)}"
 if [ "$1" = "--hook" ] && [ -n "$2" ]; then
@@ -1272,10 +1272,27 @@ if [ "$1" = "--hook" ] && [ -n "$2" ]; then
         "$API_URL/api/hooks/$2" > /dev/null 2>&1
     exit 0
 fi
-echo "TerminalHost devcontainer proxy | API: $API_URL | Container: $CONTAINER_NAME"
-PROXY_EOF
-chmod +x /usr/local/bin/host.exe
-echo "[OK] Installed /usr/local/bin/host.exe"
+echo "TerminalHost devcontainer proxy | API: $API_URL | Container: $CONTAINER_NAME"'
+
+INSTALL_DIR="/usr/local/bin"
+if [ -w "$INSTALL_DIR" ]; then
+    echo "$PROXY_CONTENT" > "$INSTALL_DIR/host.exe"
+    chmod +x "$INSTALL_DIR/host.exe"
+elif command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
+    echo "$PROXY_CONTENT" | sudo tee "$INSTALL_DIR/host.exe" > /dev/null
+    sudo chmod +x "$INSTALL_DIR/host.exe"
+else
+    INSTALL_DIR="$HOME/.local/bin"
+    mkdir -p "$INSTALL_DIR"
+    echo "$PROXY_CONTENT" > "$INSTALL_DIR/host.exe"
+    chmod +x "$INSTALL_DIR/host.exe"
+    # Ensure ~/.local/bin is on PATH
+    if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
+        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> ~/.bashrc
+        export PATH="$INSTALL_DIR:$PATH"
+    fi
+fi
+echo "[OK] Installed $INSTALL_DIR/host.exe"
 
 # 2. Set environment variable
 echo "export TERMINALHOST_API=\"$API_URL\"" >> ~/.bashrc
