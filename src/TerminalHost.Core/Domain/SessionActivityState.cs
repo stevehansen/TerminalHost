@@ -333,6 +333,36 @@ public class SessionActivityState
                 var tokenCost = evt.GetInt("tokenCost");
                 var error = evt.GetString("error");
                 RecordToolCallEnd(toolUseId, resultSummary, tokenCost, error, null);
+
+                // Accumulate token cost into context breakdown
+                if (tokenCost > 0)
+                {
+                    var toolName = evt.GetString("toolName");
+                    // Prefer the tool call record's agent attribution over the event's
+                    var resolvedAgentId = evt.AgentId ?? SessionId;
+                    if (ToolCalls.TryGetValue(toolUseId, out var existingTc) && existingTc.AgentId != null)
+                        resolvedAgentId = existingTc.AgentId;
+                    // Update the event so downstream consumers (e.g. JS canvas) see the correct agent
+                    evt.AgentId = resolvedAgentId;
+
+                    // Subagent completion: attribute tokens to parent agent's SubagentResults
+                    if (toolName is "Agent" or "Task" && Agents.ContainsKey(toolUseId))
+                    {
+                        // Find the parent agent (the one that spawned this subagent)
+                        if (Agents.TryGetValue(toolUseId, out var subagent) &&
+                            subagent.ParentId != null &&
+                            Agents.TryGetValue(subagent.ParentId, out var parentAgent))
+                        {
+                            parentAgent.Context ??= new ContextBreakdown();
+                            parentAgent.Context.SubagentResults += tokenCost;
+                        }
+                    }
+                    else if (Agents.TryGetValue(resolvedAgentId, out var toolAgent))
+                    {
+                        toolAgent.Context ??= new ContextBreakdown();
+                        toolAgent.Context.ToolResults += tokenCost;
+                    }
+                }
                 break;
             }
             case ActivityEventType.AgentSpawn:
@@ -384,6 +414,33 @@ public class SessionActivityState
                     Timestamp = evt.Timestamp,
                     EstimatedTokens = tokens
                 });
+
+                // Accumulate tokens into agent context breakdown
+                if (tokens > 0)
+                {
+                    // Attribute to most recently active subagent if event doesn't specify
+                    var msgAgentId = evt.AgentId ?? SessionId;
+                    if (msgAgentId == SessionId)
+                    {
+                        // Check for active subagent that should receive these tokens
+                        var activeSubagent = Agents.Values
+                            .Where(a => !a.IsMain && a.State == AgentState.Active)
+                            .OrderByDescending(a => a.SpawnTime)
+                            .FirstOrDefault();
+                        if (activeSubagent != null)
+                            msgAgentId = activeSubagent.Id;
+                    }
+                    // Update the event so downstream consumers (e.g. JS canvas) see the correct agent
+                    evt.AgentId = msgAgentId;
+                    if (Agents.TryGetValue(msgAgentId, out var msgAgent))
+                    {
+                        msgAgent.Context ??= new ContextBreakdown();
+                        if (evt.Type == ActivityEventType.ThinkingBlock)
+                            msgAgent.Context.Reasoning += tokens;
+                        else
+                            msgAgent.Context.UserMessages += tokens;
+                    }
+                }
                 break;
             }
             case ActivityEventType.ModelDetected:

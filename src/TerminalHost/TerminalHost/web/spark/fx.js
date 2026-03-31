@@ -458,12 +458,9 @@ class EdgeParticleSystem {
             ctx.save();
 
             // Comet trail — individual circles with fading alpha (agent-flow style)
-            const isReturn = p.label === 'return';
             for (let i = trailSegments; i >= 0; i--) {
                 const offset = (i / trailSegments) * trailOffset;
-                const tt = isReturn
-                    ? Math.min(1, t + offset)
-                    : Math.max(0, t - offset);
+                const tt = Math.max(0, t - offset);
                 const wob = Math.sin(tt * p.wobbleFreq + time * p.wobbleTimeFreq + p.wobblePhase)
                     * p.wobbleAmp * Math.sin(tt * Math.PI);
                 const tx = this._cubicBezierX(p, tt) + normalX * wob;

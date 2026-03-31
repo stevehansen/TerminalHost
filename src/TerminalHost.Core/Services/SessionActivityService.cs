@@ -354,6 +354,27 @@ public class SessionActivityService : ISessionActivityService
         events.Add(ActivityEvent.CreateToolCallEnd(
             hookEvent.SessionId, agentId, toolUseId, toolName, resultSummary, tokenCost, error));
 
+        // Accumulate token cost into agent context breakdown
+        if (tokenCost > 0)
+        {
+            // Subagent completion: attribute tokens to parent agent's SubagentResults
+            if (toolName is "Agent" or "Task" && state.Agents.ContainsKey(toolUseId))
+            {
+                if (state.Agents.TryGetValue(toolUseId, out var subagent) &&
+                    subagent.ParentId != null &&
+                    state.Agents.TryGetValue(subagent.ParentId, out var parentAgent))
+                {
+                    parentAgent.Context ??= new ContextBreakdown();
+                    parentAgent.Context.SubagentResults += tokenCost;
+                }
+            }
+            else if (state.Agents.TryGetValue(agentId, out var toolAgent))
+            {
+                toolAgent.Context ??= new ContextBreakdown();
+                toolAgent.Context.ToolResults += tokenCost;
+            }
+        }
+
         // Track file write for file modification tools
         if (!string.IsNullOrEmpty(filePath) && (rawData?.IsFileModificationTool() ?? false))
         {

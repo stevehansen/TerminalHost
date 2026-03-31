@@ -134,26 +134,33 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     /// </summary>
     public void OpenSession(string sessionId)
     {
-        CurrentSessionId = sessionId;
-
-        if (!IsCanvasReady) return;
-
-        // Clear previous session data before loading new one
-        PostToCanvas(new { action = "clear" });
-
-        // Push state directly via postMessage (works regardless of API server)
-        var state = _activityService?.GetState(sessionId);
-        if (state != null)
+        try
         {
-            PostToCanvas(new
-            {
-                action = "loadState",
-                state = SerializeState(state)
-            });
-        }
+            CurrentSessionId = sessionId;
 
-        // Events are pushed via postMessage from OnActivityEvent — no SSE needed.
-        // SSE from WebView2's HTTPS virtual host to http://localhost can fail as mixed content.
+            if (!IsCanvasReady) return;
+
+            // Clear previous session data before loading new one
+            PostToCanvas(new { action = "clear" });
+
+            // Push state directly via postMessage (works regardless of API server)
+            var state = _activityService?.GetState(sessionId);
+            if (state != null)
+            {
+                PostToCanvas(new
+                {
+                    action = "loadState",
+                    state = SerializeState(state)
+                });
+            }
+
+            // Events are pushed via postMessage from OnActivityEvent — no SSE needed.
+            // SSE from WebView2's HTTPS virtual host to http://localhost can fail as mixed content.
+        }
+        catch (Exception ex)
+        {
+            LogSparkError("OpenSession", ex);
+        }
     }
 
     /// <summary>
@@ -352,61 +359,68 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     [RelayCommand]
     private void RefreshSessions()
     {
-        AvailableSessions.Clear();
-
-        // Get live sessions from TimelineService
-        var liveSessions = _timelineService?.GetLiveSessions();
-        if (liveSessions != null)
+        try
         {
-            foreach (var session in liveSessions.Where(s => s.IsActive))
+            AvailableSessions.Clear();
+
+            // Get live sessions from TimelineService
+            var liveSessions = _timelineService?.GetLiveSessions();
+            if (liveSessions != null)
             {
-                AvailableSessions.Add(new SparkSessionItem
+                foreach (var session in liveSessions)
                 {
-                    SessionId = session.ClaudeSessionId,
-                    DisplayName = session.DisplayName,
-                    ProjectPath = session.WorkingDirectory,
-                    IsLive = true,
-                    StartTime = session.StartTime
+                    AvailableSessions.Add(new SparkSessionItem
+                    {
+                        SessionId = session.ClaudeSessionId,
+                        DisplayName = session.DisplayName,
+                        ProjectPath = session.WorkingDirectory,
+                        IsLive = session.IsActive,
+                        StartTime = session.StartTime
+                    });
+                }
+            }
+
+            // Get activity states (may include sessions not in live list)
+            var activityStates = _activityService?.GetAllStates();
+            if (activityStates != null)
+            {
+                foreach (var state in activityStates)
+                {
+                    if (AvailableSessions.Any(s => s.SessionId == state.SessionId))
+                        continue;
+
+                    var dirName = state.WorkingDirectory.Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
+                    AvailableSessions.Add(new SparkSessionItem
+                    {
+                        SessionId = state.SessionId,
+                        DisplayName = dirName,
+                        ProjectPath = state.WorkingDirectory,
+                        IsLive = state.Lifecycle == SessionLifecycle.Active,
+                        StartTime = state.StartTime
+                    });
+                }
+            }
+
+            // Push session list to canvas for the JS picker
+            if (IsCanvasReady)
+            {
+                PostToCanvas(new
+                {
+                    action = "sessionList",
+                    sessions = AvailableSessions.Select(s => new
+                    {
+                        sessionId = s.SessionId,
+                        displayName = s.DisplayName,
+                        projectPath = s.ProjectPath,
+                        isLive = s.IsLive,
+                        startTime = s.StartTime
+                    })
                 });
             }
         }
-
-        // Get activity states (may include sessions not in live list)
-        var activityStates = _activityService?.GetActiveStates();
-        if (activityStates != null)
+        catch (Exception ex)
         {
-            foreach (var state in activityStates)
-            {
-                if (AvailableSessions.Any(s => s.SessionId == state.SessionId))
-                    continue;
-
-                var dirName = state.WorkingDirectory.Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
-                AvailableSessions.Add(new SparkSessionItem
-                {
-                    SessionId = state.SessionId,
-                    DisplayName = dirName,
-                    ProjectPath = state.WorkingDirectory,
-                    IsLive = state.Lifecycle == SessionLifecycle.Active,
-                    StartTime = state.StartTime
-                });
-            }
-        }
-
-        // Push session list to canvas for the JS picker
-        if (IsCanvasReady)
-        {
-            PostToCanvas(new
-            {
-                action = "sessionList",
-                sessions = AvailableSessions.Select(s => new
-                {
-                    sessionId = s.SessionId,
-                    displayName = s.DisplayName,
-                    projectPath = s.ProjectPath,
-                    isLive = s.IsLive,
-                    startTime = s.StartTime
-                })
-            });
+            LogSparkError("RefreshSessions", ex);
         }
     }
 
@@ -495,26 +509,33 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
 
     private void OnActivityEvent(object? sender, ActivityEvent evt)
     {
-        // Auto-connect to first session if none selected yet (single-session mode)
-        if (!_isMultiMode && CurrentSessionId == null && evt.Type == ActivityEventType.SessionStart)
+        try
         {
-            OpenSession(evt.SessionId);
-            return;
-        }
-
-        // In multi-mode, forward events from ALL sessions
-        // In single-mode, only forward events for the current session
-        if (!_isMultiMode && (CurrentSessionId == null || evt.SessionId != CurrentSessionId)) return;
-
-        // Always forward events via postMessage — SSE may not work from WebView2's
-        // HTTPS virtual host context (mixed-content blocks to http://localhost).
-        if (IsCanvasReady)
-        {
-            PostToCanvas(new
+            // Auto-connect to first session if none selected yet (single-session mode)
+            if (!_isMultiMode && CurrentSessionId == null && evt.Type == ActivityEventType.SessionStart)
             {
-                action = "event",
-                @event = SerializeEvent(evt)
-            });
+                OpenSession(evt.SessionId);
+                return;
+            }
+
+            // In multi-mode, forward events from ALL sessions
+            // In single-mode, only forward events for the current session
+            if (!_isMultiMode && (CurrentSessionId == null || evt.SessionId != CurrentSessionId)) return;
+
+            // Always forward events via postMessage — SSE may not work from WebView2's
+            // HTTPS virtual host context (mixed-content blocks to http://localhost).
+            if (IsCanvasReady)
+            {
+                PostToCanvas(new
+                {
+                    action = "event",
+                    @event = SerializeEvent(evt)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            LogSparkError("OnActivityEvent", ex);
         }
     }
 
@@ -610,6 +631,17 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     }
 
     #endregion
+
+    private static void LogSparkError(string context, Exception ex)
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "spark_debug.log");
+            var msg = $"[{DateTime.Now:HH:mm:ss.fff}] {context}: {ex.Message}\n{ex.StackTrace}\n\n";
+            System.IO.File.AppendAllText(path, msg);
+        }
+        catch { }
+    }
 
     public void Dispose()
     {

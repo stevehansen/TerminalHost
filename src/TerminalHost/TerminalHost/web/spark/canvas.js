@@ -9,6 +9,52 @@
  *           with session clustering, boundaries, and collab edges.
  */
 
+// ─── Debug Logging ─────────────────────────────────────
+// Accumulates log entries in a global array for crash debugging.
+// Read from C# via: webView.ExecuteScriptAsync("window._getSparkLog()")
+// Or inspect visually via the on-canvas debug overlay (last 10 errors).
+const _sparkLog = [];
+window._sparkLog = _sparkLog;
+window._getSparkLog = () => JSON.stringify(_sparkLog, null, 2);
+window._clearSparkLog = () => { _sparkLog.length = 0; _updateSparkLogOverlay(); };
+
+function sparkLog(level, msg, data) {
+    const entry = {
+        t: Date.now(),
+        ts: new Date().toISOString(),
+        level,
+        msg,
+        data: data ? String(data).substring(0, 500) : undefined,
+    };
+    _sparkLog.push(entry);
+    if (_sparkLog.length > 200) _sparkLog.shift();
+    if (level === 'error') _updateSparkLogOverlay();
+}
+
+function _updateSparkLogOverlay() {
+    let el = document.getElementById('sparkDebugLog');
+    if (!el) {
+        el = document.createElement('pre');
+        el.id = 'sparkDebugLog';
+        Object.assign(el.style, {
+            position: 'fixed', bottom: '8px', right: '8px',
+            maxWidth: '420px', maxHeight: '220px', overflow: 'auto',
+            background: 'rgba(20,0,0,0.85)', color: '#ff6666',
+            font: '11px/1.4 monospace', padding: '8px', borderRadius: '6px',
+            zIndex: 99999, pointerEvents: 'auto', whiteSpace: 'pre-wrap',
+            border: '1px solid rgba(255,80,80,0.4)',
+        });
+        document.body.appendChild(el);
+    }
+    const errors = _sparkLog.filter(e => e.level === 'error').slice(-10);
+    if (errors.length === 0) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = errors.map(e =>
+        `[${e.ts.substring(11, 23)}] ${e.msg}: ${e.data || ''}`
+    ).join('\n');
+    el.scrollTop = el.scrollHeight;
+}
+
 // ─── Session Color Palette ──────────────────────────────
 const SESSION_COLORS = [
     '#66ccff', '#ff88aa', '#88ff88', '#ffbb44',
@@ -222,6 +268,11 @@ class SparkCanvas {
 
     /** Load initial state from a SessionActivityState object */
     loadState(state) {
+        sparkLog('info', 'loadState', state?.sessionId || state?.SessionId || '(multi)');
+        try { this._loadStateInner(state); } catch (e) { sparkLog('error', 'loadState', e.message + '\n' + e.stack); }
+    }
+
+    _loadStateInner(state) {
         const sessionId = state.sessionId;
 
         if (this.multiMode) {
@@ -267,6 +318,11 @@ class SparkCanvas {
 
     /** Load a single session's state in multi-mode (additive) */
     _loadSessionState(state) {
+        sparkLog('info', 'loadSessionState', state?.sessionId || state?.SessionId);
+        try { this._loadSessionStateInner(state); } catch (e) { sparkLog('error', 'loadSessionState', e.message + '\n' + e.stack); return; }
+    }
+
+    _loadSessionStateInner(state) {
         const sessionId = state.sessionId;
         const name = state.workingDirectory
             ? state.workingDirectory.split(/[/\\]/).filter(Boolean).pop() || 'Session'
@@ -403,6 +459,18 @@ class SparkCanvas {
 
     /** Process a single ActivityEvent */
     processEvent(evt) {
+        if (['AgentSpawn', 'AgentComplete', 'SessionStart', 'SessionEnd', 'SessionTimeout'].includes(evt.type || evt.Type)) {
+            sparkLog('event', evt.type || evt.Type, evt.sessionId || evt.SessionId);
+        }
+        try { this._processEventInner(evt); } catch (e) {
+            if (!this._lastEventError || performance.now() - this._lastEventError > 2000) {
+                sparkLog('error', 'processEvent', e.message + ' | evt: ' + JSON.stringify(evt).substring(0, 200));
+                this._lastEventError = performance.now();
+            }
+        }
+    }
+
+    _processEventInner(evt) {
         const type = evt.type || evt.Type;
         const data = evt.data || evt.Data || {};
         const sessionId = evt.sessionId || evt.SessionId;
@@ -410,8 +478,13 @@ class SparkCanvas {
         // Multi-mode: ensure session is registered, re-activate if new activity arrives
         if (this.multiMode && sessionId) {
             if (!this.sessions.has(sessionId)) {
-                const name = (data.cwd || '').split(/[/\\]/).filter(Boolean).pop() || 'Session';
-                this._registerSession(sessionId, name, data.cwd, null, true, data.source, data.containerName);
+                // Only auto-register if we have a real working directory;
+                // events without cwd would create phantom "Session" blocks.
+                // Proper sessions arrive via SessionStart which always has cwd.
+                if (data.cwd) {
+                    const name = data.cwd.split(/[/\\]/).filter(Boolean).pop() || 'Session';
+                    this._registerSession(sessionId, name, data.cwd, null, true, data.source, data.containerName);
+                }
             } else if (type === 'ToolCallStart' || type === 'AgentSpawn' || type === 'AgentStateChange') {
                 // Re-activate session on new meaningful activity
                 const session = this.sessions.get(sessionId);
@@ -495,7 +568,15 @@ class SparkCanvas {
                     agent.state = 'Complete';
                     agent.completeTime = new Date();
                     agent.currentToolUseId = null;
-                    agent.fadeStart = this._time;
+
+                    // Only start fade if no running tool cards belong to this agent
+                    const hasRunningTools = [...this.toolCards.values()].some(
+                        c => c.agentId === agentId && c.state === 'Running'
+                    );
+                    if (!hasRunningTools) {
+                        agent.fadeStart = this._time;
+                    }
+
                     const node = this.sim.getNode(agentId);
                     if (node) {
                         node.state = 'Complete';
@@ -561,6 +642,13 @@ class SparkCanvas {
                 // Update agent state
                 const agent = this.agents.get(tc.agentId);
                 if (agent) {
+                    // If agent was marked Complete but a new tool arrives, revive it
+                    if (agent.state === 'Complete') {
+                        agent.fadeStart = null;
+                        agent.completeTime = null;
+                        const node = this.sim.getNode(tc.agentId);
+                        if (node) node.state = 'ToolCalling';
+                    }
                     agent.state = 'ToolCalling';
                     agent.currentToolUseId = tc.toolUseId;
                     agent.toolCallCount = (agent.toolCallCount || 0) + 1;
@@ -601,16 +689,34 @@ class SparkCanvas {
                     }
                 }
 
-                // Update agent state
-                const agentId = evt.agentId || data.agentId || sessionId;
-                this._ensureAgent(agentId, sessionId);
+                // Prefer tool card's agentId (from hooks, more accurate) over transcript event's agentId
+                const agentId = card?.agentId || evt.agentId || data.agentId || sessionId;
+                if (agentId !== sessionId) {
+                    this._ensureAgent(agentId, sessionId);
+                }
                 const agent = this.agents.get(agentId);
-                if (agent && agent.currentToolUseId === data.toolUseId) {
-                    agent.state = 'Active';
-                    agent.currentToolUseId = null;
+                if (agent) {
+                    // Clear active tool state if this is the tool the agent is currently running.
+                    // The hook ToolCallEnd arrives first (tokenCost=0), then the transcript
+                    // ToolCallEnd arrives later with actual tokenCost — don't gate token
+                    // accumulation on currentToolUseId since it may already be cleared.
+                    if (agent.currentToolUseId === data.toolUseId) {
+                        agent.state = 'Active';
+                        agent.currentToolUseId = null;
+                    }
                     if (data.tokenCost) {
                         agent.tokensUsed = (agent.tokensUsed || 0) + data.tokenCost;
-                        agent.context.toolResults += data.tokenCost;
+                        if (agent.context) agent.context.toolResults += data.tokenCost;
+                    }
+
+                    // If agent is already Complete and this was the last running tool, start fade now
+                    if (agent.state === 'Complete' && !agent.fadeStart) {
+                        const hasMoreRunning = [...this.toolCards.values()].some(
+                            c => c.agentId === agentId && c.state === 'Running'
+                        );
+                        if (!hasMoreRunning) {
+                            agent.fadeStart = this._time;
+                        }
                     }
                 }
 
@@ -619,30 +725,69 @@ class SparkCanvas {
                 break;
             }
 
-            case 'UserMessage':
+            case 'UserMessage': {
                 addFeedEntry('USER', truncate(data.content, 120), 'user');
                 // Show bubble on main agent
                 if (this.sessionId) {
                     this.bubbles.add(this.sessionId, data.content || '', 'user');
                 }
                 recordTranscriptEntry(this.sessionId || 'main', 'user', data.content || '');
+                // Accumulate estimated tokens into agent context
+                if (data.estimatedTokens) {
+                    const msgAgentId = evt.agentId || sessionId;
+                    if (msgAgentId !== sessionId) {
+                        this._ensureAgent(msgAgentId, sessionId);
+                    }
+                    const msgAgent = this.agents.get(msgAgentId);
+                    if (msgAgent) {
+                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
+                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
+                    }
+                }
                 break;
+            }
 
-            case 'AssistantMessage':
+            case 'AssistantMessage': {
                 addFeedEntry('CLAUDE', truncate(data.content, 120), 'assistant');
                 if (this.sessionId) {
                     this.bubbles.add(this.sessionId, data.content || '', 'assistant');
                 }
                 recordTranscriptEntry(this.sessionId || 'main', 'assistant', data.content || '');
+                // Accumulate estimated tokens into agent context
+                if (data.estimatedTokens) {
+                    const msgAgentId = evt.agentId || sessionId;
+                    if (msgAgentId !== sessionId) {
+                        this._ensureAgent(msgAgentId, sessionId);
+                    }
+                    const msgAgent = this.agents.get(msgAgentId);
+                    if (msgAgent) {
+                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
+                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
+                    }
+                }
                 break;
+            }
 
-            case 'ThinkingBlock':
+            case 'ThinkingBlock': {
                 addFeedEntry('THINKING', truncate(data.content, 80), 'thinking');
                 if (this.sessionId) {
                     this.bubbles.add(this.sessionId, data.content || '', 'thinking');
                 }
                 recordTranscriptEntry(this.sessionId || 'main', 'thinking', data.content || '');
+                // Accumulate estimated tokens into agent context (reasoning)
+                if (data.estimatedTokens) {
+                    const msgAgentId = evt.agentId || sessionId;
+                    if (msgAgentId !== sessionId) {
+                        this._ensureAgent(msgAgentId, sessionId);
+                    }
+                    const msgAgent = this.agents.get(msgAgentId);
+                    if (msgAgent) {
+                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
+                        if (msgAgent.context) msgAgent.context.reasoning += data.estimatedTokens;
+                    }
+                }
                 break;
+            }
 
             case 'SessionEnd':
             case 'SessionTimeout':
@@ -870,36 +1015,39 @@ class SparkCanvas {
     // ─── Rendering ──────────────────────────────────────────
 
     _animate() {
-        const now = performance.now();
-        const dt = Math.min((now - this._lastFrame) / 1000, 0.05);
-        this._lastFrame = now;
-        this._time += dt;
-        this._dt = dt;
+        try {
+            const now = performance.now();
+            const dt = Math.min((now - this._lastFrame) / 1000, 0.05);
+            this._lastFrame = now;
+            this._time += dt;
+            this._dt = dt;
 
-        // Physics
-        this.sim.tick();
+            // Physics
+            this.sim.tick();
 
-        // Camera
-        this._updateCamera();
+            // Camera
+            this._updateCamera();
 
-        // Update FX systems
-        this.fx.update(dt);
-        this.edgeParticles.update(dt);
-        this.bubbles.update(dt);
+            // Update FX systems
+            this.fx.update(dt);
+            this.edgeParticles.update(dt);
+            this.bubbles.update(dt);
 
-        // Spawn edge particles periodically
-        this._edgeParticleTimer += dt;
-        if (this._edgeParticleTimer > 0.6) {
-            this._edgeParticleTimer = 0;
-            this._spawnEdgeParticles();
+            // Spawn edge particles periodically
+            this._edgeParticleTimer += dt;
+            if (this._edgeParticleTimer > 0.6) {
+                this._edgeParticleTimer = 0;
+                this._spawnEdgeParticles();
+            }
+
+            // Draw
+            this._render();
+
+            // Garbage collect faded tool cards
+            this._gcToolCards();
+        } catch (e) {
+            sparkLog('error', 'animate', e.message + '\n' + e.stack);
         }
-
-        // Draw
-        this._render();
-
-        // Garbage collect faded tool cards
-        this._gcToolCards();
-
         requestAnimationFrame(() => this._animate());
     }
 
@@ -1836,7 +1984,6 @@ class SparkCanvas {
     _drawContextBar(ctx, agent, node, radius, alpha) {
         if (!agent.tokensMax || agent.tokensMax <= 0) return;
         const total = agent.tokensUsed || 0;
-        if (total <= 0) return;
 
         const barW = Math.max(60, radius * 2.2);
         const barH = 6;
