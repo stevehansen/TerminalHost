@@ -187,6 +187,29 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
 
     private async Task ParseIncrementalAsync(string sessionId)
     {
+        SemaphoreSlim parseLock;
+        lock (_lock)
+        {
+            if (!_sessions.TryGetValue(sessionId, out var s))
+                return;
+            parseLock = s.ParseLock;
+        }
+
+        // Serialize parses per session to prevent the initial catch-up parse and
+        // debounced file-change parses from racing on the same byte offset
+        await parseLock.WaitAsync();
+        try
+        {
+            await ParseIncrementalCoreAsync(sessionId);
+        }
+        finally
+        {
+            parseLock.Release();
+        }
+    }
+
+    private async Task ParseIncrementalCoreAsync(string sessionId)
+    {
         string transcriptPath;
         long byteOffset;
         HashSet<string> seenMessageIds;
@@ -358,5 +381,6 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
         public required HashSet<string> SeenToolUseIds { get; init; }
         public Timer? InactivityTimer { get; set; }
         public CancellationTokenSource? DebounceCts { get; set; }
+        public SemaphoreSlim ParseLock { get; } = new(1, 1);
     }
 }
