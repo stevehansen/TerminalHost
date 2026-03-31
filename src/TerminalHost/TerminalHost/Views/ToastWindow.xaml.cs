@@ -66,9 +66,9 @@ public partial class ToastWindow : Window
         {
             Hide();
         }
-        else
+        else if (IsVisible)
         {
-            Show();
+            // Only reposition — don't show the window unless there are active toasts
             UpdatePosition();
         }
     }

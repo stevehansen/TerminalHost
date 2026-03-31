@@ -71,7 +71,19 @@ public partial class ToastWindow : Window
                 OnOwnerStateChanged();
             }
         };
-        owner.Activated += (_, _) => BringToFront();
+        owner.Activated += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                Topmost = true;
+            }
+        };
+        owner.Deactivated += (_, _) =>
+        {
+            // Lower the toast window when TerminalHost loses focus so it doesn't
+            // block clicks on other programs' UI elements
+            Topmost = false;
+        };
         owner.Closing += (_, _) => Close();
     }
 
@@ -83,9 +95,9 @@ public partial class ToastWindow : Window
         {
             Hide();
         }
-        else
+        else if (IsVisible)
         {
-            Show();
+            // Only reposition — don't show the window unless there are active toasts
             UpdatePosition();
         }
     }
