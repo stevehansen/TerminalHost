@@ -91,6 +91,9 @@ public partial class App : Application
                 });
             }
 
+            // Close all windows (Spark Canvas, etc.) when main window closes
+            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+
             // Handle shutdown
             desktop.ShutdownRequested += OnShutdownRequested;
         }
