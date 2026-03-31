@@ -524,10 +524,18 @@ public sealed class TimelineService : ITimelineService, IDisposable
             SaveToConfig();
         }
 
-        // Start watching the transcript file (skip for devcontainer — file doesn't exist on host)
-        if (!isDevContainer && !string.IsNullOrEmpty(hookEvent.TranscriptPath))
+        // Start watching the transcript file
+        // For Container sessions, the proxy translates /home/developer → host profile but
+        // Docker overlay mounts map container project key → host project key, so we resolve
+        // the correct host path. DevContainer sessions can't be watched (no host access).
+        if (!string.IsNullOrEmpty(hookEvent.TranscriptPath))
         {
-            _transcriptWatcher?.Watch(hookEvent.SessionId, hookEvent.TranscriptPath);
+            var watchPath = hookEvent.TranscriptPath;
+            if (hookEvent.Source == SessionSource.Container)
+                watchPath = ResolveContainerTranscriptPath(hookEvent.TranscriptPath, hookEvent.Cwd);
+
+            if (!isDevContainer && !string.IsNullOrEmpty(watchPath))
+                _transcriptWatcher?.Watch(hookEvent.SessionId, watchPath);
         }
 
         OnLiveSessionsChanged();
@@ -855,6 +863,41 @@ public sealed class TimelineService : ITimelineService, IDisposable
 
         _transcriptWatcher?.Unwatch(sessionId);
         if (changed) OnLiveSessionsChanged();
+    }
+
+    /// <summary>
+    /// Resolves a container-translated transcript path to the correct host path.
+    /// The proxy translates /home/developer → host profile, but Docker overlay mounts
+    /// map the container project key (e.g., -workspace-HC) to the host project key
+    /// (e.g., P--HC). We reconstruct the path using the host CWD.
+    /// </summary>
+    private static string ResolveContainerTranscriptPath(string translatedPath, string hostCwd)
+    {
+        // Normalize separators for matching
+        var normalized = translatedPath.Replace('\\', '/');
+
+        // Find ".claude/projects/" in the path — everything after the project key segment
+        // is the relative path we need to preserve (e.g., "abc123.jsonl")
+        const string marker = ".claude/projects/";
+        var idx = normalized.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return translatedPath; // Can't parse — return as-is
+
+        var afterMarker = normalized[(idx + marker.Length)..];
+        // afterMarker = "{containerProjectKey}/abc123.jsonl" or "{containerProjectKey}/sessions/abc.jsonl"
+        var slashIdx = afterMarker.IndexOf('/');
+        if (slashIdx < 0)
+            return translatedPath; // No file after project key
+
+        var relativePath = afterMarker[(slashIdx + 1)..]; // e.g., "abc123.jsonl"
+
+        // Compute host project key from the host working directory
+        var hostProjectKey = ContainerService.EncodeClaudeProjectPath(hostCwd);
+
+        // Build the correct host path: ~/.claude/projects/{hostProjectKey}/{relativePath}
+        var claudeDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+        return Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
     public void Dispose()

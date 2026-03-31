@@ -1238,7 +1238,7 @@ public class ContainerService : IContainerService
     /// Path separators (\, /, :) are replaced with dashes.
     /// Examples: "P:\HC" → "P--HC", "/workspace/HC" → "-workspace-HC"
     /// </summary>
-    internal static string EncodeClaudeProjectPath(string path)
+    public static string EncodeClaudeProjectPath(string path)
     {
         // Claude Code replaces path separators, dots, and underscores with dashes
         return path

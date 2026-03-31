@@ -406,6 +406,17 @@ public partial class App : Application
         var timelineService = Services.GetService<ITimelineService>();
         if (timelineService == null) return;
 
+        // For Container sessions, fix the transcript path: the proxy translates
+        // /home/developer → host profile, but Docker overlay mounts map the container
+        // project key to a different host project key in .claude/projects/.
+        if (hookEvent.Source == SessionSource.Container &&
+            !string.IsNullOrEmpty(hookEvent.TranscriptPath) &&
+            !string.IsNullOrEmpty(hookEvent.Cwd))
+        {
+            hookEvent.TranscriptPath = ResolveContainerTranscriptPath(
+                hookEvent.TranscriptPath, hookEvent.Cwd);
+        }
+
         // Route to SessionActivityService for rich activity tracking
         var activityService = Services.GetService<ISessionActivityService>();
         activityService?.ProcessHookEvent(hookEvent);
@@ -471,6 +482,30 @@ public partial class App : Application
         {
             System.Diagnostics.Debug.WriteLine($"Hook event processing error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Resolves a container-translated transcript path to the correct host path.
+    /// Docker overlay mounts map container project key → host project key under .claude/projects/.
+    /// </summary>
+    private static string ResolveContainerTranscriptPath(string translatedPath, string hostCwd)
+    {
+        var normalized = translatedPath.Replace('\\', '/');
+        const string marker = ".claude/projects/";
+        var idx = normalized.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return translatedPath;
+
+        var afterMarker = normalized[(idx + marker.Length)..];
+        var slashIdx = afterMarker.IndexOf('/');
+        if (slashIdx < 0)
+            return translatedPath;
+
+        var relativePath = afterMarker[(slashIdx + 1)..];
+        var hostProjectKey = Core.Services.ContainerService.EncodeClaudeProjectPath(hostCwd);
+        var claudeDir = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+        return System.IO.Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
     private void ArchiveDevcontainerSession(ISessionActivityService activityService, string sessionId)

@@ -414,7 +414,6 @@ public class SessionActivityState
                     Timestamp = evt.Timestamp,
                     EstimatedTokens = tokens
                 });
-
                 // Accumulate tokens into agent context breakdown
                 if (tokens > 0)
                 {
@@ -463,6 +462,14 @@ public class SessionActivityState
         {
             agent.State = AgentState.Complete;
             agent.CompleteTime = DateTime.UtcNow;
+
+            // Roll up subagent's total tokens into parent's subagentResults
+            if (agent.ParentId != null && agent.Context != null &&
+                Agents.TryGetValue(agent.ParentId, out var parent))
+            {
+                parent.Context ??= new ContextBreakdown();
+                parent.Context.SubagentResults += agent.Context.Total;
+            }
         }
     }
 

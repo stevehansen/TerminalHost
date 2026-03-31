@@ -708,6 +708,7 @@ public class ApiServer : IApiServer
             containerName = state.ContainerName,
             totalToolCalls = state.TotalToolCalls,
             totalAgents = state.TotalAgents,
+            totalTokensEstimated = state.TotalTokensEstimated,
             filesRead = state.FilesRead,
             filesWritten = state.FilesWritten,
             agents = state.Agents.ToDictionary(

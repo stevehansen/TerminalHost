@@ -131,7 +131,8 @@ public class AgentInstance
             Name = "main",
             IsMain = true,
             State = AgentState.Active,
-            SpawnTime = DateTime.UtcNow
+            SpawnTime = DateTime.UtcNow,
+            Context = new ContextBreakdown()
         };
     }
 
@@ -149,7 +150,8 @@ public class AgentInstance
             IsMain = false,
             State = AgentState.Active,
             Task = task,
-            SpawnTime = DateTime.UtcNow
+            SpawnTime = DateTime.UtcNow,
+            Context = new ContextBreakdown()
         };
     }
 }
