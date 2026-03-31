@@ -1352,7 +1352,7 @@ PYEOF
     elif [ "$1" = "node" ]; then
         node -e "
 const fs = require('fs');
-const [,, settingsFile, hooksJson] = process.argv;
+const [, settingsFile, hooksJson] = process.argv;
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
 const hooks = settings.hooks = settings.hooks || {};
@@ -1369,7 +1369,7 @@ fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
     fi
 }
 
-if command -v python3 &> /dev/null; then
+if command -v python3 &> /dev/null && python3 -c "import json" 2>/dev/null; then
     merge_hooks python3
     echo "[OK] Configured Claude Code hooks in $SETTINGS_FILE (merged via python3)"
 elif command -v node &> /dev/null; then
