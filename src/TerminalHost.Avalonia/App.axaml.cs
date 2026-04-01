@@ -217,7 +217,9 @@ public partial class App : Application
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
+#if MACOS
         services.AddSingleton<IHookInstaller, TerminalHost.macOS.Services.MacHookInstaller>();
+#endif
         services.AddSingleton<ITimelineService, TerminalHost.Core.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
