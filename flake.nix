@@ -11,9 +11,13 @@
     {
       devShells = forEachSupportedSystem ({ pkgs }:
         {
-          default = pkgs.mkShell {
+          default =
+            let
+              dotnet = with pkgs.dotnetCorePackages; combinePackages [ sdk_8_0 sdk_10_0 ];
+            in
+            pkgs.mkShell {
             packages = with pkgs; [
-              dotnet-sdk_8
+              dotnet
             ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               # Native deps for NuGet packages (LibGit2Sharp, SkiaSharp)
               zlib
@@ -31,7 +35,7 @@
               libGL
             ];
             shellHook = ''
-              export DOTNET_ROOT="${pkgs.dotnet-sdk_8}"
+              export DOTNET_ROOT="${dotnet}"
             '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [
                 zlib openssl fontconfig
