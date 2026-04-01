@@ -336,6 +336,38 @@
             </Border>
           </StackPanel>
 
+          <!-- Collab Messages Section (bubble-up feed) -->
+          <StackPanel IsVisible="{Binding HasCollabMessages}" Margin="0,12,0,0">
+            <TextBlock Text="MESSAGES" Classes="section-header"/>
+            <ItemsControl ItemsSource="{Binding RecentCollabMessages}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="domain:CollabMessage">
+                  <Border Background="#1A1E293B" CornerRadius="6" Padding="8,6"
+                          Margin="0,0,0,4" MaxWidth="320" HorizontalAlignment="Left">
+                    <StackPanel>
+                      <!-- Sender + timestamp row -->
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                        <TextBlock Grid.Column="0" Text="{Binding Sender}"
+                                   Foreground="#60A5FA" FontWeight="SemiBold" FontSize="10"/>
+                        <TextBlock Grid.Column="1" Text="{Binding CreatedAt, StringFormat='{}{0:HH:mm}'}"
+                                   Foreground="#475569" FontSize="9"/>
+                      </Grid>
+                      <!-- Message content -->
+                      <TextBlock Text="{Binding Content}" Foreground="#CBD5E1" FontSize="11"
+                                 TextWrapping="Wrap" MaxHeight="60"
+                                 TextTrimming="CharacterEllipsis"/>
+                      <!-- Topic badge -->
+                      <Border Background="#0F172A" CornerRadius="2" Padding="4,1"
+                              Margin="0,3,0,0" HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding Topic}" Foreground="#64748B" FontSize="9"/>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
           <!-- Collab Topics Section -->
           <StackPanel IsVisible="{Binding HasCollabTopics}" Margin="0,12,0,0">
             <TextBlock Text="COLLAB TOPICS" Classes="section-header"/>

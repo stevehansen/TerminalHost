@@ -211,7 +211,7 @@ public partial class SetupViewModel : ObservableObject
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "/bin/zsh",
-                    Arguments = $"-l -c \"{command.Replace("\"", "\\\"")}\"",
+                    Arguments = $"-il -c \"{command.Replace("\"", "\\\"")}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,

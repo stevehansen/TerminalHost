@@ -202,7 +202,8 @@ public partial class App : Application
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
-        services.AddSingleton<ITimelineService, global::TerminalHost.Services.TimelineService>();
+        services.AddSingleton<IHookInstaller, TerminalHost.macOS.Services.MacHookInstaller>();
+        services.AddSingleton<ITimelineService, TerminalHost.Core.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
         services.AddSingleton<ITestRunnerService, global::TerminalHost.Services.TestRunnerService>();
@@ -316,6 +317,17 @@ public partial class App : Application
     {
         if (_services == null) return;
 
+        // For Container sessions, fix the transcript path: the proxy translates
+        // /home/developer → host profile, but Docker overlay mounts map the container
+        // project key to a different host project key in .claude/projects/.
+        if (hookEvent.Source == SessionSource.Container &&
+            !string.IsNullOrEmpty(hookEvent.TranscriptPath) &&
+            !string.IsNullOrEmpty(hookEvent.Cwd))
+        {
+            hookEvent.TranscriptPath = ResolveContainerTranscriptPath(
+                hookEvent.TranscriptPath, hookEvent.Cwd);
+        }
+
         // Route to SessionActivityService for rich activity tracking
         var activityService = _services.GetService<ISessionActivityService>();
         activityService?.ProcessHookEvent(hookEvent);
@@ -345,6 +357,30 @@ public partial class App : Application
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Resolves a container-translated transcript path to the correct host path.
+    /// Docker overlay mounts map container project key → host project key under .claude/projects/.
+    /// </summary>
+    private static string ResolveContainerTranscriptPath(string translatedPath, string hostCwd)
+    {
+        var normalized = translatedPath.Replace('\\', '/');
+        const string marker = ".claude/projects/";
+        var idx = normalized.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return translatedPath;
+
+        var afterMarker = normalized[(idx + marker.Length)..];
+        var slashIdx = afterMarker.IndexOf('/');
+        if (slashIdx < 0)
+            return translatedPath;
+
+        var relativePath = afterMarker[(slashIdx + 1)..];
+        var hostProjectKey = Core.Services.ContainerService.EncodeClaudeProjectPath(hostCwd);
+        var claudeDir = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+        return System.IO.Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)

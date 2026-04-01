@@ -1185,9 +1185,9 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         if (OperatingSystem.IsWindows())
             return ("powershell.exe", $"-NoProfile -Command \"{command}\"");
 
-        // macOS / Linux: use login shell to pick up user's PATH
-        // GUI apps on macOS have a minimal PATH that excludes user additions (e.g. ~/.local/bin)
-        return ("/bin/zsh", $"-l -c \"{command.Replace("\"", "\\\"")}\"");
+        // Use interactive login shell (-il) to pick up user's PATH and tools like NVM.
+        // -l alone sources .zprofile but not .zshrc, where NVM/Homebrew are typically configured.
+        return ("/bin/zsh", $"-il -c \"{command.Replace("\"", "\\\"")}\"");
     }
 
     [RelayCommand]

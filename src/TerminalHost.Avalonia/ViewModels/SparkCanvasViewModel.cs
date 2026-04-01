@@ -130,7 +130,7 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             _activityService.ActivityEventProcessed += OnActivityEvent;
     }
 
-    public void OpenSession(string sessionId)
+    public async void OpenSession(string sessionId)
     {
         try
         {
@@ -144,6 +144,14 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
             var state = _activityService?.GetState(sessionId);
             if (state != null)
             {
+                // If model is not set yet, enrich from transcript to pick it up
+                // (TranscriptWatcher may not have parsed the first assistant message yet)
+                if (state.MainAgent?.Model == null && !string.IsNullOrEmpty(state.TranscriptPath))
+                {
+                    try { await _activityService!.EnrichFromTranscriptAsync(sessionId); }
+                    catch { /* best effort */ }
+                }
+
                 PostToCanvas(new
                 {
                     action = "loadState",
@@ -457,13 +465,23 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
     /// <summary>
     /// Enter multi-session observatory mode — push all session states to canvas via postMessage.
     /// </summary>
-    private void LoadMultiMode()
+    private async void LoadMultiMode()
     {
         _isMultiMode = true;
         CurrentSessionId = null;
 
         var allStates = _activityService?.GetAllStates() ?? [];
         var liveSessions = _timelineService?.GetLiveSessions();
+
+        // Enrich any sessions missing model info before serializing
+        foreach (var state in allStates)
+        {
+            if (state.MainAgent?.Model == null && !string.IsNullOrEmpty(state.TranscriptPath))
+            {
+                try { await _activityService!.EnrichFromTranscriptAsync(state.SessionId); }
+                catch { /* best effort */ }
+            }
+        }
 
         var serializedStates = new List<object>();
         foreach (var state in allStates)

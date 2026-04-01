@@ -33,6 +33,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
     private readonly ITranscriptWatcher? _transcriptWatcher;
     private readonly ISessionActivityService? _activityService;
     private readonly ICollabService? _collabService;
+    private readonly IHookInstaller? _hookInstaller;
 
     public TimelineService(
         IConfigurationService configService,
@@ -44,6 +45,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
         ITranscriptWatcher? transcriptWatcher = null,
         ISessionActivityService? activityService = null,
         ICollabService? collabService = null,
+        IHookInstaller? hookInstaller = null,
         string? userDataDir = null)
     {
         _configService = configService;
@@ -54,6 +56,7 @@ public sealed class TimelineService : ITimelineService, IDisposable
         _transcriptWatcher = transcriptWatcher;
         _activityService = activityService;
         _collabService = collabService;
+        _hookInstaller = hookInstaller;
 
         // Subscribe to transcript watcher events
         if (_transcriptWatcher != null)
@@ -958,143 +961,12 @@ public sealed class TimelineService : ITimelineService, IDisposable
 
     #endregion
 
-    #region Hook Installation
+    #region Hook Installation (delegated to IHookInstaller)
 
-    private const string HookMarker = "--hook";
-
-    private static string GetClaudeSettingsPath()
-    {
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(userProfile, ".claude", "settings.json");
-    }
-
-    public bool AreHooksInstalled()
-    {
-        try
-        {
-            var settingsPath = GetClaudeSettingsPath();
-            if (!_fileSystem.FileExists(settingsPath)) return false;
-            var json = _fileSystem.ReadAllText(settingsPath);
-            return json.Contains("--hook session-start", StringComparison.OrdinalIgnoreCase)
-                && json.Contains("--hook subagent-start", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { return false; }
-    }
-
-    public void UpgradeHooksIfNeeded()
-    {
-        try
-        {
-            var settingsPath = GetClaudeSettingsPath();
-            if (!_fileSystem.FileExists(settingsPath)) return;
-            var json = _fileSystem.ReadAllText(settingsPath);
-
-            var hasHooks = json.Contains("--hook session-start", StringComparison.OrdinalIgnoreCase);
-            if (!hasHooks) return;
-
-            // Reinstall if missing new hook types or async flag
-            var needsUpgrade = !json.Contains("--hook subagent-start", StringComparison.OrdinalIgnoreCase)
-                || !json.Contains("\"async\"", StringComparison.OrdinalIgnoreCase);
-
-            if (needsUpgrade)
-            {
-                InstallHooks();
-            }
-        }
-        catch { }
-    }
-
-    public bool InstallHooks()
-    {
-        try
-        {
-            var settingsPath = GetClaudeSettingsPath();
-            var dir = Path.GetDirectoryName(settingsPath);
-            if (dir != null && !_fileSystem.DirectoryExists(dir))
-                _fileSystem.CreateDirectory(dir);
-
-            System.Text.Json.Nodes.JsonObject root;
-            if (_fileSystem.FileExists(settingsPath))
-            {
-                var existingJson = _fileSystem.ReadAllText(settingsPath);
-                root = System.Text.Json.Nodes.JsonNode.Parse(existingJson)?.AsObject()
-                    ?? new System.Text.Json.Nodes.JsonObject();
-            }
-            else
-            {
-                root = new System.Text.Json.Nodes.JsonObject();
-            }
-
-            const string hostExe = "host.exe";
-            var hooks = root["hooks"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
-            root["hooks"] = hooks;
-
-            hooks["SessionStart"] = CreateHookArray($"{hostExe} --hook session-start", 10);
-            hooks["Stop"] = CreateHookArray($"{hostExe} --hook session-stop", 10);
-            hooks["SessionEnd"] = CreateHookArray($"{hostExe} --hook session-end", 10);
-            hooks["PreToolUse"] = CreateHookArray($"{hostExe} --hook tool-start", 5);
-            hooks["PostToolUse"] = CreateHookArray($"{hostExe} --hook tool-end", 5);
-            hooks["PostToolUseFailure"] = CreateHookArray($"{hostExe} --hook tool-error", 5);
-            hooks["SubagentStart"] = CreateHookArray($"{hostExe} --hook subagent-start", 5);
-            hooks["SubagentStop"] = CreateHookArray($"{hostExe} --hook subagent-stop", 5);
-            hooks["Notification"] = CreateHookArray($"{hostExe} --hook notification", 5);
-
-            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            _fileSystem.WriteAllText(settingsPath, root.ToJsonString(options));
-            return true;
-        }
-        catch { return false; }
-    }
-
-    public bool UninstallHooks()
-    {
-        try
-        {
-            var settingsPath = GetClaudeSettingsPath();
-            if (!_fileSystem.FileExists(settingsPath)) return true;
-
-            var existingJson = _fileSystem.ReadAllText(settingsPath);
-            var root = System.Text.Json.Nodes.JsonNode.Parse(existingJson)?.AsObject();
-            if (root == null) return true;
-
-            var hooks = root["hooks"]?.AsObject();
-            if (hooks == null) return true;
-
-            var keysToRemove = new List<string>();
-            foreach (var kvp in hooks)
-            {
-                if (kvp.Value?.ToJsonString().Contains(HookMarker, StringComparison.OrdinalIgnoreCase) == true)
-                    keysToRemove.Add(kvp.Key);
-            }
-            foreach (var key in keysToRemove)
-                hooks.Remove(key);
-
-            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            _fileSystem.WriteAllText(settingsPath, root.ToJsonString(options));
-            return true;
-        }
-        catch { return false; }
-    }
-
-    private static System.Text.Json.Nodes.JsonArray CreateHookArray(string command, int timeout)
-    {
-        return new System.Text.Json.Nodes.JsonArray
-        {
-            new System.Text.Json.Nodes.JsonObject
-            {
-                ["hooks"] = new System.Text.Json.Nodes.JsonArray
-                {
-                    new System.Text.Json.Nodes.JsonObject
-                    {
-                        ["type"] = "command",
-                        ["command"] = command,
-                        ["timeout"] = timeout,
-                        ["async"] = true
-                    }
-                }
-            }
-        };
-    }
+    public bool AreHooksInstalled() => _hookInstaller?.AreHooksInstalled() ?? false;
+    public bool InstallHooks() => _hookInstaller?.InstallHooks() ?? false;
+    public bool UninstallHooks() => _hookInstaller?.UninstallHooks() ?? true;
+    public void UpgradeHooksIfNeeded() => _hookInstaller?.UpgradeHooksIfNeeded();
 
     #endregion
 }
