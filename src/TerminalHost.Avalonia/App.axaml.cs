@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
+using TerminalHost.Posix.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
@@ -21,7 +22,7 @@ namespace TerminalHost;
 public partial class App : Application
 {
     private IServiceProvider? _services;
-    private SingleInstanceService? _singleInstanceService;
+    private ISingleInstanceService? _singleInstanceService;
 
     public new static App Current => (App)Application.Current!;
     public IServiceProvider Services => _services!;
@@ -55,7 +56,7 @@ public partial class App : Application
             _services = services.BuildServiceProvider();
 
             // Start pipe server for receiving hook events from CLI invocations
-            _singleInstanceService = new SingleInstanceService();
+            _singleInstanceService = new PosixSingleInstanceService();
             _singleInstanceService.TryAcquireLock();
             _singleInstanceService.StartPipeServer();
             _singleInstanceService.HookEventReceived += (_, hookEvent) =>
