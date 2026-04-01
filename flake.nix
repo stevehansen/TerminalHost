@@ -14,9 +14,7 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               dotnet-sdk_8
-              git
-              gh
-            ] ++ lib.optionals stdenv.isLinux [
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               # Native deps for NuGet packages (LibGit2Sharp, SkiaSharp)
               zlib
               openssl
