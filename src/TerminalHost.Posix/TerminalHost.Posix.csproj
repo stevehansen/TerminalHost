@@ -2,16 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>TerminalHost.macOS</RootNamespace>
+    <RootNamespace>TerminalHost.Posix</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
-    <ProjectReference Include="..\TerminalHost.Posix\TerminalHost.Posix.csproj" />
-    <ProjectReference Include="../../lib/PtySharp/PtySharp.macOS/PtySharp.macOS.csproj" />
+    <ProjectReference Include="..\..\lib\PtySharp\PtySharp.Posix\PtySharp.Posix.csproj" />
   </ItemGroup>
 
 </Project>

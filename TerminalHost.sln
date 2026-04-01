@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.Channel", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.Linux", "src\TerminalHost.Linux\TerminalHost.Linux.csproj", "{26F60809-B351-4260-921E-2420E91D68F8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerminalHost.Posix", "src\TerminalHost.Posix\TerminalHost.Posix.csproj", "{BC049B03-5836-46AC-8EA9-70F2007D5497}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,18 @@ Global
 		{26F60809-B351-4260-921E-2420E91D68F8}.Release|x64.Build.0 = Release|Any CPU
 		{26F60809-B351-4260-921E-2420E91D68F8}.Release|x86.ActiveCfg = Release|Any CPU
 		{26F60809-B351-4260-921E-2420E91D68F8}.Release|x86.Build.0 = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|x64.Build.0 = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Debug|x86.Build.0 = Debug|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|x64.ActiveCfg = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|x64.Build.0 = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|x86.ActiveCfg = Release|Any CPU
+		{BC049B03-5836-46AC-8EA9-70F2007D5497}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -168,5 +182,6 @@ Global
 		{BA2B76C9-2F9D-45BE-8D33-4E98D72B01F0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{4FD033F8-F906-4971-A153-9238D1BDF9B7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{26F60809-B351-4260-921E-2420E91D68F8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{BC049B03-5836-46AC-8EA9-70F2007D5497} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
