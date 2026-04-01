@@ -455,6 +455,39 @@ canvas:active { cursor: grabbing; }
     word-break: break-word;
 }
 
+/* Hover tooltip for feed / transcript entries */
+.feed-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: rgba(8, 12, 28, 0.96);
+    border: 1px solid rgba(100, 200, 255, 0.25);
+    border-radius: 6px;
+    padding: 10px 14px;
+    max-width: 400px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 8px rgba(60, 140, 200, 0.15);
+    animation: feed-tooltip-in 0.15s ease;
+    pointer-events: auto;
+}
+@keyframes feed-tooltip-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.feed-tooltip-role {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.feed-tooltip-text {
+    font-size: 11px;
+    line-height: 1.6;
+    color: rgba(200, 230, 255, 0.9);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* Theme selector */
 .theme-select {
     background: rgba(10, 15, 30, 0.9);

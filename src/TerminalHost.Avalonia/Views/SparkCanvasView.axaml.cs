@@ -73,6 +73,8 @@ public partial class SparkCanvasView : UserControl
                         parts.Add($"session={Uri.EscapeDataString(_viewModel.CurrentSessionId)}");
                     if (!string.IsNullOrEmpty(_viewModel.ApiBaseUrl))
                         parts.Add($"api={Uri.EscapeDataString(_viewModel.ApiBaseUrl)}");
+                    // Cache-busting to ensure fresh JS/CSS on relaunch
+                    parts.Add($"v={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
                     if (parts.Count > 0)
                         query = "?" + string.Join("&", parts);
                 }

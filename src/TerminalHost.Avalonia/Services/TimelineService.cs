@@ -525,9 +525,20 @@ public sealed class TimelineService : ITimelineService, IDisposable
         }
 
         // Start watching the transcript file (skip for devcontainer — file doesn't exist on host)
-        if (!isDevContainer && !string.IsNullOrEmpty(hookEvent.TranscriptPath))
+        var transcriptPath = hookEvent.TranscriptPath;
+
+        // Fallback: derive transcript path from session ID if not provided by hook
+        if (string.IsNullOrEmpty(transcriptPath) && !string.IsNullOrEmpty(hookEvent.SessionId))
         {
-            _transcriptWatcher?.Watch(hookEvent.SessionId, hookEvent.TranscriptPath);
+            transcriptPath = FindTranscriptPath(hookEvent.SessionId);
+        }
+
+        if (!isDevContainer && !string.IsNullOrEmpty(transcriptPath))
+        {
+            _transcriptWatcher?.Watch(hookEvent.SessionId, transcriptPath);
+
+            // Update activity state with resolved path
+            _activityService?.GetOrCreateState(hookEvent.SessionId, transcriptPath: transcriptPath);
         }
 
         OnLiveSessionsChanged();
@@ -649,6 +660,11 @@ public sealed class TimelineService : ITimelineService, IDisposable
                 live.LastActivityTime = DateTime.UtcNow;
             }
         }
+
+        // Eager-parse transcript: by the time a tool starts, the user message and
+        // assistant thinking/text are already written to the JSONL. Parse immediately
+        // so messages appear in Spark Canvas without waiting for the FSW debounce.
+        _transcriptWatcher?.EagerParse(hookEvent.SessionId);
     }
 
     public void HandleToolEnd(HookEvent hookEvent)
@@ -855,6 +871,35 @@ public sealed class TimelineService : ITimelineService, IDisposable
 
         _transcriptWatcher?.Unwatch(sessionId);
         if (changed) OnLiveSessionsChanged();
+    }
+
+    /// <summary>
+    /// Attempts to find a transcript JSONL file for a session ID by scanning ~/.claude/projects/.
+    /// Used as a fallback when the hook event doesn't include transcript_path.
+    /// </summary>
+    private static string? FindTranscriptPath(string sessionId)
+    {
+        try
+        {
+            var projectsRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+            if (!Directory.Exists(projectsRoot))
+                return null;
+
+            var targetFile = sessionId + ".jsonl";
+            foreach (var projectDir in Directory.GetDirectories(projectsRoot))
+            {
+                var candidatePath = Path.Combine(projectDir, targetFile);
+                if (File.Exists(candidatePath))
+                    return candidatePath;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"FindTranscriptPath: {ex.Message}");
+        }
+
+        return null;
     }
 
     public void Dispose()

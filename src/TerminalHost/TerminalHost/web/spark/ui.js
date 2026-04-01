@@ -290,25 +290,111 @@ function hideToolDetail() {
 
 // ─── Message Feed ──────────────────────────────────────
 
-const MAX_FEED_ENTRIES = 20;
+const MAX_FEED_ENTRIES = 30;
 
-function addFeedEntry(role, text, roleClass) {
+/**
+ * @param {string} role - Display label (USER, CLAUDE, THINKING, etc.)
+ * @param {string} text - Truncated display text
+ * @param {string} roleClass - CSS class suffix (user, assistant, thinking, tool, etc.)
+ * @param {string} [fullText] - Full untruncated text for hover popup
+ * @param {string|number|Date} [timestamp] - Event timestamp for chronological ordering
+ */
+function addFeedEntry(role, text, roleClass, fullText, timestamp) {
     const feed = document.getElementById('feedContent');
 
     // Remove empty message
     const empty = feed.querySelector('.feed-empty');
     if (empty) empty.remove();
 
+    const ts = timestamp ? new Date(timestamp).getTime() : Date.now();
+
     const entry = document.createElement('div');
     entry.className = 'feed-entry';
+    entry.dataset.ts = ts;
     entry.innerHTML = `<span class="feed-role feed-role-${roleClass}">${role}</span><span class="feed-text">${escapeHtml(text)}</span>`;
 
-    feed.insertBefore(entry, feed.firstChild);
+    // Show hover popup with full content if text was truncated
+    const full = fullText || text;
+    if (full.length > text.length || full.length > 80) {
+        entry.addEventListener('mouseenter', (e) => showFeedTooltip(e, role, full, roleClass));
+        entry.addEventListener('mouseleave', hideFeedTooltip);
+        entry.style.cursor = 'pointer';
+    }
 
-    // Trim old entries
+    // Insert in chronological order (newest at top).
+    // Walk down from top to find the first entry with an older timestamp.
+    let inserted = false;
+    for (const child of feed.children) {
+        const childTs = Number(child.dataset?.ts || 0);
+        if (childTs && childTs < ts) {
+            feed.insertBefore(entry, child);
+            inserted = true;
+            break;
+        }
+    }
+    if (!inserted) {
+        feed.appendChild(entry);
+    }
+
+    // Trim old entries (from bottom = oldest)
     while (feed.children.length > MAX_FEED_ENTRIES) {
         feed.removeChild(feed.lastChild);
     }
+}
+
+// ─── Feed / Transcript Hover Tooltip ─────────────────
+
+let _feedTooltip = null;
+
+function _ensureFeedTooltip() {
+    if (_feedTooltip) return _feedTooltip;
+    _feedTooltip = document.createElement('div');
+    _feedTooltip.className = 'feed-tooltip';
+    _feedTooltip.style.display = 'none';
+    document.body.appendChild(_feedTooltip);
+    // Hide on scroll or mouse leaving the tooltip itself
+    _feedTooltip.addEventListener('mouseleave', hideFeedTooltip);
+    return _feedTooltip;
+}
+
+function showFeedTooltip(e, role, fullText, roleClass) {
+    const tip = _ensureFeedTooltip();
+    tip.innerHTML = `<div class="feed-tooltip-role feed-role-${roleClass}">${role}</div><div class="feed-tooltip-text">${escapeHtml(fullText)}</div>`;
+    tip.style.display = 'block';
+
+    // Position near the entry, but keep on screen
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tipW = Math.min(400, window.innerWidth - 32);
+    tip.style.maxWidth = tipW + 'px';
+
+    // Place to the left of the feed panel (or right-aligned to entry)
+    let left = rect.left - tipW - 8;
+    if (left < 8) left = rect.left;
+    let top = rect.top;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+
+    // Adjust if overflowing bottom
+    requestAnimationFrame(() => {
+        const tipRect = tip.getBoundingClientRect();
+        if (tipRect.bottom > window.innerHeight - 8) {
+            tip.style.top = Math.max(8, window.innerHeight - tipRect.height - 8) + 'px';
+        }
+    });
+}
+
+function hideFeedTooltip() {
+    if (_feedTooltip) _feedTooltip.style.display = 'none';
+}
+
+/** Show tooltip for transcript entries (called from rendered HTML) */
+function showTranscriptTooltip(e, idx) {
+    const entry = transcriptState?.entries?.[idx];
+    if (!entry) return;
+    const roleClass = entry.type === 'user' ? 'user'
+        : entry.type === 'assistant' ? 'assistant'
+        : entry.type === 'thinking' ? 'thinking' : 'tool';
+    showFeedTooltip(e, entry.type.toUpperCase(), entry.text, roleClass);
 }
 
 // ─── Control Bar ───────────────────────────────────────

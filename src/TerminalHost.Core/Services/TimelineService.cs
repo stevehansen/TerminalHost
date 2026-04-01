@@ -528,14 +528,25 @@ public sealed class TimelineService : ITimelineService, IDisposable
         // For Container sessions, the proxy translates /home/developer → host profile but
         // Docker overlay mounts map container project key → host project key, so we resolve
         // the correct host path. DevContainer sessions can't be watched (no host access).
-        if (!string.IsNullOrEmpty(hookEvent.TranscriptPath))
+        var transcriptPath = hookEvent.TranscriptPath;
+
+        // Fallback: derive transcript path from session ID if not provided by hook
+        if (string.IsNullOrEmpty(transcriptPath) && !string.IsNullOrEmpty(hookEvent.SessionId))
         {
-            var watchPath = hookEvent.TranscriptPath;
+            transcriptPath = FindTranscriptPath(hookEvent.SessionId);
+        }
+
+        if (!string.IsNullOrEmpty(transcriptPath))
+        {
+            var watchPath = transcriptPath;
             if (hookEvent.Source == SessionSource.Container)
-                watchPath = ResolveContainerTranscriptPath(hookEvent.TranscriptPath, hookEvent.Cwd);
+                watchPath = ResolveContainerTranscriptPath(transcriptPath, hookEvent.Cwd);
 
             if (!isDevContainer && !string.IsNullOrEmpty(watchPath))
                 _transcriptWatcher?.Watch(hookEvent.SessionId, watchPath);
+
+            // Update activity state with resolved path
+            _activityService?.GetOrCreateState(hookEvent.SessionId, transcriptPath: watchPath);
         }
 
         OnLiveSessionsChanged();
@@ -657,6 +668,11 @@ public sealed class TimelineService : ITimelineService, IDisposable
                 live.LastActivityTime = DateTime.UtcNow;
             }
         }
+
+        // Eager-parse transcript: by the time a tool starts, the user message and
+        // assistant thinking/text are already written to the JSONL. Parse immediately
+        // so messages appear in Spark Canvas without waiting for the FSW debounce.
+        _transcriptWatcher?.EagerParse(hookEvent.SessionId);
     }
 
     public void HandleToolEnd(HookEvent hookEvent)
@@ -898,6 +914,35 @@ public sealed class TimelineService : ITimelineService, IDisposable
         var claudeDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
         return Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
+    }
+
+    /// <summary>
+    /// Attempts to find a transcript JSONL file for a session ID by scanning ~/.claude/projects/.
+    /// Used as a fallback when the hook event doesn't include transcript_path.
+    /// </summary>
+    private static string? FindTranscriptPath(string sessionId)
+    {
+        try
+        {
+            var projectsRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+            if (!Directory.Exists(projectsRoot))
+                return null;
+
+            var targetFile = sessionId + ".jsonl";
+            foreach (var projectDir in Directory.GetDirectories(projectsRoot))
+            {
+                var candidatePath = Path.Combine(projectDir, targetFile);
+                if (File.Exists(candidatePath))
+                    return candidatePath;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"FindTranscriptPath: {ex.Message}");
+        }
+
+        return null;
     }
 
     public void Dispose()

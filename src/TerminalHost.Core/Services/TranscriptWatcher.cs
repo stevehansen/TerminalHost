@@ -26,7 +26,7 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
         TimeSpan? debounceDelay = null)
     {
         _inactivityTimeout = inactivityTimeout ?? TimeSpan.FromMinutes(2);
-        _debounceDelay = debounceDelay ?? TimeSpan.FromMilliseconds(300);
+        _debounceDelay = debounceDelay ?? TimeSpan.FromMilliseconds(100);
     }
 
     public void Watch(string sessionId, string transcriptPath)
@@ -124,6 +124,20 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
         }
     }
 
+    /// <summary>
+    /// Triggers an immediate parse of the transcript file, bypassing the debounce delay.
+    /// Call this when a hook event arrives to pick up messages written before the tool call.
+    /// </summary>
+    public void EagerParse(string sessionId)
+    {
+        if (_disposed) return;
+        lock (_lock)
+        {
+            if (!_sessions.ContainsKey(sessionId)) return;
+        }
+        _ = Task.Run(() => ParseIncrementalAsync(sessionId));
+    }
+
     public DateTime? GetLastFileChangeTime(string sessionId)
     {
         lock (_lock)
@@ -143,6 +157,8 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
     {
         if (_disposed) return;
 
+        bool shouldParseNow = false;
+
         lock (_lock)
         {
             if (!_sessions.TryGetValue(sessionId, out var session))
@@ -154,35 +170,47 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
             try { session.InactivityTimer?.Change(_inactivityTimeout, Timeout.InfiniteTimeSpan); }
             catch (ObjectDisposedException) { }
 
-            // Debounce: cancel previous pending parse, schedule a new one
-            session.DebounceCts?.Cancel();
-            session.DebounceCts?.Dispose();
-            session.DebounceCts = new CancellationTokenSource();
-            var cts = session.DebounceCts;
+            // Throttle (not debounce): fire immediately if cooldown has elapsed,
+            // otherwise schedule a trailing parse after the cooldown.
+            // This ensures messages appear within ~throttle ms of being written,
+            // even during continuous file writes.
+            var now = DateTime.UtcNow;
+            if (!session.LastParseTime.HasValue ||
+                (now - session.LastParseTime.Value) >= _debounceDelay)
+            {
+                // Cooldown elapsed — parse immediately
+                session.LastParseTime = now;
+                shouldParseNow = true;
+            }
+            else
+            {
+                // Still in cooldown — schedule trailing parse (if not already scheduled)
+                if (!session.TrailingParseScheduled)
+                {
+                    session.TrailingParseScheduled = true;
+                    var remaining = _debounceDelay - (now - session.LastParseTime.Value);
+                    _ = Task.Run(async () =>
+                    {
+                        try { await Task.Delay(remaining); }
+                        catch { return; }
+                        lock (_lock)
+                        {
+                            if (_sessions.TryGetValue(sessionId, out var s))
+                            {
+                                s.TrailingParseScheduled = false;
+                                s.LastParseTime = DateTime.UtcNow;
+                            }
+                        }
+                        await ParseIncrementalAsync(sessionId);
+                    });
+                }
+            }
         }
 
-        // Schedule debounced parse outside lock
-        _ = Task.Run(async () =>
+        if (shouldParseNow)
         {
-            CancellationToken token;
-            lock (_lock)
-            {
-                if (!_sessions.TryGetValue(sessionId, out var s))
-                    return;
-                token = s.DebounceCts?.Token ?? CancellationToken.None;
-            }
-
-            try
-            {
-                await Task.Delay(_debounceDelay, token);
-                if (!token.IsCancellationRequested)
-                    await ParseIncrementalAsync(sessionId);
-            }
-            catch (OperationCanceledException)
-            {
-                // Debounced — a newer change arrived
-            }
-        });
+            _ = Task.Run(() => ParseIncrementalAsync(sessionId));
+        }
     }
 
     private async Task ParseIncrementalAsync(string sessionId)
@@ -382,5 +410,9 @@ public sealed class TranscriptWatcher : ITranscriptWatcher
         public Timer? InactivityTimer { get; set; }
         public CancellationTokenSource? DebounceCts { get; set; }
         public SemaphoreSlim ParseLock { get; } = new(1, 1);
+        /// <summary>Last time we ran a parse (for throttle, not debounce).</summary>
+        public DateTime? LastParseTime { get; set; }
+        /// <summary>Whether a trailing parse is already scheduled during cooldown.</summary>
+        public bool TrailingParseScheduled { get; set; }
     }
 }

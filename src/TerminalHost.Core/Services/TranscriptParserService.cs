@@ -214,8 +214,9 @@ public class TranscriptParserService
                     if (uuid != null && !seenMessageIds.Add(uuid))
                         continue; // Already processed
 
-                    // Extract timestamp
+                    // Extract timestamp from JSONL line (used to stamp all events from this line)
                     var timestamp = TryGetTimestamp(root) ?? DateTime.UtcNow;
+                    var eventsBeforeLine = events.Count;
 
                     // Extract model info
                     var model = TryGetNestedString(root, "entry", "message", "model")
@@ -278,6 +279,13 @@ public class TranscriptParserService
                             if (!string.IsNullOrEmpty(command))
                                 commands.Add(command);
                         }
+                    }
+
+                    // Stamp all events produced from this JSONL line with the line's actual timestamp
+                    // (factory methods default to DateTime.UtcNow which loses original timing)
+                    for (int e = eventsBeforeLine; e < events.Count; e++)
+                    {
+                        events[e].Timestamp = timestamp;
                     }
                 }
                 catch (JsonException)

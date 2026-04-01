@@ -31,6 +31,13 @@ public interface ITranscriptWatcher : IDisposable
     bool IsWatching(string sessionId);
 
     /// <summary>
+    /// Triggers an immediate parse of the transcript file, bypassing the debounce delay.
+    /// Call this when a hook event arrives to pick up user/assistant messages
+    /// written to the JSONL before the tool call started.
+    /// </summary>
+    void EagerParse(string sessionId);
+
+    /// <summary>
     /// Gets the last time the transcript file was modified (from FileSystemWatcher).
     /// Used by TimelineService.CheckInactiveSessions to cross-reference with hook activity.
     /// Returns null if not watching or no changes detected.

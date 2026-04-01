@@ -537,7 +537,8 @@ class MessageBubbleSystem {
     constructor() {
         /** @type {MessageBubble[]} */
         this.bubbles = [];
-        this.maxBubblesPerAgent = 2;
+        this.maxBubblesPerAgent = 3;
+        this._warnedMissing = new Set();
     }
 
     /**
@@ -547,6 +548,8 @@ class MessageBubbleSystem {
      * @param {'user'|'assistant'|'thinking'} type
      */
     add(agentId, text, type) {
+        if (!agentId || !text) return;
+
         // Remove old bubbles for this agent if at limit
         const agentBubbles = this.bubbles.filter(b => b.agentId === agentId);
         while (agentBubbles.length >= this.maxBubblesPerAgent) {
@@ -555,16 +558,22 @@ class MessageBubbleSystem {
             oldest.fadeDuration = 0.3;
         }
 
+        // Skip duplicate consecutive text from same agent
+        const last = this.bubbles.filter(b => b.agentId === agentId).pop();
+        if (last && last.text === (text.length > 120 ? text.substring(0, 117) + '\u2026' : text)) return;
+
         this.bubbles.push({
             agentId,
-            text: text.length > 80 ? text.substring(0, 77) + '\u2026' : text,
+            text: text.length > 120 ? text.substring(0, 117) + '\u2026' : text,
             type,
             born: performance.now() / 1000,
             fadeStart: null,
-            fadeDuration: 0.5,
-            life: type === 'thinking' ? 5 : 8,
-            offsetY: 0, // computed during render
+            fadeDuration: 1.0,
+            life: type === 'thinking' ? 6 : 10,
+            offsetY: 0,
         });
+
+        console.log(`[Spark Bubble] Added ${type} bubble on agent ${agentId.substring(0, 8)}...: "${text.substring(0, 50)}..."`);
     }
 
     update(dt) {
@@ -586,15 +595,16 @@ class MessageBubbleSystem {
     }
 
     /**
-     * Render bubbles near their agent nodes.
+     * Render bubbles to the right of their agent nodes (like agent-flow).
      * @param {CanvasRenderingContext2D} ctx
      * @param {Map} agents - agent map
      * @param {ForceSimulation} sim
      */
     render(ctx, agents, sim, time) {
+        if (this.bubbles.length === 0) return;
         const now = performance.now() / 1000;
 
-        // Group by agent, assign vertical offsets
+        // Group by agent
         const byAgent = new Map();
         for (const b of this.bubbles) {
             if (!byAgent.has(b.agentId)) byAgent.set(b.agentId, []);
@@ -602,64 +612,119 @@ class MessageBubbleSystem {
         }
 
         for (const [agentId, bubbles] of byAgent) {
-            const node = sim.getNode(agentId);
-            const agent = agents.get(agentId);
-            if (!node || !agent) continue;
+            let node = sim.getNode(agentId);
+            let agent = agents.get(agentId);
 
-            let yOff = -(node.radius + 30);
+            // Fallback: if exact agent not found, anchor to any main agent
+            if (!node || !agent) {
+                for (const [aid, a] of agents) {
+                    if (a.isMain) {
+                        const n = sim.getNode(aid);
+                        if (n) { node = n; agent = a; break; }
+                    }
+                }
+            }
+            // Last resort: anchor to any agent that has a sim node
+            if (!node || !agent) {
+                for (const [aid, a] of agents) {
+                    const n = sim.getNode(aid);
+                    if (n) { node = n; agent = a; break; }
+                }
+            }
+            if (!node || !agent) {
+                if (!this._warnedMissing.has(agentId)) {
+                    this._warnedMissing.add(agentId);
+                    console.warn(`[Spark Bubble] No agent nodes at all — agents: ${agents.size}, sim nodes: ${sim.nodes.length}`);
+                }
+                continue;
+            }
+
+            // Position bubbles to the RIGHT of the node (like agent-flow)
+            const anchorX = node.x + node.radius + 14;
+            let yOff = -6; // Start slightly above center
             for (let i = bubbles.length - 1; i >= 0; i--) {
                 const b = bubbles[i];
                 const age = now - b.born;
 
-                // Alpha
+                // Alpha: fade in → hold → fade out
                 let alpha = 1;
-                if (age < 0.3) alpha = age / 0.3; // fade in
+                if (age < 0.3) alpha = age / 0.3;
                 if (b.fadeStart) alpha = Math.max(0, 1 - (now - b.fadeStart) / b.fadeDuration);
                 if (alpha <= 0) continue;
 
                 const isThinking = b.type === 'thinking';
-                const maxWidth = isThinking ? 120 : 160;
+                const maxWidth = isThinking ? 140 : 200;
+                const fontSize = isThinking ? 7 : 8;
 
                 ctx.save();
-                ctx.globalAlpha = alpha * (isThinking ? 0.5 : 0.75);
-                ctx.font = isThinking ? 'italic 8px monospace' : '8px monospace';
+                ctx.globalAlpha = alpha * (isThinking ? 0.6 : 0.85);
+                ctx.font = isThinking ? `italic ${fontSize}px monospace` : `${fontSize}px monospace`;
 
-                // Word wrap
+                // Word wrap (up to 4 lines)
                 const lines = wrapText(ctx, b.text, maxWidth);
-                const lineHeight = 11;
-                const padding = 6;
-                const boxW = maxWidth + padding * 2;
-                const boxH = lines.length * lineHeight + padding * 2;
+                if (lines.length > 4) { lines.length = 4; lines[3] = lines[3].slice(0, -1) + '\u2026'; }
+                const lineHeight = fontSize + 4;
+                const padX = 10, padY = 8;
+                const labelHeight = fontSize + 4; // space for the role label
+                const textWidth = Math.min(maxWidth, Math.max(...lines.map(l => ctx.measureText(l).width)));
+                const boxW = textWidth + padX * 2;
+                const boxH = labelHeight + lines.length * lineHeight + padY * 2;
+                const triW = 7; // triangle pointer width
 
-                const bx = node.x - boxW / 2;
-                const by = node.y + yOff - boxH;
+                // Box starts after the triangle gap
+                const bx = anchorX + triW;
+                const by = node.y + yOff;
 
                 // Background
-                const bgColor = b.type === 'user' ? 'rgba(40, 60, 120, 0.7)'
-                    : isThinking ? 'rgba(30, 30, 50, 0.5)'
-                    : 'rgba(20, 40, 60, 0.7)';
+                const bgColor = b.type === 'user' ? 'rgba(30, 55, 110, 0.88)'
+                    : isThinking ? 'rgba(40, 30, 60, 0.75)'
+                    : 'rgba(15, 50, 65, 0.88)';
                 ctx.fillStyle = bgColor;
-                roundRect(ctx, bx, by, boxW, boxH, 5);
+                roundRect(ctx, bx, by, boxW, boxH, 6);
                 ctx.fill();
 
                 // Border
-                const borderColor = b.type === 'user' ? '#4488cc'
-                    : isThinking ? '#666688'
-                    : '#44aacc';
+                const borderColor = b.type === 'user' ? '#5599dd'
+                    : isThinking ? '#7766aa'
+                    : '#44bbcc';
                 ctx.strokeStyle = borderColor;
-                ctx.lineWidth = 0.5;
-                roundRect(ctx, bx, by, boxW, boxH, 5);
+                ctx.lineWidth = 0.8;
+                roundRect(ctx, bx, by, boxW, boxH, 6);
                 ctx.stroke();
 
+                // Triangle pointer toward node (drawn to the LEFT of the box, not overlapping)
+                ctx.fillStyle = bgColor;
+                ctx.beginPath();
+                ctx.moveTo(bx, by + boxH / 2 - 5);
+                ctx.lineTo(anchorX, by + boxH / 2);
+                ctx.lineTo(bx, by + boxH / 2 + 5);
+                ctx.closePath();
+                ctx.fill();
+                // Draw only the two outer edges of the triangle (not the edge touching the box)
+                ctx.strokeStyle = borderColor;
+                ctx.beginPath();
+                ctx.moveTo(bx, by + boxH / 2 - 5);
+                ctx.lineTo(anchorX, by + boxH / 2);
+                ctx.lineTo(bx, by + boxH / 2 + 5);
+                ctx.stroke();
+
+                // Role label
+                const label = b.type === 'user' ? 'USER' : isThinking ? 'THINKING' : 'CLAUDE';
+                ctx.fillStyle = borderColor;
+                ctx.font = `bold ${fontSize - 1}px monospace`;
+                ctx.fillText(label, bx + padX, by + padY + fontSize - 1);
+
                 // Text
-                ctx.fillStyle = isThinking ? '#9999bb' : '#ccddee';
+                ctx.font = isThinking ? `italic ${fontSize}px monospace` : `${fontSize}px monospace`;
+                ctx.fillStyle = isThinking ? '#bbaadd' : '#ddeeff';
+                const textStartY = by + padY + labelHeight;
                 for (let l = 0; l < lines.length; l++) {
-                    ctx.fillText(lines[l], bx + padding, by + padding + 8 + l * lineHeight);
+                    ctx.fillText(lines[l], bx + padX, textStartY + fontSize + l * lineHeight);
                 }
 
                 ctx.restore();
 
-                yOff -= boxH + 4;
+                yOff += boxH + 8;
             }
         }
     }

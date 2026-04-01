@@ -309,6 +309,31 @@ class SparkCanvas {
             }
         }
 
+        // Display messages from initial state (catch-up for conversation history)
+        if (state.messages && state.messages.length > 0) {
+            let lastDisplay = null;
+            for (const msg of state.messages) {
+                const type = msg.type;
+                const raw = msg.content || '';
+                if (_isSystemMessage(raw)) continue;
+                const content = _stripSystemTags(raw);
+                if (!content.trim()) continue;
+                const msgTs = msg.timestamp;
+                const isUser = type === 'UserMessage';
+                const isThinking = type === 'ThinkingBlock';
+                const role = isUser ? 'user' : isThinking ? 'thinking' : 'assistant';
+                const label = isUser ? 'USER' : isThinking ? 'THINKING' : 'CLAUDE';
+                const maxLen = isThinking ? 80 : 120;
+                addFeedEntry(label, truncate(content, maxLen), role, content, msgTs);
+                recordTranscriptEntry(this.sessionId || 'main', role, content);
+                lastDisplay = { content, role };
+            }
+            // Show latest message as bubble on main agent
+            if (lastDisplay && this.sessionId) {
+                this.bubbles.add(this.sessionId, lastDisplay.content, lastDisplay.role);
+            }
+        }
+
         // Stabilize layout
         this.sim.stabilize(100);
         this._fitToView(false);
@@ -629,13 +654,15 @@ class SparkCanvas {
             case 'ToolCallStart': {
                 const tcAgentId = evt.agentId || data.agentId || sessionId;
                 this._ensureAgent(tcAgentId, sessionId);
+                const evtTs = evt.timestamp || evt.Timestamp;
                 const tc = {
                     toolUseId: data.toolUseId,
                     agentId: tcAgentId,
                     toolName: data.toolName,
                     inputSummary: data.inputSummary || '',
                     state: 'Running',
-                    startTime: new Date()
+                    startTime: new Date(),
+                    _timestamp: evtTs
                 };
                 this._addToolCard(tc);
 
@@ -725,57 +752,47 @@ class SparkCanvas {
                 break;
             }
 
-            case 'UserMessage': {
-                addFeedEntry('USER', truncate(data.content, 120), 'user');
-                // Show bubble on main agent
-                if (this.sessionId) {
-                    this.bubbles.add(this.sessionId, data.content || '', 'user');
-                }
-                recordTranscriptEntry(this.sessionId || 'main', 'user', data.content || '');
-                // Accumulate estimated tokens into agent context
-                if (data.estimatedTokens) {
-                    const msgAgentId = evt.agentId || sessionId;
-                    if (msgAgentId !== sessionId) {
-                        this._ensureAgent(msgAgentId, sessionId);
-                    }
-                    const msgAgent = this.agents.get(msgAgentId);
-                    if (msgAgent) {
-                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
-                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
-                    }
-                }
-                break;
-            }
-
-            case 'AssistantMessage': {
-                addFeedEntry('CLAUDE', truncate(data.content, 120), 'assistant');
-                if (this.sessionId) {
-                    this.bubbles.add(this.sessionId, data.content || '', 'assistant');
-                }
-                recordTranscriptEntry(this.sessionId || 'main', 'assistant', data.content || '');
-                // Accumulate estimated tokens into agent context
-                if (data.estimatedTokens) {
-                    const msgAgentId = evt.agentId || sessionId;
-                    if (msgAgentId !== sessionId) {
-                        this._ensureAgent(msgAgentId, sessionId);
-                    }
-                    const msgAgent = this.agents.get(msgAgentId);
-                    if (msgAgent) {
-                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
-                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
-                    }
-                }
-                break;
-            }
-
+            case 'UserMessage':
+            case 'AssistantMessage':
             case 'ThinkingBlock': {
-                addFeedEntry('THINKING', truncate(data.content, 80), 'thinking');
-                if (this.sessionId) {
-                    this.bubbles.add(this.sessionId, data.content || '', 'thinking');
+                const content = data.content || '';
+
+                // Skip Claude Code system/internal messages (slash commands, hooks, reminders)
+                if (_isSystemMessage(content)) break;
+
+                const isUser = type === 'UserMessage';
+                const isThinking = type === 'ThinkingBlock';
+                const role = isUser ? 'user' : isThinking ? 'thinking' : 'assistant';
+                const label = isUser ? 'USER' : isThinking ? 'THINKING' : 'CLAUDE';
+                const maxLen = isThinking ? 80 : 120;
+
+                // Strip any remaining XML tags for display (e.g. partial system content)
+                const displayContent = _stripSystemTags(content);
+                if (!displayContent.trim()) break;
+
+                addFeedEntry(label, truncate(displayContent, maxLen), role, displayContent, evt.timestamp || evt.Timestamp);
+
+                // Show bubble on the agent node — try event agentId, fall back to sessionId
+                const bubbleAgentId = (evt.agentId || evt.AgentId || sessionId || this.sessionId);
+                if (bubbleAgentId && displayContent) {
+                    this.bubbles.add(bubbleAgentId, displayContent, role);
                 }
-                recordTranscriptEntry(this.sessionId || 'main', 'thinking', data.content || '');
+                // Accumulate estimated tokens into agent context
+                if (!isUser && !isThinking && data.estimatedTokens) { // Only for AssistantMessage
+                    const msgAgentId = evt.agentId || sessionId;
+                    if (msgAgentId !== sessionId) {
+                        this._ensureAgent(msgAgentId, sessionId);
+                    }
+                    const msgAgent = this.agents.get(msgAgentId);
+                    if (msgAgent) {
+                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
+                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
+                    }
+                }
+
+                recordTranscriptEntry(bubbleAgentId || 'main', role, displayContent);
                 // Accumulate estimated tokens into agent context (reasoning)
-                if (data.estimatedTokens) {
+                if (isThinking && data.estimatedTokens) { // Only for ThinkingBlock
                     const msgAgentId = evt.agentId || sessionId;
                     if (msgAgentId !== sessionId) {
                         this._ensureAgent(msgAgentId, sessionId);
@@ -903,7 +920,7 @@ class SparkCanvas {
 
         // Meta tools: add dimmed feed entry but no on-canvas card
         if (toolRole.isMeta) {
-            addFeedEntry(toolRole.label, `${tc.toolName} ${truncate(tc.inputSummary, 60)}`, toolRole.css);
+            addFeedEntry(toolRole.label, `${tc.toolName} ${truncate(tc.inputSummary, 60)}`, toolRole.css, `${tc.toolName} ${tc.inputSummary || ''}`, tc._timestamp);
             return;
         }
 
@@ -932,7 +949,7 @@ class SparkCanvas {
             card._bounds = { x: slot.x, y: slot.y, w: TOOL_CARD_W, h: TOOL_CARD_H };
         }
 
-        addFeedEntry(toolRole.label, `${tc.toolName} ${truncate(tc.inputSummary, 60)}`, toolRole.css);
+        addFeedEntry(toolRole.label, `${tc.toolName} ${truncate(tc.inputSummary, 60)}`, toolRole.css, `${tc.toolName} ${tc.inputSummary || ''}`, tc._timestamp);
     }
 
     // ─── Camera ─────────────────────────────────────────────
@@ -2561,6 +2578,24 @@ function roundRect(ctx, x, y, w, h, r) {
 function truncate(str, maxLen) {
     if (!str) return '';
     return str.length > maxLen ? str.substring(0, maxLen - 1) + '\u2026' : str;
+}
+
+/** System/internal message patterns from Claude Code — not real conversation content */
+const _SYSTEM_TAG_RE = /<(command-message|command-name|user-prompt-submit-hook|system-reminder|local-command-caveat|command-stdout|command-args|command-message)[^>]*>/i;
+
+function _isSystemMessage(text) {
+    if (!text) return true;
+    // Messages that are primarily XML system tags
+    return _SYSTEM_TAG_RE.test(text) && text.indexOf('<') < 3;
+}
+
+function _stripSystemTags(text) {
+    if (!text) return '';
+    // Remove known system XML tags and their content
+    return text
+        .replace(/<(command-message|command-name|user-prompt-submit-hook|system-reminder|local-command-caveat|command-stdout|command-args)[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<(command-message|command-name|user-prompt-submit-hook|system-reminder|local-command-caveat|command-stdout|command-args)[^>]*\/>/gi, '')
+        .trim();
 }
 
 function getModelMaxTokens(model) {

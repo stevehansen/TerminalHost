@@ -430,6 +430,7 @@ function renderTranscriptPanel() {
     // Show most recent first, limit to 200
     const visible = entries.slice(-200).reverse();
     for (const e of visible) {
+        const absIdx = transcriptState.entries.indexOf(e);
         const time = e.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const typeColor = e.type === 'user' ? colors.amber
             : e.type === 'assistant' ? colors.cyan
@@ -445,7 +446,13 @@ function renderTranscriptPanel() {
                 '<mark class="transcript-highlight">$1</mark>');
         }
 
-        html += `<div class="transcript-entry">
+        // Add hover handler for entries with substantial text
+        const hasHover = e.text.length > 60;
+        const hoverAttr = hasHover
+            ? ` style="cursor:pointer" onmouseenter="showTranscriptTooltip(event, ${absIdx})" onmouseleave="hideFeedTooltip()"`
+            : '';
+
+        html += `<div class="transcript-entry"${hoverAttr}>
             <span class="transcript-time">${time}</span>
             <span class="transcript-type" style="color:${typeColor}">${typeLabel}</span>
             <span class="transcript-agent">${escapeHtml(agentName)}</span>

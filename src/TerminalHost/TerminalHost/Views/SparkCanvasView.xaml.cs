@@ -83,6 +83,16 @@ public partial class SparkCanvasView : UserControl
             SparkWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             SparkWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
 
+            // Disable aggressive caching so JS/CSS changes are picked up on relaunch
+            SparkWebView.CoreWebView2.Settings.IsGeneralAutofillEnabled = false;
+            try
+            {
+                // Clear browser cache to ensure fresh assets
+                await SparkWebView.CoreWebView2.Profile.ClearBrowsingDataAsync(
+                    CoreWebView2BrowsingDataKinds.CacheStorage | CoreWebView2BrowsingDataKinds.DiskCache);
+            }
+            catch { /* Older WebView2 runtimes may not support this */ }
+
             // Event handlers
             SparkWebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
             SparkWebView.CoreWebView2.NavigationStarting += OnNavigationStarting;
@@ -95,8 +105,9 @@ public partial class SparkCanvasView : UserControl
                 webAssetsPath,
                 CoreWebView2HostResourceAccessKind.Allow);
 
-            // Navigate to the canvas
-            SparkWebView.CoreWebView2.Navigate($"https://{VirtualHostName}/index.html");
+            // Navigate with cache-busting query string
+            var cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            SparkWebView.CoreWebView2.Navigate($"https://{VirtualHostName}/index.html?v={cacheBuster}");
 
             // Hide loading overlay
             LoadingOverlay.Visibility = Visibility.Collapsed;

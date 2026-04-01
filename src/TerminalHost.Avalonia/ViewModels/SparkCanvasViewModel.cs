@@ -617,7 +617,25 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
                 {
                     readCount = kv.Value.ReadCount,
                     writeCount = kv.Value.WriteCount
+                }),
+            // Include recent messages so the feed shows conversation history on initial load
+            messages = state.Messages
+                .TakeLast(50)
+                .Select(m => new
+                {
+                    type = m.Type switch
+                    {
+                        Core.Domain.MessageType.UserMessage => "UserMessage",
+                        Core.Domain.MessageType.AssistantText => "AssistantMessage",
+                        Core.Domain.MessageType.Thinking => "ThinkingBlock",
+                        _ => (string?)null
+                    },
+                    agentId = m.AgentId,
+                    content = m.Content,
+                    timestamp = m.Timestamp
                 })
+                .Where(m => m.type != null)
+                .ToList()
         };
     }
 
