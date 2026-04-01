@@ -38,7 +38,7 @@
               export DOTNET_ROOT="${dotnet}"
             '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [
-                zlib openssl fontconfig
+                icu zlib openssl fontconfig
                 libx11 libxi libxcursor libxrandr
                 libxext libice libsm libGL
               ])}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
