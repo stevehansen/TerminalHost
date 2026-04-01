@@ -1,87 +1,112 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using PtySharp.macOS;
 using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.macOS.Services;
 
 /// <summary>
-/// macOS PTY implementation using a Python helper for proper resize support.
+/// macOS PTY implementation using PtySharp native PTY library.
 /// </summary>
 public class MacPtyService : IPtyService
 {
-    // Resize command escape sequence: ESC]777;<cols>;<rows>BEL
-    private const string ResizePrefix = "\x1b]777;";
-    private const string ResizeSuffix = "\x07";
-
-    private Process? _process;
-    private int _columns;
-    private int _rows;
+    private PtySession? _session;
     private bool _disposed;
 
     public event EventHandler<int>? ProcessExited;
 
-    public Stream? ReaderStream => _process?.StandardOutput.BaseStream;
-    public Stream? WriterStream => _process?.StandardInput.BaseStream;
-    public bool IsRunning => _process != null && !_process.HasExited;
-    public int? ProcessId => _process?.Id;
+    public Stream? ReaderStream => _session?.ReaderStream;
+    public Stream? WriterStream => _session?.WriterStream;
+    public bool IsRunning => _session?.IsRunning ?? false;
+    public int? ProcessId => null;
 
     public Task StartAsync(int columns, int rows, string? workingDirectory = null, string? command = null, IEnumerable<string>? customPaths = null, CancellationToken cancellationToken = default)
     {
-        _columns = columns;
-        _rows = rows;
-
         var (executable, args) = GetCommandAndArgs(command);
-        var helperPath = GetPtyHelperPath();
         var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var workDir = GetValidWorkingDirectory(workingDirectory, homeDir);
+        var env = BuildEnvironment(columns, rows, homeDir, customPaths);
 
-        // Build the arguments for pty_helper.py
-        // Format: pty_helper.py <cols> <rows> <command> [args...]
-        var helperArgs = $"\"{helperPath}\" {columns} {rows} \"{executable}\"";
-        if (!string.IsNullOrEmpty(args))
-        {
-            helperArgs += $" {args}";
-        }
+        _session = new PtySession();
+        _session.Exited += exitCode => ProcessExited?.Invoke(this, exitCode);
 
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "/usr/bin/python3",
-            Arguments = helperArgs,
-            UseShellExecute = false,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            WorkingDirectory = workDir,
-        };
+        var envDict = new Dictionary<string, string>(env.Count);
+        foreach (var (key, value) in env)
+            envDict[key] = value;
 
-        // Copy existing environment variables first
-        foreach (System.Collections.DictionaryEntry env in Environment.GetEnvironmentVariables())
+        _session.Start(
+            command: executable,
+            arguments: args,
+            workingDirectory: workDir,
+            environment: envDict,
+            rows: (ushort)rows,
+            columns: (ushort)columns);
+
+        return Task.CompletedTask;
+    }
+
+    public void Resize(int columns, int rows)
+    {
+        _session?.Resize((ushort)rows, (ushort)columns);
+    }
+
+    public void Kill()
+    {
+        _session?.Kill();
+    }
+
+    public async Task WriteAsync(byte[] data, CancellationToken cancellationToken = default)
+    {
+        if (_session?.WriterStream != null && IsRunning)
         {
-            var key = env.Key?.ToString();
-            var value = env.Value?.ToString();
-            if (!string.IsNullOrEmpty(key))
+            try
             {
-                startInfo.Environment[key] = value ?? "";
+                await _session.WriterStream.WriteAsync(data, cancellationToken);
+                await _session.WriterStream.FlushAsync(cancellationToken);
             }
+            catch { }
+        }
+    }
+
+    public async Task WriteAsync(string text, CancellationToken cancellationToken = default)
+    {
+        await WriteAsync(Encoding.UTF8.GetBytes(text), cancellationToken);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _session?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    #region Environment and command building
+
+    private static List<(string Key, string Value)> BuildEnvironment(int columns, int rows, string homeDir, IEnumerable<string>? customPaths)
+    {
+        var env = new List<(string, string)>();
+
+        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            var key = entry.Key?.ToString();
+            var value = entry.Value?.ToString();
+            if (!string.IsNullOrEmpty(key))
+                env.Add((key, value ?? ""));
         }
 
-        // Ensure PATH includes common macOS locations (app bundles have minimal PATH)
-        var currentPath = startInfo.Environment.TryGetValue("PATH", out var existingPath) ? existingPath ?? "" : "";
+        var currentPath = Environment.GetEnvironmentVariable("PATH") ?? "";
         var additionalPaths = new List<string>();
 
-        // Add user-configured custom paths first (highest priority)
         if (customPaths != null)
-        {
             additionalPaths.AddRange(customPaths.Where(p => !string.IsNullOrWhiteSpace(p)));
-        }
 
-        // Add default paths
         additionalPaths.AddRange(new[]
         {
             $"{homeDir}/.local/bin",           // Claude CLI, user-installed tools
@@ -98,10 +123,10 @@ public class MacPtyService : IPtyService
             "/opt/local/bin",                  // MacPorts
         });
 
-        // Pass custom paths to pty_helper via environment variable
+        // Pass custom paths to shell via environment variable
         if (customPaths != null && customPaths.Any())
         {
-            startInfo.Environment["TERMINALHOST_CUSTOM_PATHS"] = string.Join(":", customPaths.Where(p => !string.IsNullOrWhiteSpace(p)));
+            SetOrReplace(env, "TERMINALHOST_CUSTOM_PATHS", string.Join(":", customPaths.Where(p => !string.IsNullOrWhiteSpace(p))));
         }
 
         // Add NVM node paths if available (find latest version using semantic versioning)
@@ -126,127 +151,85 @@ public class MacPtyService : IPtyService
                     }
                 }
             }
-            catch
-            {
-                // Ignore errors in NVM detection
-            }
+            catch { }
         }
 
         // Build comprehensive PATH, avoiding duplicates
-        // Iterate in reverse so first items in additionalPaths end up first in PATH
         var pathParts = currentPath.Split(':', StringSplitOptions.RemoveEmptyEntries).ToList();
         for (int i = additionalPaths.Count - 1; i >= 0; i--)
         {
             var path = additionalPaths[i];
             if (!pathParts.Contains(path) && Directory.Exists(path))
-            {
-                pathParts.Insert(0, path); // Prepend to give priority
-            }
+                pathParts.Insert(0, path);
         }
-        startInfo.Environment["PATH"] = string.Join(":", pathParts);
+
+        env.RemoveAll(e => e.Item1 == "PATH");
+        env.Add(("PATH", string.Join(":", pathParts)));
 
         // Override terminal-specific environment variables
-        startInfo.Environment["TERM"] = "xterm-256color";
-        startInfo.Environment["COLORTERM"] = "truecolor";
-        startInfo.Environment["COLUMNS"] = columns.ToString();
-        startInfo.Environment["LINES"] = rows.ToString();
-        startInfo.Environment["HOME"] = homeDir;
+        SetOrReplace(env, "TERM", "xterm-256color");
+        SetOrReplace(env, "COLORTERM", "truecolor");
+        SetOrReplace(env, "COLUMNS", columns.ToString());
+        SetOrReplace(env, "LINES", rows.ToString());
+        SetOrReplace(env, "HOME", homeDir);
 
         // Set up NVM environment so it initializes correctly in the shell
         var nvmDir = Path.Combine(homeDir, ".nvm");
         if (Directory.Exists(nvmDir))
-        {
-            startInfo.Environment["NVM_DIR"] = nvmDir;
-        }
+            SetOrReplace(env, "NVM_DIR", nvmDir);
 
         // Ensure SHELL is set (needed for some tools)
-        if (!startInfo.Environment.ContainsKey("SHELL") || string.IsNullOrEmpty(startInfo.Environment["SHELL"]))
+        var shell = Environment.GetEnvironmentVariable("SHELL");
+        if (string.IsNullOrEmpty(shell))
         {
             var defaultShell = File.Exists("/bin/zsh") ? "/bin/zsh" : "/bin/bash";
-            startInfo.Environment["SHELL"] = defaultShell;
+            SetOrReplace(env, "SHELL", defaultShell);
         }
 
-        _process = new Process { StartInfo = startInfo };
-        _process.EnableRaisingEvents = true;
-        _process.Exited += (s, e) =>
-        {
-            ProcessExited?.Invoke(this, _process.ExitCode);
-        };
-
-        _process.Start();
-
-        return Task.CompletedTask;
+        return env;
     }
 
-    private static string GetPtyHelperPath()
+    private static void SetOrReplace(List<(string Key, string Value)> env, string key, string value)
     {
-        var exePath = AppContext.BaseDirectory;
-
-        // Try various paths
-        var paths = new[]
-        {
-            Path.Combine(exePath, "Resources", "pty_helper.py"),
-            Path.Combine(exePath, "pty_helper.py"),
-            Path.Combine(exePath, "..", "..", "..", "Resources", "pty_helper.py"),
-            Path.Combine(exePath, "..", "..", "..", "..", "..", "Resources", "pty_helper.py"),
-        };
-
-        foreach (var path in paths)
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (File.Exists(fullPath))
-            {
-                return fullPath;
-            }
-        }
-
-        throw new FileNotFoundException($"pty_helper.py not found. Searched in: {string.Join(", ", paths.Select(Path.GetFullPath))}");
+        env.RemoveAll(e => e.Item1 == key);
+        env.Add((key, value));
     }
 
     private static (string executable, string? args) GetCommandAndArgs(string? command)
     {
-        // If command is specified, parse it
         if (!string.IsNullOrEmpty(command))
         {
-            // Extract the executable and arguments from the command
             var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
             var executable = parts[0];
             var args = parts.Length > 1 ? parts[1] : null;
 
-            // Try to resolve the executable path
             if (File.Exists(executable))
                 return (executable, args);
 
-            // Try to find in PATH
             var resolvedPath = FindInPath(executable);
             if (resolvedPath != null)
                 return (resolvedPath, args);
 
-            // If we can't find it, return as-is and let the system try
             return (executable, args);
         }
 
         // Default to user's shell with interactive/login flags
         var shell = Environment.GetEnvironmentVariable("SHELL");
         if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
-        {
             return (shell, "-i -l");
-        }
+
         return ("/bin/zsh", "-i -l");
     }
 
     private static string? FindInPath(string command)
     {
         var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
-        var paths = pathEnv.Split(':');
-
-        foreach (var path in paths)
+        foreach (var path in pathEnv.Split(':'))
         {
             var fullPath = Path.Combine(path, command);
             if (File.Exists(fullPath))
                 return fullPath;
         }
-
         return null;
     }
 
@@ -255,14 +238,12 @@ public class MacPtyService : IPtyService
     /// </summary>
     private static string GetValidWorkingDirectory(string? requestedDir, string homeDir)
     {
-        // List of path patterns that indicate invalid locations
         var invalidPatterns = new[]
         {
             "/Volumes/",              // DMG mount points
             ".app/Contents/",         // Inside app bundles
         };
 
-        // Check if requested directory is valid
         if (!string.IsNullOrEmpty(requestedDir) && Directory.Exists(requestedDir))
         {
             var fullPath = Path.GetFullPath(requestedDir);
@@ -270,18 +251,12 @@ public class MacPtyService : IPtyService
                 fullPath.Contains(pattern, StringComparison.OrdinalIgnoreCase));
 
             if (!isInvalid)
-            {
                 return fullPath;
-            }
         }
 
-        // Fall back to home directory
         if (Directory.Exists(homeDir))
-        {
             return homeDir;
-        }
 
-        // Last resort fallback
         return "/tmp";
     }
 
@@ -305,75 +280,5 @@ public class MacPtyService : IPtyService
         }
     }
 
-    public void Resize(int columns, int rows)
-    {
-        if (_process == null || _process.HasExited)
-            return;
-
-        if (_columns == columns && _rows == rows)
-            return;
-
-        _columns = columns;
-        _rows = rows;
-
-        try
-        {
-            // Send resize command to pty_helper via escape sequence
-            var resizeCommand = $"{ResizePrefix}{columns};{rows}{ResizeSuffix}";
-            var bytes = Encoding.UTF8.GetBytes(resizeCommand);
-            _process.StandardInput.BaseStream.Write(bytes);
-            _process.StandardInput.BaseStream.Flush();
-        }
-        catch
-        {
-        }
-    }
-
-    public void Kill()
-    {
-        try
-        {
-            _process?.Kill(entireProcessTree: true);
-        }
-        catch { }
-    }
-
-    public async Task WriteAsync(byte[] data, CancellationToken cancellationToken = default)
-    {
-        if (_process?.StandardInput?.BaseStream != null && !_process.HasExited)
-        {
-            try
-            {
-                await _process.StandardInput.BaseStream.WriteAsync(data, cancellationToken);
-                await _process.StandardInput.BaseStream.FlushAsync(cancellationToken);
-            }
-            catch
-            {
-            }
-        }
-    }
-
-    public async Task WriteAsync(string text, CancellationToken cancellationToken = default)
-    {
-        var bytes = Encoding.UTF8.GetBytes(text);
-        await WriteAsync(bytes, cancellationToken);
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-
-        try
-        {
-            if (_process != null && !_process.HasExited)
-            {
-                _process.Kill(entireProcessTree: true);
-            }
-            _process?.Dispose();
-        }
-        catch { }
-
-        GC.SuppressFinalize(this);
-    }
+    #endregion
 }

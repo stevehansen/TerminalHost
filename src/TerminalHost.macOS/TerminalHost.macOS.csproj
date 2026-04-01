@@ -10,12 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Resources\pty_helper.py">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="../../lib/PtySharp/PtySharp.macOS/PtySharp.macOS.csproj" />
   </ItemGroup>
 
 </Project>

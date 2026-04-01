@@ -329,6 +329,34 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _dataConsumer = new DataConsumer(_terminalController);
         _viewPort = new VirtualTerminalViewPort(_terminalController);
 
+        // If the control hasn't been laid out yet (Bounds are 0), defer PTY start until
+        // the first ArrangeOverride gives us actual dimensions. PtySharp starts the shell
+        // instantly (unlike the old Python helper which had startup latency), so starting
+        // at wrong dimensions causes the shell to flood output that scrolls past the viewport.
+        if (Bounds.Width <= 0 || Bounds.Height <= 0)
+        {
+            _needsInitialResize = true;
+            _pendingPtyStart = true;
+        }
+        else
+        {
+            await StartPtyAsync();
+        }
+
+        Loaded?.Invoke(this, EventArgs.Empty);
+
+        // Trigger initial render - schedule it for when the control might be in the visual tree
+        InvalidateVisual();
+        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+    }
+
+    private bool _pendingPtyStart;
+
+    private async Task StartPtyAsync()
+    {
+        if (_ptyService != null)
+            return; // Already started
+
         // Create PTY service
 #if MACOS
         _ptyService = new MacPtyService();
@@ -337,25 +365,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 #endif
         _ptyService.ProcessExited += OnProcessExited;
 
-        await _ptyService.StartAsync(_columns, _rows, workingDirectory, command, customPaths);
+        await _ptyService.StartAsync(_columns, _rows, _workingDirectory, _command, _customPaths);
 
         // Start reading from PTY
         _readCts = new CancellationTokenSource();
         _ = ReadOutputAsync(_readCts.Token);
-
-        // If PTY was started before the control is in the visual tree (common on startup),
-        // the dimensions are likely wrong (defaults 80x24). Flag that we need to force
-        // a resize once we know the actual size, even if the computed size happens to match.
-        if (Bounds.Width <= 0 || Bounds.Height <= 0)
-        {
-            _needsInitialResize = true;
-        }
-
-        Loaded?.Invoke(this, EventArgs.Empty);
-
-        // Trigger initial render - schedule it for when the control might be in the visual tree
-        InvalidateVisual();
-        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
     }
 
     private async Task ReadOutputAsync(CancellationToken cancellationToken)
@@ -387,7 +401,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception)
         {
         }
         finally
@@ -1578,7 +1592,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 _terminalController.VisibleRows = rows;
             }
 
-            _ptyService?.Resize(columns, rows);
+            // If PTY start was deferred until we had real dimensions, start it now
+            if (_pendingPtyStart)
+            {
+                _pendingPtyStart = false;
+                _ = StartPtyAsync();
+            }
+            else
+            {
+                _ptyService?.Resize(columns, rows);
+            }
 
             // Force a redraw after resize
             InvalidateVisual();
