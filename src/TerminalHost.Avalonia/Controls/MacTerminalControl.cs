@@ -1509,7 +1509,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             return;
         }
 
-        if (control && e.Key >= Key.A && e.Key <= Key.Z)
+        // Ctrl+letter sends control characters to the terminal (e.g. Ctrl+C = ^C).
+        // Ctrl+Shift+letter combos that the terminal handles (copy/paste) are caught above;
+        // let remaining Ctrl+Shift+letter combos bubble up to window-level shortcut handlers.
+        if (control && !shift && e.Key >= Key.A && e.Key <= Key.Z)
         {
             ClearSelection();
             if (IsScrolledBack)
