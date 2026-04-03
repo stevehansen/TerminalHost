@@ -601,23 +601,55 @@ class SparkCanvas {
                     }
                 }
 
-                this._addAgent(agentId, {
-                    id: agentId,
-                    name: agentName,
-                    typeName: data.name || agentRole || 'subagent',
-                    role: agentRole,
-                    isMain: !!data.isMain,
-                    parentId: data.parentId,
-                    state: 'Active',
-                    model: data.model,
-                    task: data.task,
-                    sessionId: this.multiMode ? sessionId : undefined,
-                    spawnTime: new Date(),
-                    toolCallCount: 0,
-                    tokensUsed: 0,
-                    tokensMax: data.model ? getModelMaxTokens(data.model) : 200000,
-                    context: { systemPrompt: 0, userMessages: 0, toolResults: 0, reasoning: 0, subagentResults: 0 }
-                });
+                // Check if agent was pre-created by _ensureAgent (placeholder from early tool calls)
+                const existingAgent = this.agents.get(agentId);
+                if (existingAgent) {
+                    // Upgrade placeholder with real metadata
+                    existingAgent.name = agentName;
+                    existingAgent.typeName = data.name || agentRole || 'subagent';
+                    existingAgent.role = agentRole;
+                    existingAgent.isMain = !!data.isMain;
+                    existingAgent.parentId = data.parentId;
+                    existingAgent.state = existingAgent.state === 'Complete' ? 'Complete' : 'Active';
+                    existingAgent.model = data.model;
+                    existingAgent.task = data.task;
+                    if (data.model) existingAgent.tokensMax = getModelMaxTokens(data.model);
+
+                    // Create missing parent-child edge
+                    if (data.parentId && this.agents.has(data.parentId)) {
+                        const hasEdge = this.edges.some(
+                            e => e.sourceId === data.parentId && e.targetId === agentId && e.type === 'parent-child'
+                        );
+                        if (!hasEdge) {
+                            this.sim.addEdge(data.parentId, agentId);
+                            this.edges.push({
+                                sourceId: data.parentId,
+                                targetId: agentId,
+                                type: 'parent-child',
+                                active: true,
+                                spawnTime: this._time
+                            });
+                        }
+                    }
+                } else {
+                    this._addAgent(agentId, {
+                        id: agentId,
+                        name: agentName,
+                        typeName: data.name || agentRole || 'subagent',
+                        role: agentRole,
+                        isMain: !!data.isMain,
+                        parentId: data.parentId,
+                        state: 'Active',
+                        model: data.model,
+                        task: data.task,
+                        sessionId: this.multiMode ? sessionId : undefined,
+                        spawnTime: new Date(),
+                        toolCallCount: 0,
+                        tokensUsed: 0,
+                        tokensMax: data.model ? getModelMaxTokens(data.model) : 200000,
+                        context: { systemPrompt: 0, userMessages: 0, toolResults: 0, reasoning: 0, subagentResults: 0 }
+                    });
+                }
 
                 // Spawn FX
                 const node = this.sim.getNode(agentId);
@@ -953,14 +985,16 @@ class SparkCanvas {
 
     // ─── Internal: Agent Management ─────────────────────────
 
-    /** Ensure an agent exists — auto-create if an event references an unknown agent. */
+    /** Ensure an agent exists — only auto-create the main/session agent. */
     _ensureAgent(agentId, sessionId) {
         if (this.agents.has(agentId)) return;
-        // Auto-create: if agentId === sessionId it's the main agent
+        // Only auto-create if this is the main/session agent.
+        // Subagents are created exclusively via AgentSpawn events to avoid ghosts.
         const isMain = agentId === sessionId || this.agents.size === 0;
+        if (!isMain) return;
         this._addAgent(agentId, {
-            name: isMain ? 'main' : 'agent',
-            isMain,
+            name: 'main',
+            isMain: true,
             state: 'Active',
             sessionId: this.multiMode ? sessionId : undefined,
         });

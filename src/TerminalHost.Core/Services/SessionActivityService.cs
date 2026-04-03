@@ -295,11 +295,12 @@ public class SessionActivityService : ISessionActivityService
         }
 
         // Determine which agent is making this call.
-        // Prefer explicit agent_id from the hook payload (Claude Code includes it on tool hooks).
-        // Fall back to heuristic if not present (older Claude Code versions).
+        // Use explicit agent_id if the agent is already registered. Otherwise attribute to main.
+        // Agents are only created via SubagentStart — never from tool calls (avoids ghost nodes).
+        var mainId = state.MainAgent?.Id ?? state.SessionId;
         var agentId = !string.IsNullOrEmpty(hookEvent.AgentId) && state.Agents.ContainsKey(hookEvent.AgentId)
             ? hookEvent.AgentId
-            : ResolveToolCallAgent(state, toolName);
+            : mainId;
 
         // Don't spawn subagent here for Agent/Task tools — the subagent-start hook
         // handles that with the correct agent_id. Creating one here with toolUseId as ID
@@ -561,6 +562,15 @@ public class SessionActivityService : ISessionActivityService
         {
             state.AddSubagent(agentId, parentId, name, task, role: role);
         }
+        else
+        {
+            // Agent was auto-registered by an early tool call — upgrade with real metadata
+            var agent = state.Agents[agentId];
+            agent.Name = name;
+            agent.Task = task;
+            agent.Role = role;
+            agent.ParentId = parentId;
+        }
         state.LastActivityTime = DateTime.UtcNow;
 
         events.Add(ActivityEvent.CreateAgentSpawn(
@@ -722,33 +732,6 @@ public class SessionActivityService : ISessionActivityService
         var state = SessionActivityState.Create(sessionId, cwd, transcriptPath, source, containerName);
         _states[sessionId] = state;
         return state;
-    }
-
-    /// <summary>
-    /// Resolves which agent is making a tool call using heuristics.
-    /// "Agent"/"Task" tool calls are always from the main agent (spawning).
-    /// Other calls: attribute to the most recently spawned active subagent,
-    /// since the main agent blocks while subagents work.
-    /// </summary>
-    private static string ResolveToolCallAgent(SessionActivityState state, string toolName)
-    {
-        var mainId = state.MainAgent?.Id ?? state.SessionId;
-
-        // Agent/Task spawning is always from the parent (main agent)
-        if (toolName is "Agent" or "Task")
-            return mainId;
-
-        // Find active subagents (not main, not completed)
-        AgentInstance? bestSubagent = null;
-        foreach (var agent in state.Agents.Values)
-        {
-            if (agent.IsMain || !agent.IsActive) continue;
-            // Prefer the most recently spawned active subagent
-            if (bestSubagent == null || agent.SpawnTime > bestSubagent.SpawnTime)
-                bestSubagent = agent;
-        }
-
-        return bestSubagent?.Id ?? mainId;
     }
 
     private static string? TryGetJsonString(JsonElement element, string propertyName)
