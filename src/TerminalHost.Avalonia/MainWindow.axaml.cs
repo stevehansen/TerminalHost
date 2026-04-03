@@ -45,6 +45,8 @@ public partial class MainWindow : Window
     private readonly IFilePickerService _filePickerService;
     private readonly StatusOverlayService _statusOverlayService;
     private readonly IToastService _toastService;
+    private ISystemTrayService? _systemTrayService;
+    private bool _isExiting;
     private TerminalPairTabViewModel? _subscribedOverlayTab;
 
     public MainWindow(
@@ -461,6 +463,19 @@ public partial class MainWindow : Window
         _mainViewModel.Initialize();
         _statusOverlayService.Initialize(this);
 
+        // Resolve system tray service for minimize-to-tray / close-to-tray behavior
+        _systemTrayService = App.Current.Services.GetService<ISystemTrayService>();
+
+        // Update system tray when config is saved via Settings UI
+        _mainViewModel.ConfigReloaded += (_, _) =>
+        {
+            if (_systemTrayService != null)
+            {
+                var config = _configService.Load();
+                _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+            }
+        };
+
         // Initialize toast overlay window (shown on demand when toasts appear)
         var toastWindow = new ToastWindow();
         toastWindow.Initialize(this, _toastService);
@@ -484,6 +499,14 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         var config = _configService.Load();
+
+        // If tray is enabled and not explicitly exiting, minimize to tray instead of closing
+        if (_systemTrayService?.IsEnabled == true && !_isExiting)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
 
         // Check if we need to confirm close
         if (config.Settings.ConfirmOnClose)
@@ -1672,6 +1695,16 @@ public partial class MainWindow : Window
         }
 
         Activate();
+    }
+
+    /// <summary>
+    /// Closes the window bypassing the minimize-to-tray behavior.
+    /// Used by the system tray "Exit" menu item.
+    /// </summary>
+    public void ForceClose()
+    {
+        _isExiting = true;
+        Close();
     }
 
     private void SidebarSplitter_DragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)

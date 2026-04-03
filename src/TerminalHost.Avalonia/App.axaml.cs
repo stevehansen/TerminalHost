@@ -81,6 +81,9 @@ public partial class App : Application
                 var mainWindow = _services.GetRequiredService<MainWindow>();
                 desktop.MainWindow = mainWindow;
 
+                // Initialize system tray
+                InitializeSystemTray(mainWindow);
+
                 // Auto-start API server if enabled
                 _ = AutoStartApiServerAsync();
             }
@@ -135,6 +138,9 @@ public partial class App : Application
             var mainWindow = _services!.GetRequiredService<MainWindow>();
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
+
+            // Initialize system tray
+            InitializeSystemTray(mainWindow);
 
             // Auto-start API server if enabled
             _ = AutoStartApiServerAsync();
@@ -210,6 +216,9 @@ public partial class App : Application
         services.AddSingleton<IProjectDetectionService, TerminalHost.Core.Services.ProjectDetectionService>();
         services.AddSingleton<IRunUrlDetectionService, TerminalHost.Core.Services.RunUrlDetectionService>();
         services.AddSingleton<IInputPromptDetectionService, TerminalHost.Core.Services.InputPromptDetectionService>();
+
+        // System Tray
+        services.AddSingleton<ISystemTrayService, SystemTrayService>();
 
         // Feature Services
         services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();
@@ -402,6 +411,29 @@ public partial class App : Application
         return System.IO.Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
+    private void InitializeSystemTray(MainWindow mainWindow)
+    {
+        var systemTrayService = _services!.GetRequiredService<ISystemTrayService>();
+        var configService = _services!.GetRequiredService<IConfigurationService>();
+
+        systemTrayService.Initialize(mainWindow);
+
+        // Set enabled state from config
+        var config = configService.Load();
+        systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+
+        // Handle tray events
+        systemTrayService.ShowRequested += (_, _) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.BringToFront());
+        };
+
+        systemTrayService.ExitRequested += (_, _) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ForceClose());
+        };
+    }
+
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         // Dispose API and webhook services
@@ -412,6 +444,9 @@ public partial class App : Application
         (_services?.GetService<ITranscriptWatcher>() as IDisposable)?.Dispose();
         (_services?.GetService<ITimelineService>() as IDisposable)?.Dispose();
         _singleInstanceService?.Dispose();
+
+        // Dispose system tray
+        _services?.GetService<ISystemTrayService>()?.Dispose();
 
         // Dispose other services
         (_services?.GetService<IStatisticsService>() as IDisposable)?.Dispose();

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
@@ -3032,6 +3033,10 @@ public partial class MainViewModel : ObservableObject
                     var config = _configService.Load();
                     config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
                     _configService.Save(config);
+                    // Update system tray service visibility
+                    var trayService = App.Current.Services.GetService<ISystemTrayService>();
+                    if (trayService != null)
+                        trayService.IsEnabled = config.Settings.ShowInSystemTray;
                     _toastService.Show(config.Settings.ShowInSystemTray ? "System tray enabled" : "System tray disabled", ToastType.Info);
                 }
             },

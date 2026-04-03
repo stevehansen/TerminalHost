@@ -22,7 +22,7 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 
 | Feature                     | Windows                 | macOS               | Linux                         |
 | --------------------------- | ----------------------- | ------------------- | ----------------------------- |
-| System tray                 | Y (NotifyIcon)          | Stub                | Stub                          |
+| System tray                 | Y (NotifyIcon)          | Y (Avalonia TrayIcon) | Y (Avalonia TrayIcon)       |
 | Dark mode detection         | Y (dwmapi.dll P/Invoke) | --                  | --                            |
 | Taskbar progress            | Y (ITaskbarList3 COM)   | --                  | --                            |
 | Dock icon click restore     | N/A                     | Y (ObjC interop)    | N/A                           |
@@ -56,11 +56,6 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 | Linux    | PtySharp.Linux; X11: libX11, libXi, libXcursor, libXrandr, libXext, libICE, libSM, libGL; font discovery via `fc-list`; Nix flake provides deps |
 
 ## Key Gaps for Linux
-
-### High
-
-- **Hook installer missing** — no hook installer service; needs curl/HTTP-based implementation matching the macOS approach
-- **System tray stub** — no tray icon; needs D-Bus AppIndicator or Avalonia.Native implementation
 
 ### Medium
 
