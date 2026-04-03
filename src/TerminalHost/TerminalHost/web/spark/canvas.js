@@ -1837,7 +1837,7 @@ class SparkCanvas {
 
         for (const [id, agent] of this.agents) {
             const node = this.sim.getNode(id);
-            if (!node) continue;
+            if (!node || !isFinite(node.x) || !isFinite(node.y)) continue;
 
             const stateColor = stateColors[agent.state] || colors.cyan;
             const baseRadius = node.radius;
