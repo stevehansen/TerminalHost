@@ -143,11 +143,13 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Platform Services
+        // Platform Services — platform service for paths/shell, Avalonia decorator for fonts
 #if MACOS
-        services.AddSingleton<ISystemInfoService, SystemInfoService>();
+        services.AddSingleton<ISystemInfoService>(_ =>
+            new AvaloniaSystemInfoDecorator(new macOS.Services.MacSystemInfoService()));
 #elif LINUX
-        services.AddSingleton<ISystemInfoService, LinuxSystemInfoService>();
+        services.AddSingleton<ISystemInfoService>(_ =>
+            new AvaloniaSystemInfoDecorator(new Linux.Services.LinuxSystemInfoService()));
 #endif
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
