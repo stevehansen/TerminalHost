@@ -123,6 +123,67 @@ public partial class MainViewModel : ObservableObject
     private bool _isHelpOpen;
 
     /// <summary>
+    /// Built-in keyboard shortcuts for the Help view, with platform-appropriate display text.
+    /// Sourced from ShortcutConflictService (single source of truth).
+    /// </summary>
+    public List<HelpDisplaySection> HelpShortcutSections { get; } = BuildHelpSections();
+
+    /// <summary>
+    /// Quick command shortcuts for the Help view.
+    /// </summary>
+    public List<HelpDisplaySection> HelpQuickCommandSections { get; } =
+    [
+        new("Default Quick Commands (configurable in Settings)",
+        [
+            new(FormatShortcut("Ctrl+Shift+C"), "Send 'commit' to Claude Code"),
+            new(FormatShortcut("Ctrl+Shift+D"), "Run 'git pull --rebase' in Shell"),
+            new(FormatShortcut("Ctrl+Shift+U"), "Run 'git push' in Shell"),
+        ]),
+    ];
+
+    /// <summary>
+    /// Command line examples for the Help view.
+    /// </summary>
+    public List<HelpCommandLineExample> HelpCommandLineExamples { get; } =
+    [
+        new("host", "Open/focus app"),
+        new("host .", "Open project from current directory"),
+        new("host ~/MyProject", "Open specific project"),
+        new("host -w ~/Path", "Using named argument"),
+        new("host -multi", "Allow multiple instances"),
+        new("host -data path", "Override config path"),
+    ];
+
+    /// <summary>
+    /// Config path for the Help view.
+    /// </summary>
+    public string HelpConfigPath => OperatingSystem.IsMacOS()
+        ? "~/Library/Application Support/TerminalHost/config.json"
+        : "~/.config/TerminalHost/config.json";
+
+    private static List<HelpDisplaySection> BuildHelpSections()
+    {
+        var isMac = OperatingSystem.IsMacOS();
+        return ShortcutConflictService.GetSectionsForPlatform(isMac)
+            .Select(s => new HelpDisplaySection(
+                s.Name,
+                s.GetItemsForPlatform(isMac)
+                    .Select(i => new HelpDisplayItem(i.GetDisplayShortcut(isMac), i.Description))
+                    .ToList()))
+            .Where(s => s.Items.Count > 0)
+            .ToList();
+    }
+
+    private static string FormatShortcut(string shortcut)
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            return shortcut.Replace("Ctrl+", "⌘");
+        }
+        return shortcut;
+    }
+
+    /// <summary>
     /// Whether touch-friendly mode is enabled for larger touch targets and padding.
     /// </summary>
     [ObservableProperty]
@@ -3989,3 +4050,18 @@ public class CenterPanelRestoreEventArgs : EventArgs
     /// </summary>
     public bool SkipDataLoad { get; init; }
 }
+
+/// <summary>
+/// Display model for a shortcut in the Help view, with pre-formatted platform-specific text.
+/// </summary>
+public record HelpDisplayItem(string Shortcut, string Description);
+
+/// <summary>
+/// Display model for a section of shortcuts in the Help view.
+/// </summary>
+public record HelpDisplaySection(string Name, List<HelpDisplayItem> Items);
+
+/// <summary>
+/// Display model for a command line example in the Help view.
+/// </summary>
+public record HelpCommandLineExample(string Command, string Description);
