@@ -3,19 +3,20 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using TerminalHost.Core.Interfaces;
 
-namespace TerminalHost.macOS.Services;
+namespace TerminalHost.Posix.Services;
 
 /// <summary>
-/// macOS hook installer — registers curl commands in Claude Code's settings.json
+/// POSIX hook installer — registers curl commands in Claude Code's settings.json
 /// that POST hook events to TerminalHost's REST API server.
+/// Works on both macOS and Linux.
 /// </summary>
-public class MacHookInstaller : IHookInstaller
+public class PosixHookInstaller : IHookInstaller
 {
     private const string HookMarker = "/api/hooks/";
     private readonly IFileSystem _fileSystem;
     private readonly IConfigurationService _configService;
 
-    public MacHookInstaller(IFileSystem fileSystem, IConfigurationService configService)
+    public PosixHookInstaller(IFileSystem fileSystem, IConfigurationService configService)
     {
         _fileSystem = fileSystem;
         _configService = configService;
