@@ -29,11 +29,16 @@ internal class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .UseDesktopWebView()
             .WithInterFont()
             .LogToTrace();
+#if !LINUX
+        builder = builder.UseDesktopWebView();
+#endif
+        return builder;
+    }
 
     /// <summary>
     /// Handle a Claude Code hook: read JSON from stdin, send to the running main instance via named pipe, exit.

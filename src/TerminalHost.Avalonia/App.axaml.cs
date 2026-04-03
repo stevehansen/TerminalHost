@@ -40,7 +40,9 @@ public partial class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
+#if !LINUX
         AvaloniaWebView.AvaloniaWebViewBuilder.Initialize(default);
+#endif
     }
 
     public override void OnFrameworkInitializationCompleted()
