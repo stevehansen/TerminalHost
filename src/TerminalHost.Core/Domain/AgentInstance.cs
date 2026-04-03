@@ -2,6 +2,18 @@ using System.Text.Json.Serialization;
 
 namespace TerminalHost.Core.Domain;
 
+public enum ExecutionMode
+{
+    Foreground,
+    Background
+}
+
+public enum LifespanType
+{
+    ShortLived,
+    LongLived
+}
+
 /// <summary>
 /// State of an agent within a session.
 /// </summary>
@@ -107,6 +119,44 @@ public class AgentInstance
     [JsonPropertyName("context")]
     public ContextBreakdown? Context { get; set; }
 
+    /// <summary>Semantic role: Explore, Plan, Reviewer, GeneralPurpose, Bash, etc.</summary>
+    [JsonPropertyName("role")]
+    public string? Role { get; set; }
+
+    /// <summary>Execution mode: Foreground (interactive) or Background (fire-and-forget).</summary>
+    [JsonPropertyName("executionMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ExecutionMode? ExecutionMode { get; set; }
+
+    /// <summary>Lifecycle type: ShortLived (auto-cleanup) or LongLived (persists until milestone).</summary>
+    [JsonPropertyName("lifespanType")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public LifespanType? LifespanType { get; set; }
+
+    /// <summary>Number of retry attempts for this agent.</summary>
+    [JsonPropertyName("retryCount")]
+    public int RetryCount { get; set; }
+
+    /// <summary>Number of times permission was denied.</summary>
+    [JsonPropertyName("denialCount")]
+    public int DenialCount { get; set; }
+
+    /// <summary>Milestone or task group this agent belongs to.</summary>
+    [JsonPropertyName("milestoneId")]
+    public string? MilestoneId { get; set; }
+
+    /// <summary>IDs of agents that block this agent.</summary>
+    [JsonPropertyName("blockedByAgentIds")]
+    public List<string> BlockedByAgentIds { get; set; } = [];
+
+    /// <summary>If this agent is a retry, the ID of the previous attempt.</summary>
+    [JsonPropertyName("retryOfAgentId")]
+    public string? RetryOfAgentId { get; set; }
+
+    /// <summary>Percentage of work completed (0-100) for partial completion tracking.</summary>
+    [JsonPropertyName("completionPercentage")]
+    public int? CompletionPercentage { get; set; }
+
     /// <summary>
     /// Duration of agent activity.
     /// </summary>
@@ -139,7 +189,8 @@ public class AgentInstance
     /// <summary>
     /// Creates a subagent spawned by a parent agent.
     /// </summary>
-    public static AgentInstance CreateSubagent(string toolUseId, string sessionId, string parentId, string? name, string? task)
+    public static AgentInstance CreateSubagent(string toolUseId, string sessionId, string parentId, string? name, string? task,
+        string? role = null, ExecutionMode? executionMode = null, LifespanType? lifespanType = null)
     {
         return new AgentInstance
         {
@@ -151,7 +202,10 @@ public class AgentInstance
             State = AgentState.Active,
             Task = task,
             SpawnTime = DateTime.UtcNow,
-            Context = new ContextBreakdown()
+            Context = new ContextBreakdown(),
+            Role = role,
+            ExecutionMode = executionMode,
+            LifespanType = lifespanType,
         };
     }
 }

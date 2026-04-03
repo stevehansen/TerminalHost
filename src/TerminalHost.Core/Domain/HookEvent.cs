@@ -36,7 +36,13 @@ public enum HookEventType
     Notification,
 
     /// <summary>Claude Code session ended (SessionEnd hook — may fire instead of/in addition to Stop).</summary>
-    SessionEnd
+    SessionEnd,
+
+    /// <summary>Agent metadata was updated by an orchestrator plugin.</summary>
+    AgentMetadataUpdate,
+
+    /// <summary>An agent was deleted/removed by an orchestrator plugin.</summary>
+    AgentDeleted
 }
 
 /// <summary>
@@ -160,6 +166,10 @@ public class HookEvent
     /// </summary>
     [JsonPropertyName("result_summary")]
     public string? ResultSummary { get; set; }
+
+    /// <summary>Additional metadata from orchestrator plugins.</summary>
+    [JsonPropertyName("extra_data")]
+    public Dictionary<string, object?>? ExtraData { get; set; }
 
     /// <summary>
     /// Creates a HookEvent from raw hook data for SessionStart events.

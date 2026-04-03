@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -116,6 +118,14 @@ public class SessionActivityService : ISessionActivityService
 
                 case HookEventType.FileChanged:
                     events.AddRange(ProcessFileChanged(hookEvent));
+                    break;
+
+                case HookEventType.AgentMetadataUpdate:
+                    events.AddRange(ProcessAgentMetadataUpdate(hookEvent));
+                    break;
+
+                case HookEventType.AgentDeleted:
+                    events.AddRange(ProcessAgentDeleted(hookEvent));
                     break;
             }
         }
@@ -519,14 +529,42 @@ public class SessionActivityService : ISessionActivityService
         var parentId = state.MainAgent?.Id ?? hookEvent.SessionId;
         var name = hookEvent.AgentType ?? "subagent";
 
+        // Look up the parent's running Agent/Task tool call to extract role and task from the description
+        string? role = null;
+        string? task = hookEvent.AgentType;
+        var agentToolCall = state.ToolCalls.Values
+            .Where(t => t.ToolName is "Agent" or "Task"
+                    && t.AgentId == parentId
+                    && t.State == ToolCallState.Running)
+            .OrderByDescending(t => t.StartTime)
+            .FirstOrDefault();
+
+        // Fallback: if no running tool call found (race condition with parallel agents),
+        // try the most recently started Agent/Task tool call regardless of state
+        agentToolCall ??= state.ToolCalls.Values
+            .Where(t => t.ToolName is "Agent" or "Task"
+                    && t.AgentId == parentId)
+            .OrderByDescending(t => t.StartTime)
+            .FirstOrDefault();
+
+        if (agentToolCall?.InputSummary is { } description)
+        {
+            task = description;
+            var colonIndex = description.IndexOf(':');
+            if (colonIndex > 0)
+            {
+                role = description[..colonIndex].Trim();
+            }
+        }
+
         if (!state.Agents.ContainsKey(agentId))
         {
-            state.AddSubagent(agentId, parentId, name, hookEvent.AgentType);
+            state.AddSubagent(agentId, parentId, name, task, role: role);
         }
         state.LastActivityTime = DateTime.UtcNow;
 
         events.Add(ActivityEvent.CreateAgentSpawn(
-            hookEvent.SessionId, agentId, parentId, name, false, hookEvent.AgentType, null));
+            hookEvent.SessionId, agentId, parentId, name, false, task, null, role: role));
 
         return events;
     }
@@ -543,6 +581,72 @@ public class SessionActivityService : ISessionActivityService
         state.LastActivityTime = DateTime.UtcNow;
 
         events.Add(ActivityEvent.CreateAgentComplete(hookEvent.SessionId, agentId));
+
+        return events;
+    }
+
+    private List<ActivityEvent> ProcessAgentMetadataUpdate(HookEvent hookEvent)
+    {
+        var events = new List<ActivityEvent>();
+
+        if (!_states.TryGetValue(hookEvent.SessionId, out var state))
+            return events;
+
+        var agentId = hookEvent.AgentId ?? "";
+        if (!state.Agents.ContainsKey(agentId))
+            return events;
+
+        // Extract metadata fields from the hook event's extra data
+        string? role = null, executionMode = null, lifespanType = null, milestoneId = null, retryOfAgentId = null;
+        int? retryCount = null, denialCount = null, completionPercentage = null;
+
+        if (hookEvent.ExtraData != null)
+        {
+            if (hookEvent.ExtraData.TryGetValue("role", out var r)) role = r?.ToString();
+            if (hookEvent.ExtraData.TryGetValue("executionMode", out var em)) executionMode = em?.ToString();
+            if (hookEvent.ExtraData.TryGetValue("lifespanType", out var lt)) lifespanType = lt?.ToString();
+            if (hookEvent.ExtraData.TryGetValue("milestoneId", out var mi)) milestoneId = mi?.ToString();
+            if (hookEvent.ExtraData.TryGetValue("retryOfAgentId", out var ro)) retryOfAgentId = ro?.ToString();
+            if (hookEvent.ExtraData.TryGetValue("retryCount", out var rc) && rc is int rcVal) retryCount = rcVal;
+            if (hookEvent.ExtraData.TryGetValue("denialCount", out var dc) && dc is int dcVal) denialCount = dcVal;
+            if (hookEvent.ExtraData.TryGetValue("completionPercentage", out var cp) && cp is int cpVal) completionPercentage = cpVal;
+        }
+
+        List<string>? blockedByAgentIds = null;
+        if (hookEvent.ExtraData != null && hookEvent.ExtraData.TryGetValue("blockedByAgentIds", out var bba))
+        {
+            if (bba is List<string> bbaList) blockedByAgentIds = bbaList;
+            else if (bba is IEnumerable<object> bbaEnum) blockedByAgentIds = bbaEnum.Select(x => x?.ToString() ?? "").Where(x => x.Length > 0).ToList();
+        }
+
+        var evt = ActivityEvent.CreateAgentMetadataUpdate(
+            hookEvent.SessionId, agentId,
+            role, executionMode, lifespanType,
+            retryCount, denialCount, milestoneId,
+            completionPercentage, retryOfAgentId, blockedByAgentIds);
+
+        state.ApplyEvent(evt);
+        state.LastActivityTime = DateTime.UtcNow;
+        events.Add(evt);
+
+        return events;
+    }
+
+    private List<ActivityEvent> ProcessAgentDeleted(HookEvent hookEvent)
+    {
+        var events = new List<ActivityEvent>();
+
+        if (!_states.TryGetValue(hookEvent.SessionId, out var state))
+            return events;
+
+        var agentId = hookEvent.AgentId ?? "";
+        if (!state.Agents.ContainsKey(agentId))
+            return events;
+
+        var evt = ActivityEvent.CreateAgentDeleted(hookEvent.SessionId, agentId);
+        state.ApplyEvent(evt);
+        state.LastActivityTime = DateTime.UtcNow;
+        events.Add(evt);
 
         return events;
     }

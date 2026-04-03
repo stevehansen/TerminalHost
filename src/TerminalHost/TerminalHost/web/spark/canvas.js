@@ -73,6 +73,46 @@ const STATE_COLORS = {
     Complete: '#66ffaa', Error: '#ff5566', Failed: '#ff5566', TimedOut: '#888899',
 };
 
+const ROLE_COLORS = {
+    Explore: '#66ccff', Plan: '#88ff88', Reviewer: '#ffbb44',
+    GeneralPurpose: '#cc88ff', Bash: '#ff8844', BuildTest: '#ff5566',
+    Git: '#88aaff', Documentation: '#66ffaa', ServiceManagement: '#ff88aa',
+    GitHub: '#88aaff',
+};
+
+/** Infer orchestrator role from agent name/type and task description. */
+function inferRole(name, task) {
+    // First: try exact match on agent type name
+    if (name) {
+        const n = name.toLowerCase();
+        if (n === 'explore' || n.startsWith('explore:') || n.startsWith('explore ')) return 'Explore';
+        if (n === 'plan' || n.startsWith('plan:') || n.startsWith('plan ')) return 'Plan';
+        if (n.includes('review')) return 'Reviewer';
+        if (n === 'general-purpose' || n.startsWith('general')) return 'GeneralPurpose';
+        if (n === 'bash' || n.startsWith('bash:')) return 'Bash';
+        if (n.includes('build') || n.includes('test')) return 'BuildTest';
+        if (n === 'git' || n.startsWith('git:') || n.startsWith('git ')) return 'Git';
+        if (n.includes('doc')) return 'Documentation';
+        if (n.includes('service')) return 'ServiceManagement';
+        if (n.includes('github') || n.startsWith('gh')) return 'GitHub';
+    }
+    // Second: infer from task/description keywords
+    if (task) {
+        const t = task.toLowerCase();
+        if (t.includes('review') || t.includes('validate') || t.includes('check quality')) return 'Reviewer';
+        if (t.includes('build') && (t.includes('verify') || t.includes('test') || t.includes('compile'))) return 'BuildTest';
+        if (t.includes('run test') || t.includes('run the test') || t.includes('dotnet test') || t.includes('npm test')) return 'BuildTest';
+        if (t.includes('git diff') || t.includes('git log') || t.includes('git status') || t.includes('commit') || t.includes('git branch')) return 'Git';
+        if (t.includes('github') || t.includes('gh pr') || t.includes('gh api') || t.includes('pull request')) return 'GitHub';
+        if (t.includes('update prd') || t.includes('update plan') || t.includes('update doc') || t.includes('write doc')) return 'Documentation';
+        if (t.includes('start service') || t.includes('stop service') || t.includes('dotnet run') || t.includes('npm start')) return 'ServiceManagement';
+        if (t.includes('bash') || t.includes('shell') || t.includes('run command')) return 'Bash';
+        if (t.includes('explore') || t.includes('search') || t.includes('find file') || t.includes('read file') || t.includes('investigate')) return 'Explore';
+        if (t.includes('plan') || t.includes('design') || t.includes('architect')) return 'Plan';
+    }
+    return null;
+}
+
 /** Get the current theme's colors, falling back to defaults. */
 function tc() { return getTheme()?.colors || COLORS; }
 function tsc() { return getTheme()?.stateColors || STATE_COLORS; }
@@ -359,7 +399,8 @@ class SparkCanvas {
         // Create agents with session grouping
         if (state.agents) {
             for (const [id, agent] of Object.entries(state.agents)) {
-                this._addAgent(id, { ...agent, sessionId });
+                const agentCopy = { ...agent, sessionId };
+                this._addAgent(id, agentCopy);
             }
         }
 
@@ -536,6 +577,7 @@ class SparkCanvas {
             case 'AgentSpawn': {
                 const agentId = data.agentId || sessionId;
                 let agentName = data.name || (data.isMain ? 'main' : `agent-${this.agents.size}`);
+                const agentRole = data.role || inferRole(agentName, data.task);
 
                 // For subagents: absorb the parent's "Agent" tool card to combine them
                 // The Agent tool card has the description (e.g., "Explore: Analyze codebase")
@@ -562,6 +604,8 @@ class SparkCanvas {
                 this._addAgent(agentId, {
                     id: agentId,
                     name: agentName,
+                    typeName: data.name || agentRole || 'subagent',
+                    role: agentRole,
                     isMain: !!data.isMain,
                     parentId: data.parentId,
                     state: 'Active',
@@ -634,6 +678,64 @@ class SparkCanvas {
                         const node = this.sim.getNode(agentId);
                         if (node) {
                             this.fx.triggerError(node.x, node.y, tc().red, node.radius);
+                        }
+                    }
+                }
+                break;
+            }
+
+            case 'AgentDeleted': {
+                const agentId = data.agentId || sessionId;
+                const agent = this.agents.get(agentId);
+                if (agent) {
+                    // Immediate removal — no fade
+                    this.sim.removeNode(agentId);
+                    this.agents.delete(agentId);
+
+                    // Remove associated tool cards
+                    for (const [tcId, card] of this.toolCards) {
+                        if (card.agentId === agentId) {
+                            this.toolCards.delete(tcId);
+                        }
+                    }
+
+                    // Remove edges
+                    this.edges = this.edges.filter(
+                        e => e.sourceId !== agentId && e.targetId !== agentId
+                    );
+                }
+                break;
+            }
+
+            case 'AgentMetadataUpdate': {
+                const agentId = data.agentId || sessionId;
+                this._ensureAgent(agentId, sessionId);
+                const agent = this.agents.get(agentId);
+                if (agent) {
+                    if (data.role != null) agent.role = data.role;
+                    if (data.executionMode != null) agent.executionMode = data.executionMode;
+                    if (data.lifespanType != null) agent.lifespanType = data.lifespanType;
+                    if (data.retryCount != null) agent.retryCount = data.retryCount;
+                    if (data.denialCount != null) agent.denialCount = data.denialCount;
+                    if (data.milestoneId != null) agent.milestoneId = data.milestoneId;
+                    if (data.completionPercentage != null) agent.completionPercentage = data.completionPercentage;
+                    if (data.retryOfAgentId != null) agent.retryOfAgentId = data.retryOfAgentId;
+                    if (data.blockedByAgentIds != null && Array.isArray(data.blockedByAgentIds)) {
+                        // Remove old blocking edges for this agent
+                        this.edges = this.edges.filter(e => !(e.targetId === agentId && e.type === 'blocking'));
+                        agent.blockedByAgentIds = data.blockedByAgentIds;
+                        // Add new blocking edges
+                        for (const blockerId of data.blockedByAgentIds) {
+                            if (this.agents.has(blockerId)) {
+                                this.sim.addEdge(blockerId, agentId);
+                                this.edges.push({
+                                    sourceId: blockerId,
+                                    targetId: agentId,
+                                    type: 'blocking',
+                                    active: true,
+                                    spawnTime: this._time
+                                });
+                            }
                         }
                     }
                 }
@@ -870,6 +972,7 @@ class SparkCanvas {
         const agent = {
             id,
             name: agentData.name || 'agent',
+            typeName: agentData.typeName || agentData.name || 'agent',
             isMain: !!agentData.isMain,
             parentId: agentData.parentId,
             state: agentData.state || 'Active',
@@ -883,7 +986,17 @@ class SparkCanvas {
             tokensMax: agentData.tokensMax || 200000,
             context: agentData.context || { systemPrompt: 0, userMessages: 0, toolResults: 0, reasoning: 0, subagentResults: 0 },
             currentToolUseId: agentData.currentToolUseId,
-            fadeStart: null,
+            // Orchestrator lifecycle metadata
+            role: agentData.role || inferRole(agentData.name, agentData.task) || null,
+            executionMode: agentData.executionMode || null,
+            lifespanType: agentData.lifespanType || null,
+            retryCount: agentData.retryCount || 0,
+            denialCount: agentData.denialCount || 0,
+            milestoneId: agentData.milestoneId || null,
+            blockedByAgentIds: agentData.blockedByAgentIds || [],
+            retryOfAgentId: agentData.retryOfAgentId || null,
+            completionPercentage: agentData.completionPercentage || null,
+            fadeStart: (agentData.state === 'Complete' && !agentData.isMain) ? this._time : null,
         };
 
         this.agents.set(id, agent);
@@ -1156,6 +1269,7 @@ class SparkCanvas {
             if (edgeAlpha <= 0) continue;
 
             const isParentChild = edge.type === 'parent-child';
+            const isBlocking = edge?.type === 'blocking';
             const isActive = targetAgent && (targetAgent.state === 'Active' || targetAgent.state === 'ToolCalling' || targetAgent.state === 'Thinking');
 
             // Cubic bezier control points (agent-flow style)
@@ -1173,15 +1287,16 @@ class SparkCanvas {
             // Beam widths and alpha (agent-flow aligned: very subtle idle, visible active)
             const baseAlpha = isActive ? 0.20 : 0.08;
             const pulsing = isActive ? Math.sin(this._time * 4) * 0.1 + 0.9 : 1;
-            const startW = isParentChild ? 2.5 : 1.2;
-            const endW = isParentChild ? 0.8 : 0.4;
+            const startW = isBlocking ? 2.0 : isParentChild ? 2.5 : 1.2;
+            const endW = isBlocking ? 0.6 : isParentChild ? 0.8 : 0.4;
 
             ctx.save();
 
             // Always draw tapered bezier (agent-flow approach)
+            const edgeColor = isBlocking ? tc().red : beamColor;
             this._drawTaperedBezier(ctx,
                 sourceNode.x, sourceNode.y, cp1x, cp1y, cp2x, cp2y, targetNode.x, targetNode.y,
-                startW, endW, beamColor, baseAlpha * pulsing * edgeAlpha);
+                startW, endW, edgeColor, baseAlpha * pulsing * edgeAlpha);
 
             // Active glow beam (wider, dimmer overlay)
             if (isActive) {
@@ -1731,12 +1846,14 @@ class SparkCanvas {
             const isWaiting = agent.state === 'WaitingPermission';
             const isActive = agent.state === 'Active' || agent.state === 'ToolCalling' || agent.state === 'Thinking';
 
-            // Fade out completed subagents (60s visible, then 3s fade)
+            // Fade out completed subagents — duration based on lifespan type
             let alpha = 1.0;
             if (!agent.isMain && agent.fadeStart != null) {
+                const visibleDuration = agent.lifespanType === 'ShortLived' ? 8 : 60;
+                const fadeDuration = 3;
                 const elapsed = this._time - agent.fadeStart;
-                if (elapsed > 60) {
-                    alpha = Math.max(0, 1 - (elapsed - 60) / 3);
+                if (elapsed > visibleDuration) {
+                    alpha = Math.max(0, 1 - (elapsed - visibleDuration) / fadeDuration);
                 }
             }
             if (alpha <= 0) continue;
@@ -1899,19 +2016,88 @@ class SparkCanvas {
                 }
             }
 
-            // 9. Agent label
-            ctx.fillStyle = isHovered ? '#ffffff' : (theme?.labelColor || colors.brightCyan);
-            ctx.font = theme?.labelFont || '10px monospace';
+            // 9. Agent label (two-line: type/role + task)
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText(agent.name, node.x, node.y + r + 8);
 
-            // Context composition: ring for main agent, bar for all
-            if (agent.state !== 'Complete' || alpha > 0.5) {
-                if (agent.isMain) {
-                    this._drawContextRing(ctx, agent, node, r);
+            // Line 1: Role or type name (smaller, role-colored)
+            const roleLabel = agent.role || agent.typeName || 'agent';
+            const roleColor = ROLE_COLORS[agent.role] || '#888899';
+            ctx.font = 'bold 9px monospace';
+            ctx.fillStyle = isHovered ? '#ffffff' : roleColor;
+            ctx.fillText(roleLabel, node.x, node.y + r + 6);
+
+            // Line 2: Task description (strip role prefix, slightly dimmer)
+            let taskLabel = agent.task;
+            if (taskLabel) {
+                const colonIdx = taskLabel.indexOf(':');
+                if (colonIdx > 0 && agent.role) {
+                    taskLabel = taskLabel.substring(colonIdx + 1).trim();
                 }
-                this._drawContextBar(ctx, agent, node, r, alpha);
+                taskLabel = truncate(taskLabel, 35);
+            }
+            if (taskLabel && taskLabel !== roleLabel) {
+                ctx.font = theme?.labelFont || '10px monospace';
+                ctx.fillStyle = isHovered ? '#ffffffcc' : (theme?.labelColor || colors.brightCyan) + '99';
+                ctx.fillText(taskLabel, node.x, node.y + r + 18);
+            }
+
+            // Line 3: Token usage
+            const hasTask = taskLabel && taskLabel !== roleLabel;
+            const tokenY = node.y + r + (hasTask ? 30 : 18);
+            if (agent.tokensMax && agent.tokensMax > 0) {
+                const used = agent.tokensUsed || 0;
+                ctx.font = '7px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillStyle = 'rgba(136, 136, 153, 0.6)';
+                ctx.fillText(`${formatTokens(used)} / ${formatTokens(agent.tokensMax)} tokens`, node.x, tokenY);
+            }
+
+            // 9b. Retry/denial badges (top-right and top-left of node)
+            if (agent.retryCount > 0) {
+                ctx.fillStyle = '#ff884490';
+                ctx.font = 'bold 8px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('\u21bb' + agent.retryCount, node.x + r * 0.7, node.y - r * 0.7);
+            }
+            if (agent.denialCount > 0) {
+                ctx.fillStyle = '#ff556690';
+                ctx.font = 'bold 8px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('\u2715' + agent.denialCount, node.x - r * 0.7, node.y - r * 0.7);
+            }
+
+            // 9c. Background execution mode indicator (dashed outer ring)
+            if (agent.executionMode === 'Background') {
+                ctx.save();
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = stateColor + '40';
+                ctx.lineWidth = 1;
+                drawHexagon(ctx, node.x, node.y, r + 5);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
+
+            // 9d. Partial completion progress arc
+            if (agent.completionPercentage != null && agent.completionPercentage > 0 && agent.completionPercentage < 100) {
+                ctx.save();
+                ctx.strokeStyle = stateColor + '80';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const startAngle = -Math.PI / 2;
+                const endAngle = startAngle + (agent.completionPercentage / 100) * Math.PI * 2;
+                ctx.arc(node.x, node.y, r + 5, startAngle, endAngle);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Context composition: ring around node for all agents
+            if (agent.state !== 'Complete' || alpha > 0.5) {
+                this._drawContextRing(ctx, agent, node, r);
             }
 
             // State label above
@@ -1936,7 +2122,7 @@ class SparkCanvas {
 
         const usage = total / agent.tokensMax;
         const ringR = radius + 8;
-        const ringW = 4;
+        const ringW = agent.isMain ? 4 : 2.5;
         const startAngle = -Math.PI / 2;
 
         // Background ring
@@ -1994,61 +2180,7 @@ class SparkCanvas {
             ctx.fillStyle = usage > 0.9 ? tc().red : usage > 0.8 ? tc().amber : tc().cyan;
             ctx.fillText(`${Math.floor(usage * 100)}%`, node.x, node.y - radius - 10);
         }
-    }
 
-    // ─── Context Usage Bar ──────────────────────────────────
-
-    _drawContextBar(ctx, agent, node, radius, alpha) {
-        if (!agent.tokensMax || agent.tokensMax <= 0) return;
-        const total = agent.tokensUsed || 0;
-
-        const barW = Math.max(60, radius * 2.2);
-        const barH = 6;
-        const barX = node.x - barW / 2;
-        const barY = node.y + radius + 22;
-        const colors = tc();
-
-        // Background card
-        ctx.fillStyle = 'rgba(10, 15, 40, 0.7)';
-        ctx.beginPath();
-        ctx.roundRect(barX - 2, barY - 2, barW + 4, barH + 14, 3);
-        ctx.fill();
-
-        // Token count label
-        ctx.fillStyle = 'rgba(136, 136, 153, 0.8)';
-        ctx.font = '7px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${formatTokens(total)} / ${formatTokens(agent.tokensMax)} tokens`, node.x, barY + barH + 9);
-
-        // Stacked segments
-        const ctxData = agent.context || {};
-        const segments = [
-            { key: 'systemPrompt', color: '#6666aa' },
-            { key: 'userMessages', color: '#4488cc' },
-            { key: 'toolResults', color: colors.amber },
-            { key: 'reasoning', color: colors.cyan },
-            { key: 'subagentResults', color: colors.purple },
-        ];
-        const maxWidth = barW * Math.min(1, total / agent.tokensMax);
-        let xOff = 0;
-        for (const seg of segments) {
-            const val = ctxData[seg.key] || 0;
-            if (val <= 0) continue;
-            const segW = (val / total) * maxWidth;
-            ctx.fillStyle = seg.color;
-            ctx.fillRect(barX + xOff, barY, segW, barH);
-            xOff += segW;
-        }
-
-        // Remaining capacity
-        if (barX + xOff < barX + barW) {
-            ctx.fillStyle = 'rgba(102, 204, 255, 0.05)';
-            ctx.fillRect(barX + xOff, barY, barX + barW - barX - xOff, barH);
-        }
-
-        ctx.strokeStyle = 'rgba(102, 204, 255, 0.15)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(barX, barY, barW, barH);
     }
 
     // ─── Tool Card Rendering ────────────────────────────────

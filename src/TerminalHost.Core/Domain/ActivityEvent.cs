@@ -14,6 +14,8 @@ public enum ActivityEventType
     AgentSpawn,
     AgentComplete,
     AgentStateChange,
+    AgentDeleted,
+    AgentMetadataUpdate,
     ModelDetected,
 
     // Tool activity
@@ -177,7 +179,7 @@ public class ActivityEvent
         };
     }
 
-    public static ActivityEvent CreateAgentSpawn(string sessionId, string agentId, string? parentId, string name, bool isMain, string? task, string? model, EventSource source = EventSource.Hook)
+    public static ActivityEvent CreateAgentSpawn(string sessionId, string agentId, string? parentId, string name, bool isMain, string? task, string? model, EventSource source = EventSource.Hook, string? role = null)
     {
         return new ActivityEvent
         {
@@ -192,7 +194,8 @@ public class ActivityEvent
                 ["parentId"] = parentId,
                 ["isMain"] = isMain,
                 ["task"] = task,
-                ["model"] = model
+                ["model"] = model,
+                ["role"] = role
             }
         };
     }
@@ -286,6 +289,51 @@ public class ActivityEvent
                 ["agentId"] = agentId,
                 ["model"] = model
             }
+        };
+    }
+
+    public static ActivityEvent CreateAgentDeleted(string sessionId, string agentId, EventSource source = EventSource.Hook)
+    {
+        return new ActivityEvent
+        {
+            Type = ActivityEventType.AgentDeleted,
+            SessionId = sessionId,
+            AgentId = agentId,
+            Source = source,
+            Data = new Dictionary<string, object?>
+            {
+                ["agentId"] = agentId,
+            }
+        };
+    }
+
+    public static ActivityEvent CreateAgentMetadataUpdate(string sessionId, string agentId,
+        string? role = null, string? executionMode = null, string? lifespanType = null,
+        int? retryCount = null, int? denialCount = null, string? milestoneId = null,
+        int? completionPercentage = null, string? retryOfAgentId = null,
+        List<string>? blockedByAgentIds = null, EventSource source = EventSource.Hook)
+    {
+        var data = new Dictionary<string, object?>
+        {
+            ["agentId"] = agentId,
+        };
+        if (role != null) data["role"] = role;
+        if (executionMode != null) data["executionMode"] = executionMode;
+        if (lifespanType != null) data["lifespanType"] = lifespanType;
+        if (retryCount != null) data["retryCount"] = retryCount;
+        if (denialCount != null) data["denialCount"] = denialCount;
+        if (milestoneId != null) data["milestoneId"] = milestoneId;
+        if (completionPercentage != null) data["completionPercentage"] = completionPercentage;
+        if (retryOfAgentId != null) data["retryOfAgentId"] = retryOfAgentId;
+        if (blockedByAgentIds != null) data["blockedByAgentIds"] = blockedByAgentIds;
+
+        return new ActivityEvent
+        {
+            Type = ActivityEventType.AgentMetadataUpdate,
+            SessionId = sessionId,
+            AgentId = agentId,
+            Source = source,
+            Data = data
         };
     }
 }

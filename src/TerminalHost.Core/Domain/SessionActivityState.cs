@@ -297,9 +297,9 @@ public class SessionActivityState
     /// <summary>
     /// Adds a subagent to this session.
     /// </summary>
-    public AgentInstance AddSubagent(string toolUseId, string parentId, string? name, string? task)
+    public AgentInstance AddSubagent(string toolUseId, string parentId, string? name, string? task, string? role = null)
     {
-        var subagent = AgentInstance.CreateSubagent(toolUseId, SessionId, parentId, name, task);
+        var subagent = AgentInstance.CreateSubagent(toolUseId, SessionId, parentId, name, task, role: role);
         Agents[toolUseId] = subagent;
 
         if (Agents.TryGetValue(parentId, out var parent))
@@ -382,6 +382,59 @@ public class SessionActivityState
                 CompleteSubagent(agentId);
                 break;
             }
+
+            case ActivityEventType.AgentDeleted:
+            {
+                var agentId = evt.GetString("agentId") ?? "";
+                if (Agents.TryGetValue(agentId, out var agent))
+                {
+                    // Remove from parent's child list
+                    if (agent.ParentId != null && Agents.TryGetValue(agent.ParentId, out var parent))
+                    {
+                        parent.ChildAgentIds.Remove(agentId);
+                    }
+                    Agents.Remove(agentId);
+                }
+                break;
+            }
+
+            case ActivityEventType.AgentMetadataUpdate:
+            {
+                var agentId = evt.GetString("agentId") ?? "";
+                if (Agents.TryGetValue(agentId, out var agent))
+                {
+                    var role = evt.GetString("role");
+                    if (role != null) agent.Role = role;
+
+                    var execMode = evt.GetString("executionMode");
+                    if (execMode != null && Enum.TryParse<ExecutionMode>(execMode, true, out var em))
+                        agent.ExecutionMode = em;
+
+                    var lifespan = evt.GetString("lifespanType");
+                    if (lifespan != null && Enum.TryParse<LifespanType>(lifespan, true, out var lt))
+                        agent.LifespanType = lt;
+
+                    if (evt.Data.ContainsKey("retryCount"))
+                        agent.RetryCount = evt.GetInt("retryCount");
+
+                    if (evt.Data.ContainsKey("denialCount"))
+                        agent.DenialCount = evt.GetInt("denialCount");
+
+                    var milestoneId = evt.GetString("milestoneId");
+                    if (milestoneId != null) agent.MilestoneId = milestoneId;
+
+                    if (evt.Data.ContainsKey("completionPercentage"))
+                        agent.CompletionPercentage = evt.GetInt("completionPercentage");
+
+                    var retryOf = evt.GetString("retryOfAgentId");
+                    if (retryOf != null) agent.RetryOfAgentId = retryOf;
+
+                    if (evt.Data.TryGetValue("blockedByAgentIds", out var blockedObj) && blockedObj is List<string> blockedList)
+                        agent.BlockedByAgentIds = blockedList;
+                }
+                break;
+            }
+
             case ActivityEventType.FileAccessed:
             {
                 var filePath = evt.GetString("filePath");
