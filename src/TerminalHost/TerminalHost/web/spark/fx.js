@@ -222,6 +222,7 @@ class SparkFX {
 
         // Effects first (behind particles)
         for (const fx of this.effects) {
+            if (!isFinite(fx.x) || !isFinite(fx.y)) continue;
             const t = Math.max(0, Math.min(1, (now - fx.born) / fx.duration));
             if (t === 0) continue; // not started yet (delayed born)
             const alpha = 1 - t;
@@ -301,6 +302,7 @@ class SparkFX {
 
         // Particles
         for (const p of this.particles) {
+            if (!isFinite(p.x) || !isFinite(p.y)) continue;
             const t = p.age / p.life;
             const alpha = 1 - t;
 
