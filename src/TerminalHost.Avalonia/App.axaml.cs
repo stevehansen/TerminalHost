@@ -228,6 +228,11 @@ public partial class App : Application
         services.AddSingleton<ITaskService, TerminalHost.Core.Services.TaskService>();
         services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
+#if MACOS
+        services.AddSingleton<ISoundService, macOS.Services.MacSoundService>();
+#elif LINUX
+        services.AddSingleton<ISoundService, Linux.Services.LinuxSoundService>();
+#endif
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IHookInstaller, TerminalHost.Posix.Services.PosixHookInstaller>();

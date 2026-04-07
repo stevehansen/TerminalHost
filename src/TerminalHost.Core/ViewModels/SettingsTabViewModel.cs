@@ -99,6 +99,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private bool _touchMode;
 
     // Sound settings
+    public static IReadOnlyList<string> SoundOptions { get; } = ["", "Asterisk", "Beep", "Exclamation", "Hand", "Question"];
+
     [ObservableProperty]
     private bool _soundsEnabled;
 

@@ -118,6 +118,30 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private int _gitAutoFetchIntervalSeconds = 60;
 
+    // Sound settings
+    public static IReadOnlyList<string> SoundOptions { get; } = ["", "Asterisk", "Beep", "Exclamation", "Hand", "Question"];
+
+    [ObservableProperty]
+    private bool _soundsEnabled;
+
+    [ObservableProperty]
+    private bool _soundsOnlyWhenUnfocused = true;
+
+    [ObservableProperty]
+    private string _successSound = "Asterisk";
+
+    [ObservableProperty]
+    private string _errorSound = "Hand";
+
+    [ObservableProperty]
+    private string _warningSound = "Exclamation";
+
+    [ObservableProperty]
+    private string _infoSound = "";
+
+    [ObservableProperty]
+    private string _inputWaitingSound = "Exclamation";
+
     [ObservableProperty]
     private string _customCommand = "";
 
@@ -608,6 +632,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             GitAutoFetch = config.Settings.GitAutoFetch;
             GitAutoFetchIntervalSeconds = config.Settings.GitAutoFetchIntervalSeconds;
 
+            // Sound settings
+            SoundsEnabled = config.Settings.Sounds.Enabled;
+            SoundsOnlyWhenUnfocused = config.Settings.Sounds.OnlyWhenUnfocused;
+            SuccessSound = config.Settings.Sounds.SuccessSound;
+            ErrorSound = config.Settings.Sounds.ErrorSound;
+            WarningSound = config.Settings.Sounds.WarningSound;
+            InfoSound = config.Settings.Sounds.InfoSound;
+            InputWaitingSound = config.Settings.Sounds.InputWaitingSound;
+
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
             CustomCommandName = config.Settings.CustomCommandName;
@@ -704,6 +737,15 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.GitTrackingMode = GitTrackingMode;
             config.Settings.GitAutoFetch = GitAutoFetch;
             config.Settings.GitAutoFetchIntervalSeconds = GitAutoFetchIntervalSeconds;
+
+            // Sound settings
+            config.Settings.Sounds.Enabled = SoundsEnabled;
+            config.Settings.Sounds.OnlyWhenUnfocused = SoundsOnlyWhenUnfocused;
+            config.Settings.Sounds.SuccessSound = SuccessSound;
+            config.Settings.Sounds.ErrorSound = ErrorSound;
+            config.Settings.Sounds.WarningSound = WarningSound;
+            config.Settings.Sounds.InfoSound = InfoSound;
+            config.Settings.Sounds.InputWaitingSound = InputWaitingSound;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -844,6 +886,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnGitTrackingModeChanged(GitTrackingMode value) { OnPropertyChanged(nameof(GitTrackingModeIndex)); MarkDirtyFromRichMode(); }
     partial void OnGitAutoFetchChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnGitAutoFetchIntervalSecondsChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnSoundsEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnSoundsOnlyWhenUnfocusedChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnSuccessSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnErrorSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnWarningSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnInfoSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnInputWaitingSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

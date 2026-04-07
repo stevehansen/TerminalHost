@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private readonly IFilePickerService _filePickerService;
     private readonly StatusOverlayService _statusOverlayService;
     private readonly IToastService _toastService;
+    private readonly ISoundService? _soundService;
     private ISystemTrayService? _systemTrayService;
     private bool _isExiting;
     private TerminalPairTabViewModel? _subscribedOverlayTab;
@@ -77,7 +78,8 @@ public partial class MainWindow : Window
         MarkdownPreviewViewModel markdownPreviewViewModel,
         IFilePickerService filePickerService,
         StatusOverlayService statusOverlayService,
-        IToastService toastService)
+        IToastService toastService,
+        ISoundService? soundService = null)
     {
         InitializeComponent();
 
@@ -109,6 +111,7 @@ public partial class MainWindow : Window
         _markdownPreviewViewModel = markdownPreviewViewModel;
         _filePickerService = filePickerService;
         _statusOverlayService = statusOverlayService;
+        _soundService = soundService;
 
         // Wire up sidebar view model bidirectional reference
         _mainViewModel.SidebarViewModel = _workspaceSidebarViewModel;
@@ -488,11 +491,13 @@ public partial class MainWindow : Window
 
     private void OnWindowActivated(object? sender, EventArgs e)
     {
+        _soundService?.SetAppFocused(true);
         _statusOverlayService.OnMainWindowActivated();
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e)
     {
+        _soundService?.SetAppFocused(false);
         _statusOverlayService.OnMainWindowDeactivated();
     }
 

@@ -18,6 +18,7 @@
             pkgs.mkShell {
             packages = with pkgs; [
               dotnet
+              nodejs_22
             ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               # Native deps for NuGet packages (LibGit2Sharp, SkiaSharp)
               zlib
@@ -33,6 +34,9 @@
               libice
               libsm
               libGL
+
+              # Sound notifications (libcanberra P/Invoke)
+              libcanberra
             ];
             shellHook = ''
               export DOTNET_ROOT="${dotnet}"
@@ -41,6 +45,7 @@
                 icu zlib openssl fontconfig
                 libx11 libxi libxcursor libxrandr
                 libxext libice libsm libGL
+                libcanberra
               ])}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             '';
           };

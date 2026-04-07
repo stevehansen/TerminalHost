@@ -563,6 +563,82 @@
                                  Margin="0,8,0,0"/>
                         <TextBlock Text="Paths are added in order, with earlier entries taking priority. Changes take effect for new terminals."
                                    Classes="HelpText"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
+                        <!-- Sound Notifications -->
+                        <TextBlock Text="SOUND NOTIFICATIONS"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12"/>
+
+                        <CheckBox Content="Enable sound notifications"
+                                  IsChecked="{Binding SoundsEnabled}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Play sounds for toast notifications."/>
+                        <TextBlock Text="Play audio notifications for success, error, and warning messages."
+                                   Classes="HelpText"/>
+
+                        <CheckBox Content="Only when app is unfocused"
+                                  IsChecked="{Binding SoundsOnlyWhenUnfocused}"
+                                  Classes="FormCheckBox"
+                                  IsEnabled="{Binding SoundsEnabled}"
+                                  ToolTip.Tip="Only play sounds when you're not looking at the app."/>
+                        <TextBlock Text="Sounds will only play when the TerminalHost window is not focused, so you get notified while working in other apps."
+                                   Classes="HelpText"/>
+
+                        <Grid Margin="0,8,0,0" IsEnabled="{Binding SoundsEnabled}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*" MaxWidth="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Success:" Grid.Row="0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding SuccessSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Error:" Grid.Row="1" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding ErrorSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Warning:" Grid.Row="2" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="2" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding WarningSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Info:" Grid.Row="3" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="3" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding InfoSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Input Waiting:" Grid.Row="4" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="4" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding InputWaitingSound}"
+                                      Classes="DarkComboBox"/>
+                        </Grid>
+                        <TextBlock Text="Sound names map to platform sounds: macOS uses system sounds (Glass, Tink, Funk, Basso, Purr), Linux uses freedesktop theme sounds. You can also enter a path to a sound file."
+                                   Classes="HelpText"/>
+
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->

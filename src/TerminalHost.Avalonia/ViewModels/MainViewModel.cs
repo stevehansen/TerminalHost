@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly IAiExecutionService? _aiExecutionService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
+    private readonly ISoundService? _soundService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
 
@@ -335,6 +336,7 @@ public partial class MainViewModel : ObservableObject
         IEventAggregatorService? eventAggregator = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
         IAiExecutionService? aiExecutionService = null,
+        ISoundService? soundService = null,
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null)
     {
@@ -374,6 +376,7 @@ public partial class MainViewModel : ObservableObject
         _eventAggregator = eventAggregator;
         _webhookDeliveryService = webhookDeliveryService;
         _aiExecutionService = aiExecutionService;
+        _soundService = soundService;
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
 
@@ -2058,6 +2061,12 @@ public partial class MainViewModel : ObservableObject
                 else
                     _gitAutoFetchTimer.Stop();
             }
+        }
+
+        // Refresh sound settings
+        if (_soundService is TerminalHost.Posix.Services.PosixSoundServiceBase soundService)
+        {
+            soundService.RefreshCachedSettings(config.Settings.Sounds);
         }
 
         // Notify that config has been reloaded (for system tray, etc.)

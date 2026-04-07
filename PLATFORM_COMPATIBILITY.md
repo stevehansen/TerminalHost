@@ -38,7 +38,7 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 | ------------------- | ----------------- | -------------------- | -------------------------- |
 | Voice commands (F4) | Y (System.Speech) | --                   | --                         |
 | Whisper engine      | Y (Whisper.net)   | --                   | --                         |
-| Sound notifications | Y (NAudio)        | --                   | --                         |
+| Sound notifications | Y (System.Media)  | Y (afplay)           | Y (paplay/canberra)        |
 | Spark Canvas        | N/A (WPF-only)    | Y (embedded WebView) | Partial (browser fallback) |
 
 ## Hook Installation
@@ -60,7 +60,6 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 ### Medium
 
 - **Voice commands** — no speech recognition on macOS or Linux; Whisper engine could be wired up cross-platform
-- **Sound notifications** — no audio playback outside Windows
 - **Spark Canvas in-app** — falls back to browser; no embedded WebView
 
 ### Low
