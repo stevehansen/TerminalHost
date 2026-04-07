@@ -142,6 +142,37 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _inputWaitingSound = "Exclamation";
 
+    // Voice settings
+    [ObservableProperty]
+    private bool _voiceEnabled;
+
+    [ObservableProperty]
+    private float _voiceConfidenceThreshold = 0.8f;
+
+    [ObservableProperty]
+    private bool _voiceFeedbackSounds = true;
+
+    [ObservableProperty]
+    private bool _voiceShowTranscript = true;
+
+    [ObservableProperty]
+    private int _voiceWhisperModelSizeIndex = 2; // Small
+
+    [ObservableProperty]
+    private string _voiceWhisperLanguage = "auto";
+
+    private static readonly string[] WhisperLanguageCodes = ["auto", "en", "nl", "de", "fr", "es", "it", "pt", "ja", "zh", "ko", "ru"];
+
+    public int VoiceWhisperLanguageIndex
+    {
+        get => Math.Max(0, Array.IndexOf(WhisperLanguageCodes, VoiceWhisperLanguage));
+        set
+        {
+            if (value >= 0 && value < WhisperLanguageCodes.Length)
+                VoiceWhisperLanguage = WhisperLanguageCodes[value];
+        }
+    }
+
     [ObservableProperty]
     private string _customCommand = "";
 
@@ -641,6 +672,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             InfoSound = config.Settings.Sounds.InfoSound;
             InputWaitingSound = config.Settings.Sounds.InputWaitingSound;
 
+            // Voice settings
+            VoiceEnabled = config.Settings.Voice.Enabled;
+            VoiceConfidenceThreshold = config.Settings.Voice.ConfidenceThreshold;
+            VoiceFeedbackSounds = config.Settings.Voice.FeedbackSounds;
+            VoiceShowTranscript = config.Settings.Voice.ShowTranscript;
+            VoiceWhisperModelSizeIndex = (int)config.Settings.Voice.WhisperModelSize;
+            VoiceWhisperLanguage = config.Settings.Voice.WhisperLanguage;
+
             // Terminal settings
             CustomCommand = config.Settings.CustomCommand;
             CustomCommandName = config.Settings.CustomCommandName;
@@ -746,6 +785,14 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Sounds.WarningSound = WarningSound;
             config.Settings.Sounds.InfoSound = InfoSound;
             config.Settings.Sounds.InputWaitingSound = InputWaitingSound;
+
+            // Voice settings
+            config.Settings.Voice.Enabled = VoiceEnabled;
+            config.Settings.Voice.ConfidenceThreshold = VoiceConfidenceThreshold;
+            config.Settings.Voice.FeedbackSounds = VoiceFeedbackSounds;
+            config.Settings.Voice.ShowTranscript = VoiceShowTranscript;
+            config.Settings.Voice.WhisperModelSize = (WhisperModelSize)VoiceWhisperModelSizeIndex;
+            config.Settings.Voice.WhisperLanguage = VoiceWhisperLanguage;
 
             // Terminal settings
             config.Settings.CustomCommand = CustomCommand;
@@ -893,6 +940,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnWarningSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnInfoSoundChanged(string value) => MarkDirtyFromRichMode();
     partial void OnInputWaitingSoundChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnVoiceEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceConfidenceThresholdChanged(float value) => MarkDirtyFromRichMode();
+    partial void OnVoiceFeedbackSoundsChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceShowTranscriptChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnVoiceWhisperModelSizeIndexChanged(int value) => MarkDirtyFromRichMode();
+    partial void OnVoiceWhisperLanguageChanged(string value) { OnPropertyChanged(nameof(VoiceWhisperLanguageIndex)); MarkDirtyFromRichMode(); }
     partial void OnCustomCommandChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandNameChanged(string value) => MarkDirtyFromRichMode();
     partial void OnCustomCommandIconChanged(string value) => MarkDirtyFromRichMode();

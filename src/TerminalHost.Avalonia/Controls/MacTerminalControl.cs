@@ -1544,7 +1544,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             Key.F1 => "\x1bOP",
             Key.F2 => "\x1bOQ",
             Key.F3 => "\x1bOR",
-            Key.F4 => "\x1bOS",
+            // F4 and F5 are reserved for app-level shortcuts (Voice Commands, Project Runner)
+            // and must not be consumed by the terminal so they can bubble up to MainWindow.
+            Key.F4 => null,
+            Key.F5 when !shift => null,
             Key.F5 => "\x1b[15~",
             Key.F6 => "\x1b[17~",
             Key.F7 => "\x1b[18~",

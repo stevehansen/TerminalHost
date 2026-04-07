@@ -438,6 +438,7 @@ public partial class MainViewModel : ObservableObject
 
         FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         InitializeCommandPalette(); // Initialize commands once
+        InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = _timerService.CreateTimer(
@@ -4059,6 +4060,75 @@ public partial class MainViewModel : ObservableObject
     }
 
     #region Voice Commands
+
+    /// <summary>
+    /// Build voice command grammar from palette commands and quick commands.
+    /// Curated aliases map common speech phrases to command IDs.
+    /// </summary>
+    private void InitializeVoiceGrammar()
+    {
+        if (_voiceCommandService is null) return;
+
+        var aliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["new-project"] = ["open project", "new project"],
+            ["close-tab"] = ["close tab"],
+            ["switch-terminal"] = ["switch terminal", "toggle terminal"],
+            ["settings"] = ["settings", "open settings"],
+            ["command-palette"] = ["command palette", "commands"],
+            ["git-changes"] = ["git changes", "git status", "show changes"],
+            ["git-branches"] = ["branches", "switch branch"],
+            ["git-history"] = ["commit history", "git log"],
+            ["git-stash"] = ["git stash", "stash"],
+            ["file-explorer"] = ["file explorer", "files"],
+            ["scratch-pad"] = ["scratch pad", "notes"],
+            ["help"] = ["help", "what can I say"],
+            ["dashboard"] = ["dashboard"],
+            ["pr-review"] = ["review PR", "PR review"],
+            ["run-start"] = ["run", "start project"],
+            ["run-stop"] = ["stop", "stop project"],
+            ["timeline"] = ["timeline"],
+            ["file-search"] = ["search", "find in files"],
+            ["markdown-preview"] = ["markdown preview"],
+            ["whats-new"] = ["what's new", "recent features"],
+            ["toggle-voice"] = ["voice commands", "toggle voice", "stop listening"]
+        };
+
+        var entries = new List<VoiceCommandEntry>();
+
+        foreach (var cmd in _allPaletteCommands)
+        {
+            aliases.TryGetValue(cmd.Id, out var cmdAliases);
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = cmd.Id,
+                DisplayName = cmd.Name,
+                Shortcut = cmd.Shortcut,
+                PrimaryPhrase = cmd.Name.ToLowerInvariant(),
+                Aliases = cmdAliases ?? [],
+                Execute = cmd.Execute,
+                Category = cmd.Category
+            });
+        }
+
+        // Add quick commands
+        var config = _configService.Load();
+        foreach (var qc in config.QuickCommands)
+        {
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = $"qc-{qc.Id}",
+                DisplayName = qc.Label,
+                Shortcut = qc.Shortcut,
+                PrimaryPhrase = qc.Label.ToLowerInvariant(),
+                Aliases = [],
+                Execute = () => ExecuteQuickCommand(qc),
+                Category = "Quick Command"
+            });
+        }
+
+        _voiceCommandService.UpdateGrammar(entries);
+    }
 
     /// <summary>
     /// Toggle voice listening on/off (F4 shortcut).

@@ -152,6 +152,21 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool IsWhisperEngine => VoiceSpeechEngineIndex == 1;
 
+    private static readonly string[] WhisperLanguageCodes = ["auto", "en", "nl", "de", "fr", "es", "it", "pt", "ja", "zh", "ko", "ru"];
+
+    /// <summary>
+    /// Index-based accessor for VoiceWhisperLanguage, for ComboBox binding on platforms without SelectedValuePath.
+    /// </summary>
+    public int VoiceWhisperLanguageIndex
+    {
+        get => Math.Max(0, Array.IndexOf(WhisperLanguageCodes, VoiceWhisperLanguage));
+        set
+        {
+            if (value >= 0 && value < WhisperLanguageCodes.Length)
+                VoiceWhisperLanguage = WhisperLanguageCodes[value];
+        }
+    }
+
     // Status Overlay settings
     [ObservableProperty]
     private bool _overlayAutoShowOnUnfocus;
@@ -882,7 +897,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnVoiceShowTranscriptChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnVoiceSpeechEngineIndexChanged(int value) { OnPropertyChanged(nameof(IsWhisperEngine)); MarkDirtyFromRichMode(); }
     partial void OnVoiceWhisperModelSizeIndexChanged(int value) => MarkDirtyFromRichMode();
-    partial void OnVoiceWhisperLanguageChanged(string value) => MarkDirtyFromRichMode();
+    partial void OnVoiceWhisperLanguageChanged(string value) { OnPropertyChanged(nameof(VoiceWhisperLanguageIndex)); MarkDirtyFromRichMode(); }
     partial void OnOverlayAutoShowOnUnfocusChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnOverlaySizeIndexChanged(int value) => MarkDirtyFromRichMode();
     partial void OnOverlayOpacityChanged(double value) => MarkDirtyFromRichMode();
