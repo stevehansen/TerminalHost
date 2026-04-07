@@ -1109,3 +1109,24 @@ public class TouchModeToMarginConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts a boolean (IsListening) to a tag string for animation selector.
+/// true = "Listening", false = null (allows animation to stop)
+/// </summary>
+public class BoolToListeningTagConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool isListening && isListening)
+        {
+            return "Listening";
+        }
+        return null;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

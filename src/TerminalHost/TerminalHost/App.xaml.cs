@@ -252,8 +252,9 @@ public partial class App : Application
     {
         // Services
         services.AddSingleton(_singleInstanceService!); // Register the already active instance
-        services.AddSingleton<IConfigurationService>(sp => 
+        services.AddSingleton<IConfigurationService>(sp =>
             new ConfigurationService(sp.GetRequiredService<IFileSystem>(), args.UserDataDir));
+        services.AddSingleton<ISystemInfoService, WindowsSystemInfoService>();
         services.AddSingleton<IStatisticsService, StatisticsService>();
         services.AddSingleton<ISystemTrayService, SystemTrayService>();
         services.AddSingleton<IDialogService, DialogService>();

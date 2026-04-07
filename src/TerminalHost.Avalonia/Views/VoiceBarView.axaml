@@ -1,0 +1,213 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:VoiceBarViewModel}"
+             IsVisible="{Binding IsVisible}"
+             x:Class="TerminalHost.Views.VoiceBarView">
+
+    <Border x:Name="BarBorder"
+            Background="#E8202020"
+            BorderBrush="{StaticResource AccentPrimaryBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Margin="80,6,80,0"
+            Padding="10,6"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Top"
+            BoxShadow="0 3 12 0 #66000000">
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!-- Icon -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Transcript text -->
+                <ColumnDefinition Width="*"/>
+                <!-- Arrow + matched command -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Countdown / actions -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Close button -->
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Status Icon (mic, hourglass, arrow, etc.) with pulse animation when listening -->
+            <TextBlock Grid.Column="0"
+                       x:Name="StatusIcon"
+                       Text="{Binding StatusIcon}"
+                       FontSize="16"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0">
+                <TextBlock.Styles>
+                    <Style Selector="TextBlock#StatusIcon">
+                        <Setter Property="Opacity" Value="1"/>
+                    </Style>
+                    <Style Selector="TextBlock#StatusIcon[Tag=Listening]">
+                        <Style.Animations>
+                            <Animation Duration="0:0:0.6" IterationCount="INFINITE" PlaybackDirection="Alternate">
+                                <KeyFrame Cue="0%">
+                                    <Setter Property="Opacity" Value="1.0"/>
+                                </KeyFrame>
+                                <KeyFrame Cue="100%">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                </KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+                    </Style>
+                </TextBlock.Styles>
+                <TextBlock.Tag>
+                    <Binding Path="IsListening" Converter="{StaticResource BoolToListeningTagConverter}"/>
+                </TextBlock.Tag>
+            </TextBlock>
+
+            <!-- Transcript Text -->
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Transcript}"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,8,0"/>
+
+            <!-- Matched Command (Preview state) -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding IsPreview}">
+                <TextBlock Text="&#x2192;"
+                           Foreground="{StaticResource TextDimmedBrush}"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding MatchedCommandName}"
+                           Foreground="{StaticResource SyntaxYellowBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding MatchedCommandShortcut}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"
+                           IsVisible="{Binding MatchedCommandShortcut, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+
+            <!-- Executed confirmation -->
+            <TextBlock Grid.Column="2"
+                       Text="{Binding MatchedCommandName}"
+                       Foreground="{StaticResource SyntaxGreenBrush}"
+                       FontWeight="SemiBold"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsExecuted}"/>
+
+            <!-- Alternatives (NoMatch state) -->
+            <ItemsControl Grid.Column="2"
+                          ItemsSource="{Binding Alternatives}"
+                          IsVisible="{Binding IsNoMatch}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Content="{Binding Command.DisplayName}"
+                                Command="{Binding $parent[UserControl].DataContext.SelectAlternativeCommand}"
+                                CommandParameter="{Binding}"
+                                FontSize="11"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                Background="{StaticResource BackgroundLightBrush}"
+                                BorderThickness="0"
+                                Padding="6,2"
+                                Margin="2,0"
+                                Cursor="Hand"
+                                CornerRadius="3"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Actions area -->
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+
+                <!-- Countdown display (Preview state) -->
+                <Grid IsVisible="{Binding ShowCountdown}"
+                      Margin="0,0,6,0"
+                      Width="60" Height="20">
+                    <!-- Background track -->
+                    <Border Background="{StaticResource BackgroundLightBrush}" CornerRadius="3"/>
+                    <!-- Shrinking progress bar -->
+                    <Border CornerRadius="3" HorizontalAlignment="Left"
+                            Width="{Binding CountdownWidth}">
+                        <Border.Background>
+                            <SolidColorBrush Color="#0078D4" Opacity="0.6"/>
+                        </Border.Background>
+                    </Border>
+                    <!-- Countdown number -->
+                    <TextBlock Text="{Binding CountdownRemaining, StringFormat={}{0}s}"
+                               Foreground="{StaticResource TextBrightBrush}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- Execute Now button (Preview state - skip countdown) -->
+                <Button Content="&#x2713;"
+                        Command="{Binding ExecuteNowCommand}"
+                        ToolTip.Tip="Execute now"
+                        IsVisible="{Binding IsPreview}"
+                        Foreground="{StaticResource SyntaxGreenBrush}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Cursor="Hand"
+                        Padding="4,0"
+                        Margin="0,0,2,0"
+                        CornerRadius="3"/>
+
+                <!-- Send to AI button (NoMatch state) -->
+                <Button Content="Send to AI"
+                        Command="{Binding SendToAiCommand}"
+                        ToolTip.Tip="Send transcript to AI terminal"
+                        IsVisible="{Binding ShowSendToAi}"
+                        Foreground="{StaticResource TextBrightBrush}"
+                        Background="{StaticResource AccentPrimaryBrush}"
+                        BorderThickness="0"
+                        FontSize="11"
+                        Cursor="Hand"
+                        Padding="8,3"
+                        Margin="0,0,4,0"
+                        CornerRadius="3">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover">
+                            <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                        </Style>
+                    </Button.Styles>
+                </Button>
+
+                <!-- Close / Cancel button -->
+                <Button Content="&#x2715;"
+                        Command="{Binding CancelCommand}"
+                        ToolTip.Tip="Cancel (Escape)"
+                        Foreground="{StaticResource TextMutedBrush}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        FontSize="12"
+                        Cursor="Hand"
+                        Padding="4,0"
+                        CornerRadius="3">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover">
+                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                        </Style>
+                    </Button.Styles>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+
+</UserControl>

@@ -34,10 +34,10 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 
 ## Voice, Audio & Spark Canvas
 
-| Feature             | Windows           | macOS                | Linux                      |
-| ------------------- | ----------------- | -------------------- | -------------------------- |
-| Voice commands (F4) | Y (System.Speech) | --                   | --                         |
-| Whisper engine      | Y (Whisper.net)   | --                   | --                         |
+| Feature             | Windows           | macOS                      | Linux                      |
+| ------------------- | ----------------- | -------------------------- | -------------------------- |
+| Voice commands (F4) | Y (System.Speech) | Y (Whisper.net + OpenAL)   | Y (Whisper.net + OpenAL)   |
+| Whisper engine      | Y (Whisper.net)   | Y (Whisper.net + CoreML)   | Y (Whisper.net)            |
 | Sound notifications | Y (System.Media)  | Y (afplay)           | Y (paplay/canberra)        |
 | Spark Canvas        | N/A (WPF-only)    | Y (embedded WebView) | Partial (browser fallback) |
 
@@ -52,14 +52,13 @@ Feature availability across Windows (WPF), macOS (Avalonia), and Linux (Avalonia
 | Platform | Dependencies                                                                                                                                    |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Windows  | `dwmapi.dll`, `user32.dll`, `gdi32.dll` (P/Invoke); EasyWindowsTerminalControl, System.Speech, NAudio, Whisper.net, Hardcodet.NotifyIcon.Wpf    |
-| macOS    | `/usr/lib/libobjc.dylib` (ObjC runtime for dock handler); PtySharp.macOS                                                                        |
-| Linux    | PtySharp.Linux; X11: libX11, libXi, libXcursor, libXrandr, libXext, libICE, libSM, libGL; font discovery via `fc-list`; Nix flake provides deps |
+| macOS    | `/usr/lib/libobjc.dylib` (ObjC runtime for dock handler); OpenAL.framework (built-in, for voice capture); PtySharp.macOS; Whisper.net.Runtime.CoreML |
+| Linux    | PtySharp.Linux; libopenal.so.1 (for voice capture); X11: libX11, libXi, libXcursor, libXrandr, libXext, libICE, libSM, libGL; font discovery via `fc-list`; Nix flake provides deps |
 
 ## Key Gaps for Linux
 
 ### Medium
 
-- **Voice commands** — no speech recognition on macOS or Linux; Whisper engine could be wired up cross-platform
 - **Spark Canvas in-app** — falls back to browser; no embedded WebView
 
 ### Low

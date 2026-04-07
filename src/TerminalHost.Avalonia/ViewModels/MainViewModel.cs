@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using ITimerService = TerminalHost.Services.ITimerService;
@@ -54,6 +55,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ISoundService? _soundService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
+    private readonly IVoiceCommandService? _voiceCommandService;
+    private readonly Core.Interfaces.ITimerService _coreTimerService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _gitAutoFetchTimer;
@@ -92,6 +95,11 @@ public partial class MainViewModel : ObservableObject
     /// The session manager for tracking terminal sessions.
     /// </summary>
     public ISessionManager SessionManager => _sessionManager;
+
+    /// <summary>
+    /// Voice command floating bar ViewModel.
+    /// </summary>
+    public VoiceBarViewModel VoiceBar { get; private set; } = null!;
 
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = [];
@@ -338,7 +346,9 @@ public partial class MainViewModel : ObservableObject
         IAiExecutionService? aiExecutionService = null,
         ISoundService? soundService = null,
         StatusOverlayService? statusOverlayService = null,
-        IContainerService? containerService = null)
+        IContainerService? containerService = null,
+        IVoiceCommandService? voiceCommandService = null,
+        Core.Interfaces.ITimerService? coreTimerService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -379,6 +389,23 @@ public partial class MainViewModel : ObservableObject
         _soundService = soundService;
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
+        _voiceCommandService = voiceCommandService;
+        _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
+
+        // Initialize voice command bar
+        VoiceBar = new VoiceBarViewModel(_coreTimerService);
+        VoiceBar.SendToAiRequested += OnVoiceSendToAi;
+        VoiceBar.StartListeningRequested += (_, _) => _voiceCommandService?.StartListening();
+        VoiceBar.StopListeningRequested += (_, _) => _voiceCommandService?.StopListening();
+        if (_voiceCommandService is not null)
+        {
+            _voiceCommandService.CommandRecognized += (_, e) => VoiceBar.OnRecognitionResult(e.Result);
+            _voiceCommandService.Error += (_, e) =>
+            {
+                _toastService.Show(e.Message, ToastType.Error);
+                if (e.IsFatal) VoiceBar.Cancel();
+            };
+        }
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -4030,6 +4057,44 @@ public partial class MainViewModel : ObservableObject
             tab.Pair.Dispose();
         }
     }
+
+    #region Voice Commands
+
+    /// <summary>
+    /// Toggle voice listening on/off (F4 shortcut).
+    /// </summary>
+    public void ToggleVoiceListening()
+    {
+        var settings = _configService.Load().Settings.Voice;
+        if (!settings.Enabled)
+        {
+            _toastService.Show("Voice commands are disabled. Enable them in Settings.", ToastType.Info);
+            return;
+        }
+        if (_voiceCommandService is null || !_voiceCommandService.IsAvailable)
+        {
+            _toastService.Show("Voice commands are not available on this system.", ToastType.Warning);
+            return;
+        }
+
+        if (VoiceBar.IsVisible)
+            VoiceBar.Cancel();
+        else
+            VoiceBar.StartListening();
+    }
+
+    /// <summary>
+    /// Handles the SendToAiRequested event from the voice bar.
+    /// Sends unmatched voice transcript to the active custom terminal.
+    /// </summary>
+    private void OnVoiceSendToAi(object? sender, string text)
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab) return;
+        tab.Pair.CustomTerminal.SendText(text, appendNewline: false, newlineChar: "\r", useUserInput: true);
+        tab.Pair.CustomTerminal.Focus();
+    }
+
+    #endregion
 }
 
 public class RunTerminalRequestedEventArgs : EventArgs

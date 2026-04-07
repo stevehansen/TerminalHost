@@ -162,7 +162,9 @@ public partial class App : Application
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IStatisticsService, TerminalHost.Core.Services.StatisticsService>();
-        services.AddSingleton<ITimerService, TimerService>();
+        services.AddSingleton<TimerService>(); // Concrete type for both interfaces
+        services.AddSingleton<ITimerService>(sp => sp.GetRequiredService<TimerService>());
+        services.AddSingleton<Core.Interfaces.ITimerService>(sp => sp.GetRequiredService<TimerService>());
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
         services.AddSingleton<IFilePickerService, FilePickerService>();
@@ -233,6 +235,12 @@ public partial class App : Application
 #elif LINUX
         services.AddSingleton<ISoundService, Linux.Services.LinuxSoundService>();
 #endif
+
+        // Voice Command Services (Whisper-based, cross-platform)
+        services.AddSingleton<IAudioCaptureService, Posix.Services.PosixAudioCaptureService>();
+        services.AddSingleton<TerminalHost.Core.Services.WhisperModelManager>();
+        services.AddSingleton<IVoiceCommandService, Posix.Services.PosixWhisperVoiceCommandService>();
+
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IHookInstaller, TerminalHost.Posix.Services.PosixHookInstaller>();

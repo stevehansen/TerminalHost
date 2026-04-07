@@ -12,4 +12,18 @@
     <ProjectReference Include="..\..\lib\PtySharp\PtySharp.Posix\PtySharp.Posix.csproj" />
   </ItemGroup>
 
+  <!-- Whisper.net for voice commands -->
+  <ItemGroup>
+    <PackageReference Include="Whisper.net" Version="1.9.0" />
+  </ItemGroup>
+
+  <!-- Platform-specific Whisper runtime -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PackageReference Include="Whisper.net.Runtime.CoreML" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
+  </ItemGroup>
+
 </Project>

@@ -1004,6 +1004,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Handle F4 for Voice Commands toggle
+        if (e.Key == Key.F4 && e.KeyModifiers == KeyModifiers.None)
+        {
+            _mainViewModel.ToggleVoiceListening();
+            e.Handled = true;
+            return;
+        }
+
         // Handle Escape - priority-based cascade (close one thing at a time)
         if (e.Key == Key.Escape)
         {
