@@ -36,7 +36,8 @@ public enum SettingsSection
     ApiWebhooks,
     Channels,
     Containers,
-    StatusOverlay
+    StatusOverlay,
+    Memory
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
@@ -54,6 +55,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IProcessService _processService;
     private readonly IClipboardService _clipboardService;
     private readonly IContainerService? _containerService;
+    private readonly ClaudeMdInstructionsService? _claudeMdService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -535,6 +537,28 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private ObservableCollection<ContainerInfo> _activeContainers = [];
 
+    // Memory settings (Eidet integration)
+    [ObservableProperty]
+    private bool _memoryEnabled;
+
+    [ObservableProperty]
+    private string _eidetUrl = "http://localhost:19380";
+
+    [ObservableProperty]
+    private string _memoryStatusText = "";
+
+    [ObservableProperty]
+    private bool _isTestingConnection;
+
+    [ObservableProperty]
+    private string _claudeMdStatus = "";
+
+    [ObservableProperty]
+    private string _claudeMdButtonText = "Install";
+
+    [ObservableProperty]
+    private bool _claudeMdCanRemove;
+
     // MCP Collab integration
     [ObservableProperty]
     private bool _mcpCollabInstalled;
@@ -579,7 +603,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
         IProcessService? processService = null, IClipboardService? clipboardService = null,
-        IContainerService? containerService = null)
+        IContainerService? containerService = null, IFileSystem? fileSystem = null)
     {
         _configService = configService;
         _dialogService = dialogService;
@@ -587,6 +611,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         _processService = processService!;
         _clipboardService = clipboardService!;
         _containerService = containerService;
+        _claudeMdService = fileSystem != null ? new ClaudeMdInstructionsService(fileSystem) : null;
         LoadSettings();
     }
 
@@ -715,6 +740,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             RefreshImageStatus();
             _ = RefreshContainersAsync();
 
+            // Memory settings (Eidet)
+            config.Settings.Memory.EnsureDefaults();
+            MemoryEnabled = config.Settings.Memory.Enabled;
+            EidetUrl = config.Settings.Memory.EidetUrl;
+            // MemoryStatusText is populated externally via UpdateMemoryStatus()
+            RefreshClaudeMdStatus();
+
             // Directory settings
             Directories = new ObservableCollection<string>(config.DirectorySettings.Keys.OrderBy(k => k));
             if (Directories.Count > 0 && SelectedDirectory == null)
@@ -820,6 +852,10 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Container.NetworkMode = ContainerNetworkMode;
             config.Settings.Container.StopContainersOnExit = ContainerStopOnExit;
             config.Settings.Container.ReferenceVolumes = ContainerReferenceVolumes.ToList();
+
+            // Memory settings (Eidet)
+            config.Settings.Memory.Enabled = MemoryEnabled;
+            config.Settings.Memory.EidetUrl = EidetUrl;
 
             // Directory settings (update current if selected)
             if (SelectedDirectory != null && CurrentDirectorySettings != null)
@@ -934,6 +970,131 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnContainerAutoApproveChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnContainerNetworkModeChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerStopOnExitChanged(bool value) => MarkDirtyFromRichMode();
+
+    /// <summary>Update the memory status display from EidetClientService.GetStatus().</summary>
+    public void UpdateMemoryStatus(MemoryStatus? status)
+    {
+        if (status == null)
+        {
+            MemoryStatusText = "";
+            return;
+        }
+
+        var parts = new List<string> { status.ConnectionStatus.ToString() };
+        if (!string.IsNullOrEmpty(status.Version))
+            parts.Add($"v{status.Version}");
+        if (status.DocumentCount > 0)
+            parts.Add($"{status.DocumentCount} docs");
+        if (status.ConnectedSince.HasValue)
+            parts.Add($"since {status.ConnectedSince.Value.ToLocalTime():HH:mm}");
+        if (!string.IsNullOrEmpty(status.ErrorMessage))
+            parts.Add($"Error: {status.ErrorMessage}");
+        MemoryStatusText = string.Join(" · ", parts);
+    }
+
+    /// <summary>Test connection to the configured Eidet URL.</summary>
+    [RelayCommand]
+    public async Task TestEidetConnectionAsync()
+    {
+        if (IsTestingConnection) return;
+        IsTestingConnection = true;
+        try
+        {
+            var result = await EidetClientService.TestConnectionAsync(EidetUrl);
+            if (result is { IsRunning: true })
+                MemoryStatusText = $"Connected · v{result.Version} · {result.DocumentCount} docs";
+            else
+                MemoryStatusText = "Connection failed — is Eidet running?";
+        }
+        catch (Exception ex)
+        {
+            MemoryStatusText = $"Connection failed: {ex.Message}";
+        }
+        finally
+        {
+            IsTestingConnection = false;
+        }
+    }
+
+    // Memory change handlers
+    partial void OnMemoryEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnEidetUrlChanged(string value) => MarkDirtyFromRichMode();
+
+    /// <summary>Refresh the CLAUDE.md instructions status display.</summary>
+    public void RefreshClaudeMdStatus()
+    {
+        if (_claudeMdService == null)
+        {
+            ClaudeMdStatus = "";
+            return;
+        }
+
+        try
+        {
+            var status = _claudeMdService.CheckStatus();
+            var path = ClaudeMdInstructionsService.GetClaudeMdPath();
+            switch (status)
+            {
+                case Services.ClaudeMdStatus.NotConfigured:
+                    ClaudeMdStatus = $"Not configured — {path}";
+                    ClaudeMdButtonText = "Install Instructions";
+                    ClaudeMdCanRemove = false;
+                    break;
+                case Services.ClaudeMdStatus.Configured:
+                    ClaudeMdStatus = $"Configured (up to date) — {path}";
+                    ClaudeMdButtonText = "Reinstall Instructions";
+                    ClaudeMdCanRemove = true;
+                    break;
+                case Services.ClaudeMdStatus.Outdated:
+                    ClaudeMdStatus = $"Outdated — update recommended — {path}";
+                    ClaudeMdButtonText = "Update Instructions";
+                    ClaudeMdCanRemove = true;
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ClaudeMdStatus = $"Error checking: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void InstallClaudeMdInstructions()
+    {
+        if (_claudeMdService == null) return;
+        try
+        {
+            _claudeMdService.InstallOrUpdate();
+            _toastService.Show("Memory instructions installed in CLAUDE.md", ToastType.Success);
+            RefreshClaudeMdStatus();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to update CLAUDE.md: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveClaudeMdInstructions()
+    {
+        if (_claudeMdService == null) return;
+        try
+        {
+            if (_claudeMdService.Remove())
+            {
+                _toastService.Show("Memory instructions removed from CLAUDE.md", ToastType.Success);
+            }
+            else
+            {
+                _toastService.Show("No memory instructions found in CLAUDE.md", ToastType.Info);
+            }
+            RefreshClaudeMdStatus();
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Failed to update CLAUDE.md: {ex.Message}", ToastType.Error);
+        }
+    }
 
     partial void OnSelectedReferenceVolumeChanged(ReferenceVolume? value)
     {

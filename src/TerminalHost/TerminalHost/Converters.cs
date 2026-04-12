@@ -273,6 +273,22 @@ public class NullOrEmptyToVisibleConverter : IValueConverter
 }
 
 /// <summary>
+/// Converts non-empty string to Visible, null/empty to Collapsed.
+/// </summary>
+public class NonEmptyStringToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
 /// Converts null to true, non-null to false.
 /// </summary>
 public class NullToBoolConverter : IValueConverter

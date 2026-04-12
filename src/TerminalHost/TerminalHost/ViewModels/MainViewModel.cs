@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -1251,6 +1252,11 @@ public partial class MainViewModel : ObservableObject
             UpdateRecentFolders(workingDirectory);
             _ = RefreshTabGitStatusAsync(tab);
             _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
+
+            // Memory: auto-intake for this project via Eidet
+            var eidet = App.Current?.Services?.GetService<EidetClientService>();
+            if (eidet != null)
+                _ = eidet.OnProjectOpenedAsync(workingDirectory);
         }
     }
 
@@ -1983,6 +1989,7 @@ public partial class MainViewModel : ObservableObject
         var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
         if (existingSettings != null)
         {
+            RefreshSettingsMemoryStatus(existingSettings);
             SelectedTab = existingSettings;
             return;
         }
@@ -1991,8 +1998,15 @@ public partial class MainViewModel : ObservableObject
         var settingsTab = _viewModelFactory.CreateSettings();
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
+        RefreshSettingsMemoryStatus(settingsTab);
         Tabs.Add(settingsTab);
         SelectedTab = settingsTab;
+    }
+
+    private static void RefreshSettingsMemoryStatus(SettingsTabViewModel settingsTab)
+    {
+        var eidet = App.Current?.Services?.GetService<EidetClientService>();
+        settingsTab.UpdateMemoryStatus(eidet?.GetStatus());
     }
 
     [RelayCommand]
@@ -2370,6 +2384,8 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? SessionsTreeRequested;
     public event EventHandler? TestRunnerRequested;
     public event EventHandler? WhatsNewRequested;
+    public event EventHandler? MemoryBrowserRequested;
+    public event EventHandler? DebugLogRequested;
     public event EventHandler<string>? AiPanelCommandRequested;
 
     /// <summary>
@@ -3061,6 +3077,45 @@ public partial class MainViewModel : ObservableObject
                 Category = "Tools",
                 IntroducedOn = new DateOnly(2026, 2, 5),
                 Execute = () => TestRunnerRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "memory-intake",
+                Name = "Memory: Run Intake",
+                Description = "Ingest CLAUDE.md, README, and other project sources into memory",
+                Icon = "🧠",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 4, 7),
+                Execute = () =>
+                {
+                    if (SelectedTab is TerminalPairTabViewModel tab)
+                    {
+                        var eidet = App.Current.Services.GetService<EidetClientService>();
+                        if (eidet != null)
+                            _ = eidet.RunIntakeAsync(tab.Pair.WorkingDirectory);
+                    }
+                },
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "memory-browser",
+                Name = "Memory Browser",
+                Description = "Browse and manage memory entries",
+                Shortcut = "Ctrl+Shift+M",
+                Icon = "🧠",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 4, 7),
+                Execute = () => MemoryBrowserRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "debug-log",
+                Name = "Debug Log",
+                Description = "Show diagnostic log for MCP, Memory, and Ollama",
+                Icon = "🐛",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 4, 8),
+                Execute = () => DebugLogRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 

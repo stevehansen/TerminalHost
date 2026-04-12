@@ -38,7 +38,8 @@ public enum SettingsSection
     ApiWebhooks,
     Channels,
     Containers,
-    StatusOverlay
+    StatusOverlay,
+    Memory
 }
 
 public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
@@ -556,6 +557,13 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private ContainerInfo? _selectedContainer;
 
+    // Memory settings (Eidet integration)
+    [ObservableProperty]
+    private bool _memoryEnabled;
+
+    [ObservableProperty]
+    private string _eidetUrl = "http://localhost:19380";
+
     // MCP Collab integration
     [ObservableProperty]
     private bool _mcpCollabInstalled;
@@ -739,6 +747,11 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             ContainerReferenceVolumes = new ObservableCollection<ReferenceVolume>(config.Settings.Container.ReferenceVolumes);
             _ = RefreshContainersAsync();
 
+            // Memory settings (Eidet)
+            config.Settings.Memory.EnsureDefaults();
+            MemoryEnabled = config.Settings.Memory.Enabled;
+            EidetUrl = config.Settings.Memory.EidetUrl;
+
             // Status Overlay settings
             OverlayAutoShowOnUnfocus = config.Settings.StatusOverlay.AutoShowOnUnfocus;
             OverlaySizeIndex = (int)config.Settings.StatusOverlay.Size;
@@ -852,6 +865,10 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             config.Settings.Container.NetworkMode = ContainerNetworkMode;
             config.Settings.Container.StopContainersOnExit = ContainerStopOnExit;
             config.Settings.Container.ReferenceVolumes = ContainerReferenceVolumes.ToList();
+
+            // Memory settings (Eidet)
+            config.Settings.Memory.Enabled = MemoryEnabled;
+            config.Settings.Memory.EidetUrl = EidetUrl;
 
             // Status Overlay settings
             config.Settings.StatusOverlay.AutoShowOnUnfocus = OverlayAutoShowOnUnfocus;
@@ -979,6 +996,10 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnContainerAutoApproveChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnContainerNetworkModeChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerStopOnExitChanged(bool value) => MarkDirtyFromRichMode();
+
+    // Memory change handlers
+    partial void OnMemoryEnabledChanged(bool value) => MarkDirtyFromRichMode();
+    partial void OnEidetUrlChanged(string value) => MarkDirtyFromRichMode();
 
     partial void OnSelectedReferenceVolumeChanged(ReferenceVolume? value)
     {

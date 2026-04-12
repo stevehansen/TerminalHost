@@ -45,6 +45,7 @@ public sealed class ConfigurationService : IConfigurationService
             config.Profiles.Add(CreateDefaultPowerShellProfile());
             Save(config); // Save after adding the default profile
         }
+        config.Settings.Memory.EnsureDefaults();
         return config;
     }
 

@@ -80,6 +80,14 @@ public class McpInitializeResult
 
     [JsonPropertyName("serverInfo")]
     public McpServerInfo ServerInfo { get; set; } = new();
+
+    /// <summary>
+    /// Server instructions injected into the client's system prompt.
+    /// Used to provide memory context at session start.
+    /// </summary>
+    [JsonPropertyName("instructions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Instructions { get; set; }
 }
 
 public class McpCapabilities

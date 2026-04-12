@@ -47,6 +47,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
 | `Ctrl+Shift+B` | Sessions tree panel | Project tab | Right sidebar panel — active sessions and subagents with live activity and context usage |
+| `Ctrl+Shift+M` | Memory Browser | Project tab | Center panel — browse, search, manage memories |
 | `F4` | Toggle voice commands | Global | Start/stop voice listening |
 | `Ctrl+Shift+Y` | Toggle status overlay | Global | Floating activity indicator |
 | `Ctrl+Shift+V` | Open Spark Canvas window | Global | Standalone visualization window |
@@ -206,7 +207,7 @@ These shortcuts are reserved by the system or have special meaning:
 ### Unused Ctrl+Shift+Key combinations:
 - `Ctrl+Shift+A` - Available
 - `Ctrl+Shift+J` - Available
-- `Ctrl+Shift+M` - Available (freed from Quick Note removal)
+- `Ctrl+Shift+M` - Memory Browser (center panel)
 - `Ctrl+Shift+Q` - Available (freed from Quick Task removal)
 - `Ctrl+Shift+W` - Available
 - `Ctrl+Shift+X` - Available
@@ -270,4 +271,4 @@ src/TerminalHost/TerminalHost/ViewModels/HelpViewModel.cs
 
 ---
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-04-07*

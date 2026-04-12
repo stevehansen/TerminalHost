@@ -26,6 +26,7 @@
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <local:NullToVisibleConverter x:Key="NullToVisibleConverter"/>
         <local:NullOrEmptyToVisibleConverter x:Key="NullOrEmptyToVisibleConverter"/>
+        <local:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibilityConverter"/>
         <local:NullToBoolConverter x:Key="NullToBoolConverter"/>
         <local:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>

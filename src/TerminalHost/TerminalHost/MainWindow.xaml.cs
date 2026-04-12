@@ -46,6 +46,8 @@ public partial class MainWindow : Window
     private readonly BranchComparisonViewModel _branchComparisonViewModel;
     private readonly UnifiedGitPanelViewModel _unifiedGitPanelViewModel;
     private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
+    private readonly MemoryBrowserViewModel _memoryBrowserViewModel;
+    private readonly DebugLogViewModel _debugLogViewModel;
     private readonly MergeConflictViewModel _mergeConflictViewModel;
     private readonly RecentFeaturesViewModel _recentFeaturesViewModel;
     private readonly SessionsTreePanelViewModel _sessionsTreePanelViewModel;
@@ -63,7 +65,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -90,6 +92,8 @@ public partial class MainWindow : Window
         _branchComparisonViewModel = branchComparisonViewModel;
         _unifiedGitPanelViewModel = unifiedGitPanelViewModel;
         _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
+        _memoryBrowserViewModel = memoryBrowserViewModel;
+        _debugLogViewModel = debugLogViewModel;
         _mergeConflictViewModel = mergeConflictViewModel;
         _recentFeaturesViewModel = recentFeaturesViewModel;
         _sessionsTreePanelViewModel = sessionsTreePanelViewModel;
@@ -128,6 +132,8 @@ public partial class MainWindow : Window
         _testResultsViewModel.ShowRequested += OnPanelShowRequested;
         _detectedLinksViewModel.ShowRequested += OnPanelShowRequested;
         _claudeTasksPanelViewModel.ShowRequested += OnPanelShowRequested;
+        _memoryBrowserViewModel.ShowRequested += OnPanelShowRequested;
+        _debugLogViewModel.ShowRequested += OnPanelShowRequested;
         _mergeConflictViewModel.ShowRequested += OnPanelShowRequested;
         _sessionsTreePanelViewModel.ShowRequested += OnPanelShowRequested;
 
@@ -189,6 +195,8 @@ public partial class MainWindow : Window
         _viewModel.SessionsTreeRequested += OnSessionsTreeRequested;
         _viewModel.TestRunnerRequested += OnTestRunnerRequested;
         _viewModel.WhatsNewRequested += OnWhatsNewRequested;
+        _viewModel.MemoryBrowserRequested += OnMemoryBrowserRequested;
+        _viewModel.DebugLogRequested += OnDebugLogRequested;
         _viewModel.AiPanelCommandRequested += OnAiPanelCommandRequested;
         _recentFeaturesViewModel.ShowRequested += OnPanelShowRequested;
 
@@ -227,6 +235,16 @@ public partial class MainWindow : Window
         // Refresh sound service cached settings
         if (_soundService is SoundService soundService)
             soundService.RefreshCachedSettings(config.Settings.Sounds);
+
+        // Eidet memory: connect/disconnect based on enabled setting
+        var eidet = App.Current.Services.GetService<EidetClientService>();
+        if (eidet != null)
+        {
+            _ = eidet.OnSettingsChangedAsync();
+            // Update ApiServer's Eidet client reference
+            var apiServer = App.Current.Services.GetService<ApiServer>();
+            apiServer?.SetEidetClient(eidet.Client);
+        }
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -939,6 +957,12 @@ public partial class MainWindow : Window
                 _dialogService.ShowInfo("Please select a project tab first.", "Search");
             }
         }
+        // Ctrl+Shift+M: Open Memory Browser (center panel)
+        else if (e.Key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            OnMemoryBrowserRequested(this, EventArgs.Empty);
+        }
         // Ctrl+B: Open unified Git panel on Branches tab
         else if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -1265,7 +1289,7 @@ public partial class MainWindow : Window
     {
         "unifiedGit" or "branchComparison" or "searchFiles" or "markdownPreview"
             or "fileViewer" or "prReview" or "testResults" or "recentFeatures"
-            or "mergeConflict" or "fileHistory" or "fileBlame" => true,
+            or "mergeConflict" or "fileHistory" or "fileBlame" or "debugLog" => true,
         _ => false
     };
 
@@ -1601,6 +1625,40 @@ public partial class MainWindow : Window
             {
                 await _searchAcrossFilesViewModel.OpenAsync(terminalTab);
                 terminalTab.ShowCenterPanel(_searchAcrossFilesViewModel);
+            }
+        }
+    }
+
+    private async void OnMemoryBrowserRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.SetPanel(_memoryBrowserViewModel);
+            if (_memoryBrowserViewModel.IsOpen && terminalTab.ActiveCenterPanel == _memoryBrowserViewModel)
+            {
+                terminalTab.CloseCenterPanel();
+            }
+            else
+            {
+                await _memoryBrowserViewModel.OpenAsync(terminalTab);
+                terminalTab.ShowCenterPanel(_memoryBrowserViewModel);
+            }
+        }
+    }
+
+    private void OnDebugLogRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel terminalTab)
+        {
+            terminalTab.SetPanel(_debugLogViewModel);
+            if (_debugLogViewModel.IsOpen && terminalTab.ActiveCenterPanel == _debugLogViewModel)
+            {
+                terminalTab.CloseCenterPanel();
+            }
+            else
+            {
+                _debugLogViewModel.Open();
+                terminalTab.ShowCenterPanel(_debugLogViewModel);
             }
         }
     }

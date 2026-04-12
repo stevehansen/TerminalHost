@@ -31,6 +31,7 @@ internal static class Program
     private static string? _apiKey;
     private static string _eventFilters = "*";
     private static string? _mcpSessionId;
+    private static string? _workingDir;
 
     static async Task Main(string[] args)
     {
@@ -38,9 +39,10 @@ internal static class Program
         _apiUrl = Environment.GetEnvironmentVariable("TERMINALHOST_API_URL") ?? _apiUrl;
         _apiKey = Environment.GetEnvironmentVariable("TERMINALHOST_API_KEY");
         _eventFilters = Environment.GetEnvironmentVariable("TERMINALHOST_EVENTS") ?? _eventFilters;
+        _workingDir = Environment.CurrentDirectory;
 
         Log("Starting terminalhost-channel bridge");
-        Log($"API: {_apiUrl}, Events: {_eventFilters}");
+        Log($"API: {_apiUrl}, Events: {_eventFilters}, CWD: {_workingDir}");
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -80,8 +82,12 @@ internal static class Program
 
                 if (request.Method == "initialize")
                 {
-                    // Handle initialize locally — inject channel capability
+                    // Respond locally with channel capability
                     HandleInitialize(request);
+                    // Also forward to server so it registers the session + working directory
+                    // (needed for memory tools to resolve the correct RepoId).
+                    // Await to ensure session is registered before any tool calls arrive.
+                    await ForwardToHttpAsync(line);
                     continue;
                 }
 
@@ -165,6 +171,9 @@ You also have access to TerminalHost's collaboration tools (topics, messages, fi
 
             if (!string.IsNullOrEmpty(_mcpSessionId))
                 request.Headers.Add("Mcp-Session-Id", _mcpSessionId);
+
+            if (!string.IsNullOrEmpty(_workingDir))
+                request.Headers.Add("X-Working-Dir", _workingDir);
 
             var response = await Http.SendAsync(request);
             var body = await response.Content.ReadAsStringAsync();

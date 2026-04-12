@@ -93,4 +93,14 @@
         <views:SessionsTreeContentView/>
     </DataTemplate>
 
+    <!-- DataTemplate for MemoryBrowserViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:MemoryBrowserViewModel}">
+        <views:MemoryBrowserContentView/>
+    </DataTemplate>
+
+    <!-- DataTemplate for DebugLogViewModel (center panel) -->
+    <DataTemplate DataType="{x:Type vm:DebugLogViewModel}">
+        <views:DebugLogContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

@@ -40,6 +40,7 @@ public class ApiServer : IApiServer
     private readonly ISessionActivityService? _sessionActivityService;
     private readonly ISessionArchiveService? _sessionArchiveService;
     private readonly ICollabService? _collabService;
+    private EidetClient? _eidetClient;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -81,6 +82,14 @@ public class ApiServer : IApiServer
     {
         _cachedConfig = _configService.Load();
         _cachedApiSettings = _cachedConfig.Settings.Api;
+    }
+
+    /// <summary>
+    /// Set or replace the Eidet client (called by EidetClientService on connect/disconnect).
+    /// </summary>
+    public void SetEidetClient(EidetClient? client)
+    {
+        _eidetClient = client;
     }
 
     public int ActiveSseConnections
@@ -322,6 +331,8 @@ public class ApiServer : IApiServer
                 await HandleHookAsync(response, request, path["/api/hooks/".Length..]);
                 return;
             }
+            // Memory write operations go through Eidet directly — not proxied here.
+            // Only read-only endpoints (context, search, stats, layers) are proxied for UI.
 
             if (method != "GET")
             {
@@ -365,6 +376,14 @@ public class ApiServer : IApiServer
                 await HandleCollabTopicsAsync(response);
             else if (path == "/api/collab/sessions")
                 await HandleCollabSessionsAsync(response);
+            else if (path == "/api/memory/context")
+                await HandleMemoryProxyAsync(response, request, "/api/eidet/context");
+            else if (path == "/api/memory/search")
+                await HandleMemoryProxyAsync(response, request, "/api/eidet/search");
+            else if (path == "/api/memory/stats")
+                await HandleMemoryProxyAsync(response, request, "/api/eidet/stats");
+            else if (path == "/api/memory/layers")
+                await HandleMemoryProxyAsync(response, request, "/api/eidet/layers");
             else if (path == "/api/events")
             {
                 if (apiSettings.EnableSse)
@@ -1070,23 +1089,13 @@ public class ApiServer : IApiServer
 
     /// <summary>
     /// Creates a stable, URL-safe identifier from a filesystem path.
-    /// Lowercased, backslashes replaced with forward slashes, trimmed, then
-    /// path separators replaced with dashes and drive colons removed.
-    /// Example: "P:\TerminalHost" → "p-terminalhost"
+    /// Uses the same encoding as Claude Code's project path format.
+    /// Example: "P:\TerminalHost" → "P--TerminalHost"
     /// </summary>
     public static string NormalizePathId(string path)
     {
         if (string.IsNullOrEmpty(path)) return "";
-        var normalized = path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
-        // Remove drive letter colon (e.g., "p:" → "p")
-        normalized = normalized.Replace(":", "");
-        // Replace slashes with dashes
-        normalized = normalized.Replace('/', '-');
-        // Collapse multiple dashes
-        while (normalized.Contains("--"))
-            normalized = normalized.Replace("--", "-");
-        // Trim leading/trailing dashes
-        return normalized.Trim('-');
+        return RepoIdNormalizer.Normalize(path);
     }
 
     #endregion
@@ -1109,7 +1118,8 @@ public class ApiServer : IApiServer
 
         var sessionHint = request.Headers["X-Session"]; // null if not provided (global config)
         var mcpSessionId = request.Headers["Mcp-Session-Id"]; // null on first request
-        var result = await _mcpHandler.HandleRequestAsync(body, sessionHint, mcpSessionId, ct);
+        var workingDirHint = request.Headers["X-Working-Dir"]; // fallback for working directory (from Channel bridge)
+        var result = await _mcpHandler.HandleRequestAsync(body, sessionHint, mcpSessionId, workingDirHint, ct);
 
         // Set Mcp-Session-Id header if assigned
         if (!string.IsNullOrEmpty(result.McpSessionId))
@@ -1686,7 +1696,7 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
             // file:// origins send "null" — respond with "*" since "null" isn't a valid ACAO value
             response.Headers.Add("Access-Control-Allow-Origin", origin == "null" ? "*" : origin);
             response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Session, Mcp-Session-Id");
+            response.Headers.Add("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Session, Mcp-Session-Id, X-Working-Dir");
             response.Headers.Add("Access-Control-Expose-Headers", "Mcp-Session-Id");
             response.Headers.Add("Access-Control-Max-Age", "86400");
         }
@@ -1791,12 +1801,62 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
 
     private record ClipboardTextPayload(string? Text);
 
+    // --- Memory endpoints (thin proxy to Eidet) ---
+
+    /// <summary>
+    /// Proxy a read-only memory endpoint to Eidet.
+    /// Maps TerminalHost /api/memory/* → Eidet /api/eidet/*.
+    /// Query parameters (repo, q, type, limit) are forwarded as repoId etc.
+    /// </summary>
+    private async Task HandleMemoryProxyAsync(HttpListenerResponse response, HttpListenerRequest request, string eidetPath)
+    {
+        if (_eidetClient == null)
+        {
+            await WriteJsonError(response, 503, "SERVICE_UNAVAILABLE", "Eidet memory service not connected.");
+            return;
+        }
+
+        try
+        {
+            // Build Eidet query string, remapping "repo" → "repoId" and "q" → "query"
+            var qs = new List<string>();
+            foreach (string? key in request.QueryString.AllKeys)
+            {
+                if (key == null) continue;
+                var value = request.QueryString[key] ?? "";
+                var eidetKey = key switch
+                {
+                    "repo" => "repoId",
+                    "q" => "query",
+                    _ => key
+                };
+                qs.Add($"{Uri.EscapeDataString(eidetKey)}={Uri.EscapeDataString(value)}");
+            }
+
+            var url = qs.Count > 0 ? $"{eidetPath}?{string.Join("&", qs)}" : eidetPath;
+            var (statusCode, body, contentType) = await _eidetClient.ProxyGetAsync(url);
+
+            response.ContentType = contentType;
+            response.StatusCode = statusCode;
+            var bytes = Encoding.UTF8.GetBytes(body);
+            response.ContentLength64 = bytes.Length;
+            await response.OutputStream.WriteAsync(bytes);
+        }
+        catch (Exception ex)
+        {
+            await WriteJsonError(response, 502, "BAD_GATEWAY", $"Eidet proxy failed: {ex.Message}");
+        }
+    }
+
+    // Write operations (store, forget, links, bundles) go through Eidet's MCP tools
+    // or directly to Eidet's REST API — not through TerminalHost.
+
     #endregion
 
-    private static async Task WriteJson(HttpListenerResponse response, object data)
+    private static async Task WriteJson(HttpListenerResponse response, object data, int statusCode = 200)
     {
         response.ContentType = "application/json";
-        response.StatusCode = 200;
+        response.StatusCode = statusCode;
         var json = JsonSerializer.Serialize(data, JsonOptions);
         var bytes = Encoding.UTF8.GetBytes(json);
         response.ContentLength64 = bytes.Length;

@@ -326,11 +326,11 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     }
 
     /// <summary>
-    /// Ensures the user's global Claude settings (~/.claude/settings.json) has an HTTP-based
+    /// Ensures the user's global Claude config (~/.claude.json) has an HTTP-based
     /// terminalhost-collab entry that any MCP-capable AI agent can use.
-    /// Uses MCP Streamable HTTP transport (url-based), which is the universal format supported by
+    /// Uses MCP Streamable HTTP transport (type: http), which is the universal format supported by
     /// Claude Code, Gemini CLI, Codex CLI, and other modern AI agents.
-    /// Uses global settings instead of per-project .mcp.json to avoid polluting every workspace.
+    /// Uses global config instead of per-project .mcp.json to avoid polluting every workspace.
     /// </summary>
     private void EnsureMcpCollabRegistered(string workingDir)
     {
@@ -356,6 +356,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
             // HTTP transport entry — works with any agent that supports MCP Streamable HTTP
             var serverEntry = new Dictionary<string, object>
             {
+                ["type"] = "http",
                 ["url"] = mcpUrl
             };
 
@@ -379,7 +380,8 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     }
 
     /// <summary>
-    /// Returns the path to ~/.claude/settings.json, or null if the directory doesn't exist.
+    /// Returns the path to ~/.claude.json (the global Claude Code config file).
+    /// Returns null if ~/.claude/ directory doesn't exist (Claude not installed).
     /// </summary>
     private string? GetClaudeSettingsPath()
     {
@@ -387,7 +389,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         var claudeDir = Path.Combine(home, ".claude");
         if (!Directory.Exists(claudeDir))
             return null;
-        return Path.Combine(claudeDir, "settings.json");
+        return Path.Combine(home, ".claude.json");
     }
 
     /// <summary>

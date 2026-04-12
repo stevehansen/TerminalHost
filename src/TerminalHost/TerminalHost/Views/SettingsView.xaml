@@ -390,6 +390,10 @@
                                  GroupName="SettingsSection"
                                  Style="{StaticResource SidebarItemButton}"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Containers}"/>
+                    <RadioButton Content="Memory"
+                                 GroupName="SettingsSection"
+                                 Style="{StaticResource SidebarItemButton}"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Memory}"/>
                 </StackPanel>
             </Border>
 
@@ -3035,6 +3039,42 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                    </StackPanel>
+
+                    <!-- Memory Settings Section -->
+                    <StackPanel Margin="24"
+                                Visibility="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Memory}">
+                        <TextBlock Text="Agentic Long-Term Memory (Eidet)" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Integration with Eidet — a standalone local-first memory service for AI coding agents. Eidet runs as a system service and provides MCP memory tools directly to AI clients. All memory-specific settings are managed by Eidet (run 'eidet setup' to configure)."
+                                   Style="{StaticResource SectionDescription}" Margin="0,0,0,16"/>
+
+                        <!-- Enable -->
+                        <CheckBox Content="Enable Eidet Memory"
+                                  IsChecked="{Binding MemoryEnabled}"
+                                  Style="{StaticResource FormCheckBox}" Margin="0,0,0,4"/>
+
+                        <!-- Status display -->
+                        <TextBlock Text="{Binding MemoryStatusText}"
+                                   Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"
+                                   Margin="0,0,0,12"
+                                   Visibility="{Binding MemoryStatusText, Converter={StaticResource NonEmptyStringToVisibilityConverter}}"/>
+
+                        <!-- Eidet URL -->
+                        <TextBlock Text="EIDET URL" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EidetUrl, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBox}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Eidet service URL. Default: http://localhost:19380" Style="{StaticResource HelpText}" Margin="0,0,0,12"/>
+
+                        <!-- Test Connection -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button Content="Test Connection"
+                                    Command="{Binding TestEidetConnectionCommand}"
+                                    Style="{StaticResource SettingsToolbarButton}"
+                                    Padding="12,6" Margin="0,0,8,0"
+                                    IsEnabled="{Binding IsTestingConnection, Converter={StaticResource InverseBoolConverter}}"/>
+                        </StackPanel>
+
+                        <!-- CLAUDE.md instructions are managed by Eidet directly (eidet install) -->
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

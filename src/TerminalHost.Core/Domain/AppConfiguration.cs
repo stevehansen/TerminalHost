@@ -704,6 +704,12 @@ public class AppSettings
     [JsonPropertyName("container")]
     public ContainerSettings Container { get; set; } = new();
 
+    /// <summary>
+    /// Agentic long-term memory settings (RavenDB-backed).
+    /// </summary>
+    [JsonPropertyName("memory")]
+    public MemorySettings Memory { get; set; } = new();
+
     private static List<string> GetDefaultKeyBranches() =>
     [
         "main",

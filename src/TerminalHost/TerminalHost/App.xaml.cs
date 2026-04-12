@@ -226,6 +226,7 @@ public partial class App : Application
 
         // Auto-start API server if enabled
         _ = AutoStartApiServerAsync();
+        _ = AutoConnectMemoryAsync();
     }
 
     private async Task AutoStartApiServerAsync()
@@ -245,6 +246,29 @@ public partial class App : Application
         {
             Debug.WriteLine($"Failed to auto-start API server: {ex.Message}");
             _services?.GetService<IToastService>()?.Show($"API server failed to start: {ex.Message}", ToastType.Error);
+        }
+    }
+
+    private async Task AutoConnectMemoryAsync()
+    {
+        try
+        {
+            if (_services == null) return;
+            var eidet = _services.GetRequiredService<EidetClientService>();
+
+            // Pass currently-open project paths so intake runs for restored tabs
+            var config = _services.GetRequiredService<IConfigurationService>().Load();
+            var openPaths = config.OpenFolders.ToList();
+
+            await eidet.TryConnectAsync(openPaths);
+
+            // Wire the EidetClient into ApiServer for proxy endpoints
+            var apiServer = _services.GetRequiredService<ApiServer>();
+            apiServer.SetEidetClient(eidet.Client);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Eidet memory init failed: {ex.Message}");
         }
     }
 
@@ -308,9 +332,12 @@ public partial class App : Application
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddSingleton<ICollabService, CollabService>();
         services.AddSingleton<McpHandler>();
-        services.AddSingleton<IApiServer, ApiServer>();
+        services.AddSingleton<ApiServer>();
+        services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
+        services.AddSingleton<EidetClientService>();
         services.AddSingleton<IClipboardService, TerminalHost.Windows.Services.ClipboardService>();
         services.AddSingleton<IToastService, ToastService>();
+        services.AddSingleton<IDebugLogService, DebugLogService>();
         services.AddSingleton<StatusOverlayService>();
         services.AddSingleton<IContainerService, ContainerService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
@@ -346,6 +373,8 @@ public partial class App : Application
         services.AddSingleton<BranchComparisonViewModel>();
         services.AddSingleton<UnifiedGitPanelViewModel>();
         services.AddSingleton<ClaudeTasksPanelViewModel>();
+        services.AddSingleton<MemoryBrowserViewModel>();
+        services.AddSingleton<DebugLogViewModel>();
         services.AddSingleton<MergeConflictViewModel>();
         services.AddSingleton<RecentFeaturesViewModel>();
         services.AddSingleton<SessionsTreePanelViewModel>();

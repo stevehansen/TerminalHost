@@ -539,10 +539,12 @@ public class ContainerService : IContainerService
 
         if (_fileSystem.DirectoryExists(claudeDir))
             args.Append($" -v \"{claudeDir}:{ContainerHome}/.claude\"");
+
         if (_fileSystem.FileExists(claudeJson))
         {
-            // Generate overlay with localhost → host.docker.internal for MCP server URLs
-            var containerClaudeJson = GenerateContainerClaudeJson(claudeJson);
+            // Generate overlay with localhost → host.docker.internal for MCP server URLs,
+            // and convert eidet stdio MCP to HTTP (host binary can't run in container)
+            var containerClaudeJson = GenerateContainerClaudeJson(claudeJson, workspaceDir);
             args.Append($" -v \"{containerClaudeJson ?? claudeJson}:{ContainerHome}/.claude.json\"");
         }
 
@@ -932,9 +934,10 @@ public class ContainerService : IContainerService
 
     /// <summary>
     /// Generates a container-specific .claude.json overlay that replaces localhost URLs
-    /// with host.docker.internal so MCP servers and other services resolve correctly.
+    /// with host.docker.internal, converts Windows paths, and converts stdio MCP servers
+    /// (like eidet) to HTTP-based entries since host binaries can't run in the container.
     /// </summary>
-    private string? GenerateContainerClaudeJson(string hostClaudeJsonPath)
+    private string? GenerateContainerClaudeJson(string hostClaudeJsonPath, string workspaceDir)
     {
         try
         {
@@ -951,15 +954,22 @@ public class ContainerService : IContainerService
                 .Replace("https://localhost:", "https://host.docker.internal:")
                 .Replace("https://127.0.0.1:", "https://host.docker.internal:");
 
-            // Also convert Windows paths in the JSON (e.g., command paths for stdio MCP servers)
+            // Parse JSON for structural transformations
             var node = System.Text.Json.Nodes.JsonNode.Parse(converted);
             if (node != null)
             {
+                // Convert eidet stdio MCP entry → HTTP URL entry
+                // The host's eidet dotnet tool can't run in the container, but
+                // the Eidet service on the host exposes MCP at POST /mcp
+                ConvertEidetMcpToHttp(node, workspaceDir);
+
+                // Convert Windows paths for other stdio MCP servers
                 ConvertWindowsPathsInJson(node);
                 converted = node.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             }
 
-            var overlayPath = Path.Combine(containerDir, "claude.json");
+            var folderName = Path.GetFileName(workspaceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var overlayPath = Path.Combine(containerDir, $"claude-{folderName}.json");
             _fileSystem.WriteAllText(overlayPath, converted);
             return overlayPath;
         }
@@ -1015,6 +1025,37 @@ public class ContainerService : IContainerService
             // Don't fail container creation over plugin path conversion
         }
         return overlays;
+    }
+
+    /// <summary>
+    /// Converts eidet stdio MCP entry to HTTP URL entry in the JSON tree.
+    /// The host's eidet dotnet tool can't run in the container, but the Eidet service exposes
+    /// MCP at POST /mcp. The repo query parameter carries the host path's repoId
+    /// so memories land in the correct repo regardless of the container mount path.
+    /// </summary>
+    private void ConvertEidetMcpToHttp(System.Text.Json.Nodes.JsonNode root, string workspaceDir)
+    {
+        var servers = root["mcpServers"]?.AsObject();
+        if (servers is null || !servers.ContainsKey("eidet")) return;
+
+        var eidetEntry = servers["eidet"]?.AsObject();
+        if (eidetEntry is null || !eidetEntry.ContainsKey("command")) return;
+
+        // It's a stdio entry — convert to HTTP
+        var config = _configService.Load();
+        var eidetUrl = config.Settings.Memory.EidetUrl.TrimEnd('/');
+        var hostUrl = eidetUrl
+            .Replace("http://localhost:", "http://host.docker.internal:")
+            .Replace("http://127.0.0.1:", "http://host.docker.internal:");
+
+        var repoId = RepoIdNormalizer.Normalize(workspaceDir);
+
+        servers.Remove("eidet");
+        servers["eidet"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["type"] = "http",
+            ["url"] = $"{hostUrl}/mcp?repo={Uri.EscapeDataString(repoId)}",
+        };
     }
 
     /// <summary>
@@ -1364,6 +1405,7 @@ public class ContainerService : IContainerService
 
         # .NET global tools
         RUN dotnet tool install --global HC.Dev \
+            && dotnet tool install --global HC.SafeCommands \
             && dotnet tool install --global dotnet-outdated-tool \
             && dotnet tool install --global SqlInliner \
             && dotnet tool install --global AsicSharp.Cli
