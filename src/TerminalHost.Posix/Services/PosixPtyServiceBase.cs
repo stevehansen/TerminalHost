@@ -5,8 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PtySharp.Core;
-using PtySharp.Posix;
+using PtySharp;
 using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Posix.Services;
@@ -16,7 +15,7 @@ namespace TerminalHost.Posix.Services;
 /// </summary>
 public readonly record struct PtyStartArgs(
     string Executable,
-    string? Arguments,
+    string[]? Arguments,
     string WorkingDirectory,
     Dictionary<string, string> Environment,
     ushort Rows,
@@ -269,13 +268,13 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
     /// Splits a command string into executable and arguments, resolving
     /// the executable against PATH. Falls back to DefaultShell when no command is given.
     /// </summary>
-    private (string executable, string? args) GetCommandAndArgs(string? command)
+    private (string executable, string[]? args) GetCommandAndArgs(string? command)
     {
         if (!string.IsNullOrEmpty(command))
         {
-            var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var executable = parts[0];
-            var args = parts.Length > 1 ? parts[1] : null;
+            var args = parts.Length > 1 ? parts[1..] : null;
 
             if (File.Exists(executable))
                 return (executable, args);

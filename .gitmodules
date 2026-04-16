@@ -1,4 +1,0 @@
-[submodule "lib/PtySharp"]
-	path = lib/PtySharp
-	url = ssh://git@codeberg.org/maarten-vos/PtySharp.git
-	branch = master

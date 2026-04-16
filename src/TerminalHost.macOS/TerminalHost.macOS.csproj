@@ -11,7 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
     <ProjectReference Include="..\TerminalHost.Posix\TerminalHost.Posix.csproj" />
-    <ProjectReference Include="../../lib/PtySharp/PtySharp.macOS/PtySharp.macOS.csproj" />
   </ItemGroup>
 
 </Project>

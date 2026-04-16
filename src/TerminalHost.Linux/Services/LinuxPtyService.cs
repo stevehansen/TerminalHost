@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using PtySharp;
 using PtySharp.Linux;
 using TerminalHost.Posix.Services;
 

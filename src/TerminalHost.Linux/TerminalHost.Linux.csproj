@@ -9,6 +9,5 @@
 <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
     <ProjectReference Include="..\TerminalHost.Posix\TerminalHost.Posix.csproj" />
-    <ProjectReference Include="../../lib/PtySharp/PtySharp.Linux/PtySharp.Linux.csproj" />
   </ItemGroup>
 </Project>
