@@ -62,11 +62,6 @@ public interface IPtyService : IDisposable
     void Resize(int columns, int rows);
 
     /// <summary>
-    /// Kills the PTY process.
-    /// </summary>
-    void Kill();
-
-    /// <summary>
     /// Writes binary data to the PTY.
     /// </summary>
     Task WriteAsync(byte[] data, CancellationToken cancellationToken = default);

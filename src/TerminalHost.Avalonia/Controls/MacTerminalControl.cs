@@ -560,19 +560,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public async Task RestartAsync()
     {
-        Kill();
+        _readCts?.Cancel();
+        _ptyService?.Dispose();
         await Task.Delay(100);
 
         if (!string.IsNullOrEmpty(_command) && !string.IsNullOrEmpty(_workingDirectory))
         {
             await InitializeAsync(_command, _workingDirectory, _customPaths);
         }
-    }
-
-    public void Kill()
-    {
-        _readCts?.Cancel();
-        _ptyService?.Kill();
     }
 
     #endregion

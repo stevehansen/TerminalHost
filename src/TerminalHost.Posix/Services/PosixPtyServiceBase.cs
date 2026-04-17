@@ -80,8 +80,6 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
 
     public void Resize(int columns, int rows) => _session?.Resize((ushort)rows, (ushort)columns);
 
-    public void Kill() => _session?.Kill();
-
     public async Task WriteAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         if (WriterStream != null && IsRunning)

@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
-    <PackageReference Include="PtySharp" Version="1.0.0" />
+    <PackageReference Include="PtySharp" Version="1.1.0" />
   </ItemGroup>
 
 </Project>
