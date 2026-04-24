@@ -72,7 +72,8 @@ public static class ShortcutConflictService
             new("Ctrl+M", "Markdown preview (center panel)"),
             new("F4", "Toggle voice commands"),
             new("Ctrl+Shift+Y", "Toggle status overlay"),
-            new(OperatingSystem.IsMacOS() ? "Ctrl+Shift+J" : "Ctrl+Shift+V", "Spark Canvas (live visualization)"),
+            new("Ctrl+Shift+V", "Spark Canvas (live visualization)", ShortcutPlatform.Windows),
+            new("Ctrl+Shift+J", "Spark Canvas (live visualization)", ShortcutPlatform.Avalonia),
         ]),
 
         new("Git & GitHub",
@@ -136,10 +137,11 @@ public static class ShortcutConflictService
     private static Dictionary<string, string> BuildShortcutDictionary()
     {
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var isMacOS = OperatingSystem.IsMacOS();
 
         foreach (var section in BuiltInShortcutSections)
         {
-            foreach (var item in section.Items)
+            foreach (var item in section.GetItemsForPlatform(isMacOS))
             {
                 // Skip non-keyboard shortcuts (like "Middle-click tab", "Links button")
                 if (!item.Shortcut.Contains("Ctrl") && !item.Shortcut.Contains("Shift") &&

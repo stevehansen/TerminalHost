@@ -7,12 +7,14 @@ namespace TerminalHost.Core.Domain;
 /// </summary>
 public enum ShortcutPlatform
 {
-    /// <summary>Available on all platforms (Windows and macOS).</summary>
+    /// <summary>Available on all platforms (Windows, macOS, and Linux).</summary>
     All,
     /// <summary>Available only on Windows.</summary>
     Windows,
     /// <summary>Available only on macOS.</summary>
-    MacOS
+    MacOS,
+    /// <summary>Available on macOS and Linux (Avalonia platforms).</summary>
+    Avalonia
 }
 
 /// <summary>
@@ -52,9 +54,12 @@ public record ShortcutSection(string Name, List<ShortcutItem> Items)
     /// </summary>
     public List<ShortcutItem> GetItemsForPlatform(bool isMacOS)
     {
-        var targetPlatform = isMacOS ? ShortcutPlatform.MacOS : ShortcutPlatform.Windows;
+        var isWindows = OperatingSystem.IsWindows();
         return Items
-            .Where(item => item.Platform == ShortcutPlatform.All || item.Platform == targetPlatform)
+            .Where(item => item.Platform == ShortcutPlatform.All
+                || (item.Platform == ShortcutPlatform.Windows && isWindows)
+                || (item.Platform == ShortcutPlatform.MacOS && isMacOS)
+                || (item.Platform == ShortcutPlatform.Avalonia && !isWindows))
             .ToList();
     }
 }

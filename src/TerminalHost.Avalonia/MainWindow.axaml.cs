@@ -45,6 +45,9 @@ public partial class MainWindow : Window
     private readonly IFilePickerService _filePickerService;
     private readonly StatusOverlayService _statusOverlayService;
     private readonly IToastService _toastService;
+    private readonly ISoundService? _soundService;
+    private ISystemTrayService? _systemTrayService;
+    private bool _isExiting;
     private TerminalPairTabViewModel? _subscribedOverlayTab;
 
     public MainWindow(
@@ -75,7 +78,8 @@ public partial class MainWindow : Window
         MarkdownPreviewViewModel markdownPreviewViewModel,
         IFilePickerService filePickerService,
         StatusOverlayService statusOverlayService,
-        IToastService toastService)
+        IToastService toastService,
+        ISoundService? soundService = null)
     {
         InitializeComponent();
 
@@ -107,6 +111,7 @@ public partial class MainWindow : Window
         _markdownPreviewViewModel = markdownPreviewViewModel;
         _filePickerService = filePickerService;
         _statusOverlayService = statusOverlayService;
+        _soundService = soundService;
 
         // Wire up sidebar view model bidirectional reference
         _mainViewModel.SidebarViewModel = _workspaceSidebarViewModel;
@@ -461,6 +466,19 @@ public partial class MainWindow : Window
         _mainViewModel.Initialize();
         _statusOverlayService.Initialize(this);
 
+        // Resolve system tray service for minimize-to-tray / close-to-tray behavior
+        _systemTrayService = App.Current.Services.GetService<ISystemTrayService>();
+
+        // Update system tray when config is saved via Settings UI
+        _mainViewModel.ConfigReloaded += (_, _) =>
+        {
+            if (_systemTrayService != null)
+            {
+                var config = _configService.Load();
+                _systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+            }
+        };
+
         // Initialize toast overlay window (shown on demand when toasts appear)
         var toastWindow = new ToastWindow();
         toastWindow.Initialize(this, _toastService);
@@ -473,17 +491,27 @@ public partial class MainWindow : Window
 
     private void OnWindowActivated(object? sender, EventArgs e)
     {
+        _soundService?.SetAppFocused(true);
         _statusOverlayService.OnMainWindowActivated();
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e)
     {
+        _soundService?.SetAppFocused(false);
         _statusOverlayService.OnMainWindowDeactivated();
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         var config = _configService.Load();
+
+        // If tray is enabled and not explicitly exiting, minimize to tray instead of closing
+        if (_systemTrayService?.IsEnabled == true && !_isExiting)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
 
         // Check if we need to confirm close
         if (config.Settings.ConfirmOnClose)
@@ -972,6 +1000,14 @@ public partial class MainWindow : Window
             {
                 tab.StopRunCommand.Execute(null);
             }
+            e.Handled = true;
+            return;
+        }
+
+        // Handle F4 for Voice Commands toggle
+        if (e.Key == Key.F4 && e.KeyModifiers == KeyModifiers.None)
+        {
+            _mainViewModel.ToggleVoiceListening();
             e.Handled = true;
             return;
         }
@@ -1672,6 +1708,16 @@ public partial class MainWindow : Window
         }
 
         Activate();
+    }
+
+    /// <summary>
+    /// Closes the window bypassing the minimize-to-tray behavior.
+    /// Used by the system tray "Exit" menu item.
+    /// </summary>
+    public void ForceClose()
+    {
+        _isExiting = true;
+        Close();
     }
 
     private void SidebarSplitter_DragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)

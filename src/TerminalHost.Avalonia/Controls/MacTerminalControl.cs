@@ -22,7 +22,11 @@ using Avalonia.Threading;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
+#if MACOS
 using TerminalHost.macOS.Services;
+#elif LINUX
+using TerminalHost.Linux.Services;
+#endif
 using TerminalHost.Services;
 using VtNetCore.VirtualTerminal;
 using VtNetCore.VirtualTerminal.Layout;
@@ -50,10 +54,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     // Font settings
     private double _charWidth = 8;
     private double _charHeight = 16;
+    private double _baselineOffset;
     private Typeface _typeface;
     private Typeface _fallbackTypeface;
     private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
+
+    // GlyphTypeface cache for GlyphRun rendering (maps Typeface variants to their IGlyphTypeface)
+    private readonly Dictionary<Typeface, IGlyphTypeface?> _glyphTypefaceCache = new();
 
     // Emoji overlay system - TextBlocks for emoji since DrawingContext doesn't support emoji fallback
     private readonly List<TextBlock> _emojiOverlays = new();
@@ -84,6 +92,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     // Scroll state
     private int _scrollOffset;
+
+    // Resize debounce — update the terminal controller immediately (for rendering)
+    // but delay the PTY resize (which triggers SIGWINCH → shell redraws) to avoid
+    // flooding the shell with signals during a window drag.
+    private CancellationTokenSource? _resizeDebounceCts;
 
     // Restart info
     private string? _command;
@@ -157,10 +170,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     {
         // On Intel Mac, use Menlo for better performance (no embedded font loading, no Rosetta overhead)
         // On Apple Silicon, use Cascadia Code NF (Nerd Font with icons built-in)
+        // On Linux, use Cascadia Code NF with Linux-appropriate fallback fonts
         if (IsIntelMac)
         {
             _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
             _fallbackTypeface = new Typeface(new FontFamily("Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
+            _fallbackTypeface = new Typeface(new FontFamily("DejaVu Sans Mono, Noto Sans Mono, Liberation Mono, monospace"), FontStyle.Normal, FontWeight.Normal);
         }
         else
         {
@@ -274,8 +293,25 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             _fontSize,
             Brushes.White);
 
-        _charWidth = formattedText.Width;
+        // Use the font's actual glyph advance for accurate character width.
+        // FormattedText.Width returns the ink/bounding width which can be narrower than the
+        // advance width, causing column count to be too high and right-edge text to be clipped.
+        if (_primaryGlyphTypeface != null
+            && _primaryGlyphTypeface.TryGetGlyph('M', out var glyphIndex))
+        {
+            var metrics = _primaryGlyphTypeface.Metrics;
+            if (metrics.DesignEmHeight > 0)
+            {
+                _charWidth = _primaryGlyphTypeface.GetGlyphAdvance(glyphIndex)
+                    * _fontSize / metrics.DesignEmHeight;
+            }
+        }
+
+        if (_charWidth <= 0)
+            _charWidth = formattedText.Width;
+
         _charHeight = formattedText.Height;
+        _baselineOffset = formattedText.Baseline;
 
         // Menlo has tighter line spacing than Cascadia Code NF
         // Add padding to match expected terminal line height
@@ -319,22 +355,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _dataConsumer = new DataConsumer(_terminalController);
         _viewPort = new VirtualTerminalViewPort(_terminalController);
 
-        // Create PTY service
-        _ptyService = new MacPtyService();
-        _ptyService.ProcessExited += OnProcessExited;
-
-        await _ptyService.StartAsync(_columns, _rows, workingDirectory, command, customPaths);
-
-        // Start reading from PTY
-        _readCts = new CancellationTokenSource();
-        _ = ReadOutputAsync(_readCts.Token);
-
-        // If PTY was started before the control is in the visual tree (common on startup),
-        // the dimensions are likely wrong (defaults 80x24). Flag that we need to force
-        // a resize once we know the actual size, even if the computed size happens to match.
+        // If the control hasn't been laid out yet (Bounds are 0), defer PTY start until
+        // the first ArrangeOverride gives us actual dimensions. PtySharp starts the shell
+        // instantly (unlike the old Python helper which had startup latency), so starting
+        // at wrong dimensions causes the shell to flood output that scrolls past the viewport.
         if (Bounds.Width <= 0 || Bounds.Height <= 0)
         {
             _needsInitialResize = true;
+            _pendingPtyStart = true;
+        }
+        else
+        {
+            await StartPtyAsync();
         }
 
         Loaded?.Invoke(this, EventArgs.Empty);
@@ -342,6 +374,28 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         // Trigger initial render - schedule it for when the control might be in the visual tree
         InvalidateVisual();
         Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+    }
+
+    private bool _pendingPtyStart;
+
+    private async Task StartPtyAsync()
+    {
+        if (_ptyService != null)
+            return; // Already started
+
+        // Create PTY service
+#if MACOS
+        _ptyService = new MacPtyService();
+#elif LINUX
+        _ptyService = new LinuxPtyService();
+#endif
+        _ptyService.ProcessExited += OnProcessExited;
+
+        await _ptyService.StartAsync(_columns, _rows, _workingDirectory, _command, _customPaths);
+
+        // Start reading from PTY
+        _readCts = new CancellationTokenSource();
+        _ = ReadOutputAsync(_readCts.Token);
     }
 
     private async Task ReadOutputAsync(CancellationToken cancellationToken)
@@ -373,7 +427,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception)
         {
         }
         finally
@@ -532,19 +586,14 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public async Task RestartAsync()
     {
-        Kill();
+        _readCts?.Cancel();
+        _ptyService?.Dispose();
         await Task.Delay(100);
 
         if (!string.IsNullOrEmpty(_command) && !string.IsNullOrEmpty(_workingDirectory))
         {
             await InitializeAsync(_command, _workingDirectory, _customPaths);
         }
-    }
-
-    public void Kill()
-    {
-        _readCts?.Cancel();
-        _ptyService?.Kill();
     }
 
     #endregion
@@ -851,16 +900,58 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     }
 
     // Fallback font names in order of preference
-    // On Intel Mac, we use a minimal list for performance
-    private static readonly string[] FallbackFontNames = IsIntelMac
-        ? new[]
+    // Platform-specific: Intel Mac uses minimal list, Linux uses Linux fonts, Apple Silicon uses full macOS list
+    private static readonly string[] FallbackFontNames = GetFallbackFontNames();
+
+    private static string[] GetFallbackFontNames()
+    {
+        if (IsIntelMac)
         {
-            // Minimal list for Intel Mac - just the essentials
-            "Menlo",              // Primary terminal font
-            "Apple Symbols",      // macOS symbols
-            "LastResort",         // Ultimate fallback
+            return new[]
+            {
+                // Minimal list for Intel Mac - just the essentials
+                "Menlo",              // Primary terminal font
+                "Apple Symbols",      // macOS symbols
+                "LastResort",         // Ultimate fallback
+            };
         }
-        : new[]
+
+        if (OperatingSystem.IsLinux())
+        {
+            return new[]
+            {
+                // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
+                "avares://host/Assets/Fonts#Symbols Nerd Font Mono", // Embedded Nerd Font (bundled with app)
+                "Cascadia Code NF",        // Bundled Nerd Font
+                "JetBrainsMono Nerd Font", // Popular Nerd Font
+                "JetBrainsMono NF",
+                "FiraCode Nerd Font",      // Popular Nerd Font
+                "Hack Nerd Font",          // Popular Nerd Font
+                "MesloLGS NF",
+                "Symbols Nerd Font Mono",
+                "Symbols Nerd Font",
+                // Linux monospace fonts - for Unicode characters Nerd Fonts don't cover
+                "DejaVu Sans Mono",        // Standard Linux font with good Unicode coverage
+                "Liberation Mono",         // Common on RHEL/Fedora
+                "Ubuntu Mono",             // Ubuntu default
+                "Noto Sans Mono",          // Google Noto family
+                "Droid Sans Mono",         // Android/Linux
+                "Fira Mono",              // Mozilla font
+                "Source Code Pro",         // Adobe font
+                "Inconsolata",            // Popular monospace
+                // Emoji and symbol fonts
+                "Noto Color Emoji",       // Emoji support on Linux
+                "Segoe UI Emoji",         // Emoji fallback
+                "Symbola",                // Wide Unicode coverage
+                "DejaVu Math TeX Gyre",   // Mathematical symbols
+                "STIX Two Math",          // Mathematical symbols
+                "DejaVu Sans",            // General Unicode fallback
+                "monospace",              // Generic fallback
+            };
+        }
+
+        // Apple Silicon (macOS default)
+        return new[]
         {
             // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
             // These must come before standard fonts to ensure Private Use Area glyphs render correctly
@@ -883,6 +974,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             "Menlo",              // Fallback terminal font
             "LastResort",         // Ultimate fallback
         };
+    }
 
     // Cache for typeface/glyphTypeface pairs - initialized lazily
     private static List<(Typeface typeface, IGlyphTypeface glyphTypeface)>? _fallbackFontsCache;
@@ -929,17 +1021,26 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private static readonly Dictionary<char, Typeface?> CharacterTypefaceCache = new();
     private const int MaxCharacterTypefaceCacheSize = 1024; // Limit cache size
 
-    private static bool NeedsFallbackFont(char c)
+    private bool NeedsFallbackFont(char c)
     {
-        // Use fallback for Nerd Font icons and emoji (surrogate pairs)
+        if (c < '\u0080') return false; // ASCII - always in primary font
         if (c >= '\uE000' && c <= '\uF8FF') return true; // Private Use Area (Nerd Fonts icons)
         if (char.IsHighSurrogate(c)) return true; // Emoji and other non-BMP characters
         if (char.IsLowSurrogate(c)) return true;
+
+        // For other non-ASCII characters (symbols, dingbats, etc.), check if the
+        // primary font actually has the glyph. Characters like ❄ (U+2744) and
+        // variation selectors (U+FE0F) need fallback when the primary font lacks them.
+        if (_primaryGlyphTypeface != null)
+        {
+            if (!_primaryGlyphTypeface.TryGetGlyph((uint)c, out var gi) || gi == 0)
+                return true;
+        }
+
         return false;
     }
 
-
-    private static bool ContainsFallbackCharacters(string text)
+    private bool ContainsFallbackCharacters(string text)
     {
         foreach (var c in text)
         {
@@ -1019,6 +1120,55 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Gets or creates a cached IGlyphTypeface for the given Typeface.
+    /// </summary>
+    private IGlyphTypeface? GetCachedGlyphTypeface(Typeface typeface)
+    {
+        if (!_glyphTypefaceCache.TryGetValue(typeface, out var glyphTypeface))
+        {
+            FontManager.Current.TryGetGlyphTypeface(typeface, out glyphTypeface);
+            _glyphTypefaceCache[typeface] = glyphTypeface;
+        }
+        return glyphTypeface;
+    }
+
+    /// <summary>
+    /// Renders text using GlyphRun with explicit advance widths set to _charWidth.
+    /// This ensures every glyph is positioned at its exact grid cell, preventing
+    /// accumulated drift from font-engine glyph positioning.
+    /// </summary>
+    private bool TryRenderWithGlyphRun(DrawingContext context, string text, double x, double y,
+        Typeface typeface, IBrush foregroundBrush)
+    {
+        var glyphTypeface = GetCachedGlyphTypeface(typeface);
+        if (glyphTypeface == null)
+            return false;
+
+        var glyphInfos = new GlyphInfo[text.Length];
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (!glyphTypeface.TryGetGlyph((uint)text[i], out var gi) || gi == 0)
+            {
+                // Font doesn't have this glyph - bail out so caller uses fallback path
+                if (text[i] >= ' ')
+                    return false;
+                gi = 0;
+            }
+            glyphInfos[i] = new GlyphInfo(gi, i, _charWidth, default);
+        }
+
+        var glyphRun = new GlyphRun(
+            glyphTypeface,
+            _fontSize,
+            text.AsMemory(),
+            glyphInfos,
+            new Point(x, y + _baselineOffset));
+
+        context.DrawGlyphRun(foregroundBrush, glyphRun);
+        return true;
+    }
+
     private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
         Typeface primaryTypeface, IBrush foregroundBrush)
     {
@@ -1037,31 +1187,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             return;
         }
 
-        // Ultra-fast path for pure ASCII text (most common case)
-        if (IsPureAscii(text))
-        {
-            var formattedText = new FormattedText(
-                text,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                primaryTypeface,
-                _fontSize,
-                foregroundBrush);
-            context.DrawText(formattedText, new Point(x, y));
-            return;
-        }
-
+        // Grid-aligned rendering: use GlyphRun with explicit _charWidth advances
+        // to prevent accumulated drift from font-engine glyph positioning.
+        // This ensures text at the right edge of the terminal isn't clipped.
         if (!ContainsFallbackCharacters(text))
         {
-            // Fast path: use TextLayout which has proper font fallback for emoji
-            var textLayout = new TextLayout(
-                text,
-                primaryTypeface,
-                _fontSize,
-                foregroundBrush,
-                TextAlignment.Left);
-            textLayout.Draw(context, new Point(x, y));
-            return;
+            if (TryRenderWithGlyphRun(context, text, x, y, primaryTypeface, foregroundBrush))
+                return;
         }
 
         // Slow path: render with font fallback support
@@ -1128,14 +1260,17 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 }
                 else
                 {
-                    // Render normal text run with TextLayout for proper font fallback
-                    var textLayout = new TextLayout(
-                        run,
-                        primaryTypeface,
-                        _fontSize,
-                        foregroundBrush,
-                        TextAlignment.Left);
-                    textLayout.Draw(context, new Point(currentX, y));
+                    // Render normal text run with grid-aligned GlyphRun
+                    if (!TryRenderWithGlyphRun(context, run, currentX, y, primaryTypeface, foregroundBrush))
+                    {
+                        var textLayout = new TextLayout(
+                            run,
+                            primaryTypeface,
+                            _fontSize,
+                            foregroundBrush,
+                            TextAlignment.Left);
+                        textLayout.Draw(context, new Point(currentX, y));
+                    }
                     currentX += run.Length * _charWidth;
                 }
 
@@ -1374,7 +1509,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             return;
         }
 
-        if (control && e.Key >= Key.A && e.Key <= Key.Z)
+        // Ctrl+letter sends control characters to the terminal (e.g. Ctrl+C = ^C).
+        // Ctrl+Shift+letter combos that the terminal handles (copy/paste) are caught above;
+        // let remaining Ctrl+Shift+letter combos bubble up to window-level shortcut handlers.
+        if (control && !shift && e.Key >= Key.A && e.Key <= Key.Z)
         {
             ClearSelection();
             if (IsScrolledBack)
@@ -1406,7 +1544,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             Key.F1 => "\x1bOP",
             Key.F2 => "\x1bOQ",
             Key.F3 => "\x1bOR",
-            Key.F4 => "\x1bOS",
+            // F4 and F5 are reserved for app-level shortcuts (Voice Commands, Project Runner)
+            // and must not be consumed by the terminal so they can bubble up to MainWindow.
+            Key.F4 => null,
+            Key.F5 when !shift => null,
             Key.F5 => "\x1b[15~",
             Key.F6 => "\x1b[17~",
             Key.F7 => "\x1b[18~",
@@ -1476,6 +1617,22 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return availableSize;
     }
 
+    private void DebouncePtyResize(int columns, int rows)
+    {
+        _resizeDebounceCts?.Cancel();
+        _resizeDebounceCts = new CancellationTokenSource();
+        var token = _resizeDebounceCts.Token;
+
+        _ = Task.Delay(TimeSpan.FromMilliseconds(100), token).ContinueWith(_ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!token.IsCancellationRequested)
+                    _ptyService?.Resize(columns, rows);
+            });
+        }, TaskContinuationOptions.OnlyOnRanToCompletion);
+    }
+
     protected override Size ArrangeOverride(Size finalSize)
     {
         // Arrange all visual children (emoji overlays)
@@ -1521,7 +1678,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 _terminalController.VisibleRows = rows;
             }
 
-            _ptyService?.Resize(columns, rows);
+            // If PTY start was deferred until we had real dimensions, start it now
+            if (_pendingPtyStart)
+            {
+                _pendingPtyStart = false;
+                _ = StartPtyAsync();
+            }
+            else
+            {
+                DebouncePtyResize(columns, rows);
+            }
 
             // Force a redraw after resize
             InvalidateVisual();
@@ -1549,6 +1715,10 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _readCts?.Cancel();
         _readCts?.Dispose();
         _readCts = null;
+
+        _resizeDebounceCts?.Cancel();
+        _resizeDebounceCts?.Dispose();
+        _resizeDebounceCts = null;
 
         // Unsubscribe from PTY events before disposing
         if (_ptyService != null)

@@ -1,27 +1,26 @@
-using System.IO;
 using Whisper.net.Ggml;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
-namespace TerminalHost.Windows.Services;
+namespace TerminalHost.Core.Services;
 
 /// <summary>
 /// Manages Whisper GGML model downloads and caching.
-/// Models are stored in %APPDATA%\TerminalHost\models\whisper\.
+/// Models are stored in the platform-specific application data directory under models/whisper/.
 /// </summary>
 public class WhisperModelManager
 {
-    private readonly IConfigurationService _configService;
+    private readonly ISystemInfoService _systemInfo;
     private readonly IToastService _toastService;
     private readonly string _modelsDir;
 
-    public WhisperModelManager(IConfigurationService configService, IToastService toastService)
+    public WhisperModelManager(ISystemInfoService systemInfo, IToastService toastService)
     {
-        _configService = configService;
+        _systemInfo = systemInfo;
         _toastService = toastService;
 
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _modelsDir = Path.Combine(appData, "TerminalHost", "models", "whisper");
+        var appData = systemInfo.GetApplicationDataPath();
+        _modelsDir = Path.Combine(appData, "models", "whisper");
     }
 
     /// <summary>
@@ -29,7 +28,7 @@ public class WhisperModelManager
     /// </summary>
     public string GetModelPath(WhisperModelSize size)
     {
-        var fileName = $"ggml-{MapToGgmlType(size)}.bin";
+        var fileName = $"ggml-{MapToGgmlType(size).ToString().ToLowerInvariant()}.bin";
         return Path.Combine(_modelsDir, fileName);
     }
 
@@ -137,7 +136,10 @@ public class WhisperModelManager
         _ => GgmlType.Small
     };
 
-    private static string GetSizeLabel(WhisperModelSize size) => size switch
+    /// <summary>
+    /// Get the approximate download size label for a model.
+    /// </summary>
+    public static string GetSizeLabel(WhisperModelSize size) => size switch
     {
         WhisperModelSize.Tiny => "~75 MB",
         WhisperModelSize.Base => "~142 MB",

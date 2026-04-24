@@ -26,5 +26,15 @@
     <string>public.app-category.developer-tools</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2024. All rights reserved.</string>
+    <!--
+      Disable ReadyToRun for framework assemblies. On macOS ARM64, concurrent R2R fixup
+      during startup races on W^X page protections (~1/5 DMG launches crashed in
+      MemberLoader::FindMethod / ExternalMethodFixupWorker). JIT-only path is reliable.
+    -->
+    <key>LSEnvironment</key>
+    <dict>
+        <key>DOTNET_ReadyToRun</key>
+        <string>0</string>
+    </dict>
 </dict>
 </plist>

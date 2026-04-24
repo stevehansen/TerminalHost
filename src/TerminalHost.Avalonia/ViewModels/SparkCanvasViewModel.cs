@@ -390,7 +390,7 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
                     {
                         SessionId = session.ClaudeSessionId,
                         DisplayName = session.DisplayName,
-                        ProjectPath = session.WorkingDirectory,
+                        ProjectPath = session.WorkingDirectory ?? "",
                         IsLive = session.IsActive,
                         StartTime = session.StartTime
                     });
@@ -405,12 +405,12 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
                     if (AvailableSessions.Any(s => s.SessionId == state.SessionId))
                         continue;
 
-                    var dirName = state.WorkingDirectory.Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
+                    var dirName = state.WorkingDirectory?.Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
                     AvailableSessions.Add(new SparkSessionItem
                     {
                         SessionId = state.SessionId,
                         DisplayName = dirName,
-                        ProjectPath = state.WorkingDirectory,
+                        ProjectPath = state.WorkingDirectory ?? "",
                         IsLive = state.Lifecycle == SessionLifecycle.Active,
                         StartTime = state.StartTime
                     });

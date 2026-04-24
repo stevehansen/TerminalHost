@@ -94,6 +94,12 @@
 
             <!-- Popup Overlay Layer -->
             <Panel x:Name="PopupHost">
+                <!-- Voice Command Bar - Top Center (floating) -->
+                <views:VoiceBarView
+                    DataContext="{Binding VoiceBar}"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Top" />
+
                 <!-- Command Palette - Top Center -->
                 <popups:CommandPaletteView
                     IsVisible="{Binding IsCommandPaletteOpen}"

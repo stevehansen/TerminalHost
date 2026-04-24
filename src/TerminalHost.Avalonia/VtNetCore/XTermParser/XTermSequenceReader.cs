@@ -129,7 +129,9 @@ namespace VtNetCore.XTermParser
 
             while (true)
             {
-                var next = stream.Read();
+                // Read as UTF-8 so that multi-byte characters (e.g. ✳ U+2733 = E2 9C B3)
+                // are decoded as a single char and byte 0x9C is not mistaken for the ST terminator.
+                var next = stream.Read(true);
 
                 // Check for ST terminator: ESC \ (0x1B 0x5C)
                 // If previous char was ESC and current is \, this is ST
@@ -549,7 +551,8 @@ namespace VtNetCore.XTermParser
 
             while (!stream.AtEnd)
             {
-                var next = stream.Read();
+                // Read as UTF-8 so multi-byte chars don't have byte 0x9C mistaken for ST.
+                var next = stream.Read(true);
 
                 if (readingCommand)
                 {

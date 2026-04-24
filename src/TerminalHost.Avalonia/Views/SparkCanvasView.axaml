@@ -3,11 +3,26 @@
              xmlns:wv="using:AvaloniaWebView"
              x:Class="TerminalHost.Views.SparkCanvasView">
     <Grid>
-        <wv:WebView x:Name="SparkWebView"
-                     NavigationCompleted="SparkWebView_NavigationCompleted"
-                     WebMessageReceived="SparkWebView_WebMessageReceived"/>
+        <!-- WebView host (macOS only, hidden on Linux) -->
+        <ContentControl x:Name="WebViewHost"/>
 
-        <!-- Fallback overlay when WebView is not ready -->
+        <!-- Browser fallback (Linux only, hidden on macOS) -->
+        <Border x:Name="BrowserFallback" Background="#FF050510" IsVisible="False">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                <TextBlock Text="✨" FontSize="32" HorizontalAlignment="Center"/>
+                <TextBlock Text="Spark Canvas is running in your browser"
+                           FontSize="14" Foreground="#66ccff"
+                           FontFamily="Cascadia Code NF,Consolas,monospace"
+                           HorizontalAlignment="Center"/>
+                <TextBlock x:Name="BrowserUrlText" Text=""
+                           FontSize="11" Foreground="#888888"
+                           FontFamily="Cascadia Code NF,Consolas,monospace"
+                           HorizontalAlignment="Center" Cursor="Hand"
+                           Tapped="OnBrowserUrlTapped"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Loading overlay (shown until WebView or browser is ready) -->
         <Border x:Name="LoadingOverlay" Background="#FF050510"
                 IsVisible="True">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
