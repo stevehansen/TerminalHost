@@ -46,11 +46,6 @@ public interface ITerminalControl
     Task RestartAsync();
 
     /// <summary>
-    /// Kill the terminal process.
-    /// </summary>
-    void Kill();
-
-    /// <summary>
     /// Check if the terminal process is running.
     /// </summary>
     bool IsProcessRunning { get; }

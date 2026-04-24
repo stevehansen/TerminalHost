@@ -27,7 +27,7 @@
             <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="16,12" CornerRadius="8,8,0,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                        Content="×"
+                        Content="x"
                         Classes="TabCloseButton"
                         Command="{Binding CloseHelpCommand}"
                         FontSize="{DynamicResource FontSizeHeader}"
@@ -48,230 +48,85 @@
                     <!-- Keyboard Shortcuts Section -->
                     <TextBlock Text="Keyboard Shortcuts" Foreground="{DynamicResource SyntaxCyanBrush}" FontSize="{DynamicResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
-                    <!-- Tab Navigation -->
-                    <TextBlock Text="Tab Navigation" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘⌥ ← / ⌘⌥ →" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Previous / Next tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ 1-9" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Jump to tab 1-9" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘⇧ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open tab switcher (search tabs)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="⌘ W" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Close current tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Middle-click tab" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Close tab" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
+                    <!-- Shortcut Sections (data-driven) -->
+                    <ItemsControl ItemsSource="{Binding HelpShortcutSections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,16">
+                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Shortcut}" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                    <!-- Terminal -->
-                    <TextBlock Text="Terminal" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ `" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch between Custom/Shell terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ C" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Copy selection from terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘ V" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Paste into terminal" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Links button" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Click to view detected URLs and file paths" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Project Runner -->
-                    <TextBlock Text="Project Runner" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="F5" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Start/Stop project run" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⇧ F5" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Force stop project run" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- File Operations -->
-                    <TextBlock Text="File Operations" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ N" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open new project (folder picker)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ E" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open current folder in Finder" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘ O" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open file preview dialog" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="⌘⇧ E" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open file editor" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="⌘⇧ F" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Toggle file explorer panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Application -->
-                    <TextBlock Text="Application" Foreground="{DynamicResource SyntaxLightBlueBrush}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,0,0,6"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘ ," Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Open settings editor" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘ P" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Open settings (Profiles)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘⇧ P" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Open command palette" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="⌘⇧ N" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Open scratch pad (notes)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="⌘⇧ I" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Open Timeline Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="⌘⇧ J" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Spark Canvas (live visualization)" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="⌘⇧ K" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Claude Tasks Panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="⌘⇧ L" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Toggle sidebar layout" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="0" Text="⌥ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Open git changes panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="0" Text="⌘ B" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Open git branch switcher" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="0" Text="⌘⇧ S" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="10" Grid.Column="1" Text="Open git stash panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="0" Text="⌘⇧ G" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="11" Grid.Column="1" Text="Open git reflog" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="0" Text="F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="12" Grid.Column="1" Text="Show this help window" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="0" Text="⌘ F1" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="13" Grid.Column="1" Text="What's New / Recent Features" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="0" Text="⌘⇧ H" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="14" Grid.Column="1" Text="Open commit history" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="0" Text="⌘⇧ R" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="15" Grid.Column="1" Text="PR Review Mode" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="0" Text="⌘ F" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="16" Grid.Column="1" Text="Search across files" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="17" Grid.Column="0" Text="⌘ T" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="17" Grid.Column="1" Text="Task panel" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="18" Grid.Column="0" Text="⌘⇧ Y" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="18" Grid.Column="1" Text="Toggle floating status overlay" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
-
-                    <!-- Quick Commands Section -->
-                    <TextBlock Text="Default Quick Commands" Foreground="{DynamicResource SyntaxCyanBrush}" FontSize="{DynamicResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="⌘⇧ C" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Send 'commit' to Claude Code" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="⌘⇧ D" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Run 'git pull --rebase' in Shell" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="⌘⇧ U" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Run 'git push' in Shell" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
-                    </Grid>
+                    <!-- Quick Commands Section (data-driven) -->
+                    <ItemsControl ItemsSource="{Binding HelpQuickCommandSections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,8,0,16">
+                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SyntaxCyanBrush}" FontSize="{DynamicResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Shortcut}" Foreground="{DynamicResource SyntaxOrangeBrush}" Margin="0,2"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Tips Section -->
                     <TextBlock Text="Tips" Foreground="{DynamicResource SyntaxCyanBrush}" FontSize="{DynamicResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <TextBlock Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Drag tabs to reorder them"/>
+                    <Run Text="* " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Drag tabs to reorder them"/>
                     </TextBlock>
                     <TextBlock Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Use the splitter between terminals to adjust the split ratio (saved per directory)"/>
+                    <Run Text="* " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Use the splitter between terminals to adjust the split ratio (saved per directory)"/>
                     </TextBlock>
                     <TextBlock Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="File preview supports syntax highlighting for: JSON, C#, JavaScript/TypeScript, Python, XML, Markdown, CSV/TSV"/>
+                    <Run Text="* " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="File preview supports syntax highlighting for: JSON, C#, JavaScript/TypeScript, Python, XML, Markdown, CSV/TSV"/>
                     </TextBlock>
                     <TextBlock Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
-                    <Run Text="• " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Configure custom link patterns in Settings to make ticket IDs clickable"/>
+                    <Run Text="* " Foreground="{DynamicResource SyntaxBlueBrush}"/><Run Text="Configure custom link patterns in Settings to make ticket IDs clickable"/>
                     </TextBlock>
 
                     <!-- Command Line Section -->
                     <TextBlock Text="Command Line Usage" Foreground="{DynamicResource SyntaxCyanBrush}" FontSize="{DynamicResource FontSizeNormal}" FontWeight="SemiBold" Margin="0,8,0,12"/>
                     <Border Background="{DynamicResource BackgroundDarkestBrush}" CornerRadius="4" Padding="12,8" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host" Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="                  # Open/focus app"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host ." Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="                # Open project from current directory"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host /Users/me/MyProject" Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="   # Open specific project"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -w /Users/me/Path" Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="     # Using named argument"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -multi" Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="         # Allow multiple instances"/>
-                            </TextBlock>
-                            <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
-                            <Run Text="host -data path" Foreground="{DynamicResource SyntaxCyanBrush}"/>
-                            <Run Text="     # Override config path"/>
-                            </TextBlock>
-                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding HelpCommandLineExamples}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontFamily="{DynamicResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2">
+                                        <Run Text="{Binding Command}" Foreground="{DynamicResource SyntaxCyanBrush}"/>
+                                        <Run Text="   # "/>
+                                        <Run Text="{Binding Description}"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Border>
 
                     <!-- Paths Section -->
@@ -281,11 +136,8 @@
                             <ColumnDefinition Width="120"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Config file:" Foreground="{DynamicResource SyntaxLightBlueBrush}" Margin="0,2"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="~/Library/Application Support/TerminalHost/config.json" Foreground="{DynamicResource SyntaxOrangeBrush}" FontFamily="{DynamicResource FontFamilyMonospace}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,2"/>
+                        <TextBlock Grid.Column="0" Text="Config file:" Foreground="{DynamicResource SyntaxLightBlueBrush}" Margin="0,2"/>
+                        <TextBlock Grid.Column="1" Text="{Binding HelpConfigPath}" Foreground="{DynamicResource SyntaxOrangeBrush}" FontFamily="{DynamicResource FontFamilyMonospace}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,2"/>
                     </Grid>
                 </StackPanel>
             </ScrollViewer>

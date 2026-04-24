@@ -12,14 +12,16 @@ internal sealed class ToastService : IToastService
     private const int MaxVisibleToasts = 5;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly ISoundService? _soundService;
     private readonly Queue<ToastViewModel> _queue = new();
     private readonly Dictionary<string, IPlatformTimer> _autoCloseTimers = new();
     private readonly object _lock = new();
 
-    public ToastService(ITimerService timerService, IDispatcherService dispatcherService)
+    public ToastService(ITimerService timerService, IDispatcherService dispatcherService, ISoundService? soundService = null)
     {
         _timerService = timerService;
         _dispatcherService = dispatcherService;
+        _soundService = soundService;
     }
 
     public ObservableCollection<ToastViewModel> Toasts { get; } = [];
@@ -130,9 +132,31 @@ internal sealed class ToastService : IToastService
 
         Toasts.Add(toast);
 
+        PlaySoundForToast(toast.Type);
+
         if (toast.AutoClose)
         {
             StartAutoCloseTimer(toast);
+        }
+    }
+
+    private void PlaySoundForToast(ToastType type)
+    {
+        if (_soundService == null) return;
+
+        var soundType = type switch
+        {
+            ToastType.Success => SoundType.Success,
+            ToastType.Error => SoundType.Error,
+            ToastType.Warning => SoundType.Warning,
+            ToastType.Info => SoundType.Info,
+            ToastType.Progress => (SoundType?)null,
+            _ => null
+        };
+
+        if (soundType.HasValue)
+        {
+            _soundService.Play(soundType.Value);
         }
     }
 
@@ -253,6 +277,7 @@ internal sealed class ToastService : IToastService
                 _toast.Type = type;
                 _toast.AutoClose = true;
 
+                _service.PlaySoundForToast(type);
                 _service.StartAutoCloseTimer(_toast);
             });
         }

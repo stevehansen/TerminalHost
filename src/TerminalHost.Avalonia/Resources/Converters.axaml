@@ -57,4 +57,7 @@
     <conv:TouchModeToDoubleConverter x:Key="TouchModeToDoubleConverter"/>
     <conv:TouchModeToMarginConverter x:Key="TouchModeToMarginConverter"/>
 
+    <!-- Voice Command Converters -->
+    <conv:BoolToListeningTagConverter x:Key="BoolToListeningTagConverter"/>
+
 </ResourceDictionary>

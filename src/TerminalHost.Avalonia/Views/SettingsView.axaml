@@ -177,66 +177,54 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton x:Name="ToggleButton"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}"
-                                          BorderThickness="{TemplateBinding BorderThickness}"
-                                          Focusable="false"
-                                          IsChecked="{TemplateBinding IsDropDownOpen}"
-                                          ClickMode="Press">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                CornerRadius="3">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="20"/>
-                                                </Grid.ColumnDefinitions>
-                                                <ContentPresenter Grid.Column="0"/>
-                                                <Path Grid.Column="1"
-                                                      Data="M0,0 L4,4 L8,0"
-                                                      Fill="{StaticResource TextSecondaryBrush}"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      Stroke="{StaticResource TextSecondaryBrush}"
-                                                      StrokeThickness="1"/>
-                                            </Grid>
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <ContentPresenter x:Name="ContentSite"
-                                              IsHitTestVisible="False"
-                                              Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding ItemTemplate}"
-                                              Margin="8,6,28,6"
-                                              VerticalAlignment="Center"
-                                              HorizontalAlignment="Left"/>
-                            <Popup x:Name="PART_Popup"
-                                   Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   IsLightDismissEnabled="True">
-                                <Border x:Name="DropDownBorder"
-                                        Background="{StaticResource BackgroundMediumBrush}"
-                                        BorderBrush="{StaticResource BorderDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="3"
-                                        MinWidth="{Binding $parent[ComboBox].Bounds.Width}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <ScrollViewer Margin="4,6">
-                                        <ItemsPresenter x:Name="PART_ItemsPresenter"
-                                                        ItemsPanel="{TemplateBinding ItemsPanel}"/>
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
+                        <Border x:Name="RootBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="20"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentControl Grid.Column="0"
+                                                Content="{TemplateBinding SelectionBoxItem}"
+                                                ContentTemplate="{TemplateBinding ItemTemplate}"
+                                                Margin="{TemplateBinding Padding}"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Left"
+                                                IsHitTestVisible="False"/>
+                                <Path Grid.Column="1"
+                                      Data="M0,0 L4,4 L8,0"
+                                      Fill="{StaticResource TextSecondaryBrush}"
+                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                      StrokeThickness="1"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                                <Popup x:Name="PART_Popup"
+                                       Placement="Bottom"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       IsLightDismissEnabled="True">
+                                    <Border Background="{StaticResource BackgroundMediumBrush}"
+                                            BorderBrush="{StaticResource BorderDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="3"
+                                            MinWidth="{Binding $parent[ComboBox].Bounds.Width}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ScrollViewer Margin="4,6">
+                                            <ItemsPresenter x:Name="PART_ItemsPresenter"
+                                                            ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="ComboBox.DarkComboBox:pointerover /template/ Border#RootBorder">
+            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
         </Style>
 
         <!-- Dark ComboBoxItem Style -->
@@ -563,6 +551,163 @@
                                  Margin="0,8,0,0"/>
                         <TextBlock Text="Paths are added in order, with earlier entries taking priority. Changes take effect for new terminals."
                                    Classes="HelpText"/>
+
+                        <!-- Separator -->
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
+                        <!-- Sound Notifications -->
+                        <TextBlock Text="SOUND NOTIFICATIONS"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12"/>
+
+                        <CheckBox Content="Enable sound notifications"
+                                  IsChecked="{Binding SoundsEnabled}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Play sounds for toast notifications."/>
+                        <TextBlock Text="Play audio notifications for success, error, and warning messages."
+                                   Classes="HelpText"/>
+
+                        <CheckBox Content="Only when app is unfocused"
+                                  IsChecked="{Binding SoundsOnlyWhenUnfocused}"
+                                  Classes="FormCheckBox"
+                                  IsEnabled="{Binding SoundsEnabled}"
+                                  ToolTip.Tip="Only play sounds when you're not looking at the app."/>
+                        <TextBlock Text="Sounds will only play when the TerminalHost window is not focused, so you get notified while working in other apps."
+                                   Classes="HelpText"/>
+
+                        <Grid Margin="0,8,0,0" IsEnabled="{Binding SoundsEnabled}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*" MaxWidth="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Success:" Grid.Row="0" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding SuccessSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Error:" Grid.Row="1" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding ErrorSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Warning:" Grid.Row="2" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="2" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding WarningSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Info:" Grid.Row="3" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="3" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding InfoSound}"
+                                      Classes="DarkComboBox"
+                                      Margin="0,0,0,8"/>
+
+                            <TextBlock Text="Input Waiting:" Grid.Row="4" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <ComboBox Grid.Row="4" Grid.Column="1"
+                                      ItemsSource="{Binding SoundOptions}"
+                                      SelectedItem="{Binding InputWaitingSound}"
+                                      Classes="DarkComboBox"/>
+                        </Grid>
+                        <TextBlock Text="Sound names map to platform sounds: macOS uses system sounds (Glass, Tink, Funk, Basso, Purr), Linux uses freedesktop theme sounds. You can also enter a path to a sound file."
+                                   Classes="HelpText"/>
+
+                        <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,16,0,16"/>
+
+                        <!-- Voice Command Settings -->
+                        <TextBlock Text="VOICE COMMANDS"
+                                   Foreground="{StaticResource TextDimmedBrush}"
+                                   FontSize="{StaticResource FontSizeTiny}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12"/>
+
+                        <CheckBox Content="Enable voice commands"
+                                  IsChecked="{Binding VoiceEnabled}"
+                                  Classes="FormCheckBox"
+                                  ToolTip.Tip="Enable hands-free control of TerminalHost using voice commands (F4)."/>
+                        <TextBlock Text="Press F4 to start/stop listening. Speak command names (e.g. 'git changes', 'settings') or say 'send to claude: ...' to type text into the AI terminal."
+                                   Classes="HelpText"/>
+
+                        <CheckBox Content="Show transcript overlay"
+                                  IsChecked="{Binding VoiceShowTranscript}"
+                                  Classes="FormCheckBox"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  ToolTip.Tip="Show a floating bar with recognized speech text and matched command."/>
+                        <TextBlock Text="Displays a floating bar at the top showing what was heard, matched command preview, and countdown before execution."
+                                   Classes="HelpText"/>
+
+                        <CheckBox Content="Feedback sounds"
+                                  IsChecked="{Binding VoiceFeedbackSounds}"
+                                  Classes="FormCheckBox"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  ToolTip.Tip="Play audio feedback when listening starts/stops and commands execute."/>
+                        <TextBlock Text="Audible feedback when voice listening starts, stops, or a command is recognized."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="WHISPER MODEL" Classes="FieldLabel" Margin="0,12,0,4"/>
+                        <ComboBox SelectedIndex="{Binding VoiceWhisperModelSizeIndex}"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  Classes="DarkComboBox">
+                            <ComboBoxItem Content="Tiny (~75 MB) — fastest, lower accuracy"/>
+                            <ComboBoxItem Content="Base (~142 MB) — good for simple commands"/>
+                            <ComboBoxItem Content="Small (~466 MB) — excellent accuracy (recommended)"/>
+                            <ComboBoxItem Content="Medium (~1.5 GB) — high accuracy, slower on CPU"/>
+                            <ComboBoxItem Content="Large V3 (~3 GB) — highest accuracy, requires significant RAM"/>
+                        </ComboBox>
+                        <TextBlock Text="Larger models are more accurate but use more memory and take longer to process. The Small model is recommended for most users. Model is downloaded on first use."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="LANGUAGE" Classes="FieldLabel" Margin="0,12,0,4"/>
+                        <ComboBox SelectedIndex="{Binding VoiceWhisperLanguageIndex}"
+                                  IsEnabled="{Binding VoiceEnabled}"
+                                  Classes="DarkComboBox">
+                            <ComboBoxItem Content="Auto-detect"/>
+                            <ComboBoxItem Content="English"/>
+                            <ComboBoxItem Content="Dutch"/>
+                            <ComboBoxItem Content="German"/>
+                            <ComboBoxItem Content="French"/>
+                            <ComboBoxItem Content="Spanish"/>
+                            <ComboBoxItem Content="Italian"/>
+                            <ComboBoxItem Content="Portuguese"/>
+                            <ComboBoxItem Content="Japanese"/>
+                            <ComboBoxItem Content="Chinese"/>
+                            <ComboBoxItem Content="Korean"/>
+                            <ComboBoxItem Content="Russian"/>
+                        </ComboBox>
+                        <TextBlock Text="Set a specific language for better accuracy, or use Auto-detect for mixed-language use. Auto-detect works well with the Small model and above."
+                                   Classes="HelpText"/>
+
+                        <TextBlock Text="CONFIDENCE THRESHOLD" Classes="FieldLabel" Margin="0,12,0,4"/>
+                        <StackPanel Orientation="Horizontal" IsEnabled="{Binding VoiceEnabled}">
+                            <Slider Width="200"
+                                    Minimum="0.3" Maximum="1.0"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding VoiceConfidenceThreshold}"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding VoiceConfidenceThreshold, StringFormat={}{0:P0}}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="Minimum confidence required to match a command. Lower values match more loosely; higher values require closer matches. Commands below threshold show alternatives instead."
+                                   Classes="HelpText"/>
+
                     </StackPanel>
 
                     <!-- Terminal Settings Section -->

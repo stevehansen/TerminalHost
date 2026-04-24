@@ -18,7 +18,19 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
     // Cache Repository objects to avoid creating thousands of native SafeHandle
     // objects that flood the finalization queue (9000+ pending finalizers observed).
     // Each open/close creates ~20 native handles; caching eliminates that churn.
-    private readonly ConcurrentDictionary<string, Repository> _repoCache = new(StringComparer.OrdinalIgnoreCase);
+    //
+    // libgit2's git_repository is NOT thread-safe, so each entry carries a lock that
+    // every libgit2 call must hold. Disposal also takes the lock, so eviction can
+    // never race with an in-flight reader (previously caused SIGSEGV in
+    // git_index_read / git_repository_free on macOS).
+    private sealed class RepoEntry
+    {
+        public readonly Repository Repo;
+        public readonly object Lock = new();
+        public RepoEntry(Repository repo) { Repo = repo; }
+    }
+
+    private readonly ConcurrentDictionary<string, RepoEntry> _repoCache = new(StringComparer.OrdinalIgnoreCase);
 
     public GitStatusService(IGitProcessRunner gitRunner, IFileSystem fileSystem)
     {
@@ -28,48 +40,56 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
 
     public void Dispose()
     {
-        foreach (var repo in _repoCache.Values)
+        foreach (var entry in _repoCache.Values)
         {
-            try { repo.Dispose(); } catch { }
+            lock (entry.Lock)
+            {
+                try { entry.Repo.Dispose(); } catch { }
+            }
         }
         _repoCache.Clear();
     }
 
     /// <summary>
-    /// Gets or creates a cached Repository for the given path.
+    /// Gets or creates a cached Repository entry for the given path.
     /// Returns null if the path is not a git repository.
+    /// Caller MUST hold entry.Lock for the duration of any libgit2 access.
     /// </summary>
-    private Repository? GetCachedRepo(string workingDirectory)
+    private RepoEntry? GetCachedRepo(string workingDirectory)
     {
         if (_repoCache.TryGetValue(workingDirectory, out var cached))
-        {
-            // Verify the repo is still valid (hasn't been deleted)
-            try
-            {
-                _ = cached.Head;
-                return cached;
-            }
-            catch
-            {
-                // Repo is invalid, remove and re-discover
-                _repoCache.TryRemove(workingDirectory, out _);
-                try { cached.Dispose(); } catch { }
-            }
-        }
+            return cached;
 
         var repoPath = Repository.Discover(workingDirectory);
         if (repoPath == null)
             return null;
 
-        try
+        Repository fresh;
+        try { fresh = new Repository(repoPath); }
+        catch { return null; }
+
+        var entry = new RepoEntry(fresh);
+        if (_repoCache.TryAdd(workingDirectory, entry))
+            return entry;
+
+        // Lost the race; another thread cached one first. Discard ours.
+        fresh.Dispose();
+        return _repoCache.TryGetValue(workingDirectory, out var winner) ? winner : null;
+    }
+
+    /// <summary>
+    /// Atomically remove an entry from the cache and dispose it. Disposal happens
+    /// under the entry's lock so concurrent libgit2 callers finish first.
+    /// </summary>
+    private void InvalidateRepo(string workingDirectory, RepoEntry entry)
+    {
+        var pair = new KeyValuePair<string, RepoEntry>(workingDirectory, entry);
+        if (((ICollection<KeyValuePair<string, RepoEntry>>)_repoCache).Remove(pair))
         {
-            var repo = new Repository(repoPath);
-            _repoCache[workingDirectory] = repo;
-            return repo;
-        }
-        catch
-        {
-            return null;
+            lock (entry.Lock)
+            {
+                try { entry.Repo.Dispose(); } catch { }
+            }
         }
     }
 
@@ -84,54 +104,61 @@ public sealed class GitStatusService : IGitStatusService, IDisposable
             if (!_fileSystem.DirectoryExists(workingDirectory))
                 return status;
 
-            try
-            {
-                var repo = GetCachedRepo(workingDirectory);
-                if (repo == null)
-                    return status;
-
-                status.IsGitRepository = true;
-
-                // Branch name
-                if (repo.Head.FriendlyName == "(no branch)")
-                {
-                    // Detached HEAD — use short SHA
-                    status.BranchName = repo.Head.Tip?.Sha[..7] ?? "HEAD";
-                }
-                else
-                {
-                    status.BranchName = repo.Head.FriendlyName ?? "";
-                }
-
-                // Dirty status (any staged, unstaged, or untracked changes)
-                var repoStatus = repo.RetrieveStatus(new StatusOptions
-                {
-                    IncludeUntracked = true,
-                    RecurseUntrackedDirs = false, // faster: don't recurse into untracked dirs
-                });
-                status.IsDirty = repoStatus.IsDirty;
-
-                // Ahead/behind counts
-                if (repo.Head.TrackedBranch != null && repo.Head.Tip != null && repo.Head.TrackedBranch.Tip != null)
-                {
-                    var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(
-                        repo.Head.Tip, repo.Head.TrackedBranch.Tip);
-                    status.AheadCount = divergence.AheadBy ?? 0;
-                    status.BehindCount = divergence.BehindBy ?? 0;
-                }
-
-                // Stash count
-                status.StashCount = repo.Stashes.Count();
-
+            var entry = GetCachedRepo(workingDirectory);
+            if (entry == null)
                 return status;
-            }
-            catch
+
+            bool failed = false;
+            lock (entry.Lock)
             {
-                // Invalidate cache on error (repo may have been deleted/corrupted)
-                _repoCache.TryRemove(workingDirectory, out var stale);
-                if (stale != null) try { stale.Dispose(); } catch { }
-                return status;
+                try
+                {
+                    var repo = entry.Repo;
+                    status.IsGitRepository = true;
+
+                    // Branch name
+                    if (repo.Head.FriendlyName == "(no branch)")
+                    {
+                        // Detached HEAD — use short SHA
+                        status.BranchName = repo.Head.Tip?.Sha[..7] ?? "HEAD";
+                    }
+                    else
+                    {
+                        status.BranchName = repo.Head.FriendlyName ?? "";
+                    }
+
+                    // Dirty status (any staged, unstaged, or untracked changes)
+                    var repoStatus = repo.RetrieveStatus(new StatusOptions
+                    {
+                        IncludeUntracked = true,
+                        RecurseUntrackedDirs = false, // faster: don't recurse into untracked dirs
+                    });
+                    status.IsDirty = repoStatus.IsDirty;
+
+                    // Ahead/behind counts
+                    if (repo.Head.TrackedBranch != null && repo.Head.Tip != null && repo.Head.TrackedBranch.Tip != null)
+                    {
+                        var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(
+                            repo.Head.Tip, repo.Head.TrackedBranch.Tip);
+                        status.AheadCount = divergence.AheadBy ?? 0;
+                        status.BehindCount = divergence.BehindBy ?? 0;
+                    }
+
+                    // Stash count
+                    status.StashCount = repo.Stashes.Count();
+                }
+                catch
+                {
+                    // Repo may have been deleted/corrupted; invalidate after releasing the lock.
+                    failed = true;
+                    status = new Domain.GitStatus();
+                }
             }
+
+            if (failed)
+                InvalidateRepo(workingDirectory, entry);
+
+            return status;
         });
     }
 

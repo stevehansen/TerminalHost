@@ -442,21 +442,7 @@ public class TerminalSession : IDisposable
 
     public void Terminate()
     {
-        try
-        {
-            if (State == SessionState.Running)
-            {
-                _terminalControl?.Kill();
-            }
-        }
-        catch
-        {
-            // Ignore errors during termination
-        }
-        finally
-        {
-            State = SessionState.Exited;
-        }
+        State = SessionState.Exited;
     }
 
     public bool IsProcessRunning()

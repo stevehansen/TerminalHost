@@ -1,8 +1,12 @@
 using Avalonia.Threading;
+using CoreTimer = TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Services;
 
-internal sealed class TimerService : ITimerService
+/// <summary>
+/// Timer service that implements both Avalonia-specific and Core interfaces.
+/// </summary>
+internal sealed class TimerService : ITimerService, CoreTimer.ITimerService
 {
     public IPlatformTimer CreateTimer(TimeSpan interval, Action callback)
     {
@@ -28,7 +32,13 @@ internal sealed class TimerService : ITimerService
         });
     }
 
-    private sealed class AvaloniaTimer : IPlatformTimer
+    // Implement Core.Interfaces.ITimerService
+    CoreTimer.IAppTimer CoreTimer.ITimerService.CreateTimer(TimeSpan interval, Action callback)
+    {
+        return new AvaloniaTimer(interval, callback);
+    }
+
+    private sealed class AvaloniaTimer : IPlatformTimer, CoreTimer.IAppTimer
     {
         private readonly DispatcherTimer _timer;
         private readonly Action _callback;
@@ -52,10 +62,24 @@ internal sealed class TimerService : ITimerService
         public void Stop() => _timer.Stop();
         public bool IsRunning => _timer.IsEnabled;
 
+        // For IPlatformTimer
         public TimeSpan Interval
         {
             get => _timer.Interval;
             set => _timer.Interval = value;
+        }
+
+        // For Core.IAppTimer
+        bool CoreTimer.IAppTimer.IsEnabled
+        {
+            get => _timer.IsEnabled;
+            set
+            {
+                if (value)
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            }
         }
 
         public void Dispose()

@@ -8,9 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
+using TerminalHost.Posix.Services;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
 using TerminalHost.Views;
+#if LINUX
+using TerminalHost.Linux.Services;
+#endif
 using ITimerService = TerminalHost.Services.ITimerService;
 
 namespace TerminalHost;
@@ -18,7 +22,7 @@ namespace TerminalHost;
 public partial class App : Application
 {
     private IServiceProvider? _services;
-    private SingleInstanceService? _singleInstanceService;
+    private ISingleInstanceService? _singleInstanceService;
 
     public new static App Current => (App)Application.Current!;
     public IServiceProvider Services => _services!;
@@ -36,7 +40,9 @@ public partial class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
+#if !LINUX
         AvaloniaWebView.AvaloniaWebViewBuilder.Initialize(default);
+#endif
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -52,7 +58,7 @@ public partial class App : Application
             _services = services.BuildServiceProvider();
 
             // Start pipe server for receiving hook events from CLI invocations
-            _singleInstanceService = new SingleInstanceService();
+            _singleInstanceService = new PosixSingleInstanceService();
             _singleInstanceService.TryAcquireLock();
             _singleInstanceService.StartPipeServer();
             _singleInstanceService.HookEventReceived += (_, hookEvent) =>
@@ -74,6 +80,9 @@ public partial class App : Application
                 // Create main window directly
                 var mainWindow = _services.GetRequiredService<MainWindow>();
                 desktop.MainWindow = mainWindow;
+
+                // Initialize system tray
+                InitializeSystemTray(mainWindow);
 
                 // Auto-start API server if enabled
                 _ = AutoStartApiServerAsync();
@@ -130,6 +139,9 @@ public partial class App : Application
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
 
+            // Initialize system tray
+            InitializeSystemTray(mainWindow);
+
             // Auto-start API server if enabled
             _ = AutoStartApiServerAsync();
         };
@@ -139,12 +151,20 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Platform Services (new for macOS migration)
-        services.AddSingleton<ISystemInfoService, SystemInfoService>();
+        // Platform Services — platform service for paths/shell, Avalonia decorator for fonts
+#if MACOS
+        services.AddSingleton<ISystemInfoService>(_ =>
+            new AvaloniaSystemInfoDecorator(new macOS.Services.MacSystemInfoService()));
+#elif LINUX
+        services.AddSingleton<ISystemInfoService>(_ =>
+            new AvaloniaSystemInfoDecorator(new Linux.Services.LinuxSystemInfoService()));
+#endif
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IStatisticsService, TerminalHost.Core.Services.StatisticsService>();
-        services.AddSingleton<ITimerService, TimerService>();
+        services.AddSingleton<TimerService>(); // Concrete type for both interfaces
+        services.AddSingleton<ITimerService>(sp => sp.GetRequiredService<TimerService>());
+        services.AddSingleton<Core.Interfaces.ITimerService>(sp => sp.GetRequiredService<TimerService>());
         services.AddSingleton<IDispatcherService, DispatcherService>();
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
         services.AddSingleton<IFilePickerService, FilePickerService>();
@@ -160,12 +180,19 @@ public partial class App : Application
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
 
-        // Container Services — pass the same config directory as ConfigurationService
-        // (~/Library/Application Support/TerminalHost/) since the default
+        // Container Services — pass the same config directory as ConfigurationService.
+#if MACOS
+        // macOS: ~/Library/Application Support/TerminalHost/ since the default
         // SpecialFolder.ApplicationData resolves to ~/.config/ on macOS .NET.
         var containerConfigDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library", "Application Support", "TerminalHost");
+#elif LINUX
+        // Linux: ~/.config/TerminalHost/ (XDG Base Directory)
+        var containerConfigDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost");
+#endif
         services.AddSingleton<IContainerService>(sp =>
             new TerminalHost.Core.Services.ContainerService(
                 sp.GetRequiredService<IConfigurationService>(),
@@ -192,6 +219,9 @@ public partial class App : Application
         services.AddSingleton<IRunUrlDetectionService, TerminalHost.Core.Services.RunUrlDetectionService>();
         services.AddSingleton<IInputPromptDetectionService, TerminalHost.Core.Services.InputPromptDetectionService>();
 
+        // System Tray
+        services.AddSingleton<ISystemTrayService, SystemTrayService>();
+
         // Feature Services
         services.AddSingleton<IClaudeCommandService, TerminalHost.Core.Services.ClaudeCommandService>();
         services.AddSingleton<IClaudeSessionIndexService, TerminalHost.Core.Services.ClaudeSessionIndexService>();
@@ -200,9 +230,20 @@ public partial class App : Application
         services.AddSingleton<ITaskService, TerminalHost.Core.Services.TaskService>();
         services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
+#if MACOS
+        services.AddSingleton<ISoundService, macOS.Services.MacSoundService>();
+#elif LINUX
+        services.AddSingleton<ISoundService, Linux.Services.LinuxSoundService>();
+#endif
+
+        // Voice Command Services (Whisper-based, cross-platform)
+        services.AddSingleton<IAudioCaptureService, Posix.Services.PosixAudioCaptureService>();
+        services.AddSingleton<TerminalHost.Core.Services.WhisperModelManager>();
+        services.AddSingleton<IVoiceCommandService, Posix.Services.PosixWhisperVoiceCommandService>();
+
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
-        services.AddSingleton<IHookInstaller, TerminalHost.macOS.Services.MacHookInstaller>();
+        services.AddSingleton<IHookInstaller, TerminalHost.Posix.Services.PosixHookInstaller>();
         services.AddSingleton<ITimelineService, TerminalHost.Core.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
@@ -383,6 +424,29 @@ public partial class App : Application
         return System.IO.Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
+    private void InitializeSystemTray(MainWindow mainWindow)
+    {
+        var systemTrayService = _services!.GetRequiredService<ISystemTrayService>();
+        var configService = _services!.GetRequiredService<IConfigurationService>();
+
+        systemTrayService.Initialize(mainWindow);
+
+        // Set enabled state from config
+        var config = configService.Load();
+        systemTrayService.IsEnabled = config.Settings.ShowInSystemTray;
+
+        // Handle tray events
+        systemTrayService.ShowRequested += (_, _) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.BringToFront());
+        };
+
+        systemTrayService.ExitRequested += (_, _) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ForceClose());
+        };
+    }
+
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         // Dispose API and webhook services
@@ -393,6 +457,9 @@ public partial class App : Application
         (_services?.GetService<ITranscriptWatcher>() as IDisposable)?.Dispose();
         (_services?.GetService<ITimelineService>() as IDisposable)?.Dispose();
         _singleInstanceService?.Dispose();
+
+        // Dispose system tray
+        _services?.GetService<ISystemTrayService>()?.Dispose();
 
         // Dispose other services
         (_services?.GetService<IStatisticsService>() as IDisposable)?.Dispose();

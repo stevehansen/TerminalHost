@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TerminalHost.Posix</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
+    <PackageReference Include="PtySharp" Version="1.1.0" />
+  </ItemGroup>
+
+  <!-- Whisper.net for voice commands -->
+  <ItemGroup>
+    <PackageReference Include="Whisper.net" Version="1.9.0" />
+  </ItemGroup>
+
+  <!-- Platform-specific Whisper runtime -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PackageReference Include="Whisper.net.Runtime.CoreML" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
+  </ItemGroup>
+
+</Project>

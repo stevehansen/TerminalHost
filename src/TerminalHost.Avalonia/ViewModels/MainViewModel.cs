@@ -3,9 +3,11 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using ITimerService = TerminalHost.Services.ITimerService;
@@ -50,8 +52,11 @@ public partial class MainViewModel : ObservableObject
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly IAiExecutionService? _aiExecutionService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
+    private readonly ISoundService? _soundService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
+    private readonly IVoiceCommandService? _voiceCommandService;
+    private readonly Core.Interfaces.ITimerService _coreTimerService;
 
     private readonly IPlatformTimer _gitStatusTimer;
     private readonly IPlatformTimer _gitAutoFetchTimer;
@@ -91,6 +96,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public ISessionManager SessionManager => _sessionManager;
 
+    /// <summary>
+    /// Voice command floating bar ViewModel.
+    /// </summary>
+    public VoiceBarViewModel VoiceBar { get; private set; } = null!;
+
     [ObservableProperty]
     private ObservableCollection<ITabViewModel> _tabs = [];
 
@@ -121,6 +131,67 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isHelpOpen;
+
+    /// <summary>
+    /// Built-in keyboard shortcuts for the Help view, with platform-appropriate display text.
+    /// Sourced from ShortcutConflictService (single source of truth).
+    /// </summary>
+    public List<HelpDisplaySection> HelpShortcutSections { get; } = BuildHelpSections();
+
+    /// <summary>
+    /// Quick command shortcuts for the Help view.
+    /// </summary>
+    public List<HelpDisplaySection> HelpQuickCommandSections { get; } =
+    [
+        new("Default Quick Commands (configurable in Settings)",
+        [
+            new(FormatShortcut("Ctrl+Shift+C"), "Send 'commit' to Claude Code"),
+            new(FormatShortcut("Ctrl+Shift+D"), "Run 'git pull --rebase' in Shell"),
+            new(FormatShortcut("Ctrl+Shift+U"), "Run 'git push' in Shell"),
+        ]),
+    ];
+
+    /// <summary>
+    /// Command line examples for the Help view.
+    /// </summary>
+    public List<HelpCommandLineExample> HelpCommandLineExamples { get; } =
+    [
+        new("host", "Open/focus app"),
+        new("host .", "Open project from current directory"),
+        new("host ~/MyProject", "Open specific project"),
+        new("host -w ~/Path", "Using named argument"),
+        new("host -multi", "Allow multiple instances"),
+        new("host -data path", "Override config path"),
+    ];
+
+    /// <summary>
+    /// Config path for the Help view.
+    /// </summary>
+    public string HelpConfigPath => OperatingSystem.IsMacOS()
+        ? "~/Library/Application Support/TerminalHost/config.json"
+        : "~/.config/TerminalHost/config.json";
+
+    private static List<HelpDisplaySection> BuildHelpSections()
+    {
+        var isMac = OperatingSystem.IsMacOS();
+        return ShortcutConflictService.GetSectionsForPlatform(isMac)
+            .Select(s => new HelpDisplaySection(
+                s.Name,
+                s.GetItemsForPlatform(isMac)
+                    .Select(i => new HelpDisplayItem(i.GetDisplayShortcut(isMac), i.Description))
+                    .ToList()))
+            .Where(s => s.Items.Count > 0)
+            .ToList();
+    }
+
+    private static string FormatShortcut(string shortcut)
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            return shortcut.Replace("Ctrl+", "⌘");
+        }
+        return shortcut;
+    }
 
     /// <summary>
     /// Whether touch-friendly mode is enabled for larger touch targets and padding.
@@ -273,8 +344,11 @@ public partial class MainViewModel : ObservableObject
         IEventAggregatorService? eventAggregator = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
         IAiExecutionService? aiExecutionService = null,
+        ISoundService? soundService = null,
         StatusOverlayService? statusOverlayService = null,
-        IContainerService? containerService = null)
+        IContainerService? containerService = null,
+        IVoiceCommandService? voiceCommandService = null,
+        Core.Interfaces.ITimerService? coreTimerService = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -312,8 +386,26 @@ public partial class MainViewModel : ObservableObject
         _eventAggregator = eventAggregator;
         _webhookDeliveryService = webhookDeliveryService;
         _aiExecutionService = aiExecutionService;
+        _soundService = soundService;
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
+        _voiceCommandService = voiceCommandService;
+        _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
+
+        // Initialize voice command bar
+        VoiceBar = new VoiceBarViewModel(_coreTimerService);
+        VoiceBar.SendToAiRequested += OnVoiceSendToAi;
+        VoiceBar.StartListeningRequested += (_, _) => _voiceCommandService?.StartListening();
+        VoiceBar.StopListeningRequested += (_, _) => _voiceCommandService?.StopListening();
+        if (_voiceCommandService is not null)
+        {
+            _voiceCommandService.CommandRecognized += (_, e) => VoiceBar.OnRecognitionResult(e.Result);
+            _voiceCommandService.Error += (_, e) =>
+            {
+                _toastService.Show(e.Message, ToastType.Error);
+                if (e.IsFatal) VoiceBar.Cancel();
+            };
+        }
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -346,6 +438,7 @@ public partial class MainViewModel : ObservableObject
 
         FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         InitializeCommandPalette(); // Initialize commands once
+        InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
         // Set up timer for periodic git status refresh (every 5 seconds)
         _gitStatusTimer = _timerService.CreateTimer(
@@ -1998,6 +2091,12 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
+        // Refresh sound settings
+        if (_soundService is TerminalHost.Posix.Services.PosixSoundServiceBase soundService)
+        {
+            soundService.RefreshCachedSettings(config.Settings.Sounds);
+        }
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
@@ -2971,6 +3070,10 @@ public partial class MainViewModel : ObservableObject
                     var config = _configService.Load();
                     config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
                     _configService.Save(config);
+                    // Update system tray service visibility
+                    var trayService = App.Current.Services.GetService<ISystemTrayService>();
+                    if (trayService != null)
+                        trayService.IsEnabled = config.Settings.ShowInSystemTray;
                     _toastService.Show(config.Settings.ShowInSystemTray ? "System tray enabled" : "System tray disabled", ToastType.Info);
                 }
             },
@@ -3955,6 +4058,113 @@ public partial class MainViewModel : ObservableObject
             tab.Pair.Dispose();
         }
     }
+
+    #region Voice Commands
+
+    /// <summary>
+    /// Build voice command grammar from palette commands and quick commands.
+    /// Curated aliases map common speech phrases to command IDs.
+    /// </summary>
+    private void InitializeVoiceGrammar()
+    {
+        if (_voiceCommandService is null) return;
+
+        var aliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["new-project"] = ["open project", "new project"],
+            ["close-tab"] = ["close tab"],
+            ["switch-terminal"] = ["switch terminal", "toggle terminal"],
+            ["settings"] = ["settings", "open settings"],
+            ["command-palette"] = ["command palette", "commands"],
+            ["git-changes"] = ["git changes", "git status", "show changes"],
+            ["git-branches"] = ["branches", "switch branch"],
+            ["git-history"] = ["commit history", "git log"],
+            ["git-stash"] = ["git stash", "stash"],
+            ["file-explorer"] = ["file explorer", "files"],
+            ["scratch-pad"] = ["scratch pad", "notes"],
+            ["help"] = ["help", "what can I say"],
+            ["dashboard"] = ["dashboard"],
+            ["pr-review"] = ["review PR", "PR review"],
+            ["run-start"] = ["run", "start project"],
+            ["run-stop"] = ["stop", "stop project"],
+            ["timeline"] = ["timeline"],
+            ["file-search"] = ["search", "find in files"],
+            ["markdown-preview"] = ["markdown preview"],
+            ["whats-new"] = ["what's new", "recent features"],
+            ["toggle-voice"] = ["voice commands", "toggle voice", "stop listening"]
+        };
+
+        var entries = new List<VoiceCommandEntry>();
+
+        foreach (var cmd in _allPaletteCommands)
+        {
+            aliases.TryGetValue(cmd.Id, out var cmdAliases);
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = cmd.Id,
+                DisplayName = cmd.Name,
+                Shortcut = cmd.Shortcut,
+                PrimaryPhrase = cmd.Name.ToLowerInvariant(),
+                Aliases = cmdAliases ?? [],
+                Execute = cmd.Execute,
+                Category = cmd.Category
+            });
+        }
+
+        // Add quick commands
+        var config = _configService.Load();
+        foreach (var qc in config.QuickCommands)
+        {
+            entries.Add(new VoiceCommandEntry
+            {
+                CommandId = $"qc-{qc.Id}",
+                DisplayName = qc.Label,
+                Shortcut = qc.Shortcut,
+                PrimaryPhrase = qc.Label.ToLowerInvariant(),
+                Aliases = [],
+                Execute = () => ExecuteQuickCommand(qc),
+                Category = "Quick Command"
+            });
+        }
+
+        _voiceCommandService.UpdateGrammar(entries);
+    }
+
+    /// <summary>
+    /// Toggle voice listening on/off (F4 shortcut).
+    /// </summary>
+    public void ToggleVoiceListening()
+    {
+        var settings = _configService.Load().Settings.Voice;
+        if (!settings.Enabled)
+        {
+            _toastService.Show("Voice commands are disabled. Enable them in Settings.", ToastType.Info);
+            return;
+        }
+        if (_voiceCommandService is null || !_voiceCommandService.IsAvailable)
+        {
+            _toastService.Show("Voice commands are not available on this system.", ToastType.Warning);
+            return;
+        }
+
+        if (VoiceBar.IsVisible)
+            VoiceBar.Cancel();
+        else
+            VoiceBar.StartListening();
+    }
+
+    /// <summary>
+    /// Handles the SendToAiRequested event from the voice bar.
+    /// Sends unmatched voice transcript to the active custom terminal.
+    /// </summary>
+    private void OnVoiceSendToAi(object? sender, string text)
+    {
+        if (SelectedTab is not TerminalPairTabViewModel tab) return;
+        tab.Pair.CustomTerminal.SendText(text, appendNewline: false, newlineChar: "\r", useUserInput: true);
+        tab.Pair.CustomTerminal.Focus();
+    }
+
+    #endregion
 }
 
 public class RunTerminalRequestedEventArgs : EventArgs
@@ -3989,3 +4199,18 @@ public class CenterPanelRestoreEventArgs : EventArgs
     /// </summary>
     public bool SkipDataLoad { get; init; }
 }
+
+/// <summary>
+/// Display model for a shortcut in the Help view, with pre-formatted platform-specific text.
+/// </summary>
+public record HelpDisplayItem(string Shortcut, string Description);
+
+/// <summary>
+/// Display model for a section of shortcuts in the Help view.
+/// </summary>
+public record HelpDisplaySection(string Name, List<HelpDisplayItem> Items);
+
+/// <summary>
+/// Display model for a command line example in the Help view.
+/// </summary>
+public record HelpCommandLineExample(string Command, string Description);
