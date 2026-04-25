@@ -46,6 +46,9 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             _transcriptWatcher.OnEvent += OnTranscriptWatcherEvent;
             _transcriptWatcher.OnSessionInactive += OnTranscriptSessionInactive;
         }
+
+        if (_activityService != null)
+            _activityService.ActivityEventProcessed += OnActivityEvent;
     }
 
     public IReadOnlyList<LiveSession> GetLiveSessions()
@@ -83,10 +86,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             if (_liveSessions.TryGetValue(hookEvent.SessionId, out var existing))
             {
                 if (!existing.IsActive)
-                {
                     existing.EndTime = null;
-                    existing.LastActivityTime = DateTime.UtcNow;
-                }
                 return;
             }
 
@@ -129,12 +129,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     {
         if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
         EnsureLiveSession(hookEvent);
-
-        lock (_lock)
-        {
-            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
-                live.LastActivityTime = DateTime.UtcNow;
-        }
     }
 
     public Task HandleSessionStopAsync(HookEvent hookEvent)
@@ -182,12 +176,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
         EnsureLiveSession(hookEvent);
 
-        lock (_lock)
-        {
-            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
-                live.LastActivityTime = DateTime.UtcNow;
-        }
-
         // Eager-parse transcript: by the time a tool starts, the user message and
         // assistant thinking/text are already written. Avoids waiting for FSW debounce.
         _transcriptWatcher?.EagerParse(hookEvent.SessionId);
@@ -197,13 +185,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     {
         if (string.IsNullOrEmpty(hookEvent.SessionId)) return;
         EnsureLiveSession(hookEvent);
-
-        lock (_lock)
-        {
-            if (_liveSessions.TryGetValue(hookEvent.SessionId, out var live) && live.IsActive)
-                live.LastActivityTime = DateTime.UtcNow;
-        }
-
         TryFixCollabSessionName(hookEvent);
     }
 
@@ -371,12 +352,34 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
 
     private void OnTranscriptWatcherEvent(object? sender, TranscriptWatcherEventArgs e)
     {
+        // ProcessTranscriptEvents fires ActivityEventProcessed for each event,
+        // which OnActivityEvent uses to bump LiveSession.LastActivityTime.
         _activityService?.ProcessTranscriptEvents(e.SessionId, e.Events, e.Summary, e.Model);
+    }
+
+    /// <summary>
+    /// Mirrors SessionActivityService activity timestamps onto the live session.
+    /// SessionActivityState is the single canonical source for "last activity";
+    /// the tracker holds a copy on LiveSession so consumers (cards, timeout
+    /// detection) don't have to look up the activity service themselves. Only
+    /// real-activity events bump — lifecycle/metadata events (SessionStart,
+    /// AgentSpawn, AgentStateChange, ...) are ignored so the session retains
+    /// its "no activity ever" timeout window until it does real work.
+    /// </summary>
+    private void OnActivityEvent(object? sender, ActivityEvent evt)
+    {
+        if (evt.Type is not (ActivityEventType.ToolCallStart
+            or ActivityEventType.ToolCallEnd
+            or ActivityEventType.UserMessage
+            or ActivityEventType.AssistantMessage
+            or ActivityEventType.ThinkingBlock
+            or ActivityEventType.FileAccessed))
+            return;
 
         lock (_lock)
         {
-            if (_liveSessions.TryGetValue(e.SessionId, out var live) && live.IsActive)
-                live.LastActivityTime = DateTime.UtcNow;
+            if (_liveSessions.TryGetValue(evt.SessionId, out var live) && live.IsActive)
+                live.LastActivityTime = evt.Timestamp;
         }
     }
 
@@ -460,5 +463,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             _transcriptWatcher.OnSessionInactive -= OnTranscriptSessionInactive;
             _transcriptWatcher.UnwatchAll();
         }
+        if (_activityService != null)
+            _activityService.ActivityEventProcessed -= OnActivityEvent;
     }
 }

@@ -489,16 +489,16 @@ public partial class App : Application
                     break;
 
                 case HookEventType.ToolError:
-                    timelineService.HandleToolEnd(hookEvent); // Same activity tracking
+                    timelineService.HandleToolEnd(hookEvent);
                     break;
 
                 case HookEventType.SubagentStart:
                 case HookEventType.SubagentStop:
-                    timelineService.HandleToolStart(hookEvent); // Updates LastActivityTime
-                    break;
-
                 case HookEventType.Notification:
-                    timelineService.HandleToolStart(hookEvent); // Updates LastActivityTime
+                    // Route through HandleToolStart so EnsureLiveSession runs if the
+                    // SessionStart hook was missed. Activity timestamps are bumped by
+                    // LiveSessionTracker's ActivityEventProcessed subscription.
+                    timelineService.HandleToolStart(hookEvent);
                     break;
 
                 case HookEventType.SessionEnd:
