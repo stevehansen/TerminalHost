@@ -307,6 +307,8 @@ public partial class App : Application
         services.AddSingleton<ITaskService, TaskService>();
         services.AddSingleton<ITaskAggregator, TaskAggregator>();
         services.AddSingleton<IHookInstaller, TerminalHost.Windows.Services.WindowsHookInstaller>();
+        services.AddSingleton<ISessionStateStore, SessionStateStore>();
+        services.AddSingleton<ILiveSessionTracker, LiveSessionTracker>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
         services.AddSingleton<ISessionActivityService, SessionActivityService>();

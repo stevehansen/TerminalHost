@@ -249,6 +249,8 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IHookInstaller, TerminalHost.Posix.Services.PosixHookInstaller>();
+        services.AddSingleton<ISessionStateStore, TerminalHost.Core.Services.SessionStateStore>();
+        services.AddSingleton<ILiveSessionTracker, TerminalHost.Core.Services.LiveSessionTracker>();
         services.AddSingleton<ITimelineService, TerminalHost.Core.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
