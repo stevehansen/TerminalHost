@@ -232,6 +232,7 @@ public partial class App : Application
         services.AddSingleton<IClaudeTaskFileService, TerminalHost.Core.Services.ClaudeTaskFileService>();
         services.AddSingleton<IClaudeTaskDetectionService, TerminalHost.Core.Services.ClaudeTaskDetectionService>();
         services.AddSingleton<ITaskService, TerminalHost.Core.Services.TaskService>();
+        services.AddSingleton<ITaskAggregator, TerminalHost.Core.Services.TaskAggregator>();
         services.AddSingleton<IAiAssistantService, TerminalHost.Core.Services.AiAssistantService>();
         services.AddSingleton<IMarkdownService, TerminalHost.Core.Services.MarkdownService>();
 #if MACOS

@@ -45,7 +45,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IDispatcherService _dispatcherService;
     private readonly ITimelineService _timelineService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
-    private readonly IClaudeTaskFileService? _claudeTaskFileService;
+    private readonly ITaskAggregator? _taskAggregator;
     private readonly IApiServer? _apiServer;
     private readonly ISessionActivityService? _sessionActivityService;
     private readonly IEventAggregatorService? _eventAggregator;
@@ -338,7 +338,7 @@ public partial class MainViewModel : ObservableObject
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
-        IClaudeTaskFileService? claudeTaskFileService = null,
+        ITaskAggregator? taskAggregator = null,
         IApiServer? apiServer = null,
         ISessionActivityService? sessionActivityService = null,
         IEventAggregatorService? eventAggregator = null,
@@ -380,7 +380,7 @@ public partial class MainViewModel : ObservableObject
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
         _claudeTaskDetectionService = claudeTaskDetectionService;
-        _claudeTaskFileService = claudeTaskFileService;
+        _taskAggregator = taskAggregator;
         _apiServer = apiServer;
         _sessionActivityService = sessionActivityService;
         _eventAggregator = eventAggregator;
@@ -1210,7 +1210,7 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _claudeTaskFileService, _dispatcherService, _gitStatusService, _toastService, duplicateIndex);
+            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _taskAggregator, _dispatcherService, _gitStatusService, _toastService, duplicateIndex);
             tabViewModel.IsContainerized = containerName != null;
             SidebarViewModel?.UpdateContainerState(workingDirectory, containerName != null);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;

@@ -516,7 +516,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public event EventHandler? ClaudeTasksPanelRequested;
 #pragma warning restore CS0067
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, ITaskAggregator? taskAggregator = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -533,9 +533,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         DuplicateIndex = duplicateIndex;
 
         // Initialize workspace tasks panel
-        if (taskService != null)
+        if (taskService != null && taskAggregator != null)
         {
-            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService, claudeTaskFileService, dispatcherService);
+            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, taskAggregator, dispatcherService);
             WorkspaceTasksPanel.WorkspacePath = pair.WorkingDirectory;
             WorkspaceTasksPanel.ClaudeTasksPanelRequested += (s, e) => ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -554,7 +554,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, IClaudeTaskFileService? claudeTaskFileService = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, ITerminalControlFactory terminalFactory, IClaudeTaskDetectionService? claudeTaskDetectionService = null, ITimelineService? timelineService = null, ITaskService? taskService = null, ITaskAggregator? taskAggregator = null, IDispatcherService? dispatcherService = null, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -573,9 +573,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         DuplicateIndex = duplicateIndex;
 
         // Initialize workspace tasks panel
-        if (taskService != null)
+        if (taskService != null && taskAggregator != null)
         {
-            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, claudeTaskDetectionService, claudeTaskFileService, dispatcherService);
+            WorkspaceTasksPanel = new Core.ViewModels.WorkspaceTasksPanelViewModel(taskService, taskAggregator, dispatcherService);
             WorkspaceTasksPanel.WorkspacePath = pair.WorkingDirectory;
             WorkspaceTasksPanel.ClaudeTasksPanelRequested += (s, e) => ClaudeTasksPanelRequested?.Invoke(this, EventArgs.Empty);
         }

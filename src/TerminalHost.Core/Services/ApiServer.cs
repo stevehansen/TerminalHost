@@ -32,9 +32,7 @@ public class ApiServer : IApiServer
     private readonly IEventAggregatorService _eventAggregator;
     private readonly IGitStatusService? _gitStatusService;
     private readonly ITimelineService? _timelineService;
-    private readonly ITaskService? _taskService;
-    private readonly IClaudeTaskFileService? _claudeTaskFileService;
-    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
+    private readonly ITaskAggregator? _taskAggregator;
     private readonly McpHandler? _mcpHandler;
     private readonly IClipboardService? _clipboardService;
     private readonly ISessionActivityService? _sessionActivityService;
@@ -103,9 +101,7 @@ public class ApiServer : IApiServer
         IEventAggregatorService eventAggregator,
         IGitStatusService? gitStatusService = null,
         ITimelineService? timelineService = null,
-        ITaskService? taskService = null,
-        IClaudeTaskFileService? claudeTaskFileService = null,
-        IClaudeTaskDetectionService? claudeTaskDetectionService = null,
+        ITaskAggregator? taskAggregator = null,
         McpHandler? mcpHandler = null,
         IClipboardService? clipboardService = null,
         ISessionActivityService? sessionActivityService = null,
@@ -117,9 +113,7 @@ public class ApiServer : IApiServer
         _eventAggregator = eventAggregator;
         _gitStatusService = gitStatusService;
         _timelineService = timelineService;
-        _taskService = taskService;
-        _claudeTaskFileService = claudeTaskFileService;
-        _claudeTaskDetectionService = claudeTaskDetectionService;
+        _taskAggregator = taskAggregator;
         _mcpHandler = mcpHandler;
         _clipboardService = clipboardService;
         _sessionActivityService = sessionActivityService;
@@ -956,46 +950,12 @@ public class ApiServer : IApiServer
     #region Task & Workspace Helpers
 
     /// <summary>
-    /// Merges tasks from all three sources (ITaskService, IClaudeTaskFileService, IClaudeTaskDetectionService)
-    /// with deduplication by task ID, and maps to API DTOs with repo index resolution.
+    /// Returns merged + deduplicated tasks from <see cref="ITaskAggregator"/>,
+    /// mapped to API DTOs with repo index resolution.
     /// </summary>
     private List<ApiTaskInfo>? GetMergedTasks()
     {
-        var seen = new HashSet<string>();
-        var result = new List<FocusTask>();
-
-        // 1. Manual tasks from ITaskService
-        if (_taskService != null)
-        {
-            foreach (var task in _taskService.GetAllTasks())
-            {
-                var key = task.ClaudeTaskId ?? task.Id;
-                if (seen.Add(key))
-                    result.Add(task);
-            }
-        }
-
-        // 2. Claude tasks from file service (~/.claude/tasks/)
-        if (_claudeTaskFileService != null)
-        {
-            foreach (var task in _claudeTaskFileService.GetAllTasks())
-            {
-                var key = task.ClaudeTaskId ?? task.Id;
-                if (seen.Add(key))
-                    result.Add(task);
-            }
-        }
-
-        // 3. Claude tasks from terminal detection
-        if (_claudeTaskDetectionService != null)
-        {
-            foreach (var task in _claudeTaskDetectionService.GetAllClaudeTasks())
-            {
-                var key = task.ClaudeTaskId ?? task.Id;
-                if (seen.Add(key))
-                    result.Add(task);
-            }
-        }
+        var result = _taskAggregator?.GetAll() ?? Array.Empty<FocusTask>();
 
         // Resolve repo indices from open tabs
         List<ApiRepoInfo> openRepos = new();

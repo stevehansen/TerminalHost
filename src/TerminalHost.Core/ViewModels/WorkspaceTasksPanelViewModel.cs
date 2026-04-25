@@ -14,8 +14,7 @@ namespace TerminalHost.Core.ViewModels;
 public partial class WorkspaceTasksPanelViewModel : ObservableObject
 {
     private readonly ITaskService _taskService;
-    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
-    private readonly IClaudeTaskFileService? _claudeTaskFileService;
+    private readonly ITaskAggregator _taskAggregator;
     private readonly IDispatcherService? _dispatcherService;
     private string _workspacePath = string.Empty;
 
@@ -62,29 +61,14 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
 
     public WorkspaceTasksPanelViewModel(
         ITaskService taskService,
-        IClaudeTaskDetectionService? claudeTaskDetectionService = null,
-        IClaudeTaskFileService? claudeTaskFileService = null,
+        ITaskAggregator taskAggregator,
         IDispatcherService? dispatcherService = null)
     {
         _taskService = taskService;
-        _claudeTaskDetectionService = claudeTaskDetectionService;
-        _claudeTaskFileService = claudeTaskFileService;
+        _taskAggregator = taskAggregator;
         _dispatcherService = dispatcherService;
 
-        // Subscribe to task changes
-        _taskService.TasksChanged += (s, e) => SafeRefreshTasks();
-
-        // Subscribe to Claude task detection events
-        if (_claudeTaskDetectionService != null)
-        {
-            _claudeTaskDetectionService.ClaudeTaskChanged += (s, e) => SafeRefreshTasks();
-        }
-
-        // Subscribe to file-based Claude task changes
-        if (_claudeTaskFileService != null)
-        {
-            _claudeTaskFileService.TasksChanged += (s, e) => SafeRefreshTasks();
-        }
+        _taskAggregator.Changed += (s, e) => SafeRefreshTasks();
     }
 
     /// <summary>
@@ -132,60 +116,7 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
             return;
         }
 
-        // Normalize the workspace path for comparison
-        var normalizedWorkspace = NormalizePath(WorkspacePath);
-
-        // Collect all tasks from different sources
-        var allTasks = new List<FocusTask>();
-        var seenTaskIds = new HashSet<string>();
-
-        // 1. Get tasks from TaskService (manually created tasks)
-        var serviceTasks = _taskService.GetAllTasks()
-            .Where(t => t.ProjectPaths.Any(p => NormalizePath(p) == normalizedWorkspace));
-        foreach (var task in serviceTasks)
-        {
-            var taskId = task.ClaudeTaskId ?? task.Id;
-            if (seenTaskIds.Add(taskId))
-            {
-                allTasks.Add(task);
-            }
-        }
-
-        // 2. Get tasks from ClaudeTaskFileService (~/.claude/tasks/)
-        if (_claudeTaskFileService != null)
-        {
-            var fileTasks = _claudeTaskFileService.GetAllTasks()
-                .Where(t => IsTaskForWorkspace(t, normalizedWorkspace));
-            foreach (var task in fileTasks)
-            {
-                // Use session ID + task ID as unique key (same ClaudeTaskId can exist in different sessions)
-                var taskId = task.ClaudeSessionId != null
-                    ? $"{task.ClaudeSessionId}:{task.ClaudeTaskId}"
-                    : task.ClaudeTaskId ?? task.Id;
-                if (seenTaskIds.Add(taskId))
-                {
-                    allTasks.Add(task);
-                }
-            }
-        }
-
-        // 3. Get tasks from ClaudeTaskDetectionService (terminal output detection)
-        if (_claudeTaskDetectionService != null)
-        {
-            var detectedTasks = _claudeTaskDetectionService.GetAllClaudeTasks()
-                .Where(t => IsTaskForWorkspace(t, normalizedWorkspace));
-            foreach (var task in detectedTasks)
-            {
-                // Use session ID + task ID as unique key (same ClaudeTaskId can exist in different sessions)
-                var taskId = task.ClaudeSessionId != null
-                    ? $"{task.ClaudeSessionId}:{task.ClaudeTaskId}"
-                    : task.ClaudeTaskId ?? task.Id;
-                if (seenTaskIds.Add(taskId))
-                {
-                    allTasks.Add(task);
-                }
-            }
-        }
+        var allTasks = _taskAggregator.GetForWorkspace(WorkspacePath);
 
         // Group by status
         var completed = allTasks
@@ -221,19 +152,6 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(TodoCount));
     }
 
-    /// <summary>
-    /// Checks if a task belongs to the specified workspace.
-    /// Tasks without project paths are shown in all workspaces.
-    /// </summary>
-    private static bool IsTaskForWorkspace(FocusTask task, string normalizedWorkspace)
-    {
-        // Tasks without project paths are shown everywhere
-        if (task.ProjectPaths == null || task.ProjectPaths.Count == 0)
-            return true;
-
-        return task.ProjectPaths.Any(p => NormalizePath(p) == normalizedWorkspace);
-    }
-
     private void ClearAll()
     {
         CompletedTasks.Clear();
@@ -255,25 +173,6 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
         foreach (var item in newItems)
         {
             collection.Add(item);
-        }
-    }
-
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        try
-        {
-            // Normalize the path and lowercase for case-insensitive comparison
-            // Both Windows and macOS (default APFS) use case-insensitive filesystems
-            return Path.GetFullPath(path)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .ToLowerInvariant();
-        }
-        catch
-        {
-            return path.ToLowerInvariant();
         }
     }
 

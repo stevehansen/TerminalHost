@@ -19,8 +19,7 @@ namespace TerminalHost.ViewModels;
 /// </summary>
 public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
 {
-    private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
-    private readonly IClaudeTaskFileService? _claudeTaskFileService;
+    private readonly ITaskAggregator _taskAggregator;
     private readonly ITaskService _taskService;
     private readonly IDispatcherService _dispatcherService;
     private readonly ICollabService? _collabService;
@@ -199,15 +198,13 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
     private readonly MainViewModel _mainViewModel;
 
     public ClaudeTasksPanelViewModel(
-        IClaudeTaskDetectionService? claudeTaskDetectionService,
-        IClaudeTaskFileService? claudeTaskFileService,
+        ITaskAggregator taskAggregator,
         ITaskService taskService,
         IDispatcherService dispatcherService,
         MainViewModel mainViewModel,
         ICollabService? collabService = null)
     {
-        _claudeTaskDetectionService = claudeTaskDetectionService;
-        _claudeTaskFileService = claudeTaskFileService;
+        _taskAggregator = taskAggregator;
         _taskService = taskService;
         _dispatcherService = dispatcherService;
         _mainViewModel = mainViewModel;
@@ -218,17 +215,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         Width = 600;
         Height = 500;
 
-        // Subscribe to Claude task events if service is available
-        if (_claudeTaskDetectionService != null)
-        {
-            _claudeTaskDetectionService.ClaudeTaskChanged += OnClaudeTaskChanged;
-        }
-
-        // Subscribe to file-based task changes
-        if (_claudeTaskFileService != null)
-        {
-            _claudeTaskFileService.TasksChanged += OnFileTasksChanged;
-        }
+        _taskAggregator.Changed += OnAggregatorChanged;
 
         // Subscribe to collab state changes
         if (_collabService != null)
@@ -240,10 +227,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         // with the workspace path, rather than through an event
     }
 
-    /// <summary>
-    /// Handles file-based task changes (tasks read from ~/.claude/todos/).
-    /// </summary>
-    private void OnFileTasksChanged(object? sender, EventArgs e)
+    private void OnAggregatorChanged(object? sender, EventArgs e)
     {
         _dispatcherService.BeginInvoke(RefreshTasks);
     }
@@ -288,109 +272,6 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         IsEmptyStateVisible = ClaudeTasks.Count == 0 && CollabTopics.Count == 0;
     }
 
-    #region Event Handlers
-
-    /// <summary>
-    /// Handles Claude task changes (created, updated, completed, deleted).
-    /// </summary>
-    private void OnClaudeTaskChanged(object? sender, ClaudeTaskEventArgs e)
-    {
-        // Marshal to UI thread
-        _dispatcherService.BeginInvoke(() =>
-        {
-            // Check if task is relevant to current view (workspace filter or global)
-            if (!ShouldShowTask(e.Task))
-                return;
-
-            switch (e.EventType)
-            {
-                case ClaudeTaskEventType.Created:
-                    ClaudeTasks.Add(e.Task);
-                    if (e.Task.Status == FocusTaskStatus.InProgress)
-                    {
-                        ActiveTasks.Add(e.Task);
-                        CurrentTask = e.Task;
-                    }
-                    else if (e.Task.Status == FocusTaskStatus.NotStarted)
-                    {
-                        PendingTasks.Add(e.Task);
-                    }
-                    break;
-
-                case ClaudeTaskEventType.Updated:
-                    // Task already in collection, just update CurrentTask if it's this one
-                    if (e.Task.Status == FocusTaskStatus.InProgress && CurrentTask?.Id == e.Task.Id)
-                    {
-                        CurrentTask = e.Task;
-                    }
-                    break;
-
-                case ClaudeTaskEventType.Completed:
-                    // Move from active to completed
-                    var activeTask = ActiveTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (activeTask != null)
-                    {
-                        ActiveTasks.Remove(activeTask);
-                    }
-                    var pendingTask = PendingTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (pendingTask != null)
-                    {
-                        PendingTasks.Remove(pendingTask);
-                    }
-                    CompletedTasks.Insert(0, e.Task); // Add to top of completed list
-
-                    // Update current task to next active task
-                    if (CurrentTask?.Id == e.Task.Id)
-                    {
-                        CurrentTask = ActiveTasks.FirstOrDefault();
-                    }
-                    break;
-
-                case ClaudeTaskEventType.Deleted:
-                    var taskToRemove = ClaudeTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (taskToRemove != null)
-                    {
-                        ClaudeTasks.Remove(taskToRemove);
-                    }
-
-                    var activeToRemove = ActiveTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (activeToRemove != null)
-                    {
-                        ActiveTasks.Remove(activeToRemove);
-                    }
-
-                    var pendingToRemove = PendingTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (pendingToRemove != null)
-                    {
-                        PendingTasks.Remove(pendingToRemove);
-                    }
-
-                    var completedToRemove = CompletedTasks.FirstOrDefault(t => t.Id == e.Task.Id);
-                    if (completedToRemove != null)
-                    {
-                        CompletedTasks.Remove(completedToRemove);
-                    }
-
-                    if (CurrentTask?.Id == e.Task.Id)
-                    {
-                        CurrentTask = ActiveTasks.FirstOrDefault();
-                    }
-                    break;
-            }
-
-            // Update counts and visibility
-            ActiveTasksCount = ActiveTasks.Count;
-            IsEmptyStateVisible = ClaudeTasks.Count == 0 && !HasCollabTopics;
-
-            // Notify computed properties
-            OnPropertyChanged(nameof(CurrentTaskProgress));
-            OnPropertyChanged(nameof(CurrentTaskElapsed));
-            OnPropertyChanged(nameof(StatusText));
-        });
-    }
-
-    #endregion
-
     #region Commands
 
     /// <summary>
@@ -406,34 +287,7 @@ public partial class ClaudeTasksPanelViewModel : BasePanelViewModel
         PendingTasks.Clear();
         CompletedTasks.Clear();
 
-        var allTasks = new List<FocusTask>();
-
-        // Primarily load from file service (reads ~/.claude/todos/)
-        if (_claudeTaskFileService != null)
-        {
-            allTasks.AddRange(_claudeTaskFileService.GetAllTasks());
-        }
-
-        // Also include detection-based tasks (from terminal output)
-        if (_claudeTaskDetectionService != null)
-        {
-            var detectedTasks = _claudeTaskDetectionService.GetAllClaudeTasks();
-            // Only add detected tasks that aren't already loaded from files
-            // Use session ID + task ID as unique key (same ClaudeTaskId can exist in different sessions)
-            var existingIds = new HashSet<string>(allTasks.Select(t =>
-                t.ClaudeSessionId != null ? $"{t.ClaudeSessionId}:{t.ClaudeTaskId}" : t.ClaudeTaskId ?? t.Id));
-            foreach (var task in detectedTasks)
-            {
-                var taskId = task.ClaudeSessionId != null
-                    ? $"{task.ClaudeSessionId}:{task.ClaudeTaskId}"
-                    : task.ClaudeTaskId ?? task.Id;
-                if (!existingIds.Contains(taskId))
-                {
-                    allTasks.Add(task);
-                    existingIds.Add(taskId);
-                }
-            }
-        }
+        var allTasks = _taskAggregator.GetAll();
 
         // Filter based on current view settings
         var filteredTasks = allTasks.Where(ShouldShowTask).ToList();

@@ -305,6 +305,7 @@ public partial class App : Application
         services.AddSingleton<ITaskbarProgressService, TerminalHost.Windows.Services.TaskbarProgressService>();
         services.AddSingleton<IGitPrService, GitPrService>();
         services.AddSingleton<ITaskService, TaskService>();
+        services.AddSingleton<ITaskAggregator, TaskAggregator>();
         services.AddSingleton<IHookInstaller, TerminalHost.Windows.Services.WindowsHookInstaller>();
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();

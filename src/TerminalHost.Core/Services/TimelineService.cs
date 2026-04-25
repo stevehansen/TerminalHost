@@ -40,7 +40,6 @@ public sealed class TimelineService : ITimelineService, IDisposable
         IGitWorktreeService worktreeService,
         IGitProcessRunner gitRunner,
         IFileSystem fileSystem,
-        IClaudeTaskFileService? taskFileService = null,
         IClaudeSessionIndexService? sessionIndexService = null,
         ITranscriptWatcher? transcriptWatcher = null,
         ISessionActivityService? activityService = null,
