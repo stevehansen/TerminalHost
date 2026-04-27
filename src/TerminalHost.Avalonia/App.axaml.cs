@@ -192,6 +192,10 @@ public partial class App : Application
         var containerConfigDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "TerminalHost");
+#else
+        var containerConfigDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TerminalHost");
 #endif
         services.AddSingleton<IContainerService>(sp =>
             new TerminalHost.Core.Services.ContainerService(
