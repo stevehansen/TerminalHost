@@ -37,6 +37,7 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\TerminalHost.Core\TerminalHost.Core.csproj" />
+    <ProjectReference Include="..\TerminalHost.Posix\TerminalHost.Posix.csproj" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
     <ProjectReference Include="..\TerminalHost.macOS\TerminalHost.macOS.csproj" />

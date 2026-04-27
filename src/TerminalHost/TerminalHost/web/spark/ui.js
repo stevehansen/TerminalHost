@@ -43,16 +43,19 @@ function updateAgentDetail(canvas, agentId) {
     const total = (ctx.systemPrompt || 0) + (ctx.userMessages || 0) + (ctx.toolResults || 0) +
                   (ctx.reasoning || 0) + (ctx.subagentResults || 0);
     const max = agent.tokensMax || 200000;
+    const latest = agent.latestContextTokens || 0;
 
-    if (total > 0) {
+    if (total > 0 || latest > 0) {
         document.getElementById('detailContextSection').style.display = 'block';
-        const pct = (v) => `${Math.max(0, (v / max) * 100)}%`;
+        // Cap bars at 100% to prevent visual overflow when cumulative exceeds max over long sessions.
+        const pct = (v) => `${Math.min(100, Math.max(0, (v / max) * 100))}%`;
         document.getElementById('ctxSystem').style.width = pct(ctx.systemPrompt || 0);
         document.getElementById('ctxUser').style.width = pct(ctx.userMessages || 0);
         document.getElementById('ctxTools').style.width = pct(ctx.toolResults || 0);
         document.getElementById('ctxReasoning').style.width = pct(ctx.reasoning || 0);
         document.getElementById('ctxSubagent').style.width = pct(ctx.subagentResults || 0);
-        document.getElementById('detailContextPct').textContent = `${Math.round((total / max) * 100)}% of ${formatTokens(max)}`;
+        // Overall pct reflects current context window fill (not cumulative composition).
+        document.getElementById('detailContextPct').textContent = `${Math.round((latest / max) * 100)}% of ${formatTokens(max)}`;
     } else {
         document.getElementById('detailContextSection').style.display = 'none';
     }

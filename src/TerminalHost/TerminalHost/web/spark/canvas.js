@@ -646,6 +646,8 @@ class SparkCanvas {
                         spawnTime: new Date(),
                         toolCallCount: 0,
                         tokensUsed: 0,
+                        latestContextTokens: 0,
+                        totalOutputTokens: 0,
                         tokensMax: data.model ? getModelMaxTokens(data.model) : 200000,
                         context: { systemPrompt: 0, userMessages: 0, toolResults: 0, reasoning: 0, subagentResults: 0 }
                     });
@@ -866,7 +868,6 @@ class SparkCanvas {
                         agent.currentToolUseId = null;
                     }
                     if (data.tokenCost) {
-                        agent.tokensUsed = (agent.tokensUsed || 0) + data.tokenCost;
                         if (agent.context) agent.context.toolResults += data.tokenCost;
                     }
 
@@ -911,30 +912,59 @@ class SparkCanvas {
                 if (bubbleAgentId && displayContent) {
                     this.bubbles.add(bubbleAgentId, displayContent, role);
                 }
-                // Accumulate estimated tokens into agent context
-                if (!isUser && !isThinking && data.estimatedTokens) { // Only for AssistantMessage
-                    const msgAgentId = evt.agentId || sessionId;
-                    if (msgAgentId !== sessionId) {
-                        this._ensureAgent(msgAgentId, sessionId);
-                    }
-                    const msgAgent = this.agents.get(msgAgentId);
-                    if (msgAgent) {
-                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
-                        if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
+                // Update agent context from real usage (AssistantMessage only)
+                if (!isUser && !isThinking) { // Only for AssistantMessage
+                    const msgAgentId = evt.agentId;
+                    if (!msgAgentId) {
+                        if (!this._warnedUntaggedAssistant) {
+                            console.warn('[spark] AssistantMessage without agentId — skipping token attribution');
+                            this._warnedUntaggedAssistant = true;
+                        }
+                    } else {
+                        if (msgAgentId !== sessionId) {
+                            this._ensureAgent(msgAgentId, sessionId);
+                        }
+                        const msgAgent = this.agents.get(msgAgentId);
+                        if (msgAgent) {
+                            const usage = data.usage;
+                            if (usage && !usage.fromHeuristic) {
+                                const ctxTokens = (usage.inputTokens || 0)
+                                                + (usage.cacheReadInputTokens || 0)
+                                                + (usage.cacheCreationInputTokens || 0);
+                                msgAgent.latestContextTokens = ctxTokens;    // SET, not add
+                                msgAgent.tokensUsed = ctxTokens;              // keep alias in sync for any legacy reads
+                                msgAgent.totalOutputTokens = (msgAgent.totalOutputTokens || 0) + (usage.outputTokens || 0);
+                                if (msgAgent.context) msgAgent.context.userMessages += (usage.inputTokens || 0);
+                            } else if (data.estimatedTokens) {
+                                // Heuristic fallback — never overwrite latestContextTokens with estimates.
+                                if (msgAgent.context) msgAgent.context.userMessages += data.estimatedTokens;
+                            }
+                        }
                     }
                 }
 
                 recordTranscriptEntry(bubbleAgentId || 'main', role, displayContent);
-                // Accumulate estimated tokens into agent context (reasoning)
-                if (isThinking && data.estimatedTokens) { // Only for ThinkingBlock
-                    const msgAgentId = evt.agentId || sessionId;
-                    if (msgAgentId !== sessionId) {
-                        this._ensureAgent(msgAgentId, sessionId);
-                    }
-                    const msgAgent = this.agents.get(msgAgentId);
-                    if (msgAgent) {
-                        msgAgent.tokensUsed = (msgAgent.tokensUsed || 0) + data.estimatedTokens;
-                        if (msgAgent.context) msgAgent.context.reasoning += data.estimatedTokens;
+                // Update agent context from real usage (ThinkingBlock only)
+                if (isThinking) { // Only for ThinkingBlock
+                    const msgAgentId = evt.agentId;
+                    if (!msgAgentId) {
+                        if (!this._warnedUntaggedThinking) {
+                            console.warn('[spark] ThinkingBlock without agentId — skipping token attribution');
+                            this._warnedUntaggedThinking = true;
+                        }
+                    } else {
+                        if (msgAgentId !== sessionId) {
+                            this._ensureAgent(msgAgentId, sessionId);
+                        }
+                        const msgAgent = this.agents.get(msgAgentId);
+                        if (msgAgent) {
+                            const usage = data.usage;
+                            if (usage && !usage.fromHeuristic) {
+                                if (msgAgent.context) msgAgent.context.reasoning += (usage.outputTokens || 0);
+                            } else if (data.estimatedTokens) {
+                                if (msgAgent.context) msgAgent.context.reasoning += data.estimatedTokens;
+                            }
+                        }
                     }
                 }
                 break;
@@ -1016,7 +1046,9 @@ class SparkCanvas {
             spawnTime: agentData.spawnTime ? new Date(agentData.spawnTime) : new Date(),
             completeTime: agentData.completeTime ? new Date(agentData.completeTime) : null,
             toolCallCount: agentData.toolCallCount || 0,
-            tokensUsed: agentData.tokensUsed || 0,
+            latestContextTokens: agentData.latestContextTokens ?? agentData.tokensUsed ?? 0,
+            totalOutputTokens: agentData.totalOutputTokens ?? 0,
+            tokensUsed: agentData.tokensUsed ?? 0,   // legacy alias
             tokensMax: agentData.tokensMax || 200000,
             context: agentData.context || { systemPrompt: 0, userMessages: 0, toolResults: 0, reasoning: 0, subagentResults: 0 },
             currentToolUseId: agentData.currentToolUseId,
@@ -2080,7 +2112,7 @@ class SparkCanvas {
             const hasTask = taskLabel && taskLabel !== roleLabel;
             const tokenY = node.y + r + (hasTask ? 30 : 18);
             if (agent.tokensMax && agent.tokensMax > 0) {
-                const used = agent.tokensUsed || 0;
+                const used = agent.latestContextTokens || 0;
                 ctx.font = '7px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
@@ -2151,7 +2183,7 @@ class SparkCanvas {
     // ─── Context Ring (main agent, agent-flow style) ──────
 
     _drawContextRing(ctx, agent, node, radius) {
-        const total = agent.tokensUsed || 0;
+        const total = agent.latestContextTokens || 0;
         if (!agent.tokensMax || total <= 0) return;
 
         const usage = total / agent.tokensMax;
@@ -2175,6 +2207,7 @@ class SparkCanvas {
             { key: 'reasoning', color: tc().cyan },
             { key: 'subagentResults', color: tc().purple },
         ];
+        // Segments show cumulative composition; outer arc uses latestContextTokens for honest window-fill signal.
         let currentAngle = startAngle;
         for (const seg of segments) {
             const val = ctxData[seg.key] || 0;
@@ -2766,9 +2799,10 @@ function _stripSystemTags(text) {
 
 function getModelMaxTokens(model) {
     if (!model) return 200000;
-    if (model.includes('opus')) return 1000000;
-    if (model.includes('sonnet')) return 1000000;
-    if (model.includes('haiku')) return 200000;
+    const lower = model.toLowerCase();
+    // [1m] beta variant indicates 1M context. Also handle URL-encoded %5B1m%5D.
+    if (lower.includes('[1m]') || lower.includes('%5b1m%5d')) return 1000000;
+    // All other opus/sonnet/haiku variants default to 200K.
     return 200000;
 }
 

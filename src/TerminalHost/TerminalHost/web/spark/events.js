@@ -749,6 +749,7 @@ function deduplicateSessions() {
 
     for (const [name, sids] of byName) {
         if (sids.length < 2) continue;
+        if (sids.every(sid => sparkCanvas.sessions.get(sid)?.isActive)) continue;
 
         // Pick the best session: strongly prefer active, then newest start time, then most agents
         let bestId = sids[0];

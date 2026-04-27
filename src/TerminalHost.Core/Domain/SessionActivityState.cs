@@ -355,6 +355,8 @@ public class SessionActivityState
                         {
                             parentAgent.Context ??= new ContextBreakdown();
                             parentAgent.Context.SubagentResults += tokenCost;
+                            // Mark the subagent so CompleteSubagent doesn't double-roll-up.
+                            subagent.RolledUpByToolCallEnd = true;
                         }
                     }
                     else if (Agents.TryGetValue(resolvedAgentId, out var toolAgent))
@@ -456,7 +458,20 @@ public class SessionActivityState
                     ActivityEventType.ThinkingBlock => MessageType.Thinking,
                     _ => MessageType.SystemMessage
                 };
-                Messages.Add(new ConversationMessage
+
+                // Prefer the real per-turn usage when available; otherwise synthesize
+                // a heuristic from the existing token estimate (InputTokens slot only).
+                var usage = evt.Data.TryGetValue("usage", out var u) ? u as UsageBreakdown : null;
+                if (usage == null)
+                {
+                    usage = new UsageBreakdown
+                    {
+                        InputTokens = tokens,
+                        FromHeuristic = true
+                    };
+                }
+
+                var msg = new ConversationMessage
                 {
                     Uuid = Guid.NewGuid().ToString(),
                     SessionId = SessionId,
@@ -465,8 +480,10 @@ public class SessionActivityState
                     Role = evt.Type == ActivityEventType.UserMessage ? "user" : "assistant",
                     Content = content,
                     Timestamp = evt.Timestamp,
-                    EstimatedTokens = tokens
-                });
+                    EstimatedTokens = tokens,
+                    Usage = usage
+                };
+                Messages.Add(msg);
                 // Accumulate tokens into agent context breakdown
                 if (tokens > 0)
                 {
@@ -491,6 +508,16 @@ public class SessionActivityState
                             msgAgent.Context.Reasoning += tokens;
                         else
                             msgAgent.Context.UserMessages += tokens;
+
+                        // Real usage → snapshot the true context fill and accumulate output tokens.
+                        // Assistant turns only (UserMessage has no usage; ThinkingBlock usage
+                        // is attached to the same assistant turn as the text block and we don't
+                        // want to double-apply it per block).
+                        if (evt.Type == ActivityEventType.AssistantMessage && !usage.FromHeuristic)
+                        {
+                            msgAgent.LatestContextTokens = usage.TotalContextTokens;
+                            msgAgent.TotalOutputTokens += usage.OutputTokens;
+                        }
                     }
                 }
                 break;
@@ -516,12 +543,16 @@ public class SessionActivityState
             agent.State = AgentState.Complete;
             agent.CompleteTime = DateTime.UtcNow;
 
-            // Roll up subagent's total tokens into parent's subagentResults
+            // Roll up subagent's total tokens into parent's subagentResults.
+            // Fallback for SubagentStop-without-ToolCallEnd (cancelled/orphaned subagents).
+            // On the happy path, the Task/Agent ToolCallEnd handler above already attributed
+            // tokens and set RolledUpByToolCallEnd; skip here to avoid double-counting.
             if (agent.ParentId != null && agent.Context != null &&
                 Agents.TryGetValue(agent.ParentId, out var parent))
             {
                 parent.Context ??= new ContextBreakdown();
-                parent.Context.SubagentResults += agent.Context.Total;
+                if (!agent.RolledUpByToolCallEnd)
+                    parent.Context.SubagentResults += agent.Context.Total;
             }
         }
     }

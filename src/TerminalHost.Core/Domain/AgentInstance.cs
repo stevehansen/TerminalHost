@@ -119,6 +119,29 @@ public class AgentInstance
     [JsonPropertyName("context")]
     public ContextBreakdown? Context { get; set; }
 
+    /// <summary>
+    /// Tokens occupying the context window on the most recent assistant turn
+    /// (input + cache_read + cache_creation). Set from real message.usage;
+    /// zero when only heuristic data is available.
+    /// </summary>
+    [JsonPropertyName("latestContextTokens")]
+    public int LatestContextTokens { get; set; }
+
+    /// <summary>
+    /// Cumulative output tokens produced by this agent (cost-like metric).
+    /// </summary>
+    [JsonPropertyName("totalOutputTokens")]
+    public int TotalOutputTokens { get; set; }
+
+    /// <summary>
+    /// Transient flag: set to true when a Task/Agent ToolCallEnd attributed this
+    /// subagent's tokens to its parent's SubagentResults bucket. The
+    /// CompleteSubagent fallback rollup checks this to avoid double-counting.
+    /// Not persisted.
+    /// </summary>
+    [JsonIgnore]
+    public bool RolledUpByToolCallEnd { get; set; }
+
     /// <summary>Semantic role: Explore, Plan, Reviewer, GeneralPurpose, Bash, etc.</summary>
     [JsonPropertyName("role")]
     public string? Role { get; set; }
@@ -244,11 +267,10 @@ public static class ModelContextSizes
         if (string.IsNullOrEmpty(model))
             return 200_000;
 
-        var lower = model.ToLowerInvariant();
-        if (lower.Contains("opus") || lower.Contains("sonnet"))
+        // The "[1m]" suffix (e.g. "claude-opus-4-7[1m]") marks the 1M-context beta.
+        // Without it, opus/sonnet/haiku all use the standard 200K window.
+        if (model.Contains("[1m]", StringComparison.OrdinalIgnoreCase))
             return 1_000_000;
-        if (lower.Contains("haiku"))
-            return 200_000;
 
         return 200_000;
     }

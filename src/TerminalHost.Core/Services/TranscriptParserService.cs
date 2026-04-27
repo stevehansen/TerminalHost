@@ -329,6 +329,9 @@ public class TranscriptParserService
         if (!messageElement.TryGetProperty("content", out var contentElement))
             return;
 
+        // Real per-turn usage from message.usage (assistant turns only; user turns have no usage).
+        var usage = TryGetUsage(messageElement);
+
         if (contentElement.ValueKind == JsonValueKind.String)
         {
             var text = contentElement.GetString();
@@ -336,7 +339,7 @@ public class TranscriptParserService
             {
                 lastAssistantMessage = text;
                 events.Add(ActivityEvent.CreateAssistantMessage(
-                    sessionId, sessionId, text, TokenEstimator.Estimate(text), EventSource.Transcript));
+                    sessionId, sessionId, text, TokenEstimator.Estimate(text), EventSource.Transcript, usage));
             }
             else if (role == "user" && text != null)
             {
@@ -361,7 +364,7 @@ public class TranscriptParserService
                     {
                         lastAssistantMessage = text;
                         events.Add(ActivityEvent.CreateAssistantMessage(
-                            sessionId, sessionId, text, TokenEstimator.Estimate(text), EventSource.Transcript));
+                            sessionId, sessionId, text, TokenEstimator.Estimate(text), EventSource.Transcript, usage));
                     }
                     break;
                 }
@@ -371,7 +374,7 @@ public class TranscriptParserService
                     if (thinking != null)
                     {
                         events.Add(ActivityEvent.CreateThinkingBlock(
-                            sessionId, sessionId, thinking, TokenEstimator.Estimate(thinking), EventSource.Transcript));
+                            sessionId, sessionId, thinking, TokenEstimator.Estimate(thinking), EventSource.Transcript, usage));
                     }
                     break;
                 }
@@ -388,6 +391,37 @@ public class TranscriptParserService
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Reads the <c>message.usage</c> object (snake_case fields as produced by the Claude SDK)
+    /// and returns a non-heuristic <see cref="UsageBreakdown"/>, or null if absent.
+    /// </summary>
+    private static UsageBreakdown? TryGetUsage(JsonElement messageElement)
+    {
+        if (!messageElement.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return new UsageBreakdown
+        {
+            InputTokens = TryGetInt(usage, "input_tokens"),
+            OutputTokens = TryGetInt(usage, "output_tokens"),
+            CacheReadInputTokens = TryGetInt(usage, "cache_read_input_tokens"),
+            CacheCreationInputTokens = TryGetInt(usage, "cache_creation_input_tokens"),
+            FromHeuristic = false
+        };
+    }
+
+    private static int TryGetInt(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var prop))
+        {
+            if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out var i))
+                return i;
+            if (prop.ValueKind == JsonValueKind.String && int.TryParse(prop.GetString(), out var parsed))
+                return parsed;
+        }
+        return 0;
     }
 
     /// <summary>

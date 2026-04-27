@@ -323,7 +323,9 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
                     spawnTime = kv.Value.SpawnTime,
                     completeTime = kv.Value.CompleteTime,
                     toolCallCount = kv.Value.ToolCallCount,
-                    tokensUsed = kv.Value.Context?.Total ?? 0,
+                    tokensUsed = kv.Value.LatestContextTokens,
+                    latestContextTokens = kv.Value.LatestContextTokens,
+                    totalOutputTokens = kv.Value.TotalOutputTokens,
                     tokensMax = ModelContextSizes.GetMaxTokens(kv.Value.Model),
                     currentToolUseId = kv.Value.CurrentToolUseId,
                     context = kv.Value.Context != null ? new
@@ -601,7 +603,9 @@ public partial class SparkCanvasViewModel : BasePanelViewModel, IDisposable
                     spawnTime = kv.Value.SpawnTime,
                     completeTime = kv.Value.CompleteTime,
                     toolCallCount = kv.Value.ToolCallCount,
-                    tokensUsed = kv.Value.Context?.Total ?? 0,
+                    tokensUsed = kv.Value.LatestContextTokens,
+                    latestContextTokens = kv.Value.LatestContextTokens,
+                    totalOutputTokens = kv.Value.TotalOutputTokens,
                     tokensMax = ModelContextSizes.GetMaxTokens(kv.Value.Model),
                     currentToolUseId = kv.Value.CurrentToolUseId,
                     context = kv.Value.Context != null ? new

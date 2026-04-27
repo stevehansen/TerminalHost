@@ -244,9 +244,9 @@ public class ActivityEvent
         };
     }
 
-    public static ActivityEvent CreateAssistantMessage(string sessionId, string? agentId, string? content, int estimatedTokens, EventSource source = EventSource.Transcript)
+    public static ActivityEvent CreateAssistantMessage(string sessionId, string? agentId, string? content, int estimatedTokens, EventSource source = EventSource.Transcript, UsageBreakdown? usage = null)
     {
-        return new ActivityEvent
+        var evt = new ActivityEvent
         {
             Type = ActivityEventType.AssistantMessage,
             SessionId = sessionId,
@@ -258,11 +258,14 @@ public class ActivityEvent
                 ["estimatedTokens"] = estimatedTokens
             }
         };
+        if (usage != null)
+            evt.Data["usage"] = usage;
+        return evt;
     }
 
-    public static ActivityEvent CreateThinkingBlock(string sessionId, string? agentId, string? content, int estimatedTokens, EventSource source = EventSource.Transcript)
+    public static ActivityEvent CreateThinkingBlock(string sessionId, string? agentId, string? content, int estimatedTokens, EventSource source = EventSource.Transcript, UsageBreakdown? usage = null)
     {
-        return new ActivityEvent
+        var evt = new ActivityEvent
         {
             Type = ActivityEventType.ThinkingBlock,
             SessionId = sessionId,
@@ -274,6 +277,9 @@ public class ActivityEvent
                 ["estimatedTokens"] = estimatedTokens
             }
         };
+        if (usage != null)
+            evt.Data["usage"] = usage;
+        return evt;
     }
 
     public static ActivityEvent CreateModelDetected(string sessionId, string agentId, string model, EventSource source = EventSource.Transcript)
