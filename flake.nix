@@ -41,22 +41,20 @@
                 fi
               done
             '';
-            postInstall = ''
-              mv $out/bin/host $out/bin/terminalhost
-            '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+            postInstall = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
               mkdir -p $out/share/applications
-              cat > $out/share/applications/terminalhost.desktop <<'EOF'
+              cat > $out/share/applications/host.desktop <<'EOF'
 [Desktop Entry]
 Name=TerminalHost
 Comment=Terminal pair manager for AI-assisted development
-Exec=terminalhost %U
+Exec=host %U
 Terminal=false
 Type=Application
 Categories=Development;TerminalEmulator;
 Keywords=terminal;ai;claude;development;
 EOF
             '';
-            meta.mainProgram = "terminalhost";
+            meta.mainProgram = "host";
           };
         }
       );
