@@ -132,14 +132,15 @@ public partial class SessionCardViewModel : ObservableObject
 
     /// <summary>
     /// Update display properties from a LiveSession (active session).
+    /// <paramref name="lastActivityTime"/> comes from the canonical SessionActivityState.
     /// </summary>
-    public void UpdateFromLiveSession(LiveSession live)
+    public void UpdateFromLiveSession(LiveSession live, DateTime? lastActivityTime = null)
     {
         IsLive = live.IsActive;
         ProjectName = live.DisplayName;
         ProjectPath = live.WorkingDirectory ?? "";
         StartTime = live.StartTime;
-        ModifiedTime = live.LastActivityTime ?? live.StartTime;
+        ModifiedTime = lastActivityTime ?? live.EndTime ?? live.StartTime;
         TranscriptPath = live.TranscriptPath;
 
         EndReason = live.EndReason;

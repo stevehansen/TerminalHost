@@ -23,7 +23,6 @@ public class LiveSession
 
     public DateTime StartTime { get; set; } = DateTime.UtcNow;
     public DateTime? EndTime { get; set; }
-    public DateTime? LastActivityTime { get; set; }
 
     /// <summary>How this session ended: "explicit" (Stop hook), "timeout" (inactivity), "error".</summary>
     public string? EndReason { get; set; }

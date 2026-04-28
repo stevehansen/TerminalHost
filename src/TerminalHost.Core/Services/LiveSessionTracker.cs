@@ -46,9 +46,6 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             _transcriptWatcher.OnEvent += OnTranscriptWatcherEvent;
             _transcriptWatcher.OnSessionInactive += OnTranscriptSessionInactive;
         }
-
-        if (_activityService != null)
-            _activityService.ActivityEventProcessed += OnActivityEvent;
     }
 
     public IReadOnlyList<LiveSession> GetLiveSessions()
@@ -214,23 +211,21 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             {
                 if (!live.IsActive) continue;
 
+                var activityState = _activityService?.GetState(live.ClaudeSessionId);
+                var lastActivity = activityState?.LastActivityTime;
                 var lastFileChange = _transcriptWatcher?.GetLastFileChangeTime(live.ClaudeSessionId);
-                if (lastFileChange.HasValue)
-                {
-                    if (!live.LastActivityTime.HasValue || lastFileChange.Value > live.LastActivityTime.Value)
-                        live.LastActivityTime = lastFileChange.Value;
-                }
+                if (lastFileChange.HasValue && (!lastActivity.HasValue || lastFileChange.Value > lastActivity.Value))
+                    lastActivity = lastFileChange.Value;
 
-                bool timedOut = live.LastActivityTime.HasValue
-                    ? (now - live.LastActivityTime.Value).TotalMinutes > InactivityTimeoutMinutes
+                bool timedOut = lastActivity.HasValue
+                    ? (now - lastActivity.Value).TotalMinutes > InactivityTimeoutMinutes
                     : (now - live.StartTime).TotalMinutes > NoActivityTimeoutMinutes;
 
                 if (timedOut)
                 {
-                    live.EndTime = live.LastActivityTime ?? now;
+                    live.EndTime = lastActivity ?? now;
                     live.EndReason = "timeout";
 
-                    var activityState = _activityService?.GetState(live.ClaudeSessionId);
                     if (activityState != null)
                     {
                         activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
@@ -352,35 +347,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
 
     private void OnTranscriptWatcherEvent(object? sender, TranscriptWatcherEventArgs e)
     {
-        // ProcessTranscriptEvents fires ActivityEventProcessed for each event,
-        // which OnActivityEvent uses to bump LiveSession.LastActivityTime.
         _activityService?.ProcessTranscriptEvents(e.SessionId, e.Events, e.Summary, e.Model);
-    }
-
-    /// <summary>
-    /// Mirrors SessionActivityService activity timestamps onto the live session.
-    /// SessionActivityState is the single canonical source for "last activity";
-    /// the tracker holds a copy on LiveSession so consumers (cards, timeout
-    /// detection) don't have to look up the activity service themselves. Only
-    /// real-activity events bump — lifecycle/metadata events (SessionStart,
-    /// AgentSpawn, AgentStateChange, ...) are ignored so the session retains
-    /// its "no activity ever" timeout window until it does real work.
-    /// </summary>
-    private void OnActivityEvent(object? sender, ActivityEvent evt)
-    {
-        if (evt.Type is not (ActivityEventType.ToolCallStart
-            or ActivityEventType.ToolCallEnd
-            or ActivityEventType.UserMessage
-            or ActivityEventType.AssistantMessage
-            or ActivityEventType.ThinkingBlock
-            or ActivityEventType.FileAccessed))
-            return;
-
-        lock (_lock)
-        {
-            if (_liveSessions.TryGetValue(evt.SessionId, out var live) && live.IsActive)
-                live.LastActivityTime = evt.Timestamp;
-        }
     }
 
     private void OnTranscriptSessionInactive(object? sender, string sessionId)
@@ -390,10 +357,10 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         {
             if (_liveSessions.TryGetValue(sessionId, out var live) && live.IsActive)
             {
-                live.EndTime = live.LastActivityTime ?? DateTime.UtcNow;
+                var activityState = _activityService?.GetState(sessionId);
+                live.EndTime = activityState?.LastActivityTime ?? DateTime.UtcNow;
                 live.EndReason = "timeout";
 
-                var activityState = _activityService?.GetState(sessionId);
                 if (activityState != null)
                 {
                     activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
@@ -463,7 +430,5 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             _transcriptWatcher.OnSessionInactive -= OnTranscriptSessionInactive;
             _transcriptWatcher.UnwatchAll();
         }
-        if (_activityService != null)
-            _activityService.ActivityEventProcessed -= OnActivityEvent;
     }
 }

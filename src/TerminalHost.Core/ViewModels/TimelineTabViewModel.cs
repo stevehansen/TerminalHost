@@ -266,15 +266,15 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel, IDi
     private void UpdateCard(SessionCardViewModel card, object source)
     {
         if (source is LiveSession live)
-            card.UpdateFromLiveSession(live);
-        else if (source is ClaudeSessionIndexEntry entry)
-            card.UpdateFromIndexEntry(entry);
-
-        // Update activity data for live sessions
-        if (source is LiveSession { IsActive: true } liveSession && _activityService != null)
         {
-            var state = _activityService.GetState(liveSession.ClaudeSessionId);
-            card.UpdateActivityData(state);
+            var state = _activityService?.GetState(live.ClaudeSessionId);
+            card.UpdateFromLiveSession(live, state?.LastActivityTime);
+            if (live.IsActive && _activityService != null)
+                card.UpdateActivityData(state);
+        }
+        else if (source is ClaudeSessionIndexEntry entry)
+        {
+            card.UpdateFromIndexEntry(entry);
         }
     }
 

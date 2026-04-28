@@ -792,13 +792,14 @@ public class ApiServer : IApiServer
             foreach (var s in liveSessions)
             {
                 if (!seenIds.Add(s.ClaudeSessionId)) continue;
+                var liveActivity = _sessionActivityService?.GetState(s.ClaudeSessionId)?.LastActivityTime;
                 sessions.Add(new
                 {
                     sessionId = s.ClaudeSessionId,
                     workingDirectory = s.WorkingDirectory,
                     lifecycle = s.IsActive ? "Active" : "Completed",
                     startTime = s.StartTime,
-                    lastActivityTime = s.LastActivityTime,
+                    lastActivityTime = liveActivity,
                     totalAgents = 0,
                     totalToolCalls = 0,
                     summary = (string?)null,
