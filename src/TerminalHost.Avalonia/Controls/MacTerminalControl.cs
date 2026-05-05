@@ -57,6 +57,8 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private double _baselineOffset;
     private Typeface _typeface;
     private Typeface _fallbackTypeface;
+    private Typeface? _systemSymbolTypeface; // For bullets/dingbats on macOS (SF Mono / Menlo, like Terminal.app)
+    private IGlyphTypeface? _systemSymbolGlyphTypeface;
     private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
 
@@ -70,6 +72,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     // Intel Mac detection - Intel Macs have significant performance issues with complex rendering
     private static readonly bool IsIntelMac = DetectIntelMac();
+    private static readonly bool IsMacOS = OperatingSystem.IsMacOS();
 
     private static bool DetectIntelMac()
     {
@@ -189,6 +192,15 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         // Get glyph typeface for the primary font to check glyph availability
         FontManager.Current.TryGetGlyphTypeface(_typeface, out _primaryGlyphTypeface);
+
+        // On macOS, modern Terminal.app uses SF Mono (Menlo on older systems). Both
+        // render bullets and dingbats with the lighter weight users expect. Fall
+        // through SF Mono → Menlo so the right one resolves automatically.
+        if (IsMacOS)
+        {
+            _systemSymbolTypeface = new Typeface(new FontFamily("SF Mono, Menlo"), FontStyle.Normal, FontWeight.Normal);
+            FontManager.Current.TryGetGlyphTypeface(_systemSymbolTypeface.Value, out _systemSymbolGlyphTypeface);
+        }
 
         Focusable = true;
         ClipToBounds = true;
@@ -1028,6 +1040,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         if (char.IsHighSurrogate(c)) return true; // Emoji and other non-BMP characters
         if (char.IsLowSurrogate(c)) return true;
 
+        // On macOS, Cascadia Code NF's bullets (●, •) render with a heavy halo and
+        // its dingbats (✳, ✶, ✻ — Claude Code's spinner sequence) collapse to plain
+        // asterisks. Force these specific codepoints through SF Mono / Menlo (what
+        // Terminal.app uses); for chars SF Mono lacks, Avalonia's auto-fallback
+        // resolves them to another system font that renders cleanly.
+        if (PrefersSystemFont(c)) return true;
+
         // For other non-ASCII characters (symbols, dingbats, etc.), check if the
         // primary font actually has the glyph. Characters like ❄ (U+2744) and
         // variation selectors (U+FE0F) need fallback when the primary font lacks them.
@@ -1037,6 +1056,45 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
                 return true;
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true for characters that look better in the system fallback font than
+    /// in the primary monospace font (macOS only — Cascadia Code NF's bullets and
+    /// dingbats render with a heavy halo / collapse to plain asterisks). Box-drawing
+    /// (U+2500–U+257F) and block elements (U+2580–U+259F) are intentionally excluded
+    /// so grid alignment stays exact.
+    /// </summary>
+    private bool SystemFontHasGlyph(char c)
+    {
+        if (_systemSymbolGlyphTypeface == null) return false;
+        try
+        {
+            return _systemSymbolGlyphTypeface.TryGetGlyph(c, out var gi) && gi != 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool PrefersSystemFont(char c)
+    {
+        if (!IsMacOS) return false;
+        // Narrow list of specific codepoints Claude Code uses that render heavy or
+        // wrong in Cascadia Code NF. Broader ranges caused regressions for status-
+        // line block/hatch characters that Cascadia renders correctly.
+        if (c == 0x2022) return true; // • BULLET
+        if (c == 0x2023) return true; // ‣ TRIANGULAR BULLET
+        if (c == 0x2027) return true; // ‧ HYPHENATION POINT
+        if (c == 0x23FA) return true; // ⏺ BLACK CIRCLE FOR RECORD
+        if (c == 0x25CB) return true; // ○ WHITE CIRCLE
+        if (c == 0x25CF) return true; // ● BLACK CIRCLE
+        if (c == 0x25EF) return true; // ◯ LARGE CIRCLE
+        if (c == 0x26AA || c == 0x26AB) return true; // ⚪ ⚫
+        if (c == 0x2B24) return true; // ⬤ BLACK LARGE CIRCLE
+        if (c >= 0x2700 && c <= 0x27BF) return true; // Dingbats (✳, ✶, ✻, ...)
         return false;
     }
 
@@ -1068,7 +1126,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
         uint codepoint = c;
 
-        // Always check primary font first (Cascadia Code NF has Nerd Font glyphs built-in)
+        // For macOS bullets/dingbats, SF Mono / Menlo (Terminal.app's fonts) render
+        // these the way the user expects. Pin them there before walking the
+        // Nerd-Font-first fallback list, since those Nerd Fonts inherit Cascadia's
+        // heavy bullet glyph. For chars SF Mono lacks (e.g. ⏺), Avalonia's auto-
+        // fallback resolves to another system font that renders cleanly.
+        if (PrefersSystemFont(c) && _systemSymbolTypeface != null)
+        {
+            CharacterTypefaceCache[c] = _systemSymbolTypeface.Value;
+            return _systemSymbolTypeface.Value;
+        }
+
+        // Check primary font (Cascadia Code NF has Nerd Font glyphs built-in)
         // This also handles box-drawing and block element characters with correct cell alignment.
         if (_primaryGlyphTypeface != null)
         {
