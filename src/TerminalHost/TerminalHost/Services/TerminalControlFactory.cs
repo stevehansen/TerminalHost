@@ -15,13 +15,17 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly IDialogService _dialogService;
     private readonly IContainerService _containerService;
     private readonly IConfigurationService _configService;
+    private readonly IProcessService _processService;
 
-    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService, IConfigurationService configService)
+    private static int _codexMcpCheckedFlag;
+
+    public TerminalControlFactory(IFileSystem fileSystem, IDialogService dialogService, IContainerService containerService, IConfigurationService configService, IProcessService processService)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _containerService = containerService;
         _configService = configService;
+        _processService = processService;
     }
 
     public EasyTerminalControl CreateTerminalControl(TerminalSession session)
@@ -200,6 +204,7 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
 
         // Register MCP collab server for any AI agent (HTTP transport, universal)
         EnsureMcpCollabRegistered(workingDir);
+        EnsureCodexMcpCollabRegistered();
 
         // For other commands, run them from the directory using cmd
         // Append channel flags if this is a Claude Code command with channels enabled
@@ -376,6 +381,64 @@ public sealed class TerminalControlFactory : ITerminalControlFactory
         catch
         {
             // MCP registration is best-effort
+        }
+    }
+
+    /// <summary>
+    /// Ensures the Codex CLI's global config has terminalhost-collab registered as a streamable HTTP MCP server.
+    /// Uses `codex mcp add` rather than editing ~/.codex/config.toml directly so Codex owns its schema.
+    /// Skips silently if Codex isn't installed. Runs once per app session and is fire-and-forget.
+    /// </summary>
+    private void EnsureCodexMcpCollabRegistered()
+    {
+        // Run at most once per app lifetime — codex mcp list is idempotent but spawning processes isn't free
+        if (Interlocked.Exchange(ref _codexMcpCheckedFlag, 1) == 1)
+            return;
+
+        try
+        {
+            var appConfig = _configService.Load();
+            if (!appConfig.Settings.Api.Enabled)
+                return;
+
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!Directory.Exists(Path.Combine(home, ".codex")))
+                return; // Codex CLI not installed
+
+            var apiSettings = appConfig.Settings.Api;
+            var host = apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress;
+            var mcpUrl = $"http://{host}:{apiSettings.Port}/api/mcp";
+
+            // Codex's `mcp add` doesn't accept a literal bearer token — only --bearer-token-env-var pointing
+            // at an env var. Auto-setting a persistent user env var is too intrusive, so for the API-key case
+            // we skip auto-registration and let the user wire it up manually.
+            if (!string.IsNullOrEmpty(apiSettings.ApiKey))
+                return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var (listExit, listOutput, _) = await _processService.RunAsync(
+                        "codex", "mcp list", timeout: TimeSpan.FromSeconds(10));
+
+                    if (listExit == 0 && listOutput.Contains("terminalhost-collab", StringComparison.Ordinal))
+                        return;
+
+                    await _processService.RunAsync(
+                        "codex",
+                        $"mcp add terminalhost-collab --url {mcpUrl}",
+                        timeout: TimeSpan.FromSeconds(10));
+                }
+                catch
+                {
+                    // Best-effort: codex CLI missing from PATH or other failures shouldn't disrupt terminal launch
+                }
+            });
+        }
+        catch
+        {
+            // Best-effort
         }
     }
 
