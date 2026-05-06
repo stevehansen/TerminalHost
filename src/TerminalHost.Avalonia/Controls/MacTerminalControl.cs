@@ -194,11 +194,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         FontManager.Current.TryGetGlyphTypeface(_typeface, out _primaryGlyphTypeface);
 
         // On macOS, modern Terminal.app uses SF Mono (Menlo on older systems). Both
-        // render bullets and dingbats with the lighter weight users expect. Fall
-        // through SF Mono → Menlo so the right one resolves automatically.
+        // render bullets and dingbats with the lighter weight users expect. STIX Two
+        // Math is appended explicitly because SF Mono and Menlo both lack codepoints
+        // like U+23FA (⏺ record); without it, Avalonia's deeper CoreText fallback
+        // picks Apple Symbols on older macOS (Intel) and renders the wrong shape.
         if (IsMacOS)
         {
-            _systemSymbolTypeface = new Typeface(new FontFamily("SF Mono, Menlo"), FontStyle.Normal, FontWeight.Normal);
+            _systemSymbolTypeface = new Typeface(new FontFamily("SF Mono, Menlo, STIX Two Math"), FontStyle.Normal, FontWeight.Normal);
             FontManager.Current.TryGetGlyphTypeface(_systemSymbolTypeface.Value, out _systemSymbolGlyphTypeface);
         }
 
@@ -921,10 +923,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         {
             return new[]
             {
-                // Minimal list for Intel Mac - just the essentials
-                "Menlo",              // Primary terminal font
-                "Apple Symbols",      // macOS symbols
-                "LastResort",         // Ultimate fallback
+                // STIX Two Math is the font macOS Apple Silicon's CoreText auto-fallback
+                // resolves to for symbols like U+23FA (⏺ record). Older Intel macOS may
+                // pick Apple Symbols first (which renders these as a wrong-shaped donut),
+                // so list STIX explicitly ahead of the rest.
+                "STIX Two Math",
+                "Cascadia Code NF",
+                "avares://host/Assets/Fonts#Cascadia Code NF",
+                "avares://host/Assets/Fonts#Symbols Nerd Font Mono",
+                "SF Mono",
+                "Menlo",
+                "Apple Symbols",
+                "LastResort",
             };
         }
 
@@ -1241,21 +1251,6 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private void RenderTextWithFallback(DrawingContext context, string text, double x, double y,
         Typeface primaryTypeface, IBrush foregroundBrush)
     {
-        // On Intel Mac, use the simplest possible rendering path for performance
-        // This sacrifices emoji and nerd font icons but keeps the terminal responsive
-        if (IsIntelMac)
-        {
-            var formattedText = new FormattedText(
-                text,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                primaryTypeface,
-                _fontSize,
-                foregroundBrush);
-            context.DrawText(formattedText, new Point(x, y));
-            return;
-        }
-
         // Grid-aligned rendering: use GlyphRun with explicit _charWidth advances
         // to prevent accumulated drift from font-engine glyph positioning.
         // This ensures text at the right edge of the terminal isn't clipped.
