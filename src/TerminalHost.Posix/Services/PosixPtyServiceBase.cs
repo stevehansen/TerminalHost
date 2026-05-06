@@ -241,7 +241,10 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
 
     /// <summary>
     /// Sets terminal-specific environment variables: TERM, COLORTERM, dimensions,
-    /// HOME, NVM_DIR, and SHELL (fallback to DefaultShell if unset).
+    /// HOME, NVM_DIR, SHELL (fallback to DefaultShell if unset), and LANG/LC_CTYPE
+    /// (defaulted to UTF-8 if unset — Finder/launchd-launched apps inherit a stripped
+    /// environment without locale set, which causes some CLIs to emit non-UTF-8
+    /// fallback sequences in their status lines).
     /// </summary>
     private void SetTerminalVars(List<(string Key, string Value)> env, ushort columns, ushort rows, string homeDir)
     {
@@ -250,6 +253,11 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
         SetOrReplace(env, "COLUMNS", columns.ToString());
         SetOrReplace(env, "LINES", rows.ToString());
         SetOrReplace(env, "HOME", homeDir);
+
+        if (!env.Any(e => e.Key == "LANG"))
+            env.Add(("LANG", "en_US.UTF-8"));
+        if (!env.Any(e => e.Key == "LC_CTYPE"))
+            env.Add(("LC_CTYPE", "UTF-8"));
 
         var nvmDir = Path.Combine(homeDir, ".nvm");
         if (Directory.Exists(nvmDir))
