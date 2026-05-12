@@ -487,19 +487,16 @@ public class SessionActivityState
                 // Accumulate tokens into agent context breakdown
                 if (tokens > 0)
                 {
-                    // Attribute to most recently active subagent if event doesn't specify
+                    // Trust the AgentId set by the event source (transcript parser or hook).
+                    // The previous "attribute to most recently spawned active subagent" heuristic
+                    // misrouted the parent's assistant-message tokens to whatever Task subagent
+                    // was in flight (symptom: subagent rows showed parent's full context usage).
+                    // Subagent tokens are still correctly accumulated via the Agent/Task
+                    // ToolCallEnd handler above, which rolls them into the parent's
+                    // Context.SubagentResults — message-stream attribution to subagents is not
+                    // a requirement today (transcript parser doesn't yet read parent_tool_use_id
+                    // from per-subagent JSONL lines).
                     var msgAgentId = evt.AgentId ?? SessionId;
-                    if (msgAgentId == SessionId)
-                    {
-                        // Check for active subagent that should receive these tokens
-                        var activeSubagent = Agents.Values
-                            .Where(a => !a.IsMain && a.State == AgentState.Active)
-                            .OrderByDescending(a => a.SpawnTime)
-                            .FirstOrDefault();
-                        if (activeSubagent != null)
-                            msgAgentId = activeSubagent.Id;
-                    }
-                    // Update the event so downstream consumers (e.g. JS canvas) see the correct agent
                     evt.AgentId = msgAgentId;
                     if (Agents.TryGetValue(msgAgentId, out var msgAgent))
                     {
