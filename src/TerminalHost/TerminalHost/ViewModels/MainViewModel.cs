@@ -2367,6 +2367,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? RepositorySwitcherRequested;
     public event EventHandler? SearchRequested;
     public event EventHandler? ClaudeTasksRequested;
+    public event EventHandler? SessionsTreeRequested;
     public event EventHandler? TestRunnerRequested;
     public event EventHandler? WhatsNewRequested;
     public event EventHandler<string>? AiPanelCommandRequested;
@@ -3038,6 +3039,17 @@ public partial class MainViewModel : ObservableObject
                 Category = "Tools",
                 IntroducedOn = new DateOnly(2026, 1, 27),
                 Execute = () => ClaudeTasksRequested?.Invoke(this, EventArgs.Empty),
+                CanExecute = () => SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "sessions-tree",
+                Name = "Sessions",
+                Description = "Tree of active Claude Code sessions and their subagents with live activity and context usage",
+                Shortcut = "Ctrl+Shift+B",
+                Icon = "\U0001F9E0",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 5, 12),
+                Execute = () => SessionsTreeRequested?.Invoke(this, EventArgs.Empty),
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
             new() {

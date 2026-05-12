@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
     private readonly MergeConflictViewModel _mergeConflictViewModel;
     private readonly RecentFeaturesViewModel _recentFeaturesViewModel;
+    private readonly SessionsTreePanelViewModel _sessionsTreePanelViewModel;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;
     private readonly IToastService _toastService;
@@ -62,7 +63,7 @@ public partial class MainWindow : Window
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -91,6 +92,7 @@ public partial class MainWindow : Window
         _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
         _mergeConflictViewModel = mergeConflictViewModel;
         _recentFeaturesViewModel = recentFeaturesViewModel;
+        _sessionsTreePanelViewModel = sessionsTreePanelViewModel;
         _dialogService = dialogService;
         _fileSystem = fileSystem;
         _toastService = toastService;
@@ -127,6 +129,7 @@ public partial class MainWindow : Window
         _detectedLinksViewModel.ShowRequested += OnPanelShowRequested;
         _claudeTasksPanelViewModel.ShowRequested += OnPanelShowRequested;
         _mergeConflictViewModel.ShowRequested += OnPanelShowRequested;
+        _sessionsTreePanelViewModel.ShowRequested += OnPanelShowRequested;
 
         // Subscribe to merge conflict events from git files panel
         _gitFilesViewModel.MergeConflictRequested += OnMergeConflictRequested;
@@ -183,6 +186,7 @@ public partial class MainWindow : Window
         _viewModel.RepositorySwitcherRequested += OnRepositorySwitcherRequested;
         _viewModel.SearchRequested += OnSearchRequested;
         _viewModel.ClaudeTasksRequested += OnClaudeTasksRequested;
+        _viewModel.SessionsTreeRequested += OnSessionsTreeRequested;
         _viewModel.TestRunnerRequested += OnTestRunnerRequested;
         _viewModel.WhatsNewRequested += OnWhatsNewRequested;
         _viewModel.AiPanelCommandRequested += OnAiPanelCommandRequested;
@@ -1010,6 +1014,12 @@ public partial class MainWindow : Window
             OpenClaudeTasksPanel();
             e.Handled = true;
         }
+        // Ctrl+Shift+B: Open Sessions Tree Panel
+        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            OnSessionsTreeRequested(this, EventArgs.Empty);
+            e.Handled = true;
+        }
         // Ctrl+M: Open Markdown Preview
         else if (e.Key == Key.M && Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -1420,6 +1430,7 @@ public partial class MainWindow : Window
             "detectedLinks" => _detectedLinksViewModel,
             "scratchPad" => _scratchPadViewModel,
             "gitChanges" => _gitFilesViewModel,
+            "sessionsTree" => _sessionsTreePanelViewModel,
             _ => null
         };
 
@@ -1507,6 +1518,34 @@ public partial class MainWindow : Window
         {
             _claudeTasksPanelViewModel.Open(workspacePath);
         }
+    }
+
+    #endregion
+
+    #region Sessions Tree Panel
+
+    private void OnSessionsTreeRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedTab is not TerminalPairTabViewModel currentTab) return;
+
+        currentTab.SetPanel(_sessionsTreePanelViewModel);
+
+        // If already open as a window, just focus it.
+        if (_sessionsTreePanelViewModel.IsOpen &&
+            _sessionsTreePanelViewModel.DisplayState == PanelDisplayState.Window)
+        {
+            _panelWindowManager?.GetWindow(_sessionsTreePanelViewModel.PanelId)?.Activate();
+            return;
+        }
+
+        if (_sessionsTreePanelViewModel.IsOpen)
+        {
+            currentTab.TogglePanel(_sessionsTreePanelViewModel);
+            return;
+        }
+
+        _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
+        _sessionsTreePanelViewModel.Open();
     }
 
     #endregion

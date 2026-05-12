@@ -46,6 +46,7 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 | `Ctrl+M` | Open Markdown preview | Project tab | Center panel |
 | `Ctrl+Shift+I` | Open Timeline Mode | Global | Visual timeline of AI development sessions |
 | `Ctrl+Shift+K` | Claude Tasks Panel | Project tab | Right sidebar panel |
+| `Ctrl+Shift+B` | Sessions tree panel | Project tab | Right sidebar panel — active sessions and subagents with live activity and context usage |
 | `F4` | Toggle voice commands | Global | Start/stop voice listening |
 | `Ctrl+Shift+Y` | Toggle status overlay | Global | Floating activity indicator |
 | `Ctrl+Shift+V` | Open Spark Canvas window | Global | Standalone visualization window |
@@ -70,8 +71,9 @@ This document tracks all keyboard shortcuts used in TerminalHost. Keep this file
 
 | Shortcut | Action | Scope | Notes |
 |----------|--------|-------|-------|
-| `Ctrl+Shift+B` | Build | Project tab | Executes "dev-build" quick command |
 | `F6` | Run tests | Project tab | Center panel |
+
+> **Note:** `Ctrl+Shift+B` was previously the default "Build" quick command (sends `dev b` to the shell). It is now bound to the Sessions tree panel. The `dev-build` quick command still exists in defaults but no longer has a keybinding — assign one in Settings if you want it.
 
 ### Timeline Mode Shortcuts (When Timeline Tab Focused)
 

@@ -348,6 +348,7 @@ public partial class App : Application
         services.AddSingleton<ClaudeTasksPanelViewModel>();
         services.AddSingleton<MergeConflictViewModel>();
         services.AddSingleton<RecentFeaturesViewModel>();
+        services.AddSingleton<SessionsTreePanelViewModel>();
         services.AddTransient<SetupViewModel>();
 
         // Windows

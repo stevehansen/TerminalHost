@@ -88,4 +88,9 @@
         <views:SparkCanvasView/>
     </DataTemplate>
 
+    <!-- DataTemplate for SessionsTreePanelViewModel (right sidebar) -->
+    <DataTemplate DataType="{x:Type vm:SessionsTreePanelViewModel}">
+        <views:SessionsTreeContentView/>
+    </DataTemplate>
+
 </ResourceDictionary>

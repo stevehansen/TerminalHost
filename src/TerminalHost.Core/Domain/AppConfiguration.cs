@@ -272,8 +272,7 @@ public class AppConfiguration
             Icon = "b",
             Text = "dev b",
             Target = QuickCommandTarget.Shell,
-            AppendNewline = true,
-            Shortcut = "Ctrl+Shift+B"
+            AppendNewline = true
         },
         new QuickCommand
         {
