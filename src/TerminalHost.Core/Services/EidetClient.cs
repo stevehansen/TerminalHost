@@ -70,19 +70,23 @@ public class EidetClient : IDisposable
         return JsonSerializer.Deserialize<EidetIntakeResponse>(json, JsonOptions);
     }
 
-    /// <summary>Get stats — GET /api/eidet/stats?repoId=...</summary>
+    /// <summary>Get stats — GET /api/eidet/stats?repo=...</summary>
+    /// <remarks>
+    /// Eidet returns a text blurb ({ repo, summary }), not structured counts.
+    /// For structured counts callers should browse by type or use the quality endpoint.
+    /// </remarks>
     public async Task<EidetStatsResponse?> GetStatsAsync(string repoId, CancellationToken ct = default)
     {
-        var response = await _http.GetAsync($"/api/eidet/stats?repoId={Uri.EscapeDataString(repoId)}", ct);
+        var response = await _http.GetAsync($"/api/eidet/stats?repo={Uri.EscapeDataString(repoId)}", ct);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<EidetStatsResponse>(json, JsonOptions);
     }
 
-    /// <summary>Search memories — GET /api/eidet/search?repoId=...&query=...</summary>
+    /// <summary>Search memories — GET /api/eidet/search?repo=...&amp;q=...</summary>
     public async Task<EidetSearchResponse?> SearchAsync(string repoId, string query, string? type = null, int limit = 100, CancellationToken ct = default)
     {
-        var url = $"/api/eidet/search?repoId={Uri.EscapeDataString(repoId)}&query={Uri.EscapeDataString(query)}&limit={limit}";
+        var url = $"/api/eidet/search?repo={Uri.EscapeDataString(repoId)}&q={Uri.EscapeDataString(query)}&limit={limit}";
         if (!string.IsNullOrEmpty(type))
             url += $"&type={Uri.EscapeDataString(type)}";
         var response = await _http.GetAsync(url, ct);
@@ -91,27 +95,27 @@ public class EidetClient : IDisposable
         return JsonSerializer.Deserialize<EidetSearchResponse>(json, JsonOptions);
     }
 
-    /// <summary>Get context — GET /api/eidet/context?repoId=...</summary>
+    /// <summary>Get context — GET /api/eidet/context?repo=...</summary>
     public async Task<string> GetContextAsync(string repoId, CancellationToken ct = default)
     {
-        var response = await _http.GetAsync($"/api/eidet/context?repoId={Uri.EscapeDataString(repoId)}", ct);
+        var response = await _http.GetAsync($"/api/eidet/context?repo={Uri.EscapeDataString(repoId)}", ct);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(ct);
     }
 
-    /// <summary>List layers — GET /api/eidet/layers?repoId=...</summary>
+    /// <summary>List layers — GET /api/eidet/layers?repo=...</summary>
     public async Task<EidetLayersResponse?> GetLayersAsync(string repoId, CancellationToken ct = default)
     {
-        var response = await _http.GetAsync($"/api/eidet/layers?repoId={Uri.EscapeDataString(repoId)}", ct);
+        var response = await _http.GetAsync($"/api/eidet/layers?repo={Uri.EscapeDataString(repoId)}", ct);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<EidetLayersResponse>(json, JsonOptions);
     }
 
-    /// <summary>List all memories for a repo — GET /api/eidet/memories?repoId=...&type=...</summary>
+    /// <summary>Browse memories for a repo — GET /api/eidet/browse?repo=...&amp;type=...</summary>
     public async Task<EidetMemoriesResponse?> GetMemoriesAsync(string repoId, string? type = null, CancellationToken ct = default)
     {
-        var url = $"/api/eidet/memories?repoId={Uri.EscapeDataString(repoId)}";
+        var url = $"/api/eidet/browse?repo={Uri.EscapeDataString(repoId)}&take=200";
         if (!string.IsNullOrEmpty(type))
             url += $"&type={Uri.EscapeDataString(type)}";
         var response = await _http.GetAsync(url, ct);
@@ -138,21 +142,21 @@ public class EidetClient : IDisposable
         return response.IsSuccessStatusCode;
     }
 
-    /// <summary>Trigger maintenance — POST /api/eidet/maintenance.</summary>
+    /// <summary>Trigger maintenance — POST /api/maintenance.</summary>
     public async Task<string> RunMaintenanceAsync(string? repoId = null, CancellationToken ct = default)
     {
-        var url = "/api/eidet/maintenance";
+        var url = "/api/maintenance";
         if (!string.IsNullOrEmpty(repoId))
-            url += $"?repoId={Uri.EscapeDataString(repoId)}";
+            url += $"?repo={Uri.EscapeDataString(repoId)}";
         var response = await _http.PostAsync(url, null, ct);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(ct);
     }
 
-    /// <summary>Export memories — GET /api/eidet/export?repoId=...</summary>
+    /// <summary>Export memories — GET /api/eidet/export?repo=...</summary>
     public async Task<string> ExportAsync(string repoId, CancellationToken ct = default)
     {
-        var response = await _http.GetAsync($"/api/eidet/export?repoId={Uri.EscapeDataString(repoId)}", ct);
+        var response = await _http.GetAsync($"/api/eidet/export?repo={Uri.EscapeDataString(repoId)}", ct);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(ct);
     }

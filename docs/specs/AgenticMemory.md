@@ -80,15 +80,15 @@ Slim HttpClient wrapper for Eidet's REST API.
 |-------------------|----------------|
 | Health check on startup | `GET /api/status` |
 | Trigger intake for opened project | `POST /api/eidet/intake` |
-| Memory stats for UI | `GET /api/eidet/stats?repoId=...` |
-| Search for Memory Browser | `GET /api/eidet/search?repoId=...&query=...` |
-| Get context for display | `GET /api/eidet/context?repoId=...` |
-| List layers | `GET /api/eidet/layers?repoId=...` |
-| List memories | `GET /api/eidet/memories?repoId=...` |
+| Memory stats for UI | `GET /api/eidet/stats?repo=...` (text blurb, not structured counts) |
+| Search for Memory Browser | `GET /api/eidet/search?repo=...&q=...` |
+| Get context for display | `GET /api/eidet/context?repo=...` |
+| List layers | `GET /api/eidet/layers?repo=...` |
+| Browse memories | `GET /api/eidet/browse?repo=...&type=...` |
 | Get memory by ID | `GET /api/eidet/{id}` |
 | Forget memory | `DELETE /api/eidet/{id}` |
-| Trigger maintenance | `POST /api/eidet/maintenance` |
-| Export memories | `GET /api/eidet/export?repoId=...` |
+| Trigger maintenance | `POST /api/maintenance?repo=...` |
+| Export memories | `GET /api/eidet/export?repo=...` |
 | Proxy GET (for API) | Raw path forwarding |
 | Proxy POST (for API) | Raw path forwarding |
 
@@ -119,7 +119,7 @@ TerminalHost does **not** proxy memory MCP tools. AI clients connect to Eidet's 
 }
 ```
 
-Eidet's MCP server uses the current working directory to determine the repoId. TerminalHost's `McpHandler` has no memory tool references.
+Eidet's MCP server uses the current working directory to determine the repo. TerminalHost's `McpHandler` has no memory tool references.
 
 ### 4. Memory REST API — Thin Proxy for UI
 
@@ -132,7 +132,7 @@ TerminalHost's `ApiServer` keeps a thin set of read-only endpoints for its own U
 | `GET /api/memory/stats` | `GET /api/eidet/stats` |
 | `GET /api/memory/layers` | `GET /api/eidet/layers` |
 
-Query parameter mapping: `repo` → `repoId`, `q` → `query`.
+Query parameters (`repo`, `q`, `type`, `limit`, etc.) are forwarded to Eidet unchanged — Eidet uses the same names.
 
 Write operations go through Eidet's MCP tools or directly to Eidet's REST API — not through TerminalHost.
 
@@ -160,7 +160,7 @@ TerminalHost Settings UI shows:
 
 The Memory Browser ViewModel calls `EidetClientService` which hits Eidet's REST API:
 
-- Browse/filter memories → `GET /api/eidet/search` / `GET /api/eidet/memories`
+- Browse/filter memories → `GET /api/eidet/search` / `GET /api/eidet/browse`
 - View memory details → `GET /api/eidet/{id}`
 - Layer stack display → `GET /api/eidet/layers`
 - Export → `GET /api/eidet/export`

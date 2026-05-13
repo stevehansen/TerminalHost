@@ -169,11 +169,14 @@ public class EidetSearchResponse
     public List<EidetSearchResult> Results { get; set; } = [];
 }
 
-/// <summary>Response from GET /api/eidet/stats.</summary>
+/// <summary>Response from GET /api/eidet/stats — text summary + counts by lowercase type name.</summary>
 public class EidetStatsResponse
 {
-    [JsonPropertyName("repoId")]
-    public string RepoId { get; set; } = "";
+    [JsonPropertyName("repo")]
+    public string Repo { get; set; } = "";
+
+    [JsonPropertyName("summary")]
+    public string Summary { get; set; } = "";
 
     [JsonPropertyName("counts")]
     public Dictionary<string, int> Counts { get; set; } = new();
@@ -217,19 +220,25 @@ public class EidetLayersResponse
 /// <summary>Response from POST /api/eidet/intake.</summary>
 public class EidetIntakeResponse
 {
-    [JsonPropertyName("repoId")]
-    public string RepoId { get; set; } = "";
-
     [JsonPropertyName("newCount")]
     public int NewCount { get; set; }
 
     [JsonPropertyName("skippedCount")]
     public int SkippedCount { get; set; }
+
+    [JsonPropertyName("dependencies")]
+    public int Dependencies { get; set; }
 }
 
-/// <summary>Wrapper for memories list endpoint response.</summary>
+/// <summary>Wrapper for /api/eidet/browse response.</summary>
 public class EidetMemoriesResponse
 {
-    [JsonPropertyName("memories")]
-    public List<EidetMemoryEntry> Memories { get; set; } = [];
+    [JsonPropertyName("repo")]
+    public string Repo { get; set; } = "";
+
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+
+    [JsonPropertyName("entries")]
+    public List<EidetMemoryEntry> Entries { get; set; } = [];
 }

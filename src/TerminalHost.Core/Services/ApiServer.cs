@@ -1766,8 +1766,8 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
 
     /// <summary>
     /// Proxy a read-only memory endpoint to Eidet.
-    /// Maps TerminalHost /api/memory/* → Eidet /api/eidet/*.
-    /// Query parameters (repo, q, type, limit) are forwarded as repoId etc.
+    /// Maps TerminalHost /api/memory/* → Eidet /api/eidet/*. Query parameters
+    /// (repo, q, type, limit) are forwarded unchanged — Eidet uses the same names.
     /// </summary>
     private async Task HandleMemoryProxyAsync(HttpListenerResponse response, HttpListenerRequest request, string eidetPath)
     {
@@ -1779,19 +1779,12 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
 
         try
         {
-            // Build Eidet query string, remapping "repo" → "repoId" and "q" → "query"
             var qs = new List<string>();
             foreach (string? key in request.QueryString.AllKeys)
             {
                 if (key == null) continue;
                 var value = request.QueryString[key] ?? "";
-                var eidetKey = key switch
-                {
-                    "repo" => "repoId",
-                    "q" => "query",
-                    _ => key
-                };
-                qs.Add($"{Uri.EscapeDataString(eidetKey)}={Uri.EscapeDataString(value)}");
+                qs.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}");
             }
 
             var url = qs.Count > 0 ? $"{eidetPath}?{string.Join("&", qs)}" : eidetPath;

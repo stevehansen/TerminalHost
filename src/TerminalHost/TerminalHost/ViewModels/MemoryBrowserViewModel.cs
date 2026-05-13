@@ -277,9 +277,9 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
                 _dispatcherService.Invoke(() =>
                 {
                     Memories.Clear();
-                    if (memoriesResponse?.Memories != null)
+                    if (memoriesResponse?.Entries != null)
                     {
-                        foreach (var e in memoriesResponse.Memories.OrderByDescending(e => e.CreatedAt))
+                        foreach (var e in memoriesResponse.Entries.OrderByDescending(e => e.CreatedAt))
                         {
                             Memories.Add(new MemoryBrowserItem
                             {
