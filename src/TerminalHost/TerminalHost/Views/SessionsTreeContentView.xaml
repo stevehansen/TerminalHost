@@ -159,6 +159,19 @@
             <Setter Property="FontFamily" Value="{StaticResource FontFamilyStandard}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <!-- Tag carries the panel ViewModel so the ContextMenu (separate visual tree)
+                 can reach OpenWorkspaceCommand via PlacementTarget.Tag. -->
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TreeView}}"/>
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu Style="{StaticResource DarkContextMenu}">
+                        <MenuItem Header="Open / Focus Workspace"
+                                  Command="{Binding PlacementTarget.Tag.OpenWorkspaceCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+            <EventSetter Event="MouseDoubleClick" Handler="OnTreeViewItemDoubleClick"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TreeViewItem">

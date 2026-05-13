@@ -136,6 +136,7 @@ public partial class MainWindow : Window
         _debugLogViewModel.ShowRequested += OnPanelShowRequested;
         _mergeConflictViewModel.ShowRequested += OnPanelShowRequested;
         _sessionsTreePanelViewModel.ShowRequested += OnPanelShowRequested;
+        _sessionsTreePanelViewModel.OpenProjectRequested += (_, path) => _viewModel.OpenProjectTab(path);
 
         // Subscribe to merge conflict events from git files panel
         _gitFilesViewModel.MergeConflictRequested += OnMergeConflictRequested;

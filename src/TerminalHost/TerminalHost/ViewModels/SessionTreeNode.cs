@@ -22,6 +22,18 @@ public partial class SessionTreeNode : ObservableObject
     /// </summary>
     public bool IsSession { get; set; }
 
+    /// <summary>
+    /// Working directory of the session this row belongs to. Subagent rows inherit
+    /// it from their parent session. Used to open or focus the corresponding tab
+    /// from the Sessions panel (context menu / double-click).
+    /// </summary>
+    [ObservableProperty]
+    private string? _workingDirectory;
+
+    public bool HasWorkingDirectory => !string.IsNullOrEmpty(WorkingDirectory);
+
+    partial void OnWorkingDirectoryChanged(string? value) => OnPropertyChanged(nameof(HasWorkingDirectory));
+
     [ObservableProperty]
     private string _title = "";
 

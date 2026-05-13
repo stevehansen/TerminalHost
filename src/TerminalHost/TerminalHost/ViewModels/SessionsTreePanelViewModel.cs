@@ -166,6 +166,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             : Path.GetFileName(state.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
         node.Title = dirName ?? state.SessionId[..Math.Min(8, state.SessionId.Length)];
+        node.WorkingDirectory = state.WorkingDirectory;
 
         var subtitleParts = new List<string>();
         if (!string.IsNullOrEmpty(state.GitBranch))
@@ -203,6 +204,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             }
 
             child.Title = string.IsNullOrEmpty(agent.Name) ? "subagent" : agent.Name;
+            child.WorkingDirectory = state.WorkingDirectory;
             child.Subtitle = !string.IsNullOrWhiteSpace(agent.Task)
                 ? Truncate(agent.Task!, 80)
                 : agent.Model is { Length: > 0 } subModel
@@ -378,6 +380,20 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         IsOpen = true;
         Refresh();
         RequestShow();
+    }
+
+    /// <summary>
+    /// Raised when the user activates a session row (double-click or context menu).
+    /// Carries the session's working directory; the host wires this to
+    /// MainViewModel.OpenProjectTab, which opens a new tab or focuses an existing one.
+    /// </summary>
+    public event EventHandler<string>? OpenProjectRequested;
+
+    [RelayCommand]
+    private void OpenWorkspace(SessionTreeNode? node)
+    {
+        if (node?.WorkingDirectory is { Length: > 0 } path)
+            OpenProjectRequested?.Invoke(this, path);
     }
 
     public void Dispose()
