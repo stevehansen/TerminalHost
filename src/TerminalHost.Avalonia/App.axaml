@@ -68,6 +68,15 @@
         <DataTemplate DataType="{x:Type vm:ClaudeTasksPanelViewModel}">
             <panels:ClaudeTasksPanelView/>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SessionsTreePanelViewModel}">
+            <panels:SessionsTreePanelView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MemoryBrowserViewModel}">
+            <panels:MemoryBrowserPanelView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DebugLogViewModel}">
+            <panels:DebugLogPanelView/>
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:GitFilesViewModel}">
             <popups:GitFilesView/>
         </DataTemplate>

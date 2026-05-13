@@ -178,6 +178,18 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center" />
 
+                <!-- Memory Browser - Center -->
+                <panels:MemoryBrowserPanelView
+                    x:Name="MemoryBrowserPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+                <!-- Debug Log - Center -->
+                <panels:DebugLogPanelView
+                    x:Name="DebugLogPopup"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
                 <!-- Search Across Files - Center (uses DraggablePopup internally) -->
                 <popups:SearchAcrossFilesView
                     x:Name="SearchAcrossFilesPopup"

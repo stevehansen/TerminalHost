@@ -62,9 +62,10 @@ public class EidetClient : IDisposable
     /// <summary>Trigger intake for a project — POST /api/eidet/intake.</summary>
     public async Task<EidetIntakeResponse?> IntakeAsync(string projectPath, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(new { projectPath }, JsonOptions);
-        var content = new StringContent(payload, Encoding.UTF8, "application/json");
-        var response = await _http.PostAsync("/api/eidet/intake", content, ct);
+        var repo = RepoIdNormalizer.Normalize(projectPath);
+        var url = $"/api/eidet/intake?repo={Uri.EscapeDataString(repo)}&path={Uri.EscapeDataString(projectPath)}";
+        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        var response = await _http.PostAsync(url, content, ct);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<EidetIntakeResponse>(json, JsonOptions);

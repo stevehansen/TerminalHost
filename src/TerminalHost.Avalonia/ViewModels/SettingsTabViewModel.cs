@@ -564,6 +564,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     [ObservableProperty]
     private string _eidetUrl = "http://localhost:19380";
 
+    [ObservableProperty]
+    private string _memoryStatusText = "";
+
+    [ObservableProperty]
+    private bool _isTestingConnection;
+
     // MCP Collab integration
     [ObservableProperty]
     private bool _mcpCollabInstalled;
@@ -1000,6 +1006,50 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     // Memory change handlers
     partial void OnMemoryEnabledChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnEidetUrlChanged(string value) => MarkDirtyFromRichMode();
+
+    /// <summary>Update the memory status display from EidetClientService.GetStatus().</summary>
+    public void UpdateMemoryStatus(TerminalHost.Core.Services.MemoryStatus? status)
+    {
+        if (status == null)
+        {
+            MemoryStatusText = "";
+            return;
+        }
+
+        var parts = new List<string> { status.ConnectionStatus.ToString() };
+        if (!string.IsNullOrEmpty(status.Version))
+            parts.Add($"v{status.Version}");
+        if (status.DocumentCount > 0)
+            parts.Add($"{status.DocumentCount} docs");
+        if (status.ConnectedSince.HasValue)
+            parts.Add($"since {status.ConnectedSince.Value.ToLocalTime():HH:mm}");
+        if (!string.IsNullOrEmpty(status.ErrorMessage))
+            parts.Add($"Error: {status.ErrorMessage}");
+        MemoryStatusText = string.Join(" · ", parts);
+    }
+
+    [RelayCommand]
+    public async Task TestEidetConnectionAsync()
+    {
+        if (IsTestingConnection) return;
+        IsTestingConnection = true;
+        try
+        {
+            var result = await TerminalHost.Core.Services.EidetClientService.TestConnectionAsync(EidetUrl);
+            if (result is { IsRunning: true })
+                MemoryStatusText = $"Connected · v{result.Version} · {result.DocumentCount} docs";
+            else
+                MemoryStatusText = "Connection failed — is Eidet running?";
+        }
+        catch (Exception ex)
+        {
+            MemoryStatusText = $"Connection failed: {ex.Message}";
+        }
+        finally
+        {
+            IsTestingConnection = false;
+        }
+    }
 
     partial void OnSelectedReferenceVolumeChanged(ReferenceVolume? value)
     {

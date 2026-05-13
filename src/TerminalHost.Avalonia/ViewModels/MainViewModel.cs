@@ -219,6 +219,12 @@ public partial class MainViewModel : ObservableObject
     // Claude Tasks Panel
     public ClaudeTasksPanelViewModel? ClaudeTasksPanelViewModel { get; set; }
 
+    public SessionsTreePanelViewModel? SessionsTreePanelViewModel { get; set; }
+
+    public MemoryBrowserViewModel? MemoryBrowserViewModel { get; set; }
+
+    public DebugLogViewModel? DebugLogViewModel { get; set; }
+
     // Quick Capture
     [ObservableProperty]
     private bool _isQuickTaskOpen;
@@ -1219,6 +1225,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.SettingsChanged += OnTabSettingsChanged;
             tabViewModel.TaskPanelRequested += (s, e) => OpenTaskPanel();
             tabViewModel.ClaudeTasksPanelRequested += (s, e) => OpenClaudeTasksPanel();
+            tabViewModel.SessionsTreePanel = SessionsTreePanelViewModel;
 
             // Initialize available shell profiles
             tabViewModel.RefreshAvailableShellProfiles(_profileRegistry.Profiles);
@@ -2097,6 +2104,19 @@ public partial class MainViewModel : ObservableObject
             soundService.RefreshCachedSettings(config.Settings.Sounds);
         }
 
+        // Apply Eidet memory settings live (connect/disconnect/reconnect with new URL)
+        var eidet = App.Current.Services.GetService<TerminalHost.Core.Services.EidetClientService>();
+        if (eidet != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                await eidet.OnSettingsChangedAsync();
+                // Re-push the (possibly new) client into ApiServer for proxy endpoints
+                var apiServer = App.Current.Services.GetService<TerminalHost.Core.Services.ApiServer>();
+                apiServer?.SetEidetClient(eidet.Client);
+            });
+        }
+
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);
     }
@@ -2274,6 +2294,31 @@ public partial class MainViewModel : ObservableObject
 
         // Set the workspace on the Claude Tasks panel before opening
         ClaudeTasksPanelViewModel?.Open(workspacePath);
+    }
+
+    [RelayCommand]
+    private void OpenSessionsTree()
+    {
+        if (SelectedTab is TerminalPairTabViewModel terminalTab && terminalTab.WorkspaceTasksPanel is { } wsTasks)
+        {
+            wsTasks.IsVisible = true;
+            terminalTab.RightPanelSelectedIndex = 1;
+        }
+        SessionsTreePanelViewModel?.Open();
+    }
+
+    [RelayCommand]
+    private async Task OpenMemoryBrowser()
+    {
+        if (MemoryBrowserViewModel is null) return;
+        if (SelectedTab is TerminalPairTabViewModel terminalTab)
+            await MemoryBrowserViewModel.OpenAsync(terminalTab);
+    }
+
+    [RelayCommand]
+    private void OpenDebugLog()
+    {
+        DebugLogViewModel?.Open();
     }
 
     [RelayCommand]
@@ -2604,6 +2649,33 @@ public partial class MainViewModel : ObservableObject
                 Category = "Tools",
                 IntroducedOn = new DateOnly(2026, 1, 27),
                 Execute = () => OpenClaudeTasksPanelCommand.Execute(null)
+            },
+            new() {
+                Id = "sessions-tree",
+                Name = "Sessions",
+                Description = "View active Claude Code sessions and subagents",
+                Icon = "🧠",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 5, 13),
+                Execute = () => OpenSessionsTreeCommand.Execute(null)
+            },
+            new() {
+                Id = "memory-browser",
+                Name = "Memory Browser",
+                Description = "Browse Eidet long-term memory for this repo",
+                Icon = "🧠",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 5, 13),
+                Execute = () => OpenMemoryBrowserCommand.Execute(null)
+            },
+            new() {
+                Id = "debug-log",
+                Name = "Debug Log",
+                Description = "Show diagnostic messages from MCP, Memory, and other subsystems",
+                Icon = "🐛",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 5, 13),
+                Execute = () => OpenDebugLogCommand.Execute(null)
             },
             new() {
                 Id = "quick-task",

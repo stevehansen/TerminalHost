@@ -1,0 +1,251 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:controls="clr-namespace:TerminalHost.Controls"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TerminalHost.Views.Panels.MemoryBrowserPanelView"
+             x:DataType="vm:MemoryBrowserViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.metric-label">
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="FontSize" Value="10"/>
+    </Style>
+    <Style Selector="TextBlock.metric-value">
+      <Setter Property="Foreground" Value="#E2E8F0"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Border.metric-card">
+      <Setter Property="Background" Value="#1E293B"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="MinWidth" Value="80"/>
+    </Style>
+    <Style Selector="Border.memory-row">
+      <Setter Property="Background" Value="#1E293B"/>
+      <Setter Property="BorderBrush" Value="#334155"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="Padding" Value="10,6"/>
+    </Style>
+    <Style Selector="Border.memory-row:pointerover">
+      <Setter Property="Background" Value="#293548"/>
+    </Style>
+  </UserControl.Styles>
+
+  <controls:DraggablePopup
+      IsOpen="{Binding IsOpen, Mode=TwoWay}"
+      PopupWidth="{Binding Width, Mode=TwoWay}"
+      PopupHeight="{Binding Height, Mode=TwoWay}"
+      HorizontalOffset="{Binding HorizontalOffset, Mode=TwoWay}"
+      VerticalOffset="{Binding VerticalOffset, Mode=TwoWay}"
+      Title="{Binding Title}"
+      CloseCommand="{Binding CloseCommand}">
+
+    <controls:DraggablePopup.HeaderRightContent>
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Content="Run Intake" Command="{Binding RunIntakeCommand}" Classes="TerminalSwitchButton"/>
+        <Button Content="↻ Refresh" Command="{Binding RefreshCommand}" Classes="TerminalSwitchButton"/>
+      </StackPanel>
+    </controls:DraggablePopup.HeaderRightContent>
+
+    <controls:DraggablePopup.PopupContent>
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Metric bar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundMediumBrush}" Padding="10,8">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Border Classes="metric-card">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="TOTAL"/>
+                <TextBlock Classes="metric-value" Text="{Binding TotalCount}"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="metric-card">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="👁 OBSERVATION"/>
+                <TextBlock Classes="metric-value" Text="{Binding ObservationCount}"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="metric-card">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="💡 INSIGHT"/>
+                <TextBlock Classes="metric-value" Text="{Binding InsightCount}"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="metric-card">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="📋 PROCEDURE"/>
+                <TextBlock Classes="metric-value" Text="{Binding ProcedureCount}"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="metric-card">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="⚡ HEURISTIC"/>
+                <TextBlock Classes="metric-value" Text="{Binding HeuristicCount}"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="metric-card" Background="Transparent">
+              <StackPanel>
+                <TextBlock Classes="metric-label" Text="STATUS"/>
+                <TextBlock Classes="metric-value" Text="{Binding ConnectionStatus}" FontSize="13"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Filters -->
+        <Border Grid.Row="1" Background="{StaticResource BackgroundMediumBrush}" Padding="10,4">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Text="{Binding SearchText, Mode=TwoWay}"
+                     Watermark="Search memories..."
+                     Width="240"/>
+            <ComboBox ItemsSource="{Binding TypeFilters}"
+                      SelectedItem="{Binding SelectedTypeFilter, Mode=TwoWay}"
+                      MinWidth="140"/>
+            <CheckBox Content="Show expired" IsChecked="{Binding ShowExpired}"
+                      Foreground="#94A3B8" VerticalAlignment="Center"/>
+            <ProgressBar IsIndeterminate="True"
+                         IsVisible="{Binding IsLoading}"
+                         Height="3"
+                         Width="120"
+                         VerticalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Master/detail -->
+        <Grid Grid.Row="2" ColumnDefinitions="2*,Auto,3*">
+          <ListBox Grid.Column="0"
+                   ItemsSource="{Binding Memories}"
+                   SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                   Background="Transparent"
+                   BorderThickness="0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:MemoryBrowserItem">
+                <Border Classes="memory-row">
+                  <StackPanel Spacing="3">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <TextBlock Grid.Column="0"
+                                 Text="{Binding TypeIcon}"
+                                 FontSize="14"
+                                 VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding DisplayContent}"
+                                 Foreground="#E2E8F0"
+                                 FontSize="12"
+                                 Margin="8,0,0,0"
+                                 TextTrimming="CharacterEllipsis"
+                                 MaxLines="2"
+                                 TextWrapping="Wrap"/>
+                      <TextBlock Grid.Column="2"
+                                 Text="{Binding AgeDisplay}"
+                                 Foreground="#64748B"
+                                 FontSize="10"
+                                 VerticalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="{Binding TagsDisplay}"
+                                 Foreground="#3B82F6"
+                                 FontSize="10"
+                                 IsVisible="{Binding TagsDisplay, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                      <TextBlock Text="{Binding ProvenanceDisplay}"
+                                 Foreground="#64748B"
+                                 FontSize="10"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <GridSplitter Grid.Column="1" Width="4" Background="#0F172A"/>
+
+          <Border Grid.Column="2" Background="#0F172A" Padding="12">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="8" DataContext="{Binding SelectedItem}"
+                          IsVisible="{Binding $parent[UserControl].((vm:MemoryBrowserViewModel)DataContext).SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Grid.Column="0" Text="{Binding TypeIcon}" FontSize="22" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="2">
+                    <TextBlock Text="{Binding TypeLabel}" Foreground="#E2E8F0" FontWeight="SemiBold" FontSize="14"/>
+                    <TextBlock Text="{Binding Id}" Foreground="#64748B" FontSize="10"/>
+                  </StackPanel>
+                </Grid>
+
+                <TextBlock Text="{Binding Content}"
+                           Foreground="#CBD5E1"
+                           FontSize="12"
+                           TextWrapping="Wrap"/>
+
+                <Border Background="#1E293B" CornerRadius="4" Padding="8" IsVisible="{Binding HasForesight}">
+                  <StackPanel>
+                    <TextBlock Text="FORESIGHT" Foreground="#F59E0B" FontSize="10"/>
+                    <TextBlock Text="{Binding ForesightHint}" Foreground="#FBBF24" FontSize="11" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="*,*,*" Margin="0,4,0,0">
+                  <StackPanel Grid.Column="0">
+                    <TextBlock Text="Importance" Classes="metric-label"/>
+                    <TextBlock Text="{Binding ImportanceDisplay}" Foreground="#E2E8F0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Confidence" Classes="metric-label"/>
+                    <TextBlock Text="{Binding ConfidenceDisplay}" Foreground="#E2E8F0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Text="Accessed" Classes="metric-label"/>
+                    <TextBlock Text="{Binding AccessCount}" Foreground="#E2E8F0" FontSize="12"/>
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel IsVisible="{Binding HasEntities}">
+                  <TextBlock Text="Entities" Classes="metric-label"/>
+                  <TextBlock Text="{Binding EntitiesDisplay}" Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel>
+                  <TextBlock Text="Source" Classes="metric-label"/>
+                  <TextBlock Text="{Binding ProvenanceDisplay}" Foreground="#94A3B8" FontSize="11"/>
+                </StackPanel>
+
+                <Button Content="Forget"
+                        Command="{Binding $parent[UserControl].((vm:MemoryBrowserViewModel)DataContext).ForgetMemoryCommand}"
+                        HorizontalAlignment="Right"
+                        Margin="0,8,0,0"
+                        Classes="TerminalSwitchButton"/>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+
+        <!-- Layers footer -->
+        <Border Grid.Row="3" Background="{StaticResource BackgroundMediumBrush}" Padding="8,4">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Layers:" Foreground="#64748B" FontSize="11" VerticalAlignment="Center"/>
+            <ItemsControl ItemsSource="{Binding Layers}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="6"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:LayerStackItem">
+                  <Border Background="#1E293B" CornerRadius="3" Padding="6,2">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{Binding TypeIcon}" Foreground="#94A3B8" FontSize="11"/>
+                      <TextBlock Text="{Binding Name}" Foreground="#CBD5E1" FontSize="11"/>
+                      <TextBlock Text="{Binding EntryCount, StringFormat='({0})'}" Foreground="#64748B" FontSize="10"/>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </controls:DraggablePopup.PopupContent>
+  </controls:DraggablePopup>
+</UserControl>

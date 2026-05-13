@@ -510,17 +510,58 @@
                                     DataContext="{Binding ExplorerViewModel}"
                                     IsVisible="{Binding IsExplorerVisible}"/>
 
-            <!-- Workspace Tasks Panel Overlay - right side overlay -->
-            <Border Grid.Column="2" Grid.ColumnSpan="1"
-                    Background="{DynamicResource BackgroundDarkBrush}"
-                    BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="1,0,0,0"
-                    IsVisible="{Binding WorkspaceTasksPanel.IsVisible}"
-                    Width="300"
-                    HorizontalAlignment="Right"
-                    ZIndex="100">
-                <panels:WorkspaceTasksPanelView DataContext="{Binding WorkspaceTasksPanel}"/>
-            </Border>
+            <!-- Right-side tabbed overlay: Workspace Tasks + Sessions (resizable) -->
+            <Grid Grid.Column="2" Grid.ColumnSpan="1"
+                  IsVisible="{Binding WorkspaceTasksPanel.IsVisible}"
+                  Width="{Binding RightPanelWidth, Mode=OneWay}"
+                  HorizontalAlignment="Right"
+                  ZIndex="100"
+                  ColumnDefinitions="5,*">
+
+                <!-- Drag handle on the left edge — drag left to widen, right to narrow. -->
+                <Thumb Grid.Column="0"
+                       x:Name="RightPanelSplitter"
+                       Background="{DynamicResource BackgroundMediumBrush}"
+                       Cursor="SizeWestEast"
+                       DragDelta="RightPanelSplitter_DragDelta">
+                    <Thumb.Template>
+                        <ControlTemplate>
+                            <Border Background="{TemplateBinding Background}"/>
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+
+                <Border Grid.Column="1"
+                        Background="{DynamicResource BackgroundDarkBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1,0,0,0">
+                    <TabControl SelectedIndex="{Binding RightPanelSelectedIndex, Mode=TwoWay}"
+                                Padding="0">
+                        <TabControl.Styles>
+                            <Style Selector="TabItem">
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                                <Setter Property="Padding" Value="10,6"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            </Style>
+                            <Style Selector="TabItem:selected">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+                            </Style>
+                            <Style Selector="TabItem /template/ Border#PART_SelectedPipe">
+                                <Setter Property="Height" Value="1"/>
+                                <Setter Property="Margin" Value="0"/>
+                            </Style>
+                        </TabControl.Styles>
+                        <TabItem Header="🤖 Tasks">
+                            <panels:WorkspaceTasksPanelView DataContext="{Binding WorkspaceTasksPanel}"/>
+                        </TabItem>
+                        <TabItem Header="🧠 Sessions">
+                            <panels:SessionsTreePanelView DataContext="{Binding SessionsTreePanel}"/>
+                        </TabItem>
+                    </TabControl>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- Center Panel (visible when ActiveCenterPanel is set, replaces terminals) -->

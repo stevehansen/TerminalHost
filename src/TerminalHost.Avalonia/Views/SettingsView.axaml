@@ -388,6 +388,10 @@
                                  GroupName="SettingsSection"
                                  Classes="SidebarItemButton"
                                  IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Containers}"/>
+                    <RadioButton Content="Memory"
+                                 GroupName="SettingsSection"
+                                 Classes="SidebarItemButton"
+                                 IsChecked="{Binding SelectedSection, Converter={StaticResource SectionConverter}, ConverterParameter=Memory}"/>
                 </StackPanel>
             </Border>
 
@@ -2989,6 +2993,43 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                    </StackPanel>
+
+                    <!-- Memory Settings Section -->
+                    <StackPanel Margin="24"
+                                IsVisible="{Binding SelectedSection, Converter={StaticResource SectionVisibility}, ConverterParameter=Memory}">
+                        <TextBlock Text="Agentic Long-Term Memory (Eidet)" Classes="SectionHeader"/>
+                        <TextBlock Text="Integration with Eidet — a standalone local-first memory service for AI coding agents. Eidet runs as a system service and provides MCP memory tools directly to AI clients. All memory-specific settings are managed by Eidet (run 'eidet setup' to configure)."
+                                   Classes="SectionDescription"/>
+
+                        <CheckBox Content="Enable Eidet Memory"
+                                  IsChecked="{Binding MemoryEnabled, Mode=TwoWay}"
+                                  Classes="FormCheckBox"
+                                  Margin="0,0,0,4"/>
+
+                        <TextBlock Text="{Binding MemoryStatusText}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,12"
+                                   IsVisible="{Binding MemoryStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                        <TextBlock Text="EIDET URL" Classes="FieldLabel" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EidetUrl, Mode=TwoWay}"
+                                 Classes="FormTextBox"
+                                 Margin="0,0,0,4"/>
+                        <TextBlock Text="Eidet service URL. Default: http://localhost:19380"
+                                   Classes="HelpText"
+                                   Margin="0,0,0,12"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button Content="Test Connection"
+                                    Command="{Binding TestEidetConnectionCommand}"
+                                    Classes="SettingsToolbarButton"
+                                    Padding="12,6"
+                                    Margin="0,0,8,0"
+                                    IsEnabled="{Binding !IsTestingConnection}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

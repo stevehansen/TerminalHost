@@ -502,6 +502,27 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public Core.ViewModels.WorkspaceTasksPanelViewModel? WorkspaceTasksPanel { get; }
 
+    /// <summary>
+    /// Selected tab in the right-side overlay: 0 = Workspace Tasks, 1 = Sessions.
+    /// </summary>
+    [ObservableProperty]
+    private int _rightPanelSelectedIndex;
+
+    /// <summary>
+    /// Reference to the singleton SessionsTreePanelViewModel — set by MainViewModel when
+    /// the tab is created. Used as the DataContext for the Sessions tab in the right-side
+    /// overlay without needing $parent[Window] traversal in XAML.
+    /// </summary>
+    [ObservableProperty]
+    private SessionsTreePanelViewModel? _sessionsTreePanel;
+
+    /// <summary>
+    /// Width of the right-side Tasks/Sessions overlay panel. Bound to the panel's
+    /// <c>Width</c> in <c>TerminalPairView.axaml</c> and updated by the drag handle.
+    /// </summary>
+    [ObservableProperty]
+    private double _rightPanelWidth = 320;
+
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
     public Control? CurrentTerminalContent => ActiveTerminal == ActiveTerminal.Custom

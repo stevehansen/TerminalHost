@@ -86,6 +86,7 @@ public partial class App : Application
 
                 // Auto-start API server if enabled
                 _ = AutoStartApiServerAsync();
+                _ = AutoConnectMemoryAsync();
             }
 
             // Handle dock icon click on macOS — restore minimized window
@@ -144,6 +145,7 @@ public partial class App : Application
 
             // Auto-start API server if enabled
             _ = AutoStartApiServerAsync();
+            _ = AutoConnectMemoryAsync();
         };
 
         desktop.MainWindow = setupWindow;
@@ -266,7 +268,10 @@ public partial class App : Application
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddSingleton<ICollabService, CollabService>();
         services.AddSingleton<McpHandler>();
-        services.AddSingleton<IApiServer, ApiServer>();
+        services.AddSingleton<ApiServer>();
+        services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
+        services.AddSingleton<IDebugLogService, TerminalHost.Core.Services.DebugLogService>();
+        services.AddSingleton<TerminalHost.Core.Services.EidetClientService>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
@@ -282,6 +287,9 @@ public partial class App : Application
         services.AddSingleton<ScratchPadViewModel>();
         services.AddSingleton<TaskPanelViewModel>();
         services.AddSingleton<ClaudeTasksPanelViewModel>();
+        services.AddSingleton<SessionsTreePanelViewModel>();
+        services.AddSingleton<MemoryBrowserViewModel>();
+        services.AddSingleton<DebugLogViewModel>();
         services.AddSingleton<MarkdownPreviewViewModel>();
         services.AddSingleton<SearchAcrossFilesViewModel>();
         services.AddSingleton<FileHistoryViewModel>();
@@ -361,6 +369,29 @@ public partial class App : Application
         }
     }
 
+    private async Task AutoConnectMemoryAsync()
+    {
+        try
+        {
+            if (_services == null) return;
+            var eidet = _services.GetRequiredService<EidetClientService>();
+
+            // Pass currently-open project paths so intake runs for restored tabs
+            var config = _services.GetRequiredService<IConfigurationService>().Load();
+            var openPaths = config.OpenFolders.ToList();
+
+            await eidet.TryConnectAsync(openPaths);
+
+            // Wire the EidetClient into ApiServer for proxy endpoints
+            var apiServer = _services.GetService<ApiServer>();
+            apiServer?.SetEidetClient(eidet.Client);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Eidet memory init failed: {ex.Message}");
+        }
+    }
+
     private void ProcessHookEvent(HookEvent hookEvent)
     {
         if (_services == null) return;
@@ -395,6 +426,14 @@ public partial class App : Application
                 case HookEventType.ToolEnd:
                 case HookEventType.ToolError:
                     timelineService.HandleToolEnd(hookEvent);
+                    break;
+                case HookEventType.SubagentStart:
+                case HookEventType.SubagentStop:
+                case HookEventType.Notification:
+                    // Route through HandleToolStart so EnsureLiveSession runs if the
+                    // SessionStart hook was missed. Activity timestamps are bumped by
+                    // LiveSessionTracker's ActivityEventProcessed subscription.
+                    timelineService.HandleToolStart(hookEvent);
                     break;
                 case HookEventType.FileChanged:
                     timelineService.HandleFileChanged(hookEvent);

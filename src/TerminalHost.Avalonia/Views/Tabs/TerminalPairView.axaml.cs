@@ -14,6 +14,15 @@ public partial class TerminalPairView : UserControl
         InitializeComponent();
     }
 
+    private void RightPanelSplitter_DragDelta(object? sender, VectorEventArgs e)
+    {
+        if (DataContext is not TerminalPairTabViewModel vm) return;
+
+        // Dragging the handle LEFT (negative X) widens the panel; right narrows it.
+        var newWidth = vm.RightPanelWidth - e.Vector.X;
+        vm.RightPanelWidth = System.Math.Clamp(newWidth, 220, 900);
+    }
+
     private void GridSplitter_DragCompleted(object? sender, VectorEventArgs e)
     {
         // Update the view model with the new split ratio (horizontal mode)

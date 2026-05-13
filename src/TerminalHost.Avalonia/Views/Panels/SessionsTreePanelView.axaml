@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+             x:Class="TerminalHost.Views.Panels.SessionsTreePanelView"
+             x:DataType="vm:SessionsTreePanelViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.row-title">
+      <Setter Property="Foreground" Value="#E2E8F0"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <Style Selector="TextBlock.row-activity">
+      <Setter Property="Foreground" Value="#94A3B8"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="TextBlock.row-subtitle">
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <Style Selector="TextBlock.row-usage">
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+
+    <Style Selector="TextBlock.state-icon">
+      <Setter Property="Foreground" Value="#94A3B8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="TextBlock.spinner">
+      <Setter Property="Foreground" Value="#3B82F6"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="ProgressBar.usage">
+      <Setter Property="Height" Value="3"/>
+      <Setter Property="Minimum" Value="0"/>
+      <Setter Property="Maximum" Value="100"/>
+      <Setter Property="Foreground" Value="#3B82F6"/>
+      <Setter Property="Background" Value="#1E293B"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Mini toolbar -->
+    <Border Grid.Row="0" Background="{DynamicResource BackgroundMediumBrush}" Padding="8,4">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding StatusText}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="11"
+                   VerticalAlignment="Center"/>
+        <Button Grid.Column="1"
+                Content="↻"
+                Command="{Binding RefreshCommand}"
+                ToolTip.Tip="Refresh"
+                Padding="6,2"
+                FontSize="13"/>
+      </Grid>
+    </Border>
+
+    <!-- Empty state -->
+    <StackPanel Grid.Row="1"
+                Spacing="8"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsVisible="{Binding IsEmpty}">
+      <TextBlock Text="🧠" FontSize="40" Opacity="0.5" HorizontalAlignment="Center"/>
+      <TextBlock Text="No active sessions"
+                 Foreground="#94A3B8"
+                 HorizontalAlignment="Center"/>
+      <TextBlock Text="Start a Claude Code session to see it here."
+                 Foreground="#64748B"
+                 FontSize="11"
+                 TextAlignment="Center"
+                 TextWrapping="Wrap"
+                 MaxWidth="240"
+                 HorizontalAlignment="Center"/>
+    </StackPanel>
+
+    <!-- Tree -->
+    <ScrollViewer Grid.Row="1"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  IsVisible="{Binding !IsEmpty}">
+      <TreeView ItemsSource="{Binding Sessions}"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="6">
+        <TreeView.Styles>
+          <Style Selector="TreeViewItem">
+            <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="Padding" Value="2,0"/>
+          </Style>
+        </TreeView.Styles>
+
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate ItemsSource="{Binding Children}" DataType="vm:SessionTreeNode">
+            <Border DoubleTapped="OnNodeDoubleTapped"
+                    Background="Transparent"
+                    Padding="0,4,0,4">
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Open / Focus Workspace"
+                            Click="OnOpenWorkspaceClick"
+                            IsEnabled="{Binding HasWorkingDirectory}"/>
+                </ContextMenu>
+              </Border.ContextMenu>
+              <Grid RowDefinitions="Auto,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="18,*">
+                  <Panel Grid.Column="0">
+                    <TextBlock Classes="spinner"
+                               Text="◐"
+                               IsVisible="{Binding IsBusy}">
+                      <TextBlock.RenderTransform>
+                        <RotateTransform Angle="0"/>
+                      </TextBlock.RenderTransform>
+                      <TextBlock.Styles>
+                        <Style Selector="TextBlock">
+                          <Style.Animations>
+                            <Animation Duration="0:0:1.2" IterationCount="Infinite">
+                              <KeyFrame Cue="0%">
+                                <Setter Property="RotateTransform.Angle" Value="0"/>
+                              </KeyFrame>
+                              <KeyFrame Cue="100%">
+                                <Setter Property="RotateTransform.Angle" Value="360"/>
+                              </KeyFrame>
+                            </Animation>
+                          </Style.Animations>
+                        </Style>
+                      </TextBlock.Styles>
+                    </TextBlock>
+                    <TextBlock Classes="state-icon"
+                               Text="{Binding StateIcon}"
+                               IsVisible="{Binding !IsBusy}"/>
+                  </Panel>
+
+                  <StackPanel Grid.Column="1" Margin="6,0,0,0" Spacing="2">
+                    <Grid ColumnDefinitions="Auto,*">
+                      <TextBlock Grid.Column="0"
+                                 Classes="row-title"
+                                 Text="{Binding Title}"/>
+                      <TextBlock Grid.Column="1"
+                                 Classes="row-activity"
+                                 Text="{Binding Activity}"
+                                 Margin="8,0,0,0"/>
+                    </Grid>
+                    <TextBlock Classes="row-subtitle"
+                               Text="{Binding Subtitle}"
+                               IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                  </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1"
+                      Margin="0,4,0,0"
+                      RowDefinitions="Auto,Auto"
+                      IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <ProgressBar Grid.Row="0"
+                               Classes="usage"
+                               Value="{Binding UsagePercent, Mode=OneWay}"/>
+                  <TextBlock Grid.Row="1"
+                             Classes="row-usage"
+                             Text="{Binding UsageText}"/>
+                </Grid>
+              </Grid>
+            </Border>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

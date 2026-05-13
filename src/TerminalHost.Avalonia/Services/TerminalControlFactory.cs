@@ -17,19 +17,24 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly ISystemInfoService _systemInfoService;
     private readonly IConfigurationService _configurationService;
     private readonly IContainerService _containerService;
+    private readonly IProcessService _processService;
+
+    private static int _codexMcpCheckedFlag;
 
     public TerminalControlFactory(
         IFileSystem fileSystem,
         IDialogService dialogService,
         ISystemInfoService systemInfoService,
         IConfigurationService configurationService,
-        IContainerService containerService)
+        IContainerService containerService,
+        IProcessService processService)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
         _systemInfoService = systemInfoService;
         _configurationService = configurationService;
         _containerService = containerService;
+        _processService = processService;
     }
 
     public async Task<ITerminalControl> CreateTerminalControlAsync(TerminalSession session)
@@ -51,6 +56,15 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             {
                 await ShowCommandWarningAsync(command);
                 command = _systemInfoService.GetDefaultShell();
+            }
+
+            // Register MCP collab server for any AI agent (HTTP transport, universal)
+            // Only for non-shell commands; the shell early-out matches the WPF BuildLocalCommand path.
+            var commandExeForMcp = command.Split(' ')[0];
+            if (!IsBuiltInCommand(commandExeForMcp))
+            {
+                EnsureMcpCollabRegistered();
+                EnsureCodexMcpCollabRegistered();
             }
 
             // Append channel flags for Claude Code with channels enabled
@@ -350,6 +364,157 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         {
             // MCP registration is best-effort
         }
+    }
+
+    /// <summary>
+    /// Ensures the user's global Claude config (~/.claude.json) has an HTTP-based
+    /// terminalhost-collab entry that any MCP-capable AI agent can use.
+    /// Uses MCP Streamable HTTP transport (type: http), which is the universal format supported by
+    /// Claude Code, Gemini CLI, Codex CLI, and other modern AI agents.
+    /// Uses global config instead of per-project .mcp.json to avoid polluting every workspace.
+    /// </summary>
+    private void EnsureMcpCollabRegistered()
+    {
+        try
+        {
+            var appConfig = _configurationService.Load();
+            if (!appConfig.Settings.Api.Enabled)
+                return;
+
+            var apiSettings = appConfig.Settings.Api;
+            var host = apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress;
+            var mcpUrl = $"http://{host}:{apiSettings.Port}/api/mcp";
+
+            var settingsPath = GetClaudeSettingsPath();
+            if (settingsPath == null) return;
+
+            var config = ReadClaudeSettings(settingsPath);
+            var mcpServers = GetOrCreateMcpServers(config);
+
+            if (mcpServers.ContainsKey("terminalhost-collab"))
+                return;
+
+            var serverEntry = new Dictionary<string, object>
+            {
+                ["type"] = "http",
+                ["url"] = mcpUrl
+            };
+
+            if (!string.IsNullOrEmpty(apiSettings.ApiKey))
+            {
+                serverEntry["headers"] = new Dictionary<string, string>
+                {
+                    ["Authorization"] = $"Bearer {apiSettings.ApiKey}"
+                };
+            }
+
+            mcpServers["terminalhost-collab"] = serverEntry;
+            config["mcpServers"] = mcpServers;
+            WriteClaudeSettings(settingsPath, config);
+        }
+        catch
+        {
+            // MCP registration is best-effort
+        }
+    }
+
+    /// <summary>
+    /// Ensures the Codex CLI's global config has terminalhost-collab registered as a streamable HTTP MCP server.
+    /// Uses `codex mcp add` rather than editing ~/.codex/config.toml directly so Codex owns its schema.
+    /// Skips silently if Codex isn't installed. Runs once per app session and is fire-and-forget.
+    /// </summary>
+    private void EnsureCodexMcpCollabRegistered()
+    {
+        if (Interlocked.Exchange(ref _codexMcpCheckedFlag, 1) == 1)
+            return;
+
+        try
+        {
+            var appConfig = _configurationService.Load();
+            if (!appConfig.Settings.Api.Enabled)
+                return;
+
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!Directory.Exists(Path.Combine(home, ".codex")))
+                return;
+
+            var apiSettings = appConfig.Settings.Api;
+            var host = apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress;
+            var mcpUrl = $"http://{host}:{apiSettings.Port}/api/mcp";
+
+            // Codex's `mcp add` only takes --bearer-token-env-var, which is too intrusive to wire
+            // up automatically. Skip the API-key case and let the user wire it up manually.
+            if (!string.IsNullOrEmpty(apiSettings.ApiKey))
+                return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var (listExit, listOutput, _) = await _processService.RunAsync(
+                        "codex", "mcp list", timeout: TimeSpan.FromSeconds(10));
+
+                    if (listExit == 0 && listOutput.Contains("terminalhost-collab", StringComparison.Ordinal))
+                        return;
+
+                    await _processService.RunAsync(
+                        "codex",
+                        $"mcp add terminalhost-collab --url {mcpUrl}",
+                        timeout: TimeSpan.FromSeconds(10));
+                }
+                catch
+                {
+                    // Best-effort: codex CLI missing from PATH or other failures shouldn't disrupt terminal launch
+                }
+            });
+        }
+        catch
+        {
+            // Best-effort
+        }
+    }
+
+    /// <summary>
+    /// Returns the path to ~/.claude.json (the global Claude Code config file).
+    /// Returns null if ~/.claude/ directory doesn't exist (Claude not installed).
+    /// </summary>
+    private static string? GetClaudeSettingsPath()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var claudeDir = Path.Combine(home, ".claude");
+        if (!Directory.Exists(claudeDir))
+            return null;
+        return Path.Combine(home, ".claude.json");
+    }
+
+    private Dictionary<string, object> ReadClaudeSettings(string settingsPath)
+    {
+        if (_fileSystem.FileExists(settingsPath))
+        {
+            var existing = _fileSystem.ReadAllText(settingsPath);
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(existing)
+                   ?? new Dictionary<string, object>();
+        }
+        return new Dictionary<string, object>();
+    }
+
+    private static Dictionary<string, object> GetOrCreateMcpServers(Dictionary<string, object> config)
+    {
+        if (config.TryGetValue("mcpServers", out var serversObj) && serversObj is System.Text.Json.JsonElement serversElement)
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(serversElement.GetRawText())
+                   ?? new Dictionary<string, object>();
+        }
+        return new Dictionary<string, object>();
+    }
+
+    private void WriteClaudeSettings(string settingsPath, Dictionary<string, object> config)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        _fileSystem.WriteAllText(settingsPath, json);
     }
 
     private static bool IsShellCommand(string command) =>

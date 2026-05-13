@@ -30,6 +30,9 @@ public partial class MainWindow : Window
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly TaskPanelViewModel _taskPanelViewModel;
     private readonly ClaudeTasksPanelViewModel _claudeTasksPanelViewModel;
+    private readonly SessionsTreePanelViewModel _sessionsTreePanelViewModel;
+    private readonly MemoryBrowserViewModel _memoryBrowserViewModel;
+    private readonly DebugLogViewModel _debugLogViewModel;
     private readonly SearchAcrossFilesViewModel _searchAcrossFilesViewModel;
     private readonly FileHistoryViewModel _fileHistoryViewModel;
     private readonly FileBlameViewModel _fileBlameViewModel;
@@ -64,6 +67,9 @@ public partial class MainWindow : Window
         DetectedLinksViewModel detectedLinksViewModel,
         TaskPanelViewModel taskPanelViewModel,
         ClaudeTasksPanelViewModel claudeTasksPanelViewModel,
+        SessionsTreePanelViewModel sessionsTreePanelViewModel,
+        MemoryBrowserViewModel memoryBrowserViewModel,
+        DebugLogViewModel debugLogViewModel,
         SearchAcrossFilesViewModel searchAcrossFilesViewModel,
         FileHistoryViewModel fileHistoryViewModel,
         FileBlameViewModel fileBlameViewModel,
@@ -97,6 +103,9 @@ public partial class MainWindow : Window
         _detectedLinksViewModel = detectedLinksViewModel;
         _taskPanelViewModel = taskPanelViewModel;
         _claudeTasksPanelViewModel = claudeTasksPanelViewModel;
+        _sessionsTreePanelViewModel = sessionsTreePanelViewModel;
+        _memoryBrowserViewModel = memoryBrowserViewModel;
+        _debugLogViewModel = debugLogViewModel;
         _searchAcrossFilesViewModel = searchAcrossFilesViewModel;
         _fileHistoryViewModel = fileHistoryViewModel;
         _fileBlameViewModel = fileBlameViewModel;
@@ -119,6 +128,9 @@ public partial class MainWindow : Window
 
         // Wire up Claude Tasks panel to MainViewModel
         _mainViewModel.ClaudeTasksPanelViewModel = _claudeTasksPanelViewModel;
+        _mainViewModel.SessionsTreePanelViewModel = _sessionsTreePanelViewModel;
+        _mainViewModel.MemoryBrowserViewModel = _memoryBrowserViewModel;
+        _mainViewModel.DebugLogViewModel = _debugLogViewModel;
 
         DataContext = _mainViewModel;
 
@@ -133,6 +145,9 @@ public partial class MainWindow : Window
         DetectedLinksPopup.DataContext = _detectedLinksViewModel;
         TaskPanelPopup.DataContext = _taskPanelViewModel;
         ClaudeTasksPanelPopup.DataContext = _claudeTasksPanelViewModel;
+        _sessionsTreePanelViewModel.OpenProjectRequested += (_, path) => _mainViewModel.OpenProjectTab(path);
+        MemoryBrowserPopup.DataContext = _memoryBrowserViewModel;
+        DebugLogPopup.DataContext = _debugLogViewModel;
         SearchAcrossFilesPopup.DataContext = _searchAcrossFilesViewModel;
         FileHistoryPopup.DataContext = _fileHistoryViewModel;
         FileBlamePopup.DataContext = _fileBlameViewModel;
