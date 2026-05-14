@@ -50,7 +50,7 @@ Current solutions require multiple terminal windows or tabs that must be manuall
 
 - [x] **Containerized Workspaces**: Docker-based isolated environments for AI agents. Settings UI (Ctrl+, Containers section) with global enable, Docker path, image name/tag, auto-approve, SSH mount, GitHub CLI auth mount, network mode, reference volume management, active container list with stop/remove, Dockerfile editor button, stop-on-exit setting. Per-project toggle via command palette with auto tab reload. 🐳 tab indicator for containerized workspaces. Progress toast for image builds. REFS.md auto-generation. Graceful Docker-not-running handling. Dockerfile versioning with hash-based staleness detection and guided rebuild. First-time build dialog for new users. Config staleness detection via Docker container labels with "Container: Recreate Current" command palette action.
 
-- [x] **Agentic Long-Term Memory (via Eidet)**: Integration with [Eidet](https://github.com/stevehansen/eidet) — a standalone local-first memory service for AI coding agents. TerminalHost is a REST API client of Eidet (`EidetClientService`), not an embedded memory library. Eidet provides: typed entries (Observation, Insight, Procedure, Heuristic), Docker-like memory layers, hybrid search (vector + full-text + metadata), <600 token wake-up, 13 MCP tools (`eidet_*`), write gates (secret scanning + signal filter), echo/fizzle feedback, differential decay, cross-repo linking, Ollama enrichment. TerminalHost consumes: Memory Browser panel, intake triggers on tab open, stats display, settings UI (Eidet URL + enabled). See [AgenticMemory.md](docs/specs/AgenticMemory.md) for architecture and implementation details.
+- [x] **Agentic Long-Term Memory (via Eidet)**: Integration with [Eidet](https://github.com/stevehansen/eidet) — a standalone local-first memory service for AI coding agents. TerminalHost is a REST API client of Eidet (`IEidetService` port, `HttpEidetService` adapter), not an embedded memory library. Eidet provides: typed entries (Observation, Insight, Procedure, Heuristic), Docker-like memory layers, hybrid search (vector + full-text + metadata), <600 token wake-up, 13 MCP tools (`eidet_*`), write gates (secret scanning + signal filter), echo/fizzle feedback, differential decay, cross-repo linking, Ollama enrichment. TerminalHost consumes: Memory Browser panel, intake triggers on tab open, stats display, settings UI (Eidet URL + enabled). See [AgenticMemory.md](docs/specs/AgenticMemory.md) for architecture and implementation details.
 
 ### Deferred Features
 
@@ -338,7 +338,7 @@ src/
 | macOS-only features | `TerminalHost.Avalonia/` and/or `TerminalHost.macOS/` |
 | UI views (both platforms) | `TerminalHost/Views/` (XAML) AND `TerminalHost.Avalonia/Views/` (AXAML) |
 | Platform services (timers, dialogs) | Both `TerminalHost.Windows/` AND `TerminalHost.macOS/` |
-| Memory integration (Eidet client) | `TerminalHost.Core/Services/EidetClientService.cs` |
+| Memory integration (Eidet client) | `TerminalHost.Core/Interfaces/IEidetService.cs` + `TerminalHost.Core/Services/HttpEidetService.cs` |
 
 **Examples:**
 - Adding a new setting → Update `AppSettings.cs` in Core, then update Settings views in both WPF and Avalonia
@@ -614,7 +614,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
 | [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
 | [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Spec complete; not yet implemented |
-| [AgenticMemory.md](docs/specs/AgenticMemory.md) | Agentic long-term memory via Eidet (REST client, Memory Browser, container MCP, settings) | **Completed** | EidetClient + EidetClientService replace TerminalHost.Memory. Eidet project: [github.com/stevehansen/eidet](https://github.com/stevehansen/eidet) |
+| [AgenticMemory.md](docs/specs/AgenticMemory.md) | Agentic long-term memory via Eidet (REST client, Memory Browser, container MCP, settings) | **Completed** | `IEidetService` port with `HttpEidetService` adapter replaces TerminalHost.Memory. Eidet project: [github.com/stevehansen/eidet](https://github.com/stevehansen/eidet) |
 
 ## Remaining Work Summary
 

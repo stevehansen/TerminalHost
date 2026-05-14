@@ -238,14 +238,9 @@ public partial class MainWindow : Window
             soundService.RefreshCachedSettings(config.Settings.Sounds);
 
         // Eidet memory: connect/disconnect based on enabled setting
-        var eidet = App.Current.Services.GetService<EidetClientService>();
+        var eidet = App.Current.Services.GetService<IEidetService>();
         if (eidet != null)
-        {
             _ = eidet.OnSettingsChangedAsync();
-            // Update ApiServer's Eidet client reference
-            var apiServer = App.Current.Services.GetService<ApiServer>();
-            apiServer?.SetEidetClient(eidet.Client);
-        }
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

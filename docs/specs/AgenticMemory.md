@@ -34,7 +34,7 @@ Each repository gets an isolated memory namespace with typed, append-only entrie
 ## Architecture
 
 ```
-TerminalHost (WPF/Avalonia) → EidetClient (HTTP) → Eidet Service → RavenDB
+TerminalHost (WPF/Avalonia) → IEidetService → HttpEidetService (HTTP) → Eidet Service → RavenDB
 
 AI Clients (Claude Code, etc.) → Eidet MCP (stdio or HTTP) → Eidet Service → RavenDB
 ```
@@ -70,39 +70,51 @@ Eidet runs as a background service on `localhost:19380`. TerminalHost connects v
 
 ## TerminalHost Integration Points
 
-### 1. `EidetClient` — HTTP Client Wrapper
+### 1. `IEidetService` — Port
 
-**File**: `TerminalHost.Core/Services/EidetClient.cs` (~185 lines)
+**File**: `TerminalHost.Core/Interfaces/IEidetService.cs`
 
-Slim HttpClient wrapper for Eidet's REST API.
+Single port hiding HTTP transport, connection state machine, retry policy, and JSON
+serialization. Consumers (ApiServer, MemoryBrowser, Settings, MainViewModel) depend
+only on this interface. Exposes typed memory operations and an observable
+`MemoryStatus` via the `StatusChanged` event.
+
+### 2. `HttpEidetService` — Production Adapter
+
+**File**: `TerminalHost.Core/Services/HttpEidetService.cs`
+
+Wraps the Eidet REST API and owns the connection-state machine, intake tracking,
+and user-facing toasts/debug-log integration. Folds the former `EidetClient` (HTTP
+wrapper) and `EidetClientService` (lifecycle) into a single deep module.
 
 | TerminalHost needs | Eidet endpoint |
 |-------------------|----------------|
-| Health check on startup | `GET /api/status` |
+| Health check on connect | `GET /api/health` |
+| Test connection (Settings UI) | `GET /api/status` |
 | Trigger intake for opened project | `POST /api/eidet/intake` |
-| Memory stats for UI | `GET /api/eidet/stats?repo=...` (text blurb, not structured counts) |
+| Memory stats | `GET /api/eidet/stats?repo=...` |
 | Search for Memory Browser | `GET /api/eidet/search?repo=...&q=...` |
-| Get context for display | `GET /api/eidet/context?repo=...` |
-| List layers | `GET /api/eidet/layers?repo=...` |
 | Browse memories | `GET /api/eidet/browse?repo=...&type=...` |
-| Get memory by ID | `GET /api/eidet/{id}` |
+| List layers | `GET /api/eidet/layers?repo=...` |
 | Forget memory | `DELETE /api/eidet/{id}` |
-| Trigger maintenance | `POST /api/maintenance?repo=...` |
-| Export memories | `GET /api/eidet/export?repo=...` |
 | Proxy GET (for API) | Raw path forwarding |
-| Proxy POST (for API) | Raw path forwarding |
 
-### 2. `EidetClientService` — Connection Lifecycle
-
-**File**: `TerminalHost.Core/Services/EidetClientService.cs` (~270 lines)
-
-Replaces the old `MemoryHostService`. Simple lifecycle:
+Lifecycle:
 
 - **App startup**: If `Memory.Enabled`, health-check Eidet, auto-intake for restored tabs
 - **Settings change**: Connect or disconnect as needed
 - **Tab opened**: Auto-intake (first time per repo)
 - **Manual intake**: Via command palette
 - **Status**: `MemoryConnectionStatus` (Disabled/Connecting/Connected/Error)
+
+### 2a. `InMemoryEidetService` — Test Adapter
+
+**File**: `tests/TerminalHost.Tests/TestAdapters/InMemoryEidetService.cs`
+
+Deterministic, no-HTTP implementation used by the boundary tests in
+`EidetServiceBoundaryTests`. Exposes seed/inspection helpers (`Seed`, `SeedLayers`,
+`IntakeCallCounts`, `SimulatedHealthFailure`) so tests can pin down state machine
+transitions, recall/browse/forget semantics, and proxy fallback behavior.
 
 ### 3. MCP Tools — Eidet Serves Directly
 
@@ -158,7 +170,7 @@ TerminalHost Settings UI shows:
 
 ### 6. Memory Browser Panel
 
-The Memory Browser ViewModel calls `EidetClientService` which hits Eidet's REST API:
+The Memory Browser ViewModel depends on `IEidetService` which (via `HttpEidetService`) hits Eidet's REST API:
 
 - Browse/filter memories → `GET /api/eidet/search` / `GET /api/eidet/browse`
 - View memory details → `GET /api/eidet/{id}`
@@ -247,31 +259,34 @@ This was implemented in Eidet commit `caae407`.
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `Core/Domain/EidetTypes.cs` | ~200 | Slim DTOs for Eidet REST API |
+| `Core/Domain/EidetTypes.cs` | ~245 | Slim DTOs + MemoryStatus / MemoryConnectionStatus |
 | `Core/Domain/MemorySettings.cs` | ~30 | Enabled + EidetUrl settings |
-| `Core/Services/EidetClient.cs` | ~185 | HttpClient wrapper |
-| `Core/Services/EidetClientService.cs` | ~270 | Connection lifecycle |
+| `Core/Interfaces/IEidetService.cs` | ~70 | Port hiding HTTP + state machine |
+| `Core/Services/HttpEidetService.cs` | ~320 | Production adapter (folds former EidetClient + EidetClientService) |
 | `Core/Services/RepoIdNormalizer.cs` | ~30 | Path → repoId |
+| `tests/.../TestAdapters/InMemoryEidetService.cs` | ~210 | Deterministic in-memory adapter |
+| `tests/.../Services/EidetServiceBoundaryTests.cs` | ~210 | 15 boundary tests against the port |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `Core/Services/ApiServer.cs` | Added `SetEidetClient()`, 4 proxy routes, `HandleMemoryProxyAsync()`, `NormalizePathId()` uses `RepoIdNormalizer` |
+| `Core/Services/ApiServer.cs` | Injects `IEidetService`, 4 proxy routes, `HandleMemoryProxyAsync()`, `NormalizePathId()` uses `RepoIdNormalizer` |
 | `Core/Services/McpHandler.cs` | Added `workingDirHint`, session directory tracking, `ResolveRepoId()`, removed memory tool references |
 | `Core/Services/ContainerService.cs` | `GenerateContainerSettings()` adds eidet HTTP override, `ConvertEidetMcpToHttp()` for legacy .claude.json, per-workspace overlay names, `HC.SafeCommands` in Dockerfile |
-| `Core/ViewModels/SettingsTabViewModel.cs` | Simplified to Enabled + EidetUrl + TestConnection |
-| `WPF App.xaml.cs` | DI for `EidetClientService`, `AutoConnectMemoryAsync()` |
-| `WPF MainWindow.xaml.cs` | Settings changed → `EidetClientService.OnSettingsChangedAsync()` |
-| `WPF MainViewModel.cs` | Project opened → `EidetClientService.OnProjectOpenedAsync()` |
+| `Core/ViewModels/SettingsTabViewModel.cs` | Simplified to Enabled + EidetUrl + TestConnection; `IEidetService.TestConnectionAsync` replaces static helper |
+| `WPF App.xaml.cs` | DI registers `IEidetService` → `HttpEidetService`; `AutoConnectMemoryAsync()` |
+| `WPF MainWindow.xaml.cs` | Settings changed → `IEidetService.OnSettingsChangedAsync()` |
+| `WPF MainViewModel.cs` | Project opened → `IEidetService.OnProjectOpenedAsync()` |
 | `WPF SettingsView.xaml` | Simplified memory settings section |
-| `WPF MemoryBrowserViewModel.cs` | Uses `EidetClientService`/`EidetClient` instead of Memory services |
+| `WPF/Avalonia MemoryBrowserViewModel.cs` | Depends on `IEidetService` directly (no more `eidet.Client` indirection) |
 
 ### Removed
 
 | What | Why |
 |------|-----|
-| `TerminalHost.Memory` project reference from Core | Replaced by EidetClient |
+| `TerminalHost.Memory` project reference from Core | Replaced by `HttpEidetService` |
+| `EidetClient.cs`, `EidetClientService.cs` (and `SetEidetClient` callback on `ApiServer`) | Folded into `HttpEidetService` behind `IEidetService` (RFC #52) |
 | Memory MCP tools from McpHandler | Eidet serves them directly |
 | Memory write endpoints from ApiServer | Go through Eidet directly |
 | Complex MemorySettings (RavenDB, Ollama, etc.) | Managed by Eidet's own config |

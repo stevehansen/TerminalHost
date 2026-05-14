@@ -57,6 +57,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IProcessService? _processService;
     private readonly IClipboardService? _clipboardService;
     private readonly IContainerService? _containerService;
+    private readonly TerminalHost.Core.Interfaces.IEidetService? _eidetService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -619,7 +620,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
         IProcessService? processService = null, IClipboardService? clipboardService = null,
-        IContainerService? containerService = null)
+        IContainerService? containerService = null,
+        TerminalHost.Core.Interfaces.IEidetService? eidetService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
@@ -627,6 +629,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         _processService = processService;
         _clipboardService = clipboardService;
         _containerService = containerService;
+        _eidetService = eidetService;
         LoadSettings();
     }
 
@@ -1007,8 +1010,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnMemoryEnabledChanged(bool value) => MarkDirtyFromRichMode();
     partial void OnEidetUrlChanged(string value) => MarkDirtyFromRichMode();
 
-    /// <summary>Update the memory status display from EidetClientService.GetStatus().</summary>
-    public void UpdateMemoryStatus(TerminalHost.Core.Services.MemoryStatus? status)
+    /// <summary>Update the memory status display from IEidetService.Status.</summary>
+    public void UpdateMemoryStatus(TerminalHost.Core.Domain.MemoryStatus? status)
     {
         if (status == null)
         {
@@ -1035,7 +1038,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         IsTestingConnection = true;
         try
         {
-            var result = await TerminalHost.Core.Services.EidetClientService.TestConnectionAsync(EidetUrl);
+            if (_eidetService is null)
+            {
+                MemoryStatusText = "Eidet service unavailable.";
+                return;
+            }
+            var result = await _eidetService.TestConnectionAsync(EidetUrl);
             if (result is { IsRunning: true })
                 MemoryStatusText = $"Connected · v{result.Version} · {result.DocumentCount} docs";
             else

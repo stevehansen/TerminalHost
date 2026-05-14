@@ -38,7 +38,7 @@ public class ApiServer : IApiServer
     private readonly ISessionActivityService? _sessionActivityService;
     private readonly ISessionArchiveService? _sessionArchiveService;
     private readonly ICollabService? _collabService;
-    private EidetClient? _eidetClient;
+    private readonly IEidetService? _eidetService;
 
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -82,14 +82,6 @@ public class ApiServer : IApiServer
         _cachedApiSettings = _cachedConfig.Settings.Api;
     }
 
-    /// <summary>
-    /// Set or replace the Eidet client (called by EidetClientService on connect/disconnect).
-    /// </summary>
-    public void SetEidetClient(EidetClient? client)
-    {
-        _eidetClient = client;
-    }
-
     public int ActiveSseConnections
     {
         get { lock (_sseLock) return _sseConnections.Count; }
@@ -106,7 +98,8 @@ public class ApiServer : IApiServer
         IClipboardService? clipboardService = null,
         ISessionActivityService? sessionActivityService = null,
         ISessionArchiveService? sessionArchiveService = null,
-        ICollabService? collabService = null)
+        ICollabService? collabService = null,
+        IEidetService? eidetService = null)
     {
         _configService = configService;
         _dispatcherService = dispatcherService;
@@ -119,6 +112,7 @@ public class ApiServer : IApiServer
         _sessionActivityService = sessionActivityService;
         _sessionArchiveService = sessionArchiveService;
         _collabService = collabService;
+        _eidetService = eidetService;
     }
 
     /// <summary>
@@ -1771,7 +1765,7 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
     /// </summary>
     private async Task HandleMemoryProxyAsync(HttpListenerResponse response, HttpListenerRequest request, string eidetPath)
     {
-        if (_eidetClient == null)
+        if (_eidetService is null || !_eidetService.IsConnected)
         {
             await WriteJsonError(response, 503, "SERVICE_UNAVAILABLE", "Eidet memory service not connected.");
             return;
@@ -1788,7 +1782,7 @@ echo "=== Setup complete! Restart Claude Code to activate hooks. ==="
             }
 
             var url = qs.Count > 0 ? $"{eidetPath}?{string.Join("&", qs)}" : eidetPath;
-            var (statusCode, body, contentType) = await _eidetClient.ProxyGetAsync(url);
+            var (statusCode, body, contentType) = await _eidetService.ProxyGetAsync(url);
 
             response.ContentType = contentType;
             response.StatusCode = statusCode;

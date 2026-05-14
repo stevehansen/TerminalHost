@@ -56,6 +56,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IClipboardService _clipboardService;
     private readonly IContainerService? _containerService;
     private readonly ClaudeMdInstructionsService? _claudeMdService;
+    private readonly IEidetService? _eidetService;
     private string _originalJson = "";
 
     [ObservableProperty]
@@ -603,7 +604,8 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
 
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
         IProcessService? processService = null, IClipboardService? clipboardService = null,
-        IContainerService? containerService = null, IFileSystem? fileSystem = null)
+        IContainerService? containerService = null, IFileSystem? fileSystem = null,
+        IEidetService? eidetService = null)
     {
         _configService = configService;
         _dialogService = dialogService;
@@ -612,6 +614,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         _clipboardService = clipboardService!;
         _containerService = containerService;
         _claudeMdService = fileSystem != null ? new ClaudeMdInstructionsService(fileSystem) : null;
+        _eidetService = eidetService;
         LoadSettings();
     }
 
@@ -971,7 +974,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     partial void OnContainerNetworkModeChanged(string value) => MarkDirtyFromRichMode();
     partial void OnContainerStopOnExitChanged(bool value) => MarkDirtyFromRichMode();
 
-    /// <summary>Update the memory status display from EidetClientService.GetStatus().</summary>
+    /// <summary>Update the memory status display from IEidetService.Status.</summary>
     public void UpdateMemoryStatus(MemoryStatus? status)
     {
         if (status == null)
@@ -1000,7 +1003,12 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         IsTestingConnection = true;
         try
         {
-            var result = await EidetClientService.TestConnectionAsync(EidetUrl);
+            if (_eidetService is null)
+            {
+                MemoryStatusText = "Eidet service unavailable.";
+                return;
+            }
+            var result = await _eidetService.TestConnectionAsync(EidetUrl);
             if (result is { IsRunning: true })
                 MemoryStatusText = $"Connected · v{result.Version} · {result.DocumentCount} docs";
             else

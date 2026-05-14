@@ -2,6 +2,26 @@ using System.Text.Json.Serialization;
 
 namespace TerminalHost.Core.Domain;
 
+/// <summary>Connection status for the Eidet memory service.</summary>
+public enum MemoryConnectionStatus
+{
+    Disabled,
+    Connecting,
+    Connected,
+    Error,
+}
+
+/// <summary>Live status snapshot of the memory system.</summary>
+public class MemoryStatus
+{
+    public MemoryConnectionStatus ConnectionStatus { get; init; }
+    public string? ErrorMessage { get; init; }
+    public string? ServerUrl { get; init; }
+    public string? Version { get; init; }
+    public int DocumentCount { get; init; }
+    public DateTime? ConnectedSince { get; init; }
+}
+
 /// <summary>Memory entry type.</summary>
 public enum MemoryType { Observation, Insight, Procedure, Heuristic }
 

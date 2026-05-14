@@ -254,17 +254,13 @@ public partial class App : Application
         try
         {
             if (_services == null) return;
-            var eidet = _services.GetRequiredService<EidetClientService>();
+            var eidet = _services.GetRequiredService<IEidetService>();
 
             // Pass currently-open project paths so intake runs for restored tabs
             var config = _services.GetRequiredService<IConfigurationService>().Load();
             var openPaths = config.OpenFolders.ToList();
 
             await eidet.TryConnectAsync(openPaths);
-
-            // Wire the EidetClient into ApiServer for proxy endpoints
-            var apiServer = _services.GetRequiredService<ApiServer>();
-            apiServer.SetEidetClient(eidet.Client);
         }
         catch (Exception ex)
         {
@@ -337,7 +333,7 @@ public partial class App : Application
         services.AddSingleton<McpHandler>();
         services.AddSingleton<ApiServer>();
         services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
-        services.AddSingleton<EidetClientService>();
+        services.AddSingleton<IEidetService, HttpEidetService>();
         services.AddSingleton<IClipboardService, TerminalHost.Windows.Services.ClipboardService>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDebugLogService, DebugLogService>();

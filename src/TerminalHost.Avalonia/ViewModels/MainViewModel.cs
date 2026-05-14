@@ -1869,7 +1869,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService,
+            App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>());
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
         Tabs.Add(settingsTab);
@@ -1889,7 +1890,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Create new settings tab with Profiles section selected
-        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService);
+        var settingsTab = new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService,
+            App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>());
         settingsTab.SelectedSection = SettingsSection.Profiles;
         settingsTab.CloseRequested += OnTabCloseRequested;
         settingsTab.ConfigSaved += OnConfigSaved;
@@ -2105,17 +2107,9 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Apply Eidet memory settings live (connect/disconnect/reconnect with new URL)
-        var eidet = App.Current.Services.GetService<TerminalHost.Core.Services.EidetClientService>();
+        var eidet = App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>();
         if (eidet != null)
-        {
-            _ = Task.Run(async () =>
-            {
-                await eidet.OnSettingsChangedAsync();
-                // Re-push the (possibly new) client into ApiServer for proxy endpoints
-                var apiServer = App.Current.Services.GetService<TerminalHost.Core.Services.ApiServer>();
-                apiServer?.SetEidetClient(eidet.Client);
-            });
-        }
+            _ = Task.Run(() => eidet.OnSettingsChangedAsync());
 
         // Notify that config has been reloaded (for system tray, etc.)
         ConfigReloaded?.Invoke(this, EventArgs.Empty);

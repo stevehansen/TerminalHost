@@ -1254,7 +1254,7 @@ public partial class MainViewModel : ObservableObject
             _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
 
             // Memory: auto-intake for this project via Eidet
-            var eidet = App.Current?.Services?.GetService<EidetClientService>();
+            var eidet = App.Current?.Services?.GetService<IEidetService>();
             if (eidet != null)
                 _ = eidet.OnProjectOpenedAsync(workingDirectory);
         }
@@ -2005,8 +2005,8 @@ public partial class MainViewModel : ObservableObject
 
     private static void RefreshSettingsMemoryStatus(SettingsTabViewModel settingsTab)
     {
-        var eidet = App.Current?.Services?.GetService<EidetClientService>();
-        settingsTab.UpdateMemoryStatus(eidet?.GetStatus());
+        var eidet = App.Current?.Services?.GetService<IEidetService>();
+        settingsTab.UpdateMemoryStatus(eidet?.Status);
     }
 
     [RelayCommand]
@@ -3090,7 +3090,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     if (SelectedTab is TerminalPairTabViewModel tab)
                     {
-                        var eidet = App.Current.Services.GetService<EidetClientService>();
+                        var eidet = App.Current.Services.GetService<IEidetService>();
                         if (eidet != null)
                             _ = eidet.RunIntakeAsync(tab.Pair.WorkingDirectory);
                     }

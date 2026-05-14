@@ -104,7 +104,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
 {
     private readonly IToastService _toastService;
     private readonly IDispatcherService _dispatcherService;
-    private readonly EidetClientService _eidet;
+    private readonly IEidetService _eidet;
     private TerminalPairTabViewModel? _currentTab;
 
     public override string PanelId => "memoryBrowser";
@@ -136,7 +136,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
     public MemoryBrowserViewModel(
         IToastService toastService,
         IDispatcherService dispatcherService,
-        EidetClientService eidet)
+        IEidetService eidet)
     {
         _toastService = toastService;
         _dispatcherService = dispatcherService;
@@ -160,7 +160,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
     [RelayCommand]
     public async Task RefreshAsync()
     {
-        if (!_eidet.IsConnected || _eidet.Client is null)
+        if (!_eidet.IsConnected)
         {
             ConnectionStatus = "Disconnected";
             Memories.Clear();
@@ -173,8 +173,6 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
 
         try
         {
-            var client = _eidet.Client;
-
             var typeFilter = SelectedTypeFilter switch
             {
                 "Observation" => "observation",
@@ -186,7 +184,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
 
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                var searchResponse = await client.SearchAsync(RepoId, SearchText, typeFilter, 100);
+                var searchResponse = await _eidet.SearchAsync(RepoId, SearchText, typeFilter, 100);
 
                 _dispatcherService.Invoke(() =>
                 {
@@ -215,7 +213,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
             }
             else
             {
-                var memoriesResponse = await client.GetMemoriesAsync(RepoId, typeFilter);
+                var memoriesResponse = await _eidet.BrowseAsync(RepoId, typeFilter);
 
                 _dispatcherService.Invoke(() =>
                 {
@@ -261,7 +259,7 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
                 TotalCount = Memories.Count;
             });
 
-            var layersResponse = await client.GetLayersAsync(RepoId);
+            var layersResponse = await _eidet.GetLayersAsync(RepoId);
             _dispatcherService.Invoke(() =>
             {
                 Layers.Clear();
@@ -304,17 +302,17 @@ public partial class MemoryBrowserViewModel : BasePanelViewModel
     [RelayCommand]
     private async Task ForgetMemoryAsync()
     {
-        if (SelectedItem is null || _eidet.Client is null) return;
+        if (SelectedItem is null || !_eidet.IsConnected) return;
 
         try
         {
-            var forgotten = await _eidet.Client.ForgetAsync(SelectedItem.Id);
+            var forgotten = await _eidet.ForgetAsync(SelectedItem.Id);
             if (forgotten)
             {
                 _toastService.Show($"Memory forgotten: {SelectedItem.Id}", ToastType.Success);
                 _dispatcherService.Invoke(() => Memories.Remove(SelectedItem));
                 SelectedItem = null;
-                var stats = await _eidet.Client.GetStatsAsync(RepoId);
+                var stats = await _eidet.GetStatsAsync(RepoId);
                 if (stats != null)
                 {
                     ObservationCount = stats.Counts.GetValueOrDefault("observation");
