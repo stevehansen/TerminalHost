@@ -9,7 +9,7 @@ namespace TerminalHost.Core.ViewModels;
 /// <summary>
 /// ViewModel for the workspace-scoped tasks panel.
 /// Shows Claude tasks for the current workspace in 3 sections: Completed, In Progress, TODO.
-/// Reads tasks from both ITaskService and IClaudeTaskFileService (~/.claude/tasks/).
+/// Reads tasks from <see cref="ITaskAggregator"/>, the single canonical view across all sources.
 /// </summary>
 public partial class WorkspaceTasksPanelViewModel : ObservableObject
 {
@@ -106,7 +106,7 @@ public partial class WorkspaceTasksPanelViewModel : ObservableObject
 
     /// <summary>
     /// Refreshes the task lists filtered by the current workspace.
-    /// Combines tasks from ITaskService, IClaudeTaskDetectionService, and IClaudeTaskFileService.
+    /// Tasks are merged and deduplicated by <see cref="ITaskAggregator"/>.
     /// </summary>
     public void RefreshTasks()
     {
