@@ -32,14 +32,14 @@ public class LiveSessionTrackerTests
             collabService: null);
     }
 
-    private static HookEvent SessionStart(string sessionId, string cwd, string? transcriptPath = null)
+    private static HookEvent SessionStart(string sessionId, string cwd, string? transcriptPath = null, DateTime? timestamp = null)
         => new()
         {
             SessionId = sessionId,
             Cwd = cwd,
             TranscriptPath = transcriptPath,
             EventType = HookEventType.SessionStart,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = timestamp ?? DateTime.UtcNow,
             Source = SessionSource.Local,
         };
 
@@ -166,5 +166,64 @@ public class LiveSessionTrackerTests
         var tracker = BuildTracker();
         tracker.StartInactivityTimer();
         tracker.StopInactivityTimer();
+    }
+
+    [Fact]
+    public void CheckInactiveSessions_FiresChangedOnce_WhenCrossingThreshold()
+    {
+        // Session with no activity stream → NoActivityTimeoutMinutes (5) applies.
+        var tracker = BuildTracker();
+        var fired = 0;
+        var stale = SessionStart("stale-1", Path.GetTempPath(), timestamp: DateTime.UtcNow.AddMinutes(-10));
+        tracker.HandleSessionStart(stale);
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+
+        tracker.CheckInactiveSessions();
+        tracker.CheckInactiveSessions(); // second pass: session is already inactive, must not refire.
+
+        fired.ShouldBe(1);
+        var live = tracker.GetLiveSessionByClaudeId("stale-1")!;
+        live.IsActive.ShouldBeFalse();
+        live.EndReason.ShouldBe("timeout");
+    }
+
+    [Fact]
+    public void CheckInactiveSessions_StaysActive_WhenActivityServiceRefreshedClockRecently()
+    {
+        // Session started long ago, but the activity service reports recent activity:
+        // the idle clock should be derived from LastActivityTime, not StartTime.
+        var tracker = BuildTracker(withActivity: true);
+        _activity.Setup(a => a.GetState("sess-1"))
+            .Returns(new SessionActivityState { SessionId = "sess-1", LastActivityTime = DateTime.UtcNow });
+
+        var oldStart = SessionStart("sess-1", Path.GetTempPath(), timestamp: DateTime.UtcNow.AddMinutes(-60));
+        tracker.HandleSessionStart(oldStart);
+
+        var fired = 0;
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+        tracker.CheckInactiveSessions();
+
+        fired.ShouldBe(0);
+        tracker.GetLiveSessionByClaudeId("sess-1")!.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void CheckInactiveSessions_StaysActive_WhenTranscriptWatcherRefreshedClockRecently()
+    {
+        // Activity from the transcript watcher must feed the same idle clock as the
+        // activity service. Without an activity service, GetLastFileChangeTime alone
+        // is sufficient to keep the session alive.
+        var tracker = BuildTracker(withWatcher: true);
+        _watcher.Setup(w => w.GetLastFileChangeTime("sess-1")).Returns(DateTime.UtcNow);
+
+        var oldStart = SessionStart("sess-1", Path.GetTempPath(), timestamp: DateTime.UtcNow.AddMinutes(-60));
+        tracker.HandleSessionStart(oldStart);
+
+        var fired = 0;
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+        tracker.CheckInactiveSessions();
+
+        fired.ShouldBe(0);
+        tracker.GetLiveSessionByClaudeId("sess-1")!.IsActive.ShouldBeTrue();
     }
 }

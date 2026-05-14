@@ -201,7 +201,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         _inactivityTimer = null;
     }
 
-    private void CheckInactiveSessions()
+    internal void CheckInactiveSessions()
     {
         bool changed = false;
         lock (_lock)
