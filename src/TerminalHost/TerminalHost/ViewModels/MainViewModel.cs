@@ -190,7 +190,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _paletteSearchText = "";
 
-    private ObservableCollection<PaletteCommand> _allPaletteCommands = []; // Stores all commands
+    private ICommandPalette _palette = null!;
     private ObservableCollection<PaletteCommand> _filteredPaletteCommands = [];
     public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
 
@@ -392,7 +392,15 @@ public partial class MainViewModel : ObservableObject
 
         FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         using (StartupProfiler.Instance.Measure("InitializeCommandPalette"))
-            InitializeCommandPalette(); // Initialize commands once
+        {
+            var commandContext = new CommandContext(
+                activeTab: () => SelectedTab,
+                serviceLocator: t => App.Current?.Services?.GetService(t));
+            _palette = new CommandPalette(
+                providers: new ICommandProvider[] { new MainViewModelStaticCommandProvider(this) },
+                context: commandContext);
+            _ = _palette.Commands; // force provider evaluation inside the profiler scope
+        }
         using (StartupProfiler.Instance.Measure("InitializeVoiceGrammar"))
             InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
@@ -2358,7 +2366,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Returns the static palette commands for the Recent Features page.
     /// </summary>
-    internal IReadOnlyList<PaletteCommand> GetPaletteCommandsForFeatures() => _allPaletteCommands;
+    internal IReadOnlyList<PaletteCommand> GetPaletteCommandsForFeatures() => _palette.Commands;
 
     [RelayCommand]
     private void OpenSetup()
@@ -2436,9 +2444,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void InitializeCommandPalette()
+    internal IReadOnlyList<PaletteCommand> BuildStaticPaletteCommands()
     {
-        _allPaletteCommands =
+        return
         [
             // Tab/Project commands
             new() {
@@ -3733,7 +3741,7 @@ public partial class MainViewModel : ObservableObject
 
         var entries = new List<VoiceCommandEntry>();
 
-        foreach (var cmd in _allPaletteCommands)
+        foreach (var cmd in _palette.Commands)
         {
             aliases.TryGetValue(cmd.Id, out var cmdAliases);
             entries.Add(new VoiceCommandEntry
@@ -3773,17 +3781,8 @@ public partial class MainViewModel : ObservableObject
         var searchText = PaletteSearchText?.ToLower() ?? "";
         var allCommands = new List<PaletteCommand>();
 
-        // Get static commands
-        var filtered = _allPaletteCommands
-            .Where(c => c.CanExecute == null || c.CanExecute()) // Evaluate CanExecute on the spot
-            .Where(c =>
-                string.IsNullOrEmpty(searchText) ||
-                c.Name.ToLower().Contains(searchText) ||
-                (c.Description?.ToLower().Contains(searchText) ?? false) ||
-                c.Category.ToLower().Contains(searchText))
-            .ToList();
-
-        allCommands.AddRange(filtered);
+        // Static commands (from providers, gated and filtered)
+        allCommands.AddRange(_palette.Filter(searchText));
 
         // Add dynamic profile launch commands
         foreach (var profile in _profileRegistry.Profiles)
