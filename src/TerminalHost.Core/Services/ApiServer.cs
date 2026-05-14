@@ -1011,7 +1011,7 @@ public class ApiServer : IApiServer
         return dto;
     }
 
-    private static ApiWorkspaceInfo MapWorkspace(Workspace workspace, List<ApiRepoInfo> openRepos)
+    private static ApiWorkspaceInfo MapWorkspace(Domain.Workspace workspace, List<ApiRepoInfo> openRepos)
     {
         var normalizedPath = NormalizePathForComparison(workspace.Path);
         var matchingRepo = openRepos.FirstOrDefault(r => NormalizePathForComparison(r.WorkingDirectory) == normalizedPath);

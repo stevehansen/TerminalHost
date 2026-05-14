@@ -9,6 +9,7 @@ using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
 using TerminalHost.Core.ViewModels;
+using TerminalHost.Core.Workspace;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -47,6 +48,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
+    private readonly TabRouter _router;
 
     private readonly IAppTimer _gitStatusTimer;
     private readonly IAppTimer _gitAutoFetchTimer;
@@ -354,6 +356,33 @@ public partial class MainViewModel : ObservableObject
 
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
         _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
+
+        _router = new TabRouter(_tabs, tab => SelectedTab = tab);
+        _router.Register<SettingsTabViewModel>(
+            factory: () => _viewModelFactory.CreateSettings(),
+            onCreated: tab =>
+            {
+                tab.CloseRequested += OnTabCloseRequested;
+                tab.ConfigSaved += OnConfigSaved;
+                RefreshSettingsMemoryStatus(tab);
+            });
+        _router.Register<DashboardTabViewModel>(
+            factory: () => _viewModelFactory.CreateDashboard(this),
+            onCreated: tab =>
+            {
+                tab.CloseRequested += OnTabCloseRequested;
+                tab.PrReviewRequested += OnDashboardPrReviewRequested;
+            });
+        _router.Register<StatisticsTabViewModel>(
+            factory: () => _viewModelFactory.CreateStatistics(),
+            onCreated: tab => tab.CloseRequested += OnTabCloseRequested);
+        _router.Register<TimelineTabViewModel>(
+            factory: () => _viewModelFactory.CreateTimeline(),
+            onCreated: tab =>
+            {
+                tab.CloseRequested += OnTabCloseRequested;
+                tab.PopOutRequested += OnTimelinePopOutRequested;
+            });
 
         FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
         UpdateFilteredDropdownTabs(); // Initial population
@@ -1985,22 +2014,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings()
     {
-        // Check if settings tab already exists
-        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
-        if (existingSettings != null)
-        {
-            RefreshSettingsMemoryStatus(existingSettings);
-            SelectedTab = existingSettings;
-            return;
-        }
-
-        // Create new settings tab
-        var settingsTab = _viewModelFactory.CreateSettings();
-        settingsTab.CloseRequested += OnTabCloseRequested;
-        settingsTab.ConfigSaved += OnConfigSaved;
-        RefreshSettingsMemoryStatus(settingsTab);
-        Tabs.Add(settingsTab);
-        SelectedTab = settingsTab;
+        _router.OpenSingleton<SettingsTabViewModel>(RefreshSettingsMemoryStatus);
     }
 
     private static void RefreshSettingsMemoryStatus(SettingsTabViewModel settingsTab)
@@ -2012,48 +2026,20 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenProfiles()
     {
-        // Open Settings and navigate to Profiles section
-        var existingSettings = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
-        if (existingSettings != null)
-        {
-            existingSettings.SelectedSection = SettingsSection.Profiles;
-            SelectedTab = existingSettings;
-            return;
-        }
-
-        // Create new settings tab with Profiles section selected
-        var settingsTab = _viewModelFactory.CreateSettings();
-        settingsTab.SelectedSection = SettingsSection.Profiles;
-        settingsTab.CloseRequested += OnTabCloseRequested;
-        settingsTab.ConfigSaved += OnConfigSaved;
-        Tabs.Add(settingsTab);
-        SelectedTab = settingsTab;
+        _router.OpenSingleton<SettingsTabViewModel>(tab => tab.SelectedSection = SettingsSection.Profiles);
     }
 
     [RelayCommand]
     private async Task OpenDashboardAsync()
     {
-        // Check if dashboard tab already exists
-        var existingDashboard = Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
-        if (existingDashboard != null)
-        {
-            SelectedTab = existingDashboard;
-            return;
-        }
+        var firstOpen = !_router.IsOpen<DashboardTabViewModel>();
+        var dashboardTab = _router.OpenSingleton<DashboardTabViewModel>();
+        if (!firstOpen) return;
 
-        // Create new dashboard tab
-        var dashboardTab = _viewModelFactory.CreateDashboard(this);
-        dashboardTab.CloseRequested += OnTabCloseRequested;
-        dashboardTab.PrReviewRequested += OnDashboardPrReviewRequested;
-        Tabs.Add(dashboardTab);
-        SelectedTab = dashboardTab;
-
-        // Save that dashboard is open
         var config = _configService.Load();
         config.Settings.Dashboard.ShowOnStartup = true;
         _configService.Save(config);
 
-        // Initialize the dashboard (fetches data)
         await dashboardTab.InitializeAsync();
     }
 
@@ -2084,25 +2070,17 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // Check if statistics tab already exists
-            var existingStats = Tabs.OfType<StatisticsTabViewModel>().FirstOrDefault();
-            if (existingStats != null)
+            var firstOpen = !_router.IsOpen<StatisticsTabViewModel>();
+            var statsTab = _router.OpenSingleton<StatisticsTabViewModel>();
+            if (!firstOpen)
             {
-                SelectedTab = existingStats;
-                // Also refresh the stats when focusing the existing tab
-                existingStats.LoadStatsCommand.Execute(null);
-                return;
+                // Refresh stats when re-focusing the existing tab (matches prior behavior).
+                statsTab.LoadStatsCommand.Execute(null);
             }
-
-            // Create new statistics tab
-            var statsTab = _viewModelFactory.CreateStatistics();
-            statsTab.CloseRequested += OnTabCloseRequested;
-            Tabs.Add(statsTab);
-            SelectedTab = statsTab;
         }
         catch (Exception ex)
         {
-            _dialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}"); // Use injected IDialogService
+            _dialogService.ShowError($"An error occurred while opening the statistics view:\n\n{ex.Message}");
         }
     }
 
@@ -2111,25 +2089,14 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // Check if timeline tab already exists
-            var existingTimeline = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
-            if (existingTimeline != null)
+            var firstOpen = !_router.IsOpen<TimelineTabViewModel>();
+            _router.OpenSingleton<TimelineTabViewModel>();
+            if (firstOpen)
             {
-                SelectedTab = existingTimeline;
-                return;
+                var config = _configService.Load();
+                config.Settings.Timeline.ShowOnStartup = true;
+                _configService.Save(config);
             }
-
-            // Create new timeline tab
-            var timelineTab = _viewModelFactory.CreateTimeline();
-            timelineTab.CloseRequested += OnTabCloseRequested;
-            timelineTab.PopOutRequested += OnTimelinePopOutRequested;
-            Tabs.Add(timelineTab);
-            SelectedTab = timelineTab;
-
-            // Save that timeline is open (for restore on startup)
-            var config = _configService.Load();
-            config.Settings.Timeline.ShowOnStartup = true;
-            _configService.Save(config);
         }
         catch (Exception ex)
         {
