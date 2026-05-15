@@ -137,8 +137,12 @@ public partial class MainViewModel : ObservableObject
     public System.Windows.GridLength SidebarSplitterWidth =>
         IsWorkspaceSidebarVisible ? new System.Windows.GridLength(4) : new System.Windows.GridLength(0);
 
-    [ObservableProperty]
-    private ObservableCollection<ITabViewModel> _tabs = [];
+    // The tab collection lives on the workspace service (Step 4a of #48). The
+    // service is constructed in the ctor; this property surfaces its collection
+    // so XAML bindings and TabRouter keep the same reference type they had
+    // before the seam landed.
+    private readonly IWorkspaceService _workspace = new WorkspaceService();
+    public ObservableCollection<ITabViewModel> Tabs => _workspace.Tabs;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
@@ -332,7 +336,7 @@ public partial class MainViewModel : ObservableObject
         TouchMode = _cachedSettings.TouchMode;
 
         // Subscribe to Tabs collection changes for NonProjectTabs updates
-        _tabs.CollectionChanged += (s, e) =>
+        _workspace.Tabs.CollectionChanged += (s, e) =>
         {
             OnPropertyChanged(nameof(NonProjectTabs));
             OnPropertyChanged(nameof(HasNonProjectTabs));
@@ -353,7 +357,7 @@ public partial class MainViewModel : ObservableObject
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
         _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
 
-        _router = new TabRouter(_tabs, tab => SelectedTab = tab);
+        _router = new TabRouter(_workspace.Tabs, tab => SelectedTab = tab);
         _router.Register<SettingsTabViewModel>(
             factory: () => _viewModelFactory.CreateSettings(),
             onCreated: tab =>
@@ -446,21 +450,6 @@ public partial class MainViewModel : ObservableObject
     partial void OnSwitcherSearchTextChanged(string value)
     {
         UpdateFilteredSwitcherTabs();
-    }
-
-    partial void OnTabsChanged(ObservableCollection<ITabViewModel> value)
-    {
-        UpdateFilteredDropdownTabs();
-        UpdateFilteredSwitcherTabs();
-        OnPropertyChanged(nameof(NonProjectTabs));
-        OnPropertyChanged(nameof(HasNonProjectTabs));
-
-        // Subscribe to collection changes for non-project tabs updates
-        value.CollectionChanged += (s, e) =>
-        {
-            OnPropertyChanged(nameof(NonProjectTabs));
-            OnPropertyChanged(nameof(HasNonProjectTabs));
-        };
     }
 
     partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
@@ -1583,29 +1572,13 @@ public partial class MainViewModel : ObservableObject
     /// Moves the specified tab to the front of the tab list.
     /// </summary>
     [RelayCommand]
-    private void MoveTabToFront(ITabViewModel? tab)
-    {
-        if (tab == null) return;
-        var index = Tabs.IndexOf(tab);
-        if (index > 0)
-        {
-            Tabs.Move(index, 0);
-        }
-    }
+    private void MoveTabToFront(ITabViewModel? tab) => _workspace.MoveToFront(tab);
 
     /// <summary>
     /// Moves the specified tab to the end of the tab list.
     /// </summary>
     [RelayCommand]
-    private void MoveTabToEnd(ITabViewModel? tab)
-    {
-        if (tab == null) return;
-        var index = Tabs.IndexOf(tab);
-        if (index >= 0 && index < Tabs.Count - 1)
-        {
-            Tabs.Move(index, Tabs.Count - 1);
-        }
-    }
+    private void MoveTabToEnd(ITabViewModel? tab) => _workspace.MoveToEnd(tab);
 
     /// <summary>
     /// Closes all tabs except the specified one.
@@ -1613,12 +1586,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseOtherTabs(ITabViewModel? tab)
     {
-        if (tab == null) return;
-        var tabsToClose = Tabs.Where(t => t != tab && t.IsCloseable).ToList();
-        foreach (var t in tabsToClose)
-        {
+        foreach (var t in _workspace.GetTabsToCloseExcept(tab))
             CloseTabCommand.Execute(t);
-        }
     }
 
     /// <summary>
@@ -1627,14 +1596,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseTabsToRight(ITabViewModel? tab)
     {
-        if (tab == null) return;
-        var index = Tabs.IndexOf(tab);
-        if (index < 0) return;
-        var tabsToClose = Tabs.Skip(index + 1).Where(t => t.IsCloseable).ToList();
-        foreach (var t in tabsToClose)
-        {
+        foreach (var t in _workspace.GetTabsToCloseToRightOf(tab))
             CloseTabCommand.Execute(t);
-        }
     }
 
     /// <summary>
