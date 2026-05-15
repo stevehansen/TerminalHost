@@ -478,6 +478,10 @@ public partial class MainViewModel : ObservableObject
                 new ContainerCommandProvider(this),
                 new ApiCommandProvider(this),
                 new VoiceCommandProvider(this),
+                new GitCommandProvider(this),
+                new RunCommandProvider(this),
+                new AiCommandProvider(this),
+                new GitHubCommandProvider(this),
             },
             context: commandContext);
         InitializeVoiceGrammar();   // Build voice grammar from palette commands
@@ -2224,6 +2228,13 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
     public event EventHandler<string>? AiPanelCommandRequested;
 
+    // ── Event raise helpers for ICommandProvider classes (Step 2c) ──────
+    // C# only allows events to be raised from the declaring class, so providers
+    // call these wrappers instead of touching the events directly.
+    internal void RequestGitChanges() => GitChangesRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestPrReview() => PrReviewRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestAiPanelCommand(string command) => AiPanelCommandRequested?.Invoke(this, command);
+
     [RelayCommand]
     private void OpenSetup()
     {
@@ -2695,29 +2706,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => OpenTimelineCommand.Execute(null)
             },
 
-            // GitHub Dashboard
-            new() {
-                Id = "dashboard",
-                Name = "Dashboard",
-                Description = "View GitHub PRs, issues, and CI status",
-                Shortcut = "Ctrl+Shift+H",
-                Icon = "🏠",
-                Category = "GitHub",
-                IntroducedOn = new DateOnly(2025, 12, 18),
-                Execute = () => OpenDashboardCommand.Execute(null)
-            },
-            new() {
-                Id = "pr-review",
-                Name = "PR Review Mode",
-                Description = "Review the current branch's pull request",
-                Shortcut = "Ctrl+Shift+R",
-                Icon = "📝",
-                Category = "GitHub",
-                IntroducedOn = new DateOnly(2025, 12, 18),
-                Execute = () => PrReviewRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
+            // GitHub: see GitHubCommandProvider
             // Markdown
             new() {
                 Id = "markdown-preview",
@@ -2731,119 +2720,7 @@ public partial class MainViewModel : ObservableObject
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
 
-            // Git
-            new() {
-                Id = "git-changes",
-                Name = "Git Changes",
-                Description = "View modified files and diffs",
-                Shortcut = "Alt+G",
-                Icon = "📋",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-commit",
-                Name = "Git Commit",
-                Description = "Stage files, write message, and commit from the Changes panel (Alt+G)",
-                Icon = "💾",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2026, 2, 11),
-                Execute = () => GitChangesRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-branches",
-                Name = "Git Branches",
-                Description = "Switch, create, or delete branches",
-                Shortcut = "Ctrl+B",
-                Icon = "🌿",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { /* Needs to be improved */ },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-history",
-                Name = "Git History",
-                Description = "View commit history",
-                Shortcut = "Ctrl+H",
-                Icon = "📜",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-stash",
-                Name = "Git Stash",
-                Description = "Manage stashed changes",
-                Shortcut = "Ctrl+Shift+S",
-                Icon = "📦",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-compare",
-                Name = "Git Compare Branches",
-                Description = "Compare two branches",
-                Shortcut = "Ctrl+Alt+B",
-                Icon = "🔀",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // Git operations
-            new() {
-                Id = "git-pull",
-                Name = "Git Pull",
-                Description = "Pull with auto-stash and rebase",
-                Shortcut = "Ctrl+Shift+D",
-                Icon = "⬇",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPullCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-push",
-                Name = "Git Push",
-                Description = "Push to remote",
-                Shortcut = "Ctrl+Shift+U",
-                Icon = "⬆",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.GitPushCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-reflog",
-                Name = "Git Reflog",
-                Description = "View reference log",
-                Shortcut = "Ctrl+Shift+G",
-                Icon = "📋",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "git-repository-switcher",
-                Name = "Switch Repository",
-                Description = "Open repository switcher",
-                Shortcut = "Ctrl+Shift+O",
-                Icon = "🔄",
-                Category = "Git",
-                IntroducedOn = new DateOnly(2025, 12, 29),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
+            // Git: see GitCommandProvider
             // Panel/Tool toggles
             new() {
                 Id = "file-explorer",
@@ -2935,60 +2812,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => OpenSparkCanvasAndLoadJsonl()
             },
 
-            // Run commands
-            new() {
-                Id = "run-start",
-                Name = "Run: Start",
-                Description = "Start the project",
-                Shortcut = "F5",
-                Icon = "▶",
-                Category = "Run",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanRun) tab.StartRunCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanRun: true }
-            },
-            new() {
-                Id = "run-stop",
-                Name = "Run: Stop",
-                Description = "Stop the running project",
-                Shortcut = "Shift+F5",
-                Icon = "⏹",
-                Category = "Run",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && tab.CanStop) tab.StopRunCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel { CanStop: true }
-            },
-            new() {
-                Id = "run-restart",
-                Name = "Run: Restart",
-                Description = "Restart the running project",
-                Icon = "🔄",
-                Category = "Run",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.RestartRunCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel { RunState: RunState.Running }
-            },
-            new() {
-                Id = "run-toggle-terminal",
-                Name = "Run: Toggle Terminal",
-                Description = "Show/hide run terminal panel",
-                Icon = "📺",
-                Category = "Run",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleRunTerminalCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "run-open-url",
-                Name = "Run: Open URL",
-                Description = "Open detected localhost URL in browser",
-                Icon = "🌐",
-                Category = "Run",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab && !string.IsNullOrEmpty(tab.DetectedRunUrl)) RunUrlDetectionService.OpenInBrowser(tab.DetectedRunUrl); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel { HasDetectedRunUrl: true }
-            },
-
+            // Run: see RunCommandProvider
             // Layout commands
             new() {
                 Id = "toggle-layout-mode",
@@ -3171,105 +2995,7 @@ public partial class MainViewModel : ObservableObject
                 CanExecute = () => _statusOverlayService?.OverlayCount > 0
             },
 
-            // AI Workflow Commands
-            new() {
-                Id = "ai-explain-blame",
-                Name = "Explain blame line (AI)",
-                Description = "AI explains why a blame line was changed",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-blame"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-summarize-file-history",
-                Name = "Summarize file history (AI)",
-                Description = "AI summarizes a file's commit history",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "summarize-file-history"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-explain-commit",
-                Name = "Explain commit (AI)",
-                Description = "AI explains what a commit does and why",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-commit"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-explain-reflog",
-                Name = "Explain recent git operations (AI)",
-                Description = "AI explains recent reflog entries",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "explain-reflog"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-generate-stash-name",
-                Name = "Generate stash name (AI)",
-                Description = "AI generates a descriptive stash name",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "generate-stash-name"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-assess-merge-risk",
-                Name = "Assess merge risk (AI)",
-                Description = "AI assesses risk of merging compared branches",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "assess-merge-risk"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-suggest-version",
-                Name = "Suggest next version (AI)",
-                Description = "AI suggests next semantic version based on tags and commits",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "suggest-version"),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "ai-analyze-ci-failure",
-                Name = "Analyze CI failure (AI)",
-                Description = "AI analyzes a failed CI check",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "analyze-ci-failure")
-            },
-            new() {
-                Id = "ai-prioritize-prs",
-                Name = "Prioritize PRs for review (AI)",
-                Description = "AI prioritizes open PRs by review urgency",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "prioritize-prs")
-            },
-            new() {
-                Id = "ai-improve-markdown",
-                Name = "Improve markdown (AI)",
-                Description = "AI suggests improvements to open markdown file",
-                Icon = "✨",
-                Category = "AI",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
-            },
-
+            // AI Workflow: see AiCommandProvider
             // Channel commands
             new() {
                 Id = "channel-send-message",
