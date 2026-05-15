@@ -482,6 +482,11 @@ public partial class MainViewModel : ObservableObject
                 new RunCommandProvider(this),
                 new AiCommandProvider(this),
                 new GitHubCommandProvider(this),
+                new LayoutCommandProvider(this),
+                new TimelineCommandProvider(this),
+                new SparkCanvasCommandProvider(this),
+                new ChannelCommandProvider(this),
+                new StatusOverlayCommandProvider(this),
             },
             context: commandContext);
         InitializeVoiceGrammar();   // Build voice grammar from palette commands
@@ -1947,7 +1952,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OpenSparkCanvasAndLoadJsonl()
+    internal void OpenSparkCanvasAndLoadJsonl()
     {
         if (SelectedTab is not TerminalPairTabViewModel terminalTab)
         {
@@ -2234,6 +2239,31 @@ public partial class MainViewModel : ObservableObject
     internal void RequestGitChanges() => GitChangesRequested?.Invoke(this, EventArgs.Empty);
     internal void RequestPrReview() => PrReviewRequested?.Invoke(this, EventArgs.Empty);
     internal void RequestAiPanelCommand(string command) => AiPanelCommandRequested?.Invoke(this, command);
+
+    // ── Helpers for ICommandProvider classes (Step 2d) ──────────────────
+    internal StatusOverlayService? StatusOverlayService => _statusOverlayService;
+
+    internal void OpenTimelineHookDebug()
+    {
+        if (_apiServer == null)
+        {
+            _toastService.Show("API server not available", ToastType.Error);
+            return;
+        }
+        var dialog = new Views.Dialogs.HookDebugDialog(_apiServer);
+        dialog.Show();
+    }
+
+    internal void OpenSparkCanvasWindow()
+    {
+        var vm = new SparkCanvasViewModel(
+            activityService: _sessionActivityService,
+            apiServer: _apiServer,
+            timelineService: _timelineService,
+            configService: _configService);
+        var window = new Views.SparkCanvasWindow(vm);
+        window.Show();
+    }
 
     [RelayCommand]
     private void OpenSetup()
@@ -2694,17 +2724,7 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => OpenStatisticsCommand.Execute(null)
             },
 
-            // Timeline Mode
-            new() {
-                Id = "timeline",
-                Name = "Timeline Mode",
-                Description = "Visual timeline of AI-assisted development sessions",
-                Shortcut = "Cmd+Shift+I",
-                Icon = "⏱️",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2025, 12, 26),
-                Execute = () => OpenTimelineCommand.Execute(null)
-            },
+            // Timeline: see TimelineCommandProvider
 
             // GitHub: see GitHubCommandProvider
             // Markdown
@@ -2755,138 +2775,10 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => { }, // TODO: Not yet implemented in Avalonia
                 CanExecute = () => SelectedTab is TerminalPairTabViewModel
             },
-            new() {
-                Id = "timeline-hook-debug",
-                Name = "Timeline: Hook Debug Log",
-                Description = "Show incoming hook events from API and named pipe (troubleshoot container/session tracking)",
-                Icon = "🔍",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 3, 27),
-                Execute = () =>
-                {
-                    if (_apiServer == null)
-                    {
-                        _toastService.Show("API server not available", ToastType.Error);
-                        return;
-                    }
-                    var dialog = new Views.Dialogs.HookDebugDialog(_apiServer);
-                    dialog.Show();
-                }
-            },
-            new() {
-                Id = "spark-canvas",
-                Name = "Spark: Open Canvas",
-                Description = "Open real-time force-directed AI session visualization",
-                Shortcut = "Ctrl+Shift+J",
-                Icon = "✨",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 3, 27),
-                Execute = () => OpenSparkCanvasCommand.Execute(null),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "spark-canvas-window",
-                Name = "Spark: Open Canvas (Window)",
-                Description = "Open Spark Canvas in a standalone window",
-                Icon = "✨",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 3, 27),
-                Execute = () =>
-                {
-                    var vm = new SparkCanvasViewModel(
-                        activityService: _sessionActivityService,
-                        apiServer: _apiServer,
-                        timelineService: _timelineService,
-                        configService: _configService);
-                    var window = new Views.SparkCanvasWindow(vm);
-                    window.Show();
-                }
-            },
-            new() {
-                Id = "spark-load-jsonl",
-                Name = "Spark: Load JSONL File",
-                Description = "Open a .jsonl transcript file in Spark Canvas for visualization",
-                Icon = "\u2728",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 3, 30),
-                Execute = () => OpenSparkCanvasAndLoadJsonl()
-            },
 
             // Run: see RunCommandProvider
-            // Layout commands
-            new() {
-                Id = "toggle-layout-mode",
-                Name = "Toggle Layout Mode",
-                Description = "Switch between Tabs and Workspace Sidebar layout",
-                Shortcut = "Ctrl+L",
-                Icon = "📐",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 25),
-                Execute = () => ToggleLayoutModeCommand.Execute(null)
-            },
-            new() {
-                Id = "toggle-sidebar",
-                Name = "Toggle Sidebar",
-                Description = "Collapse/expand the workspace sidebar",
-                Shortcut = "Ctrl+Shift+L",
-                Icon = "📎",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 25),
-                Execute = () => { }, // TODO: Not yet implemented in Avalonia
-                CanExecute = () => LayoutMode == AppLayoutMode.WorkspaceSidebar
-            },
-            new() {
-                Id = "switch-to-tabs",
-                Name = "Switch to Tabs Layout",
-                Description = "Use traditional tab bar layout",
-                Icon = "🗂",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 25),
-                Execute = () => { LayoutMode = AppLayoutMode.Tabs; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
-                CanExecute = () => LayoutMode != AppLayoutMode.Tabs
-            },
-            new() {
-                Id = "switch-to-sidebar",
-                Name = "Switch to Sidebar Layout",
-                Description = "Use workspace sidebar layout",
-                Icon = "📂",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 25),
-                Execute = () => { LayoutMode = AppLayoutMode.WorkspaceSidebar; var config = _configService.Load(); config.Settings.LayoutMode = LayoutMode; _configService.Save(config); },
-                CanExecute = () => LayoutMode != AppLayoutMode.WorkspaceSidebar
-            },
+            // Layout (app + terminal): see LayoutCommandProvider
 
-            // Terminal layout modes
-            new() {
-                Id = "layout-custom-full",
-                Name = "Layout: Custom Full",
-                Description = "Show only custom terminal",
-                Icon = "🖥",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetCustomFullLayoutCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "layout-horizontal-split",
-                Name = "Layout: Horizontal Split",
-                Description = "Side-by-side terminals",
-                Icon = "⬜",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetHorizontalSplitLayoutCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "layout-vertical-split",
-                Name = "Layout: Vertical Split",
-                Description = "Top-bottom terminals",
-                Icon = "⬛",
-                Category = "Layout",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.SetVerticalSplitLayoutCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
 
             // Settings toggles
             new() {
@@ -2962,60 +2854,11 @@ public partial class MainViewModel : ObservableObject
                     _configService.Save(config);
                     _toastService.Show(config.Settings.GitAutoFetch ? "Git auto-fetch enabled" : "Git auto-fetch disabled", ToastType.Info);
                 }
-            },
-
-            // Status Overlay commands
-            new() {
-                Id = "toggle-status-overlay",
-                Name = "Toggle Status Overlay",
-                Description = "Show or hide the floating status overlay",
-                Shortcut = "Cmd+Shift+Y",
-                Icon = "🔔",
-                Category = "Application",
-                IntroducedOn = new DateOnly(2026, 2, 26),
-                Execute = () => _statusOverlayService?.Toggle()
-            },
-            new() {
-                Id = "new-status-overlay",
-                Name = "New Status Overlay",
-                Description = "Create an additional floating status overlay instance",
-                Icon = "🔔",
-                Category = "Application",
-                IntroducedOn = new DateOnly(2026, 2, 26),
-                Execute = () => _statusOverlayService?.CreateOverlay()
-            },
-            new() {
-                Id = "close-all-status-overlays",
-                Name = "Close All Status Overlays",
-                Description = "Close all floating status overlay windows",
-                Icon = "🔔",
-                Category = "Application",
-                IntroducedOn = new DateOnly(2026, 2, 26),
-                Execute = () => _statusOverlayService?.CloseAll(),
-                CanExecute = () => _statusOverlayService?.OverlayCount > 0
-            },
+            }
 
             // AI Workflow: see AiCommandProvider
-            // Channel commands
-            new() {
-                Id = "channel-send-message",
-                Name = "Channel: Send Message to Claude",
-                Description = "Send a text message to the Claude Code session via the channel",
-                Icon = "📨",
-                Category = "Channel",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => SendChannelMessage(),
-                CanExecute = () => _apiServer?.IsRunning == true
-            },
-            new() {
-                Id = "channel-toggle",
-                Name = "Channel: Toggle Integration",
-                Description = "Enable or disable Claude Code channel integration",
-                Icon = "🔌",
-                Category = "Channel",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => ToggleChannelIntegration()
-            }
+            // Status Overlay: see StatusOverlayCommandProvider
+            // Channel: see ChannelCommandProvider
         ];
     }
 
@@ -3618,7 +3461,7 @@ public partial class MainViewModel : ObservableObject
 
     // ── Channel command helpers ─────────────────────────────────────────
 
-    private void SendChannelMessage()
+    internal void SendChannelMessage()
     {
         var message = _dialogService.ShowInput("Enter a message to send to Claude Code via the channel:", "Send to Claude");
         if (string.IsNullOrWhiteSpace(message)) return;
@@ -3641,7 +3484,7 @@ public partial class MainViewModel : ObservableObject
         _toastService.Show("Message sent to Claude via channel", ToastType.Success);
     }
 
-    private void ToggleChannelIntegration()
+    internal void ToggleChannelIntegration()
     {
         var config = _configService.Load();
         config.Settings.Channel.Enabled = !config.Settings.Channel.Enabled;
