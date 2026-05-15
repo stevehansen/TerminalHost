@@ -60,11 +60,7 @@ public partial class MainViewModel : ObservableObject
     private readonly Core.Interfaces.ITimerService _coreTimerService;
     private readonly TabRouter _router;
 
-    private readonly IPlatformTimer _gitStatusTimer;
-    private readonly IPlatformTimer _gitAutoFetchTimer;
-    private readonly IPlatformTimer _activityTimer;
-    private readonly IPlatformTimer _linkDetectionTimer;
-    private readonly IPlatformTimer _runUrlDetectionTimer;
+    private readonly IProjectMonitor _projectMonitor;
 
     // Cached git tracking mode to avoid config loads on every timer tick
     private GitTrackingMode _gitTrackingMode;
@@ -495,31 +491,23 @@ public partial class MainViewModel : ObservableObject
             context: commandContext);
         InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
-        // Set up timer for periodic git status refresh (every 5 seconds)
-        _gitStatusTimer = _timerService.CreateTimer(
-            TimeSpan.FromSeconds(5),
-            async () => await RefreshSelectedTabGitStatusAsync());
-
-        // Set up timer for git auto-fetch (configurable interval, default 60 seconds)
+        // Step 3a (#48): all five periodic refresh paths run through one monitor.
+        _projectMonitor = new ProjectMonitor(_coreTimerService);
         var fetchInterval = Math.Max(30, _configService.Load().Settings.GitAutoFetchIntervalSeconds);
-        _gitAutoFetchTimer = _timerService.CreateTimer(
-            TimeSpan.FromSeconds(fetchInterval),
-            async () => await AutoFetchAllAsync());
+        _projectMonitor.SetInterval(SignalKind.GitAutoFetch, TimeSpan.FromSeconds(fetchInterval));
+        _projectMonitor.Tick += OnProjectSignal;
+    }
 
-        // Set up timer for activity state refresh (every 1 second to detect idle transitions)
-        _activityTimer = _timerService.CreateTimer(
-            TimeSpan.FromSeconds(1),
-            RefreshActivityState);
-
-        // Set up timer for link detection refresh (every 3 seconds)
-        _linkDetectionTimer = _timerService.CreateTimer(
-            TimeSpan.FromSeconds(3),
-            RefreshDetectedLinks);
-
-        // Set up timer for run URL detection (every 2 seconds, only when running)
-        _runUrlDetectionTimer = _timerService.CreateTimer(
-            TimeSpan.FromSeconds(2),
-            RefreshRunUrlDetection);
+    private void OnProjectSignal(object? sender, ProjectSignalEventArgs e)
+    {
+        switch (e.Kind)
+        {
+            case SignalKind.GitStatus:    _ = RefreshSelectedTabGitStatusAsync(); break;
+            case SignalKind.GitAutoFetch: _ = AutoFetchAllAsync(); break;
+            case SignalKind.Activity:     RefreshActivityState(); break;
+            case SignalKind.Links:        RefreshDetectedLinks(); break;
+            case SignalKind.RunUrl:       RefreshRunUrlDetection(); break;
+        }
     }
 
     partial void OnDropdownSearchTextChanged(string value)
@@ -766,26 +754,14 @@ public partial class MainViewModel : ObservableObject
         // Cache git tracking mode
         _gitTrackingMode = _configService.Load().Settings.GitTrackingMode;
 
-        // Start git status refresh timer (unless tracking is fully disabled)
+        // Start the always-on signals.
+        _projectMonitor.Start(SignalKind.Activity | SignalKind.Links | SignalKind.RunUrl);
+
+        // Git signals depend on tracking mode + auto-fetch setting.
         if (_gitTrackingMode != GitTrackingMode.Disabled)
-        {
-            _gitStatusTimer.Start();
-        }
-
-        // Start git auto-fetch timer (only in All mode + if enabled)
+            _projectMonitor.Start(SignalKind.GitStatus);
         if (_gitTrackingMode == GitTrackingMode.All && _configService.Load().Settings.GitAutoFetch)
-        {
-            _gitAutoFetchTimer.Start();
-        }
-
-        // Start activity refresh timer
-        _activityTimer.Start();
-
-        // Start link detection timer
-        _linkDetectionTimer.Start();
-
-        // Start run URL detection timer
-        _runUrlDetectionTimer.Start();
+            _projectMonitor.Start(SignalKind.GitAutoFetch);
     }
 
     private void LoadLayoutSettings()
@@ -2068,16 +2044,15 @@ public partial class MainViewModel : ObservableObject
 
             if (_gitTrackingMode == GitTrackingMode.Disabled)
             {
-                _gitStatusTimer.Stop();
-                _gitAutoFetchTimer.Stop();
+                _projectMonitor.Stop(SignalKind.GitStatus | SignalKind.GitAutoFetch);
             }
             else
             {
-                _gitStatusTimer.Start();
+                _projectMonitor.Start(SignalKind.GitStatus);
                 if (_gitTrackingMode == GitTrackingMode.All && config.Settings.GitAutoFetch)
-                    _gitAutoFetchTimer.Start();
+                    _projectMonitor.Start(SignalKind.GitAutoFetch);
                 else
-                    _gitAutoFetchTimer.Stop();
+                    _projectMonitor.Stop(SignalKind.GitAutoFetch);
             }
         }
 
@@ -3079,12 +3054,8 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
-        // Stop and dispose timers
-        _gitStatusTimer.Dispose();
-        _gitAutoFetchTimer.Dispose();
-        _activityTimer.Dispose();
-        _linkDetectionTimer.Dispose();
-        _runUrlDetectionTimer.Dispose();
+        // Stop and dispose the project signal monitor.
+        _projectMonitor.Dispose();
 
         // Save final focus time for the currently active tab
         if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
