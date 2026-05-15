@@ -33,7 +33,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFilePreviewService _filePreviewService;
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly IAiAssistantService _aiAssistantService;
-    private readonly IProcessService _processService;
+    internal readonly IProcessService _processService;
     internal readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
@@ -399,7 +399,11 @@ public partial class MainViewModel : ObservableObject
             _palette = new CommandPalette(
                 providers: new ICommandProvider[]
                 {
-                    new MainViewModelStaticCommandProvider(this),
+                    new TabCommandProvider(this),
+                    new FileCommandProvider(this),
+                    new PanelCommandProvider(this),
+                    new SettingsToggleCommandProvider(this),
+                    new AppCommandProvider(this),
                     new ContainerCommandProvider(this),
                     new ApiCommandProvider(this),
                     new VoiceCommandProvider(this),
@@ -2423,6 +2427,18 @@ public partial class MainViewModel : ObservableObject
     // ── Helpers for ICommandProvider classes (Step 2d) ──────────────────
     internal StatusOverlayService? StatusOverlayService => _statusOverlayService;
 
+    // ── Event raise helpers for ICommandProvider classes (Step 2e) ──────
+    internal void RequestFilePreview(string path, int line, int column)
+        => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = path, Line = line, Column = column });
+    internal void RequestSearch() => SearchRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestMarkdownPreview() => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestClaudeTasks() => ClaudeTasksRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestSessionsTree() => SessionsTreeRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestTestRunner() => TestRunnerRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestMemoryBrowser() => MemoryBrowserRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestDebugLog() => DebugLogRequested?.Invoke(this, EventArgs.Empty);
+    internal void RequestWhatsNew() => WhatsNewRequested?.Invoke(this, EventArgs.Empty);
+
     internal void InstallTimelineHooks()
     {
         if (_timelineService.InstallHooks())
@@ -2516,402 +2532,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    internal IReadOnlyList<PaletteCommand> BuildStaticPaletteCommands()
-    {
-        return
-        [
-            // Tab/Project commands
-            new() {
-                Id = "new-project",
-                Name = "New Project",
-                Description = "Open folder as new project",
-                Shortcut = "Ctrl+N",
-                Icon = "📁",
-                Category = "Project",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => OpenNewProjectCommand.Execute(null)
-            },
-            new() {
-                Id = "close-tab",
-                Name = "Close Tab",
-                Description = "Close current tab",
-                Shortcut = "Ctrl+W",
-                Icon = "✕",
-                Category = "Tab",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => { if (SelectedTab != null) CloseTabCommand.Execute(SelectedTab); }
-            },
-            new() {
-                Id = "tab-switcher",
-                Name = "Switch Tab",
-                Description = "Search and switch tabs",
-                Shortcut = "Ctrl+Shift+T",
-                Icon = "🔍",
-                Category = "Tab",
-                IntroducedOn = new DateOnly(2025, 12, 13),
-                Execute = () => { IsTabSwitcherOpen = true; SwitcherSearchText = ""; }
-            },
-            new() {
-                Id = "duplicate-tab",
-                Name = "Duplicate Tab",
-                Description = "Open new tab for same directory",
-                Icon = "📋",
-                Category = "Tab",
-                IntroducedOn = new DateOnly(2025, 12, 13),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) DuplicateTabCommand.Execute(tab); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            new() {
-                Id = "tab-reload",
-                Name = "Reload Tab",
-                Description = "Close and reopen the current project tab (applies pending changes like container toggle)",
-                Icon = "🔄",
-                Category = "Tab",
-                IntroducedOn = new DateOnly(2026, 3, 21),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) ReloadTerminalTab(tab); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // File commands
-            new() {
-                Id = "file-preview",
-                Name = "Preview File",
-                Description = "Open file preview",
-                Shortcut = "Ctrl+O",
-                Icon = "👁",
-                Category = "File",
-                IntroducedOn = new DateOnly(2025, 12, 19),
-                Execute = () => FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs { FilePath = "", Line = 0, Column = 0}) // Needs to be improved
-            },
-            new() {
-                Id = "file-edit",
-                Name = "Edit File",
-                Description = "Open file in editor",
-                Shortcut = "Ctrl+Shift+E",
-                Icon = "✏️",
-                Category = "File",
-                IntroducedOn = new DateOnly(2025, 12, 19),
-                Execute = () => { /* Needs to be improved */ }
-            },
-            new() {
-                Id = "open-explorer",
-                Name = "Open in Explorer",
-                Description = "Open folder in file explorer",
-                Shortcut = "Ctrl+E",
-                Icon = "📂",
-                Category = "File",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => OpenInExplorerCommand.Execute(null),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // Terminal commands
-            new() {
-                Id = "switch-terminal",
-                Name = "Switch Terminal",
-                Description = "Toggle between custom and shell",
-                Shortcut = "Ctrl+`",
-                Icon = "⇄",
-                Category = "Terminal",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => SwitchActiveTerminalCommand.Execute(null),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // Settings
-            new() {
-                Id = "settings",
-                Name = "Settings",
-                Description = "Open settings editor",
-                Shortcut = "Ctrl+,",
-                Icon = "⚙️",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => OpenSettingsCommand.Execute(null)
-            },
-            new() {
-                Id = "profiles",
-                Name = "Settings: Profiles",
-                Description = "Open settings and manage terminal profiles",
-                Shortcut = "Ctrl+P",
-                Icon = "👤",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => OpenProfilesCommand.Execute(null)
-            },
-            new() {
-                Id = "setup",
-                Name = "Setup",
-                Description = "Check dependencies and setup",
-                Icon = "🔧",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => OpenSetupCommand.Execute(null)
-            },
-
-            // Help
-            new() {
-                Id = "help",
-                Name = "Help",
-                Description = "Show keyboard shortcuts",
-                Shortcut = "F1",
-                Icon = "❓",
-                Category = "Help",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => IsHelpOpen = true
-            },
-            new() {
-                Id = "open-crash-log-folder",
-                Name = "Open Crash Log Folder",
-                Description = "Open the folder with app crash reports",
-                Icon = "🩺",
-                Category = "Help",
-                IntroducedOn = new DateOnly(2026, 2, 13),
-                Execute = () =>
-                {
-                    var crashLogDirectory = GetCrashLogDirectoryPath();
-                    Directory.CreateDirectory(crashLogDirectory);
-                    _processService.OpenFolder(crashLogDirectory);
-                }
-            },
-
-            // Scratch Pad
-            new() {
-                Id = "scratch-pad",
-                Name = "Scratch Pad",
-                Description = "Open notes panel",
-                Shortcut = "Ctrl+Shift+N",
-                Icon = "📝",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2025, 12, 14),
-                Execute = () => OpenScratchPadCommand.Execute(null)
-            },
-
-            // Statistics
-            new() {
-                Id = "statistics",
-                Name = "Statistics",
-                Description = "View usage statistics",
-                Icon = "📊",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2025, 12, 12),
-                Execute = () => OpenStatisticsCommand.Execute(null)
-            },
-
-            // Timeline: see TimelineCommandProvider
-            // Spark Canvas: see SparkCanvasCommandProvider
-            // GitHub: see GitHubCommandProvider
-            // Markdown
-            new() {
-                Id = "markdown-preview",
-                Name = "Markdown Preview",
-                Description = "Preview markdown files",
-                Shortcut = "Ctrl+M",
-                Icon = "📄",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2025, 12, 18),
-                Execute = () => MarkdownPreviewRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-            // Git: see GitCommandProvider
-            // Run: see RunCommandProvider
-            // Layout (app + terminal): see LayoutCommandProvider
-
-            // Git operations: see GitCommandProvider
-            // Panel/Tool toggles
-            new() {
-                Id = "file-explorer",
-                Name = "File Explorer",
-                Description = "Toggle file explorer panel",
-                Shortcut = "Ctrl+Shift+F",
-                Icon = "📁",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2025, 12, 22),
-                Execute = () => { if (SelectedTab is TerminalPairTabViewModel tab) tab.ToggleExplorerCommand.Execute(null); },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "file-search",
-                Name = "Search in Files",
-                Description = "Search across files",
-                Shortcut = "Ctrl+F3",
-                Icon = "🔍",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 2, 7),
-                Execute = () => SearchRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "claude-tasks",
-                Name = "Claude Tasks",
-                Description = "View Claude Code task activity",
-                Shortcut = "Ctrl+Shift+K",
-                Icon = "🤖",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 1, 27),
-                Execute = () => ClaudeTasksRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "sessions-tree",
-                Name = "Sessions",
-                Description = "Tree of active Claude Code sessions and their subagents with live activity and context usage",
-                Shortcut = "Ctrl+Shift+B",
-                Icon = "\U0001F9E0",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 5, 12),
-                Execute = () => SessionsTreeRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "test-runner",
-                Name = "Run Tests",
-                Description = "Run project tests",
-                Shortcut = "F6",
-                Icon = "🧪",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 2, 5),
-                Execute = () => TestRunnerRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "memory-intake",
-                Name = "Memory: Run Intake",
-                Description = "Ingest CLAUDE.md, README, and other project sources into memory",
-                Icon = "🧠",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 4, 7),
-                Execute = () =>
-                {
-                    if (SelectedTab is TerminalPairTabViewModel tab)
-                    {
-                        var eidet = App.Current.Services.GetService<IEidetService>();
-                        if (eidet != null)
-                            _ = eidet.RunIntakeAsync(tab.Pair.WorkingDirectory);
-                    }
-                },
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "memory-browser",
-                Name = "Memory Browser",
-                Description = "Browse and manage memory entries",
-                Shortcut = "Ctrl+Shift+M",
-                Icon = "🧠",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 4, 7),
-                Execute = () => MemoryBrowserRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "debug-log",
-                Name = "Debug Log",
-                Description = "Show diagnostic log for MCP, Memory, and Ollama",
-                Icon = "🐛",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 4, 8),
-                Execute = () => DebugLogRequested?.Invoke(this, EventArgs.Empty),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-
-
-            // Settings toggles
-            new() {
-                Id = "toggle-sounds",
-                Name = "Toggle Sounds",
-                NameProvider = () => _cachedSettings.Sounds.Enabled ? "Disable Sounds" : "Enable Sounds",
-                Description = "Sound notifications",
-                Icon = "🔊",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.Sounds.Enabled = !config.Settings.Sounds.Enabled;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.Sounds.Enabled ? "Sounds enabled" : "Sounds disabled", ToastType.Info);
-                }
-            },
-            new() {
-                Id = "toggle-touch-mode",
-                Name = "Toggle Touch Mode",
-                NameProvider = () => _cachedSettings.TouchMode ? "Disable Touch Mode" : "Enable Touch Mode",
-                Description = "Touch-friendly UI with larger targets",
-                Icon = "👆",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2026, 1, 12),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.TouchMode = !config.Settings.TouchMode;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.TouchMode ? "Touch Mode enabled" : "Touch Mode disabled", ToastType.Info);
-                }
-            },
-            new() {
-                Id = "toggle-system-tray",
-                Name = "Toggle System Tray",
-                NameProvider = () => _cachedSettings.ShowInSystemTray ? "Disable System Tray" : "Enable System Tray",
-                Description = "System tray icon",
-                Icon = "🔽",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.ShowInSystemTray = !config.Settings.ShowInSystemTray;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.ShowInSystemTray ? "System tray enabled" : "System tray disabled", ToastType.Info);
-                }
-            },
-            new() {
-                Id = "toggle-confirm-close",
-                Name = "Toggle Confirm on Close",
-                NameProvider = () => _cachedSettings.ConfirmOnClose ? "Disable Confirm on Close" : "Enable Confirm on Close",
-                Description = "Confirm before closing tabs",
-                Icon = "⚠",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.ConfirmOnClose = !config.Settings.ConfirmOnClose;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.ConfirmOnClose ? "Close confirmation enabled" : "Close confirmation disabled", ToastType.Info);
-                }
-            },
-            new() {
-                Id = "toggle-git-auto-fetch",
-                Name = "Toggle Git Auto-Fetch",
-                NameProvider = () => _cachedSettings.GitAutoFetch ? "Disable Git Auto-Fetch" : "Enable Git Auto-Fetch",
-                Description = "Automatic fetch from remotes",
-                Icon = "🔄",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2026, 1, 7),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.GitAutoFetch = !config.Settings.GitAutoFetch;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.GitAutoFetch ? "Git auto-fetch enabled" : "Git auto-fetch disabled", ToastType.Info);
-                }
-            },
-
-            // What's New
-            new() {
-                Id = "whats-new",
-                Name = "What's New",
-                Description = "View recently added features",
-                Shortcut = "Ctrl+F1",
-                Icon = "✨",
-                Category = "Help",
-                IntroducedOn = new DateOnly(2026, 2, 10),
-                Execute = () => WhatsNewRequested?.Invoke(this, EventArgs.Empty)
-            }
-
-            // AI Workflow: see AiCommandProvider
-            // Channel: see ChannelCommandProvider
-            // Status Overlay: see StatusOverlayCommandProvider
-        ];
-    }
-
     // ── Container command helpers ───────────────────────────────────────
 
     internal void ToggleContainerForCurrentWorkspace()
@@ -2939,7 +2559,7 @@ public partial class MainViewModel : ObservableObject
         ReloadTerminalTab(tab);
     }
 
-    private void ReloadTerminalTab(TerminalPairTabViewModel tab)
+    internal void ReloadTerminalTab(TerminalPairTabViewModel tab)
     {
         var dir = tab.Pair.WorkingDirectory;
 
@@ -3283,7 +2903,7 @@ public partial class MainViewModel : ObservableObject
         _configService.Save(config);
     }
 
-    private static string GetCrashLogDirectoryPath()
+    internal static string GetCrashLogDirectoryPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return Path.Combine(appData, "TerminalHost", "logs");
