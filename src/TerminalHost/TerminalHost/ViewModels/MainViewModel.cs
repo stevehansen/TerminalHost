@@ -19,7 +19,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IProfileRegistry _profileRegistry;
     private readonly ISessionManager _sessionManager;
     private readonly ITerminalControlFactory _terminalFactory;
-    private readonly IConfigurationService _configService;
+    internal readonly IConfigurationService _configService;
     private readonly IStatisticsService _statisticsService;
     private readonly IGitStatusService _gitStatusService;
 
@@ -34,7 +34,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly IAiAssistantService _aiAssistantService;
     private readonly IProcessService _processService;
-    private readonly IToastService _toastService;
+    internal readonly IToastService _toastService;
     private readonly ITimerService _timerService;
     private readonly IDispatcherService _dispatcherService;
     private readonly IFolderPickerService _folderPickerService;
@@ -44,7 +44,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITaskService? _taskService;
     private readonly IVoiceCommandService? _voiceCommandService;
     private readonly IEventAggregatorService? _eventAggregator;
-    private readonly IApiServer? _apiServer;
+    internal readonly IApiServer? _apiServer;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
@@ -61,7 +61,7 @@ public partial class MainViewModel : ObservableObject
 
     // Cached settings reference for command palette NameProvider lambdas
     // (avoids 30 × 145KB config loads on every palette render/keystroke)
-    private AppSettings _cachedSettings = new();
+    internal AppSettings _cachedSettings = new();
 
     // Focus time tracking for workspace auto-sort
     private DateTime? _tabFocusStartTime;
@@ -397,7 +397,13 @@ public partial class MainViewModel : ObservableObject
                 activeTab: () => SelectedTab,
                 serviceLocator: t => App.Current?.Services?.GetService(t));
             _palette = new CommandPalette(
-                providers: new ICommandProvider[] { new MainViewModelStaticCommandProvider(this) },
+                providers: new ICommandProvider[]
+                {
+                    new MainViewModelStaticCommandProvider(this),
+                    new ContainerCommandProvider(this),
+                    new ApiCommandProvider(this),
+                    new VoiceCommandProvider(this),
+                },
                 context: commandContext);
             _ = _palette.Commands; // force provider evaluation inside the profiler scope
         }
@@ -3314,94 +3320,6 @@ public partial class MainViewModel : ObservableObject
                 Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
             },
 
-            // Voice Commands
-            new() {
-                Id = "toggle-voice",
-                Name = "Toggle Voice Commands",
-                NameProvider = () => VoiceBar.IsVisible ? "Stop Voice Listening" : "Start Voice Listening",
-                Description = "Control your terminal with voice (F4)",
-                Shortcut = "F4",
-                Icon = "🎙",
-                Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 2, 11),
-                Execute = () => ToggleVoiceListening()
-            },
-            new() {
-                Id = "toggle-voice-enabled",
-                Name = "Toggle Voice Commands Enabled",
-                NameProvider = () => _cachedSettings.Voice.Enabled ? "Disable Voice Commands" : "Enable Voice Commands",
-                Description = "Enable or disable voice command feature",
-                Icon = "🎙",
-                Category = "Settings",
-                IntroducedOn = new DateOnly(2026, 2, 11),
-                Execute = () => {
-                    var config = _configService.Load();
-                    config.Settings.Voice.Enabled = !config.Settings.Voice.Enabled;
-                    _configService.Save(config);
-                    _toastService.Show(config.Settings.Voice.Enabled ? "Voice commands enabled" : "Voice commands disabled", ToastType.Info);
-                }
-            },
-
-            // API commands
-            new() {
-                Id = "api-start",
-                Name = "API: Start Server",
-                Description = "Start the REST API server",
-                Icon = "🌐",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => _ = StartApiServerAsync(),
-                CanExecute = () => _apiServer != null && !_apiServer.IsRunning
-            },
-            new() {
-                Id = "api-stop",
-                Name = "API: Stop Server",
-                Description = "Stop the REST API server",
-                Icon = "🌐",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => _ = StopApiServerAsync(),
-                CanExecute = () => _apiServer?.IsRunning == true
-            },
-            new() {
-                Id = "api-copy-url",
-                Name = "API: Copy Base URL",
-                Description = "Copy the API base URL to clipboard",
-                Icon = "📋",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => CopyApiUrl(),
-                CanExecute = () => _apiServer?.IsRunning == true
-            },
-            new() {
-                Id = "api-open-browser",
-                Name = "API: Open in Browser",
-                Description = "Open /api/status in default browser",
-                Icon = "🔗",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => OpenApiInBrowser(),
-                CanExecute = () => _apiServer?.IsRunning == true
-            },
-            new() {
-                Id = "api-test-webhooks",
-                Name = "API: Test Webhooks",
-                Description = "Send a test event to all enabled webhooks",
-                Icon = "🧪",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => _ = TestWebhooksAsync()
-            },
-            new() {
-                Id = "api-stats",
-                Name = "API: Show Delivery Stats",
-                Description = "Show webhook delivery statistics",
-                Icon = "📊",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 23),
-                Execute = () => ShowWebhookStats()
-            },
-
             // Channel commands
             new() {
                 Id = "channel-send-message",
@@ -3452,91 +3370,13 @@ public partial class MainViewModel : ObservableObject
                 IntroducedOn = new DateOnly(2026, 2, 25),
                 Execute = () => _statusOverlayService?.CloseAll(),
                 CanExecute = () => _statusOverlayService?.OverlayCount > 0
-            },
-
-            // Container commands
-            new() {
-                Id = "container-toggle",
-                Name = "Container: Toggle for Current Workspace",
-                Description = "Enable or disable Docker container isolation for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => ToggleContainerForCurrentWorkspace(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-rebuild-image",
-                Name = "Container: Rebuild Image",
-                Description = "Rebuild the Docker workspace image from Dockerfile",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = RebuildContainerImageAsync()
-            },
-            new() {
-                Id = "container-stop",
-                Name = "Container: Stop Current",
-                Description = "Stop the Docker container for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = StopCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-remove",
-                Name = "Container: Remove Current",
-                Description = "Remove the Docker container for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = RemoveCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-recreate",
-                Name = "Container: Recreate Current",
-                Description = "Remove and recreate the container (applies settings changes)",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 23),
-                Execute = () => _ = RecreateCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-list",
-                Name = "Container: List All",
-                Description = "Show all TerminalHost Docker containers",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = ListContainersAsync()
-            },
-            new() {
-                Id = "container-clean",
-                Name = "Container: Clean Stopped",
-                Description = "Remove all stopped Docker containers",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = CleanStoppedContainersAsync()
-            },
-            new() {
-                Id = "container-check-docker",
-                Name = "Container: Check Docker Status",
-                Description = "Verify Docker Desktop is available and running",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 19),
-                Execute = () => _ = CheckDockerStatusAsync()
             }
         ];
     }
 
     // ── Container command helpers ───────────────────────────────────────
 
-    private void ToggleContainerForCurrentWorkspace()
+    internal void ToggleContainerForCurrentWorkspace()
     {
         if (SelectedTab is not TerminalPairTabViewModel tab) return;
         var dir = tab.Pair.WorkingDirectory;
@@ -3581,7 +3421,7 @@ public partial class MainViewModel : ObservableObject
         OpenProjectTab(dir);
     }
 
-    private async Task RebuildContainerImageAsync()
+    internal async Task RebuildContainerImageAsync()
     {
         if (_containerService == null) return;
 
@@ -3611,7 +3451,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RecreateCurrentContainerAsync()
+    internal async Task RecreateCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         var dir = tab.Pair.WorkingDirectory;
@@ -3634,7 +3474,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task StopCurrentContainerAsync()
+    internal async Task StopCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         try
@@ -3648,7 +3488,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RemoveCurrentContainerAsync()
+    internal async Task RemoveCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         try
@@ -3662,7 +3502,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task ListContainersAsync()
+    internal async Task ListContainersAsync()
     {
         if (_containerService == null) return;
         try
@@ -3683,7 +3523,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task CleanStoppedContainersAsync()
+    internal async Task CleanStoppedContainersAsync()
     {
         if (_containerService == null) return;
         try
@@ -3697,7 +3537,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task CheckDockerStatusAsync()
+    internal async Task CheckDockerStatusAsync()
     {
         if (_containerService == null) return;
         var available = await _containerService.IsDockerAvailableAsync();
@@ -4206,7 +4046,7 @@ public partial class MainViewModel : ObservableObject
 
     #region API Server Helpers
 
-    private async Task StartApiServerAsync()
+    internal async Task StartApiServerAsync()
     {
         if (_apiServer == null) return;
         try
@@ -4220,7 +4060,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task StopApiServerAsync()
+    internal async Task StopApiServerAsync()
     {
         if (_apiServer == null) return;
         try
@@ -4234,7 +4074,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void CopyApiUrl()
+    internal void CopyApiUrl()
     {
         if (_apiServer?.BaseUrl != null)
         {
@@ -4247,7 +4087,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OpenApiInBrowser()
+    internal void OpenApiInBrowser()
     {
         if (_apiServer?.BaseUrl != null)
         {
@@ -4259,7 +4099,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task TestWebhooksAsync()
+    internal async Task TestWebhooksAsync()
     {
         if (_webhookDeliveryService == null) return;
         try
@@ -4273,7 +4113,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ShowWebhookStats()
+    internal void ShowWebhookStats()
     {
         if (_webhookDeliveryService == null) return;
 

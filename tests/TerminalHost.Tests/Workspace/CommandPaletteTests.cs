@@ -217,10 +217,11 @@ public class CommandPaletteTests
     }
 
     [Fact]
-    public void Commands_ReflectsProviderChanges_AtQueryTime()
+    public void Commands_IsCached_UntilRegisterOrDispose()
     {
-        // CommandPalette.Commands recomputes on every access — no caching.
-        // Mutating a provider's backing list between reads should be observable.
+        // CommandPalette.Commands caches the aggregated list on first access.
+        // The cache invalidates only on Register/Dispose; mid-stream mutations
+        // to a provider's backing list are NOT observable without a Register.
         var mutable = new List<PaletteCommand> { MakeCmd("1", "One") };
         var provider = new FakeProvider(mutable);
         var palette = new CommandPalette(new[] { provider }, new FakeContext());
@@ -229,7 +230,17 @@ public class CommandPaletteTests
 
         mutable.Add(MakeCmd("2", "Two"));
 
-        palette.Commands.Count.ShouldBe(2);
+        // Cache still holds the original snapshot.
+        palette.Commands.Count.ShouldBe(1);
+
+        // Register invalidates; next access rebuilds, picking up the mutation too.
+        using (palette.Register(MakeCmd("3", "Three")))
+        {
+            palette.Commands.Count.ShouldBe(3);
+            palette.Commands.Select(c => c.Id).ShouldBe(new[] { "1", "2", "3" });
+        }
+
+        // Dispose invalidates; "3" gone but "2" stays (cache rebuilt after disposal).
         palette.Commands.Select(c => c.Id).ShouldBe(new[] { "1", "2" });
     }
 

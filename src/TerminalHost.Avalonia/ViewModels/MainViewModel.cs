@@ -20,7 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IProfileRegistry _profileRegistry;
     private readonly ISessionManager _sessionManager;
     private readonly ITerminalControlFactory _terminalFactory;
-    private readonly IConfigurationService _configService;
+    internal readonly IConfigurationService _configService;
     private readonly IStatisticsService _statisticsService;
     private readonly IGitStatusService _gitStatusService;
     private readonly ILinkDetectionService _linkDetectionService;
@@ -38,7 +38,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IGitHubService _gitHubService;
     private readonly IMarkdownService _markdownService;
     private readonly IProcessService _processService;
-    private readonly IToastService _toastService;
+    internal readonly IToastService _toastService;
     private readonly IClipboardService _clipboardService;
     private readonly IFolderPickerService _folderPickerService;
     private readonly IFilePickerService _filePickerService;
@@ -47,7 +47,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITimelineService _timelineService;
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly ITaskAggregator? _taskAggregator;
-    private readonly IApiServer? _apiServer;
+    internal readonly IApiServer? _apiServer;
     private readonly ISessionActivityService? _sessionActivityService;
     private readonly IEventAggregatorService? _eventAggregator;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
@@ -472,7 +472,13 @@ public partial class MainViewModel : ObservableObject
             activeTab: () => SelectedTab,
             serviceLocator: t => App.Current?.Services?.GetService(t));
         _palette = new CommandPalette(
-            providers: new ICommandProvider[] { new MainViewModelStaticCommandProvider(this) },
+            providers: new ICommandProvider[]
+            {
+                new MainViewModelStaticCommandProvider(this),
+                new ContainerCommandProvider(this),
+                new ApiCommandProvider(this),
+                new VoiceCommandProvider(this),
+            },
             context: commandContext);
         InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
@@ -3134,28 +3140,6 @@ public partial class MainViewModel : ObservableObject
                 }
             },
 
-            // API commands
-            new() {
-                Id = "api-start",
-                Name = "API: Start Server",
-                Description = "Start the REST API server",
-                Icon = "🌐",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 24),
-                Execute = () => _ = StartApiServerAsync(),
-                CanExecute = () => _apiServer != null && !_apiServer.IsRunning
-            },
-            new() {
-                Id = "api-stop",
-                Name = "API: Stop Server",
-                Description = "Stop the REST API server",
-                Icon = "🌐",
-                Category = "API",
-                IntroducedOn = new DateOnly(2026, 2, 24),
-                Execute = () => _ = StopApiServerAsync(),
-                CanExecute = () => _apiServer != null && _apiServer.IsRunning
-            },
-
             // Status Overlay commands
             new() {
                 Id = "toggle-status-overlay",
@@ -3284,84 +3268,6 @@ public partial class MainViewModel : ObservableObject
                 Category = "AI",
                 IntroducedOn = new DateOnly(2026, 2, 23),
                 Execute = () => AiPanelCommandRequested?.Invoke(this, "improve-markdown")
-            },
-
-            // Container commands
-            new() {
-                Id = "container-toggle",
-                Name = "Container: Toggle for Current Workspace",
-                Description = "Enable or disable Docker container isolation for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => ToggleContainerForCurrentWorkspace(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-rebuild-image",
-                Name = "Container: Rebuild Image",
-                Description = "Rebuild the Docker workspace image from Dockerfile",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = RebuildContainerImageAsync()
-            },
-            new() {
-                Id = "container-stop",
-                Name = "Container: Stop Current",
-                Description = "Stop the Docker container for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = StopCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-remove",
-                Name = "Container: Remove Current",
-                Description = "Remove the Docker container for the active workspace",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = RemoveCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-recreate",
-                Name = "Container: Recreate Current",
-                Description = "Remove and recreate the container (applies settings changes)",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = RecreateCurrentContainerAsync(),
-                CanExecute = () => SelectedTab is TerminalPairTabViewModel
-            },
-            new() {
-                Id = "container-list",
-                Name = "Container: List All",
-                Description = "Show all TerminalHost Docker containers",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = ListContainersAsync()
-            },
-            new() {
-                Id = "container-clean",
-                Name = "Container: Clean Stopped",
-                Description = "Remove all stopped Docker containers",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = CleanStoppedContainersAsync()
-            },
-            new() {
-                Id = "container-check-docker",
-                Name = "Container: Check Docker Status",
-                Description = "Verify Docker Desktop is available and running",
-                Icon = "🐳",
-                Category = "Container",
-                IntroducedOn = new DateOnly(2026, 3, 24),
-                Execute = () => _ = CheckDockerStatusAsync()
             },
 
             // Channel commands
@@ -3682,7 +3588,7 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private async Task StartApiServerAsync()
+    internal async Task StartApiServerAsync()
     {
         if (_apiServer == null) return;
         try
@@ -3696,7 +3602,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task StopApiServerAsync()
+    internal async Task StopApiServerAsync()
     {
         if (_apiServer == null) return;
         await _apiServer.StopAsync();
@@ -3804,7 +3710,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ToggleContainerForCurrentWorkspace()
+    internal void ToggleContainerForCurrentWorkspace()
     {
         if (SelectedTab is not TerminalPairTabViewModel tab) return;
         var dir = tab.Pair.WorkingDirectory;
@@ -3859,7 +3765,7 @@ public partial class MainViewModel : ObservableObject
         OpenProjectTab(dir);
     }
 
-    private async Task RebuildContainerImageAsync()
+    internal async Task RebuildContainerImageAsync()
     {
         if (_containerService == null) return;
 
@@ -3889,7 +3795,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RecreateCurrentContainerAsync()
+    internal async Task RecreateCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         var dir = tab.Pair.WorkingDirectory;
@@ -3912,7 +3818,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task StopCurrentContainerAsync()
+    internal async Task StopCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         try
@@ -3926,7 +3832,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RemoveCurrentContainerAsync()
+    internal async Task RemoveCurrentContainerAsync()
     {
         if (_containerService == null || SelectedTab is not TerminalPairTabViewModel tab) return;
         try
@@ -3940,7 +3846,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task ListContainersAsync()
+    internal async Task ListContainersAsync()
     {
         if (_containerService == null) return;
         try
@@ -3961,7 +3867,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task CleanStoppedContainersAsync()
+    internal async Task CleanStoppedContainersAsync()
     {
         if (_containerService == null) return;
         try
@@ -3975,7 +3881,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task CheckDockerStatusAsync()
+    internal async Task CheckDockerStatusAsync()
     {
         if (_containerService == null) return;
         var available = await _containerService.IsDockerAvailableAsync();

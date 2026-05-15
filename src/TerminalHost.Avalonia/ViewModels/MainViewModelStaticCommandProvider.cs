@@ -4,11 +4,12 @@ using TerminalHost.Core.Workspace;
 namespace TerminalHost.ViewModels;
 
 /// <summary>
-/// Seed provider that returns the full static palette block previously hand-rolled
-/// in <see cref="MainViewModel.InitializeCommandPalette"/>. In Step 2b this block
-/// will be split into per-feature providers (Git, Container, AI, etc.); for Step 2a
-/// the block stays intact and is sourced from MainViewModel so the lambdas keep
-/// their existing closure semantics without bulk access-modifier churn.
+/// Catch-all provider hosting the static palette block in MainViewModel that
+/// has not yet been extracted into a per-feature provider. Step 2b peeled off
+/// Container, API, and Voice into dedicated providers; the remaining categories
+/// (Git, Run, AI, Timeline, SparkCanvas, GitHub, Markdown, Channel, StatusOverlay,
+/// Layout, Panel toggles, Settings toggles, What's New, core Tab/File/Terminal)
+/// will be split in later sub-steps of issue #48.
 /// </summary>
 internal sealed class MainViewModelStaticCommandProvider : ICommandProvider
 {

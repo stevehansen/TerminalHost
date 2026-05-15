@@ -7,6 +7,10 @@ public sealed class CommandPalette : ICommandPalette
     private readonly IReadOnlyList<ICommandProvider> _providers;
     private readonly ICommandContext _context;
     private readonly List<PaletteCommand> _additional = new();
+    // UI-thread-only. The aggregated list is cached on first access and invalidated
+    // when commands are registered or a registration is disposed. Mid-stream mutations
+    // to a provider's backing list are intentionally NOT observable without a Register.
+    private IReadOnlyList<PaletteCommand>? _cachedCommands;
 
     public CommandPalette(IEnumerable<ICommandProvider> providers, ICommandContext context)
     {
@@ -19,11 +23,12 @@ public sealed class CommandPalette : ICommandPalette
     {
         get
         {
+            if (_cachedCommands is not null) return _cachedCommands;
             var list = new List<PaletteCommand>();
             foreach (var provider in _providers)
                 list.AddRange(provider.GetCommands(_context));
             list.AddRange(_additional);
-            return list;
+            return _cachedCommands = list;
         }
     }
 
@@ -51,6 +56,7 @@ public sealed class CommandPalette : ICommandPalette
     {
         ArgumentNullException.ThrowIfNull(command);
         _additional.Add(command);
+        _cachedCommands = null;
         return new Registration(this, command);
     }
 
@@ -71,6 +77,7 @@ public sealed class CommandPalette : ICommandPalette
             if (_disposed) return;
             _disposed = true;
             _owner._additional.Remove(_command);
+            _owner._cachedCommands = null;
         }
     }
 }
