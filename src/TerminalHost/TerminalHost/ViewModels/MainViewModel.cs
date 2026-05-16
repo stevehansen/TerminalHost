@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     private readonly TabRouter _router;
 
     private readonly IProjectMonitor _projectMonitor;
+    private readonly IDirectorySettingsStore _directorySettings;
 
     // Cached git tracking mode to avoid config loads on every timer tick
     private GitTrackingMode _gitTrackingMode;
@@ -437,6 +438,11 @@ public partial class MainViewModel : ObservableObject
         var fetchInterval = Math.Max(30, configService.Load().Settings.GitAutoFetchIntervalSeconds);
         _projectMonitor.SetInterval(SignalKind.GitAutoFetch, TimeSpan.FromSeconds(fetchInterval));
         _projectMonitor.Tick += OnProjectSignal;
+
+        // Step 4d (#48): per-directory settings + recent-folders persistence
+        // lives behind a single port so both hosts share the same normalization
+        // and load-mutate-save sequence.
+        _directorySettings = new DirectorySettingsStore(configService);
     }
 
     private void OnProjectSignal(object? sender, ProjectSignalEventArgs e)
@@ -1188,85 +1194,31 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveDirectorySettings(TerminalPairTabViewModel tab)
     {
-        var config = _configService.Load();
-        var normalizedPath = NormalizePath(tab.Pair.WorkingDirectory);
-
-        // Get existing settings or create new
-        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var settings))
+        _directorySettings.Update(tab.Pair.WorkingDirectory, settings =>
         {
-            settings = new DirectorySettings();
-        }
+            settings.LayoutMode = tab.LayoutMode;
+            settings.SplitRatio = tab.SplitRatio;
+            settings.ActiveTerminal = tab.ActiveTerminal.ToString();
 
-        // Update basic settings
-        settings.LayoutMode = tab.LayoutMode;
-        settings.SplitRatio = tab.SplitRatio;
-        settings.ActiveTerminal = tab.ActiveTerminal.ToString();
+            settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
+            settings.RunSplitRatio = tab.RunSplitRatio;
+            settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
+            settings.RunConfigurations = [.. tab.RunConfigurations];
 
-        // Update run settings
-        settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
-        settings.RunSplitRatio = tab.RunSplitRatio;
-        settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
-        settings.RunConfigurations = [.. tab.RunConfigurations];
+            settings.IsExplorerVisible = tab.IsExplorerVisible;
+            settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
+            settings.IsLeftPanelVisible = tab.IsLeftPanelVisible;
+            settings.LeftPanelSplitRatio = tab.LeftPanelSplitRatio;
 
-        // Update explorer/panel settings
-        settings.IsExplorerVisible = tab.IsExplorerVisible;
-        settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
-        settings.IsLeftPanelVisible = tab.IsLeftPanelVisible;
-        settings.LeftPanelSplitRatio = tab.LeftPanelSplitRatio;
+            settings.ActiveCenterPanel = tab.ActiveCenterPanel?.PanelId;
+            if (tab.ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
+            {
+                settings.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
+            }
 
-        // Update center panel state
-        settings.ActiveCenterPanel = tab.ActiveCenterPanel?.PanelId;
-
-        // Save git panel active tab if the git panel is the center panel
-        if (tab.ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
-        {
-            settings.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
-        }
-
-        // Update right sidebar panel state
-        settings.OpenRightPanels = tab.RightPanels.Select(p => p.PanelId).ToList();
-        settings.ActiveRightPanel = tab.ActiveRightPanel?.PanelId;
-
-        config.DirectorySettings[normalizedPath] = settings;
-        _configService.Save(config);
-    }
-
-    private DirectorySettings? GetDirectorySettings(string workingDirectory)
-    {
-        var config = _configService.Load();
-        var normalizedPath = NormalizePath(workingDirectory);
-
-        return config.DirectorySettings.TryGetValue(normalizedPath, out var settings) ? settings : null;
-    }
-
-    private static string NormalizePath(string path)
-    {
-        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToLowerInvariant();
-    }
-
-    /// <summary>
-    /// Updates the recent folders list when a folder is opened.
-    /// </summary>
-    private void UpdateRecentFolders(string path)
-    {
-        var config = _configService.Load();
-        var recentPaths = config.Settings.Repositories.RecentPaths;
-        var maxItems = config.Settings.Repositories.MaxRecentItems;
-
-        // Normalize path for comparison
-        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        // Remove existing entry (case-insensitive) and add to front
-        recentPaths.RemoveAll(p => p.Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
-        recentPaths.Insert(0, normalizedPath);
-
-        // Trim to max
-        while (recentPaths.Count > maxItems)
-        {
-            recentPaths.RemoveAt(recentPaths.Count - 1);
-        }
-
-        _configService.Save(config);
+            settings.OpenRightPanels = tab.RightPanels.Select(p => p.PanelId).ToList();
+            settings.ActiveRightPanel = tab.ActiveRightPanel?.PanelId;
+        });
     }
 
     [RelayCommand]
@@ -1292,7 +1244,7 @@ public partial class MainViewModel : ObservableObject
         if (tab != null)
         {
             // Only do these for interactive opens — during restore they are deferred/skipped
-            UpdateRecentFolders(workingDirectory);
+            _directorySettings.AddRecent(workingDirectory);
             _ = RefreshTabGitStatusAsync(tab);
             _ = WorkspaceSidebar?.SyncWithOpenTabAsync(workingDirectory);
 
@@ -1412,12 +1364,11 @@ public partial class MainViewModel : ObservableObject
             DirectorySettings? dirSettings;
             if (cachedDirSettings != null)
             {
-                var normalizedPath = NormalizePath(workingDirectory);
-                cachedDirSettings.TryGetValue(normalizedPath, out dirSettings);
+                cachedDirSettings.TryGetValue(DirectorySettingsStore.NormalizeKey(workingDirectory), out dirSettings);
             }
             else
             {
-                dirSettings = GetDirectorySettings(workingDirectory);
+                dirSettings = _directorySettings.Get(workingDirectory);
             }
 
             if (dirSettings != null)
@@ -2472,21 +2423,11 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedTab is not TerminalPairTabViewModel tab) return;
         var dir = tab.Pair.WorkingDirectory;
-        var config = _configService.Load();
-        var normalizedPath = NormalizePath(dir);
-
-        if (!config.DirectorySettings.TryGetValue(normalizedPath, out var dirSettings))
-        {
-            dirSettings = new DirectorySettings();
-            config.DirectorySettings[normalizedPath] = dirSettings;
-        }
-
-        // Toggle: if currently enabled (explicitly or via global), disable; otherwise enable
         var currentlyEnabled = _containerService?.IsEnabledForDirectory(dir) ?? false;
-        dirSettings.ContainerEnabled = !currentlyEnabled;
-        _configService.Save(config);
+        var nowEnabled = !currentlyEnabled;
+        _directorySettings.Update(dir, settings => settings.ContainerEnabled = nowEnabled);
 
-        var state = dirSettings.ContainerEnabled.Value ? "enabled" : "disabled";
+        var state = nowEnabled ? "enabled" : "disabled";
         _toastService.Show($"Container {state} for {Path.GetFileName(dir)}. Reloading tab...", ToastType.Info);
 
         // Auto-reload the tab so container settings take effect immediately
