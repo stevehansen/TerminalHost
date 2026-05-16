@@ -125,6 +125,115 @@ public class WorkspaceServiceTests
         _sut.GetTabsToCloseToRightOf(null).ShouldBeEmpty();
     }
 
+    [Fact]
+    public void SelectedTab_TogglesIsSelectedOnOldAndNew()
+    {
+        var a = AddTab("a");
+        var b = AddTab("b");
+
+        _sut.SelectedTab = a;
+        a.IsSelected.ShouldBeTrue();
+        b.IsSelected.ShouldBeFalse();
+
+        _sut.SelectedTab = b;
+        a.IsSelected.ShouldBeFalse();
+        b.IsSelected.ShouldBeTrue();
+
+        _sut.SelectedTab = null;
+        a.IsSelected.ShouldBeFalse();
+        b.IsSelected.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SelectedTab_RaisesSelectedTabChangedWithOldAndNew()
+    {
+        var a = AddTab("a");
+        var b = AddTab("b");
+        var events = new List<(ITabViewModel? Old, ITabViewModel? New)>();
+        _sut.SelectedTabChanged += (_, e) => events.Add((e.OldValue, e.NewValue));
+
+        _sut.SelectedTab = a;
+        _sut.SelectedTab = b;
+        _sut.SelectedTab = null;
+
+        events.ShouldBe(new (ITabViewModel? Old, ITabViewModel? New)[]
+        {
+            (null, a),
+            (a, b),
+            (b, null),
+        });
+    }
+
+    [Fact]
+    public void SelectedTab_NoOpAndNoEventWhenUnchanged()
+    {
+        var a = AddTab("a");
+        var fired = 0;
+        _sut.SelectedTabChanged += (_, _) => fired++;
+
+        _sut.SelectedTab = a;
+        _sut.SelectedTab = a;
+        _sut.SelectedTab = a;
+
+        fired.ShouldBe(1);
+    }
+
+    [Fact]
+    public void RemoveAndPickNext_RemovesTabAndKeepsSelectionWhenUnaffected()
+    {
+        var a = AddTab("a");
+        var b = AddTab("b");
+        var c = AddTab("c");
+        _sut.SelectedTab = a;
+
+        _sut.RemoveAndPickNext(b);
+
+        _sut.Tabs.ShouldBe(new ITabViewModel[] { a, c });
+        _sut.SelectedTab.ShouldBe(a);
+    }
+
+    [Fact]
+    public void RemoveAndPickNext_PicksLastTabWhenSelectedWasRemoved()
+    {
+        var a = AddTab("a");
+        var b = AddTab("b");
+        var c = AddTab("c");
+        _sut.SelectedTab = b;
+
+        _sut.RemoveAndPickNext(b);
+
+        _sut.Tabs.ShouldBe(new ITabViewModel[] { a, c });
+        _sut.SelectedTab.ShouldBe(c);
+    }
+
+    [Fact]
+    public void RemoveAndPickNext_SelectionBecomesNullWhenLastTabRemoved()
+    {
+        var a = AddTab("a");
+        _sut.SelectedTab = a;
+
+        _sut.RemoveAndPickNext(a);
+
+        _sut.Tabs.ShouldBeEmpty();
+        _sut.SelectedTab.ShouldBeNull();
+    }
+
+    [Fact]
+    public void RemoveAndPickNext_NoOpForNullOrUnknown()
+    {
+        var a = AddTab("a");
+        _sut.SelectedTab = a;
+        var fired = 0;
+        _sut.SelectedTabChanged += (_, _) => fired++;
+
+        _sut.RemoveAndPickNext(null);
+        _sut.RemoveAndPickNext(new FakeTab("z"));
+
+        _sut.Tabs.ShouldBe(new ITabViewModel[] { a });
+        _sut.SelectedTab.ShouldBe(a);
+        fired.ShouldBe(0);
+    }
+
     private FakeTab AddTab(string label, bool closeable = true)
     {
         var tab = new FakeTab(label) { IsCloseable = closeable };

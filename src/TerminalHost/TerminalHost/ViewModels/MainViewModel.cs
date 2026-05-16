@@ -144,9 +144,16 @@ public partial class MainViewModel : ObservableObject
     private readonly IWorkspaceService _workspace = new WorkspaceService();
     public ObservableCollection<ITabViewModel> Tabs => _workspace.Tabs;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WindowTitle))]
-    private ITabViewModel? _selectedTab;
+    // SelectedTab forwards to the workspace service (Step 4b of #48). The
+    // service owns the actual value, toggles IsSelected on old/new tabs, and
+    // raises SelectedTabChanged — host-specific side effects (focus tracking,
+    // API events, panel updates) run in the OnWorkspaceSelectedTabChanged
+    // handler subscribed in the ctor.
+    public ITabViewModel? SelectedTab
+    {
+        get => _workspace.SelectedTab;
+        set => _workspace.SelectedTab = value;
+    }
 
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = [];
@@ -354,6 +361,8 @@ public partial class MainViewModel : ObservableObject
             }
         };
 
+        _workspace.SelectedTabChanged += OnWorkspaceSelectedTabChanged;
+
         // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
         _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
 
@@ -452,8 +461,17 @@ public partial class MainViewModel : ObservableObject
         UpdateFilteredSwitcherTabs();
     }
 
-    partial void OnSelectedTabChanged(ITabViewModel? oldValue, ITabViewModel? newValue)
+    private void OnWorkspaceSelectedTabChanged(object? sender, TabSelectionChangedEventArgs e)
     {
+        var oldValue = e.OldValue;
+        var newValue = e.NewValue;
+
+        // Notify XAML bindings — the [ObservableProperty]/[NotifyPropertyChangedFor]
+        // pair that previously fired these auto is gone now that SelectedTab
+        // forwards to IWorkspaceService.
+        OnPropertyChanged(nameof(SelectedTab));
+        OnPropertyChanged(nameof(WindowTitle));
+
         // Record focus time for the previous tab
         if (_tabFocusStartTime.HasValue && !string.IsNullOrEmpty(_focusedTabDirectory))
         {
@@ -505,14 +523,8 @@ public partial class MainViewModel : ObservableObject
             IsTabSwitcherOpen = false;
         }
 
-        // Update IsSelected state on tabs
-        if (oldValue != null)
-        {
-            oldValue.IsSelected = false;
-        }
         if (newValue != null)
         {
-            newValue.IsSelected = true;
             // Clear unread activity indicator when tab is selected/focused
             newValue.ClearUnreadActivity();
 
@@ -1776,12 +1788,7 @@ public partial class MainViewModel : ObservableObject
             profileTab.Session.Dispose();
         }
 
-        Tabs.Remove(tab);
-
-        if (SelectedTab == tab && Tabs.Count > 0)
-        {
-            SelectedTab = Tabs[^1];
-        }
+        _workspace.RemoveAndPickNext(tab);
     }
 
     [RelayCommand]

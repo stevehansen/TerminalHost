@@ -4,14 +4,16 @@ using TerminalHost.Core.Interfaces;
 namespace TerminalHost.Core.Workspace;
 
 /// <summary>
-/// Owns the workspace's tab collection and exposes the mutation/query operations
-/// that don't require host-specific tab construction.
+/// Owns the workspace's tab collection and selection state, plus the
+/// mutation/query operations that don't require host-specific tab construction.
 /// <para>
-/// Step 4a of the manager decomposition (issue #48) — this slice owns the
-/// <see cref="ObservableCollection{T}"/> instance so future slices can move
-/// tab-lifecycle code (Open/Close/Restore) here without rewiring callers.
-/// Selection state and the actual <c>OpenProjectTab</c> / <c>CloseTab</c>
-/// implementations still live in <c>MainViewModel</c>.
+/// Step 4a introduced collection ownership; Step 4b (this revision) adds
+/// selection ownership and the close-and-pick-next helper that both hosts
+/// previously duplicated at the end of their <c>CloseTab</c> methods.
+/// The actual <c>OpenProjectTab</c> / <c>CloseTab</c> / <c>RestoreOpenFolders</c>
+/// lifecycle still lives in <c>MainViewModel</c> — moving it requires pulling
+/// host services (terminal factory, container service, sidebar, panel restore)
+/// into a port boundary, which is a later slice.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -27,6 +29,22 @@ public interface IWorkspaceService
     /// collection reference directly.
     /// </summary>
     ObservableCollection<ITabViewModel> Tabs { get; }
+
+    /// <summary>
+    /// The currently selected tab, or <c>null</c> if no tab is selected.
+    /// Setting this property toggles <see cref="ITabViewModel.IsSelected"/> on
+    /// the old and new tabs and raises <see cref="SelectedTabChanged"/>.
+    /// Setting to the current value is a no-op (no event).
+    /// </summary>
+    ITabViewModel? SelectedTab { get; set; }
+
+    /// <summary>
+    /// Raised after <see cref="SelectedTab"/> changes — host code subscribes to
+    /// run its presentation-layer side effects (focus tracking, panel updates,
+    /// API events, etc.). The <c>IsSelected</c> flags on the old/new tabs are
+    /// already updated by the time this fires.
+    /// </summary>
+    event EventHandler<TabSelectionChangedEventArgs>? SelectedTabChanged;
 
     /// <summary>
     /// Moves the tab at <paramref name="oldIndex"/> to <paramref name="newIndex"/>.
@@ -46,6 +64,20 @@ public interface IWorkspaceService
     /// missing, null, or already at the end.
     /// </summary>
     void MoveToEnd(ITabViewModel? tab);
+
+    /// <summary>
+    /// Removes <paramref name="tab"/> from the collection. If it was the
+    /// <see cref="SelectedTab"/>, the new selection becomes the last remaining
+    /// tab (or <c>null</c> if the collection is now empty). No-op if the tab
+    /// is null or not in the collection.
+    /// </summary>
+    /// <remarks>
+    /// This replaces the duplicated <c>Tabs.Remove(tab); if (SelectedTab == tab
+    /// &amp;&amp; Tabs.Count &gt; 0) SelectedTab = Tabs[^1];</c> tail of both
+    /// hosts' <c>CloseTab</c> methods. Host-side disposal (terminals, event
+    /// unsubscription) still runs in <c>CloseTab</c> before this is called.
+    /// </remarks>
+    void RemoveAndPickNext(ITabViewModel? tab);
 
     /// <summary>
     /// Returns the closeable tabs that are not <paramref name="keep"/>, in
