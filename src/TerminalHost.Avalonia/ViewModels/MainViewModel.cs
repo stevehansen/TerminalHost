@@ -63,6 +63,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IProjectMonitor _projectMonitor;
     private readonly IDirectorySettingsStore _directorySettings;
     private readonly ITabFactory _tabFactory;
+    private readonly IWorkspaceStateStore _workspaceStateStore;
 
     // Cached git tracking mode to avoid config loads on every timer tick
     private GitTrackingMode _gitTrackingMode;
@@ -354,6 +355,7 @@ public partial class MainViewModel : ObservableObject
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
         ITabFactory tabFactory,
+        IWorkspaceStateStore workspaceStateStore,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         ITaskAggregator? taskAggregator = null,
         IApiServer? apiServer = null,
@@ -397,6 +399,7 @@ public partial class MainViewModel : ObservableObject
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
         _tabFactory = tabFactory;
+        _workspaceStateStore = workspaceStateStore;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _taskAggregator = taskAggregator;
         _apiServer = apiServer;
@@ -1018,26 +1021,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void SaveOpenFolders()
-    {
-        var config = _configService.Load();
-
-        // Only save TerminalPairTabViewModel tabs (not Settings, Stats, Dashboard, etc.)
-        config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
-
-        // Save the currently selected tab (if it's a project tab)
-        if (SelectedTab is TerminalPairTabViewModel selectedProjectTab)
-        {
-            config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
-        }
-        else
-        {
-            // Keep the previous selection or clear it
-            config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-        }
-
-        _configService.Save(config);
-    }
 
     private void SaveDirectorySettings(TerminalPairTabViewModel tab)
     {
@@ -2969,7 +2952,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Save open folders before closing
-        SaveOpenFolders();
+        _workspaceStateStore.SaveOpenFolders(Tabs, SelectedTab);
 
         // Stop containers if configured — run on thread pool to avoid UI thread
         // deadlock, but wait with a timeout so the process doesn't exit too early

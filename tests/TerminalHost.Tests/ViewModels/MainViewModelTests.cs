@@ -38,6 +38,7 @@ public class MainViewModelTests
     private readonly Mock<IGitWorktreeService> _mockGitWorktreeService;
     private readonly Mock<IViewModelFactory> _mockViewModelFactory;
     private readonly Mock<ITabFactory> _mockTabFactory;
+    private readonly Mock<IWorkspaceStateStore> _mockWorkspaceStateStore;
     private readonly Mock<ITimelineService> _mockTimelineService;
     private readonly Mock<IInputPromptDetectionService> _mockInputPromptDetectionService;
 
@@ -72,6 +73,7 @@ public class MainViewModelTests
         _mockGitWorktreeService = new Mock<IGitWorktreeService>();
         _mockViewModelFactory = new Mock<IViewModelFactory>();
         _mockTabFactory = new Mock<ITabFactory>();
+        _mockWorkspaceStateStore = new Mock<IWorkspaceStateStore>();
         _mockTimelineService = new Mock<ITimelineService>();
         _mockInputPromptDetectionService = new Mock<IInputPromptDetectionService>();
 
@@ -205,6 +207,7 @@ public class MainViewModelTests
             _mockFolderPickerService.Object,
             _mockViewModelFactory.Object,
             _mockTabFactory.Object,
+            _mockWorkspaceStateStore.Object,
             _mockTimelineService.Object,
             _mockInputPromptDetectionService.Object);
     }

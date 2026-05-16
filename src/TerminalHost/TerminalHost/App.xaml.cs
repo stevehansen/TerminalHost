@@ -350,6 +350,7 @@ public partial class App : Application
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IViewModelFactory, ViewModelFactory>();
         services.AddSingleton<ITabFactory, TabFactory>();
+        services.AddSingleton<IWorkspaceStateStore, WorkspaceStateStore>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

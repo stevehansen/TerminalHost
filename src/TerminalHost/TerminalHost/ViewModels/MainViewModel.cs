@@ -40,6 +40,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFolderPickerService _folderPickerService;
     private readonly IViewModelFactory _viewModelFactory;
     private readonly ITabFactory _tabFactory;
+    private readonly IWorkspaceStateStore _workspaceStateStore;
     private readonly ITimelineService _timelineService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly ITaskService? _taskService;
@@ -260,6 +261,7 @@ public partial class MainViewModel : ObservableObject
         IFolderPickerService folderPickerService,
         IViewModelFactory viewModelFactory,
         ITabFactory tabFactory,
+        IWorkspaceStateStore workspaceStateStore,
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
         ITaskService? taskService = null,
@@ -292,6 +294,7 @@ public partial class MainViewModel : ObservableObject
         _folderPickerService = folderPickerService;
         _viewModelFactory = viewModelFactory;
         _tabFactory = tabFactory;
+        _workspaceStateStore = workspaceStateStore;
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
         _taskService = taskService;
@@ -1154,45 +1157,6 @@ public partial class MainViewModel : ObservableObject
                 catch { }
             }
         });
-    }
-
-    private void SaveOpenFolders()
-    {
-        var config = _configService.Load();
-
-        // Only save TerminalPairTabViewModel tabs (not Settings, Stats, Dashboard, etc.)
-        config.OpenFolders = [.. Tabs.OfType<TerminalPairTabViewModel>().Select(t => t.Pair.WorkingDirectory)];
-
-        // Save the currently selected tab type and folder
-        switch (SelectedTab)
-        {
-            case TerminalPairTabViewModel selectedProjectTab:
-                config.LastSelectedTabType = "Project";
-                config.LastSelectedFolder = selectedProjectTab.Pair.WorkingDirectory;
-                break;
-            case DashboardTabViewModel:
-                config.LastSelectedTabType = "Dashboard";
-                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-                break;
-            case TimelineTabViewModel:
-                config.LastSelectedTabType = "Timeline";
-                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-                break;
-            case SettingsTabViewModel:
-                config.LastSelectedTabType = "Settings";
-                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-                break;
-            case StatisticsTabViewModel:
-                config.LastSelectedTabType = "Statistics";
-                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-                break;
-            default:
-                config.LastSelectedTabType = "Project";
-                config.LastSelectedFolder = config.OpenFolders.FirstOrDefault();
-                break;
-        }
-
-        _configService.Save(config);
     }
 
     private void SaveDirectorySettings(TerminalPairTabViewModel tab)
@@ -3037,7 +3001,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Save open folders before closing
-        SaveOpenFolders();
+        _workspaceStateStore.SaveOpenFolders(Tabs, SelectedTab);
 
         // Stop containers if configured — run on thread pool to avoid UI thread
         // deadlock, but wait with a timeout so the process doesn't exit too early

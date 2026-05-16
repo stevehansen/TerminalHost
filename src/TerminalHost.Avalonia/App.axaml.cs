@@ -275,6 +275,7 @@ public partial class App : Application
 
         // Tab construction
         services.AddSingleton<ITabFactory, TabFactory>();
+        services.AddSingleton<IWorkspaceStateStore, WorkspaceStateStore>();
 
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
