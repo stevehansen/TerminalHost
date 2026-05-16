@@ -1,3 +1,4 @@
+using System.IO;
 using Shouldly;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Workspace;
@@ -234,6 +235,71 @@ public class WorkspaceServiceTests
         fired.ShouldBe(0);
     }
 
+    [Fact]
+    public void NormalizeWorkingDirectory_StripsTrailingSeparatorsAndCanonicalizes()
+    {
+        var input = Path.Combine(Path.GetTempPath(), "x") + Path.DirectorySeparatorChar;
+        var expected = Path.Combine(Path.GetTempPath(), "x");
+
+        WorkspaceService.NormalizeWorkingDirectory(input).ShouldBe(expected);
+    }
+
+    [Fact]
+    public void NormalizeWorkingDirectory_EmptyForNullOrWhitespaceOrInvalid()
+    {
+        WorkspaceService.NormalizeWorkingDirectory(null).ShouldBe(string.Empty);
+        WorkspaceService.NormalizeWorkingDirectory("").ShouldBe(string.Empty);
+        WorkspaceService.NormalizeWorkingDirectory("   ").ShouldBe(string.Empty);
+        // Null byte triggers ArgumentException in Path.GetFullPath on all platforms
+        WorkspaceService.NormalizeWorkingDirectory("bad\0path").ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void FindByWorkingDirectory_MatchesCaseInsensitivelyAndIgnoresTrailingSeparators()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "Project");
+        var a = AddProjectTab("a", path);
+        AddProjectTab("b", Path.Combine(Path.GetTempPath(), "Other"));
+
+        _sut.FindByWorkingDirectory<ProjectFakeTab>(path.ToUpperInvariant() + Path.DirectorySeparatorChar)
+            .ShouldBe(new[] { a });
+    }
+
+    [Fact]
+    public void FindByWorkingDirectory_ReturnsAllMatchesForDuplicateTabs()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "Project");
+        var a = AddProjectTab("a", path);
+        var b = AddProjectTab("b", path);
+        var c = AddProjectTab("c", path);
+
+        _sut.FindByWorkingDirectory<ProjectFakeTab>(path).ShouldBe(new[] { a, b, c });
+    }
+
+    [Fact]
+    public void FindByWorkingDirectory_FiltersByRequestedType()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "Project");
+        var project = AddProjectTab("project", path);
+        // A FakeTab with the same path string but a different runtime type
+        var other = new FakeTab("other-typed") { OverrideWorkingDir = path };
+        _sut.Tabs.Add(other);
+
+        _sut.FindByWorkingDirectory<ProjectFakeTab>(path).ShouldBe(new[] { project });
+    }
+
+    [Fact]
+    public void FindByWorkingDirectory_EmptyForNullOrEmptyInputOrSentinelMatches()
+    {
+        var sentinel = AddTab("settings");  // FakeTab.WorkingDirectory == ""
+
+        _sut.FindByWorkingDirectory<FakeTab>(null).ShouldBeEmpty();
+        _sut.FindByWorkingDirectory<FakeTab>(string.Empty).ShouldBeEmpty();
+        _sut.FindByWorkingDirectory<FakeTab>("   ").ShouldBeEmpty();
+        // Sentinel tab (empty WorkingDirectory) never matches a real path
+        _sut.FindByWorkingDirectory<FakeTab>(Path.GetTempPath()).ShouldNotContain(sentinel);
+    }
+
     private FakeTab AddTab(string label, bool closeable = true)
     {
         var tab = new FakeTab(label) { IsCloseable = closeable };
@@ -241,12 +307,28 @@ public class WorkspaceServiceTests
         return tab;
     }
 
-    private sealed class FakeTab : ITabViewModel
+    private ProjectFakeTab AddProjectTab(string label, string workingDirectory)
+    {
+        var tab = new ProjectFakeTab(label, workingDirectory);
+        _sut.Tabs.Add(tab);
+        return tab;
+    }
+
+    private sealed class ProjectFakeTab : FakeTab
+    {
+        public ProjectFakeTab(string label, string workingDirectory) : base(label)
+        {
+            OverrideWorkingDir = workingDirectory;
+        }
+    }
+
+    private class FakeTab : ITabViewModel
     {
         public FakeTab(string label) { Title = label; }
         public string Title { get; }
         public string TabIcon => "T";
-        public string WorkingDirectory => "";
+        public string? OverrideWorkingDir { get; set; }
+        public string WorkingDirectory => OverrideWorkingDir ?? "";
         public bool IsCloseable { get; set; } = true;
         public bool IsAnyTerminalActive => false;
         public bool HasUnreadActivity => false;

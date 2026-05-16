@@ -7,9 +7,10 @@ namespace TerminalHost.Core.Workspace;
 /// Owns the workspace's tab collection and selection state, plus the
 /// mutation/query operations that don't require host-specific tab construction.
 /// <para>
-/// Step 4a introduced collection ownership; Step 4b (this revision) adds
-/// selection ownership and the close-and-pick-next helper that both hosts
-/// previously duplicated at the end of their <c>CloseTab</c> methods.
+/// Step 4a introduced collection ownership; Step 4b added selection ownership
+/// and the close-and-pick-next helper; Step 4c (this revision) adds the
+/// working-directory lookup + path normalization that both hosts duplicated
+/// at the top of <c>OpenProjectTab</c> and inside <c>GetDuplicateTabIndex</c>.
 /// The actual <c>OpenProjectTab</c> / <c>CloseTab</c> / <c>RestoreOpenFolders</c>
 /// lifecycle still lives in <c>MainViewModel</c> — moving it requires pulling
 /// host services (terminal factory, container service, sidebar, panel restore)
@@ -78,6 +79,22 @@ public interface IWorkspaceService
     /// unsubscription) still runs in <c>CloseTab</c> before this is called.
     /// </remarks>
     void RemoveAndPickNext(ITabViewModel? tab);
+
+    /// <summary>
+    /// Returns the tabs of type <typeparamref name="T"/> whose
+    /// <see cref="ITabViewModel.WorkingDirectory"/> matches
+    /// <paramref name="workingDirectory"/> under
+    /// <see cref="WorkspaceService.NormalizeWorkingDirectory"/> + ordinal
+    /// case-insensitive comparison. Tabs whose <c>WorkingDirectory</c> doesn't
+    /// roundtrip through <see cref="System.IO.Path.GetFullPath(string)"/>
+    /// (settings/profiles/dashboard sentinels) never match a real path.
+    /// </summary>
+    /// <remarks>
+    /// Returns an empty sequence for null/empty input — both hosts already
+    /// guarded against this and now don't need to. The generic constraint lets
+    /// callers ask specifically for project tabs without casting.
+    /// </remarks>
+    IEnumerable<T> FindByWorkingDirectory<T>(string? workingDirectory) where T : class, ITabViewModel;
 
     /// <summary>
     /// Returns the closeable tabs that are not <paramref name="keep"/>, in

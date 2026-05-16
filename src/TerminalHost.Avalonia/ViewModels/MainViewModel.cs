@@ -1161,8 +1161,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // Normalize the path for comparison
-            workingDirectory = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            workingDirectory = WorkspaceService.NormalizeWorkingDirectory(workingDirectory);
 
             if (!_fileSystem.DirectoryExists(workingDirectory)) // Use injected IFileSystem
             {
@@ -1172,16 +1171,9 @@ public partial class MainViewModel : ObservableObject
 
             if (!forceNew)
             {
-                // Check if we already have a tab open for this directory
-                var existingTab = Tabs.OfType<TerminalPairTabViewModel>().FirstOrDefault(t =>
-                    string.Equals(
-                        Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                        workingDirectory,
-                        StringComparison.OrdinalIgnoreCase));
-
+                var existingTab = _workspace.FindByWorkingDirectory<TerminalPairTabViewModel>(workingDirectory).FirstOrDefault();
                 if (existingTab != null)
                 {
-                    // Focus the existing tab instead of creating a new one
                     SelectedTab = existingTab;
                     return;
                 }
@@ -1397,8 +1389,7 @@ public partial class MainViewModel : ObservableObject
                 effectiveWorkingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
 
-            // Normalize path
-            effectiveWorkingDir = Path.GetFullPath(effectiveWorkingDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            effectiveWorkingDir = WorkspaceService.NormalizeWorkingDirectory(effectiveWorkingDir);
 
             if (!_fileSystem.DirectoryExists(effectiveWorkingDir)) // Use injected IFileSystem
             {
@@ -1551,22 +1542,9 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private int GetDuplicateTabIndex(string workingDirectory)
     {
-        var normalizedPath = Path.GetFullPath(workingDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        var existingTabs = Tabs.OfType<TerminalPairTabViewModel>()
-            .Where(t => string.Equals(
-                Path.GetFullPath(t.Pair.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                normalizedPath,
-                StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (existingTabs.Count == 0)
-            return 0; // First tab, no index needed
-
-        // Find the highest existing index and add 1
-        var maxIndex = existingTabs.Max(t => t.DuplicateIndex);
-        return Math.Max(2, maxIndex + 1);
+        var existingTabs = _workspace.FindByWorkingDirectory<TerminalPairTabViewModel>(workingDirectory).ToList();
+        if (existingTabs.Count == 0) return 0;
+        return Math.Max(2, existingTabs.Max(t => t.DuplicateIndex) + 1);
     }
 
     /// <summary>

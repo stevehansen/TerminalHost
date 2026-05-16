@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Core.Workspace;
@@ -62,6 +63,40 @@ public sealed class WorkspaceService : IWorkspaceService
         if (ReferenceEquals(_selectedTab, tab))
         {
             SelectedTab = Tabs.Count > 0 ? Tabs[^1] : null;
+        }
+    }
+
+    public IEnumerable<T> FindByWorkingDirectory<T>(string? workingDirectory) where T : class, ITabViewModel
+    {
+        if (string.IsNullOrEmpty(workingDirectory)) return [];
+        var normalized = NormalizeWorkingDirectory(workingDirectory);
+        if (normalized.Length == 0) return [];
+        return Tabs.OfType<T>().Where(t =>
+            t.WorkingDirectory.Length > 0 &&
+            string.Equals(NormalizeWorkingDirectory(t.WorkingDirectory), normalized,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Canonicalizes a working-directory path for tab-identity comparison:
+    /// applies <see cref="Path.GetFullPath(string)"/> and strips trailing
+    /// directory separators. Invalid input (null/empty, paths that throw
+    /// inside <c>GetFullPath</c>) collapses to an empty string so callers
+    /// can compare without try/catch — sentinel values like "Settings" or
+    /// "Profiles" used by non-project tab view models also normalize to
+    /// themselves (no slashes to trim) and won't match a real path.
+    /// </summary>
+    public static string NormalizeWorkingDirectory(string? workingDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(workingDirectory)) return string.Empty;
+        try
+        {
+            return Path.GetFullPath(workingDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
