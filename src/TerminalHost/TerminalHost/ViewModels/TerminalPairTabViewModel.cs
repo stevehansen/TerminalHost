@@ -1761,6 +1761,69 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// Cleanup method to unsubscribe from events.
     /// Call this when the tab is being closed.
     /// </summary>
+    /// <summary>
+    /// Restores layout, terminal, and run-related state from a persisted <see cref="DirectorySettings"/>.
+    /// Must be called before <see cref="InitializePanelSystem"/>; for explorer/panel state use
+    /// <see cref="LoadPanelStateFromDirectorySettings"/> afterwards.
+    /// </summary>
+    public void LoadLayoutFromDirectorySettings(DirectorySettings settings)
+    {
+        LayoutMode = settings.LayoutMode;
+        SplitRatio = settings.SplitRatio;
+        if (Enum.TryParse<ActiveTerminal>(settings.ActiveTerminal, out var active))
+        {
+            ActiveTerminal = active;
+            Pair.ActiveTerminal = active;
+        }
+        IsRunTerminalVisible = settings.IsRunTerminalVisible;
+        RunSplitRatio = settings.RunSplitRatio;
+    }
+
+    /// <summary>
+    /// Restores explorer/left-panel state from a persisted <see cref="DirectorySettings"/>.
+    /// Must be called after <see cref="InitializePanelSystem"/> — otherwise the
+    /// <see cref="IsExplorerVisible"/> guard for an empty right-panel list resets the flag.
+    /// </summary>
+    public void LoadPanelStateFromDirectorySettings(DirectorySettings settings)
+    {
+        IsExplorerVisible = settings.IsExplorerVisible;
+        ExplorerSplitRatio = settings.ExplorerSplitRatio;
+        IsLeftPanelVisible = settings.IsLeftPanelVisible;
+        LeftPanelSplitRatio = settings.LeftPanelSplitRatio;
+    }
+
+    /// <summary>
+    /// Writes the tab's persistence-relevant state into <paramref name="target"/>.
+    /// Inverse of <see cref="LoadLayoutFromDirectorySettings"/> +
+    /// <see cref="LoadPanelStateFromDirectorySettings"/>, plus center/right-panel state
+    /// (which is restored elsewhere via an event so the host can hydrate the panel VMs).
+    /// </summary>
+    public void WriteToDirectorySettings(DirectorySettings target)
+    {
+        target.LayoutMode = LayoutMode;
+        target.SplitRatio = SplitRatio;
+        target.ActiveTerminal = ActiveTerminal.ToString();
+
+        target.IsRunTerminalVisible = IsRunTerminalVisible;
+        target.RunSplitRatio = RunSplitRatio;
+        target.ActiveRunConfigurationId = ActiveRunConfiguration?.Id;
+        target.RunConfigurations = [.. RunConfigurations];
+
+        target.IsExplorerVisible = IsExplorerVisible;
+        target.ExplorerSplitRatio = ExplorerSplitRatio;
+        target.IsLeftPanelVisible = IsLeftPanelVisible;
+        target.LeftPanelSplitRatio = LeftPanelSplitRatio;
+
+        target.ActiveCenterPanel = ActiveCenterPanel?.PanelId;
+        if (ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
+        {
+            target.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
+        }
+
+        target.OpenRightPanels = RightPanels.Select(p => p.PanelId).ToList();
+        target.ActiveRightPanel = ActiveRightPanel?.PanelId;
+    }
+
     public void Cleanup()
     {
         if (_taskService != null)

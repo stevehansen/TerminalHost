@@ -1760,6 +1760,57 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// Cleanup method called when tab is closed.
     /// Unsubscribes from events to prevent memory leaks.
     /// </summary>
+    /// <summary>
+    /// Restores layout, terminal, and run-related state from a persisted <see cref="DirectorySettings"/>.
+    /// Pair with <see cref="LoadPanelStateFromDirectorySettings"/> after the explorer view model is wired up.
+    /// </summary>
+    public void LoadLayoutFromDirectorySettings(DirectorySettings settings)
+    {
+        LayoutMode = settings.LayoutMode;
+        SplitRatio = settings.SplitRatio;
+        if (Enum.TryParse<ActiveTerminal>(settings.ActiveTerminal, out var active))
+        {
+            ActiveTerminal = active;
+            Pair.ActiveTerminal = active;
+        }
+        IsRunTerminalVisible = settings.IsRunTerminalVisible;
+        RunSplitRatio = settings.RunSplitRatio;
+    }
+
+    /// <summary>
+    /// Restores explorer state from a persisted <see cref="DirectorySettings"/>.
+    /// Must be called after <c>ExplorerViewModel</c> is wired up.
+    /// </summary>
+    public void LoadPanelStateFromDirectorySettings(DirectorySettings settings)
+    {
+        IsExplorerVisible = settings.IsExplorerVisible;
+        ExplorerSplitRatio = settings.ExplorerSplitRatio;
+    }
+
+    /// <summary>
+    /// Writes the tab's persistence-relevant state into <paramref name="target"/>.
+    /// </summary>
+    public void WriteToDirectorySettings(DirectorySettings target)
+    {
+        target.LayoutMode = LayoutMode;
+        target.SplitRatio = SplitRatio;
+        target.ActiveTerminal = ActiveTerminal.ToString();
+
+        target.IsRunTerminalVisible = IsRunTerminalVisible;
+        target.RunSplitRatio = RunSplitRatio;
+        target.ActiveRunConfigurationId = ActiveRunConfiguration?.Id;
+        target.RunConfigurations = [.. RunConfigurations];
+
+        target.IsExplorerVisible = IsExplorerVisible;
+        target.ExplorerSplitRatio = ExplorerSplitRatio;
+
+        target.ActiveCenterPanel = ActiveCenterPanel?.PanelId;
+        if (ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
+        {
+            target.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
+        }
+    }
+
     public void Cleanup()
     {
         // Unsubscribe from Claude task events

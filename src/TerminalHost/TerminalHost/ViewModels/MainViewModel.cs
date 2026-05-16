@@ -1112,31 +1112,7 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveDirectorySettings(TerminalPairTabViewModel tab)
     {
-        _directorySettings.Update(tab.Pair.WorkingDirectory, settings =>
-        {
-            settings.LayoutMode = tab.LayoutMode;
-            settings.SplitRatio = tab.SplitRatio;
-            settings.ActiveTerminal = tab.ActiveTerminal.ToString();
-
-            settings.IsRunTerminalVisible = tab.IsRunTerminalVisible;
-            settings.RunSplitRatio = tab.RunSplitRatio;
-            settings.ActiveRunConfigurationId = tab.ActiveRunConfiguration?.Id;
-            settings.RunConfigurations = [.. tab.RunConfigurations];
-
-            settings.IsExplorerVisible = tab.IsExplorerVisible;
-            settings.ExplorerSplitRatio = tab.ExplorerSplitRatio;
-            settings.IsLeftPanelVisible = tab.IsLeftPanelVisible;
-            settings.LeftPanelSplitRatio = tab.LeftPanelSplitRatio;
-
-            settings.ActiveCenterPanel = tab.ActiveCenterPanel?.PanelId;
-            if (tab.ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
-            {
-                settings.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
-            }
-
-            settings.OpenRightPanels = tab.RightPanels.Select(p => p.PanelId).ToList();
-            settings.ActiveRightPanel = tab.ActiveRightPanel?.PanelId;
-        });
+        _directorySettings.Update(tab.Pair.WorkingDirectory, tab.WriteToDirectorySettings);
     }
 
     [RelayCommand]
@@ -1291,17 +1267,7 @@ public partial class MainViewModel : ObservableObject
 
             if (dirSettings != null)
             {
-                tabViewModel.LayoutMode = dirSettings.LayoutMode;
-                tabViewModel.SplitRatio = dirSettings.SplitRatio;
-                if (Enum.TryParse<ActiveTerminal>(dirSettings.ActiveTerminal, out var activeTerminal))
-                {
-                    tabViewModel.ActiveTerminal = activeTerminal;
-                    pair.ActiveTerminal = activeTerminal;
-                }
-
-                // Restore run settings
-                tabViewModel.IsRunTerminalVisible = dirSettings.IsRunTerminalVisible;
-                tabViewModel.RunSplitRatio = dirSettings.RunSplitRatio;
+                tabViewModel.LoadLayoutFromDirectorySettings(dirSettings);
             }
 
             // Initialize run configurations (from settings or auto-detect)
@@ -1326,10 +1292,7 @@ public partial class MainViewModel : ObservableObject
             // Restore explorer/panel settings
             if (dirSettings != null)
             {
-                tabViewModel.IsExplorerVisible = dirSettings.IsExplorerVisible;
-                tabViewModel.ExplorerSplitRatio = dirSettings.ExplorerSplitRatio;
-                tabViewModel.IsLeftPanelVisible = dirSettings.IsLeftPanelVisible;
-                tabViewModel.LeftPanelSplitRatio = dirSettings.LeftPanelSplitRatio;
+                tabViewModel.LoadPanelStateFromDirectorySettings(dirSettings);
             }
 
             // Subscribe to settings changes AFTER all properties are restored
