@@ -22,4 +22,15 @@ public interface IWorkspaceStateStore
     /// it is a project tab, otherwise the first open folder).
     /// </summary>
     void SaveOpenFolders(IEnumerable<ITabViewModel> tabs, ITabViewModel? selectedTab);
+
+    /// <summary>
+    /// Read-side mirror of <see cref="SaveOpenFolders"/>: given the previously
+    /// persisted <paramref name="lastSelectedFolder"/>, returns the project
+    /// tab from <paramref name="tabs"/> with that working directory; if the
+    /// folder is empty or does not match, falls back to the first project tab
+    /// (or <see langword="null"/> when none are open). Pure — does not read
+    /// configuration. The <paramref name="lastTabType"/> parameter is accepted
+    /// for parity with the WPF port but ignored on Avalonia.
+    /// </summary>
+    ITabViewModel? FindLastSelectedTab(IEnumerable<ITabViewModel> tabs, string? lastTabType, string? lastSelectedFolder);
 }

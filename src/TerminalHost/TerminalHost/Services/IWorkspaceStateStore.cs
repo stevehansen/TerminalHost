@@ -23,4 +23,13 @@ public interface IWorkspaceStateStore
     /// The configuration is loaded and saved once per call.
     /// </summary>
     void SaveOpenFolders(IEnumerable<ITabViewModel> tabs, ITabViewModel? selectedTab);
+
+    /// <summary>
+    /// Read-side mirror of <see cref="SaveOpenFolders"/>: given the previously
+    /// persisted <paramref name="lastTabType"/> and <paramref name="lastSelectedFolder"/>,
+    /// returns the tab from <paramref name="tabs"/> that should be made active.
+    /// Returns <see langword="null"/> when no tab matches (the caller leaves
+    /// the current selection untouched). Pure — does not read configuration.
+    /// </summary>
+    ITabViewModel? FindLastSelectedTab(IEnumerable<ITabViewModel> tabs, string? lastTabType, string? lastSelectedFolder);
 }

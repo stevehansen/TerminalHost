@@ -116,4 +116,71 @@ public class WorkspaceStateStoreTests
         _config.Verify(x => x.Save(It.IsAny<AppConfiguration>(), It.IsAny<string?>()), Times.Once);
         _config.Verify(x => x.Load(It.IsAny<string?>()), Times.Once);
     }
+
+    [Fact]
+    public void FindLastSelectedTab_ProjectKind_ReturnsTabWithMatchingFolder()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+        var b = BuildProjectTab("P:\\RepoB");
+
+        var result = store.FindLastSelectedTab([a, b], lastTabType: "Project", lastSelectedFolder: "P:\\RepoB");
+
+        result.ShouldBe(b);
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_ProjectKind_MatchIsCaseInsensitive()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+
+        var result = store.FindLastSelectedTab([a], lastTabType: "Project", lastSelectedFolder: "p:\\repoa");
+
+        result.ShouldBe(a);
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_ProjectKind_NoMatch_ReturnsNull()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+
+        var result = store.FindLastSelectedTab([a], lastTabType: "Project", lastSelectedFolder: "P:\\Missing");
+
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_ProjectKind_EmptyFolder_ReturnsNull()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+
+        var result = store.FindLastSelectedTab([a], lastTabType: "Project", lastSelectedFolder: null);
+
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_UnknownKind_FallsThroughToProjectMatch()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+
+        var result = store.FindLastSelectedTab([a], lastTabType: "WhoKnows", lastSelectedFolder: "P:\\RepoA");
+
+        result.ShouldBe(a);
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_NullKind_FallsThroughToProjectMatch()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var a = BuildProjectTab("P:\\RepoA");
+
+        var result = store.FindLastSelectedTab([a], lastTabType: null, lastSelectedFolder: "P:\\RepoA");
+
+        result.ShouldBe(a);
+    }
 }

@@ -57,4 +57,26 @@ public sealed class WorkspaceStateStore : IWorkspaceStateStore
 
         _config.Save(config);
     }
+
+    public ITabViewModel? FindLastSelectedTab(IEnumerable<ITabViewModel> tabs, string? lastTabType, string? lastSelectedFolder)
+    {
+        ArgumentNullException.ThrowIfNull(tabs);
+
+        var materialized = tabs as IReadOnlyCollection<ITabViewModel> ?? [.. tabs];
+
+        switch (lastTabType)
+        {
+            case "Dashboard":
+                return materialized.OfType<DashboardTabViewModel>().FirstOrDefault();
+            case "Timeline":
+                return materialized.OfType<TimelineTabViewModel>().FirstOrDefault();
+            case "Project":
+            case null:
+            case "":
+            default:
+                if (string.IsNullOrEmpty(lastSelectedFolder)) return null;
+                return materialized.OfType<TerminalPairTabViewModel>()
+                    .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(lastSelectedFolder, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 }

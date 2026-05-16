@@ -37,4 +37,21 @@ public sealed class WorkspaceStateStore : IWorkspaceStateStore
 
         _config.Save(config);
     }
+
+    public ITabViewModel? FindLastSelectedTab(IEnumerable<ITabViewModel> tabs, string? lastTabType, string? lastSelectedFolder)
+    {
+        ArgumentNullException.ThrowIfNull(tabs);
+
+        var materialized = tabs as IReadOnlyList<ITabViewModel> ?? [.. tabs];
+
+        // Non-empty folder: match by project tab working directory, or leave selection alone.
+        if (!string.IsNullOrEmpty(lastSelectedFolder))
+        {
+            return materialized.OfType<TerminalPairTabViewModel>()
+                .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(lastSelectedFolder, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // No folder recorded: fall back to the first available tab.
+        return materialized.Count > 0 ? materialized[0] : null;
+    }
 }

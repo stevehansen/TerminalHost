@@ -1081,36 +1081,10 @@ public partial class MainViewModel : ObservableObject
         _deferredCenterPanelRestores = null;
 
         // Restore the last selected tab based on type
-        switch (lastTabType)
+        var tabToSelect = _workspaceStateStore.FindLastSelectedTab(Tabs, lastTabType, config.LastSelectedFolder);
+        if (tabToSelect != null)
         {
-            case "Dashboard":
-                var dashboardTab = Tabs.OfType<DashboardTabViewModel>().FirstOrDefault();
-                if (dashboardTab != null)
-                {
-                    SelectedTab = dashboardTab;
-                }
-                break;
-
-            case "Timeline":
-                var timelineTab = Tabs.OfType<TimelineTabViewModel>().FirstOrDefault();
-                if (timelineTab != null)
-                {
-                    SelectedTab = timelineTab;
-                }
-                break;
-
-            case "Project":
-            default:
-                if (!string.IsNullOrEmpty(config.LastSelectedFolder))
-                {
-                    var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
-                        .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
-                    if (tabToSelect != null)
-                    {
-                        SelectedTab = tabToSelect;
-                    }
-                }
-                break;
+            SelectedTab = tabToSelect;
         }
 
         // Now fire deferred center panel restores.

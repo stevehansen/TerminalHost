@@ -985,19 +985,10 @@ public partial class MainViewModel : ObservableObject
         _deferredCenterPanelRestores = null;
 
         // Restore the last selected tab (this is the only one that will be initialized on startup)
-        if (!string.IsNullOrEmpty(config.LastSelectedFolder))
+        var tabToSelect = _workspaceStateStore.FindLastSelectedTab(Tabs, lastTabType: null, config.LastSelectedFolder);
+        if (tabToSelect != null)
         {
-            var tabToSelect = Tabs.OfType<TerminalPairTabViewModel>()
-                .FirstOrDefault(t => t.Pair.WorkingDirectory.Equals(config.LastSelectedFolder, StringComparison.OrdinalIgnoreCase));
-            if (tabToSelect != null)
-            {
-                SelectedTab = tabToSelect;
-            }
-        }
-        else if (Tabs.Count > 0)
-        {
-            // If no last selected folder, select the first tab
-            SelectedTab = Tabs[0];
+            SelectedTab = tabToSelect;
         }
 
         // Now fire deferred center panel restores.
