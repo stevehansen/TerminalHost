@@ -2,6 +2,7 @@ using Moq;
 using Shouldly;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Domain;
 using TerminalHost.Services;
 using TerminalHost.ViewModels;
@@ -17,8 +18,10 @@ public class WorkspaceStateStoreTests
     public WorkspaceStateStoreTests()
     {
         _config.Setup(c => c.Load(It.IsAny<string?>())).Returns(() => new AppConfiguration());
+        _config.Setup(c => c.LoadRawJson()).Returns("{}");
         _config.Setup(c => c.Save(It.IsAny<AppConfiguration>(), It.IsAny<string?>()))
             .Callback<AppConfiguration, string?>((cfg, _) => _saved = cfg);
+        _statistics.Setup(s => s.GetStats()).Returns(new UsageStats());
     }
 
     private TerminalPairTabViewModel BuildProjectTab(string workingDirectory)
@@ -160,6 +163,30 @@ public class WorkspaceStateStoreTests
         var result = store.FindLastSelectedTab([a], lastTabType: "Project", lastSelectedFolder: null);
 
         result.ShouldBeNull();
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_SettingsKind_ReturnsSettingsTab()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var projectTab = BuildProjectTab("P:\\RepoA");
+        var settingsTab = new SettingsTabViewModel(_config.Object, Mock.Of<IDialogService>(), Mock.Of<IToastService>());
+
+        var result = store.FindLastSelectedTab([projectTab, settingsTab], lastTabType: "Settings", lastSelectedFolder: "P:\\RepoA");
+
+        result.ShouldBe(settingsTab);
+    }
+
+    [Fact]
+    public void FindLastSelectedTab_StatisticsKind_ReturnsStatisticsTab()
+    {
+        var store = new WorkspaceStateStore(_config.Object);
+        var projectTab = BuildProjectTab("P:\\RepoA");
+        var statisticsTab = new StatisticsTabViewModel(_statistics.Object);
+
+        var result = store.FindLastSelectedTab([projectTab, statisticsTab], lastTabType: "Statistics", lastSelectedFolder: "P:\\RepoA");
+
+        result.ShouldBe(statisticsTab);
     }
 
     [Fact]

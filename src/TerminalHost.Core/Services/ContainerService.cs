@@ -195,21 +195,22 @@ public class ContainerService : IContainerService
         var folders = workspaceDirs.Where(IsEnabledForDirectory).ToList();
         if (folders.Count == 0) return 0;
 
+        var results = await Task.WhenAll(folders.Select(PreWarmContainerAsync));
+        return results.Count(success => success);
+    }
+
+    private async Task<bool> PreWarmContainerAsync(string workspaceDir)
+    {
         try
         {
-            await Task.WhenAll(folders.Select(EnsureContainerRunningAsync));
-        }
-        catch (AggregateException ex)
-        {
-            foreach (var inner in ex.InnerExceptions)
-                System.Diagnostics.Debug.WriteLine($"Container pre-warm failed: {inner.Message}");
+            await EnsureContainerRunningAsync(workspaceDir);
+            return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Container pre-warm failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Container pre-warm failed for {workspaceDir}: {ex.Message}");
+            return false;
         }
-
-        return folders.Count;
     }
 
     public bool IsAutoApproveEnabled

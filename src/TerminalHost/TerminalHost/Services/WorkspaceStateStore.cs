@@ -70,6 +70,10 @@ public sealed class WorkspaceStateStore : IWorkspaceStateStore
                 return materialized.OfType<DashboardTabViewModel>().FirstOrDefault();
             case "Timeline":
                 return materialized.OfType<TimelineTabViewModel>().FirstOrDefault();
+            case "Settings":
+                return materialized.OfType<SettingsTabViewModel>().FirstOrDefault();
+            case "Statistics":
+                return materialized.OfType<StatisticsTabViewModel>().FirstOrDefault();
             case "Project":
             case null:
             case "":

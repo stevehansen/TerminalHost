@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Workspace;
+using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 

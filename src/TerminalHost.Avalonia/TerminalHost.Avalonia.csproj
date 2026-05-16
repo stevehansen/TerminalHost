@@ -32,6 +32,7 @@
   <ItemGroup>
     <Using Include="TerminalHost.Core.Domain" />
     <Using Include="TerminalHost.Core.Interfaces" />
+    <Using Include="TerminalHost.AvaloniaCompatibility" />
   </ItemGroup>
 
   <!-- Project References -->

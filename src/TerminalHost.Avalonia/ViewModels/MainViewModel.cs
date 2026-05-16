@@ -971,13 +971,16 @@ public partial class MainViewModel : ObservableObject
         // and the last one to complete wins — which may not be the selected tab.
         _deferredCenterPanelRestores = [];
 
-        foreach (var folder in config.OpenFolders)
+        var existingFolders = config.OpenFolders.Where(_fileSystem.DirectoryExists).ToList();
+        if (_containerService != null)
         {
-            if (_fileSystem.DirectoryExists(folder))
-            {
-                // Don't select tabs during restore - lazy initialization will happen when user clicks
-                OpenProjectTab(folder, selectTab: false);
-            }
+            Task.Run(() => _containerService.PreWarmContainersAsync(existingFolders)).GetAwaiter().GetResult();
+        }
+
+        foreach (var folder in existingFolders)
+        {
+            // Don't select tabs during restore - lazy initialization will happen when user clicks
+            OpenProjectTab(folder, selectTab: false);
         }
 
         // Capture and stop deferring
@@ -1151,9 +1154,10 @@ public partial class MainViewModel : ObservableObject
                     shellProfile.ContainerName = containerName;
 
                     // Ensure container is running before terminals try to docker exec.
-                    // Call the lightweight EnsureContainerRunningAsync (no dialogs) on a
-                    // background thread to avoid UI deadlock, then run dialog-based checks async.
-                    Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
+                    // During restore, containers were pre-warmed in parallel, so skip
+                    // the blocking per-tab call and let the async check retry if needed.
+                    if (selectTab)
+                        Task.Run(() => _containerService.EnsureContainerRunningAsync(workingDirectory)).GetAwaiter().GetResult();
 
                     // Fire-and-forget: staleness checks and dialog prompts (non-blocking)
                     _ = EnsureContainerForWorkspaceAsync(workingDirectory);
