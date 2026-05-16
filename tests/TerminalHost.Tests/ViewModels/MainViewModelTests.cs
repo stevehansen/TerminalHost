@@ -37,6 +37,7 @@ public class MainViewModelTests
     private readonly Mock<IFolderPickerService> _mockFolderPickerService;
     private readonly Mock<IGitWorktreeService> _mockGitWorktreeService;
     private readonly Mock<IViewModelFactory> _mockViewModelFactory;
+    private readonly Mock<ITabFactory> _mockTabFactory;
     private readonly Mock<ITimelineService> _mockTimelineService;
     private readonly Mock<IInputPromptDetectionService> _mockInputPromptDetectionService;
 
@@ -70,6 +71,7 @@ public class MainViewModelTests
         _mockFolderPickerService = new Mock<IFolderPickerService>();
         _mockGitWorktreeService = new Mock<IGitWorktreeService>();
         _mockViewModelFactory = new Mock<IViewModelFactory>();
+        _mockTabFactory = new Mock<ITabFactory>();
         _mockTimelineService = new Mock<ITimelineService>();
         _mockInputPromptDetectionService = new Mock<IInputPromptDetectionService>();
 
@@ -169,6 +171,17 @@ public class MainViewModelTests
             return vm;
         });
 
+        // Tab construction routes through ITabFactory (Step 4e of #48). Return a
+        // real VM so the OpenProjectTab tests can still verify Tabs.Count.
+        _mockTabFactory.Setup(f => f.CreateTerminalPairTab(
+                It.IsAny<TerminalPair>(),
+                It.IsAny<AiAssistant>(),
+                It.IsAny<IReadOnlyList<AiAssistant>>(),
+                It.IsAny<string>(),
+                It.IsAny<int>()))
+            .Returns((TerminalPair pair, AiAssistant ai, IReadOnlyList<AiAssistant> enabled, string shell, int idx) =>
+                new TerminalPairTabViewModel(pair, ai, enabled, shell, _mockStatisticsService.Object, _mockGitStatusService.Object, _mockToastService.Object, idx));
+
         _mainViewModel = new MainViewModel(
             _mockProfileRegistry.Object,
             _mockSessionManager.Object,
@@ -191,6 +204,7 @@ public class MainViewModelTests
             _mockDispatcherService.Object,
             _mockFolderPickerService.Object,
             _mockViewModelFactory.Object,
+            _mockTabFactory.Object,
             _mockTimelineService.Object,
             _mockInputPromptDetectionService.Object);
     }

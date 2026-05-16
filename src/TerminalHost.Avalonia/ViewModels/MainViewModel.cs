@@ -62,6 +62,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly IProjectMonitor _projectMonitor;
     private readonly IDirectorySettingsStore _directorySettings;
+    private readonly ITabFactory _tabFactory;
 
     // Cached git tracking mode to avoid config loads on every timer tick
     private GitTrackingMode _gitTrackingMode;
@@ -352,6 +353,7 @@ public partial class MainViewModel : ObservableObject
         IDispatcherService dispatcherService,
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
+        ITabFactory tabFactory,
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         ITaskAggregator? taskAggregator = null,
         IApiServer? apiServer = null,
@@ -394,6 +396,7 @@ public partial class MainViewModel : ObservableObject
         _dispatcherService = dispatcherService;
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
+        _tabFactory = tabFactory;
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _taskAggregator = taskAggregator;
         _apiServer = apiServer;
@@ -1195,7 +1198,7 @@ public partial class MainViewModel : ObservableObject
             var pair = new TerminalPair(workingDirectory, customProfile, shellProfile, _statisticsService, _clipboardService);
 
             // Create view model with AI assistant info (terminals created lazily on first selection)
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _terminalFactory, _claudeTaskDetectionService, _timelineService, _taskService, _taskAggregator, _dispatcherService, _gitStatusService, _toastService, duplicateIndex);
+            var tabViewModel = _tabFactory.CreateTerminalPairTab(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, duplicateIndex);
             tabViewModel.IsContainerized = containerName != null;
             SidebarViewModel?.UpdateContainerState(workingDirectory, containerName != null);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;

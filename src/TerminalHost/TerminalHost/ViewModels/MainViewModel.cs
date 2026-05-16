@@ -39,6 +39,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IDispatcherService _dispatcherService;
     private readonly IFolderPickerService _folderPickerService;
     private readonly IViewModelFactory _viewModelFactory;
+    private readonly ITabFactory _tabFactory;
     private readonly ITimelineService _timelineService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
     private readonly ITaskService? _taskService;
@@ -258,6 +259,7 @@ public partial class MainViewModel : ObservableObject
         IDispatcherService dispatcherService,
         IFolderPickerService folderPickerService,
         IViewModelFactory viewModelFactory,
+        ITabFactory tabFactory,
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
         ITaskService? taskService = null,
@@ -289,6 +291,7 @@ public partial class MainViewModel : ObservableObject
         _dispatcherService = dispatcherService;
         _folderPickerService = folderPickerService;
         _viewModelFactory = viewModelFactory;
+        _tabFactory = tabFactory;
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
         _taskService = taskService;
@@ -1351,7 +1354,7 @@ public partial class MainViewModel : ObservableObject
             var shellControl = _terminalFactory.CreateTerminalControl(pair.ShellTerminal);
 
             // Create view model with AI assistant info
-            var tabViewModel = new TerminalPairTabViewModel(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, _statisticsService, _gitStatusService, _toastService, duplicateIndex, _taskService);
+            var tabViewModel = _tabFactory.CreateTerminalPairTab(pair, aiAssistant, enabledAssistants, settings.ShellCommandIcon, duplicateIndex);
             tabViewModel.IsContainerized = containerName != null;
             WorkspaceSidebar?.UpdateContainerState(workingDirectory, containerName != null);
             tabViewModel.AiAssistantSwitchRequested += OnAiAssistantSwitchRequested;

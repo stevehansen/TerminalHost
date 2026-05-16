@@ -273,6 +273,9 @@ public partial class App : Application
         services.AddSingleton<IDebugLogService, TerminalHost.Core.Services.DebugLogService>();
         services.AddSingleton<TerminalHost.Core.Interfaces.IEidetService, TerminalHost.Core.Services.HttpEidetService>();
 
+        // Tab construction
+        services.AddSingleton<ITabFactory, TabFactory>();
+
         // ViewModels
         services.AddSingleton<DetectedLinksViewModel>();
         services.AddSingleton<MainViewModel>();

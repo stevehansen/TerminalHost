@@ -349,6 +349,7 @@ public partial class App : Application
         services.AddSingleton<IFolderPickerService, FolderPickerService>();
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IViewModelFactory, ViewModelFactory>();
+        services.AddSingleton<ITabFactory, TabFactory>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
