@@ -1021,34 +1021,11 @@ public partial class MainViewModel : ObservableObject
         // Without this, each tab blocks sequentially on docker inspect/start (~6s each).
         if (_containerService != null)
         {
-            var containerizedFolders = config.OpenFolders
-                .Where(f => _fileSystem.DirectoryExists(f) && _containerService.IsEnabledForDirectory(f))
-                .ToList();
-
-            if (containerizedFolders.Count > 0)
-            {
-                sp.Log($"Pre-warming {containerizedFolders.Count} containers in parallel");
-                var containerSw = System.Diagnostics.Stopwatch.StartNew();
-                try
-                {
-                    Task.Run(async () =>
-                    {
-                        await Task.WhenAll(containerizedFolders.Select(f =>
-                            _containerService.EnsureContainerRunningAsync(f)));
-                    }).GetAwaiter().GetResult();
-                }
-                catch (AggregateException ex)
-                {
-                    // Log but don't fail — individual tabs will handle errors
-                    foreach (var inner in ex.InnerExceptions)
-                        Debug.WriteLine($"Container pre-warm failed: {inner.Message}");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Container pre-warm failed: {ex.Message}");
-                }
-                sp.Log($"Containers pre-warmed in {containerSw.ElapsedMilliseconds}ms");
-            }
+            var existingFolders = config.OpenFolders.Where(_fileSystem.DirectoryExists).ToList();
+            var containerSw = System.Diagnostics.Stopwatch.StartNew();
+            var warmed = Task.Run(() => _containerService.PreWarmContainersAsync(existingFolders)).GetAwaiter().GetResult();
+            if (warmed > 0)
+                sp.Log($"Pre-warmed {warmed} containers in {containerSw.ElapsedMilliseconds}ms");
         }
 
         sp.Log($"Restoring {config.OpenFolders.Count} tabs");

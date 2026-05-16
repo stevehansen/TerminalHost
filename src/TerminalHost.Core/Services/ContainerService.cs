@@ -188,6 +188,30 @@ public class ContainerService : IContainerService
         };
     }
 
+    public async Task<int> PreWarmContainersAsync(IEnumerable<string> workspaceDirs)
+    {
+        ArgumentNullException.ThrowIfNull(workspaceDirs);
+
+        var folders = workspaceDirs.Where(IsEnabledForDirectory).ToList();
+        if (folders.Count == 0) return 0;
+
+        try
+        {
+            await Task.WhenAll(folders.Select(EnsureContainerRunningAsync));
+        }
+        catch (AggregateException ex)
+        {
+            foreach (var inner in ex.InnerExceptions)
+                System.Diagnostics.Debug.WriteLine($"Container pre-warm failed: {inner.Message}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Container pre-warm failed: {ex.Message}");
+        }
+
+        return folders.Count;
+    }
+
     public bool IsAutoApproveEnabled
     {
         get

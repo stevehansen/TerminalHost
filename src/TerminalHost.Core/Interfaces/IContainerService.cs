@@ -34,6 +34,17 @@ public interface IContainerService
     Task<ContainerEnsureResult> EnsureContainerRunningAsync(string workspaceDir);
 
     /// <summary>
+    /// Pre-warm containers for the given workspace directories in parallel so
+    /// subsequent per-tab <see cref="EnsureContainerRunningAsync"/> calls return
+    /// near-instantly. Directories not currently containerized (per
+    /// <see cref="IsEnabledForDirectory"/>) are skipped — callers may pass the
+    /// full set of open folders without pre-filtering by container enablement.
+    /// Individual failures are swallowed (the per-tab path retries on demand).
+    /// Returns the number of containers actually pre-warmed.
+    /// </summary>
+    Task<int> PreWarmContainersAsync(IEnumerable<string> workspaceDirs);
+
+    /// <summary>
     /// Build the docker exec command for launching an interactive session.
     /// </summary>
     /// <param name="containerName">The container name.</param>
