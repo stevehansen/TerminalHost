@@ -328,6 +328,7 @@ public partial class App : Application
                 sp.GetRequiredService<IDispatcherService>());
         });
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
+        services.AddSingleton<IApiStateProjector, ApiStateProjector>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddSingleton<ICollabService, CollabService>();
         services.AddSingleton<McpHandler>();

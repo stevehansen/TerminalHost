@@ -57,6 +57,7 @@ public partial class MainViewModel : ObservableObject
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
     private readonly IVoiceCommandService? _voiceCommandService;
+    private readonly IApiStateProjector _apiStateProjector;
     private readonly Core.Interfaces.ITimerService _coreTimerService;
     private readonly TabRouter _router;
 
@@ -367,7 +368,8 @@ public partial class MainViewModel : ObservableObject
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null,
         IVoiceCommandService? voiceCommandService = null,
-        Core.Interfaces.ITimerService? coreTimerService = null)
+        Core.Interfaces.ITimerService? coreTimerService = null,
+        IApiStateProjector? apiStateProjector = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -411,6 +413,7 @@ public partial class MainViewModel : ObservableObject
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
         _voiceCommandService = voiceCommandService;
+        _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
 
         // Initialize voice command bar
@@ -636,7 +639,7 @@ public partial class MainViewModel : ObservableObject
                 var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(activatedTab);
                 var previousIndex = oldValue is TerminalPairTabViewModel oldTerminal
                     ? Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(oldTerminal) : -1;
-                PublishApiEvent("repo.activated", tabIndex, new
+                _eventAggregator.Publish("repo.activated", tabIndex, new
                 {
                     workingDirectory = activatedTab.WorkingDirectory,
                     title = activatedTab.Title,
@@ -816,7 +819,7 @@ public partial class MainViewModel : ObservableObject
             var tabIndex = Tabs.OfType<TerminalPairTabViewModel>().ToList().IndexOf(terminalTab);
             if (tabIndex >= 0 && _eventAggregator != null)
             {
-                PublishApiEvent("repo.git_status_changed", tabIndex, new
+                _eventAggregator.Publish("repo.git_status_changed", tabIndex, new
                 {
                     branch = status.BranchName, isDirty = status.IsDirty,
                     ahead = status.AheadCount, behind = status.BehindCount
@@ -824,7 +827,7 @@ public partial class MainViewModel : ObservableObject
 
                 if (previousBranch != null && previousBranch != status.BranchName)
                 {
-                    PublishApiEvent("repo.branch_switched", tabIndex, new
+                    _eventAggregator.Publish("repo.branch_switched", tabIndex, new
                     {
                         previousBranch, newBranch = status.BranchName
                     });
@@ -1226,7 +1229,7 @@ public partial class MainViewModel : ObservableObject
             Tabs.Add(tabViewModel);
 
             // Publish API event for repo opened
-            PublishApiEvent("repo.opened", data: new { workingDirectory, title = tabViewModel.Title });
+            _eventAggregator.Publish("repo.opened", data: new { workingDirectory, title = tabViewModel.Title });
 
             // Only select the tab if requested (false during startup restore for lazy init)
             if (selectTab)
@@ -1417,7 +1420,7 @@ public partial class MainViewModel : ObservableObject
         // Publish API event for repo closed
         if (tab is TerminalPairTabViewModel closedTerminalTab)
         {
-            PublishApiEvent("repo.closed", data: new { workingDirectory = closedTerminalTab.WorkingDirectory, title = closedTerminalTab.Title });
+            _eventAggregator.Publish("repo.closed", data: new { workingDirectory = closedTerminalTab.WorkingDirectory, title = closedTerminalTab.Title });
         }
 
         _workspace.RemoveAndPickNext(tab);
@@ -2406,136 +2409,27 @@ public partial class MainViewModel : ObservableObject
 
     #region REST API State Providers
 
+    private (IReadOnlyList<ProjectTabApiState> Tabs, int SelectedIndex) SnapshotProjectTabs()
+    {
+        var tabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
+        var selectedIndex = SelectedTab is TerminalPairTabViewModel s ? tabs.IndexOf(s) : -1;
+        return (tabs.Select(t => t.ToApiState()).ToList(), selectedIndex);
+    }
+
     private List<ApiRepoInfo> BuildRepoList()
     {
-        var repos = new List<ApiRepoInfo>();
-        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
-
-        for (var i = 0; i < terminalTabs.Count; i++)
-        {
-            var tab = terminalTabs[i];
-            repos.Add(new ApiRepoInfo
-            {
-                Index = i,
-                Title = tab.Title,
-                WorkingDirectory = tab.WorkingDirectory,
-                IsActive = tab == SelectedTab,
-                Layout = tab.LayoutMode.ToString(),
-                SplitRatio = tab.SplitRatio,
-                ActiveTerminal = tab.ActiveTerminal.ToString(),
-                Git = tab.GitStatus != null ? new ApiGitInfo
-                {
-                    Branch = tab.GitStatus.BranchName,
-                    IsDirty = tab.GitStatus.IsDirty,
-                    Ahead = tab.GitStatus.AheadCount,
-                    Behind = tab.GitStatus.BehindCount,
-                    StashCount = tab.GitStatus.StashCount
-                } : null,
-                Terminals = new ApiTerminalsInfo
-                {
-                    Custom = new ApiTerminalInfo
-                    {
-                        Title = tab.CustomTerminalTitle ?? "",
-                        IsActive = tab.ActiveTerminal == ActiveTerminal.Custom,
-                        IsBusy = tab.IsCustomTerminalActive,
-                    },
-                    Shell = new ApiTerminalInfo
-                    {
-                        Title = tab.ShellTerminalTitle ?? "",
-                        IsActive = tab.ActiveTerminal == ActiveTerminal.Shell,
-                        IsBusy = tab.IsShellTerminalActive,
-                    },
-                    Run = tab.IsRunTerminalVisible ? new ApiTerminalInfo
-                    {
-                        Title = "Run",
-                        IsActive = tab.ActiveTerminal == ActiveTerminal.Run,
-                        IsBusy = tab.IsRunTerminalActive,
-                    } : null
-                },
-                ActivityIndicator = new ApiActivityIndicator
-                {
-                    State = tab.IsAnyTerminalActive ? "busy"
-                        : tab.IsWaitingForInput ? "waiting"
-                        : tab.HasUnreadActivity ? "done"
-                        : "idle",
-                    HasUnreadActivity = tab.HasUnreadActivity,
-                    IsWaitingForInput = tab.IsWaitingForInput,
-                }
-            });
-        }
-
-        return repos;
+        var (tabs, sel) = SnapshotProjectTabs();
+        return _apiStateProjector.BuildRepoList(tabs, sel);
     }
 
     private ApiRepoDetailInfo? BuildRepoDetail(int index)
     {
-        var terminalTabs = Tabs.OfType<TerminalPairTabViewModel>().ToList();
-        if (index < 0 || index >= terminalTabs.Count) return null;
-
-        var tab = terminalTabs[index];
-        var basic = BuildRepoList()[index];
-
-        return new ApiRepoDetailInfo
-        {
-            Index = basic.Index,
-            Title = basic.Title,
-            WorkingDirectory = basic.WorkingDirectory,
-            IsActive = basic.IsActive,
-            Layout = basic.Layout,
-            SplitRatio = basic.SplitRatio,
-            ActiveTerminal = basic.ActiveTerminal,
-            Git = basic.Git,
-            Terminals = basic.Terminals,
-            AiAssistant = tab.ActiveAiAssistant != null ? new ApiAiAssistantInfo
-            {
-                Id = tab.ActiveAiAssistant.Id,
-                Name = tab.ActiveAiAssistant.Name,
-                Icon = tab.ActiveAiAssistant.DisplayLabel
-            } : null
-        };
+        var (tabs, sel) = SnapshotProjectTabs();
+        return _apiStateProjector.BuildRepoDetail(tabs, sel, index);
     }
 
     private List<ApiWorkspaceInfo> BuildWorkspaceList()
-    {
-        var config = _configService.Load();
-        var openRepos = BuildRepoList();
-
-        return config.Workspaces.Select(w =>
-        {
-            var normalizedPath = w.Path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
-            var matchingRepo = openRepos.FirstOrDefault(r =>
-                r.WorkingDirectory.Replace('\\', '/').TrimEnd('/').ToLowerInvariant() == normalizedPath);
-
-            return new ApiWorkspaceInfo
-            {
-                Id = w.Id,
-                Name = w.Name,
-                Path = w.Path,
-                PathId = ApiServer.NormalizePathId(w.Path),
-                Section = w.Section,
-                IsPinned = w.IsPinned,
-                Order = w.Order,
-                CustomIcon = w.CustomIcon,
-                IsOpen = matchingRepo != null,
-                RepoIndex = matchingRepo?.Index,
-                ActivityIndicator = matchingRepo?.ActivityIndicator,
-                Terminals = matchingRepo?.Terminals,
-            };
-        }).ToList();
-    }
-
-    /// <summary>
-    /// Publishes an API event if the event aggregator is available.
-    /// </summary>
-    private void PublishApiEvent(string type, int? repoIndex = null, object? data = null)
-    {
-        _eventAggregator?.Publish(new ApiEvent
-        {
-            Type = type,
-            RepoIndex = repoIndex,
-            Data = data
-        });
-    }
+        => _apiStateProjector.BuildWorkspaceList(_configService.Load().Workspaces, BuildRepoList());
 
     internal async Task StartApiServerAsync()
     {
@@ -2843,12 +2737,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Publish the message as a channel event via the event aggregator
-        _eventAggregator?.Publish(new ApiEvent
-        {
-            Type = "channel.user_message",
-            RepoIndex = repoIndex,
-            Data = new { message, sender = "user" }
-        });
+        _eventAggregator.Publish("channel.user_message", repoIndex, new { message, sender = "user" });
 
         _toastService.Show("Message sent to Claude via channel", ToastType.Success);
     }

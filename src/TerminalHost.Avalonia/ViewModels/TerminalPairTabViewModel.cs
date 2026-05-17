@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
 using TerminalHost.Services;
@@ -42,6 +43,60 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             $"Terminals in '{Title}' are still running. Close anyway?",
             "Confirm Close");
     }
+
+    public ProjectTabApiState ToApiState() => new(
+        Title: Title,
+        WorkingDirectory: WorkingDirectory,
+        Layout: LayoutMode.ToString(),
+        SplitRatio: SplitRatio,
+        ActiveTerminal: ActiveTerminal.ToString(),
+        Git: GitStatus is null ? null : new ApiGitInfo
+        {
+            Branch = GitStatus.BranchName,
+            IsDirty = GitStatus.IsDirty,
+            Ahead = GitStatus.AheadCount,
+            Behind = GitStatus.BehindCount,
+            StashCount = GitStatus.StashCount
+        },
+        Terminals: new ApiTerminalsInfo
+        {
+            Custom = new ApiTerminalInfo
+            {
+                Title = CustomTerminalTitle ?? "",
+                IsActive = ActiveTerminal == ActiveTerminal.Custom,
+                IsBusy = Pair.CustomTerminal.IsActive,
+                LastActivityAt = Pair.CustomTerminal.LastOutputTime?.ToUniversalTime(),
+            },
+            Shell = new ApiTerminalInfo
+            {
+                Title = ShellTerminalTitle ?? "",
+                IsActive = ActiveTerminal == ActiveTerminal.Shell,
+                IsBusy = Pair.ShellTerminal.IsActive,
+                LastActivityAt = Pair.ShellTerminal.LastOutputTime?.ToUniversalTime(),
+            },
+            Run = Pair.RunTerminal is null ? null : new ApiTerminalInfo
+            {
+                Title = "Run",
+                IsActive = ActiveTerminal == ActiveTerminal.Run,
+                IsBusy = Pair.RunTerminal.IsActive,
+                LastActivityAt = Pair.RunTerminal.LastOutputTime?.ToUniversalTime(),
+            }
+        },
+        ActivityIndicator: new ApiActivityIndicator
+        {
+            State = IsAnyTerminalActive ? "busy"
+                : IsWaitingForInput ? "waiting"
+                : HasUnreadActivity ? "done"
+                : "idle",
+            HasUnreadActivity = HasUnreadActivity,
+            IsWaitingForInput = IsWaitingForInput,
+        },
+        AiAssistant: ActiveAiAssistant is null ? null : new ApiAiAssistantInfo
+        {
+            Id = ActiveAiAssistant.Id,
+            Name = ActiveAiAssistant.Name,
+            Icon = ActiveAiAssistant.DisplayLabel
+        });
 
     /// <summary>
     /// Index for duplicate tabs of the same directory.
