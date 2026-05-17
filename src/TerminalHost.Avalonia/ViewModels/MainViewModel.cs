@@ -60,6 +60,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly ITabRestoreCoordinator _restoreCoordinator;
     private readonly ExplorerEventRouter _explorerRouter;
+    private readonly LinkClickHandler _linkClickHandler;
     private readonly Core.Interfaces.ITimerService _coreTimerService;
     private readonly TabRouter _router;
 
@@ -373,7 +374,8 @@ public partial class MainViewModel : ObservableObject
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
         ITabRestoreCoordinator? restoreCoordinator = null,
-        ExplorerEventRouter? explorerRouter = null)
+        ExplorerEventRouter? explorerRouter = null,
+        LinkClickHandler? linkClickHandler = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -424,6 +426,8 @@ public partial class MainViewModel : ObservableObject
         _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
         _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
         _explorerRouter.FileBlameRequested += (s, e) => FileBlameRequested?.Invoke(this, e);
+        _linkClickHandler = linkClickHandler ?? new LinkClickHandler(_linkDetectionService);
+        _linkClickHandler.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
         _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
 
         // Initialize voice command bar
@@ -1154,8 +1158,8 @@ public partial class MainViewModel : ObservableObject
             // Note: Sessions are tracked in InitializeTabTerminalsAsync when terminals are created
 
             // Subscribe to link click events
-            pair.CustomTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
-            pair.ShellTerminal.LinkClicked += (s, text) => HandleLinkClick(text, workingDirectory);
+            pair.CustomTerminal.LinkClicked += (s, text) => _linkClickHandler.Handle(text, workingDirectory);
+            pair.ShellTerminal.LinkClicked += (s, text) => _linkClickHandler.Handle(text, workingDirectory);
 
             // Subscribe to run terminal events
             tabViewModel.RunStartRequested += OnRunStartRequested;
@@ -1519,7 +1523,7 @@ public partial class MainViewModel : ObservableObject
             _sessionManager.TrackSession(newSession);
 
             // Subscribe to link click events
-            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+            newSession.LinkClicked += (s, text) => _linkClickHandler.Handle(text, tab.WorkingDirectory);
 
             // Replace the terminal in the pair
             tab.Pair.ReplaceCustomTerminal(newSession);
@@ -1552,7 +1556,7 @@ public partial class MainViewModel : ObservableObject
             _sessionManager.TrackSession(newSession);
 
             // Subscribe to link click events
-            newSession.LinkClicked += (s, text) => HandleLinkClick(text, tab.WorkingDirectory);
+            newSession.LinkClicked += (s, text) => _linkClickHandler.Handle(text, tab.WorkingDirectory);
 
             // Replace the terminal in the pair
             tab.Pair.ReplaceShellTerminal(newSession);
@@ -1819,69 +1823,6 @@ public partial class MainViewModel : ObservableObject
             var runSettings = dirSettings ?? new DirectorySettings();
             var runConfigs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, runSettings);
             tab.InitializeRunConfigurations(runConfigs, runSettings.ActiveRunConfigurationId);
-        }
-    }
-
-    /// <summary>
-    /// Handles Ctrl+Click link detection from terminals.
-    /// </summary>
-    private void HandleLinkClick(string recentOutput, string workingDirectory)
-    {
-        if (string.IsNullOrEmpty(recentOutput)) return;
-
-        // Try to find a link in the recent output
-        // We scan the output looking for URL patterns, file paths, or custom patterns
-        var lines = recentOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-        // Start from the end (most recent) and work backwards
-        foreach (var line in lines.Reverse())
-        {
-            var cleanLine = line.Trim();
-            if (string.IsNullOrEmpty(cleanLine)) continue;
-
-            // Try each "word" in the line
-            var words = cleanLine.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
-            foreach (var word in words)
-            {
-                var link = _linkDetectionService.DetectLink(word, workingDirectory);
-                if (link != null)
-                {
-                    HandleDetectedLink(link);
-                    return;
-                }
-            }
-
-            // Also try the whole line in case it's a file path with spaces
-            var linkFromLine = _linkDetectionService.DetectLink(cleanLine, workingDirectory);
-            if (linkFromLine != null)
-            {
-                HandleDetectedLink(linkFromLine);
-                return;
-            }
-        }
-
-    }
-
-    private void HandleDetectedLink(string link)
-    {
-        // Check if it's a file path that we should show in preview
-        if (LinkDetectionService.IsFilePath(link))
-        {
-            // Parse for line/column numbers
-            var (path, line, column) = FilePreviewService.ParseFilePathWithPosition(link);
-
-            // Fire event for MainWindow to show preview
-            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
-            {
-                FilePath = path,
-                Line = line,
-                Column = column
-            });
-        }
-        else
-        {
-            // It's a URL or something else - open normally
-            _linkDetectionService.OpenLink(link);
         }
     }
 

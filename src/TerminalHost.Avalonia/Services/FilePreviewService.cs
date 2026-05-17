@@ -2,6 +2,7 @@ using TerminalHost.Core.Interfaces;
 using System.IO;
 using TerminalHost.Core.Interfaces;
 using System.Text;
+using TerminalHost.Core.Services;
 
 namespace TerminalHost.Services;
 
@@ -80,41 +81,7 @@ internal sealed class FilePreviewService : IFilePreviewService
     }
 
     public static (string path, int? line, int? column) ParseFilePathWithPosition(string input)
-    {
-        // Handle paths like: file.cs:42:15 or file.cs:42
-        var parts = input.Split(':');
-
-        // Handle Windows drive letters (e.g., C:\path\file.cs:42)
-        string path;
-        int startIndex;
-
-        if (parts.Length >= 2 && parts[0].Length == 1 && char.IsLetter(parts[0][0]))
-        {
-            // Windows path with drive letter
-            path = parts[0] + ":" + parts[1];
-            startIndex = 2;
-        }
-        else
-        {
-            path = parts[0];
-            startIndex = 1;
-        }
-
-        int? line = null;
-        int? column = null;
-
-        if (parts.Length > startIndex && int.TryParse(parts[startIndex], out var parsedLine))
-        {
-            line = parsedLine;
-
-            if (parts.Length > startIndex + 1 && int.TryParse(parts[startIndex + 1], out var parsedColumn))
-            {
-                column = parsedColumn;
-            }
-        }
-
-        return (path, line, column);
-    }
+        => FilePathPositionParser.Parse(input);
 }
 
 public class FilePreviewResult
