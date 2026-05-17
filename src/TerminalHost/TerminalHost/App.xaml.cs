@@ -286,6 +286,7 @@ public partial class App : Application
         services.AddSingleton<IProcessService, ProcessService>();
         services.AddSingleton<IGitStatusService, GitStatusService>();
         services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
+        services.AddSingleton<IGitWorkspaceFactory, GitWorkspaceFactory>();
         services.AddSingleton<IGitIgnoreService, GitIgnoreService>();
         services.AddSingleton<ILinkDetectionService, LinkDetectionService>();
         services.AddSingleton<IInputPromptDetectionService, InputPromptDetectionService>();

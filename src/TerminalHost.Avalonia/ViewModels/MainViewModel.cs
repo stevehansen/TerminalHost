@@ -465,9 +465,7 @@ public partial class MainViewModel : ObservableObject
                 processService: _processService,
                 clipboardService: _clipboardService,
                 containerService: _containerService,
-                fileSystem: _fileSystem,
-                eidetService: App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>(),
-                containerConfig: _containerConfig),
+                eidetService: App.Current.Services.GetService<IEidetService>()),
             onCreated: tab =>
             {
                 tab.CloseRequested += OnTabCloseRequested;

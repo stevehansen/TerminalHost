@@ -214,6 +214,7 @@ public partial class App : Application
         services.AddSingleton<IGitProcessRunner, TerminalHost.Core.Services.GitProcessRunner>();
         services.AddSingleton<IGitPrService, TerminalHost.Core.Services.GitPrService>();
         services.AddSingleton<IGitWorktreeService, global::TerminalHost.Services.GitWorktreeService>();
+        services.AddSingleton<IGitWorkspaceFactory, TerminalHost.Core.Services.GitWorkspaceFactory>();
         services.AddSingleton<IGitIgnoreService, TerminalHost.Core.Services.GitIgnoreService>();
 
         // File Services

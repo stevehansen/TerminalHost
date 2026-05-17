@@ -223,25 +223,14 @@ The following use direct system calls because they don't participate in DI or ex
 
 ## Build Commands
 
-> **TerminalHost.Avalonia does not build on Windows.** The csproj conditionally
-> references `TerminalHost.macOS` / `TerminalHost.Linux` (and their
-> `TerminalHost.Posix` dependency) only when `IsOSPlatform('OSX'|'Linux')`, but
-> `App.axaml.cs` has an unconditional `using TerminalHost.Posix.Services;` and
-> only `#if LINUX` (with implicit macOS) guards — there is no Windows fallback.
-> A Windows `dotnet build` of the solution fails with
-> `CS0234: namespace 'Posix' does not exist`. On Windows, build the WPF host
-> and tests directly (`dotnet build src/TerminalHost/TerminalHost`,
-> `dotnet build tests/TerminalHost.Tests`) instead of the full solution.
-> Avalonia-touching changes must be verified on macOS or Linux.
-
 ```bash
-# Build the solution (all projects) — macOS/Linux only; on Windows see note above
+# Build the solution (all projects, including Avalonia) — works on Windows, macOS, and Linux
 dotnet build
 
 # Windows - Run the WPF application
 dotnet run --project src/TerminalHost/TerminalHost
 
-# Windows - Build only what compiles on Windows (skip TerminalHost.Avalonia)
+# Windows - Build the WPF host directly
 dotnet build src/TerminalHost/TerminalHost
 dotnet build tests/TerminalHost.Tests
 
