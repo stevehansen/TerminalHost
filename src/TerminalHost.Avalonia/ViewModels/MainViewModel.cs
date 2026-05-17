@@ -1179,7 +1179,9 @@ public partial class MainViewModel : ObservableObject
             }
 
             // Initialize run configurations (from settings or auto-detect)
-            InitializeRunConfigurations(tabViewModel, workingDirectory, dirSettings);
+            var runSettings = dirSettings ?? new DirectorySettings();
+            var runConfigs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, runSettings);
+            tabViewModel.InitializeRunConfigurations(runConfigs, runSettings.ActiveRunConfigurationId);
 
             // Note: Sessions are tracked in InitializeTabTerminalsAsync when terminals are created
 
@@ -1719,29 +1721,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
-    {
-        List<RunConfiguration> configs;
-        string? activeConfigId;
-
-        if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
-        {
-            // Use saved configurations
-            configs = dirSettings.RunConfigurations;
-            activeConfigId = dirSettings.ActiveRunConfigurationId;
-        }
-        else
-        {
-            // Auto-detect project type and create configurations
-            // Use existing dirSettings or create new one - GetOrCreateConfigurations will set ActiveRunConfigurationId
-            var settings = dirSettings ?? new DirectorySettings();
-            configs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
-            activeConfigId = settings.ActiveRunConfigurationId;
-        }
-
-        tab.InitializeRunConfigurations(configs, activeConfigId);
-    }
-
     [RelayCommand]
     private void OpenSettings()
     {
@@ -1948,7 +1927,9 @@ public partial class MainViewModel : ObservableObject
             }
 
             // Reinitialize run configurations
-            InitializeRunConfigurations(tab, workingDirectory, dirSettings);
+            var runSettings = dirSettings ?? new DirectorySettings();
+            var runConfigs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, runSettings);
+            tab.InitializeRunConfigurations(runConfigs, runSettings.ActiveRunConfigurationId);
         }
     }
 

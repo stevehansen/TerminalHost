@@ -1271,7 +1271,9 @@ public partial class MainViewModel : ObservableObject
             }
 
             // Initialize run configurations (from settings or auto-detect)
-            InitializeRunConfigurations(tabViewModel, workingDirectory, dirSettings);
+            var runSettings = dirSettings ?? new DirectorySettings();
+            var runConfigs = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, runSettings);
+            tabViewModel.InitializeRunConfigurations(runConfigs, runSettings.ActiveRunConfigurationId);
 
             // Track sessions
             _sessionManager.TrackSession(pair.CustomTerminal);
@@ -1783,26 +1785,6 @@ public partial class MainViewModel : ObservableObject
     private void OnExplorerFileBlameRequested(object? sender, FileBlameRequestedEventArgs e)
     {
         FileBlameRequested?.Invoke(this, e);
-    }
-
-    private void InitializeRunConfigurations(TerminalPairTabViewModel tab, string workingDirectory, DirectorySettings? dirSettings)
-    {
-        List<RunConfiguration> configs;
-
-        if (dirSettings != null && dirSettings.RunConfigurations.Count > 0)
-        {
-            // Use saved configurations
-            configs = dirSettings.RunConfigurations;
-        }
-        else
-        {
-            // Auto-detect project type and create configurations
-            configs = _projectDetectionService.GetOrCreateConfigurations(
-                workingDirectory,
-                dirSettings ?? new DirectorySettings());
-        }
-
-        tab.InitializeRunConfigurations(configs, dirSettings?.ActiveRunConfigurationId);
     }
 
     [RelayCommand]
