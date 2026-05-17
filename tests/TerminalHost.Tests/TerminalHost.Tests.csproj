@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TerminalHost.Core\TerminalHost.Core.csproj" />
+    <ProjectReference Include="..\..\src\TerminalHost.Posix\TerminalHost.Posix.csproj" />
     <ProjectReference Include="..\..\src\TerminalHost\TerminalHost\TerminalHost.csproj" />
   </ItemGroup>
 

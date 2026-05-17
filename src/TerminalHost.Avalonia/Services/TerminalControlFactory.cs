@@ -18,6 +18,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     private readonly IConfigurationService _configurationService;
     private readonly IContainerService _containerService;
     private readonly IProcessService _processService;
+    private readonly ICommandComposer _composer;
 
     private static int _codexMcpCheckedFlag;
 
@@ -27,7 +28,8 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         ISystemInfoService systemInfoService,
         IConfigurationService configurationService,
         IContainerService containerService,
-        IProcessService processService)
+        IProcessService processService,
+        ICommandComposer composer)
     {
         _fileSystem = fileSystem;
         _dialogService = dialogService;
@@ -35,6 +37,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         _configurationService = configurationService;
         _containerService = containerService;
         _processService = processService;
+        _composer = composer;
     }
 
     public async Task<ITerminalControl> CreateTerminalControlAsync(TerminalSession session)
@@ -52,7 +55,8 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         else
         {
             // Verify command exists (only for local commands; container commands resolve inside the container)
-            if (!IsValidCommand(command))
+            var commandHead = command.Split(' ')[0];
+            if (!_composer.TryResolveExecutable(commandHead, out _) && !_composer.IsBuiltInShell(commandHead))
             {
                 await ShowCommandWarningAsync(command);
                 command = _systemInfoService.GetDefaultShell();
@@ -61,7 +65,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             // Register MCP collab server for any AI agent (HTTP transport, universal)
             // Only for non-shell commands; the shell early-out matches the WPF BuildLocalCommand path.
             var commandExeForMcp = command.Split(' ')[0];
-            if (!IsBuiltInCommand(commandExeForMcp))
+            if (!_composer.IsBuiltInShell(commandExeForMcp))
             {
                 EnsureMcpCollabRegistered();
                 EnsureCodexMcpCollabRegistered();
@@ -129,65 +133,6 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         return Environment.ExpandEnvironmentVariables(profile.Command);
     }
 
-    private bool IsValidCommand(string command)
-    {
-        // Check if it's a full path that exists
-        if (File.Exists(command))
-            return true;
-
-        // Get just the executable name if command has arguments
-        var execName = command.Split(' ')[0];
-        if (File.Exists(execName))
-            return true;
-
-        // Check if it's in PATH
-        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
-        var paths = pathEnv.Split(':');
-
-        foreach (var path in paths)
-        {
-            var fullPath = Path.Combine(path, execName);
-            if (File.Exists(fullPath))
-                return true;
-        }
-
-        // Check common macOS locations
-        var commonPaths = new[]
-        {
-            "/bin",
-            "/usr/bin",
-            "/usr/local/bin",
-            "/opt/homebrew/bin", // Apple Silicon Homebrew
-            "/usr/local/Homebrew/bin", // Intel Homebrew
-        };
-
-        foreach (var path in commonPaths)
-        {
-            var fullPath = Path.Combine(path, execName);
-            if (File.Exists(fullPath))
-                return true;
-        }
-
-        // Check if it's a built-in shell
-        return IsBuiltInCommand(execName);
-    }
-
-    private static bool IsBuiltInCommand(string command)
-    {
-        var builtIns = new[]
-        {
-            "zsh", "/bin/zsh",
-            "bash", "/bin/bash",
-            "sh", "/bin/sh",
-            "fish", "/usr/local/bin/fish", "/opt/homebrew/bin/fish",
-            "tcsh", "/bin/tcsh",
-            "csh", "/bin/csh",
-        };
-
-        return builtIns.Any(b => command.EndsWith(b, StringComparison.OrdinalIgnoreCase) ||
-                                 command.Equals(b, StringComparison.OrdinalIgnoreCase));
-    }
-
     private async Task ShowCommandWarningAsync(string command)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -205,7 +150,7 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
     {
         // For shell profiles (zsh, bash, sh, etc.), launch bash inside the container
         var commandExe = command.Split(' ')[0];
-        if (IsShellCommand(commandExe))
+        if (_composer.IsBuiltInShell(commandExe))
         {
             return _containerService.BuildExecCommand(containerName, workspaceDir, "/bin/bash");
         }
@@ -270,8 +215,13 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
             var apiUrl = $"http://{(apiSettings.BindAddress == "0.0.0.0" ? "127.0.0.1" : apiSettings.BindAddress)}:{apiSettings.Port}";
             var eventFilters = string.Join(",", channelSettings.EventFilters);
 
-            // On macOS, prefix env vars inline (no 'set' or 'export' needed for single-command use)
-            return $"TERMINALHOST_API_URL={apiUrl} TERMINALHOST_EVENTS={eventFilters} {command} {channelFlag}";
+            // Compose env vars in a platform-correct way (inline on POSIX, set/&& chain on Windows cmd)
+            var envVars = new Dictionary<string, string>
+            {
+                ["TERMINALHOST_API_URL"] = apiUrl,
+                ["TERMINALHOST_EVENTS"] = eventFilters,
+            };
+            return _composer.WithEnvironment($"{command} {channelFlag}", envVars);
         }
         catch
         {
@@ -517,6 +467,4 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         _fileSystem.WriteAllText(settingsPath, json);
     }
 
-    private static bool IsShellCommand(string command) =>
-        IsBuiltInCommand(command);
 }

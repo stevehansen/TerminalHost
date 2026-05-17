@@ -397,12 +397,21 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         if (_ptyService != null)
             return; // Already started
 
-        // Create PTY service
+        // Create PTY service. MacTerminalControl runs on POSIX only; Windows uses
+        // a different ITerminalControl impl (NativeControlHost-wrapped) registered
+        // by the factory so this branch isn't reached.
 #if MACOS
         _ptyService = new MacPtyService();
 #elif LINUX
         _ptyService = new LinuxPtyService();
+#else
+        throw new PlatformNotSupportedException(
+            "MacTerminalControl runs on macOS/Linux only. Windows must use a NativeControlHost-wrapped terminal.");
 #endif
+
+        // On Windows the throw above stops control flow; the compiler can't see that across the
+        // preprocessor seam, so the next four lines look unreachable to it. Silence that locally.
+#pragma warning disable CS0162
         _ptyService.ProcessExited += OnProcessExited;
 
         await _ptyService.StartAsync(_columns, _rows, _workingDirectory, _command, _customPaths);
@@ -410,6 +419,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         // Start reading from PTY
         _readCts = new CancellationTokenSource();
         _ = ReadOutputAsync(_readCts.Token);
+#pragma warning restore CS0162
     }
 
     private async Task ReadOutputAsync(CancellationToken cancellationToken)

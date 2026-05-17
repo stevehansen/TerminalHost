@@ -181,6 +181,7 @@ public partial class App : Application
 
         // Terminal Services
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
+        services.AddSingleton<ICommandComposer>(_ => CommandComposerFactory.ForCurrentOs());
 
         // Container Services — pass the same config directory as ConfigurationService.
 #if MACOS
