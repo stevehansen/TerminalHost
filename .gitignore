@@ -406,5 +406,6 @@ FodyWeavers.xsd
 
 
 .claude/settings.local.json
+.claude/worktrees/
 .direnv/
 result
