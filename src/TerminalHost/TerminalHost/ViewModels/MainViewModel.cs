@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
     private readonly IApiStateProjector _apiStateProjector;
+    private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly TabRouter _router;
 
     private readonly IProjectMonitor _projectMonitor;
@@ -272,7 +273,8 @@ public partial class MainViewModel : ObservableObject
         IWebhookDeliveryService? webhookDeliveryService = null,
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null,
-        IApiStateProjector? apiStateProjector = null)
+        IApiStateProjector? apiStateProjector = null,
+        ITerminalProfilesBuilder? profilesBuilder = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -307,6 +309,7 @@ public partial class MainViewModel : ObservableObject
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
+        _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -1192,36 +1195,18 @@ public partial class MainViewModel : ObservableObject
             var aiAssistant = _aiAssistantService.GetAssistantForDirectory(workingDirectory);
             var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
 
-            // Create profiles for custom command and shell
-            var customProfile = new Profile
-            {
-                Id = "custom",
-                Name = aiAssistant.Name,
-                Command = aiAssistant.Command,
-                WorkingDir = workingDirectory,
-                Icon = aiAssistant.Icon
-            };
+            var profiles = _profilesBuilder.Build(workingDirectory, aiAssistant, settings, wrapCustomInShell: false);
+            var customProfile = profiles.CustomProfile;
+            var shellProfile = profiles.ShellProfile;
+            var containerName = profiles.ContainerName;
 
-            var shellProfile = new Profile
-            {
-                Id = "shell",
-                Name = settings.ShellCommandName,
-                Command = settings.ShellCommand,
-                WorkingDir = workingDirectory,
-                Icon = settings.ShellCommandIcon
-            };
-
-            // Set up container if enabled for this workspace
-            string? containerName = null;
-            if (_containerService != null && _containerService.IsEnabledForDirectory(workingDirectory))
+            // Bring the container online if needed and surface failures as a warning toast.
+            // Builder has already stamped the container name onto both profiles — on failure
+            // we strip it back off and fall through to a non-containerized launch.
+            if (containerName != null && _containerService != null)
             {
                 try
                 {
-                    containerName = _containerService.GetContainerName(workingDirectory);
-                    customProfile.ContainerName = containerName;
-                    shellProfile.ContainerName = containerName;
-
-                    // Ensure container is running before terminals try to docker exec.
                     // During restore, containers were pre-warmed in parallel by RestoreOpenFolders,
                     // so skip the blocking call to avoid sequential per-tab startup delays.
                     if (!isRestore)
@@ -1234,9 +1219,9 @@ public partial class MainViewModel : ObservableObject
                 {
                     Debug.WriteLine($"Container setup failed: {ex.Message}");
                     _toastService.Show($"Container setup failed: {ex.Message}", ToastType.Warning);
-                    // Fall back to non-containerized
                     customProfile.ContainerName = null;
                     shellProfile.ContainerName = null;
+                    containerName = null;
                 }
             }
 

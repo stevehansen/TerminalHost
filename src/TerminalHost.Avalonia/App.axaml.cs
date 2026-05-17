@@ -266,6 +266,7 @@ public partial class App : Application
         // API & Webhooks Services
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
         services.AddSingleton<IApiStateProjector, ApiStateProjector>();
+        services.AddSingleton<ITerminalProfilesBuilder, TerminalProfilesBuilder>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddSingleton<ICollabService, CollabService>();
         services.AddSingleton<McpHandler>();

@@ -58,6 +58,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IContainerService? _containerService;
     private readonly IVoiceCommandService? _voiceCommandService;
     private readonly IApiStateProjector _apiStateProjector;
+    private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly Core.Interfaces.ITimerService _coreTimerService;
     private readonly TabRouter _router;
 
@@ -369,7 +370,8 @@ public partial class MainViewModel : ObservableObject
         IContainerService? containerService = null,
         IVoiceCommandService? voiceCommandService = null,
         Core.Interfaces.ITimerService? coreTimerService = null,
-        IApiStateProjector? apiStateProjector = null)
+        IApiStateProjector? apiStateProjector = null,
+        ITerminalProfilesBuilder? profilesBuilder = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -414,6 +416,7 @@ public partial class MainViewModel : ObservableObject
         _containerService = containerService;
         _voiceCommandService = voiceCommandService;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
+        _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
         _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
 
         // Initialize voice command bar
@@ -1105,39 +1108,20 @@ public partial class MainViewModel : ObservableObject
             var aiAssistant = _aiAssistantService.GetAssistantForDirectory(workingDirectory);
             var enabledAssistants = _aiAssistantService.GetEnabledAssistants();
 
-            // Create profiles for custom command and shell
-            // The custom terminal runs the shell first, then starts the AI CLI as a startup command.
-            // This allows the user to exit and restart the AI CLI without losing the terminal.
-            var customProfile = new Profile
-            {
-                Id = "custom",
-                Name = aiAssistant.Name,
-                Command = settings.ShellCommand,  // Start with the shell
-                StartupCommand = aiAssistant.Command,  // Then launch the AI CLI
-                WorkingDir = workingDirectory,
-                Icon = aiAssistant.Icon
-            };
+            // Avalonia wraps the AI CLI in a shell so the user can exit/restart the CLI
+            // without losing the terminal (see ITerminalProfilesBuilder.Build).
+            var profiles = _profilesBuilder.Build(workingDirectory, aiAssistant, settings, wrapCustomInShell: true);
+            var customProfile = profiles.CustomProfile;
+            var shellProfile = profiles.ShellProfile;
+            var containerName = profiles.ContainerName;
 
-            var shellProfile = new Profile
-            {
-                Id = "shell",
-                Name = settings.ShellCommandName,
-                Command = settings.ShellCommand,
-                WorkingDir = workingDirectory,
-                Icon = settings.ShellCommandIcon
-            };
-
-            // Set up container if enabled for this workspace
-            string? containerName = null;
-            if (_containerService != null && _containerService.IsEnabledForDirectory(workingDirectory))
+            // Bring the container online if needed and surface failures as a warning toast.
+            // Builder has already stamped the container name onto both profiles — on failure
+            // we strip it back off and fall through to a non-containerized launch.
+            if (containerName != null && _containerService != null)
             {
                 try
                 {
-                    containerName = _containerService.GetContainerName(workingDirectory);
-                    customProfile.ContainerName = containerName;
-                    shellProfile.ContainerName = containerName;
-
-                    // Ensure container is running before terminals try to docker exec.
                     // During restore, containers were pre-warmed in parallel, so skip
                     // the blocking per-tab call and let the async check retry if needed.
                     if (selectTab)
@@ -1150,9 +1134,9 @@ public partial class MainViewModel : ObservableObject
                 {
                     Debug.WriteLine($"Container setup failed: {ex.Message}");
                     _toastService.Show($"Container setup failed: {ex.Message}", ToastType.Warning);
-                    // Fall back to non-containerized
                     customProfile.ContainerName = null;
                     shellProfile.ContainerName = null;
+                    containerName = null;
                 }
             }
 
