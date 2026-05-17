@@ -48,4 +48,20 @@ public sealed class TabFactory : ITabFactory
             _serviceProvider.GetRequiredService<IToastService>(),
             duplicateIndex);
     }
+
+    public FileExplorerViewModel CreateFileExplorer(string rootPath)
+    {
+        return new FileExplorerViewModel(
+            _serviceProvider.GetRequiredService<IFileExplorerService>(),
+            _serviceProvider.GetRequiredService<IGitStatusService>(),
+            _serviceProvider.GetRequiredService<IDialogService>(),
+            _serviceProvider.GetRequiredService<IFileSystem>(),
+            _serviceProvider.GetRequiredService<IProcessService>(),
+            _serviceProvider.GetRequiredService<IDispatcherService>(),
+            _serviceProvider.GetRequiredService<IClipboardService>(),
+            _serviceProvider.GetRequiredService<IToastService>())
+        {
+            RootPath = rootPath
+        };
+    }
 }

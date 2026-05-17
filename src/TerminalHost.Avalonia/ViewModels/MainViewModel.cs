@@ -29,7 +29,6 @@ public partial class MainViewModel : ObservableObject
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
-    private readonly IFileExplorerService _fileExplorerService;
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
     private readonly IClaudeCommandService _claudeCommandService;
@@ -339,7 +338,6 @@ public partial class MainViewModel : ObservableObject
         DetectedLinksViewModel detectedLinksViewModel,
         IFileSystem fileSystem,
         IDialogService dialogService,
-        IFileExplorerService fileExplorerService,
         IFilePreviewService filePreviewService,
         IFileEditService fileEditService,
         IClaudeCommandService claudeCommandService,
@@ -385,7 +383,6 @@ public partial class MainViewModel : ObservableObject
         _detectedLinksViewModel = detectedLinksViewModel;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
-        _fileExplorerService = fileExplorerService;
         _filePreviewService = filePreviewService;
         _fileEditService = fileEditService;
         _claudeCommandService = claudeCommandService;
@@ -1077,7 +1074,7 @@ public partial class MainViewModel : ObservableObject
         _configService.Save(config);
     }
 
-    public async void OpenProjectTab(string workingDirectory, bool selectTab = true, bool forceNew = false)
+    public void OpenProjectTab(string workingDirectory, bool selectTab = true, bool forceNew = false)
     {
         try
         {
@@ -1181,7 +1178,7 @@ public partial class MainViewModel : ObservableObject
             tabViewModel.RunStopRequested += OnRunStopRequested;
 
             // Initialize file explorer
-            var explorerViewModel = new FileExplorerViewModel(_fileExplorerService, _gitStatusService, _dialogService, _fileSystem, _processService, _dispatcherService, _clipboardService, _toastService);
+            var explorerViewModel = _tabFactory.CreateFileExplorer(workingDirectory);
             tabViewModel.ExplorerViewModel = explorerViewModel;
 
             // Restore explorer settings
@@ -1225,10 +1222,7 @@ public partial class MainViewModel : ObservableObject
             _directorySettings.AddRecent(workingDirectory);
 
             // Track workspace for sidebar
-            if (SidebarViewModel != null)
-            {
-                _ = SidebarViewModel.TrackWorkspaceOpenedAsync(workingDirectory);
-            }
+            _ = SidebarViewModel?.SyncWithOpenTabAsync(workingDirectory);
 
             // Restore center panel state (fires event for MainWindow to handle)
             if (dirSettings?.ActiveCenterPanel != null)

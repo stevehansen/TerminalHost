@@ -33,4 +33,13 @@ public interface ITabFactory
         IReadOnlyList<AiAssistant> enabledAssistants,
         string shellIcon,
         int duplicateIndex);
+
+    /// <summary>
+    /// Creates a <see cref="FileExplorerViewModel"/> with the eight service
+    /// dependencies resolved from DI. <paramref name="rootPath"/> is stamped
+    /// onto <see cref="FileExplorerViewModel.RootPath"/> so the caller's first
+    /// <c>InitializeAsync</c> call can read it back; the explorer's actual
+    /// tree scan is still triggered separately.
+    /// </summary>
+    FileExplorerViewModel CreateFileExplorer(string rootPath);
 }
