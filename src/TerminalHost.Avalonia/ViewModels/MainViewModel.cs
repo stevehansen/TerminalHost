@@ -1367,19 +1367,10 @@ public partial class MainViewModel : ObservableObject
     private void CloseTab(ITabViewModel? tab)
     {
         if (tab == null) return;
+        if (!tab.ConfirmCanClose(_dialogService, _profileRegistry.Settings.ConfirmOnClose)) return;
 
         if (tab is TerminalPairTabViewModel terminalTab)
         {
-            var hasRunning = terminalTab.Pair.CustomTerminal.IsProcessRunning() || terminalTab.Pair.ShellTerminal.IsProcessRunning();
-
-            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
-            {
-                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
-                    $"Terminals in '{terminalTab.Title}' are still running. Close anyway?",
-                    "Confirm Close"))
-                    return;
-            }
-
             terminalTab.CloseRequested -= OnTabCloseRequested;
             terminalTab.SettingsChanged -= OnTabSettingsChanged;
             terminalTab.RunStartRequested -= OnRunStartRequested;
@@ -1418,16 +1409,6 @@ public partial class MainViewModel : ObservableObject
         }
         else if (tab is ProfileTerminalTabViewModel profileTab)
         {
-            var hasRunning = profileTab.Session.IsProcessRunning();
-
-            if (hasRunning && _profileRegistry.Settings.ConfirmOnClose)
-            {
-                if (!_dialogService.ShowConfirmation( // Use injected IDialogService
-                    $"Terminal '{profileTab.Title}' is still running. Close anyway?",
-                    "Confirm Close"))
-                    return;
-            }
-
             profileTab.CloseRequested -= OnTabCloseRequested;
             _sessionManager.CloseSession(profileTab.Session);
             profileTab.Session.Dispose();

@@ -26,6 +26,15 @@ public partial class ProfileTerminalTabViewModel : ObservableObject, ITabViewMod
     public bool CanDuplicate => false;
     public string DisplayTitle => Title;
 
+    public bool ConfirmCanClose(IDialogService dialogService, bool confirmIfBusy)
+    {
+        if (!confirmIfBusy) return true;
+        if (!Session.IsProcessRunning()) return true;
+        return dialogService.ShowConfirmation(
+            $"Terminal '{Title}' is still running. Close anyway?",
+            "Confirm Close");
+    }
+
     [ObservableProperty]
     private ContentControl? _terminalContent;
 

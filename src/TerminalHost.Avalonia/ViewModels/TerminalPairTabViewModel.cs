@@ -34,6 +34,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool IsCloseable => true;
     public bool CanDuplicate => true; // Project tabs can be duplicated
 
+    public bool ConfirmCanClose(IDialogService dialogService, bool confirmIfBusy)
+    {
+        if (!confirmIfBusy) return true;
+        if (!Pair.CustomTerminal.IsProcessRunning() && !Pair.ShellTerminal.IsProcessRunning()) return true;
+        return dialogService.ShowConfirmation(
+            $"Terminals in '{Title}' are still running. Close anyway?",
+            "Confirm Close");
+    }
+
     /// <summary>
     /// Index for duplicate tabs of the same directory.
     /// 0 = first/original tab (no suffix), 2+ = duplicate tabs.

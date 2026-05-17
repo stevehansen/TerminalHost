@@ -89,5 +89,14 @@ public interface ITabViewModel : INotifyPropertyChanged
     /// </summary>
     bool CanDuplicate { get; }
 
+    /// <summary>
+    /// Asks the user to confirm closing this tab if it holds work that would be lost
+    /// (e.g. running processes). Returns false if the user canceled the close.
+    /// Default implementation returns true; tabs that own running work override this.
+    /// </summary>
+    /// <param name="dialogService">Service used to show a confirmation prompt.</param>
+    /// <param name="confirmIfBusy">If false, the tab should not prompt even when busy.</param>
+    bool ConfirmCanClose(IDialogService dialogService, bool confirmIfBusy) => true;
+
     event EventHandler? CloseRequested;
 }

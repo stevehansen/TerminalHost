@@ -22,6 +22,15 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool IsCloseable => true;
     public bool CanDuplicate => true;
 
+    public bool ConfirmCanClose(IDialogService dialogService, bool confirmIfBusy)
+    {
+        if (!confirmIfBusy) return true;
+        if (!Pair.CustomTerminal.IsProcessRunning() && !Pair.ShellTerminal.IsProcessRunning()) return true;
+        return dialogService.ShowConfirmation(
+            $"Terminals in '{Title}' are still running. Close anyway?",
+            "Confirm Close");
+    }
+
     [ObservableProperty]
     private string _customIcon = "🤖";
 
