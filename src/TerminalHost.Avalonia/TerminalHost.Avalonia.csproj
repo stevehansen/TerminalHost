@@ -31,6 +31,10 @@
     <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
     <UseWPF>true</UseWPF>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Required by Avalonia's Win32NativeControlHost: the <compatibility> block must declare
+         Win10/11 supportedOS GUIDs or CreateWindowEx fails with "Unable to create child window
+         for native control host. Application manifest with supported OS list might be required." -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
     <RuntimeIdentifiers>osx-arm64;osx-x64;linux-x64;linux-arm64</RuntimeIdentifiers>
