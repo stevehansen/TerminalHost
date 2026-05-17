@@ -330,6 +330,7 @@ public partial class App : Application
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
         services.AddSingleton<IApiStateProjector, ApiStateProjector>();
         services.AddSingleton<ITerminalProfilesBuilder, TerminalProfilesBuilder>();
+        services.AddSingleton<ITabRestoreCoordinator, TabRestoreCoordinator>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();
         services.AddSingleton<ICollabService, CollabService>();
         services.AddSingleton<McpHandler>();

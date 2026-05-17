@@ -713,6 +713,8 @@ public partial class MainWindow : Window
 
     private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
     {
+        if (e.Tab is not TerminalPairTabViewModel tab) return;
+
         // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
         // to avoid race conditions with singleton panel ViewModels. Data loads on demand
         // when the user switches to the tab (via tab-switch rebinding in OnViewModelPropertyChanged).
@@ -726,12 +728,12 @@ public partial class MainWindow : Window
                 }
                 if (e.SkipDataLoad)
                 {
-                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
                 }
                 else
                 {
-                    await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
-                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                    await _unifiedGitPanelViewModel.OpenOnTabAsync(tab, gitTab);
+                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
                 }
                 break;
             // Note: Other center panel types (branchComparison, searchFiles, prReview, etc.)

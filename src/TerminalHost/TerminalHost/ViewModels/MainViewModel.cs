@@ -52,6 +52,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IContainerService? _containerService;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
+    private readonly ITabRestoreCoordinator _restoreCoordinator;
     private readonly TabRouter _router;
 
     private readonly IProjectMonitor _projectMonitor;
@@ -274,7 +275,8 @@ public partial class MainViewModel : ObservableObject
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null,
         IApiStateProjector? apiStateProjector = null,
-        ITerminalProfilesBuilder? profilesBuilder = null)
+        ITerminalProfilesBuilder? profilesBuilder = null,
+        ITabRestoreCoordinator? restoreCoordinator = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -310,6 +312,8 @@ public partial class MainViewModel : ObservableObject
         _containerService = containerService;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
+        _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
+        _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -984,10 +988,6 @@ public partial class MainViewModel : ObservableObject
         finally { IoCounters.CurrentUiOperation = null; }
     }
 
-    // Deferred center panel restores during startup to avoid race conditions
-    // when multiple tabs fire async restore for the same singleton panel ViewModel.
-    private List<CenterPanelRestoreEventArgs>? _deferredCenterPanelRestores;
-
     private void RestoreOpenFolders()
     {
         var config = _configService.Load();
@@ -1012,7 +1012,7 @@ public partial class MainViewModel : ObservableObject
         // Defer center panel restores until the correct SelectedTab is set.
         // Without this, multiple tabs fire async restores for singleton panel VMs
         // and the last one to complete wins — which may not be the selected tab.
-        _deferredCenterPanelRestores = [];
+        _restoreCoordinator.BeginBatch();
 
         var sp = StartupProfiler.Instance;
 
@@ -1059,10 +1059,6 @@ public partial class MainViewModel : ObservableObject
         // This lets the user see the tabs immediately instead of a frozen window.
         _ = DeferredGitRefreshAsync(restoredTabs);
 
-        // Capture and stop deferring
-        var pendingRestores = _deferredCenterPanelRestores;
-        _deferredCenterPanelRestores = null;
-
         // Restore the last selected tab based on type
         var tabToSelect = _workspaceStateStore.FindLastSelectedTab(Tabs, lastTabType, config.LastSelectedFolder);
         if (tabToSelect != null)
@@ -1070,25 +1066,7 @@ public partial class MainViewModel : ObservableObject
             SelectedTab = tabToSelect;
         }
 
-        // Now fire deferred center panel restores.
-        // Non-selected tabs only get ActiveCenterPanel set (no data load) to avoid
-        // async races overwriting the selected tab's data in singleton panel VMs.
-        // Data loads on demand when the user switches tabs (via OnViewModelPropertyChanged).
-        foreach (var restore in pendingRestores.Where(r => r.Tab != SelectedTab))
-        {
-            CenterPanelRestoreRequested?.Invoke(this, new CenterPanelRestoreEventArgs
-            {
-                Tab = restore.Tab,
-                PanelId = restore.PanelId,
-                GitPanelActiveTab = restore.GitPanelActiveTab,
-                SkipDataLoad = true
-            });
-        }
-        var selectedRestore = pendingRestores.FirstOrDefault(r => r.Tab == SelectedTab);
-        if (selectedRestore != null)
-        {
-            CenterPanelRestoreRequested?.Invoke(this, selectedRestore);
-        }
+        _restoreCoordinator.EndBatch(SelectedTab);
     }
 
     /// <summary>
@@ -1327,16 +1305,7 @@ public partial class MainViewModel : ObservableObject
                     PanelId = dirSettings.ActiveCenterPanel,
                     GitPanelActiveTab = dirSettings.GitPanelActiveTab
                 };
-
-                if (_deferredCenterPanelRestores != null)
-                {
-                    // During startup: defer until SelectedTab is finalized
-                    _deferredCenterPanelRestores.Add(restoreArgs);
-                }
-                else
-                {
-                    CenterPanelRestoreRequested?.Invoke(this, restoreArgs);
-                }
+                _restoreCoordinator.Request(restoreArgs);
             }
 
             // Restore right sidebar panel state
@@ -3050,20 +3019,6 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required TerminalPairTabViewModel Tab { get; init; }
     public required RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
-}
-
-public class CenterPanelRestoreEventArgs : EventArgs
-{
-    public required TerminalPairTabViewModel Tab { get; init; }
-    public required string PanelId { get; init; }
-    public string? GitPanelActiveTab { get; init; }
-
-    /// <summary>
-    /// When true, only associate the panel with the tab (set ActiveCenterPanel)
-    /// without loading data. Used for non-selected tabs during startup to avoid
-    /// race conditions with singleton panel ViewModels.
-    /// </summary>
-    public bool SkipDataLoad { get; init; }
 }
 
 public class RightPanelRestoreEventArgs : EventArgs

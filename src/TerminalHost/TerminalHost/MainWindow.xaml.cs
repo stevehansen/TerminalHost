@@ -1352,14 +1352,16 @@ public partial class MainWindow : Window
 
     private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
     {
+        if (e.Tab is not TerminalPairTabViewModel tab) return;
+
         // Helper: associate panel with tab and mark it as the active center panel.
         // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
         // to avoid race conditions with singleton panel ViewModels. Data loads on demand
         // when the user switches to the tab (via OnViewModelPropertyChanged rebind).
         void AssociateOnly(IPanelableViewModel panel)
         {
-            e.Tab.SetPanel(panel);
-            e.Tab.ShowCenterPanel(panel);
+            tab.SetPanel(panel);
+            tab.ShowCenterPanel(panel);
         }
 
         switch (e.PanelId)
@@ -1376,9 +1378,9 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    e.Tab.SetPanel(_unifiedGitPanelViewModel);
-                    await _unifiedGitPanelViewModel.OpenOnTabAsync(e.Tab, gitTab);
-                    e.Tab.ShowCenterPanel(_unifiedGitPanelViewModel);
+                    tab.SetPanel(_unifiedGitPanelViewModel);
+                    await _unifiedGitPanelViewModel.OpenOnTabAsync(tab, gitTab);
+                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
                 }
                 break;
             case "branchComparison":
@@ -1388,9 +1390,9 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    e.Tab.SetPanel(_branchComparisonViewModel);
-                    await _branchComparisonViewModel.OpenAsync(e.Tab);
-                    e.Tab.ShowCenterPanel(_branchComparisonViewModel);
+                    tab.SetPanel(_branchComparisonViewModel);
+                    await _branchComparisonViewModel.OpenAsync(tab);
+                    tab.ShowCenterPanel(_branchComparisonViewModel);
                 }
                 break;
             case "searchFiles":
@@ -1400,20 +1402,20 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    e.Tab.SetPanel(_searchAcrossFilesViewModel);
-                    await _searchAcrossFilesViewModel.OpenAsync(e.Tab);
-                    e.Tab.ShowCenterPanel(_searchAcrossFilesViewModel);
+                    tab.SetPanel(_searchAcrossFilesViewModel);
+                    await _searchAcrossFilesViewModel.OpenAsync(tab);
+                    tab.ShowCenterPanel(_searchAcrossFilesViewModel);
                 }
                 break;
             case "markdownPreview":
-                e.Tab.SetPanel(_markdownPreviewViewModel);
+                tab.SetPanel(_markdownPreviewViewModel);
                 _markdownPreviewViewModel.IsOpen = true;
-                e.Tab.ShowCenterPanel(_markdownPreviewViewModel);
+                tab.ShowCenterPanel(_markdownPreviewViewModel);
                 break;
             case "fileViewer":
-                e.Tab.SetPanel(_fileViewerViewModel);
+                tab.SetPanel(_fileViewerViewModel);
                 _fileViewerViewModel.IsOpen = true;
-                e.Tab.ShowCenterPanel(_fileViewerViewModel);
+                tab.ShowCenterPanel(_fileViewerViewModel);
                 break;
             case "prReview":
                 if (e.SkipDataLoad)
@@ -1422,20 +1424,20 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    e.Tab.SetPanel(_prReviewViewModel);
-                    await _prReviewViewModel.OpenAsync(e.Tab.WorkingDirectory);
-                    e.Tab.ShowCenterPanel(_prReviewViewModel);
+                    tab.SetPanel(_prReviewViewModel);
+                    await _prReviewViewModel.OpenAsync(tab.WorkingDirectory);
+                    tab.ShowCenterPanel(_prReviewViewModel);
                 }
                 break;
             case "testResults":
-                e.Tab.SetPanel(_testResultsViewModel);
+                tab.SetPanel(_testResultsViewModel);
                 _testResultsViewModel.IsOpen = true;
-                e.Tab.ShowCenterPanel(_testResultsViewModel);
+                tab.ShowCenterPanel(_testResultsViewModel);
                 break;
             case "recentFeatures":
-                e.Tab.SetPanel(_recentFeaturesViewModel);
+                tab.SetPanel(_recentFeaturesViewModel);
                 _recentFeaturesViewModel.OnOpened();
-                e.Tab.ShowCenterPanel(_recentFeaturesViewModel);
+                tab.ShowCenterPanel(_recentFeaturesViewModel);
                 break;
         }
     }
