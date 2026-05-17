@@ -25,11 +25,19 @@ internal sealed class ConfigurationService : IConfigurationService
         {
             _configDirectory = userDataDir;
         }
-        else
+        else if (OperatingSystem.IsMacOS())
         {
-            // macOS: ~/Library/Application Support/TerminalHost
+            // .NET's ApplicationData resolves to ~/.config on macOS, which is the wrong
+            // convention for native apps — fall back to ~/Library/Application Support.
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             _configDirectory = Path.Combine(home, "Library", "Application Support", "TerminalHost");
+        }
+        else
+        {
+            // Windows: %APPDATA%\TerminalHost (shared with the WPF host).
+            // Linux:   ~/.config/TerminalHost (XDG).
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            _configDirectory = Path.Combine(appData, "TerminalHost");
         }
 
         ConfigurationFilePath = Path.Combine(_configDirectory, "config.json");
@@ -54,51 +62,52 @@ internal sealed class ConfigurationService : IConfigurationService
             needsSave = true;
         }
 
-        // Apply platform-specific defaults for shell command if it's still Windows default
-        if (string.IsNullOrEmpty(config.Settings.ShellCommand) ||
-            config.Settings.ShellCommand.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
-            config.Settings.ShellCommand.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase))
+        // The blocks below rewrite Windows-style commands (pwsh.exe, %USERPROFILE%\...\claude.exe)
+        // to POSIX equivalents so a WPF-host config opened on macOS still works. On Windows the
+        // same patterns are the *correct* values, so we'd be clobbering legitimate user settings.
+        if (!OperatingSystem.IsWindows())
         {
-            var defaultShell = GetDefaultShell();
-            config.Settings.ShellCommand = defaultShell;
-            config.Settings.ShellCommandName = Path.GetFileName(defaultShell) switch
+            if (string.IsNullOrEmpty(config.Settings.ShellCommand) ||
+                config.Settings.ShellCommand.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
+                config.Settings.ShellCommand.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase))
             {
-                "zsh" => "Zsh",
-                "bash" => "Bash",
-                "fish" => "Fish",
-                _ => "Shell"
-            };
-            needsSave = true;
-        }
-
-        // Apply platform-specific defaults for custom command (Claude) if it's still Windows default
-        if (string.IsNullOrEmpty(config.Settings.CustomCommand) ||
-            config.Settings.CustomCommand.Contains("USERPROFILE") ||
-            config.Settings.CustomCommand.Contains("claude.exe"))
-        {
-            config.Settings.CustomCommand = GetDefaultClaudeCommand();
-            needsSave = true;
-        }
-
-        // Apply platform-specific defaults for AI Assistant commands if they're still Windows defaults
-        if (config.AiAssistants != null)
-        {
-            foreach (var assistant in config.AiAssistants)
-            {
-                if (!string.IsNullOrEmpty(assistant.Command) &&
-                    (assistant.Command.Contains("USERPROFILE") || assistant.Command.Contains(".exe")))
+                var defaultShell = GetDefaultShell();
+                config.Settings.ShellCommand = defaultShell;
+                config.Settings.ShellCommandName = Path.GetFileName(defaultShell) switch
                 {
-                    // Replace Windows path with macOS-appropriate command
-                    if (assistant.Id == "claude" || assistant.Command.Contains("claude"))
+                    "zsh" => "Zsh",
+                    "bash" => "Bash",
+                    "fish" => "Fish",
+                    _ => "Shell"
+                };
+                needsSave = true;
+            }
+
+            if (string.IsNullOrEmpty(config.Settings.CustomCommand) ||
+                config.Settings.CustomCommand.Contains("USERPROFILE") ||
+                config.Settings.CustomCommand.Contains("claude.exe"))
+            {
+                config.Settings.CustomCommand = GetDefaultClaudeCommand();
+                needsSave = true;
+            }
+
+            if (config.AiAssistants != null)
+            {
+                foreach (var assistant in config.AiAssistants)
+                {
+                    if (!string.IsNullOrEmpty(assistant.Command) &&
+                        (assistant.Command.Contains("USERPROFILE") || assistant.Command.Contains(".exe")))
                     {
-                        assistant.Command = GetDefaultClaudeCommand();
-                        needsSave = true;
-                    }
-                    else if (assistant.Command.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Remove .exe extension for other commands
-                        assistant.Command = assistant.Command[..^4];
-                        needsSave = true;
+                        if (assistant.Id == "claude" || assistant.Command.Contains("claude"))
+                        {
+                            assistant.Command = GetDefaultClaudeCommand();
+                            needsSave = true;
+                        }
+                        else if (assistant.Command.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            assistant.Command = assistant.Command[..^4];
+                            needsSave = true;
+                        }
                     }
                 }
             }
