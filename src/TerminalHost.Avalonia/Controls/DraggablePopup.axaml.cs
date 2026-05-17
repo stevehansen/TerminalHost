@@ -128,9 +128,9 @@ public partial class DraggablePopup : UserControl
         if (newHeight >= 300) PopupHeight = newHeight;
     }
 
-    private void UserControl_KeyDown(object? sender, KeyEventArgs e)
+    private void UserControl_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && IsOpen)
+        if (e.Key == Avalonia.Input.Key.Escape && IsOpen)
         {
             if (CloseCommand?.CanExecute(null) == true)
             {

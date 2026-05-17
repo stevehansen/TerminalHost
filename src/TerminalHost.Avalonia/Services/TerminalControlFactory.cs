@@ -84,9 +84,17 @@ internal sealed class TerminalControlFactory : ITerminalControlFactory
         // Get custom paths from configuration
         var customPaths = _configurationService.Load().Settings.CustomPaths;
 
+#if WINDOWS
+        // EasyTerminalControl spawns the command via cmd.exe under the hood and has no separate
+        // working-directory parameter, so fold the cd into the command string up front.
+        var windowsCommand = _composer.WithWorkingDirectory(command, workingDir);
+        var windowsControl = new TerminalHost.Controls.WindowsTerminalControl();
+        await windowsControl.InitializeAsync(windowsCommand, workingDir, customPaths);
+        ITerminalControl control = windowsControl;
+#else
         var control = new MacTerminalControl();
-
         await control.InitializeAsync(command, workingDir, customPaths);
+#endif
 
         // If there's a startup command, send it after the shell has initialized
         if (!string.IsNullOrEmpty(startupCommand))
