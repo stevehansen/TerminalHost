@@ -109,7 +109,7 @@
                PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                StaysOpen="False"
                AllowsTransparency="True"
-               IsOpen="{Binding IsCommandPaletteOpen, Mode=TwoWay}">
+               IsOpen="{Binding Palette.IsOpen, Mode=TwoWay}">
             <popups:CommandPaletteView DataContext="{Binding}" />
         </Popup>
 

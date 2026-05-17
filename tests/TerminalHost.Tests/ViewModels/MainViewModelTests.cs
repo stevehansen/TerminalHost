@@ -111,11 +111,11 @@ public class MainViewModelTests
             ShellCommand = "pwsh.exe",
             ShellCommandName = "PowerShell",
             ShellCommandIcon = "💻",
-            ConfirmOnClose = true 
+            ConfirmOnClose = true
         });
-        
+
         // Mock AppConfiguration with a default empty OpenFolders list
-        _mockConfigService.Setup(cs => cs.Load(It.IsAny<string?>())).Returns(new AppConfiguration 
+        _mockConfigService.Setup(cs => cs.Load(It.IsAny<string?>())).Returns(new AppConfiguration
         {
             OpenFolders = new List<string>() ,
             QuickCommands = new List<QuickCommand>()
@@ -124,10 +124,10 @@ public class MainViewModelTests
         // Use deferred execution for creating the control to avoid STA/MTA issues during test class construction
         _mockTerminalFactory.Setup(tf => tf.CreateTerminalControl(It.IsAny<TerminalSession>()))
             .Returns(() => new EasyWindowsTerminalControl.EasyTerminalControl());
-        
+
         _mockGitStatusService.Setup(gs => gs.GetGitStatusAsync(It.IsAny<string>()))
-            .ReturnsAsync(new GitStatus { IsGitRepository = false }); 
-        
+            .ReturnsAsync(new GitStatus { IsGitRepository = false });
+
         _mockProjectDetectionService.Setup(pd => pd.GetOrCreateConfigurations(
             It.IsAny<string>(), It.IsAny<DirectorySettings>()))
             .Returns(new List<RunConfiguration> { new RunConfiguration { Id = "shell", Name = "Shell", Command = "", IsDefault = true } });
@@ -197,7 +197,6 @@ public class MainViewModelTests
             _mockDetectedLinksViewModel.Object,
             _mockFileSystem.Object,
             _mockDialogService.Object,
-            _mockFilePreviewService.Object,
             _mockClaudeCommandService.Object,
             _mockAiAssistantService.Object,
             _mockProcessService.Object,
@@ -251,7 +250,7 @@ public class MainViewModelTests
 
             // Assert
             _mainViewModel.Tabs.Count.ShouldBe(1);
-            var addedTab = _mainViewModel.SelectedTab.ShouldBeOfType<TerminalPairTabViewModel>(); 
+            var addedTab = _mainViewModel.SelectedTab.ShouldBeOfType<TerminalPairTabViewModel>();
             addedTab.Pair.WorkingDirectory.ShouldBe(workingDirectory);
 
             _mockTerminalFactory.Verify(tf => tf.CreateTerminalControl(It.IsAny<TerminalSession>()), Times.Exactly(2));
@@ -291,7 +290,7 @@ public class MainViewModelTests
             _mainViewModel.Tabs.Count.ShouldBe(2); // Should not add a new one
             _mainViewModel.SelectedTab.ShouldBe(existingTab); // Should focus the existing tab
             // Verify no new terminals/sessions were created/tracked for the second call
-            _mockTerminalFactory.Verify(tf => tf.CreateTerminalControl(It.IsAny<TerminalSession>()), Times.Exactly(2)); 
+            _mockTerminalFactory.Verify(tf => tf.CreateTerminalControl(It.IsAny<TerminalSession>()), Times.Exactly(2));
             _mockSessionManager.Verify(sm => sm.TrackSession(It.IsAny<TerminalSession>()), Times.Exactly(2));
             _mockDialogService.Verify(ds => ds.ShowError(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         });

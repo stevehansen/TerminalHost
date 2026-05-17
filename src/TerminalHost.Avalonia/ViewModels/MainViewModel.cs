@@ -214,19 +214,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _touchMode;
 
-    // Command Palette Properties
-    [ObservableProperty]
-    private bool _isCommandPaletteOpen;
-
-    [ObservableProperty]
-    private string _paletteSearchText = "";
-
+    // Command Palette
     private ICommandPalette _palette = null!;
-    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = [];
-    public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
 
-    [ObservableProperty]
-    private PaletteCommand? _selectedPaletteCommand;
+    /// <summary>
+    /// Command palette ViewModel (open/close state, search, filtered list, MRU).
+    /// </summary>
+    public CommandPaletteViewModel Palette { get; }
 
     // Task Panel
     public TaskPanelViewModel? TaskPanelViewModel { get; set; }
@@ -461,9 +455,6 @@ public partial class MainViewModel : ObservableObject
 
         _workspace.SelectedTabChanged += OnWorkspaceSelectedTabChanged;
 
-        // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
-        _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
-
         _router = new TabRouter(_workspace.Tabs, tab => SelectedTab = tab);
         _router.Register<SettingsTabViewModel>(
             factory: () => new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService,
@@ -499,7 +490,6 @@ public partial class MainViewModel : ObservableObject
         FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
         UpdateFilteredSwitcherTabs(); // Initial population
 
-        FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         var commandContext = new CommandContext(
             activeTab: () => SelectedTab,
             serviceLocator: t => App.Current?.Services?.GetService(t));
@@ -525,6 +515,17 @@ public partial class MainViewModel : ObservableObject
                 new StatusOverlayCommandProvider(this),
             },
             context: commandContext);
+
+        Palette = new CommandPaletteViewModel(
+            _palette,
+            _profileRegistry,
+            _claudeCommandService,
+            _configService,
+            _dispatcherService,
+            currentWorkingDirectory: () => (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory,
+            openProfileTab: p => OpenProfileTab(p),
+            executeClaudeCommand: ExecuteClaudeCommand);
+
         InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
         // Step 3a (#48): all five periodic refresh paths run through one monitor.
@@ -2071,144 +2072,6 @@ public partial class MainViewModel : ObservableObject
     private void CloseHelp()
     {
         IsHelpOpen = false;
-    }
-
-    partial void OnPaletteSearchTextChanged(string value)
-    {
-        FilterPaletteCommands();
-    }
-
-    partial void OnIsCommandPaletteOpenChanged(bool value)
-    {
-        if (value)
-        {
-            PaletteSearchText = "";
-            FilterPaletteCommands();
-            if (FilteredPaletteCommands.Any())
-            {
-                SelectedPaletteCommand = FilteredPaletteCommands.First();
-            }
-        }
-    }
-
-    private void FilterPaletteCommands()
-    {
-        _filteredPaletteCommands.Clear();
-        var searchText = PaletteSearchText?.ToLower() ?? "";
-        var allCommands = new List<PaletteCommand>();
-
-        // Static commands (from providers, gated and filtered)
-        allCommands.AddRange(_palette.Filter(searchText));
-
-        // Add dynamic profile launch commands
-        foreach (var profile in _profileRegistry.Profiles)
-        {
-            var profileName = $"Launch: {profile.Name}";
-            var matchesSearch = string.IsNullOrEmpty(searchText) ||
-                               profileName.ToLower().Contains(searchText) ||
-                               "profile".Contains(searchText) ||
-                               "launch".Contains(searchText);
-
-            if (matchesSearch)
-            {
-                var capturedProfile = profile; // Capture for closure
-                allCommands.Add(new PaletteCommand
-                {
-                    Id = $"launch-profile-{profile.Id}",
-                    Name = profileName,
-                    Description = profile.Command,
-                    Shortcut = profile.Shortcut ?? "",
-                    Icon = profile.Icon ?? "▶",
-                    Category = "Profile",
-                    Execute = () => OpenProfileTab(capturedProfile)
-                });
-            }
-        }
-
-        // Add Claude commands (from ~/.claude/commands/ and .claude/commands/)
-        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
-        var claudeCommands = _claudeCommandService.GetAllCommands(currentWorkingDir);
-
-        foreach (var cmd in claudeCommands)
-        {
-            var commandName = $"Claude: /{cmd.Name}";
-            var matchesSearch = string.IsNullOrEmpty(searchText) ||
-                               commandName.ToLower().Contains(searchText) ||
-                               (cmd.Description?.ToLower().Contains(searchText) ?? false) ||
-                               "claude".Contains(searchText);
-
-            if (matchesSearch)
-            {
-                var capturedCmd = cmd; // Capture for closure
-                allCommands.Add(new PaletteCommand
-                {
-                    Id = $"claude-cmd-{cmd.Id}",
-                    Name = commandName,
-                    Description = cmd.Description ?? cmd.FilePath,
-                    Shortcut = cmd.Shortcut ?? "",
-                    Icon = "🤖",
-                    Category = cmd.Source == ClaudeCommandSource.Global ? "Claude (Global)" : "Claude (Project)",
-                    Execute = () => ExecuteClaudeCommand(capturedCmd)
-                });
-            }
-        }
-
-        // Sort by MRU (most recently used first), then alphabetically
-        var mruList = _configService.Load().CommandPaletteMru;
-        var sortedCommands = allCommands
-            .OrderBy(c =>
-            {
-                var mruIndex = mruList.IndexOf(c.Id);
-                return mruIndex >= 0 ? mruIndex : int.MaxValue;
-            })
-            .ThenBy(c => c.Name)
-            .ToList();
-
-        foreach (var command in sortedCommands)
-        {
-            _filteredPaletteCommands.Add(command);
-        }
-
-        if (FilteredPaletteCommands.Any())
-        {
-            SelectedPaletteCommand = FilteredPaletteCommands.First();
-        }
-        else
-        {
-            SelectedPaletteCommand = null;
-        }
-    }
-
-    [RelayCommand]
-    private void ExecuteSelectedPaletteCommand()
-    {
-        if (SelectedPaletteCommand != null)
-        {
-            // Track MRU before closing
-            UpdateCommandMru(SelectedPaletteCommand.Id);
-
-            IsCommandPaletteOpen = false;
-            SelectedPaletteCommand.Execute();
-        }
-    }
-
-    private void UpdateCommandMru(string commandId)
-    {
-        var config = _configService.Load();
-
-        // Remove if already exists (will be re-added at front)
-        config.CommandPaletteMru.Remove(commandId);
-
-        // Add to front
-        config.CommandPaletteMru.Insert(0, commandId);
-
-        // Limit to 30 most recent
-        if (config.CommandPaletteMru.Count > 30)
-        {
-            config.CommandPaletteMru.RemoveRange(30, config.CommandPaletteMru.Count - 30);
-        }
-
-        _configService.Save(config);
     }
 
     /// <summary>

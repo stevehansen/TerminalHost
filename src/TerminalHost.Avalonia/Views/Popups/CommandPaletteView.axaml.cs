@@ -68,7 +68,7 @@ public partial class CommandPaletteView : UserControl
         }
         else if (e.Key == Key.Escape)
         {
-            mainViewModel.IsCommandPaletteOpen = false;
+            mainViewModel.Palette.IsOpen = false;
             e.Handled = true;
         }
     }
@@ -77,7 +77,7 @@ public partial class CommandPaletteView : UserControl
     {
         if (DataContext is MainViewModel mainViewModel)
         {
-            mainViewModel.IsCommandPaletteOpen = false;
+            mainViewModel.Palette.IsOpen = false;
         }
     }
 
@@ -92,7 +92,7 @@ public partial class CommandPaletteView : UserControl
 
         if (PaletteCommandList.SelectedItem is PaletteCommand command)
         {
-            mainViewModel.IsCommandPaletteOpen = false;
+            mainViewModel.Palette.IsOpen = false;
             command.Execute();
         }
     }

@@ -102,8 +102,8 @@
 
                 <!-- Command Palette - Top Center -->
                 <popups:CommandPaletteView
-                    IsVisible="{Binding IsCommandPaletteOpen}"
-                    IsHitTestVisible="{Binding IsCommandPaletteOpen}"
+                    IsVisible="{Binding Palette.IsOpen}"
+                    IsHitTestVisible="{Binding Palette.IsOpen}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Top"
                     Margin="0,80,0,0" />

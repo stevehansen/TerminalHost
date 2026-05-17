@@ -586,7 +586,7 @@ public partial class MainWindow : Window
         if (e.Key == Key.Escape)
         {
             // Let popup views handle their own Escape key
-            if (_viewModel.IsCommandPaletteOpen || _viewModel.IsTabSwitcherOpen)
+            if (_viewModel.Palette.IsOpen || _viewModel.IsTabSwitcherOpen)
                 return;
 
             // First priority: dismiss voice bar if visible

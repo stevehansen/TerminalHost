@@ -7,7 +7,6 @@ public partial class MainWindow
 {
     private void ShowCommandPalette()
     {
-        _viewModel.PaletteSearchText = "";
-        _viewModel.IsCommandPaletteOpen = true;
+        _viewModel.Palette.IsOpen = true;
     }
 }

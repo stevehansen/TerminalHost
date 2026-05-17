@@ -5,8 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using TerminalHost.Domain;
-using TerminalHost.Core.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Core.Workspace;
@@ -30,7 +28,6 @@ public partial class MainViewModel : ObservableObject
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
 
-    private readonly IFilePreviewService _filePreviewService;
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly IAiAssistantService _aiAssistantService;
     internal readonly IProcessService _processService;
@@ -43,7 +40,6 @@ public partial class MainViewModel : ObservableObject
     private readonly IWorkspaceStateStore _workspaceStateStore;
     private readonly ITimelineService _timelineService;
     private readonly IInputPromptDetectionService _inputPromptDetectionService;
-    private readonly ITaskService? _taskService;
     private readonly IVoiceCommandService? _voiceCommandService;
     private readonly IEventAggregatorService? _eventAggregator;
     internal readonly IApiServer? _apiServer;
@@ -198,19 +194,13 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public VoiceBarViewModel VoiceBar { get; }
 
-    // Command Palette Properties
-    [ObservableProperty]
-    private bool _isCommandPaletteOpen;
-
-    [ObservableProperty]
-    private string _paletteSearchText = "";
-
+    // Command Palette
     private ICommandPalette _palette = null!;
-    private ObservableCollection<PaletteCommand> _filteredPaletteCommands = [];
-    public ReadOnlyObservableCollection<PaletteCommand> FilteredPaletteCommands { get; }
 
-    [ObservableProperty]
-    private PaletteCommand? _selectedPaletteCommand;
+    /// <summary>
+    /// Command palette ViewModel (open/close state, search, filtered list, MRU).
+    /// </summary>
+    public CommandPaletteViewModel Palette { get; }
 
     // Help
     public HelpViewModel HelpViewModel { get; }
@@ -256,7 +246,6 @@ public partial class MainViewModel : ObservableObject
         DetectedLinksViewModel detectedLinksViewModel,
         IFileSystem fileSystem,
         IDialogService dialogService,
-        IFilePreviewService filePreviewService,
         IClaudeCommandService claudeCommandService,
         IAiAssistantService aiAssistantService,
         IProcessService processService,
@@ -269,7 +258,6 @@ public partial class MainViewModel : ObservableObject
         IWorkspaceStateStore workspaceStateStore,
         ITimelineService timelineService,
         IInputPromptDetectionService inputPromptDetectionService,
-        ITaskService? taskService = null,
         IVoiceCommandService? voiceCommandService = null,
         IEventAggregatorService? eventAggregator = null,
         IApiServer? apiServer = null,
@@ -294,7 +282,6 @@ public partial class MainViewModel : ObservableObject
         _detectedLinksViewModel = detectedLinksViewModel;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
-        _filePreviewService = filePreviewService;
         _claudeCommandService = claudeCommandService;
         _aiAssistantService = aiAssistantService;
         _processService = processService;
@@ -307,7 +294,6 @@ public partial class MainViewModel : ObservableObject
         _workspaceStateStore = workspaceStateStore;
         _timelineService = timelineService;
         _inputPromptDetectionService = inputPromptDetectionService;
-        _taskService = taskService;
         _voiceCommandService = voiceCommandService;
         _eventAggregator = eventAggregator;
         _apiServer = apiServer;
@@ -390,9 +376,6 @@ public partial class MainViewModel : ObservableObject
 
         _workspace.SelectedTabChanged += OnWorkspaceSelectedTabChanged;
 
-        // Subscribe to Claude command changes (dispatch to UI thread since FileSystemWatcher raises events on thread pool)
-        _claudeCommandService.CommandsChanged += (_, _) => _dispatcherService.BeginInvoke(FilterPaletteCommands);
-
         _router = new TabRouter(_workspace.Tabs, tab => SelectedTab = tab);
         _router.Register<SettingsTabViewModel>(
             factory: () => _viewModelFactory.CreateSettings(),
@@ -426,7 +409,6 @@ public partial class MainViewModel : ObservableObject
         FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
         UpdateFilteredSwitcherTabs(); // Initial population
 
-        FilteredPaletteCommands = new ReadOnlyObservableCollection<PaletteCommand>(_filteredPaletteCommands);
         using (StartupProfiler.Instance.Measure("InitializeCommandPalette"))
         {
             var commandContext = new CommandContext(
@@ -456,6 +438,16 @@ public partial class MainViewModel : ObservableObject
                 context: commandContext);
             _ = _palette.Commands; // force provider evaluation inside the profiler scope
         }
+
+        Palette = new CommandPaletteViewModel(
+            _palette,
+            _profileRegistry,
+            _claudeCommandService,
+            _configService,
+            _dispatcherService,
+            currentWorkingDirectory: () => (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory,
+            openProfileTab: p => OpenProfileTab(p),
+            executeClaudeCommand: ExecuteClaudeCommand);
         using (StartupProfiler.Instance.Measure("InitializeVoiceGrammar"))
             InitializeVoiceGrammar();   // Build voice grammar from palette commands
 
@@ -2111,24 +2103,6 @@ public partial class MainViewModel : ObservableObject
         IsHelpOpen = false;
     }
 
-    partial void OnPaletteSearchTextChanged(string value)
-    {
-        FilterPaletteCommands();
-    }
-
-    partial void OnIsCommandPaletteOpenChanged(bool value)
-    {
-        if (value)
-        {
-            PaletteSearchText = "";
-            FilterPaletteCommands();
-            if (FilteredPaletteCommands.Any())
-            {
-                SelectedPaletteCommand = FilteredPaletteCommands.First();
-            }
-        }
-    }
-
     // ── Container command helpers ───────────────────────────────────────
 
     internal void ToggleContainerForCurrentWorkspace()
@@ -2358,136 +2332,6 @@ public partial class MainViewModel : ObservableObject
         }
 
         _voiceCommandService.UpdateGrammar(entries);
-    }
-
-    private void FilterPaletteCommands()
-    {
-        _filteredPaletteCommands.Clear();
-        var searchText = PaletteSearchText?.ToLower() ?? "";
-        var allCommands = new List<PaletteCommand>();
-
-        // Static commands (from providers, gated and filtered)
-        allCommands.AddRange(_palette.Filter(searchText));
-
-        // Add dynamic profile launch commands
-        foreach (var profile in _profileRegistry.Profiles)
-        {
-            var profileName = $"Launch: {profile.Name}";
-            var matchesSearch = string.IsNullOrEmpty(searchText) ||
-                               profileName.ToLower().Contains(searchText) ||
-                               "profile".Contains(searchText) ||
-                               "launch".Contains(searchText);
-
-            if (matchesSearch)
-            {
-                var capturedProfile = profile; // Capture for closure
-                allCommands.Add(new PaletteCommand
-                {
-                    Id = $"launch-profile-{profile.Id}",
-                    Name = profileName,
-                    Description = profile.Command,
-                    Shortcut = profile.Shortcut ?? "",
-                    Icon = profile.Icon ?? "▶",
-                    Category = "Profile",
-                    Execute = () => OpenProfileTab(capturedProfile)
-                });
-            }
-        }
-
-        // Add Claude commands (from ~/.claude/commands/, .claude/commands/, and plugins)
-        var currentWorkingDir = (SelectedTab as TerminalPairTabViewModel)?.Pair.WorkingDirectory;
-        var claudeCommands = _claudeCommandService.GetAllCommands(currentWorkingDir);
-
-        foreach (var cmd in claudeCommands)
-        {
-            var commandName = $"Claude: /{cmd.FullName}";
-            var matchesSearch = string.IsNullOrEmpty(searchText) ||
-                               commandName.ToLower().Contains(searchText) ||
-                               (cmd.Description?.ToLower().Contains(searchText) ?? false) ||
-                               (cmd.PluginName?.ToLower().Contains(searchText) ?? false) ||
-                               "claude".Contains(searchText) ||
-                               "plugin".Contains(searchText);
-
-            if (matchesSearch)
-            {
-                var capturedCmd = cmd; // Capture for closure
-                var category = cmd.Source switch
-                {
-                    ClaudeCommandSource.Global => "Claude (Global)",
-                    ClaudeCommandSource.Project => "Claude (Project)",
-                    ClaudeCommandSource.Plugin => $"Claude (Plugin: {cmd.PluginName})",
-                    _ => "Claude"
-                };
-
-                allCommands.Add(new PaletteCommand
-                {
-                    Id = $"claude-cmd-{cmd.Id}",
-                    Name = commandName,
-                    Description = cmd.Description ?? cmd.FilePath,
-                    Shortcut = cmd.Shortcut ?? "",
-                    Icon = "🤖",
-                    Category = category,
-                    Execute = () => ExecuteClaudeCommand(capturedCmd)
-                });
-            }
-        }
-
-        // Sort by MRU (most recently used first), then alphabetically
-        var mruList = _configService.Load().CommandPaletteMru;
-        var sortedCommands = allCommands
-            .OrderBy(c =>
-            {
-                var mruIndex = mruList.IndexOf(c.Id);
-                return mruIndex >= 0 ? mruIndex : int.MaxValue;
-            })
-            .ThenBy(c => c.Name)
-            .ToList();
-
-        foreach (var command in sortedCommands)
-        {
-            _filteredPaletteCommands.Add(command);
-        }
-
-        if (FilteredPaletteCommands.Any())
-        {
-            SelectedPaletteCommand = FilteredPaletteCommands.First();
-        }
-        else
-        {
-            SelectedPaletteCommand = null;
-        }
-    }
-
-    [RelayCommand]
-    private void ExecuteSelectedPaletteCommand()
-    {
-        if (SelectedPaletteCommand != null)
-        {
-            // Track MRU before closing
-            UpdateCommandMru(SelectedPaletteCommand.Id);
-
-            IsCommandPaletteOpen = false;
-            SelectedPaletteCommand.Execute();
-        }
-    }
-
-    private void UpdateCommandMru(string commandId)
-    {
-        var config = _configService.Load();
-
-        // Remove if already exists (will be re-added at front)
-        config.CommandPaletteMru.Remove(commandId);
-
-        // Add to front
-        config.CommandPaletteMru.Insert(0, commandId);
-
-        // Limit to 30 most recent
-        if (config.CommandPaletteMru.Count > 30)
-        {
-            config.CommandPaletteMru.RemoveRange(30, config.CommandPaletteMru.Count - 30);
-        }
-
-        _configService.Save(config);
     }
 
     internal static string GetCrashLogDirectoryPath()

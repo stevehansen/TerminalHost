@@ -47,7 +47,7 @@
                                    FontSize="{StaticResource FontSizeNormal}"
                                    VerticalAlignment="Center"
                                    IsHitTestVisible="False"
-                                   Visibility="{Binding PaletteSearchText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
+                                   Visibility="{Binding Palette.SearchText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
                         <TextBox x:Name="PaletteSearchBox"
                                  AutomationProperties.Name="Command Search"
                                  AutomationProperties.HelpText="Type to filter commands"
@@ -57,7 +57,7 @@
                                  BorderThickness="0"
                                  FontSize="{StaticResource FontSizeNormal}"
                                  VerticalAlignment="Center"
-                                 Text="{Binding PaletteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                 Text="{Binding Palette.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
                     <Button Grid.Column="2"
                             Content="×"
@@ -72,8 +72,8 @@
             <!-- Command List -->
             <ListBox x:Name="PaletteCommandList"
                      Grid.Row="1"
-                     ItemsSource="{Binding FilteredPaletteCommands}"
-                     SelectedItem="{Binding SelectedPaletteCommand, Mode=TwoWay}"
+                     ItemsSource="{Binding Palette.Filtered}"
+                     SelectedItem="{Binding Palette.Selected, Mode=TwoWay}"
                      Background="{StaticResource BackgroundDarkBrush}"
                      BorderThickness="0"
                      MaxHeight="380"

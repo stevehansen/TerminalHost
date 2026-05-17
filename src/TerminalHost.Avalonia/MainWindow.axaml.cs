@@ -285,7 +285,7 @@ public partial class MainWindow : Window
         {
             Gesture = new KeyGesture(Key.P, KeyModifiers.Meta | KeyModifiers.Shift)
         };
-        commandPaletteItem.Click += (_, _) => _mainViewModel.IsCommandPaletteOpen = true;
+        commandPaletteItem.Click += (_, _) => _mainViewModel.Palette.IsOpen = true;
         viewMenu.Menu.Add(commandPaletteItem);
 
         var tabSwitcherItem = new NativeMenuItem("Tab Switcher...")
@@ -1033,7 +1033,7 @@ public partial class MainWindow : Window
         if (e.Key == Key.Escape)
         {
             // Let popup views handle their own Escape key
-            if (_mainViewModel.IsCommandPaletteOpen || _mainViewModel.IsTabSwitcherOpen)
+            if (_mainViewModel.Palette.IsOpen || _mainViewModel.IsTabSwitcherOpen)
                 return;
 
             // First priority: close active center panel (return to terminals)
@@ -1143,7 +1143,7 @@ public partial class MainWindow : Window
         // Handle Cmd/Ctrl+Shift+P for command palette
         if (e.Key == Key.P && e.KeyModifiers == (primaryModifier | KeyModifiers.Shift))
         {
-            _mainViewModel.IsCommandPaletteOpen = !_mainViewModel.IsCommandPaletteOpen;
+            _mainViewModel.Palette.IsOpen = !_mainViewModel.Palette.IsOpen;
             e.Handled = true;
             return;
         }
@@ -1668,7 +1668,7 @@ public partial class MainWindow : Window
     {
         // Close MainViewModel popups
         _mainViewModel.IsHelpOpen = false;
-        _mainViewModel.IsCommandPaletteOpen = false;
+        _mainViewModel.Palette.IsOpen = false;
         _mainViewModel.IsTabSwitcherOpen = false;
         _mainViewModel.IsTabDropdownOpen = false;
         _mainViewModel.IsQuickTaskOpen = false;
