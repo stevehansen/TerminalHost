@@ -2,9 +2,9 @@ using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Domain;
-using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
@@ -846,7 +846,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private void ViewHistory()
     {
         if (SelectedNode?.IsDirectory != false) return;
-        FileHistoryRequested?.Invoke(this, SelectedNode.FullPath);
+        FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
+        {
+            WorkingDirectory = RootPath,
+            FilePath = SelectedNode.FullPath
+        });
     }
 
     public bool CanViewBlame => SelectedNode != null && !SelectedNode.IsDirectory;
@@ -855,7 +859,11 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     private void ViewBlame()
     {
         if (SelectedNode?.IsDirectory != false) return;
-        FileBlameRequested?.Invoke(this, SelectedNode.FullPath);
+        FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
+        {
+            WorkingDirectory = RootPath,
+            FilePath = SelectedNode.FullPath
+        });
     }
 
     // Submodule commands
@@ -935,8 +943,8 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     public event EventHandler<FileViewerRequestedEventArgs>? PopOutRequested;
     public event EventHandler<string>? CdToShellRequested;
     public event EventHandler<FileSystemNode>? RenameRequested;
-    public event EventHandler<string>? FileHistoryRequested;
-    public event EventHandler<string>? FileBlameRequested;
+    public event EventHandler<FileHistoryRequestedEventArgs>? FileHistoryRequested;
+    public event EventHandler<FileBlameRequestedEventArgs>? FileBlameRequested;
     public event EventHandler<string>? OpenSubmoduleRequested;
 
     public void Dispose()
@@ -947,15 +955,3 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 }
 
-public class FileViewerRequestedEventArgs : EventArgs
-{
-    public required string FilePath { get; init; }
-    public FileViewerMode Mode { get; init; } = FileViewerMode.Preview;
-}
-
-public enum FileViewerMode
-{
-    Preview,
-    Edit,
-    SideBySide
-}

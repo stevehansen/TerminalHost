@@ -53,6 +53,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly ITabRestoreCoordinator _restoreCoordinator;
+    private readonly ExplorerEventRouter _explorerRouter;
     private readonly TabRouter _router;
 
     private readonly IProjectMonitor _projectMonitor;
@@ -276,7 +277,8 @@ public partial class MainViewModel : ObservableObject
         IContainerService? containerService = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
-        ITabRestoreCoordinator? restoreCoordinator = null)
+        ITabRestoreCoordinator? restoreCoordinator = null,
+        ExplorerEventRouter? explorerRouter = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -314,6 +316,10 @@ public partial class MainViewModel : ObservableObject
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
         _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
         _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
+        _explorerRouter = explorerRouter ?? new ExplorerEventRouter();
+        _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
+        _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
+        _explorerRouter.FileBlameRequested += (s, e) => FileBlameRequested?.Invoke(this, e);
 
         // Wire up API server state delegates
         if (_apiServer is ApiServer concreteServer)
@@ -1269,11 +1275,11 @@ public partial class MainViewModel : ObservableObject
 
             // Wire up explorer events
             explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
-            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
+            explorerViewModel.FileViewerRequested += (s, e) => _explorerRouter.HandleFileViewerRequested(e);
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
-            explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
-            explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
+            explorerViewModel.FileHistoryRequested += (s, e) => _explorerRouter.HandleFileHistoryRequested(e);
+            explorerViewModel.FileBlameRequested += (s, e) => _explorerRouter.HandleFileBlameRequested(e);
 
             // Initialize explorer async — during restore, defer to avoid flooding
             // the dispatcher with 60 concurrent directory scans + git status checks.
@@ -1659,32 +1665,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
-    {
-        // Fire event to open in the popup viewer
-        if (e.Mode == FileViewerMode.Preview)
-        {
-            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
-            {
-                FilePath = e.FilePath,
-                Line = 0,
-                Column = 0
-            });
-        }
-        else
-        {
-            // For edit mode, we need a different event or we can reuse FileEditRequested from GitFilesViewModel
-            // For now, use FilePreviewRequested and let the viewer switch to edit mode
-            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
-            {
-                FilePath = e.FilePath,
-                Line = 0,
-                Column = 0,
-                OpenInEditMode = true
-            });
-        }
-    }
-
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Create a detached file viewer window
@@ -1713,16 +1693,6 @@ public partial class MainViewModel : ObservableObject
         {
             await explorerVm.PerformRenameAsync(node, newName);
         }
-    }
-
-    private void OnExplorerFileHistoryRequested(object? sender, FileHistoryRequestedEventArgs e)
-    {
-        FileHistoryRequested?.Invoke(this, e);
-    }
-
-    private void OnExplorerFileBlameRequested(object? sender, FileBlameRequestedEventArgs e)
-    {
-        FileBlameRequested?.Invoke(this, e);
     }
 
     [RelayCommand]

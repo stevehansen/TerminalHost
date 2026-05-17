@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
+using TerminalHost.Core.Domain;
 using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;

@@ -729,6 +729,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         if (SelectedNode?.IsDirectory != false) return;
         FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
         {
+            WorkingDirectory = RootPath,
             FilePath = SelectedNode.FullPath
         });
     }
@@ -740,6 +741,7 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
         if (SelectedNode?.IsDirectory != false) return;
         FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
         {
+            WorkingDirectory = RootPath,
             FilePath = SelectedNode.FullPath
         });
     }
@@ -904,25 +906,3 @@ public partial class FileExplorerViewModel : ObservableObject, IDisposable
     }
 }
 
-public class FileViewerRequestedEventArgs : EventArgs
-{
-    public required string FilePath { get; init; }
-    public FileViewerMode Mode { get; init; } = FileViewerMode.Preview;
-}
-
-public enum FileViewerMode
-{
-    Preview,
-    Edit,
-    SideBySide
-}
-
-public class FileHistoryRequestedEventArgs : EventArgs
-{
-    public required string FilePath { get; init; }
-}
-
-public class FileBlameRequestedEventArgs : EventArgs
-{
-    public required string FilePath { get; init; }
-}

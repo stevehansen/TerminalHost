@@ -59,6 +59,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly ITabRestoreCoordinator _restoreCoordinator;
+    private readonly ExplorerEventRouter _explorerRouter;
     private readonly Core.Interfaces.ITimerService _coreTimerService;
     private readonly TabRouter _router;
 
@@ -371,7 +372,8 @@ public partial class MainViewModel : ObservableObject
         Core.Interfaces.ITimerService? coreTimerService = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
-        ITabRestoreCoordinator? restoreCoordinator = null)
+        ITabRestoreCoordinator? restoreCoordinator = null,
+        ExplorerEventRouter? explorerRouter = null)
     {
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
@@ -418,6 +420,10 @@ public partial class MainViewModel : ObservableObject
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
         _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
         _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
+        _explorerRouter = explorerRouter ?? new ExplorerEventRouter();
+        _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
+        _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
+        _explorerRouter.FileBlameRequested += (s, e) => FileBlameRequested?.Invoke(this, e);
         _coreTimerService = coreTimerService ?? throw new ArgumentNullException(nameof(coreTimerService));
 
         // Initialize voice command bar
@@ -1167,11 +1173,11 @@ public partial class MainViewModel : ObservableObject
 
             // Wire up explorer events
             explorerViewModel.CdToShellRequested += (s, path) => tabViewModel.SendCdToShell(path);
-            explorerViewModel.FileViewerRequested += OnExplorerFileViewerRequested;
+            explorerViewModel.FileViewerRequested += (s, e) => _explorerRouter.HandleFileViewerRequested(e);
             explorerViewModel.PopOutRequested += OnExplorerPopOutRequested;
             explorerViewModel.RenameRequested += OnExplorerRenameRequested;
-            explorerViewModel.FileHistoryRequested += OnExplorerFileHistoryRequested;
-            explorerViewModel.FileBlameRequested += OnExplorerFileBlameRequested;
+            explorerViewModel.FileHistoryRequested += (s, e) => _explorerRouter.HandleFileHistoryRequested(e);
+            explorerViewModel.FileBlameRequested += (s, e) => _explorerRouter.HandleFileBlameRequested(e);
 
             // Initialize explorer async — during restore, defer to avoid flooding
             // the dispatcher with concurrent directory scans + git status checks.
@@ -1581,59 +1587,11 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OnExplorerFileViewerRequested(object? sender, FileViewerRequestedEventArgs e)
-    {
-        // Fire event to open in the popup viewer
-        if (e.Mode == FileViewerMode.Preview)
-        {
-            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
-            {
-                FilePath = e.FilePath,
-                Line = 0,
-                Column = 0
-            });
-        }
-        else
-        {
-            // For edit mode, we need a different event or we can reuse FileEditRequested from GitFilesViewModel
-            // For now, use FilePreviewRequested and let the viewer switch to edit mode
-            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
-            {
-                FilePath = e.FilePath,
-                Line = 0,
-                Column = 0,
-                OpenInEditMode = true
-            });
-        }
-    }
-
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         // Forward the pop-out request to MainWindow which will create the actual window
         // (ViewModels should not create windows directly - that's the View's responsibility)
         FilePopOutRequested?.Invoke(this, e);
-    }
-
-    private void OnExplorerFileHistoryRequested(object? sender, string filePath)
-    {
-        // Get the working directory from the current tab
-        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
-        FileHistoryRequested?.Invoke(this, new FileHistoryRequestedEventArgs
-        {
-            WorkingDirectory = workingDirectory,
-            FilePath = filePath
-        });
-    }
-
-    private void OnExplorerFileBlameRequested(object? sender, string filePath)
-    {
-        // Get the working directory from the current tab
-        var workingDirectory = (SelectedTab as TerminalPairTabViewModel)?.WorkingDirectory ?? "";
-        FileBlameRequested?.Invoke(this, new FileBlameRequestedEventArgs
-        {
-            WorkingDirectory = workingDirectory,
-            FilePath = filePath
-        });
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
@@ -2867,18 +2825,6 @@ public class RunTerminalRequestedEventArgs : EventArgs
     public required TerminalPairTabViewModel Tab { get; init; }
     public required RunConfiguration Configuration { get; init; }
     public bool IsStop { get; init; }
-}
-
-public class FileHistoryRequestedEventArgs : EventArgs
-{
-    public required string WorkingDirectory { get; init; }
-    public required string FilePath { get; init; }
-}
-
-public class FileBlameRequestedEventArgs : EventArgs
-{
-    public required string WorkingDirectory { get; init; }
-    public required string FilePath { get; init; }
 }
 
 /// <summary>
