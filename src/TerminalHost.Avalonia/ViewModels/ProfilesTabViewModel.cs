@@ -221,12 +221,25 @@ public partial class ProfilesTabViewModel : ObservableObject, ITabViewModel
 
     private static string GetDefaultShell()
     {
-        // Check for environment variable first
+        if (OperatingSystem.IsWindows())
+        {
+            var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
+            foreach (var dir in pathEnv.Split(';'))
+            {
+                if (string.IsNullOrWhiteSpace(dir)) continue;
+                var pwsh = Path.Combine(dir, "pwsh.exe");
+                if (File.Exists(pwsh)) return pwsh;
+            }
+            var ps = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "WindowsPowerShell", "v1.0", "powershell.exe");
+            return File.Exists(ps) ? ps : "cmd.exe";
+        }
+
         var shell = Environment.GetEnvironmentVariable("SHELL");
         if (!string.IsNullOrEmpty(shell) && File.Exists(shell))
             return shell;
 
-        // macOS defaults
         if (File.Exists("/bin/zsh")) return "/bin/zsh";
         if (File.Exists("/bin/bash")) return "/bin/bash";
 

@@ -160,6 +160,9 @@ public partial class App : Application
 #elif LINUX
         services.AddSingleton<ISystemInfoService>(_ =>
             new AvaloniaSystemInfoDecorator(new Linux.Services.LinuxSystemInfoService()));
+#elif WINDOWS
+        services.AddSingleton<ISystemInfoService>(_ =>
+            new AvaloniaSystemInfoDecorator(new WindowsAvaloniaSystemInfoService()));
 #endif
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<IDialogService, DialogService>();
@@ -245,6 +248,8 @@ public partial class App : Application
         services.AddSingleton<ISoundService, macOS.Services.MacSoundService>();
 #elif LINUX
         services.AddSingleton<ISoundService, Linux.Services.LinuxSoundService>();
+#elif WINDOWS
+        services.AddSingleton<ISoundService, WindowsAvaloniaSoundService>();
 #endif
 
         // Voice Command Services (Whisper-based, cross-platform)
