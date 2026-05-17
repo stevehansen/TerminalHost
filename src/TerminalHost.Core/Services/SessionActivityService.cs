@@ -31,7 +31,7 @@ public class SessionActivityService : ISessionActivityService
     {
         lock (_lock)
         {
-            return _states.Values.Where(s => s.IsActive).ToList();
+            return _states.Values.Where(s => s.IsActive).Select(s => s.Snapshot()).ToList();
         }
     }
 
@@ -39,7 +39,7 @@ public class SessionActivityService : ISessionActivityService
     {
         lock (_lock)
         {
-            return _states.Values.ToList();
+            return _states.Values.Select(s => s.Snapshot()).ToList();
         }
     }
 

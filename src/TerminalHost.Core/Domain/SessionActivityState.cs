@@ -555,6 +555,39 @@ public class SessionActivityState
     }
 
     /// <summary>
+    /// Returns a snapshot whose internal dictionaries/lists are freshly cloned so the
+    /// caller can enumerate them without risking "Collection was modified" if another
+    /// thread mutates the live state concurrently. Element references (AgentInstance,
+    /// ToolCall, etc.) are shared — readers only inspect scalar fields, which is
+    /// acceptable for display use. Callers that need a fully immutable view must
+    /// deep-clone themselves.
+    /// </summary>
+    public SessionActivityState Snapshot()
+    {
+        return new SessionActivityState
+        {
+            SessionId = SessionId,
+            WorkingDirectory = WorkingDirectory,
+            TranscriptPath = TranscriptPath,
+            StartTime = StartTime,
+            EndTime = EndTime,
+            LastActivityTime = LastActivityTime,
+            Lifecycle = Lifecycle,
+            InitialPrompt = InitialPrompt,
+            Summary = Summary,
+            GitBranch = GitBranch,
+            Source = Source,
+            ContainerName = ContainerName,
+            Agents = new Dictionary<string, AgentInstance>(Agents),
+            ToolCalls = new Dictionary<string, ToolCall>(ToolCalls),
+            Messages = new List<ConversationMessage>(Messages),
+            FileActivities = new Dictionary<string, FileActivity>(FileActivities),
+            SeenMessageIds = SeenMessageIds,
+            SeenToolUseIds = SeenToolUseIds
+        };
+    }
+
+    /// <summary>
     /// Creates a new SessionActivityState for a session.
     /// </summary>
     public static SessionActivityState Create(string sessionId, string? cwd = null, string? transcriptPath = null,
