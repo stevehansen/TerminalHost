@@ -343,6 +343,7 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<IDebugLogService, DebugLogService>();
         services.AddSingleton<StatusOverlayService>();
+        services.AddSingleton<IContainerConfiguration, ContainerConfiguration>();
         services.AddSingleton<IContainerService, ContainerService>();
         services.AddSingleton<IAiExecutionService, AiExecutionService>();
         services.AddSingleton<IDiffParserService, DiffParserService>();

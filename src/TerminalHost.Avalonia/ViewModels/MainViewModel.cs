@@ -55,6 +55,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ISoundService? _soundService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
+    private readonly IContainerConfiguration? _containerConfig;
     private readonly IVoiceCommandService? _voiceCommandService;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
@@ -363,6 +364,7 @@ public partial class MainViewModel : ObservableObject
         ISoundService? soundService = null,
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null,
+        IContainerConfiguration? containerConfig = null,
         IVoiceCommandService? voiceCommandService = null,
         Core.Interfaces.ITimerService? coreTimerService = null,
         IApiStateProjector? apiStateProjector = null,
@@ -411,6 +413,7 @@ public partial class MainViewModel : ObservableObject
         _soundService = soundService;
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
+        _containerConfig = containerConfig;
         _voiceCommandService = voiceCommandService;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
@@ -457,8 +460,14 @@ public partial class MainViewModel : ObservableObject
 
         _router = new TabRouter(_workspace.Tabs, tab => SelectedTab = tab);
         _router.Register<SettingsTabViewModel>(
-            factory: () => new SettingsTabViewModel(_configService, _dialogService, _toastService, _processService, _clipboardService, _containerService,
-                App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>()),
+            factory: () => new SettingsTabViewModel(
+                _configService, _dialogService, _toastService,
+                processService: _processService,
+                clipboardService: _clipboardService,
+                containerService: _containerService,
+                fileSystem: _fileSystem,
+                eidetService: App.Current.Services.GetService<TerminalHost.Core.Interfaces.IEidetService>(),
+                containerConfig: _containerConfig),
             onCreated: tab =>
             {
                 tab.CloseRequested += OnTabCloseRequested;
@@ -2269,6 +2278,7 @@ public partial class MainViewModel : ObservableObject
         var currentlyEnabled = _containerService?.IsEnabledForDirectory(dir) ?? false;
         var nowEnabled = !currentlyEnabled;
         _directorySettings.Update(dir, settings => settings.ContainerEnabled = nowEnabled);
+        _containerConfig?.Reload();
 
         var state = nowEnabled ? "enabled" : "disabled";
         _toastService.Show($"Container {state} for {Path.GetFileName(dir)}. Reloading tab...", ToastType.Info);

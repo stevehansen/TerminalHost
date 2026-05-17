@@ -55,6 +55,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     private readonly IProcessService _processService;
     private readonly IClipboardService _clipboardService;
     private readonly IContainerService? _containerService;
+    private readonly IContainerConfiguration? _containerConfig;
     private readonly ClaudeMdInstructionsService? _claudeMdService;
     private readonly IEidetService? _eidetService;
     private string _originalJson = "";
@@ -605,7 +606,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
     public SettingsTabViewModel(IConfigurationService configService, IDialogService dialogService, IToastService toastService,
         IProcessService? processService = null, IClipboardService? clipboardService = null,
         IContainerService? containerService = null, IFileSystem? fileSystem = null,
-        IEidetService? eidetService = null)
+        IEidetService? eidetService = null, IContainerConfiguration? containerConfig = null)
     {
         _configService = configService;
         _dialogService = dialogService;
@@ -613,6 +614,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         _processService = processService!;
         _clipboardService = clipboardService!;
         _containerService = containerService;
+        _containerConfig = containerConfig;
         _claudeMdService = fileSystem != null ? new ClaudeMdInstructionsService(fileSystem) : null;
         _eidetService = eidetService;
         LoadSettings();
@@ -1179,7 +1181,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         if (_containerService == null || container == null) return;
         try
         {
-            var dockerPath = _configService.Load().Settings.Container.DockerPath;
+            var dockerPath = _containerConfig?.Global.DockerPath ?? "docker";
             await _processService.RunAsync(dockerPath, $"stop {container.Name}", timeout: TimeSpan.FromSeconds(30));
             _toastService.Show($"Stopped {container.Name}", ToastType.Success);
             await RefreshContainersAsync();
@@ -1196,7 +1198,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
         if (_containerService == null || container == null) return;
         try
         {
-            var dockerPath = _configService.Load().Settings.Container.DockerPath;
+            var dockerPath = _containerConfig?.Global.DockerPath ?? "docker";
             await _processService.RunAsync(dockerPath, $"stop {container.Name}", timeout: TimeSpan.FromSeconds(30));
             await _processService.RunAsync(dockerPath, $"rm {container.Name}", timeout: TimeSpan.FromSeconds(10));
             _toastService.Show($"Removed {container.Name}", ToastType.Success);
@@ -1602,6 +1604,7 @@ public partial class SettingsTabViewModel : ObservableObject, ITabViewModel
             IsDirty = false;
             ErrorMessage = "";
             HasError = false;
+            _containerConfig?.Reload();
             ConfigSaved?.Invoke(this, EventArgs.Empty);
 
             // Show warning dialog if there are warnings (save succeeded but with issues)

@@ -15,17 +15,20 @@ public class ContainerService : IContainerService
     private const string ContainerPrefix = "terminalhost-ws";
 
     private readonly IConfigurationService _configService;
+    private readonly IContainerConfiguration _config;
     private readonly IProcessService _processService;
     private readonly IFileSystem _fileSystem;
     private readonly string _configDirectory;
 
     public ContainerService(
         IConfigurationService configService,
+        IContainerConfiguration containerConfig,
         IProcessService processService,
         IFileSystem fileSystem,
         string? configDirectory = null)
     {
         _configService = configService;
+        _config = containerConfig;
         _processService = processService;
         _fileSystem = fileSystem;
         _configDirectory = configDirectory ?? Path.Combine(
@@ -33,21 +36,8 @@ public class ContainerService : IContainerService
             "TerminalHost");
     }
 
-    public bool IsEnabledForDirectory(string workspaceDir)
-    {
-        var config = _configService.Load();
-        var normalizedPath = NormalizePath(workspaceDir);
-
-        // Check per-directory override
-        if (config.DirectorySettings.TryGetValue(normalizedPath, out var dirSettings)
-            && dirSettings.ContainerEnabled.HasValue)
-        {
-            return dirSettings.ContainerEnabled.Value;
-        }
-
-        // Fall back to global setting
-        return config.Settings.Container.Enabled;
-    }
+    public bool IsEnabledForDirectory(string workspaceDir) =>
+        _config.For(workspaceDir).Enabled;
 
     public async Task<bool> IsDockerAvailableAsync()
     {
@@ -65,8 +55,7 @@ public class ContainerService : IContainerService
 
     public async Task<bool> IsImageBuiltAsync()
     {
-        var config = _configService.Load();
-        var cs = config.Settings.Container;
+        var cs = _config.Global;
         var dockerPath = GetDockerPath();
         var (exitCode, _, _) = await _processService.RunAsync(
             dockerPath, $"image inspect {cs.ImageName}:{cs.ImageTag}",
@@ -78,8 +67,7 @@ public class ContainerService : IContainerService
     {
         EnsureDockerfileExists();
 
-        var config = _configService.Load();
-        var cs = config.Settings.Container;
+        var cs = _config.Global;
         var dockerPath = GetDockerPath();
         var dockerfileDir = Path.Combine(_configDirectory, "container");
         var dockerfilePath = Path.Combine(dockerfileDir, "Dockerfile");
@@ -213,14 +201,7 @@ public class ContainerService : IContainerService
         }
     }
 
-    public bool IsAutoApproveEnabled
-    {
-        get
-        {
-            var config = _configService.Load();
-            return config.Settings.Container.AutoApproveInContainer;
-        }
-    }
+    public bool IsAutoApproveEnabled => _config.Global.AutoApproveInContainer;
 
     public string BuildExecCommand(string containerName, string workspaceDir, string? command = null, string? extraArgs = null)
     {
@@ -420,9 +401,7 @@ public class ContainerService : IContainerService
 
     internal string ComputeConfigHash(string workspaceDir)
     {
-        var config = _configService.Load();
-        var cs = config.Settings.Container;
-        var refVols = GetReferenceVolumes(workspaceDir, config);
+        var cs = _config.For(workspaceDir);
 
         var sb = new StringBuilder();
         sb.Append(cs.MountSsh);
@@ -430,7 +409,7 @@ public class ContainerService : IContainerService
         sb.Append(cs.NetworkMode);
         sb.Append(cs.AutoApproveInContainer);
         sb.Append(string.Join(",", cs.EnvVars.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}")));
-        sb.Append(string.Join(",", refVols.OrderBy(v => v.Name).Select(v => $"{v.HostPath}:{v.Name}")));
+        sb.Append(string.Join(",", cs.ReferenceVolumes.OrderBy(v => v.Name).Select(v => $"{v.HostPath}:{v.Name}")));
         sb.Append(string.Join(",", cs.ExtraMounts.OrderBy(m => m.HostPath).Select(m => $"{m.HostPath}:{m.ContainerPath}:{m.Readonly}")));
         sb.Append(string.Join(",", cs.ExtraDockerArgs.OrderBy(a => a)));
 
@@ -462,8 +441,7 @@ public class ContainerService : IContainerService
 
     private async Task CreateContainerAsync(string workspaceDir, string containerName)
     {
-        var config = _configService.Load();
-        var cs = config.Settings.Container;
+        var cs = _config.For(workspaceDir);
         var dockerPath = GetDockerPath();
 
         var args = new StringBuilder();
@@ -484,7 +462,7 @@ public class ContainerService : IContainerService
 
         // TerminalHost API URL for host proxy communication
         // host.docker.internal resolves to the host machine from inside Docker Desktop containers
-        var apiPort = config.Settings.Api.Port;
+        var apiPort = _configService.Load().Settings.Api.Port;
         args.Append($" -e \"TERMINALHOST_API=http://host.docker.internal:{apiPort}\"");
 
         // Path mapping env vars for host proxy to translate container paths → host paths.
@@ -494,7 +472,7 @@ public class ContainerService : IContainerService
         args.Append($" -e \"TERMINALHOST_HOST_USERPROFILE={userProfile}\"");
 
         // Reference volume path mappings: TERMINALHOST_REF_<name>=<hostPath>
-        var referenceVolumes = GetReferenceVolumes(workspaceDir, config);
+        var referenceVolumes = cs.ReferenceVolumes;
         foreach (var vol in referenceVolumes)
         {
             if (_fileSystem.DirectoryExists(vol.HostPath))
@@ -799,8 +777,7 @@ public class ContainerService : IContainerService
     {
         try
         {
-            var config = _configService.Load();
-            if (!config.Settings.Container.MountGhCli)
+            if (!_config.Global.MountGhCli)
                 return;
 
             // Extract token and username from host's gh CLI.
@@ -1220,21 +1197,6 @@ public class ContainerService : IContainerService
         }
     }
 
-    private List<ReferenceVolume> GetReferenceVolumes(string workspaceDir, AppConfiguration config)
-    {
-        var normalizedPath = NormalizePath(workspaceDir);
-
-        // Check per-directory override
-        if (config.DirectorySettings.TryGetValue(normalizedPath, out var dirSettings)
-            && dirSettings.ContainerReferenceVolumes != null)
-        {
-            return dirSettings.ContainerReferenceVolumes;
-        }
-
-        // Fall back to global
-        return config.Settings.Container.ReferenceVolumes;
-    }
-
     /// <summary>
     /// Exports Claude Code credentials from macOS Keychain to ~/.claude/.credentials.json.
     /// On macOS, credentials are stored in the Keychain and not available as a file,
@@ -1273,8 +1235,7 @@ public class ContainerService : IContainerService
 
     private string GetDockerPath()
     {
-        var config = _configService.Load();
-        var path = config.Settings.Container.DockerPath;
+        var path = _config.Global.DockerPath;
 
         // On macOS, GUI apps don't inherit the shell's PATH.
         // If the configured path is just "docker" (no full path), resolve to common locations.

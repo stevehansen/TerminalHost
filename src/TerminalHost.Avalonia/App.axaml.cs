@@ -199,9 +199,11 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "TerminalHost");
 #endif
+        services.AddSingleton<IContainerConfiguration, TerminalHost.Core.Services.ContainerConfiguration>();
         services.AddSingleton<IContainerService>(sp =>
             new TerminalHost.Core.Services.ContainerService(
                 sp.GetRequiredService<IConfigurationService>(),
+                sp.GetRequiredService<IContainerConfiguration>(),
                 sp.GetRequiredService<IProcessService>(),
                 sp.GetRequiredService<IFileSystem>(),
                 containerConfigDir));

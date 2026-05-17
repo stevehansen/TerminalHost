@@ -46,6 +46,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly StatusOverlayService? _statusOverlayService;
     private readonly IContainerService? _containerService;
+    private readonly IContainerConfiguration? _containerConfig;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
     private readonly ITabRestoreCoordinator _restoreCoordinator;
@@ -264,6 +265,7 @@ public partial class MainViewModel : ObservableObject
         IWebhookDeliveryService? webhookDeliveryService = null,
         StatusOverlayService? statusOverlayService = null,
         IContainerService? containerService = null,
+        IContainerConfiguration? containerConfig = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
         ITabRestoreCoordinator? restoreCoordinator = null,
@@ -300,6 +302,7 @@ public partial class MainViewModel : ObservableObject
         _webhookDeliveryService = webhookDeliveryService;
         _statusOverlayService = statusOverlayService;
         _containerService = containerService;
+        _containerConfig = containerConfig;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
         _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
@@ -2112,6 +2115,7 @@ public partial class MainViewModel : ObservableObject
         var currentlyEnabled = _containerService?.IsEnabledForDirectory(dir) ?? false;
         var nowEnabled = !currentlyEnabled;
         _directorySettings.Update(dir, settings => settings.ContainerEnabled = nowEnabled);
+        _containerConfig?.Reload();
 
         var state = nowEnabled ? "enabled" : "disabled";
         _toastService.Show($"Container {state} for {Path.GetFileName(dir)}. Reloading tab...", ToastType.Info);
