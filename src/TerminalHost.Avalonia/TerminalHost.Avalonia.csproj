@@ -88,7 +88,7 @@
     <PackageReference Include="System.Text.Json" Version="10.0.8" />
 
     <!-- Avalonia-compatible charts -->
-    <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.2" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.4" />
 
     <!-- Avalonia message box dialogs -->
     <PackageReference Include="MessageBox.Avalonia" Version="3.3.1.1" />
