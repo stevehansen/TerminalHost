@@ -461,7 +461,8 @@ public sealed class SparkCanvasOrchestrator : IDisposable
     private static object? DeepCloneValue(object? value) => value switch
     {
         null => null,
-        string or bool or int or long or double or decimal or float or short or byte or DateTime or DateTimeOffset or Guid
+        string or bool or int or long or double or decimal or float or short or byte
+            or DateTime or DateTimeOffset or Guid or TimeSpan or Uri
             => value,
         IReadOnlyDictionary<string, object?> dict => DeepCloneDictionary(dict),
         IEnumerable<object?> list => list.Select(DeepCloneValue).ToList(),

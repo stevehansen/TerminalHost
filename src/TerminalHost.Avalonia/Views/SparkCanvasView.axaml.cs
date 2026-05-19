@@ -184,6 +184,13 @@ public partial class SparkCanvasView : UserControl
 
     private static async void ServeFiles(HttpListener listener, string webRoot, CancellationToken ct)
     {
+        // Normalize the root to end with a directory separator so the StartsWith check
+        // below catches a sibling-prefix bypass (e.g. webRoot "/app/web" vs leaked
+        // "/app/web_secret"). Path.GetFullPath also normalizes any "../" segments.
+        var normalizedRoot = Path.GetFullPath(webRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
         while (!ct.IsCancellationRequested && listener.IsListening)
         {
             try
@@ -192,9 +199,9 @@ public partial class SparkCanvasView : UserControl
                 var requestPath = context.Request.Url?.AbsolutePath?.TrimStart('/') ?? "index.html";
                 if (string.IsNullOrEmpty(requestPath)) requestPath = "index.html";
 
-                var filePath = Path.GetFullPath(Path.Combine(webRoot, requestPath));
+                var filePath = Path.GetFullPath(Path.Combine(normalizedRoot, requestPath));
 
-                if (!filePath.StartsWith(webRoot) || !File.Exists(filePath))
+                if (!filePath.StartsWith(normalizedRoot, StringComparison.Ordinal) || !File.Exists(filePath))
                 {
                     context.Response.StatusCode = 404;
                     context.Response.Close();
