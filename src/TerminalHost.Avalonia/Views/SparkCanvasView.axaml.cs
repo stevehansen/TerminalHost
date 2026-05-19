@@ -10,16 +10,16 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using TerminalHost.ViewModels;
+using TerminalHost.Core.ViewModels;
 #if !LINUX
-using WebViewCore.Events;
+using TerminalHost.AvaloniaSpark;
 #endif
 
 namespace TerminalHost.Views;
 
 /// <summary>
 /// Hosts the Spark Canvas visualization.
-/// On macOS: embedded WebView via WebView.Avalonia.Cross.
+/// On macOS / Windows (Avalonia): embedded WebView via WebView.Avalonia.Cross.
 /// On Linux: serves web assets on localhost and opens the default browser.
 /// </summary>
 public partial class SparkCanvasView : UserControl
@@ -32,6 +32,7 @@ public partial class SparkCanvasView : UserControl
     private CancellationTokenSource? _serverCts;
 #else
     private AvaloniaWebView.WebView? _webView;
+    private AvaloniaWebViewCanvasTransport? _transport;
 #endif
 
     public SparkCanvasView()
@@ -45,19 +46,16 @@ public partial class SparkCanvasView : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (_viewModel != null)
-        {
-            _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
             _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
-        }
 
         _viewModel = DataContext as SparkCanvasViewModel;
 
         if (_viewModel != null)
         {
-            _viewModel.SendMessageToCanvas += OnSendMessageToCanvas;
             _viewModel.RequestOpenJsonlFile += OnRequestOpenJsonlFile;
-
-            // Check if a JSONL open was requested before the view was ready
+#if !LINUX
+            TryAttachTransport();
+#endif
             if (_viewModel.HasPendingJsonlOpen)
                 Dispatcher.UIThread.Post(() => _viewModel.OpenJsonlFileCommand.Execute(null));
         }
@@ -78,10 +76,7 @@ public partial class SparkCanvasView : UserControl
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
         if (_viewModel != null)
-        {
-            _viewModel.SendMessageToCanvas -= OnSendMessageToCanvas;
             _viewModel.RequestOpenJsonlFile -= OnRequestOpenJsonlFile;
-        }
 #if LINUX
         StopHttpServer();
 #endif
@@ -92,8 +87,9 @@ public partial class SparkCanvasView : UserControl
     {
         _webView = new AvaloniaWebView.WebView();
         _webView.NavigationCompleted += SparkWebView_NavigationCompleted;
-        _webView.WebMessageReceived += SparkWebView_WebMessageReceived;
         WebViewHost.Content = _webView;
+
+        TryAttachTransport();
 
         var webAssetsPath = GetWebAssetsPath();
         var indexPath = Path.Combine(webAssetsPath, "index.html");
@@ -105,49 +101,18 @@ public partial class SparkCanvasView : UserControl
         }
     }
 
-    private void SparkWebView_NavigationCompleted(object? sender, WebViewUrlLoadedEventArg e)
+    private void SparkWebView_NavigationCompleted(object? sender, WebViewCore.Events.WebViewUrlLoadedEventArg e)
     {
         _isWebViewReady = true;
         LoadingOverlay.IsVisible = false;
     }
 
-    private void SparkWebView_WebMessageReceived(object? sender, WebViewMessageReceivedEventArgs e)
+    private void TryAttachTransport()
     {
-        try
-        {
-            var message = e.Message;
-            if (string.IsNullOrEmpty(message)) return;
-
-            if (message.Contains("\"action\":\"ready\""))
-            {
-                _viewModel?.OnCanvasReady();
-                return;
-            }
-
-            if (message.Contains("\"action\":\"selectSession\""))
-            {
-                _viewModel?.OnCanvasMessage(message);
-                return;
-            }
-
-            if (message.Contains("\"action\":\"refreshSessions\""))
-            {
-                _viewModel?.RefreshSessionsCommand.Execute(null);
-                return;
-            }
-
-            if (message.Contains("\"action\":\"themeChanged\""))
-            {
-                _viewModel?.OnCanvasMessage(message);
-                return;
-            }
-
-            _viewModel?.OnCanvasMessage(message);
-        }
-        catch
-        {
-            // Ignore parse errors
-        }
+        if (_viewModel == null || _webView == null) return;
+        if (_transport != null) return;
+        _transport = new AvaloniaWebViewCanvasTransport(_webView);
+        _viewModel.AttachTransport(_transport);
     }
 #endif
 
@@ -196,18 +161,16 @@ public partial class SparkCanvasView : UserControl
         {
             Process.Start(new ProcessStartInfo("xdg-open", _browserUrl) { UseShellExecute = false });
         }
-        catch
-        {
-            // xdg-open not available
-        }
+        catch { /* xdg-open not available */ }
 
         _isWebViewReady = true;
         LoadingOverlay.IsVisible = false;
         BrowserFallback.IsVisible = true;
         BrowserUrlText.Text = _browserUrl;
 
-        // Notify ViewModel that canvas is ready (events flow via SSE, not postMessage)
-        _viewModel?.OnCanvasReady();
+        // On Linux, the canvas runs in an external browser — wire a NullCanvasTransport
+        // so the VM's state machine still has a transport reference (events flow via SSE/REST).
+        _viewModel?.AttachTransport(new TerminalHost.Core.Services.Spark.NullCanvasTransport());
     }
 
     private static int FindFreePort()
@@ -221,6 +184,13 @@ public partial class SparkCanvasView : UserControl
 
     private static async void ServeFiles(HttpListener listener, string webRoot, CancellationToken ct)
     {
+        // Normalize the root to end with a directory separator so the StartsWith check
+        // below catches a sibling-prefix bypass (e.g. webRoot "/app/web" vs leaked
+        // "/app/web_secret"). Path.GetFullPath also normalizes any "../" segments.
+        var normalizedRoot = Path.GetFullPath(webRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
         while (!ct.IsCancellationRequested && listener.IsListening)
         {
             try
@@ -229,10 +199,9 @@ public partial class SparkCanvasView : UserControl
                 var requestPath = context.Request.Url?.AbsolutePath?.TrimStart('/') ?? "index.html";
                 if (string.IsNullOrEmpty(requestPath)) requestPath = "index.html";
 
-                var filePath = Path.GetFullPath(Path.Combine(webRoot, requestPath));
+                var filePath = Path.GetFullPath(Path.Combine(normalizedRoot, requestPath));
 
-                // Security: ensure path is within web root
-                if (!filePath.StartsWith(webRoot) || !File.Exists(filePath))
+                if (!filePath.StartsWith(normalizedRoot, StringComparison.Ordinal) || !File.Exists(filePath))
                 {
                     context.Response.StatusCode = 404;
                     context.Response.Close();
@@ -251,7 +220,6 @@ public partial class SparkCanvasView : UserControl
                     _ => "application/octet-stream"
                 };
 
-                // Allow CORS for API access
                 context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
 
                 var fileBytes = await File.ReadAllBytesAsync(filePath, ct);
@@ -295,37 +263,6 @@ public partial class SparkCanvasView : UserControl
     private void OnBrowserUrlTapped(object? sender, TappedEventArgs e) { }
 #endif
 
-    private void OnSendMessageToCanvas(object? sender, string json)
-    {
-        if (!_isWebViewReady) return;
-
-#if !LINUX
-        try
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                try
-                {
-                    // PostWebMessageAsString calls __dispatchMessageCallback(msg) in JS
-                    // which is registered by listenForWebViewMessages() in events.js.
-                    // Do NOT use ExecuteScriptAsync — it crashes on macOS due to a bug
-                    // in WebView.Avalonia.Cross (null NSObject in result callback).
-                    _webView?.PostWebMessageAsString(json, null);
-                }
-                catch
-                {
-                    // WebView may be disposed
-                }
-            });
-        }
-        catch
-        {
-            // Dispatcher may fail if window is closing
-        }
-#endif
-        // On Linux, events flow via the REST API SSE endpoint — no postMessage bridge needed.
-    }
-
     private async void OnRequestOpenJsonlFile(object? sender, EventArgs e)
     {
         var topLevel = TopLevel.GetTopLevel(this);
@@ -367,16 +304,9 @@ public partial class SparkCanvasView : UserControl
 
     private string BuildQueryString()
     {
-        if (_viewModel == null) return "";
-
-        var parts = new List<string>();
-        if (!string.IsNullOrEmpty(_viewModel.CurrentSessionId))
-            parts.Add($"session={Uri.EscapeDataString(_viewModel.CurrentSessionId)}");
-        if (!string.IsNullOrEmpty(_viewModel.ApiBaseUrl))
-            parts.Add($"api={Uri.EscapeDataString(_viewModel.ApiBaseUrl)}");
-        // Cache-busting to ensure fresh JS/CSS on relaunch
-        parts.Add($"v={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
-        return parts.Count > 0 ? "?" + string.Join("&", parts) : "";
+        // Build static query — the new orchestrator-based VM doesn't expose
+        // session/api URLs directly. Cache-bust to ensure fresh JS/CSS on relaunch.
+        return $"?v={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
     }
 
     private static string GetWebAssetsPath()
@@ -387,7 +317,6 @@ public partial class SparkCanvasView : UserControl
         if (Directory.Exists(webDir))
             return webDir;
 
-        // Dev fallback: look relative to the project source
         var devDir = Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "web", "spark"));
         if (Directory.Exists(devDir))
             return devDir;

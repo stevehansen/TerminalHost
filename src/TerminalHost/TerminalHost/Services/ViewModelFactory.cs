@@ -114,11 +114,6 @@ public class ViewModelFactory : IViewModelFactory
 
     public SparkCanvasViewModel CreateSparkCanvas()
     {
-        return new SparkCanvasViewModel(
-            _serviceProvider.GetService<ISessionActivityService>(),
-            _serviceProvider.GetService<IApiServer>(),
-            _serviceProvider.GetService<ITimelineService>(),
-            _serviceProvider.GetRequiredService<IConfigurationService>()
-        );
+        return _serviceProvider.GetRequiredService<SparkCanvasViewModel>();
     }
 }

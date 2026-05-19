@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using TerminalHost.ViewModels;
+using TerminalHost.Core.ViewModels;
 
 namespace TerminalHost.Views;
 

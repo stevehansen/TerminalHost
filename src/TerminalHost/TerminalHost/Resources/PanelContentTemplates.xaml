@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+                    xmlns:cvm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
                     xmlns:views="clr-namespace:TerminalHost.Views">
 
     <!-- DataTemplate for FileExplorerPanelViewModel - uses the inner ExplorerViewModel -->
@@ -84,7 +85,7 @@
     </DataTemplate>
 
     <!-- DataTemplate for SparkCanvasViewModel (center panel) -->
-    <DataTemplate DataType="{x:Type vm:SparkCanvasViewModel}">
+    <DataTemplate DataType="{x:Type cvm:SparkCanvasViewModel}">
         <views:SparkCanvasView/>
     </DataTemplate>
 

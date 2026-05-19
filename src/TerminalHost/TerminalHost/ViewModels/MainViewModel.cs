@@ -1803,7 +1803,7 @@ public partial class MainViewModel : ObservableObject
 
             if (sessionId != null)
             {
-                _sparkCanvasViewModel.OpenSession(sessionId);
+                _ = _sparkCanvasViewModel.OpenSessionAsync(sessionId);
             }
 
             terminalTab.ShowCenterPanel(_sparkCanvasViewModel);
@@ -1821,7 +1821,7 @@ public partial class MainViewModel : ObservableObject
             var vm = _viewModelFactory.CreateSparkCanvas();
             if (sessionId != null)
             {
-                vm.OpenSession(sessionId);
+                _ = vm.OpenSessionAsync(sessionId);
             }
 
             var window = new Views.SparkCanvasWindow { DataContext = vm };

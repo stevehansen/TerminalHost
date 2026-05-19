@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Windows.Platform;
-using TerminalHost.ViewModels;
 
 namespace TerminalHost.Views;
 
