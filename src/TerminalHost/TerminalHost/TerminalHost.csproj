@@ -38,7 +38,7 @@
     <PackageReference Include="Markdig" Version="1.2.0" />
     <PackageReference Include="Markdig.SyntaxHighlighting" Version="1.1.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
     <PackageReference Include="System.Text.Json" Version="10.0.8" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" GeneratePathProperty="true" />
   </ItemGroup>
