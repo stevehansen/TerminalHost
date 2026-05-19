@@ -1648,16 +1648,26 @@ public partial class MainViewModel : ObservableObject
         await dashboardTab.InitializeAsync();
     }
 
+    private SparkCanvasViewModel CreateSparkCanvasViewModel()
+    {
+        // S8: catalog + theme are registered as singletons in App.axaml.cs DI; resolve
+        // from the container so the lifetimes match the WPF host. Orchestrator is
+        // transient (one per panel), built manually so we can attach the optional
+        // IDebugLogService if registered.
+        var services = App.Current.Services;
+        var catalog = services.GetRequiredService<TerminalHost.Core.Interfaces.Spark.ISessionCatalog>();
+        var theme = services.GetRequiredService<TerminalHost.Core.Interfaces.Spark.IThemeStore>();
+        var log = services.GetService<TerminalHost.Core.Interfaces.IDebugLogService>();
+        var orchestrator = new TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator(catalog, _sessionActivityService, theme, log);
+        return new SparkCanvasViewModel(orchestrator);
+    }
+
     [RelayCommand]
     private void OpenSparkCanvas()
     {
         if (SelectedTab is TerminalPairTabViewModel tab)
         {
-            var vm = new SparkCanvasViewModel(
-                activityService: _sessionActivityService,
-                apiServer: _apiServer,
-                timelineService: _timelineService,
-                configService: _configService);
+            var vm = CreateSparkCanvasViewModel();
 
             // Auto-select the session matching this tab's working directory
             var tabDir = tab.WorkingDirectory;
@@ -1666,7 +1676,7 @@ public partial class MainViewModel : ObservableObject
                 ?? _timelineService.GetLiveSessions()
                     .FirstOrDefault(s => string.Equals(s.WorkingDirectory, tabDir, StringComparison.OrdinalIgnoreCase));
             if (matchingSession != null)
-                vm.OpenSession(matchingSession.ClaudeSessionId);
+                _ = vm.OpenSessionAsync(matchingSession.ClaudeSessionId);
 
             tab.ShowCenterPanel(vm);
         }
@@ -1680,11 +1690,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var vm = new SparkCanvasViewModel(
-            activityService: _sessionActivityService,
-            apiServer: _apiServer,
-            timelineService: _timelineService,
-            configService: _configService);
+        var vm = CreateSparkCanvasViewModel();
         terminalTab.ShowCenterPanel(vm);
 
         // Trigger the file open dialog via the ViewModel's event
@@ -1919,11 +1925,7 @@ public partial class MainViewModel : ObservableObject
 
     internal void OpenSparkCanvasWindow()
     {
-        var vm = new SparkCanvasViewModel(
-            activityService: _sessionActivityService,
-            apiServer: _apiServer,
-            timelineService: _timelineService,
-            configService: _configService);
+        var vm = CreateSparkCanvasViewModel();
         var window = new Views.SparkCanvasWindow(vm);
         window.Show();
     }

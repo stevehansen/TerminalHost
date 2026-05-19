@@ -281,6 +281,11 @@ public partial class App : Application
         services.AddSingleton<IApiServer>(sp => sp.GetRequiredService<ApiServer>());
         services.AddSingleton<IDebugLogService, TerminalHost.Core.Services.DebugLogService>();
         services.AddSingleton<TerminalHost.Core.Interfaces.IEidetService, TerminalHost.Core.Services.HttpEidetService>();
+        services.AddSingleton<TerminalHost.Core.Services.TranscriptParserService>();
+        services.AddSingleton<TerminalHost.Core.Interfaces.Spark.ISessionCatalog, TerminalHost.Core.Services.Spark.TimelineSessionCatalog>();
+        services.AddSingleton<TerminalHost.Core.Interfaces.Spark.IThemeStore, TerminalHost.Core.Services.Spark.ConfigThemeStore>();
+        services.AddTransient<TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator>();
+        services.AddTransient<TerminalHost.Core.ViewModels.SparkCanvasViewModel>();
 
         // Tab construction
         services.AddSingleton<ITabFactory, TabFactory>();
