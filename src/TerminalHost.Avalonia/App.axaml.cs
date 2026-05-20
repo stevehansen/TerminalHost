@@ -284,6 +284,7 @@ public partial class App : Application
         services.AddSingleton<TerminalHost.Core.Services.TranscriptParserService>();
         services.AddSingleton<TerminalHost.Core.Interfaces.Spark.ISessionCatalog, TerminalHost.Core.Services.Spark.TimelineSessionCatalog>();
         services.AddSingleton<TerminalHost.Core.Interfaces.Spark.IThemeStore, TerminalHost.Core.Services.Spark.ConfigThemeStore>();
+        services.AddTransient<TerminalHost.Core.Interfaces.Spark.ISparkPayloadComposer, TerminalHost.Core.Services.Spark.SparkPayloadComposer>();
         services.AddTransient<TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator>();
         services.AddTransient<TerminalHost.Core.ViewModels.SparkCanvasViewModel>();
 

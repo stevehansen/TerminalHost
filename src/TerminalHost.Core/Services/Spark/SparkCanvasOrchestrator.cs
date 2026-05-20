@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,11 +31,11 @@ public sealed class SparkCanvasOrchestrator : IDisposable
     private const string LogSource = "SparkCanvasOrchestrator";
 
     private readonly ISessionCatalog _catalog;
+    private readonly ISparkPayloadComposer _composer;
     private readonly ISessionActivityService? _activity;
     private readonly IThemeStore _theme;
     private readonly IDebugLogService? _log;
 
-    private readonly HashSet<string> _enrichedSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<SessionListItem> _availableSessions = new();
     private readonly object _disposeGate = new();
     private readonly CancellationTokenSource _cts = new();
@@ -47,11 +46,13 @@ public sealed class SparkCanvasOrchestrator : IDisposable
 
     public SparkCanvasOrchestrator(
         ISessionCatalog catalog,
+        ISparkPayloadComposer composer,
         ISessionActivityService? activity,
         IThemeStore theme,
         IDebugLogService? log = null)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _composer = composer ?? throw new ArgumentNullException(nameof(composer));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
         _activity = activity;
         _log = log;
@@ -146,26 +147,10 @@ public sealed class SparkCanvasOrchestrator : IDisposable
     {
         if (string.IsNullOrEmpty(sessionId)) return;
 
-        var snapshot = _catalog.GetSnapshot(sessionId);
-        if (snapshot != null && snapshot.Agents.Values.Any(a => a.IsMain && a.Model == null))
-        {
-            await EnrichOnceAsync(sessionId);
-            snapshot = _catalog.GetSnapshot(sessionId) ?? snapshot;
-        }
-
-        if (snapshot == null)
-        {
-            // S7: still transition (canvas may receive snapshot data later via activity events),
-            // but send a SetSession placeholder so the user sees "waiting for data".
-            TransitionTo(Reduce(State, new Trigger.HostOpen(sessionId)));
-            await SendAsync(new CanvasOutbound.Clear());
-            await SendAsync(new CanvasOutbound.SetSession(sessionId, "Waiting for session data..."));
-            return;
-        }
-
+        var messages = await _composer.ComposeOpenAsync(sessionId, _cts.Token);
         TransitionTo(Reduce(State, new Trigger.HostOpen(sessionId)));
-        await SendAsync(new CanvasOutbound.Clear());
-        await SendAsync(new CanvasOutbound.LoadState(snapshot));
+        foreach (var m in messages)
+            await SendAsync(m);
     }
 
     /// <summary>Opens a JSONL transcript file in <see cref="CanvasState.Replay"/> mode.</summary>
@@ -173,42 +158,28 @@ public sealed class SparkCanvasOrchestrator : IDisposable
     {
         if (string.IsNullOrEmpty(jsonlPath)) return;
 
-        ReplayLoadResult? result;
+        ReplayComposition? composition;
         try
         {
-            result = await _catalog.LoadReplayAsync(jsonlPath, _cts.Token);
+            composition = await _composer.ComposeReplayAsync(jsonlPath, _cts.Token);
         }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        if (result == null) return;
+        catch (ObjectDisposedException) { return; }
+        catch (OperationCanceledException) { return; }
 
-        TransitionTo(Reduce(State, new Trigger.HostJsonl(jsonlPath, result.Snapshot.SessionId)));
-        await SendAsync(new CanvasOutbound.Clear());
-        await SendAsync(new CanvasOutbound.LoadReplay(result.Snapshot, result.Events));
+        if (composition == null) return;
+
+        TransitionTo(Reduce(State, new Trigger.HostJsonl(jsonlPath, composition.SessionId)));
+        foreach (var m in composition.Messages)
+            await SendAsync(m);
     }
 
     /// <summary>Enters multi-session observatory mode.</summary>
     public async Task EnterMultiModeAsync()
     {
-        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var snapshots = new List<SessionSnapshot>();
-
-        foreach (var item in _availableSessions)
-        {
-            var snap = _catalog.GetSnapshot(item.SessionId);
-            if (snap != null && ids.Add(snap.SessionId))
-                snapshots.Add(snap);
-        }
-
-        TransitionTo(Reduce(State, new Trigger.HostMulti(ids)));
-        await SendAsync(new CanvasOutbound.Clear());
-        await SendAsync(new CanvasOutbound.LoadMultiState(snapshots));
+        var composition = _composer.ComposeMulti(_availableSessions);
+        TransitionTo(Reduce(State, new Trigger.HostMulti(composition.SessionIds)));
+        foreach (var m in composition.Messages)
+            await SendAsync(m);
     }
 
     /// <summary>Leaves multi-session mode. Returns to <see cref="CanvasState.Empty"/>.</summary>
@@ -350,7 +321,7 @@ public sealed class SparkCanvasOrchestrator : IDisposable
             };
             if (!shouldForward) return;
 
-            var payload = ToEventPayload(evt);
+            var payload = _composer.ProjectEvent(evt);
             _ = SendAsyncFireAndForget(new CanvasOutbound.Event(payload));
         }
         catch (Exception ex)
@@ -360,25 +331,15 @@ public sealed class SparkCanvasOrchestrator : IDisposable
         }
     }
 
-    // Wrappers so fire-and-forget paths surface failures through the log instead of vanishing.
+    // Wrapper so the fire-and-forget auto-connect path surfaces failures through the log.
+    // The state transition already happened synchronously; this just pushes the snapshot.
     private async Task OpenSessionAsyncFireAndForget(string sessionId)
     {
         try
         {
-            // S3: the state transition already happened synchronously; this just pushes the snapshot.
-            // We need to re-do the catalog lookup + send sequence WITHOUT another transition.
-            var snapshot = _catalog.GetSnapshot(sessionId);
-            if (snapshot != null && snapshot.Agents.Values.Any(a => a.IsMain && a.Model == null))
-            {
-                await EnrichOnceAsync(sessionId);
-                snapshot = _catalog.GetSnapshot(sessionId) ?? snapshot;
-            }
-
-            await SendAsync(new CanvasOutbound.Clear());
-            if (snapshot != null)
-                await SendAsync(new CanvasOutbound.LoadState(snapshot));
-            else
-                await SendAsync(new CanvasOutbound.SetSession(sessionId, "Waiting for session data..."));
+            var messages = await _composer.ComposeOpenAsync(sessionId, _cts.Token);
+            foreach (var m in messages)
+                await SendAsync(m);
         }
         catch (Exception ex)
         {
@@ -400,28 +361,6 @@ public sealed class SparkCanvasOrchestrator : IDisposable
 
     // -------- Helpers --------
 
-    private async Task EnrichOnceAsync(string sessionId)
-    {
-        if (!_enrichedSessions.Add(sessionId)) return;
-        try
-        {
-            await _catalog.EnrichAsync(sessionId, _cts.Token);
-        }
-        catch (ObjectDisposedException)
-        {
-            // CTS was disposed mid-flight; safe to ignore.
-        }
-        catch (OperationCanceledException)
-        {
-            // Cancellation during Dispose — expected.
-        }
-        catch (Exception ex)
-        {
-            // best-effort, but make the failure observable.
-            _log?.Warn(LogSource, $"EnrichAsync ('{sessionId}') failed: {ex.GetType().Name}: {ex.Message}");
-        }
-    }
-
     private void TransitionTo(CanvasState next)
     {
         if (Equals(State, next)) return;
@@ -435,39 +374,6 @@ public sealed class SparkCanvasOrchestrator : IDisposable
         if (t == null) return Task.CompletedTask;
         return t.SendAsync(message);
     }
-
-    internal static EventPayload ToEventPayload(ActivityEvent evt)
-    {
-        return new EventPayload
-        {
-            Type = evt.Type.ToString(),
-            SessionId = evt.SessionId,
-            AgentId = evt.AgentId,
-            Timestamp = evt.Timestamp,
-            // Defensive deep clone — the source may mutate evt.Data after raising the event,
-            // and we want the EventPayload snapshot to be stable for downstream serialization.
-            Data = DeepCloneDictionary(evt.Data)
-        };
-    }
-
-    private static Dictionary<string, object?> DeepCloneDictionary(IReadOnlyDictionary<string, object?> source)
-    {
-        var clone = new Dictionary<string, object?>(source.Count);
-        foreach (var kv in source)
-            clone[kv.Key] = DeepCloneValue(kv.Value);
-        return clone;
-    }
-
-    private static object? DeepCloneValue(object? value) => value switch
-    {
-        null => null,
-        string or bool or int or long or double or decimal or float or short or byte
-            or DateTime or DateTimeOffset or Guid or TimeSpan or Uri
-            => value,
-        IReadOnlyDictionary<string, object?> dict => DeepCloneDictionary(dict),
-        IEnumerable<object?> list => list.Select(DeepCloneValue).ToList(),
-        _ => value
-    };
 
     public void Dispose()
     {

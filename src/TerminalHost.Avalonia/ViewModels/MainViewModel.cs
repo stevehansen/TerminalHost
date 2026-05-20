@@ -1658,7 +1658,8 @@ public partial class MainViewModel : ObservableObject
         var catalog = services.GetRequiredService<TerminalHost.Core.Interfaces.Spark.ISessionCatalog>();
         var theme = services.GetRequiredService<TerminalHost.Core.Interfaces.Spark.IThemeStore>();
         var log = services.GetService<TerminalHost.Core.Interfaces.IDebugLogService>();
-        var orchestrator = new TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator(catalog, _sessionActivityService, theme, log);
+        var composer = new TerminalHost.Core.Services.Spark.SparkPayloadComposer(catalog, log);
+        var orchestrator = new TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator(catalog, composer, _sessionActivityService, theme, log);
         return new SparkCanvasViewModel(orchestrator);
     }
 

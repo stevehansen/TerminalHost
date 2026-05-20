@@ -12,11 +12,16 @@ public abstract record CanvasOutbound
     /// <summary>Tell the canvas to clear its current visualization.</summary>
     public sealed record Clear : CanvasOutbound;
 
-    /// <summary>Load a single session's live state.</summary>
-    public sealed record LoadState(SessionSnapshot Session) : CanvasOutbound;
+    /// <summary>
+    /// Load a single session's initial state. Accepts <see cref="LiveSessionSnapshot"/>
+    /// (tracked sessions) or <see cref="PlaceholderSessionSnapshot"/> (sessions known
+    /// to the timeline but not yet activity-tracked). Replay snapshots go through
+    /// <see cref="LoadReplay"/>, not here.
+    /// </summary>
+    public sealed record LoadState(SnapshotEnvelope Session) : CanvasOutbound;
 
     /// <summary>Load a session and all its events for replay playback.</summary>
-    public sealed record LoadReplay(SessionSnapshot Session, IReadOnlyList<EventPayload> Events) : CanvasOutbound;
+    public sealed record LoadReplay(ReplaySessionSnapshot Session, IReadOnlyList<EventPayload> Events) : CanvasOutbound;
 
     /// <summary>Forward a single live activity event.</summary>
     public sealed record Event(EventPayload Payload) : CanvasOutbound;
@@ -31,5 +36,5 @@ public abstract record CanvasOutbound
     public sealed record SessionList(IReadOnlyList<SessionListItem> Sessions) : CanvasOutbound;
 
     /// <summary>Load multi-session observatory state.</summary>
-    public sealed record LoadMultiState(IReadOnlyList<SessionSnapshot> Sessions) : CanvasOutbound;
+    public sealed record LoadMultiState(IReadOnlyList<SnapshotEnvelope> Sessions) : CanvasOutbound;
 }

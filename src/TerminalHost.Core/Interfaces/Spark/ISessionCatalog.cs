@@ -12,7 +12,7 @@ namespace TerminalHost.Core.Interfaces.Spark;
 /// </summary>
 /// <remarks>
 /// The "three diverging serializers" problem dies here: the orchestrator asks the
-/// catalog for a <see cref="SessionSnapshot"/> and serializes the unified shape once.
+/// catalog for a <see cref="SnapshotEnvelope"/> and serializes the unified shape once.
 /// </remarks>
 public interface ISessionCatalog
 {
@@ -20,7 +20,7 @@ public interface ISessionCatalog
     IReadOnlyList<SessionListItem> List();
 
     /// <summary>Returns the snapshot for a session, or null if unknown.</summary>
-    SessionSnapshot? GetSnapshot(string sessionId);
+    SnapshotEnvelope? GetSnapshot(string sessionId);
 
     /// <summary>Loads and parses a JSONL transcript into a snapshot + event list.</summary>
     Task<ReplayLoadResult?> LoadReplayAsync(string jsonlPath, CancellationToken ct);
@@ -35,4 +35,4 @@ public interface ISessionCatalog
 /// Result of loading a JSONL replay. Contains both the synthesized snapshot
 /// and the raw event list (needed for the canvas's transcript/feed view).
 /// </summary>
-public sealed record ReplayLoadResult(SessionSnapshot Snapshot, IReadOnlyList<EventPayload> Events);
+public sealed record ReplayLoadResult(ReplaySessionSnapshot Snapshot, IReadOnlyList<EventPayload> Events);

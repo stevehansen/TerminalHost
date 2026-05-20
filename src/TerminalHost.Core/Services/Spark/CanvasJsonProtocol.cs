@@ -28,9 +28,9 @@ public static class CanvasJsonProtocol
             CanvasOutbound.Clear =>
                 new { action = "clear" },
             CanvasOutbound.LoadState s =>
-                new { action = "loadState", state = s.Session },
+                new { action = "loadState", state = ProjectEnvelope(s.Session) },
             CanvasOutbound.LoadReplay r =>
-                new { action = "loadReplay", state = r.Session, events = r.Events },
+                new { action = "loadReplay", state = ProjectReplay(r.Session), events = r.Events },
             CanvasOutbound.Event e =>
                 new { action = "event", @event = e.Payload },
             CanvasOutbound.SetTheme t =>
@@ -40,7 +40,7 @@ public static class CanvasJsonProtocol
             CanvasOutbound.SessionList l =>
                 new { action = "sessionList", sessions = l.Sessions },
             CanvasOutbound.LoadMultiState m =>
-                new { action = "loadMultiState", sessions = m.Sessions },
+                new { action = "loadMultiState", sessions = ProjectMulti(m.Sessions) },
             _ => throw new ArgumentOutOfRangeException(nameof(message), $"Unknown outbound: {message.GetType().Name}")
         };
 
@@ -91,5 +91,63 @@ public static class CanvasJsonProtocol
         {
             return null;
         }
+    }
+
+    // -------- Per-variant projection --------
+    //
+    // Each variant emits the exact field set the JS canvas consumes. The legacy
+    // `isReplay` boolean is omitted: JS never reads it (verified by grep over
+    // web/spark/*.js). LoadMultiState uses a polymorphic projection so each list
+    // element serializes with its own variant's fields, not just the abstract base.
+
+    private static object ProjectLive(LiveSessionSnapshot s) => new
+    {
+        sessionId = s.SessionId,
+        workingDirectory = s.WorkingDirectory,
+        startTime = s.StartTime,
+        endTime = s.EndTime,
+        lifecycle = s.Lifecycle,
+        agents = s.Agents,
+        toolCalls = s.ToolCalls,
+        fileActivities = s.FileActivities,
+        messages = s.Messages
+    };
+
+    private static object ProjectReplay(ReplaySessionSnapshot s) => new
+    {
+        sessionId = s.SessionId,
+        workingDirectory = s.WorkingDirectory,
+        startTime = s.StartTime,
+        endTime = s.EndTime,
+        lifecycle = s.Lifecycle,
+        agents = s.Agents,
+        toolCalls = s.ToolCalls,
+        fileActivities = s.FileActivities
+    };
+
+    private static object ProjectEnvelope(SnapshotEnvelope s) => s switch
+    {
+        LiveSessionSnapshot live => ProjectLive(live),
+        ReplaySessionSnapshot replay => ProjectReplay(replay),
+        PlaceholderSessionSnapshot placeholder => ProjectPlaceholder(placeholder),
+        _ => throw new ArgumentOutOfRangeException(nameof(s), $"Unknown snapshot variant: {s.GetType().Name}")
+    };
+
+    private static object ProjectPlaceholder(PlaceholderSessionSnapshot s) => new
+    {
+        sessionId = s.SessionId,
+        workingDirectory = s.WorkingDirectory,
+        startTime = s.StartTime,
+        lifecycle = s.Lifecycle,
+        agents = s.Agents,
+        fileActivities = s.FileActivities
+    };
+
+    private static IReadOnlyList<object> ProjectMulti(IReadOnlyList<SnapshotEnvelope> sessions)
+    {
+        var list = new List<object>(sessions.Count);
+        foreach (var s in sessions)
+            list.Add(ProjectEnvelope(s));
+        return list;
     }
 }

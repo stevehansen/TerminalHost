@@ -13,13 +13,13 @@ namespace TerminalHost.Tests.TestAdapters;
 /// </summary>
 public sealed class FakeSessionCatalog : ISessionCatalog
 {
-    private readonly Dictionary<string, SessionSnapshot> _snapshots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, SnapshotEnvelope> _snapshots = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ReplayLoadResult> _replays = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>How many times <see cref="EnrichAsync"/> was called per session id.</summary>
     public Dictionary<string, int> EnrichCallCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public FakeSessionCatalog With(string sessionId, SessionSnapshot snapshot)
+    public FakeSessionCatalog With(string sessionId, SnapshotEnvelope snapshot)
     {
         _snapshots[sessionId] = snapshot;
         return this;
@@ -48,7 +48,7 @@ public sealed class FakeSessionCatalog : ISessionCatalog
         return items;
     }
 
-    public SessionSnapshot? GetSnapshot(string sessionId) =>
+    public SnapshotEnvelope? GetSnapshot(string sessionId) =>
         _snapshots.TryGetValue(sessionId, out var s) ? s : null;
 
     public Task<ReplayLoadResult?> LoadReplayAsync(string jsonlPath, CancellationToken ct)

@@ -81,12 +81,12 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
         return items;
     }
 
-    public SessionSnapshot? GetSnapshot(string sessionId)
+    public SnapshotEnvelope? GetSnapshot(string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
         var state = _activity?.GetState(sessionId);
         if (state != null)
-            return Project(state, isReplay: false);
+            return ProjectLive(state);
 
         // Fall back to a placeholder snapshot for sessions known to the timeline but not yet tracked.
         var live = _timeline?.GetLiveSessionByClaudeId(sessionId);
@@ -127,8 +127,8 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             state.MainAgent.CompleteTime = state.EndTime;
         }
 
-        var snapshot = Project(state, isReplay: true);
-        var events = result.Events.Select(SparkCanvasOrchestrator.ToEventPayload).ToList();
+        var snapshot = ProjectReplay(state);
+        var events = result.Events.Select(ProjectEventPayload).ToList();
         return new ReplayLoadResult(snapshot, events);
     }
 
@@ -148,7 +148,8 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
 
     // -------- Projection --------
 
-    private static SessionSnapshot Project(SessionActivityState state, bool isReplay)
+    private static (Dictionary<string, SnapshotAgent> agents, Dictionary<string, SnapshotFileActivity> files)
+        ProjectShared(SessionActivityState state)
     {
         var agents = new Dictionary<string, SnapshotAgent>(state.Agents.Count);
         foreach (var kv in state.Agents)
@@ -182,28 +183,6 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             };
         }
 
-        var toolCalls = new Dictionary<string, SnapshotToolCall>();
-        foreach (var kv in state.ToolCalls)
-        {
-            // Live mode: only running tool calls (matches old SerializeState).
-            // Replay mode: all tool calls (matches old SerializeStateForReplay).
-            if (!isReplay && kv.Value.State != ToolCallState.Running) continue;
-            var c = kv.Value;
-            toolCalls[kv.Key] = new SnapshotToolCall
-            {
-                ToolUseId = c.ToolUseId,
-                AgentId = c.AgentId,
-                ToolName = c.ToolName,
-                InputSummary = c.InputSummary,
-                ResultSummary = isReplay ? c.ResultSummary : null,
-                State = c.State.ToString(),
-                StartTime = c.StartTime,
-                EndTime = isReplay ? c.EndTime : null,
-                TokenCost = isReplay ? c.TokenCost : null,
-                ErrorMessage = isReplay ? c.ErrorMessage : null
-            };
-        }
-
         var files = new Dictionary<string, SnapshotFileActivity>();
         foreach (var kv in state.FileActivities)
         {
@@ -214,34 +193,55 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             };
         }
 
-        var messages = isReplay
-            ? Array.Empty<SnapshotMessage>()
-            : state.Messages
-                .TakeLast(50)
-                .Select(m => new SnapshotMessage
-                {
-                    Type = m.Type switch
-                    {
-                        MessageType.UserMessage => "UserMessage",
-                        MessageType.AssistantText => "AssistantMessage",
-                        MessageType.Thinking => "ThinkingBlock",
-                        _ => ""
-                    },
-                    AgentId = m.AgentId,
-                    Content = m.Content,
-                    Timestamp = m.Timestamp
-                })
-                .Where(m => m.Type.Length > 0)
-                .ToArray();
+        return (agents, files);
+    }
 
-        return new SessionSnapshot
+    private static LiveSessionSnapshot ProjectLive(SessionActivityState state)
+    {
+        var (agents, files) = ProjectShared(state);
+
+        // Live mode: only running tool calls (matches old SerializeState).
+        var toolCalls = new Dictionary<string, SnapshotToolCall>();
+        foreach (var kv in state.ToolCalls)
+        {
+            if (kv.Value.State != ToolCallState.Running) continue;
+            var c = kv.Value;
+            toolCalls[kv.Key] = new SnapshotToolCall
+            {
+                ToolUseId = c.ToolUseId,
+                AgentId = c.AgentId,
+                ToolName = c.ToolName,
+                InputSummary = c.InputSummary,
+                State = c.State.ToString(),
+                StartTime = c.StartTime
+            };
+        }
+
+        var messages = state.Messages
+            .TakeLast(50)
+            .Select(m => new SnapshotMessage
+            {
+                Type = m.Type switch
+                {
+                    MessageType.UserMessage => "UserMessage",
+                    MessageType.AssistantText => "AssistantMessage",
+                    MessageType.Thinking => "ThinkingBlock",
+                    _ => ""
+                },
+                AgentId = m.AgentId,
+                Content = m.Content,
+                Timestamp = m.Timestamp
+            })
+            .Where(m => m.Type.Length > 0)
+            .ToArray();
+
+        return new LiveSessionSnapshot
         {
             SessionId = state.SessionId,
             WorkingDirectory = state.WorkingDirectory,
             StartTime = state.StartTime,
             EndTime = state.EndTime,
             Lifecycle = state.Lifecycle.ToString(),
-            IsReplay = isReplay,
             Agents = agents,
             ToolCalls = toolCalls,
             FileActivities = files,
@@ -249,7 +249,44 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
         };
     }
 
-    private static SessionSnapshot ProjectPlaceholder(LiveSession live)
+    private static ReplaySessionSnapshot ProjectReplay(SessionActivityState state)
+    {
+        var (agents, files) = ProjectShared(state);
+
+        // Replay mode: all tool calls (matches old SerializeStateForReplay).
+        var toolCalls = new Dictionary<string, SnapshotToolCall>();
+        foreach (var kv in state.ToolCalls)
+        {
+            var c = kv.Value;
+            toolCalls[kv.Key] = new SnapshotToolCall
+            {
+                ToolUseId = c.ToolUseId,
+                AgentId = c.AgentId,
+                ToolName = c.ToolName,
+                InputSummary = c.InputSummary,
+                ResultSummary = c.ResultSummary,
+                State = c.State.ToString(),
+                StartTime = c.StartTime,
+                EndTime = c.EndTime,
+                TokenCost = c.TokenCost,
+                ErrorMessage = c.ErrorMessage
+            };
+        }
+
+        return new ReplaySessionSnapshot
+        {
+            SessionId = state.SessionId,
+            WorkingDirectory = state.WorkingDirectory,
+            StartTime = state.StartTime,
+            EndTime = state.EndTime ?? state.LastActivityTime ?? DateTime.UtcNow,
+            Lifecycle = state.Lifecycle.ToString(),
+            Agents = agents,
+            ToolCalls = toolCalls,
+            FileActivities = files
+        };
+    }
+
+    private static PlaceholderSessionSnapshot ProjectPlaceholder(LiveSession live)
     {
         var agents = new Dictionary<string, SnapshotAgent>
         {
@@ -264,14 +301,47 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             }
         };
 
-        return new SessionSnapshot
+        return new PlaceholderSessionSnapshot
         {
             SessionId = live.ClaudeSessionId,
             WorkingDirectory = live.WorkingDirectory,
             StartTime = live.StartTime,
             Lifecycle = "Active",
-            IsReplay = false,
             Agents = agents
         };
     }
+
+    // Local copy of the per-event projection. SparkPayloadComposer owns the canonical
+    // version for live events; the replay-load path reproduces it here so the catalog
+    // does not take a runtime dependency on the composer service.
+    private static EventPayload ProjectEventPayload(ActivityEvent evt)
+    {
+        return new EventPayload
+        {
+            Type = evt.Type.ToString(),
+            SessionId = evt.SessionId,
+            AgentId = evt.AgentId,
+            Timestamp = evt.Timestamp,
+            Data = DeepCloneDictionary(evt.Data)
+        };
+    }
+
+    private static Dictionary<string, object?> DeepCloneDictionary(IReadOnlyDictionary<string, object?> source)
+    {
+        var clone = new Dictionary<string, object?>(source.Count);
+        foreach (var kv in source)
+            clone[kv.Key] = DeepCloneValue(kv.Value);
+        return clone;
+    }
+
+    private static object? DeepCloneValue(object? value) => value switch
+    {
+        null => null,
+        string or bool or int or long or double or decimal or float or short or byte
+            or DateTime or DateTimeOffset or Guid or TimeSpan or Uri
+            => value,
+        IReadOnlyDictionary<string, object?> dict => DeepCloneDictionary(dict),
+        IEnumerable<object?> list => list.Select(DeepCloneValue).ToList(),
+        _ => value
+    };
 }

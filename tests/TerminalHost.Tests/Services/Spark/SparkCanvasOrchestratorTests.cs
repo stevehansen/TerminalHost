@@ -17,13 +17,13 @@ namespace TerminalHost.Tests.Services.Spark;
 /// </summary>
 public class SparkCanvasOrchestratorTests
 {
-    private static SessionSnapshot Snap(string id, string lifecycle = "Active", string? model = "claude-opus-4")
+    private static LiveSessionSnapshot Snap(string id, string lifecycle = "Active", string? model = "claude-opus-4")
     {
         var agents = new Dictionary<string, SnapshotAgent>
         {
             [id] = new SnapshotAgent { Id = id, Name = "main", IsMain = true, State = "Active", Model = model }
         };
-        return new SessionSnapshot
+        return new LiveSessionSnapshot
         {
             SessionId = id,
             Lifecycle = lifecycle,
@@ -31,15 +31,30 @@ public class SparkCanvasOrchestratorTests
         };
     }
 
+    private static ReplaySessionSnapshot ReplaySnap(string id)
+    {
+        var agents = new Dictionary<string, SnapshotAgent>
+        {
+            [id] = new SnapshotAgent { Id = id, Name = "main", IsMain = true, State = "Complete", Model = "claude-opus-4" }
+        };
+        return new ReplaySessionSnapshot
+        {
+            SessionId = id,
+            Lifecycle = "Completed",
+            Agents = agents
+        };
+    }
+
     private static (SparkCanvasOrchestrator orch, InMemoryCanvasTransport transport, FakeSessionCatalog catalog,
         InMemoryThemeStore theme, FakeSessionActivityService activity)
-        BuildSut(params (string id, SessionSnapshot snap)[] sessions)
+        BuildSut(params (string id, LiveSessionSnapshot snap)[] sessions)
     {
         var catalog = new FakeSessionCatalog();
         foreach (var (id, snap) in sessions) catalog.With(id, snap);
         var theme = new InMemoryThemeStore("holographic");
         var activity = new FakeSessionActivityService();
-        var orch = new SparkCanvasOrchestrator(catalog, activity, theme);
+        var composer = new SparkPayloadComposer(catalog);
+        var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
         orch.Attach(transport);
         return (orch, transport, catalog, theme, activity);
@@ -128,12 +143,13 @@ public class SparkCanvasOrchestratorTests
     [Fact]
     public async Task OpenJsonl_FromAnyState_TransitionsToReplay()
     {
-        var replaySnap = Snap("replay-session", "Completed");
+        var replaySnap = ReplaySnap("replay-session");
         var catalog = new FakeSessionCatalog()
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
         var activity = new FakeSessionActivityService();
-        var orch = new SparkCanvasOrchestrator(catalog, activity, theme);
+        var composer = new SparkPayloadComposer(catalog);
+        var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
         orch.Attach(transport);
         transport.MarkReady();
@@ -154,13 +170,14 @@ public class SparkCanvasOrchestratorTests
     [Fact]
     public async Task SelectSession_FromInbound_FromReplay_TransitionsToSingle()
     {
-        var replaySnap = Snap("replay-session", "Completed");
+        var replaySnap = ReplaySnap("replay-session");
         var catalog = new FakeSessionCatalog()
             .With("s1", Snap("s1"))
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
         var activity = new FakeSessionActivityService();
-        var orch = new SparkCanvasOrchestrator(catalog, activity, theme);
+        var composer = new SparkPayloadComposer(catalog);
+        var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
         orch.Attach(transport);
         transport.MarkReady();
@@ -212,12 +229,13 @@ public class SparkCanvasOrchestratorTests
     [Fact]
     public async Task EventRouting_Replay_DoesNotForwardLiveEvents()
     {
-        var replaySnap = Snap("replay-session", "Completed");
+        var replaySnap = ReplaySnap("replay-session");
         var catalog = new FakeSessionCatalog()
             .WithReplay("/tmp/x.jsonl", new ReplayLoadResult(replaySnap, new List<EventPayload>()));
         var theme = new InMemoryThemeStore();
         var activity = new FakeSessionActivityService();
-        var orch = new SparkCanvasOrchestrator(catalog, activity, theme);
+        var composer = new SparkPayloadComposer(catalog);
+        var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
         orch.Attach(transport);
         transport.MarkReady();
@@ -271,16 +289,17 @@ public class SparkCanvasOrchestratorTests
         transport.ClearSent();
 
         var snap = Snap("s1");
+        var replaySnap = ReplaySnap("s1");
         var verbs = new CanvasOutbound[]
         {
             new CanvasOutbound.Clear(),
             new CanvasOutbound.LoadState(snap),
-            new CanvasOutbound.LoadReplay(snap, new List<EventPayload>()),
+            new CanvasOutbound.LoadReplay(replaySnap, new List<EventPayload>()),
             new CanvasOutbound.Event(new EventPayload { Type = "ToolCallStart", SessionId = "s1" }),
             new CanvasOutbound.SetTheme("neon"),
             new CanvasOutbound.SetSession("s1", "main"),
             new CanvasOutbound.SessionList(new List<SessionListItem>()),
-            new CanvasOutbound.LoadMultiState(new List<SessionSnapshot> { snap })
+            new CanvasOutbound.LoadMultiState(new List<SnapshotEnvelope> { snap })
         };
 
         foreach (var v in verbs) await transport.SendAsync(v);
@@ -294,17 +313,18 @@ public class SparkCanvasOrchestratorTests
     public void JsonProtocol_AllOutboundVerbs_Serialize()
     {
         var snap = Snap("s1");
+        var replaySnap = ReplaySnap("s1");
         // Should not throw and should produce non-empty JSON for every variant.
         foreach (var v in new CanvasOutbound[]
         {
             new CanvasOutbound.Clear(),
             new CanvasOutbound.LoadState(snap),
-            new CanvasOutbound.LoadReplay(snap, new List<EventPayload>()),
+            new CanvasOutbound.LoadReplay(replaySnap, new List<EventPayload>()),
             new CanvasOutbound.Event(new EventPayload { Type = "ToolCallStart", SessionId = "s1" }),
             new CanvasOutbound.SetTheme("neon"),
             new CanvasOutbound.SetSession("s1", "main"),
             new CanvasOutbound.SessionList(new List<SessionListItem>()),
-            new CanvasOutbound.LoadMultiState(new List<SessionSnapshot> { snap })
+            new CanvasOutbound.LoadMultiState(new List<SnapshotEnvelope> { snap })
         })
         {
             var json = CanvasJsonProtocol.Serialize(v);
@@ -336,7 +356,8 @@ public class SparkCanvasOrchestratorTests
         var catalog = new FakeSessionCatalog().With("s1", snapNoModel);
         var theme = new InMemoryThemeStore();
         var activity = new FakeSessionActivityService();
-        var orch = new SparkCanvasOrchestrator(catalog, activity, theme);
+        var composer = new SparkPayloadComposer(catalog);
+        var orch = new SparkCanvasOrchestrator(catalog, composer, activity, theme);
         var transport = new InMemoryCanvasTransport();
         orch.Attach(transport);
         transport.MarkReady();

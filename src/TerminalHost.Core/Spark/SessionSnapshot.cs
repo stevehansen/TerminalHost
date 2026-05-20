@@ -4,40 +4,56 @@ using System.Collections.Generic;
 namespace TerminalHost.Core.Spark;
 
 /// <summary>
-/// Canvas-shaped projection of a session. Replaces the three diverging
-/// serializers (live state, replay state, multi-mode placeholder) with one
-/// shape produced by <see cref="Interfaces.Spark.ISessionCatalog"/>.
+/// Canvas-shaped projection of a session. Shared fields for the three concrete
+/// variants (<see cref="LiveSessionSnapshot"/>, <see cref="ReplaySessionSnapshot"/>,
+/// <see cref="PlaceholderSessionSnapshot"/>) that <see cref="Interfaces.Spark.ISessionCatalog"/>
+/// produces.
 /// </summary>
 /// <remarks>
 /// Field names use camelCase via the serializer's naming policy. The shape
 /// mirrors what the JS canvas expects today — see <c>web/spark/events.js</c>.
 /// </remarks>
-public sealed record SessionSnapshot
+public abstract record SnapshotEnvelope
 {
     public string SessionId { get; init; } = "";
     public string? WorkingDirectory { get; init; }
     public DateTime StartTime { get; init; }
-    public DateTime? EndTime { get; init; }
     public string Lifecycle { get; init; } = "Active";
-
-    /// <summary>Whether this snapshot is for replay (includes all tool calls, not just running ones).</summary>
-    public bool IsReplay { get; init; }
 
     /// <summary>Agents indexed by id.</summary>
     public IReadOnlyDictionary<string, SnapshotAgent> Agents { get; init; } =
         new Dictionary<string, SnapshotAgent>();
 
-    /// <summary>Tool calls indexed by toolUseId. For live state, only running calls; for replay, all calls.</summary>
-    public IReadOnlyDictionary<string, SnapshotToolCall> ToolCalls { get; init; } =
-        new Dictionary<string, SnapshotToolCall>();
-
     /// <summary>File-access counters indexed by file path.</summary>
     public IReadOnlyDictionary<string, SnapshotFileActivity> FileActivities { get; init; } =
         new Dictionary<string, SnapshotFileActivity>();
+}
 
-    /// <summary>Recent messages for the feed (empty for replay/multi placeholder).</summary>
+/// <summary>Snapshot of a currently-tracked session. Tool calls contain only running entries.</summary>
+public sealed record LiveSessionSnapshot : SnapshotEnvelope
+{
+    public DateTime? EndTime { get; init; }
+
+    /// <summary>Tool calls indexed by toolUseId — running only.</summary>
+    public IReadOnlyDictionary<string, SnapshotToolCall> ToolCalls { get; init; } =
+        new Dictionary<string, SnapshotToolCall>();
+
+    /// <summary>Recent messages for the feed.</summary>
     public IReadOnlyList<SnapshotMessage> Messages { get; init; } = Array.Empty<SnapshotMessage>();
 }
+
+/// <summary>Snapshot synthesized from a parsed JSONL transcript. Tool calls contain all entries.</summary>
+public sealed record ReplaySessionSnapshot : SnapshotEnvelope
+{
+    public DateTime EndTime { get; init; }
+
+    /// <summary>Tool calls indexed by toolUseId — all calls, including completed/errored.</summary>
+    public IReadOnlyDictionary<string, SnapshotToolCall> ToolCalls { get; init; } =
+        new Dictionary<string, SnapshotToolCall>();
+}
+
+/// <summary>Skeleton snapshot for a session known to the timeline but not yet activity-tracked.</summary>
+public sealed record PlaceholderSessionSnapshot : SnapshotEnvelope;
 
 public sealed record SnapshotAgent
 {
