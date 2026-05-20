@@ -276,9 +276,12 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
     {
         if (!string.IsNullOrEmpty(command))
         {
-            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var parts = TokenizeShellCommand(command);
+            if (parts.Count == 0)
+                return (DefaultShell, null);
+
             var executable = parts[0];
-            var args = parts.Length > 1 ? parts[1..] : null;
+            var args = parts.Count > 1 ? parts.GetRange(1, parts.Count - 1).ToArray() : null;
 
             if (File.Exists(executable))
                 return (executable, args);
@@ -291,6 +294,44 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
         }
 
         return (DefaultShell, null);
+    }
+
+    /// <summary>
+    /// Tokenizes a command string with shell-style double-quote grouping.
+    /// Whitespace separates tokens; characters inside matched double quotes are kept as a single token,
+    /// and the quote characters themselves are stripped. Single quotes and backslash escapes are not
+    /// interpreted (callers that need full shell semantics should pre-process the command).
+    /// </summary>
+    private static List<string> TokenizeShellCommand(string command)
+    {
+        var tokens = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        foreach (var c in command)
+        {
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (char.IsWhiteSpace(c) && !inQuotes)
+            {
+                if (current.Length > 0)
+                {
+                    tokens.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        if (current.Length > 0)
+            tokens.Add(current.ToString());
+
+        return tokens;
     }
 
     /// <summary>

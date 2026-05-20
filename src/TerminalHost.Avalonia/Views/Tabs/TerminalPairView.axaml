@@ -417,9 +417,10 @@
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </TextBlock>
                     </Border>
-                    <ContentPresenter Grid.Row="1" Content="{Binding CustomTerminalContent}"
-                                      AutomationProperties.AutomationId="CustomTerminalContent"
-                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                    <ContentControl Grid.Row="1" Content="{Binding CustomTerminalContent}"
+                                    AutomationProperties.AutomationId="CustomTerminalContent"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                 </Grid>
 
                 <!-- Horizontal Splitter (Column 1, Row 0) - visible in horizontal split mode -->
@@ -457,9 +458,10 @@
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </TextBlock>
                     </Border>
-                    <ContentPresenter Grid.Row="1" Content="{Binding ShellTerminalContent}"
-                                      AutomationProperties.AutomationId="ShellTerminalContent"
-                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                    <ContentControl Grid.Row="1" Content="{Binding ShellTerminalContent}"
+                                    AutomationProperties.AutomationId="ShellTerminalContent"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                 </Grid>
                 </Grid>
                 <!-- End of MainTerminalsGrid -->
