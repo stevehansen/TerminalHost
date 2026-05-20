@@ -217,66 +217,127 @@ Production adapters: `WebView2SparkBridge` (WPF), `AvaloniaWebViewSparkBridge`. 
 
 ---
 
-## D. Extract `SparkSessionDirector` (mode state machine)
+## D. Promote routing + ready policy to `CanvasPolicy` (no director)
 
-### Cluster
-Inside `SparkCanvasViewModel`:
-- Fields: `_isMultiMode`, `CurrentSessionId`
-- Methods: `OpenSession`, `LoadMultiMode`, `AutoConnectToActiveSession`, `LoadJsonlFileAsync`, `OnCanvasReady`
-- Auto-connect heuristic + mode-based filter inside `OnActivityEvent` (lines 530–560)
+> ✅ **Design phase complete (2026-05-20).** The original section D framing (extract `ISparkSessionDirector` from a 627-line VM with implicit `_isMultiMode` + `CurrentSessionId` booleans) is **obsolete**: as of `4bd8337` the VM is 100 lines, `SparkCanvasOrchestrator` owns a pure `Reduce` + `Trigger`/`CanvasState` discriminated unions, and 24 boundary tests already cover mode transitions, event routing, and auto-connect. The actual remaining smell is two predicates that live as ad-hoc switches *outside* `Reduce`: the activity-event routing rule (`Single ⇒ id-match · Multi ⇒ true · Replay ⇒ false`) and the ready-policy decision (auto-connect to first live session, fallback to "Waiting…"). Promote both to static functions next to `Reduce`. No director, no interface, no DI changes.
 
-### Why coupled
-A real state machine — `NoSession → Single(sessionId) → Multi | JsonlReplay(filePath)` — is encoded as two implicit booleans (`_isMultiMode`, `CurrentSessionId == null`) with transitions scattered across six methods. Every event handler re-derives "should I forward this event?" from those booleans:
+### What's actually entangled
+
+Two methods inside `SparkCanvasOrchestrator` (`HandleActivityEvent` lines 298–332, `OnTransportReady` lines 209–248) interleave three concerns: pure decisions, composer calls, and transport sends. The composer-and-transport parts are fine — they belong to a choreographer. The pure-decision parts are the smell:
 
 ```csharp
-if (!_isMultiMode && CurrentSessionId == null && evt.Type == ActivityEventType.SessionStart)
-    OpenSession(evt.SessionId);  // auto-connect side effect inside the filter
-if (!_isMultiMode && (CurrentSessionId == null || evt.SessionId != CurrentSessionId)) return;
+// Inside HandleActivityEvent — the "shouldForward" switch is policy, not in Reduce:
+var shouldForward = State switch {
+    CanvasState.Single s => string.Equals(s.SessionId, evt.SessionId, StringComparison.Ordinal),
+    CanvasState.Multi    => true,
+    CanvasState.Replay   => false,
+    _ => false
+};
 ```
 
-This is the highest-friction part of the VM and the most likely place for "events going to the wrong session" / "auto-connect fires when it shouldn't" bugs.
+```csharp
+// Inside OnTransportReady — the auto-connect-on-ready policy is also ad-hoc:
+if (State is CanvasState.Single s)        await OpenSessionAsync(s.SessionId);
+else if (State is CanvasState.Empty) {
+    var first = _availableSessions.FirstOrDefault(x => x.IsLive)
+              ?? _availableSessions.FirstOrDefault();
+    if (first != null) await OpenSessionAsync(first.SessionId);
+    else               await SendAsync(new CanvasOutbound.SetSession(null, "Waiting for session..."));
+}
+```
+
+Both predicates are pure functions of `(state, …)`. Today they're untestable without a transport + composer + activity-service rig; promoting them to statics makes them direct-test material.
+
+### Chosen design — `CanvasPolicy` static helper
+
+```csharp
+namespace TerminalHost.Core.Spark;
+
+public static class CanvasPolicy
+{
+    /// <summary>Should this activity event be forwarded to the canvas in the given state?</summary>
+    public static bool ShouldForward(CanvasState state, ActivityEvent evt) => state switch
+    {
+        CanvasState.Single s => string.Equals(s.SessionId, evt.SessionId, StringComparison.Ordinal),
+        CanvasState.Multi    => true,
+        _                    => false,
+    };
+
+    /// <summary>
+    /// On transport-ready, returns the session id to auto-open, or null if the
+    /// orchestrator should fall back to <c>SetSession(null, "Waiting for session...")</c>.
+    /// </summary>
+    public static string? AutoOpenOnReady(CanvasState state, IReadOnlyList<SessionListItem> sessions) => state switch
+    {
+        CanvasState.Single s => s.SessionId,
+        CanvasState.Empty    => (sessions.FirstOrDefault(x => x.IsLive) ?? sessions.FirstOrDefault())?.SessionId,
+        _                    => null,
+    };
+}
+```
+
+The double-check on auto-connect (`State is Empty && evt.Type == SessionStart`, which is checked once in the orchestrator and again in `Reduce`'s `when current is CanvasState.Empty` clause) collapses by letting `Reduce` itself be the gate:
+
+```csharp
+private void HandleActivityEvent(ActivityEvent evt)
+{
+    if (_disposed) return;
+
+    if (evt.Type == ActivityEventType.SessionStart) {
+        var next = Reduce(State, new Trigger.ActivityStart(evt.SessionId));
+        if (!Equals(next, State)) {
+            TransitionTo(next);
+            _ = OpenSessionAsyncFireAndForget(evt.SessionId);
+            return;
+        }
+    }
+
+    if (!CanvasPolicy.ShouldForward(State, evt)) return;
+    _ = SendAsyncFireAndForget(new CanvasOutbound.Event(_composer.ProjectEvent(evt)));
+}
+
+private async void OnTransportReady(object? sender, EventArgs e)
+{
+    if (_readyHandled) return;
+    _readyHandled = true;
+    try {
+        await SendAsync(new CanvasOutbound.SetTheme(_theme.Load()));
+        await RefreshSessionsAsync();
+        var openId = CanvasPolicy.AutoOpenOnReady(State, _availableSessions);
+        if (openId != null) await OpenSessionAsync(openId);
+        else                await SendAsync(new CanvasOutbound.SetSession(null, "Waiting for session..."));
+    }
+    catch (Exception ex) { _log?.Error(LogSource, $"OnTransportReady failed: {ex.GetType().Name}: {ex.Message}"); }
+}
+```
 
 ### Dependency category
-**In-process.** Pure state machine over injected `ISessionActivityService` + `ITimelineService`.
-
-### Proposed interface (sketch — not a commitment)
-```csharp
-public interface ISparkSessionDirector
-{
-    SparkMode CurrentMode { get; }
-    event EventHandler<SparkOutboundMessage>? Emit;
-
-    void OnCanvasReady();
-    void SelectSession(string sessionId);
-    void EnterMultiMode();
-    void ExitMultiMode();
-    Task LoadJsonlAsync(string path);
-    void OnActivityEvent(ActivityEvent evt);
-}
-
-public abstract record SparkMode
-{
-    public sealed record None : SparkMode;
-    public sealed record Single(string SessionId) : SparkMode;
-    public sealed record Multi : SparkMode;
-    public sealed record Replay(string FilePath) : SparkMode;
-}
-```
-
-The director decides, for each inbound activity event, whether to forward it (and as what shape) based on `CurrentMode`. The VM becomes a UI binding shell that wires the director to the bridge.
+**In-process.** `CanvasPolicy` is a static class with no dependencies. No DI changes, no new constructor parameters.
 
 ### Test impact
-- **New boundary tests**: every mode transition (`None→Single` via auto-connect, `Single→Multi`, `Multi→Single` on selection, `*→Replay`, etc.); per-mode event-routing rules ("in Multi mode, an event from an unknown session fabricates a placeholder agent"; "in Single mode, events for other sessions are dropped"); auto-connect-on-`SessionStart` heuristic.
-- **Old tests to delete**: none (no existing coverage).
-- The hardest-to-reason-about part of Spark becomes the most testable.
+- **New tests** (~6, all pure, no fakes): `ShouldForward` over each `CanvasState` × matching/non-matching event id; `AutoOpenOnReady` over Empty (live wins, then most-recent, then null) / Single (returns its id) / Multi / Replay (null).
+- **Existing tests**: all 24 keep passing verbatim. `Reduce` stays `public static`; the `Reduce_*` tests at the bottom of `SparkCanvasOrchestratorTests` are unchanged.
+- **Coverage gap closed**: today the routing predicate and auto-connect-on-ready logic have only end-to-end coverage through the orchestrator+transport+composer fixture. After: direct unit coverage.
+
+### Honest stakes
+This is a ~30-LOC refactor — pulling two predicates out of imperative methods into named static functions, plus a one-call-site collapse of the double-checked auto-connect condition. Not strategic. If higher-value work exists, defer indefinitely. If picked up, ship in one PR.
+
+### Designs considered (and rejected)
+
+- **A — `ISparkSessionDirector` returning `Decision(NextState, IReadOnlyList<Effect>)` with 7 effect variants.** Pure effect-log architecture; orchestrator collapses to a ~80-line shell with `Apply(Decision)` + `Run(Effect)` switch. Rejected: ~18 new type declarations (1 interface, Decision, Context, ~8 Input variants, 7 Effect variants) for an FSM with 4 modes and 7 outbound verbs. The orchestrator's remaining bulk is transport-Attach/Dispose ordering, thread-hop via `Post`, fire-and-forget plumbing, and `_cts` lifetime — none of which moves under a director. The "thin shell" benefit is partly illusory. Effect log earns its weight at ~10+ effect kinds; here it's an indirection tax. Reconsider if Spark grows stateful routing (windowed dedup, per-agent filters) or a `Decision` audit trail is needed.
+- **B — `ICanvasModeHandler` registry, one handler per `CanvasState` subtype.** Each handler implements `ShouldForward(state, evt)` and `ComposeReadyEntryAsync(state, ctx)`. Adding mode #5 = 1 new file + 1 DI line + 2 small edits. Rejected: ~6 new types (interface + 4 handlers + `IReadyContext`) to distribute 13 lines of `switch` across 4 files. The agent who designed this option self-rejected it: *"With 4 modes today and no concrete ticket for #5, the YAGNI verdict is: ship the handler interface only if a 5th mode is actually queued."* No 5th mode is queued. Re-evaluate if a Thumbnail / Diff / Export mode lands on a real ticket.
+- **C — Keep everything in `Reduce` by widening its return.** Considered briefly during agent reconciliation. Rejected: the routing predicate runs on every activity event and would force `Reduce` to take an `ActivityEvent` (or a synthetic trigger per event), polluting the FSM transition table with non-state-changing inputs. `CanvasPolicy` keeps the FSM closed over state transitions and adds a sibling for the running rules.
+
+### Migration path if scale changes
+If a future ticket adds a 5th mode AND that mode's routing/ready logic is non-trivial, promote `CanvasPolicy` to an injected `ISparkPolicy` interface. The refactor is mechanical because every call site already goes through `CanvasPolicy.X(State, …)` — find-and-replace + a default implementation.
 
 ---
 
 ## Suggested ordering if multiple are picked
 
-1. **B** first — it's the smallest, removes ~200 lines from the VM, and de-risks the other two.
-2. **D** next — extracts the actual logic complexity. With B already done, the director can emit pre-shaped DTOs instead of raw domain objects.
-3. **C** after — by now the VM is a thin shell, so the bridge port replaces only a small amount of code per platform.
-4. **A** last — once B/C/D are in Core, deleting the Avalonia VM duplicate is a one-commit cleanup.
+Status as of 2026-05-20: **A done**, **B done**, **D design hardened** (scope shrank to a ~30-LOC `CanvasPolicy` promotion — see section D for rejected alternatives), **C still open**.
 
-Doing **D + C** together (without B) would also work and gives Spark a properly deep core: typed protocol on the outside, state machine on the inside, VM reduced to a UI binding adapter.
+1. **D** first if picking just one — ~30 LOC, six new pure tests, no DI changes. Closes the only direct-coverage gap left in the orchestrator. Ship in one PR.
+2. **C** next — replaces the View-side string-peeking and unifies the WPF/Avalonia transport adapters behind `ISparkBridge`. Largest remaining surface area. Defer if there's no concrete pain at the View layer.
+
+Doing **D** alone is the cheap, principled finishing touch on the FSM extraction. Doing **C** without D is fine; doing **D** without C is fine. They don't interact.

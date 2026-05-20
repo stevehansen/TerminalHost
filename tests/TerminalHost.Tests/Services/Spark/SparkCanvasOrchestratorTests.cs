@@ -401,6 +401,28 @@ public class SparkCanvasOrchestratorTests
         transport.Sent.OfType<CanvasOutbound.SessionList>().ShouldNotBeEmpty();
     }
 
+    [Fact]
+    public async Task OnReady_FromMulti_DoesNotPushWaitingCard()
+    {
+        // Regression: AutoOpenOnReady returns null for Multi, but the orchestrator
+        // must keep Multi/Replay's existing canvas payload on transport reattach
+        // instead of clobbering it with the "Waiting for session..." card.
+        var (orch, transport, _, _, _) = BuildSut(
+            ("sA", Snap("sA")),
+            ("sB", Snap("sB")));
+        transport.MarkReady();
+        await orch.EnterMultiModeAsync();
+        orch.State.ShouldBeOfType<CanvasState.Multi>();
+
+        // Simulate panel close+reopen: attach a fresh transport, trip ready again.
+        var fresh = new InMemoryCanvasTransport();
+        orch.Attach(fresh);
+        fresh.MarkReady();
+
+        fresh.Sent.OfType<CanvasOutbound.SetSession>()
+            .ShouldBeEmpty("Multi mode reattach must not push the waiting card");
+    }
+
     // -------- Pure FSM (Reduce) --------
     //
     // The reducer is the single source of truth for state transitions. These tests

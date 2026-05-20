@@ -220,25 +220,12 @@ public sealed class SparkCanvasOrchestrator : IDisposable
             // Push the initial session list.
             await RefreshSessionsAsync();
 
-            // Auto-connect if we already have a session selected (state surviving panel reload).
-            if (State is CanvasState.Single s)
-            {
-                // Force a re-push of the snapshot so the canvas reflects the existing state.
-                await OpenSessionAsync(s.SessionId);
-            }
-            else if (State is CanvasState.Empty)
-            {
-                var first = _availableSessions.FirstOrDefault(x => x.IsLive)
-                    ?? _availableSessions.FirstOrDefault();
-                if (first != null)
-                {
-                    await OpenSessionAsync(first.SessionId);
-                }
-                else
-                {
-                    await SendAsync(new CanvasOutbound.SetSession(null, "Waiting for session..."));
-                }
-            }
+            // Auto-connect (or fall back to the waiting card) per the centralized ready policy.
+            // Fallback is gated to Empty: Multi/Replay keep their existing canvas payload on
+            // transport reattach instead of being clobbered by the waiting card.
+            var openId = CanvasPolicy.AutoOpenOnReady(State, _availableSessions);
+            if (openId != null) await OpenSessionAsync(openId);
+            else if (State is CanvasState.Empty) await SendAsync(new CanvasOutbound.SetSession(null, "Waiting for session..."));
         }
         catch (Exception ex)
         {
@@ -302,24 +289,23 @@ public sealed class SparkCanvasOrchestrator : IDisposable
 
         try
         {
-            // Auto-connect: first SessionStart while Empty → Single.
-            // S3: transition state synchronously BEFORE awaiting the snapshot push,
-            // so a second concurrent SessionStart can't also pass the Empty gate.
-            if (State is CanvasState.Empty && evt.Type == ActivityEventType.SessionStart)
+            // Auto-connect: first SessionStart while Empty → Single. Let Reduce be the gate —
+            // any non-Empty current state returns the same state, so the !Equals check below
+            // captures exactly the Empty + ActivityStart case. S3: transition state
+            // synchronously BEFORE awaiting the snapshot push, so a second concurrent
+            // SessionStart can't also pass the gate.
+            if (evt.Type == ActivityEventType.SessionStart)
             {
-                TransitionTo(Reduce(State, new Trigger.ActivityStart(evt.SessionId)));
-                _ = OpenSessionAsyncFireAndForget(evt.SessionId);
-                return;
+                var next = Reduce(State, new Trigger.ActivityStart(evt.SessionId));
+                if (!Equals(next, State))
+                {
+                    TransitionTo(next);
+                    _ = OpenSessionAsyncFireAndForget(evt.SessionId);
+                    return;
+                }
             }
 
-            var shouldForward = State switch
-            {
-                CanvasState.Single s => string.Equals(s.SessionId, evt.SessionId, StringComparison.Ordinal),
-                CanvasState.Multi => true,
-                CanvasState.Replay => false,
-                _ => false
-            };
-            if (!shouldForward) return;
+            if (!CanvasPolicy.ShouldForward(State, evt)) return;
 
             var payload = _composer.ProjectEvent(evt);
             _ = SendAsyncFireAndForget(new CanvasOutbound.Event(payload));
