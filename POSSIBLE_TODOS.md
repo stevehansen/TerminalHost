@@ -161,59 +161,74 @@ This is a "kill a flag, consolidate a 3-line sequence" refactor on already-decen
 
 ## C. Extract `ISparkBridge` port (typed C#↔JS protocol)
 
-### Cluster
-- `SparkCanvasView.OnWebMessageReceived` (string-peeking like `message.Contains("\"action\":\"ready\"")`)
-- `SparkCanvasView.OnSendMessageToCanvas`
-- `SparkCanvasViewModel.PostToCanvas`
-- `SparkCanvasViewModel.OnCanvasMessage` switch
-- WPF and Avalonia copies of all the above
-- Parallel JS action handling in `web/spark/events.js`
+> ✅ **Effectively complete (delivered as `ICanvasTransport`, 2026-05-20).** The original Section C framing — "View peeks at JSON strings, VM owns the parser switch, WPF and Avalonia reimplement the transport, no typed protocol" — is **stale**. The ports-and-adapters refactor (commit `4bd8337`, PRs #66/#67) shipped the bridge under a different name. The interface Section C sketches is essentially identical to the one in production:
 
-### Why coupled
-~14 protocol action verbs spread across three layers:
-- **C# → JS**: `clear`, `loadState`, `loadReplay`, `setTheme`, `setSession`, `sessionList`, `loadMultiState`, `event`
-- **JS → C#**: `ready`, `selectSession`, `refreshSessions`, `requestMultiMode`, `exitMultiMode`, `themeChanged`
+| Section C proposed | Production today |
+|---|---|
+| `ISparkBridge` port | `ICanvasTransport` (`src/TerminalHost.Core/Interfaces/Spark/ICanvasTransport.cs`) |
+| `SparkOutboundMessage` union (8 verbs) | `CanvasOutbound` — 8 sealed records |
+| `SparkInboundMessage` union (6 verbs) | `CanvasInbound` — 6 sealed records |
+| `WebView2SparkBridge` (WPF) | `WebView2CanvasTransport` (147 LOC) |
+| `AvaloniaWebViewSparkBridge` | `AvaloniaWebViewCanvasTransport` (143 LOC) |
+| `InMemorySparkBridge` (test) | `InMemoryCanvasTransport` (67 LOC) — `Sent` list + `Inject`/`MarkReady`/`ClearSent` |
+| Kill View-side string-peeking | Done — `SparkCanvasView.xaml.cs:13` literally states *"the view has no knowledge of action verb strings or JSON envelope shape"* |
+| Single source for protocol | `CanvasJsonProtocol.Serialize` / `TryParse` (153 LOC, all 14 verbs in one switch) |
 
-The View peeks at JSON strings (a protocol leak from the VM into the View), the VM owns the parser switch, and `events.js` handles the JS side independently. No versioning, no schema, no documentation file. WPF and Avalonia re-implement the same transport.
+### Residual smell (low-payoff polish)
 
-### Dependency category
-**Ports & adapters (remote but owned).** The "remote" boundary is the WebView2/WebView IPC channel.
+What's actually left is much narrower than the original Section C: `WebView2CanvasTransport.cs` and `AvaloniaWebViewCanvasTransport.cs` are ~80% literal duplicates. Lines 22–146 of each share:
 
-### Proposed interface (sketch — not a commitment)
+- `Queue<CanvasOutbound> _preReadyQueue` + `_gate` lock
+- `SendAsync` body (disposed-check → enqueue if not ready → `PostSerialized`)
+- `OnWebMessageReceived` body (TryParse → ready-handshake → raise Received)
+- `FlushPreReadyQueue` body
+- `PostSerialized` body (serialize → Post → JS-post → swallow)
+- `Dispose` body
+
+Genuine platform differences amount to three small surfaces:
+- UI-thread dispatch (`Dispatcher` vs `Dispatcher.UIThread`)
+- Inbound message string extraction (`e.TryGetWebMessageAsString()` vs `e.Message`)
+- Outbound post signature (`PostWebMessageAsString(json)` vs `PostWebMessageAsString(json, null)`)
+
+### If picked up
+
+Mechanical extraction — no design exploration needed:
+
 ```csharp
-public interface ISparkBridge
+// In TerminalHost.Core.Services.Spark (sibling of NullCanvasTransport)
+public abstract class WebViewCanvasTransportBase : ICanvasTransport, IDisposable
 {
-    Task SendAsync(SparkOutboundMessage message);
-    event EventHandler<SparkInboundMessage> MessageReceived;
-    event EventHandler? CanvasReady;
-}
+    private readonly Queue<CanvasOutbound> _preReadyQueue = new();
+    private readonly object _gate = new();
+    protected bool Disposed;
 
-public abstract record SparkOutboundMessage
-{
-    public sealed record Clear : SparkOutboundMessage;
-    public sealed record LoadState(object Payload) : SparkOutboundMessage;
-    public sealed record LoadReplay(object State, IReadOnlyList<object> Events) : SparkOutboundMessage;
-    public sealed record Event(object Payload) : SparkOutboundMessage;
-    public sealed record SetTheme(string Theme) : SparkOutboundMessage;
-    // ...etc
-}
+    public bool IsReady { get; private set; }
+    public event EventHandler<CanvasInbound>? Received;
+    public event EventHandler? Ready;
 
-public abstract record SparkInboundMessage
-{
-    public sealed record SelectSession(string SessionId) : SparkInboundMessage;
-    public sealed record RefreshSessions : SparkInboundMessage;
-    public sealed record RequestMultiMode : SparkInboundMessage;
-    public sealed record ExitMultiMode : SparkInboundMessage;
-    public sealed record ThemeChanged(string Theme) : SparkInboundMessage;
+    public Task SendAsync(CanvasOutbound message) { /* shared body */ }
+    public abstract void Post(Action action);
+
+    // Platform hooks (sealed → 3 lines each in subclass)
+    protected abstract void PostOutboundJson(string json);
+    protected void OnInboundJson(string json) { /* shared TryParse + ready handshake + Received */ }
+
+    public abstract void Dispose();
 }
 ```
 
-Production adapters: `WebView2SparkBridge` (WPF), `AvaloniaWebViewSparkBridge`. Test adapter: `InMemorySparkBridge` with `Send` recording + `RaiseInbound(message)` helper.
+Each platform adapter shrinks to ~30 lines:
+- `Post` body (`Dispatcher.CheckAccess`/`UIThread.CheckAccess` branch)
+- `PostOutboundJson` body (one-arg or two-arg `PostWebMessageAsString` call)
+- Constructor subscribing the WebView's `WebMessageReceived` event and calling `OnInboundJson(e.…)`
+- `Dispose` unsubscribing
 
 ### Test impact
-- **New boundary tests**: pump fake inbound messages into the VM via the in-memory bridge, assert outbound message sequence. Covers all 14 protocol verbs.
-- **Old tests to delete**: none (no existing coverage).
-- Eliminates View-side string-peeking entirely. Protocol can grow a `version` field. JS side can be regenerated from a single C# source of truth.
+- **No new behavior tests** — `InMemoryCanvasTransport` already exercises the orchestrator through the same interface; the extraction is structural.
+- **Optional**: one shared `WebViewCanvasTransportBaseTests` over a minimal fake subclass covering the pre-ready queue / ready handshake / dispose ordering. Currently each platform adapter has zero direct test coverage; this is the cheap way to fix that.
+
+### Honest stakes
+~120 LOC of dedup behind a stable, working interface. **Park indefinitely** unless someone fixes a bug in one transport and forgets to mirror it to the other. No design phase needed — when it's done, it's mechanical.
 
 ---
 
@@ -335,9 +350,8 @@ If a future ticket adds a 5th mode AND that mode's routing/ready logic is non-tr
 
 ## Suggested ordering if multiple are picked
 
-Status as of 2026-05-20: **A done**, **B done**, **D design hardened** (scope shrank to a ~30-LOC `CanvasPolicy` promotion — see section D for rejected alternatives), **C still open**.
+Status as of 2026-05-21: **A done**, **B done**, **C effectively done** (interface shipped as `ICanvasTransport`; residual is ~120 LOC of WPF/Avalonia transport dedup, no design phase needed — see section C), **D done** (commit `cae10ce`, `CanvasPolicy` promotion + reattach-fallback fix + 12 new tests).
 
-1. **D** first if picking just one — ~30 LOC, six new pure tests, no DI changes. Closes the only direct-coverage gap left in the orchestrator. Ship in one PR.
-2. **C** next — replaces the View-side string-peeking and unifies the WPF/Avalonia transport adapters behind `ISparkBridge`. Largest remaining surface area. Defer if there's no concrete pain at the View layer.
+All four candidates from the original `/improve-codebase-architecture` pass on 2026-05-18 are now either shipped or downgraded to "mechanical polish, defer indefinitely." No design exploration is open against the Spark feature.
 
-Doing **D** alone is the cheap, principled finishing touch on the FSM extraction. Doing **C** without D is fine; doing **D** without C is fine. They don't interact.
+If `WebViewCanvasTransportBase` extraction (the residual under C) gets picked up later, it's a single-PR mechanical refactor — go straight to `/implement-issue` with the sketch in section C as the spec.
