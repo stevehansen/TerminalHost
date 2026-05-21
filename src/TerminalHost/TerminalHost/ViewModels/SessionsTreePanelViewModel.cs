@@ -160,6 +160,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     /// </summary>
     private static void UpdateSessionNode(SessionTreeNode node, SessionActivityState state)
     {
+        var now = DateTime.UtcNow;
         var main = state.MainAgent;
         var dirName = string.IsNullOrEmpty(state.WorkingDirectory)
             ? null
@@ -175,12 +176,17 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             subtitleParts.Add(ShortModelName(model));
         node.Subtitle = subtitleParts.Count > 0 ? string.Join("  ·  ", subtitleParts) : null;
 
-        ApplyAgentLiveState(node, state, main);
+        ApplyAgentLiveState(node, state, main, now);
 
         // Reconcile subagent children (exclude the main agent — already represented by this row).
         // Done subagents are hidden to keep the tree focused on what's running right now.
+        // Hide subagents whose stamps stopped advancing — independent of SubagentStop reliability.
         var subs = state.Agents.Values
-            .Where(a => !a.IsMain && !IsAgentDone(state, a))
+            .Where(a => !a.IsMain
+                && a.CompleteTime is null
+                && a.State is not (AgentState.Complete or AgentState.Error)
+                && a.LastActivityEventTime is { } lastActivity
+                && (now - lastActivity) < TimeSpan.FromSeconds(60))
             .OrderBy(a => a.SpawnTime)
             .ToList();
 
@@ -211,7 +217,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                     ? ShortModelName(subModel)
                     : null;
 
-            ApplyAgentLiveState(child, state, agent);
+            ApplyAgentLiveState(child, state, agent, now);
         }
 
         for (int i = node.Children.Count - 1; i >= 0; i--)
@@ -222,18 +228,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     }
 
     /// <summary>
-    /// Mirrors AgentInstance state onto a row's spinner/icon/activity/usage fields.
-    /// "Active" is treated as inconclusive: SessionActivityState resets agents to
-    /// State=Active after each tool call, so without an explicit AgentComplete event
-    /// every prior subagent would otherwise stay "working" forever. Real completion
-    /// is inferred from (in priority order):
-    ///   1. CompleteTime being set
-    ///   2. AgentState being a terminal value (Complete/Error)
-    ///   3. The session lifecycle being terminal
-    ///   4. For subagents: the spawning Task/Agent ToolCall no longer Running
-    ///      (the subagent's Id IS the parent tool_use_id, so we can look it up).
+    /// Mirrors derived display state onto a row's spinner/icon/activity/usage fields.
+    /// Display is computed at read time from per-agent event timestamps via
+    /// <see cref="SessionActivityState.DeriveAgentDisplayState"/> /
+    /// <see cref="SessionActivityState.DeriveParentDisplay"/>; the legacy
+    /// AgentState/Lifecycle fields are no longer consulted for the display decision.
     /// </summary>
-    private static void ApplyAgentLiveState(SessionTreeNode node, SessionActivityState state, AgentInstance? agent)
+    private static void ApplyAgentLiveState(SessionTreeNode node, SessionActivityState state, AgentInstance? agent, DateTime now)
     {
         if (agent == null)
         {
@@ -246,23 +247,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             return;
         }
 
-        var sessionEnded = (state.Lifecycle is SessionLifecycle.Completed or SessionLifecycle.Failed
-                or SessionLifecycle.TimedOut or SessionLifecycle.Abandoned)
-            && (state.LastActivityTime.HasValue
-                ? DateTime.UtcNow - state.LastActivityTime.Value > TimeSpan.FromSeconds(30)
-                : true);
+        var displayState = agent.IsMain
+            ? state.DeriveParentDisplay(now)
+            : state.DeriveAgentDisplayState(agent, now);
 
-        var isDone = IsAgentDone(state, agent);
-
-        node.IsBusy = !isDone && agent.IsActive;
-        node.StateIcon = isDone
-            ? (agent.State == AgentState.Error || state.Lifecycle == SessionLifecycle.Failed ? "⚠" : "✓")
-            : agent.State switch
-            {
-                AgentState.Idle => "·",
-                _ => "·"
-            };
-        node.Activity = DescribeActivity(state, agent, sessionEnded, isDone);
+        node.IsBusy = displayState == AgentDisplayState.Working;
+        node.StateIcon = MapStateIcon(displayState, agent);
+        node.Activity = DescribeActivity(displayState, state, agent);
 
         if (node.IsSession)
         {
@@ -295,52 +286,30 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         }
     }
 
-    /// <summary>
-    /// True when an agent should be treated as no longer running. SessionActivityState
-    /// resets agents to State=Active between tool calls, so AgentState alone can't tell
-    /// us — we also check CompleteTime, the session lifecycle, and (for subagents)
-    /// whether the spawning Task/Agent tool call has ended.
-    /// </summary>
-    private static bool IsAgentDone(SessionActivityState state, AgentInstance agent)
-    {
-        if (agent.CompleteTime != null) return true;
-        if (agent.State is AgentState.Complete or AgentState.Error) return true;
-        // Claude Code's Stop hook flips Lifecycle to Completed between assistant turns
-        // inside a still-active session, and the service never flips it back. Treat the
-        // session as "really ended" only if it's been quiet for a while.
-        if (state.Lifecycle is SessionLifecycle.Completed or SessionLifecycle.Failed
-            or SessionLifecycle.TimedOut or SessionLifecycle.Abandoned)
+    private static string MapStateIcon(AgentDisplayState displayState, AgentInstance agent) =>
+        displayState switch
         {
-            var idle = state.LastActivityTime.HasValue
-                ? DateTime.UtcNow - state.LastActivityTime.Value
-                : TimeSpan.MaxValue;
-            if (idle > TimeSpan.FromSeconds(30)) return true;
-        }
-        if (!agent.IsMain && state.ToolCalls.TryGetValue(agent.Id, out var spawnTc)
-            && spawnTc.State != ToolCallState.Running) return true;
-        return false;
-    }
+            AgentDisplayState.WaitingPermission => "⚠",
+            AgentDisplayState.Working => "·",
+            // Preserve error-icon on terminated subagents that errored.
+            AgentDisplayState.Done when agent.State == AgentState.Error => "⚠",
+            AgentDisplayState.Done => "✓",
+            AgentDisplayState.TimedOut => "✓",
+            _ => "·"
+        };
 
-    private static string DescribeActivity(SessionActivityState state, AgentInstance agent, bool sessionEnded, bool isDone)
-    {
-        if (sessionEnded)
+    private static string DescribeActivity(AgentDisplayState displayState, SessionActivityState state, AgentInstance agent) =>
+        displayState switch
         {
-            return state.Lifecycle switch
-            {
-                SessionLifecycle.Completed => "Done",
-                SessionLifecycle.Failed => "Failed",
-                SessionLifecycle.TimedOut => "Timed out",
-                SessionLifecycle.Abandoned => "Abandoned",
-                _ => "Idle"
-            };
-        }
+            AgentDisplayState.WaitingPermission => "Waiting for permission",
+            AgentDisplayState.Done => "Done",
+            AgentDisplayState.TimedOut => "Timed out",
+            AgentDisplayState.Working => DescribeWorkingActivity(state, agent),
+            _ => ""
+        };
 
-        // Subagent's parent Task call ended but its own AgentState is still Active
-        // (no AgentComplete event arrived) — treat as done.
-        if (isDone)
-            return agent.State == AgentState.Error ? "Error" : "Done";
-
-        return agent.State switch
+    private static string DescribeWorkingActivity(SessionActivityState state, AgentInstance agent) =>
+        agent.State switch
         {
             AgentState.ToolCalling when agent.CurrentToolUseId != null
                 && state.ToolCalls.TryGetValue(agent.CurrentToolUseId, out var tc)
@@ -348,15 +317,10 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                         ? tc.ToolName
                         : $"{tc.ToolName}: {Truncate(tc.InputSummary!, 60)}",
             AgentState.ToolCalling => "Running tool",
-            AgentState.Thinking => "Thinking…",
             AgentState.WaitingPermission => "Waiting for permission",
-            AgentState.Active => "Working…",
-            AgentState.Idle => "Idle",
-            AgentState.Complete => "Done",
-            AgentState.Error => "Error",
-            _ => ""
+            AgentState.Thinking => "Thinking…",
+            _ => "Working…"
         };
-    }
 
     private static string ShortModelName(string model)
     {
