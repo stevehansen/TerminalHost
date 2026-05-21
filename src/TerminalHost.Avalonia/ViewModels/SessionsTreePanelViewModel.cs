@@ -23,15 +23,6 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private readonly IAppTimer? _refreshTimer;
 
     /// <summary>
-    /// Records when each subagent first became "done" (per <see cref="IsAgentDone"/>).
-    /// Done subagents are kept visible for <see cref="SubagentGracePeriod"/> after this
-    /// timestamp so the tree doesn't flicker every time Claude finishes one Task call
-    /// and starts another between turns.
-    /// </summary>
-    private readonly Dictionary<string, DateTime> _subagentDoneAt = new();
-    private static readonly TimeSpan SubagentGracePeriod = TimeSpan.FromSeconds(45);
-
-    /// <summary>
     /// Tracks which <see cref="SessionActivityState.SessionId"/> each row is currently
     /// bound to, keyed by row id (working directory). When Claude rotates SessionId for
     /// the same workspace (resume, /clear, hook race) a brand-new SessionActivityState
@@ -176,6 +167,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     private void UpdateSessionNode(SessionTreeNode node, SessionActivityState state)
     {
+        var now = DateTime.UtcNow;
         var main = state.MainAgent;
         var dirName = string.IsNullOrEmpty(state.WorkingDirectory)
             ? null
@@ -191,13 +183,18 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             subtitleParts.Add(ShortModelName(model));
         node.Subtitle = subtitleParts.Count > 0 ? string.Join("  ·  ", subtitleParts) : null;
 
-        ApplyAgentLiveState(node, state, main);
+        ApplyAgentLiveState(node, state, main, now);
 
-        // Keep done subagents visible for SubagentGracePeriod so the tree doesn't
-        // collapse every time Claude finishes one Task call and starts another.
-        var now = DateTime.UtcNow;
+        // Hide subagents the moment CompleteSubagent fires (CompleteTime is stamped
+        // or AgentState transitions to Complete/Error). Keeps the tree focused on
+        // what's running right now.
+        // Hide subagents whose stamps stopped advancing — independent of SubagentStop reliability.
         var subs = state.Agents.Values
-            .Where(a => !a.IsMain && ShouldShowSubagent(state, a, now))
+            .Where(a => !a.IsMain
+                && a.CompleteTime is null
+                && a.State is not (AgentState.Complete or AgentState.Error)
+                && a.LastActivityEventTime is { } lastActivity
+                && (now - lastActivity) < TimeSpan.FromSeconds(60))
             .OrderBy(a => a.SpawnTime)
             .ToList();
 
@@ -230,11 +227,18 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                     ? ShortModelName(subModel)
                     : null;
 
-            ApplyAgentLiveState(child, state, agent);
+            ApplyAgentLiveState(child, state, agent, now);
         }
     }
 
-    private static void ApplyAgentLiveState(SessionTreeNode node, SessionActivityState state, AgentInstance? agent)
+    /// <summary>
+    /// Mirrors derived display state onto a row's spinner/icon/activity/usage fields.
+    /// Display is computed at read time from per-agent event timestamps via
+    /// <see cref="SessionActivityState.DeriveAgentDisplayState"/> /
+    /// <see cref="SessionActivityState.DeriveParentDisplay"/>; the legacy
+    /// AgentState/Lifecycle fields are no longer consulted for the display decision.
+    /// </summary>
+    private static void ApplyAgentLiveState(SessionTreeNode node, SessionActivityState state, AgentInstance? agent, DateTime now)
     {
         if (agent == null)
         {
@@ -247,23 +251,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
             return;
         }
 
-        var sessionEnded = (state.Lifecycle is SessionLifecycle.Completed or SessionLifecycle.Failed
-                or SessionLifecycle.TimedOut or SessionLifecycle.Abandoned)
-            && (state.LastActivityTime.HasValue
-                ? DateTime.UtcNow - state.LastActivityTime.Value > TimeSpan.FromSeconds(30)
-                : true);
+        var displayState = agent.IsMain
+            ? state.DeriveParentDisplay(now)
+            : state.DeriveAgentDisplayState(agent, now);
 
-        var isDone = IsAgentDone(state, agent);
-
-        node.IsBusy = !isDone && agent.IsActive;
-        node.StateIcon = isDone
-            ? (agent.State == AgentState.Error || state.Lifecycle == SessionLifecycle.Failed ? "⚠" : "✓")
-            : agent.State switch
-            {
-                AgentState.Idle => "·",
-                _ => "·"
-            };
-        node.Activity = DescribeActivity(state, agent, sessionEnded, isDone);
+        node.IsBusy = displayState == AgentDisplayState.Working;
+        node.StateIcon = MapStateIcon(displayState, agent);
+        node.Activity = DescribeActivity(displayState, state, agent);
 
         if (node.IsSession)
         {
@@ -298,63 +292,30 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         }
     }
 
-    /// <summary>
-    /// Returns true if the subagent should currently appear in the tree.
-    /// Still-active agents are always shown; done agents are shown for a grace period
-    /// after first completion so the tree doesn't churn between Claude turns.
-    /// </summary>
-    private bool ShouldShowSubagent(SessionActivityState state, AgentInstance agent, DateTime now)
-    {
-        if (!IsAgentDone(state, agent))
+    private static string MapStateIcon(AgentDisplayState displayState, AgentInstance agent) =>
+        displayState switch
         {
-            _subagentDoneAt.Remove(agent.Id); // active again — reset grace
-            return true;
-        }
+            AgentDisplayState.WaitingPermission => "⚠",
+            AgentDisplayState.Working => "·",
+            // Preserve error-icon on terminated subagents that errored.
+            AgentDisplayState.Done when agent.State == AgentState.Error => "⚠",
+            AgentDisplayState.Done => "✓",
+            AgentDisplayState.TimedOut => "✓",
+            _ => "·"
+        };
 
-        if (!_subagentDoneAt.TryGetValue(agent.Id, out var doneAt))
+    private static string DescribeActivity(AgentDisplayState displayState, SessionActivityState state, AgentInstance agent) =>
+        displayState switch
         {
-            _subagentDoneAt[agent.Id] = now;
-            return true;
-        }
+            AgentDisplayState.WaitingPermission => "Waiting for permission",
+            AgentDisplayState.Done => "Done",
+            AgentDisplayState.TimedOut => "Timed out",
+            AgentDisplayState.Working => DescribeWorkingActivity(state, agent),
+            _ => ""
+        };
 
-        return now - doneAt < SubagentGracePeriod;
-    }
-
-    private static bool IsAgentDone(SessionActivityState state, AgentInstance agent)
-    {
-        if (agent.CompleteTime != null) return true;
-        if (agent.State is AgentState.Complete or AgentState.Error) return true;
-        if (state.Lifecycle is SessionLifecycle.Completed or SessionLifecycle.Failed
-            or SessionLifecycle.TimedOut or SessionLifecycle.Abandoned)
-        {
-            var idle = state.LastActivityTime.HasValue
-                ? DateTime.UtcNow - state.LastActivityTime.Value
-                : TimeSpan.MaxValue;
-            if (idle > TimeSpan.FromSeconds(30)) return true;
-        }
-        if (!agent.IsMain && state.ToolCalls.TryGetValue(agent.Id, out var spawnTc)
-            && spawnTc.State != ToolCallState.Running) return true;
-        return false;
-    }
-
-    private static string DescribeActivity(SessionActivityState state, AgentInstance agent, bool sessionEnded, bool isDone)
-    {
-        if (sessionEnded)
-        {
-            return state.Lifecycle switch
-            {
-                SessionLifecycle.Completed => "Done",
-                SessionLifecycle.Failed => "Failed",
-                SessionLifecycle.TimedOut => "Timed out",
-                SessionLifecycle.Abandoned => "Abandoned",
-                _ => "Idle"
-            };
-        }
-
-        if (isDone)
-            return agent.State == AgentState.Error ? "Error" : "Done";
-
-        return agent.State switch
+    private static string DescribeWorkingActivity(SessionActivityState state, AgentInstance agent) =>
+        agent.State switch
         {
             AgentState.ToolCalling when agent.CurrentToolUseId != null
                 && state.ToolCalls.TryGetValue(agent.CurrentToolUseId, out var tc)
@@ -362,15 +323,10 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                         ? tc.ToolName
                         : $"{tc.ToolName}: {Truncate(tc.InputSummary!, 60)}",
             AgentState.ToolCalling => "Running tool",
-            AgentState.Thinking => "Thinking…",
             AgentState.WaitingPermission => "Waiting for permission",
-            AgentState.Active => "Working…",
-            AgentState.Idle => "Idle",
-            AgentState.Complete => "Done",
-            AgentState.Error => "Error",
-            _ => ""
+            AgentState.Thinking => "Thinking…",
+            _ => "Working…"
         };
-    }
 
     private static string ShortModelName(string model)
     {
