@@ -107,6 +107,7 @@ public static class CanvasJsonProtocol
         startTime = s.StartTime,
         endTime = s.EndTime,
         lifecycle = s.Lifecycle,
+        displayState = s.DisplayState,
         agents = s.Agents,
         toolCalls = s.ToolCalls,
         fileActivities = s.FileActivities,
@@ -120,6 +121,7 @@ public static class CanvasJsonProtocol
         startTime = s.StartTime,
         endTime = s.EndTime,
         lifecycle = s.Lifecycle,
+        displayState = s.DisplayState,
         agents = s.Agents,
         toolCalls = s.ToolCalls,
         fileActivities = s.FileActivities
@@ -139,6 +141,7 @@ public static class CanvasJsonProtocol
         workingDirectory = s.WorkingDirectory,
         startTime = s.StartTime,
         lifecycle = s.Lifecycle,
+        displayState = s.DisplayState,
         agents = s.Agents,
         fileActivities = s.FileActivities
     };

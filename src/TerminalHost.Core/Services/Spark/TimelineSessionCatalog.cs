@@ -72,7 +72,11 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
                     SessionId = st.SessionId,
                     DisplayName = dirName,
                     ProjectPath = st.WorkingDirectory ?? "",
-                    IsLive = st.Lifecycle == SessionLifecycle.Active,
+                    // Timeline catalog uses a tighter semantic than SessionActivityState.IsActive:
+                    // only sessions currently Working or WaitingPermission count as "live" here.
+                    // Done (between turns) is tracked but not live in the timeline view.
+                    IsLive = st.DeriveParentDisplay(DateTime.UtcNow)
+                        is AgentDisplayState.Working or AgentDisplayState.WaitingPermission,
                     StartTime = st.StartTime
                 });
             }
@@ -112,6 +116,7 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
 
         var state = SessionActivityState.Create(sessionId);
         state.WorkingDirectory = Path.GetDirectoryName(jsonlPath);
+        // Stored for archive snapshot semantics; not read by derivation.
         state.Lifecycle = SessionLifecycle.Completed;
         foreach (var evt in result.Events)
             state.ApplyEvent(evt);
@@ -123,6 +128,8 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
         state.EndTime = state.LastActivityTime ?? DateTime.UtcNow;
         if (state.MainAgent != null)
         {
+            // Replay path: synthesize a believable terminal state for consumers that still
+            // read agent.State (Spark canvas via the snapshot wire). Derivation ignores this.
             state.MainAgent.State = AgentState.Complete;
             state.MainAgent.CompleteTime = state.EndTime;
         }
@@ -242,6 +249,7 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             StartTime = state.StartTime,
             EndTime = state.EndTime,
             Lifecycle = state.Lifecycle.ToString(),
+            DisplayState = state.DeriveParentDisplay(DateTime.UtcNow).ToString(),
             Agents = agents,
             ToolCalls = toolCalls,
             FileActivities = files,
@@ -280,6 +288,9 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             StartTime = state.StartTime,
             EndTime = state.EndTime ?? state.LastActivityTime ?? DateTime.UtcNow,
             Lifecycle = state.Lifecycle.ToString(),
+            // Replay is historical — derivation inputs are absent. Surface a stable "Done"
+            // so the wire shape mirrors the archived-session path in ApiServer.
+            DisplayState = "Done",
             Agents = agents,
             ToolCalls = toolCalls,
             FileActivities = files
@@ -307,6 +318,7 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
             WorkingDirectory = live.WorkingDirectory,
             StartTime = live.StartTime,
             Lifecycle = "Active",
+            DisplayState = "Working",
             Agents = agents
         };
     }

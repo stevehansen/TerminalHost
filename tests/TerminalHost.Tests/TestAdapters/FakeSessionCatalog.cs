@@ -41,6 +41,8 @@ public sealed class FakeSessionCatalog : ISessionCatalog
                 SessionId = kv.Key,
                 DisplayName = kv.Key,
                 ProjectPath = kv.Value.WorkingDirectory ?? "",
+                // Mirror the production catalog's "lifecycle == Active" semantic for the fake;
+                // tests construct snapshots with explicit Lifecycle values.
                 IsLive = kv.Value.Lifecycle == "Active",
                 StartTime = kv.Value.StartTime
             });

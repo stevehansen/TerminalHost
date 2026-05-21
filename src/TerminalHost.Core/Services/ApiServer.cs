@@ -708,6 +708,7 @@ public class ApiServer : IApiServer
             endTime = state.EndTime,
             lastActivityTime = state.LastActivityTime,
             lifecycle = state.Lifecycle.ToString(),
+            displayState = state.DeriveParentDisplay(DateTime.UtcNow).ToString(),
             initialPrompt = state.InitialPrompt,
             summary = state.Summary,
             gitBranch = state.GitBranch,
@@ -786,12 +787,20 @@ public class ApiServer : IApiServer
             foreach (var s in liveSessions)
             {
                 if (!seenIds.Add(s.ClaudeSessionId)) continue;
-                var liveActivity = _sessionActivityService?.GetState(s.ClaudeSessionId)?.LastActivityTime;
+                // Reconcile dual-source wire shape: when a SessionActivityState exists, prefer
+                // its stored lifecycle + derived display over the LiveSession's IsActive flag
+                // so this branch can't disagree with the SessionActivityState branch below.
+                var activityState = _sessionActivityService?.GetState(s.ClaudeSessionId);
+                var liveActivity = activityState?.LastActivityTime;
+                var lifecycle = activityState?.Lifecycle.ToString() ?? (s.IsActive ? "Active" : "Completed");
+                var displayState = activityState?.DeriveParentDisplay(DateTime.UtcNow).ToString()
+                                   ?? (s.IsActive ? "Working" : "Done");
                 sessions.Add(new
                 {
                     sessionId = s.ClaudeSessionId,
                     workingDirectory = s.WorkingDirectory,
-                    lifecycle = s.IsActive ? "Active" : "Completed",
+                    lifecycle,
+                    displayState,
                     startTime = s.StartTime,
                     lastActivityTime = liveActivity,
                     totalAgents = 0,
@@ -817,6 +826,7 @@ public class ApiServer : IApiServer
                     sessionId = s.SessionId,
                     workingDirectory = s.WorkingDirectory,
                     lifecycle = s.Lifecycle.ToString(),
+                    displayState = s.DeriveParentDisplay(DateTime.UtcNow).ToString(),
                     startTime = s.StartTime,
                     lastActivityTime = s.LastActivityTime,
                     totalAgents = s.TotalAgents,
@@ -837,11 +847,15 @@ public class ApiServer : IApiServer
             foreach (var a in archived)
             {
                 if (!seenIds.Add(a.SessionId)) continue;
+                // Archived sessions don't have live derivation inputs anymore — surface the
+                // stored terminal lifecycle in both fields for wire-format consistency.
+                var archivedLifecycle = a.Lifecycle.ToString();
                 sessions.Add(new
                 {
                     sessionId = a.SessionId,
                     workingDirectory = a.WorkingDirectory,
-                    lifecycle = a.Lifecycle.ToString(),
+                    lifecycle = archivedLifecycle,
+                    displayState = archivedLifecycle,
                     startTime = a.StartTime,
                     lastActivityTime = a.EndTime,
                     totalAgents = a.TotalAgents,

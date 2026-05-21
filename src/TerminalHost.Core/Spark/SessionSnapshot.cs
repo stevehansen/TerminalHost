@@ -20,6 +20,14 @@ public abstract record SnapshotEnvelope
     public DateTime StartTime { get; init; }
     public string Lifecycle { get; init; } = "Active";
 
+    /// <summary>
+    /// Derived display state computed at projection time from per-agent event timestamps
+    /// (Working, WaitingPermission, Done, TimedOut). Additive sibling of <see cref="Lifecycle"/>
+    /// — both fields are emitted so existing JS consumers keying on <c>lifecycle</c> keep working
+    /// while new consumers can prefer the derivation.
+    /// </summary>
+    public string DisplayState { get; init; } = "Working";
+
     /// <summary>Agents indexed by id.</summary>
     public IReadOnlyDictionary<string, SnapshotAgent> Agents { get; init; } =
         new Dictionary<string, SnapshotAgent>();
