@@ -147,8 +147,6 @@ public class SessionActivityService : ISessionActivityService
             if (!_states.TryGetValue(sessionId, out var state))
                 return;
 
-            ReviveIfTerminal(state);
-
             foreach (var evt in events)
             {
                 ApplyEventToState(state, evt);
@@ -483,41 +481,12 @@ public class SessionActivityService : ISessionActivityService
         };
     }
 
-    /// <summary>
-    /// Un-sticks a session whose lifecycle was previously marked terminal
-    /// (Completed/Failed/TimedOut/Abandoned) when fresh activity arrives. Claude Code's
-    /// Stop hook fires between every assistant turn — not only at session end — and the
-    /// inactivity tracker can flip a still-running session to TimedOut while a long tool
-    /// produces no transcript writes. Without this revive, the tree would show "Done" or
-    /// "Timed out" forever once either fires, even as new tool calls continue.
-    /// </summary>
-    private void ReviveIfTerminal(SessionActivityState state)
-    {
-        if (state.Lifecycle is not (SessionLifecycle.Completed or SessionLifecycle.Failed
-                                    or SessionLifecycle.TimedOut or SessionLifecycle.Abandoned))
-            return;
-
-        state.Lifecycle = SessionLifecycle.Active;
-        state.EndTime = null;
-
-        if (state.MainAgent is { } main)
-        {
-            main.CompleteTime = null;
-            if (main.State is AgentState.Complete or AgentState.Error)
-                main.State = AgentState.Active;
-        }
-
-        LifecycleChanged?.Invoke(this, (state.SessionId, state.Lifecycle));
-    }
-
     private List<ActivityEvent> ProcessFileChanged(HookEvent hookEvent)
     {
         var events = new List<ActivityEvent>();
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
-
-        ReviveIfTerminal(state);
 
         if (!string.IsNullOrEmpty(hookEvent.FilePath))
         {
@@ -638,8 +607,6 @@ public class SessionActivityService : ISessionActivityService
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
-        ReviveIfTerminal(state);
-
         var agentId = hookEvent.AgentId ?? "";
 
         if (state.Agents.TryGetValue(agentId, out var stoppedSubagent))
@@ -663,8 +630,6 @@ public class SessionActivityService : ISessionActivityService
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
-
-        ReviveIfTerminal(state);
 
         var agentId = hookEvent.AgentId ?? "";
         if (!state.Agents.ContainsKey(agentId))
@@ -714,8 +679,6 @@ public class SessionActivityService : ISessionActivityService
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
-        ReviveIfTerminal(state);
-
         var agentId = hookEvent.AgentId ?? "";
         if (!state.Agents.ContainsKey(agentId))
             return events;
@@ -734,8 +697,6 @@ public class SessionActivityService : ISessionActivityService
 
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
-
-        ReviveIfTerminal(state);
 
         state.LastActivityTime = DateTime.UtcNow;
 
@@ -800,7 +761,6 @@ public class SessionActivityService : ISessionActivityService
             if (source != SessionSource.Local) existing.Source = source;
             if (containerName != null) existing.ContainerName = containerName;
             existing.LastActivityTime = DateTime.UtcNow;
-            ReviveIfTerminal(existing);
             return existing;
         }
 
