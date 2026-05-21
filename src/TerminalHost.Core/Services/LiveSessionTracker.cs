@@ -19,7 +19,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     private readonly object _lock = new();
 
     private const int InactivityCheckIntervalMs = 30_000;
-    private const int InactivityTimeoutMinutes = 2;
+    internal const int InactivityTimeoutMinutes = 2;
     private const int NoActivityTimeoutMinutes = 5;
     private const int CompletedSessionRetentionSeconds = 60;
 
@@ -45,6 +45,12 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         {
             _transcriptWatcher.OnEvent += OnTranscriptWatcherEvent;
             _transcriptWatcher.OnSessionInactive += OnTranscriptSessionInactive;
+        }
+
+        if (_activityService != null)
+        {
+            // LiveSession.EndTime is the other half of IsActive — mirror revive transitions from the activity service.
+            _activityService.LifecycleChanged += OnActivityLifecycleChanged;
         }
     }
 
@@ -350,6 +356,24 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         _activityService?.ProcessTranscriptEvents(e.SessionId, e.Events, e.Summary, e.Model);
     }
 
+    private void OnActivityLifecycleChanged(object? sender, (string SessionId, SessionLifecycle NewState) e)
+    {
+        bool changed = false;
+        lock (_lock)
+        {
+            if (e.NewState == SessionLifecycle.Active
+                && _liveSessions.TryGetValue(e.SessionId, out var live)
+                && live.EndTime.HasValue)
+            {
+                live.EndTime = null;
+                live.EndReason = null;
+                changed = true;
+            }
+        }
+
+        if (changed) LiveSessionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void OnTranscriptSessionInactive(object? sender, string sessionId)
     {
         bool changed = false;
@@ -429,6 +453,10 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
             _transcriptWatcher.OnEvent -= OnTranscriptWatcherEvent;
             _transcriptWatcher.OnSessionInactive -= OnTranscriptSessionInactive;
             _transcriptWatcher.UnwatchAll();
+        }
+        if (_activityService != null)
+        {
+            _activityService.LifecycleChanged -= OnActivityLifecycleChanged;
         }
     }
 }

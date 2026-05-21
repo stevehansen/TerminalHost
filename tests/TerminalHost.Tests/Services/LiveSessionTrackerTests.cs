@@ -226,4 +226,110 @@ public class LiveSessionTrackerTests
         fired.ShouldBe(0);
         tracker.GetLiveSessionByClaudeId("sess-1")!.IsActive.ShouldBeTrue();
     }
+
+    private void MarkTimedOut(LiveSessionTracker tracker, string sessionId)
+    {
+        _activity.Setup(a => a.GetState(sessionId))
+            .Returns(new SessionActivityState
+            {
+                SessionId = sessionId,
+                LastActivityTime = DateTime.UtcNow.AddMinutes(-(LiveSessionTracker.InactivityTimeoutMinutes * 5)),
+            });
+        tracker.CheckInactiveSessions();
+    }
+
+    [Fact]
+    public void LifecycleChanged_ToActive_ClearsEndTime_OnRevivedSession()
+    {
+        var tracker = BuildTracker(withActivity: true);
+        tracker.HandleSessionStart(SessionStart("sess-1", Path.GetTempPath(),
+            timestamp: DateTime.UtcNow.AddMinutes(-30)));
+        MarkTimedOut(tracker, "sess-1");
+
+        var live = tracker.GetLiveSessionByClaudeId("sess-1")!;
+        live.EndTime.ShouldNotBeNull();
+        live.EndReason.ShouldBe("timeout");
+
+        var fired = 0;
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+
+        _activity.Raise(a => a.LifecycleChanged += null, this,
+            ("sess-1", SessionLifecycle.Active));
+
+        live.EndTime.ShouldBeNull();
+        live.EndReason.ShouldBeNull();
+        live.IsActive.ShouldBeTrue();
+        fired.ShouldBeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public void LifecycleChanged_ToActive_NoOp_WhenSessionStillActive()
+    {
+        var tracker = BuildTracker(withActivity: true);
+        tracker.HandleSessionStart(SessionStart("sess-1", Path.GetTempPath()));
+
+        var fired = 0;
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+
+        _activity.Raise(a => a.LifecycleChanged += null, this,
+            ("sess-1", SessionLifecycle.Active));
+
+        var live = tracker.GetLiveSessionByClaudeId("sess-1")!;
+        live.EndTime.ShouldBeNull();
+        live.IsActive.ShouldBeTrue();
+        fired.ShouldBe(0);
+    }
+
+    [Fact]
+    public void LifecycleChanged_ToTerminal_DoesNotClearEndTime()
+    {
+        var tracker = BuildTracker(withActivity: true);
+        tracker.HandleSessionStart(SessionStart("sess-1", Path.GetTempPath(),
+            timestamp: DateTime.UtcNow.AddMinutes(-30)));
+        MarkTimedOut(tracker, "sess-1");
+
+        var live = tracker.GetLiveSessionByClaudeId("sess-1")!;
+        var endTimeBefore = live.EndTime;
+        endTimeBefore.ShouldNotBeNull();
+
+        _activity.Raise(a => a.LifecycleChanged += null, this,
+            ("sess-1", SessionLifecycle.Completed));
+
+        live.EndTime.ShouldBe(endTimeBefore);
+        live.IsActive.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void LifecycleChanged_UnknownSession_DoesNotThrow()
+    {
+        var tracker = BuildTracker(withActivity: true);
+
+        var fired = 0;
+        tracker.LiveSessionsChanged += (_, _) => fired++;
+
+        Should.NotThrow(() => _activity.Raise(a => a.LifecycleChanged += null, this,
+            ("not-tracked", SessionLifecycle.Active)));
+
+        fired.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Dispose_UnsubscribesFromActivityLifecycleChanged()
+    {
+        var tracker = BuildTracker(withActivity: true);
+        tracker.HandleSessionStart(SessionStart("sess-1", Path.GetTempPath(),
+            timestamp: DateTime.UtcNow.AddMinutes(-30)));
+        MarkTimedOut(tracker, "sess-1");
+
+        var live = tracker.GetLiveSessionByClaudeId("sess-1")!;
+        var endTimeBefore = live.EndTime;
+        endTimeBefore.ShouldNotBeNull();
+
+        tracker.Dispose();
+
+        _activity.Raise(a => a.LifecycleChanged += null, this,
+            ("sess-1", SessionLifecycle.Active));
+
+        live.EndTime.ShouldBe(endTimeBefore);
+    }
 }
