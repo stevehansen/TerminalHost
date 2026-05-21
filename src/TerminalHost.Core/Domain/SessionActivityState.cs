@@ -10,14 +10,8 @@ public enum SessionLifecycle
     /// <summary>Agent is actively working.</summary>
     Active,
 
-    /// <summary>Agent is executing a tool.</summary>
-    ToolCalling,
-
     /// <summary>Agent is waiting for user permission.</summary>
     WaitingPermission,
-
-    /// <summary>No activity for >N seconds but session hasn't ended.</summary>
-    Idle,
 
     /// <summary>Session ended normally.</summary>
     Completed,
@@ -26,10 +20,7 @@ public enum SessionLifecycle
     Failed,
 
     /// <summary>No activity for extended period, no Stop hook received.</summary>
-    TimedOut,
-
-    /// <summary>User manually closed/abandoned the session.</summary>
-    Abandoned
+    TimedOut
 }
 
 /// <summary>
@@ -200,16 +191,64 @@ public class SessionActivityState
     public TimeSpan Duration => (EndTime ?? LastActivityTime ?? DateTime.UtcNow) - StartTime;
 
     /// <summary>
-    /// Whether this session is still active.
+    /// Whether this session is still worth tracking in the live set. Derived from M1 input
+    /// timestamps via <see cref="DeriveParentDisplay"/>: a session stays "active" (Working,
+    /// WaitingPermission, or Done — between turns the user might resume) until the quiet
+    /// window past the Stop hook elapses and the derivation flips to TimedOut. Lifecycle is
+    /// no longer consulted; it remains only as terminal-storage metadata.
     /// </summary>
     [JsonIgnore]
-    public bool IsActive => Lifecycle is SessionLifecycle.Active or SessionLifecycle.ToolCalling or SessionLifecycle.WaitingPermission or SessionLifecycle.Idle;
+    public bool IsActive => DeriveParentDisplay(DateTime.UtcNow) != AgentDisplayState.TimedOut;
 
     /// <summary>
     /// Tool calls grouped by category.
     /// </summary>
     [JsonIgnore]
     public ILookup<ToolCategory, ToolCall> ToolCallsByCategory => ToolCalls.Values.ToLookup(t => t.Category);
+
+    /// <summary>
+    /// Quiet window past a Stop hook before an agent's display flips from Done to TimedOut.
+    /// Single source of truth for the 2-minute rule shared by M3/M4 readers.
+    /// </summary>
+    internal static readonly TimeSpan TimedOutThreshold = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Pure read-time derivation of an agent's display state from M1 input timestamps.
+    /// Intentionally ignores legacy fields (AgentState, CompleteTime, Lifecycle) — those
+    /// remain only for terminal-storage decisions.
+    /// </summary>
+    public AgentDisplayState DeriveAgentDisplayState(AgentInstance agent, DateTime now)
+    {
+        switch (agent.LastEventKind)
+        {
+            case AgentEventKind.PermissionPrompt:
+                return AgentDisplayState.WaitingPermission;
+            case AgentEventKind.Stop:
+                // Stop hook fires between assistant turns; treat the agent as Done until
+                // the quiet window elapses, after which we surface a TimedOut indicator.
+                // Exactly-at-threshold counts as Done; only strictly past flips to TimedOut.
+                var elapsed = agent.LastStopHookTime is { } t ? now - t : TimeSpan.MaxValue;
+                return elapsed > TimedOutThreshold ? AgentDisplayState.TimedOut : AgentDisplayState.Done;
+            case AgentEventKind.Activity:
+                return AgentDisplayState.Working;
+            case AgentEventKind.None:
+            default:
+                return AgentDisplayState.Done;
+        }
+    }
+
+    /// <summary>
+    /// Parent (session-level) display is the main agent's own derived state. Subagent
+    /// states are intentionally not aggregated — a child finishing or stalling never
+    /// changes how the parent renders. WaitingPermission is produced directly by the
+    /// main's LastEventKind when a permission prompt is pending.
+    /// </summary>
+    public AgentDisplayState DeriveParentDisplay(DateTime now)
+    {
+        var main = Agents.Values.FirstOrDefault(a => a.IsMain);
+        if (main is null) return AgentDisplayState.Working;
+        return DeriveAgentDisplayState(main, now);
+    }
 
     /// <summary>
     /// Top files by total access count.
@@ -484,6 +523,7 @@ public class SessionActivityState
                     Usage = usage
                 };
                 Messages.Add(msg);
+
                 // Accumulate tokens into agent context breakdown
                 if (tokens > 0)
                 {

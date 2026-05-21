@@ -257,6 +257,10 @@ public class SessionActivityService : ISessionActivityService
         var state = GetOrCreateStateLocked(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath,
             hookEvent.Source, hookEvent.ContainerName);
 
+        // No event has happened yet from the agent's POV — leave timestamps null.
+        // LastEventKind is derived from those timestamps and resolves to None when all
+        // three are null, so no explicit reset is needed here.
+
         var evt = ActivityEvent.CreateSessionStart(hookEvent.SessionId, hookEvent.Cwd, hookEvent.TranscriptPath);
         evt.Timestamp = hookEvent.Timestamp;
         events.Add(evt);
@@ -311,6 +315,9 @@ public class SessionActivityService : ISessionActivityService
         // Record tool call
         state.RecordToolCallStart(toolUseId, toolName, agentId, inputSummary, filePath);
 
+        if (state.Agents.TryGetValue(agentId, out var startAgent))
+            startAgent.StampActivity(hookEvent.Timestamp);
+
         events.Add(ActivityEvent.CreateToolCallStart(
             hookEvent.SessionId, agentId, toolUseId, toolName, inputSummary));
 
@@ -364,6 +371,9 @@ public class SessionActivityService : ISessionActivityService
         state.RecordToolCallEnd(toolUseId, resultSummary, tokenCost, error, filePath);
         state.LastActivityTime = DateTime.UtcNow;
 
+        if (agentId != null && state.Agents.TryGetValue(agentId, out var endAgent))
+            endAgent.StampActivity(hookEvent.Timestamp);
+
         events.Add(ActivityEvent.CreateToolCallEnd(
             hookEvent.SessionId, agentId, toolUseId, toolName, resultSummary, tokenCost, error));
 
@@ -399,6 +409,8 @@ public class SessionActivityService : ISessionActivityService
         // Detect subagent completion
         if (toolName is "Agent" or "Task" && state.Agents.ContainsKey(toolUseId))
         {
+            if (state.Agents.TryGetValue(toolUseId, out var spawnedSubagent))
+                spawnedSubagent.StampStop(hookEvent.Timestamp);
             state.CompleteSubagent(toolUseId);
             events.Add(ActivityEvent.CreateAgentComplete(hookEvent.SessionId, toolUseId));
         }
@@ -413,63 +425,62 @@ public class SessionActivityService : ISessionActivityService
         if (!_states.TryGetValue(hookEvent.SessionId, out var state))
             return events;
 
-        var previousLifecycle = state.Lifecycle;
         state.EndTime = DateTime.UtcNow;
 
-        // Determine status from activity data
-        state.Lifecycle = DetermineEndStatus(state, "explicit");
+        // Session-level Stop hook stamps the main agent. SubagentStop is handled separately.
+        if (state.MainAgent != null)
+            state.MainAgent.StampStop(hookEvent.Timestamp);
 
-        // Complete main agent
+        FinalizeSessionEnd(state, hookEvent.SessionId, "explicit", events);
+        return events;
+    }
+
+    /// <summary>
+    /// Performs the actual lifecycle transition + main-agent completion + tool-call cleanup
+    /// for a session that has reached its true end (no more subagents pending).
+    /// Shared by the synchronous path (ProcessSessionStop) and the deferred path
+    /// (ProcessSubagentStop, after the last subagent finishes).
+    /// </summary>
+    private void FinalizeSessionEnd(SessionActivityState state, string sessionId, string endReason, List<ActivityEvent> events)
+    {
+        var previousLifecycle = state.Lifecycle;
+        state.Lifecycle = DetermineEndStatus(state, endReason);
+
         if (state.MainAgent != null)
         {
             state.MainAgent.State = state.Lifecycle == SessionLifecycle.Failed ? AgentState.Error : AgentState.Complete;
             state.MainAgent.CompleteTime = DateTime.UtcNow;
         }
 
-        // Complete any still-running tool calls
         foreach (var tc in state.ToolCalls.Values.Where(t => t.IsRunning))
         {
             tc.Complete();
         }
 
-        events.Add(ActivityEvent.CreateSessionEnd(hookEvent.SessionId, "explicit"));
-        events.Add(ActivityEvent.CreateAgentComplete(hookEvent.SessionId, hookEvent.SessionId));
+        events.Add(ActivityEvent.CreateSessionEnd(sessionId, endReason));
+        events.Add(ActivityEvent.CreateAgentComplete(sessionId, sessionId));
 
         if (previousLifecycle != state.Lifecycle)
         {
-            LifecycleChanged?.Invoke(this, (hookEvent.SessionId, state.Lifecycle));
+            LifecycleChanged?.Invoke(this, (sessionId, state.Lifecycle));
         }
-
-        return events;
     }
 
     /// <summary>
-    /// Determines the end status of a session from its activity data.
+    /// Determines the end status of a session from its end reason. Main-session Failed is
+    /// reserved for fatal end signals ("error"/"crash") — per-tool errors don't poison the
+    /// session verdict, because the main session typically retries past tool failures and
+    /// only rarely gets truly stuck. Today no caller emits a fatal reason, so explicit stops
+    /// always become Completed; a fatal channel can be wired later.
     /// </summary>
     public static SessionLifecycle DetermineEndStatus(SessionActivityState state, string endReason)
     {
-        if (endReason == "timeout")
-            return SessionLifecycle.TimedOut;
-
-        // Check for errors: tool calls that ended with errors and no subsequent success
-        var hasErrors = state.ToolCalls.Values.Any(t => t.State == ToolCallState.Error);
-        var hasFileWrites = state.FileActivities.Values.Any(f => f.WriteCount > 0);
-        var hasToolCalls = state.ToolCalls.Count > 0;
-
-        // If last tool calls had errors and no file writes produced, mark as Failed
-        if (hasErrors && !hasFileWrites)
-            return SessionLifecycle.Failed;
-
-        // Explicit stop with file writes = successful productive session
-        if (hasFileWrites)
-            return SessionLifecycle.Completed; // Success — has file changes
-
-        // Explicit stop with tool calls but no writes = completed (e.g., research/Q&A)
-        if (hasToolCalls)
-            return SessionLifecycle.Completed;
-
-        // Explicit stop with no activity at all
-        return SessionLifecycle.Completed;
+        return endReason switch
+        {
+            "timeout" => SessionLifecycle.TimedOut,
+            "error" or "crash" => SessionLifecycle.Failed,
+            _ => SessionLifecycle.Completed
+        };
     }
 
     /// <summary>
@@ -545,6 +556,9 @@ public class SessionActivityService : ISessionActivityService
         state.RecordToolCallEnd(toolUseId, null, 0, errorMessage ?? "Tool execution failed", hookEvent.FilePath);
         state.LastActivityTime = DateTime.UtcNow;
 
+        if (agentId != null && state.Agents.TryGetValue(agentId, out var errorAgent))
+            errorAgent.StampActivity(hookEvent.Timestamp);
+
         events.Add(ActivityEvent.CreateToolCallEnd(
             hookEvent.SessionId, agentId, toolUseId, toolName, null, 0, errorMessage ?? "Tool execution failed"));
 
@@ -602,7 +616,14 @@ public class SessionActivityService : ISessionActivityService
             agent.Role = role;
             agent.ParentId = parentId;
         }
+
         state.LastActivityTime = DateTime.UtcNow;
+
+        if (state.Agents.TryGetValue(agentId, out var newSubagent))
+            newSubagent.StampActivity(hookEvent.Timestamp);
+        // Parent is doing work — it just spawned a subagent.
+        if (state.MainAgent != null)
+            state.MainAgent.StampActivity(hookEvent.Timestamp);
 
         events.Add(ActivityEvent.CreateAgentSpawn(
             hookEvent.SessionId, agentId, parentId, name, false, task, null, role: role));
@@ -620,6 +641,14 @@ public class SessionActivityService : ISessionActivityService
         ReviveIfTerminal(state);
 
         var agentId = hookEvent.AgentId ?? "";
+
+        if (state.Agents.TryGetValue(agentId, out var stoppedSubagent))
+            stoppedSubagent.StampStop(hookEvent.Timestamp);
+        // Informational only on the main agent — subagent stopping is not main activity,
+        // so it goes into LastSubagentStopTime (which never feeds LastEventKind).
+        if (state.MainAgent != null)
+            state.MainAgent.StampSubagentStop(hookEvent.Timestamp);
+
         state.CompleteSubagent(agentId);
         state.LastActivityTime = DateTime.UtcNow;
 
@@ -672,6 +701,7 @@ public class SessionActivityService : ISessionActivityService
 
         state.ApplyEvent(evt);
         state.LastActivityTime = DateTime.UtcNow;
+
         events.Add(evt);
 
         return events;
@@ -713,10 +743,15 @@ public class SessionActivityService : ISessionActivityService
         if (hookEvent.NotificationType is "permission_prompt" or "permission")
         {
             var previousLifecycle = state.Lifecycle;
+            // Redundant: derivation owns display state. Kept to fire LifecycleChanged for subscribers.
             state.Lifecycle = SessionLifecycle.WaitingPermission;
 
             if (state.MainAgent != null)
+            {
                 state.MainAgent.State = AgentState.WaitingPermission;
+                // Invariant: permission prompts are always session-level, never per-subagent.
+                state.MainAgent.StampPermissionPrompt(hookEvent.Timestamp);
+            }
 
             events.Add(new ActivityEvent
             {

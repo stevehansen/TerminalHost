@@ -29,6 +29,19 @@ public enum AgentState
 }
 
 /// <summary>
+/// Kind of the most recent event observed for an agent. Used by the M2 display-state
+/// derivation to disambiguate "agent is working" vs "agent has stopped" vs "agent is
+/// waiting on a permission prompt" when only timestamps are available.
+/// </summary>
+public enum AgentEventKind
+{
+    None,
+    Activity,
+    Stop,
+    PermissionPrompt
+}
+
+/// <summary>
 /// Represents an agent (main or subagent) within a Claude Code session.
 /// The main agent is always present; subagents are spawned via Agent/Task tool calls.
 /// </summary>
@@ -179,6 +192,77 @@ public class AgentInstance
     /// <summary>Percentage of work completed (0-100) for partial completion tracking.</summary>
     [JsonPropertyName("completionPercentage")]
     public int? CompletionPercentage { get; set; }
+
+    // New per-agent input timestamps for the derived display state model (M1).
+    // All transient — not persisted; recomputed from event flow after restart.
+    [JsonIgnore] public DateTime? LastStopHookTime { get; set; }
+    [JsonIgnore] public DateTime? LastSubagentStopTime { get; set; }
+    [JsonIgnore] public DateTime? LastPermissionPromptTime { get; set; }
+    [JsonIgnore] public DateTime? LastActivityEventTime { get; set; }
+
+    /// <summary>
+    /// The kind of the most recent event observed for this agent. Derived at read time
+    /// from the three event-type timestamps (Activity/Stop/PermissionPrompt) so a late
+    /// Activity event with an *older* timestamp than the most recent Stop can never
+    /// regress the kind back to Activity (which previously left subagent rows stuck
+    /// rendering "Working" after their Task/Agent ToolEnd Stamped them). Tie-break order
+    /// when timestamps are equal: PermissionPrompt > Stop > Activity (the more decisive
+    /// signal wins).
+    /// </summary>
+    [JsonIgnore]
+    public AgentEventKind LastEventKind
+    {
+        get
+        {
+            var a = LastActivityEventTime;
+            var s = LastStopHookTime;
+            var p = LastPermissionPromptTime;
+            if (a is null && s is null && p is null) return AgentEventKind.None;
+            // Permission wins ties, then Stop, then Activity. Use DateTime.MinValue as a
+            // floor for missing timestamps so `>=` works without nullable-comparison traps
+            // (a `DateTime >= (DateTime?)null` is always false in C#).
+            var av = a ?? DateTime.MinValue;
+            var sv = s ?? DateTime.MinValue;
+            var pv = p ?? DateTime.MinValue;
+            if (p is not null && pv >= sv && pv >= av) return AgentEventKind.PermissionPrompt;
+            if (s is not null && sv >= av) return AgentEventKind.Stop;
+            return AgentEventKind.Activity;
+        }
+    }
+
+    // Stamp helpers: advance-only writes that preserve the Max(...) invariant the M2
+    // derivation depends on. Hook events can arrive out of order (IPC + JSONL races),
+    // so we reject any timestamp older than what we already recorded for that field.
+    // LastEventKind is derived from these timestamps and is never written here — see
+    // the property above for why writing it caused subagent rows to get stuck "Working".
+
+    internal void StampActivity(DateTime t)
+    {
+        if (LastActivityEventTime is null || t > LastActivityEventTime)
+            LastActivityEventTime = t;
+    }
+
+    internal void StampStop(DateTime t)
+    {
+        if (LastStopHookTime is null || t > LastStopHookTime)
+            LastStopHookTime = t;
+    }
+
+    internal void StampPermissionPrompt(DateTime t)
+    {
+        if (LastPermissionPromptTime is null || t > LastPermissionPromptTime)
+            LastPermissionPromptTime = t;
+    }
+
+    internal void StampSubagentStop(DateTime t)
+    {
+        // Informational only on the parent — does NOT participate in LastEventKind, because
+        // a child finishing is not the parent itself producing activity.
+        if (LastSubagentStopTime is null || t > LastSubagentStopTime)
+        {
+            LastSubagentStopTime = t;
+        }
+    }
 
     /// <summary>
     /// Duration of agent activity.

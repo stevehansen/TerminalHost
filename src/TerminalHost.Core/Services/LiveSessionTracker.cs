@@ -228,7 +228,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
 
                     if (activityState != null)
                     {
-                        activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
+                        // TimedOut is now derived from LastStopHookTime; no Lifecycle write here.
                         activityState.EndTime = live.EndTime;
                     }
 
@@ -363,7 +363,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
 
                 if (activityState != null)
                 {
-                    activityState.Lifecycle = SessionActivityService.DetermineEndStatus(activityState, "timeout");
+                    // TimedOut is now derived from LastStopHookTime; no Lifecycle write here.
                     activityState.EndTime = live.EndTime;
                 }
 
