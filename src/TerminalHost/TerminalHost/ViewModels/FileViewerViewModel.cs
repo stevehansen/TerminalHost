@@ -12,7 +12,7 @@ using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class FileViewerViewModel : BasePanelViewModel
+public partial class FileViewerViewModel : BasePanelViewModel, IPanelCloseGuard
 {
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
@@ -73,9 +73,6 @@ public partial class FileViewerViewModel : BasePanelViewModel
 
     [ObservableProperty]
     private FileViewerMode _mode = FileViewerMode.Preview;
-
-    [ObservableProperty]
-    private bool _isDetached;
 
     // Image mode
     [ObservableProperty]
@@ -538,16 +535,19 @@ public partial class FileViewerViewModel : BasePanelViewModel
         Open(_currentFilePath, Mode);
     }
 
+    public bool CanClose()
+    {
+        if (!IsModified || IsImageMode) return true;
+        if (Mode != FileViewerMode.Edit && Mode != FileViewerMode.SideBySide) return true;
+        return _dialogService.ShowConfirmation(
+            "You have unsaved changes. Close without saving?",
+            "Unsaved Changes");
+    }
+
     [RelayCommand]
     public void Close()
     {
-        if (IsModified && (Mode == FileViewerMode.Edit || Mode == FileViewerMode.SideBySide) && !IsImageMode)
-        {
-            if (!_dialogService.ShowConfirmation(
-                "You have unsaved changes. Close without saving?",
-                "Unsaved Changes"))
-                return;
-        }
+        if (!CanClose()) return;
 
         IsOpen = false;
         _currentFilePath = null;

@@ -373,3 +373,80 @@ Route four WPF popups through the router: Help, Command Palette, Tab Switcher, T
 ---
 
 *Document version: 1.2 — 2026-05-22 (added Phase 1 design block).*
+
+---
+
+## ✅ Phase 2 Design — WPF Window Surface
+
+> Outcome of `/design-interface phase 2` on 2026-05-22. Phase 0 locked `IPanelSurface`, `PanelMountOptions`, `IPanelRouter`; Phase 1 proved the popup surface. This block records the implementation-shape calls for the window zone so the implementer doesn't relitigate them mid-flight.
+
+### Scope of Phase 2
+
+Land `WpfWindowSurface : IPanelSurface(Window, AppShell)`. Collapse `PanelWindowManager` into the surface (window cache, owner pinning, dock-back wiring move inside). Delete `FileViewerWindow.xaml(.cs)` by expressing its only divergent capability — unsaved-changes confirmation — as a `IPanelCloseGuard` opt-in interface on the VM. Route the eight `_panelWindowManager?.ShowWindow/CloseWindow/GetWindow` call sites in `MainWindow.xaml.cs` through `IPanelRouter`.
+
+**Toast and StatusOverlay are explicitly out of scope** — they host services, not `IPanelableViewModel`s, and collapsing them needs synthetic VM adapters that warrant their own design pass. Likewise `MarkdownPreviewWindow` (Avalonia-only) waits for Avalonia parity.
+
+### Six locked implementation calls
+
+| # | Choice | Decision | Rationale |
+|---|--------|----------|-----------|
+| 1 | One generic window class vs N | **One `PanelWindow.xaml` (existing).** Delete `FileViewerWindow.xaml(.cs)`. View resolution via `DataTemplate` keyed by VM type, same as the popup zone. | Capabilities-as-attributes, not capabilities-as-subclass. The chrome (dock button, dark-mode init, OnClosed → `IsOpen=false`) is already in `PanelWindow.xaml.cs` — no new work. |
+| 2 | How `ConfirmOnClose` becomes dynamic | **Add opt-in sibling interface** `IPanelCloseGuard { bool CanClose(); }`. `PanelMountOptions.ConfirmOnClose` stays as a static *hint* the router computes from `vm is IPanelCloseGuard`; the surface invokes `CanClose()` from `OnClosing`. | A static bool can't express "ask only if modified". A `Func<bool>` in `PanelMountOptions` would leak surface concerns into the router. Sibling interface matches `IPanelPlacement` precedent. |
+| 3 | Owner-window injection | **Lazy owner getter** in `WpfWindowSurface` constructor: `Func<Window> ownerProvider`. DI binding resolves `Application.Current.MainWindow` on first use. | Avoids the race where the surface is constructed before `MainWindow.Show()`. Mirrors `WpfPopupSurface.AttachHost` lazy-attach. |
+| 4 | Dock-back target (center vs right-sidebar) | **Leave `IsCenterPanel(panelId)` switch in `MainWindow.xaml.cs` as-is**, but the dock-back path goes through `IPanelRouter.Move(panelId, target)` instead of `_panelWindowManager.CloseWindow` + `currentTab.ShowCenterPanel`. The router treats Center/RightDock as ordinary `Move` targets. | Unifying center-vs-right is Phase 4's job (Center surface migration). Phase 2 should not also change that policy decision. |
+| 5 | `IsDetached` redundancy on `FileViewerViewModel` | **Delete `IsDetached`** — replace its 3 binding/check sites with `DisplayState == PanelDisplayState.Window`. | `ApplyDisplayState` already sets `DisplayState` before `Mount`; `IsDetached` was the workaround for the missing router. |
+| 6 | Persistence: window-zone entries | `DirectorySettingsPanelPersistence` already passes `Zone == Window` through (popup-only filter stays). Restore on cold start re-mounts via the resolver lambda. **VM-owned `Width`/`Height` keep their existing auto-persist bindings** — not duplicated in `PanelLayoutSnapshot`. | Two-sources-of-truth is the trap to avoid. The snapshot says "this panel was open in zone X"; the VM says "at these dimensions". They compose. |
+
+### Supporting decisions
+
+- **`WpfWindowSurface` window cache**: keep `Dictionary<string, PanelWindow>` keyed by `PanelId`. On `Unmount(panelId)`, call `window.Close()` with a `_suppressClosedEvent` guard (same pattern as `WpfPopupSurface`) so the surface's `Closed` handler doesn't double-fire `DismissRequested` for router-initiated closes.
+- **`Focus(panelId)`**: `window.Activate()` (matches existing `_panelWindowManager.GetWindow(...)?.Activate()` semantics).
+- **`Mount` of an already-mounted panel**: focus, don't recreate. The router's `Show` / `Move` already guards via `IsMounted`, but the surface should be defensive.
+- **Capabilities encoded in `PanelMountOptions`**: today's window panels need none of `NonActivating`, `Transparent`, `ToolWindow` — those are toast/overlay territory and are deferred to Phase 2b. Phase 2 leaves `PanelMountOptions` unchanged. `AlwaysOnTop` is honored if set.
+- **OnClosing veto flow**: `PanelWindow.OnClosing` checks `DataContext is IPanelCloseGuard guard && !guard.CanClose()` → `e.Cancel = true; return`. Existing `OnClosed → vm.IsOpen = false` stays — that path triggers the router's `IsOpen` subscription from Phase 1, which calls `Close(panelId)` and unmounts cleanly.
+- **`FileViewerViewModel` adoption**: implement `IPanelCloseGuard.CanClose()` returning `!(IsModified && Mode == FileViewerMode.Edit) || _dialogService.Confirm("Unsaved changes…")`. Delete `FileViewerWindow.OnClosing`. The MessageBox call in the current code-behind is technical debt the spec already calls out; route through `IDialogService` while we're here.
+- **DI registration**: `services.AddSingleton<IPanelSurface>(sp => new WpfWindowSurface(() => Application.Current.MainWindow!, sp.GetRequiredService<IDispatcherService>()))`. Append to the `IPanelSurface` enumeration that `PanelRouter`'s constructor receives.
+- **`MainWindow.xaml.cs` cleanup**: `OnPanelStateChanged` (line ~1218) becomes a thin shim that calls `_router.Move(panel.PanelId, PanelZone.Window | PanelZone.Center | PanelZone.RightDock)`. Remove `_panelWindowManager` field, `OnPanelWindowDockRequested`, and the eight call sites listed in the grounding sweep.
+
+### Designs considered and rejected for Phase 2
+
+- **Per-VM Window subclass, capability-by-identity (status quo).** Rejected — that's the friction being refactored away.
+- **`Func<bool> CanClose` in `PanelMountOptions`.** Rejected — leaks surface concerns into the router record. `IPanelCloseGuard` keeps the policy on the VM where it belongs.
+- **Closed enum `PanelCloseReason { ProgrammaticClose, UserOsClose, DockBack }` passed to `CanClose`.** Rejected for Phase 2 — only FileViewer needs the prompt, and it doesn't care about reason. Add when a second caller wants to differentiate.
+- **`PanelMountOptions.Owner` field.** Rejected — owner is a zone-specific concept (only Window cares). The surface's constructor injection is the right scope.
+- **Fold ToastWindow / StatusOverlayWindow into Phase 2.** Rejected — they're not `IPanelableViewModel`s. Phase 2b will design synthetic adapters or a separate `IFloatingOverlay` port.
+- **Move `IsCenterPanel` decision into `IPanelPlacement.PreferredZone` now.** Rejected — that's the Center-surface migration (Phase 4) and a separate behavior change. Phase 2 should land cleanly without bundling.
+- **Add a `WindowMountOptions : PanelMountOptions` subtype with NonActivating/Transparent/etc.** Rejected for Phase 2 — no current caller needs them. Re-evaluate during Phase 2b when toast/overlay shape is concrete.
+
+### Files this phase will touch
+
+- **New**:
+  - `src/TerminalHost/Services/Panels/WpfWindowSurface.cs`
+  - `src/TerminalHost.Core/Interfaces/IPanelCloseGuard.cs`
+- **Modified**:
+  - `src/TerminalHost/App.xaml.cs` — DI registration for `WpfWindowSurface`
+  - `src/TerminalHost/MainWindow.xaml.cs` — collapse `_panelWindowManager` field; rewire `OnPanelStateChanged` and `OnPanelWindowDockRequested` through `IPanelRouter.Move`; remove the eight `_panelWindowManager?.ShowWindow/CloseWindow/GetWindow` call sites (lines ~1234, 1259, 1275, 1323, 1514, 1568, 1888, 1944)
+  - `src/TerminalHost/Views/PanelWindow.xaml.cs` — add `OnClosing` veto via `IPanelCloseGuard`
+  - `src/TerminalHost/ViewModels/FileViewerViewModel.cs` — implement `IPanelCloseGuard`; delete `IsDetached`; replace 3 callers with `DisplayState == PanelDisplayState.Window`
+  - `src/TerminalHost.Core/Services/DirectorySettingsPanelPersistence.cs` — already filters popups; verify window-zone round-trip and add explicit test
+- **Deleted**:
+  - `src/TerminalHost/Services/PanelWindowManager.cs`
+  - `src/TerminalHost/Views/FileViewerWindow.xaml`
+  - `src/TerminalHost/Views/FileViewerWindow.xaml.cs`
+- **Tests**:
+  - `tests/TerminalHost.Tests/Panels/WpfWindowSurfaceTests.cs` — headless-testable surface contract (Mount/Unmount/Focus/IsMounted, displaced-panel dismissal, `IPanelCloseGuard` veto path). FlaUI backstop for dark-mode chrome + actual window lifecycle.
+  - `tests/TerminalHost.Tests/Panels/PanelRouterTests.cs` — add window-zone tests: `Move(panel, Window)` round-trips `DisplayState`, dock-back from window via `StateChangeRequested → Move(target)`, persistence excludes popup but includes window entries.
+  - `tests/TerminalHost.Tests/Panels/DirectorySettingsPanelPersistenceTests.cs` — extend with explicit window-zone round-trip test (currently only proves popup filtering).
+
+### Out of scope for Phase 2
+
+- `ToastWindow`, `StatusOverlayWindow` migration (Phase 2b — needs synthetic adapter design)
+- `MarkdownPreviewWindow` (Avalonia-only — wait for Avalonia surface)
+- `SparkCanvasWindow`, `TimelineWindow`, `SetupWindow` — don't route through `PanelWindowManager`; out unless future churn calls them in
+- Right-dock surface (Phase 3)
+- Center surface (Phase 4) — `IsCenterPanel(panelId)` switch stays in place until then
+- Tab-scope persistence (Phase 4 — today's window panels are all AppShell-scoped)
+
+---
+
+*Document version: 1.3 — 2026-05-22 (added Phase 2 design block).*

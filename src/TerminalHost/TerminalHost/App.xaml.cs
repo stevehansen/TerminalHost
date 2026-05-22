@@ -401,9 +401,13 @@ public partial class App : Application
         services.AddSingleton(sp => sp.GetRequiredService<MainViewModel>().Palette);
         services.AddTransient<SetupViewModel>();
 
-        // Panel system (Phase 1: popup zone via WpfPopupSurface)
+        // Panel system (Phase 1: popup zone; Phase 2: window zone)
         services.AddSingleton<Services.Panels.WpfPopupSurface>();
         services.AddSingleton<IPanelSurface>(sp => sp.GetRequiredService<Services.Panels.WpfPopupSurface>());
+        services.AddSingleton<Services.Panels.WpfWindowSurface>(sp => new Services.Panels.WpfWindowSurface(
+            () => Application.Current.MainWindow,
+            sp.GetRequiredService<IDispatcherService>()));
+        services.AddSingleton<IPanelSurface>(sp => sp.GetRequiredService<Services.Panels.WpfWindowSurface>());
         services.AddSingleton<IPanelPersistence, DirectorySettingsPanelPersistence>();
         services.AddSingleton<IPanelRouter>(sp => new PanelRouter(
             sp.GetServices<IPanelSurface>(),

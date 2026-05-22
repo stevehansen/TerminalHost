@@ -13,6 +13,14 @@ public sealed class InMemoryPanelSurface : IPanelSurface
     public PanelScope Scope { get; init; }
 
     public IPanelableViewModel? Mounted { get; private set; }
+
+    /// <summary>
+    /// All VMs currently mounted on this surface. Tracks multi-instance correctly: single-instance
+    /// behavior is just <c>AllMounted.Count &lt;= 1</c>. <see cref="Mounted"/> is the most-recently-mounted
+    /// VM kept for backward-compatible single-instance assertions.
+    /// </summary>
+    public List<IPanelableViewModel> AllMounted { get; } = new();
+
     public int Mounts { get; private set; }
     public int Unmounts { get; private set; }
     public int Focuses { get; private set; }
@@ -38,19 +46,25 @@ public sealed class InMemoryPanelSurface : IPanelSurface
             throw ex;
         }
         Mounted = vm;
+        AllMounted.Add(vm);
         LastMountOptions = options;
         Mounts++;
     }
 
     public void Unmount(string panelId)
     {
-        if (Mounted?.PanelId == panelId) Mounted = null;
+        var idx = AllMounted.FindLastIndex(v => v.PanelId == panelId);
+        if (idx >= 0)
+        {
+            AllMounted.RemoveAt(idx);
+            Mounted = AllMounted.Count > 0 ? AllMounted[^1] : null;
+        }
         Unmounts++;
     }
 
     public void Focus(string panelId) => Focuses++;
 
-    public bool IsMounted(string panelId) => Mounted?.PanelId == panelId;
+    public bool IsMounted(string panelId) => AllMounted.Any(v => v.PanelId == panelId);
 
     /// <summary>Test helper: simulates a surface-initiated dismissal (Escape, click-outside, etc.).</summary>
     public void RaiseDismiss(string panelId, PanelDismissTrigger trigger = PanelDismissTrigger.Escape) =>

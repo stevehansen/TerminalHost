@@ -412,7 +412,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             Size: vm.SizePreset,
             DismissOnClickOutside: false,
             AlwaysOnTop: options.AlwaysOnTop,
-            ConfirmOnClose: false);
+            ConfirmOnClose: vm is IPanelCloseGuard);
 
     private static void ApplyDisplayState(IPanelableViewModel vm, PanelZone zone)
     {

@@ -62,13 +62,13 @@ public partial class MainWindow : Window
     private string _cachedAiName = "Claude Code";
     private bool _isExiting;
     private bool _isWindowActivated = true;
-    private Services.PanelWindowManager? _panelWindowManager;
     private readonly IPanelRouter? _panelRouter;
     private readonly Services.Panels.WpfPopupSurface? _popupSurface;
+    private readonly Services.Panels.WpfWindowSurface? _windowSurface;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null, IPanelRouter? panelRouter = null, Services.Panels.WpfPopupSurface? popupSurface = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null, IPanelRouter? panelRouter = null, Services.Panels.WpfPopupSurface? popupSurface = null, Services.Panels.WpfWindowSurface? windowSurface = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -108,6 +108,9 @@ public partial class MainWindow : Window
         _statusOverlayService = statusOverlayService;
         _panelRouter = panelRouter;
         _popupSurface = popupSurface;
+        _windowSurface = windowSurface;
+        if (_windowSurface is not null)
+            _windowSurface.DockBackRequested += OnWindowSurfaceDockBackRequested;
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -508,9 +511,6 @@ public partial class MainWindow : Window
         using (sp.Measure("ViewModel.Initialize"))
             _viewModel.Initialize();
 
-        // Initialize panel window manager
-        _panelWindowManager = new Services.PanelWindowManager(this);
-
         // Attach the routed popup host to the WPF popup surface. After this, the surface
         // can mount any popup-zone panel routed through IPanelRouter into RoutedPopupHost.
         _popupSurface?.AttachHost(RoutedPopupHost, RoutedPopupContent);
@@ -565,6 +565,9 @@ public partial class MainWindow : Window
             WindowState = WindowState.Minimized;
             return;
         }
+
+        if (_windowSurface is not null)
+            _windowSurface.DockBackRequested -= OnWindowSurfaceDockBackRequested;
 
         SaveWindowState();
         _statusOverlayService.Shutdown();
@@ -1252,8 +1255,7 @@ public partial class MainWindow : Window
                 break;
 
             case PanelDisplayState.Window:
-                // Show in window
-                _panelWindowManager?.ShowWindow(panel, OnPanelWindowDockRequested);
+                _panelRouter?.Show(panel, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
                 break;
         }
     }
@@ -1278,7 +1280,7 @@ public partial class MainWindow : Window
     {
         if (panel.DisplayState == PanelDisplayState.Window)
         {
-            _panelWindowManager?.GetWindow(panel.PanelId)?.Activate();
+            if (_windowSurface is not null) _windowSurface.Focus(panel.PanelId);
             return;
         }
 
@@ -1290,15 +1292,20 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Generic handler for panel dock requests from windows.
+    /// Re-shows a window-zone panel in its previous tab placement when the user clicks the
+    /// dock-back chrome. Closes via the router, then routes to center or right-dock based on
+    /// the panel's id. See <see cref="Services.Panels.WpfWindowSurface"/> for why this doesn't
+    /// route through <see cref="IPanelRouter.Move"/>.
     /// </summary>
-    private void OnPanelWindowDockRequested(IPanelableViewModel panel)
+    private void OnWindowSurfaceDockBackRequested(object? sender, IPanelableViewModel panel)
     {
-        _panelWindowManager?.CloseWindow(panel.PanelId);
+        _panelRouter?.Close(panel.PanelId);
         panel.DisplayState = PanelDisplayState.Panel;
+        panel.IsOpen = true;
 
-        // Check if this is a center-type panel that should return to center
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab && currentTab.ActiveCenterPanel == null && IsCenterPanel(panel))
+        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab
+            && currentTab.ActiveCenterPanel == null
+            && IsCenterPanel(panel))
         {
             currentTab.SetPanel(panel);
             currentTab.ShowCenterPanel(panel);
@@ -1342,7 +1349,7 @@ public partial class MainWindow : Window
             // If in window state, close the window
             if (_gitFilesViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _panelWindowManager?.CloseWindow(_gitFilesViewModel.PanelId);
+                _panelRouter?.Close(_gitFilesViewModel.PanelId);
                 _gitFilesViewModel.IsOpen = false;
                 return;
             }
@@ -1533,7 +1540,7 @@ public partial class MainWindow : Window
             // If in window state, close the window
             if (_scratchPadViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _panelWindowManager?.CloseWindow(_scratchPadViewModel.PanelId);
+                _panelRouter?.Close(_scratchPadViewModel.PanelId);
                 _scratchPadViewModel.IsOpen = false;
                 return;
             }
@@ -1598,15 +1605,8 @@ public partial class MainWindow : Window
 
         foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
         {
-            tab.SetPanel(_sessionsTreePanelViewModel);
-            if (isVisible)
-            {
-                tab.ShowPanel(_sessionsTreePanelViewModel);
-            }
-            else
-            {
-                tab.HidePanel(_sessionsTreePanelViewModel);
-            }
+            _windowSurface?.Focus(_sessionsTreePanelViewModel.PanelId);
+            return;
         }
 
         if (!isVisible)
@@ -1921,7 +1921,7 @@ public partial class MainWindow : Window
         // State 2c: MarkdownPreview is in window state → close the window
         if (_markdownPreviewViewModel.IsOpen && _markdownPreviewViewModel.DisplayState == PanelDisplayState.Window)
         {
-            _panelWindowManager?.CloseWindow(_markdownPreviewViewModel.PanelId);
+            _panelRouter?.Close(_markdownPreviewViewModel.PanelId);
             _markdownPreviewViewModel.OnWindowClosed();
             return;
         }
@@ -1977,7 +1977,7 @@ public partial class MainWindow : Window
         // If the file viewer is in a window, just focus it — Open() already updated the VM
         if (_fileViewerViewModel.DisplayState == PanelDisplayState.Window)
         {
-            _panelWindowManager?.GetWindow(_fileViewerViewModel.PanelId)?.Activate();
+            _windowSurface?.Focus(_fileViewerViewModel.PanelId);
             return;
         }
 
@@ -2011,7 +2011,6 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrEmpty(filePath))
         {
-            // Create a new FileViewerViewModel for the detached window
             var detachedViewModel = new FileViewerViewModel(
                 App.Current.Services.GetRequiredService<IFilePreviewService>(),
                 App.Current.Services.GetRequiredService<IFileEditService>(),
@@ -2019,11 +2018,10 @@ public partial class MainWindow : Window
                 App.Current.Services.GetRequiredService<IDialogService>(),
                 App.Current.Services.GetRequiredService<IMarkdownService>(),
                 App.Current.Services.GetRequiredService<ITimerService>());
-            detachedViewModel.IsDetached = true;
             detachedViewModel.Open(filePath, mode);
 
-            var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
-            window.Show();
+            _panelRouter?.Show(detachedViewModel,
+                new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
         }
     }
 

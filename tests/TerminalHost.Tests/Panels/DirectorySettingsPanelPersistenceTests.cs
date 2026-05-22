@@ -107,4 +107,41 @@ public class DirectorySettingsPanelPersistenceTests
         var loaded = persistence.Load(PanelScope.ForTab("tab-1"));
         loaded.Entries.ShouldBeEmpty();
     }
+
+    [Fact]
+    public void Save_PreservesWindowZoneEntries()
+    {
+        var (persistence, config, _) = Build();
+        var snapshot = new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("fileViewer", PanelZone.Window, PanelScope.AppShell, IsOpen: true),
+            new PanelLayoutEntry("help", PanelZone.Popup, PanelScope.AppShell, IsOpen: true),
+        });
+
+        persistence.Save(PanelScope.AppShell, snapshot);
+
+        config.Settings.AppShellPanels.Count.ShouldBe(1);
+        config.Settings.AppShellPanels[0].PanelId.ShouldBe("fileViewer");
+        config.Settings.AppShellPanels[0].Zone.ShouldBe("Window");
+        config.Settings.AppShellPanels[0].IsOpen.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void RoundTrip_WindowZone_SurvivesConfigReload()
+    {
+        var (persistence, _, _) = Build();
+        var saved = new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("fileViewer", PanelZone.Window, PanelScope.AppShell, IsOpen: true),
+        });
+
+        persistence.Save(PanelScope.AppShell, saved);
+        var loaded = persistence.Load(PanelScope.AppShell);
+
+        loaded.Entries.Count.ShouldBe(1);
+        var entry = loaded.Entries[0];
+        entry.PanelId.ShouldBe("fileViewer");
+        entry.Zone.ShouldBe(PanelZone.Window);
+        entry.IsOpen.ShouldBeTrue();
+    }
 }

@@ -1567,16 +1567,11 @@ public partial class MainViewModel : ObservableObject
 
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
-        // Create a detached file viewer window
-        var viewer = _viewModelFactory.CreateFileViewer(isDetached: true);
+        var viewer = _viewModelFactory.CreateFileViewer();
         viewer.Open(e.FilePath, e.Mode);
 
-        // Create and show the window
-        var window = new Views.FileViewerWindow
-        {
-            DataContext = viewer
-        };
-        window.Show();
+        _panelRouter?.Show(viewer,
+            new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)

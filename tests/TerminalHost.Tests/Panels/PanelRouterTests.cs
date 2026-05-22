@@ -607,4 +607,121 @@ public class PanelRouterTests
         router.IsOpen("git").ShouldBeTrue();
         surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(git);
     }
+
+    // ---- Phase 2: WPF Window surface (router-boundary tests) ----
+
+    [Fact]
+    public void BuildMountOptions_SetsConfirmOnClose_WhenVmImplementsCloseGuard()
+    {
+        var (router, _, surfaces) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));
+        var vm = new StubCloseGuardPanelViewModel("guarded", canClose: true);
+
+        router.Show(vm);
+
+        var surface = surfaces[(PanelZone.Popup, PanelScope.AppShell)];
+        surface.LastMountOptions.ShouldNotBeNull();
+        surface.LastMountOptions!.ConfirmOnClose.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void BuildMountOptions_LeavesConfirmOnCloseFalse_WhenVmHasNoCloseGuard()
+    {
+        var (router, _, surfaces) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("plain");
+
+        router.Show(vm);
+
+        var surface = surfaces[(PanelZone.Popup, PanelScope.AppShell)];
+        surface.LastMountOptions.ShouldNotBeNull();
+        surface.LastMountOptions!.ConfirmOnClose.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Show_Window_Zone_RegistersPanelAndMounts()
+    {
+        var (router, _, surfaces) = BuildRouter((PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("fileViewer");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        vm.DisplayState.ShouldBe(PanelDisplayState.Window);
+        vm.IsOpen.ShouldBeTrue();
+        router.IsOpen("fileViewer").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Window_Zone_AllowMultiInstance_AllowsTwoInstancesOfSamePanelId()
+    {
+        var (router, _, surfaces) = BuildRouter((PanelZone.Window, PanelScope.AppShell));
+        var vm1 = new StubPanelableViewModel("fileViewer");
+        var vm2 = new StubPanelableViewModel("fileViewer");
+
+        router.Show(vm1, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
+        router.Show(vm2, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
+
+        var surface = surfaces[(PanelZone.Window, PanelScope.AppShell)];
+        surface.Mounts.ShouldBe(2);
+        surface.AllMounted.Count.ShouldBe(2);
+        surface.AllMounted.ShouldContain(vm1);
+        surface.AllMounted.ShouldContain(vm2);
+        router.IsOpen("fileViewer").ShouldBeTrue();
+        vm1.IsOpen.ShouldBeTrue();
+        vm2.IsOpen.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Window_Zone_Close_Unmounts_AndClearsIsOpen()
+    {
+        var (router, persistence, surfaces) = BuildRouter((PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("fileViewer");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+
+        router.Close("fileViewer");
+
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        vm.IsOpen.ShouldBeFalse();
+        router.IsOpen("fileViewer").ShouldBeFalse();
+        persistence.Load(PanelScope.AppShell).Entries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Window_Zone_PersistenceRoundTrip_RestoresWindowPanel()
+    {
+        // Save: open a Window-zone panel against router A
+        var persistence = new InMemoryPanelPersistence();
+        var dispatcher = new SynchronousDispatcherService();
+        var surfaceA = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var routerA = new PanelRouter(new IPanelSurface[] { surfaceA }, persistence, dispatcher);
+        var vmA = new StubPanelableViewModel("fileViewer");
+
+        routerA.Show(vmA, new PanelShowOptions(Zone: PanelZone.Window));
+
+        var snapshot = persistence.Load(PanelScope.AppShell);
+        snapshot.Entries.ShouldContain(e =>
+            e.PanelId == "fileViewer" && e.Zone == PanelZone.Window && e.IsOpen);
+
+        // Restore: new router with same persistence + surface
+        var surfaceB = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var routerB = new PanelRouter(new IPanelSurface[] { surfaceB }, persistence, dispatcher);
+        var vmB = new StubPanelableViewModel("fileViewer");
+
+        routerB.Restore(PanelScope.AppShell, id => id == "fileViewer" ? vmB : null);
+
+        surfaceB.Mounted.ShouldBeSameAs(vmB);
+        vmB.DisplayState.ShouldBe(PanelDisplayState.Window);
+        routerB.IsOpen("fileViewer").ShouldBeTrue();
+    }
+}
+
+/// <summary>
+/// Test VM that implements both <see cref="IPanelableViewModel"/> (via <see cref="StubPanelableViewModel"/>)
+/// and <see cref="IPanelCloseGuard"/>. The router only probes the interface presence; the veto path
+/// is the surface's concern and is covered by FlaUI smoke tests rather than unit tests.
+/// </summary>
+internal sealed class StubCloseGuardPanelViewModel(string panelId, bool canClose)
+    : StubPanelableViewModel(panelId), IPanelCloseGuard
+{
+    private readonly bool _canClose = canClose;
+    public bool CanClose() => _canClose;
 }
