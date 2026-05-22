@@ -210,6 +210,17 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         CalculateCharacterSize();
     }
 
+    // SGR 2 (faint / decreased intensity) — render the foreground at roughly half
+    // intensity by blending toward black. Matches the convention used by iTerm2,
+    // kitty, and modern xterm.
+    private static Color DimColor(Color color)
+    {
+        return Color.FromArgb(color.A,
+            (byte)(color.R / 2),
+            (byte)(color.G / 2),
+            (byte)(color.B / 2));
+    }
+
     private static SolidColorBrush GetCachedBrush(Color color)
     {
         if (color == DefaultForeground) return DefaultForegroundBrush;
@@ -704,6 +715,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
                     var foreground = ParseColor(span.ForgroundColor, DefaultForeground);
                     var background = ParseColor(span.BackgroundColor, DefaultBackground);
+
+                    if (span.Faint)
+                        foreground = DimColor(foreground);
 
                     if (background != DefaultBackground)
                     {

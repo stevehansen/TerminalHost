@@ -12,6 +12,7 @@ namespace VtNetCore.VirtualTerminal.Layout
         public bool Hidden { get; set; }
         public bool Italic { get; set; }
         public bool Bold { get; set; }
+        public bool Faint { get; set; }
         public bool Underline { get; set; }
         public bool Blink { get; set; }
     }

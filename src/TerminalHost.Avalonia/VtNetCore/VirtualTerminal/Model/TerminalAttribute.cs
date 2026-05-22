@@ -15,6 +15,7 @@ namespace VtNetCore.VirtualTerminal.Model
         private static readonly ushort ReverseBit = 0x0400;
         private static readonly ushort HiddenBit = 0x0800;
         private static readonly ushort ProtectionBits = 0x3000;
+        private static readonly ushort FaintBit = 0x4000;
 
         private ushort InternalBits =
             (ushort)ETerminalColor.White |     // ForegroundColor
@@ -213,6 +214,25 @@ namespace VtNetCore.VirtualTerminal.Model
         }
 
         /// <summary>
+        /// Faint / decreased intensity (SGR 2). Rendered as a dimmed foreground color.
+        /// Cancelled by SGR 22 (normal intensity).
+        /// </summary>
+        public bool Faint
+        {
+            get
+            {
+                return (InternalBits & FaintBit) == FaintBit;
+            }
+            set
+            {
+                if (value)
+                    InternalBits |= FaintBit;
+                else
+                    InternalBits = (ushort)((InternalBits & ~FaintBit) & 0xFFFF);
+            }
+        }
+
+        /// <summary>
         /// Specifies that the character should not be erased on SEL and SED operations.
         /// </summary>
         public int Protected
@@ -330,7 +350,8 @@ namespace VtNetCore.VirtualTerminal.Model
                 "  Underscore: " + Underscore.ToString() + "\n" +
                 "  Blink: " + Blink.ToString() + "\n" +
                 "  Reverse: " + Reverse.ToString() + "\n" +
-                "  Hidden: " + Hidden.ToString() + "\n" + 
+                "  Hidden: " + Hidden.ToString() + "\n" +
+                "  Faint: " + Faint.ToString() + "\n" +
                 "  Protected: " + Protected.ToString() + "\n"
                 ;
         }

@@ -584,6 +584,7 @@ namespace VtNetCore.VirtualTerminal
                     Hidden = currentAttribute.Hidden,
                     Blink = currentAttribute.Blink,
                     Bold = currentAttribute.Bright,
+                    Faint = currentAttribute.Faint,
                     Italic = false,
                     Underline = currentAttribute.Underscore,
                     Text = ""
@@ -617,6 +618,7 @@ namespace VtNetCore.VirtualTerminal
                                 Hidden = currentAttribute.Hidden,
                                 Blink = currentAttribute.Blink,
                                 Bold = currentAttribute.Bright,
+                                Faint = currentAttribute.Faint,
                                 Italic = false,
                                 Underline = currentAttribute.Underscore,
                                 Text = ""
@@ -1731,10 +1733,25 @@ namespace VtNetCore.VirtualTerminal
                 CursorState.Attributes.BackgroundRgb.Set(xParseColor);
         }
 
+        // Resolves a 256-color palette index. The Iso8613 dictionary only contains the
+        // 6x6x6 color cube and grayscale ramp (indices 16-255); the first 16 entries
+        // are the basic ANSI colors (0-7) and their bright variants (8-15), which we
+        // map onto ETerminalColor.
+        private static TerminalColor ResolvePaletteEntry(int paletteEntry)
+        {
+            if (paletteEntry >= 0 && paletteEntry <= 15)
+            {
+                var basic = (ETerminalColor)(paletteEntry & 0x7);
+                return new TerminalColor(basic, paletteEntry >= 8);
+            }
+            return TerminalColor.Iso8613.TryGetValue(paletteEntry, out var c) ? c : null;
+        }
+
         public void SetIso8613PaletteForeground(int paletteEntry)
         {
             LogController("SetIso8613PaletteForeground(e:" + paletteEntry + ")");
-            if(TerminalColor.Iso8613.TryGetValue(paletteEntry, out TerminalColor color))
+            var color = ResolvePaletteEntry(paletteEntry);
+            if (color != null)
             {
                 if (CursorState.Attributes.ForegroundRgb == null)
                     CursorState.Attributes.ForegroundRgb = new TerminalColor(color);
@@ -1746,7 +1763,8 @@ namespace VtNetCore.VirtualTerminal
         public void SetIso8613PaletteBackground(int paletteEntry)
         {
             LogController("SetIso8613PaletteBackground(e:" + paletteEntry + ")");
-            if (TerminalColor.Iso8613.TryGetValue(paletteEntry, out TerminalColor color))
+            var color = ResolvePaletteEntry(paletteEntry);
+            if (color != null)
             {
                 if (CursorState.Attributes.BackgroundRgb == null)
                     CursorState.Attributes.BackgroundRgb = new TerminalColor(color);
@@ -1766,6 +1784,7 @@ namespace VtNetCore.VirtualTerminal
                     CursorState.Attributes.ForegroundColor = ETerminalColor.White;
                     CursorState.Attributes.BackgroundColor = ETerminalColor.Black;
                     CursorState.Attributes.Bright = false;
+                    CursorState.Attributes.Faint = false;
                     CursorState.Attributes.Standout = false;
                     CursorState.Attributes.Underscore = false;
                     CursorState.Attributes.Blink = false;
@@ -1776,10 +1795,12 @@ namespace VtNetCore.VirtualTerminal
                 case 1:
                     LogController("SetCharacterAttribute(bright)");
                     CursorState.Attributes.Bright = true;
+                    CursorState.Attributes.Faint = false;
                     break;
 
                 case 2:
-                    LogController("SetCharacterAttribute(dim)");
+                    LogController("SetCharacterAttribute(faint)");
+                    CursorState.Attributes.Faint = true;
                     CursorState.Attributes.Bright = false;
                     break;
 
@@ -1809,8 +1830,9 @@ namespace VtNetCore.VirtualTerminal
                     break;
 
                 case 22:
-                    LogController("SetCharacterAttribute(not bright)");
+                    LogController("SetCharacterAttribute(normal intensity)");
                     CursorState.Attributes.Bright = false;
+                    CursorState.Attributes.Faint = false;
                     break;
 
                 case 24:
