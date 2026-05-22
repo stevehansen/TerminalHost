@@ -604,6 +604,7 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
 | [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Spec complete; not yet implemented |
 | [AgenticMemory.md](docs/specs/AgenticMemory.md) | Agentic long-term memory via Eidet (REST client, Memory Browser, container MCP, settings) | **Completed** | `IEidetService` port with `HttpEidetService` adapter replaces TerminalHost.Memory. Eidet project: [github.com/stevehansen/eidet](https://github.com/stevehansen/eidet) |
+| [GitHubReleases.md](docs/specs/GitHubReleases.md) | GitHub Actions release pipeline producing Windows/macOS/Linux artifacts on tag push; bundles MinVer adoption | **Draft** | Five assets per release; unsigned v1; Updatum-compatible naming |
 
 ## Remaining Work Summary
 
