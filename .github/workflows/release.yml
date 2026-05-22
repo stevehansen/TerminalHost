@@ -63,7 +63,7 @@ jobs:
           Get-ChildItem ./artifacts | Format-Table Name, Length
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: terminalhost-windows
           path: ./artifacts/*.zip
@@ -114,7 +114,7 @@ jobs:
         run: ls -la ./artifacts
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: terminalhost-macos
           path: ./artifacts/*.dmg
@@ -166,7 +166,7 @@ jobs:
           ls -la artifacts/
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: terminalhost-linux
           path: ./artifacts/*.tar.gz
@@ -181,7 +181,7 @@ jobs:
       contents: write
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: terminalhost-*
           merge-multiple: true
@@ -191,7 +191,7 @@ jobs:
         run: ls -la ./artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ./artifacts/*
           generate_release_notes: true
