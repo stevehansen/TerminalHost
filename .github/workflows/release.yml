@@ -70,10 +70,61 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  build-macos:
+    name: Build macOS artifacts
+    runs-on: macos-14
+    steps:
+      - name: Checkout (full history for MinVer)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            v="${GITHUB_REF_NAME#v}"
+          else
+            dotnet tool install --global minver-cli --version 5.0.0 > /dev/null
+            export PATH="$PATH:$HOME/.dotnet/tools"
+            v=$(minver -t v -p alpha.0)
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
+      - name: Build macOS arm64 DMG
+        run: |
+          chmod +x scripts/build-macos.sh
+          VERSION='${{ steps.version.outputs.version }}' RUNTIME=osx-arm64 ./scripts/build-macos.sh --dmg
+          mkdir -p artifacts
+          mv "publish/host-avalonia_osx-arm64_v${{ steps.version.outputs.version }}.dmg" artifacts/
+
+      - name: Build macOS x64 DMG
+        run: |
+          VERSION='${{ steps.version.outputs.version }}' RUNTIME=osx-x64 ./scripts/build-macos.sh --dmg
+          mv "publish/host-avalonia_osx-x64_v${{ steps.version.outputs.version }}.dmg" artifacts/
+
+      - name: List macOS artifacts
+        run: ls -la ./artifacts
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminalhost-macos
+          path: ./artifacts/*.dmg
+          retention-days: 7
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     permissions:
       contents: write
     steps:

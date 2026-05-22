@@ -203,8 +203,8 @@ Add `.github/release.yml` to categorize PRs by label in the auto-generated notes
 - [ ] Manually download, extract, and run each on a clean Windows machine (no .NET SDK installed).
 
 **Phase 3 — macOS release**
-- [ ] Parametrize `scripts/build-macos.sh` to read `$VERSION` and skip codesign when `$SIGNING_IDENTITY` is empty.
-- [ ] Add `build-macos` job invoking the script for both RIDs.
+- [x] Parametrize `scripts/build-macos.sh` to read `$VERSION` and `$RUNTIME`. Codesign was already optional (existing `CODESIGN_IDENTITY` env var with ad-hoc fallback). DMG filename now follows the Updatum convention `host-avalonia_<rid>_v<version>.dmg`. Cleanup narrowed so a second invocation for the other RID does not wipe the first DMG. Plist version sanitized (strips `-prerelease` and `+sha`) to satisfy `CFBundleShortVersionString`.
+- [x] Add `build-macos` job (`macos-14`) invoking the script for both `osx-arm64` and `osx-x64`; cross-publish runs on Apple Silicon.
 - [ ] Verify on a clean Mac: the `.dmg` mounts, the `.app` launches after "Open Anyway".
 
 **Phase 4 — Linux release**
