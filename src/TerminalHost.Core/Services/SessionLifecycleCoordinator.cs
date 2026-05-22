@@ -25,10 +25,24 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
     private readonly AdvancedFacade _advanced;
     private IDisposable? _inactivityHandle;
 
+    // Dispatch-depth coalescer for SessionsChanged. Every external entry point
+    // (Ingest, Advanced.*, RunInactivityScan) opens a frame on entry and closes
+    // it on exit. Upstream pulses raised while a frame is open set _pulsePending
+    // instead of firing; the outermost frame drains the pending flag on exit so a
+    // burst of N upstream events produces exactly one consumer-visible pulse.
+    // Instance-level (not [ThreadStatic]) so async frames survive await thread
+    // switches; concurrent Ingests from different threads share one drain.
+    private int _dispatchDepth;
+    private int _pulsePending; // 0 or 1, managed via Interlocked
+
     public event EventHandler<SessionChanged>? Changed;
+    public event EventHandler? SessionsChanged;
     public event EventHandler<ActivityEvent>? ActivityEventProcessed;
 
-    public SessionLifecycleCoordinator(
+    // Constructor is internal because ISessionActivityService / ILiveSessionTracker
+    // are internal interfaces. DI / tests construct via InternalsVisibleTo + the
+    // CoreSessionServiceRegistration helper.
+    internal SessionLifecycleCoordinator(
         ISessionActivityService activity,
         ILiveSessionTracker live,
         IInactivityClock? inactivityClock = null)
@@ -40,6 +54,10 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
 
         _activity.ActivityEventProcessed += OnActivityEventProcessed;
         _activity.LifecycleChanged += OnLifecycleChanged;
+        // The live tracker raises LiveSessionsChanged from paths that don't always
+        // route through the activity service (e.g. transcript-watcher inactivity);
+        // route those into the same coalesced pulse so consumers see them.
+        _live.LiveSessionsChanged += OnLiveSessionsChanged;
     }
 
     public ISessionLifecycleAdvanced Advanced => _advanced;
@@ -48,43 +66,50 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
     {
         if (hookEvent is null) return;
 
-        _activity.ProcessHookEvent(hookEvent, rawData);
-
-        switch (hookEvent.EventType)
+        EnterDispatchFrame();
+        try
         {
-            case HookEventType.SessionStart:
-                _live.HandleSessionStart(hookEvent);
-                break;
-            case HookEventType.FileChanged:
-                _live.HandleFileChanged(hookEvent);
-                break;
-            case HookEventType.SessionStop:
-            case HookEventType.SessionEnd:
-                // HandleSessionStopAsync returns Task.CompletedTask synchronously and schedules
-                // its retention cleanup via Task.Run internally — discarding is safe.
-                _ = _live.HandleSessionStopAsync(hookEvent);
-                break;
-            case HookEventType.ToolStart:
-                _live.HandleToolStart(hookEvent);
-                break;
-            case HookEventType.ToolEnd:
-            case HookEventType.ToolError:
-                _live.HandleToolEnd(hookEvent);
-                break;
-            case HookEventType.SubagentStart:
-            case HookEventType.SubagentStop:
-            case HookEventType.Notification:
-                // Route through HandleToolStart so EnsureLiveSession runs if the
-                // SessionStart hook was missed. Matches App.xaml.cs behavior.
-                _live.HandleToolStart(hookEvent);
-                break;
+            _activity.ProcessHookEvent(hookEvent, rawData);
+
+            switch (hookEvent.EventType)
+            {
+                case HookEventType.SessionStart:
+                    _live.HandleSessionStart(hookEvent);
+                    break;
+                case HookEventType.FileChanged:
+                    _live.HandleFileChanged(hookEvent);
+                    break;
+                case HookEventType.SessionStop:
+                case HookEventType.SessionEnd:
+                    // HandleSessionStopAsync returns Task.CompletedTask synchronously and schedules
+                    // its retention cleanup via Task.Run internally — discarding is safe.
+                    _ = _live.HandleSessionStopAsync(hookEvent);
+                    break;
+                case HookEventType.ToolStart:
+                    _live.HandleToolStart(hookEvent);
+                    break;
+                case HookEventType.ToolEnd:
+                case HookEventType.ToolError:
+                    _live.HandleToolEnd(hookEvent);
+                    break;
+                case HookEventType.SubagentStart:
+                case HookEventType.SubagentStop:
+                case HookEventType.Notification:
+                    // Route through HandleToolStart so EnsureLiveSession runs if the
+                    // SessionStart hook was missed. Matches App.xaml.cs behavior.
+                    _live.HandleToolStart(hookEvent);
+                    break;
+            }
         }
+        finally { ExitDispatchFrame(); }
     }
 
     public void Ingest(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null)
     {
         if (string.IsNullOrEmpty(sessionId)) return;
-        _activity.ProcessTranscriptEvents(sessionId, events, summary, model);
+        EnterDispatchFrame();
+        try { _activity.ProcessTranscriptEvents(sessionId, events, summary, model); }
+        finally { ExitDispatchFrame(); }
     }
 
     public SessionView? GetSession(string sessionId)
@@ -108,6 +133,27 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
         var states = _activity.GetAllStates();
         var liveSessions = _live.GetLiveSessions();
         return Merge(states, liveSessions);
+    }
+
+    public IReadOnlyList<SessionView> GetSessionsForDisplay()
+    {
+        // Dedupe by working directory: a resumed session creates a new SessionId for
+        // the same workspace while the prior id often lingers (no Stop hook arrived).
+        // The session tree shouldn't render both rows — keep the most-recently-active
+        // entry per directory. Sessions with no working directory pass through keyed
+        // by their session id so they don't collapse into a single bucket.
+        return GetAllSessions()
+            .GroupBy(v => string.IsNullOrEmpty(v.ActivityState.WorkingDirectory)
+                ? v.SessionId
+                : v.ActivityState.WorkingDirectory!,
+                     StringComparer.OrdinalIgnoreCase)
+            .Select(g => g
+                .OrderByDescending(v => v.ActivityState.IsActive)
+                .ThenByDescending(v => v.ActivityState.LastActivityTime ?? v.StartTime)
+                .First())
+            .OrderByDescending(v => v.ActivityState.IsActive)
+            .ThenByDescending(v => v.ActivityState.LastActivityTime ?? v.StartTime)
+            .ToList();
     }
 
     private List<SessionView> Merge(IReadOnlyList<SessionActivityState> states, IReadOnlyList<LiveSession> liveSessions)
@@ -156,6 +202,7 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
     private void OnActivityEventProcessed(object? sender, ActivityEvent e)
     {
         ActivityEventProcessed?.Invoke(this, e);
+        PulseSessionsChanged();
     }
 
     private void OnLifecycleChanged(object? sender, (string SessionId, SessionLifecycle NewState) e)
@@ -168,6 +215,35 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
 
         var kind = ClassifyTransition(previous, e.NewState);
         Changed?.Invoke(this, new SessionChanged(e.SessionId, kind, view));
+        PulseSessionsChanged();
+    }
+
+    private void OnLiveSessionsChanged(object? sender, EventArgs e) => PulseSessionsChanged();
+
+    private void PulseSessionsChanged()
+    {
+        // If a dispatch frame is open, defer; the outermost frame drains the pending
+        // flag once on exit. Outside any frame (e.g. the live tracker raising
+        // LiveSessionsChanged from its own internal timer with no coordinator entry
+        // on the call stack), fire directly.
+        if (Volatile.Read(ref _dispatchDepth) > 0)
+        {
+            Interlocked.Exchange(ref _pulsePending, 1);
+            return;
+        }
+        SessionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void EnterDispatchFrame() => Interlocked.Increment(ref _dispatchDepth);
+
+    // Outermost frame (depth → 0) observes any pending pulse, clears it, and fires
+    // SessionsChanged exactly once. Race-safe across threads: the Interlocked.Exchange
+    // returns the previous value so two threads racing the drain can't both fire.
+    private void ExitDispatchFrame()
+    {
+        var newDepth = Interlocked.Decrement(ref _dispatchDepth);
+        if (newDepth == 0 && Interlocked.Exchange(ref _pulsePending, 0) == 1)
+            SessionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static SessionChangeKind ClassifyTransition(SessionLifecycle? previous, SessionLifecycle next)
@@ -183,22 +259,31 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
 
     private void RunInactivityScan()
     {
-        // Snapshot active live sessions before the scan, run the tracker's sweep, then mark
-        // any newly-ended session as TimedOut via the activity service. MarkLifecycle raises
-        // LifecycleChanged, which OnLifecycleChanged classifies as Ended — single write path.
-        var before = _live.GetLiveSessions()
-            .Where(s => s.IsActive)
-            .Select(s => s.ClaudeSessionId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        _live.CheckInactiveSessions();
-
-        foreach (var id in before)
+        EnterDispatchFrame();
+        // Inactivity ticks must pulse SessionsChanged even when no session transitioned —
+        // consumers re-render "active 5m ago" → "5m1s ago" rows. Seed the pending flag so
+        // ExitDispatchFrame fires at the end whether or not TransitionLifecycle ran.
+        Interlocked.Exchange(ref _pulsePending, 1);
+        try
         {
-            var live = _live.GetLiveSessionByClaudeId(id);
-            if (live is null || live.IsActive) continue;
-            TransitionLifecycle(id, SessionLifecycle.TimedOut);
+            // Snapshot active live sessions before the scan, run the tracker's sweep, then mark
+            // any newly-ended session as TimedOut via the activity service. MarkLifecycle raises
+            // LifecycleChanged, which OnLifecycleChanged classifies as Ended — single write path.
+            var before = _live.GetLiveSessions()
+                .Where(s => s.IsActive)
+                .Select(s => s.ClaudeSessionId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            _live.CheckInactiveSessions();
+
+            foreach (var id in before)
+            {
+                var live = _live.GetLiveSessionByClaudeId(id);
+                if (live is null || live.IsActive) continue;
+                TransitionLifecycle(id, SessionLifecycle.TimedOut);
+            }
         }
+        finally { ExitDispatchFrame(); }
     }
 
     // Seeds _previousLifecycle so OnLifecycleChanged classifies the transition correctly.
@@ -216,6 +301,7 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
     {
         _activity.ActivityEventProcessed -= OnActivityEventProcessed;
         _activity.LifecycleChanged -= OnLifecycleChanged;
+        _live.LiveSessionsChanged -= OnLiveSessionsChanged;
         _inactivityHandle?.Dispose();
         _inactivityHandle = null;
     }
@@ -227,30 +313,44 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
         public AdvancedFacade(SessionLifecycleCoordinator owner) { _owner = owner; }
 
         // ct currently unused; deferred until ISessionActivityService grows a ct overload.
-        public Task EnrichFromTranscriptAsync(string sessionId, CancellationToken ct = default) =>
-            _owner._activity.EnrichFromTranscriptAsync(sessionId);
+        public async Task EnrichFromTranscriptAsync(string sessionId, CancellationToken ct = default)
+        {
+            _owner.EnterDispatchFrame();
+            try { await _owner._activity.EnrichFromTranscriptAsync(sessionId); }
+            finally { _owner.ExitDispatchFrame(); }
+        }
 
         public void ForceTerminate(string sessionId, string reason)
         {
-            // No structured "fatal" channel today — Failed for explicit error reasons, Completed otherwise.
-            var newLifecycle = reason is "error" or "crash" or "fatal"
-                ? SessionLifecycle.Failed
-                : SessionLifecycle.Completed;
+            _owner.EnterDispatchFrame();
+            try
+            {
+                // No structured "fatal" channel today — Failed for explicit error reasons, Completed otherwise.
+                var newLifecycle = reason is "error" or "crash" or "fatal"
+                    ? SessionLifecycle.Failed
+                    : SessionLifecycle.Completed;
 
-            // The activity service raises LifecycleChanged → OnLifecycleChanged → Changed(Ended).
-            _owner.TransitionLifecycle(sessionId, newLifecycle);
+                // The activity service raises LifecycleChanged → OnLifecycleChanged → Changed(Ended).
+                _owner.TransitionLifecycle(sessionId, newLifecycle);
+            }
+            finally { _owner.ExitDispatchFrame(); }
         }
 
         public void ManualRevive(string sessionId, string reason)
         {
-            var state = _owner._activity.GetState(sessionId);
-            if (state is null) return;
+            _owner.EnterDispatchFrame();
+            try
+            {
+                var state = _owner._activity.GetState(sessionId);
+                if (state is null) return;
 
-            var verdict = LifecycleDecision.ClassifyArrival(state.Lifecycle);
-            if (!verdict.Revive || verdict.NewLifecycle is not { } newLifecycle) return;
+                var verdict = LifecycleDecision.ClassifyArrival(state.Lifecycle);
+                if (!verdict.Revive || verdict.NewLifecycle is not { } newLifecycle) return;
 
-            // OnLifecycleChanged → ClassifyTransition sees prev terminal + new Active → Revived.
-            _owner.TransitionLifecycle(sessionId, newLifecycle);
+                // OnLifecycleChanged → ClassifyTransition sees prev terminal + new Active → Revived.
+                _owner.TransitionLifecycle(sessionId, newLifecycle);
+            }
+            finally { _owner.ExitDispatchFrame(); }
         }
 
         public void StartInactivityClock()

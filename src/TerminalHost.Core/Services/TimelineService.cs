@@ -16,7 +16,10 @@ public sealed class TimelineService : ITimelineService, IDisposable
     private readonly IHookInstaller? _hookInstaller;
     private readonly bool _ownsLiveTracker;
 
-    public TimelineService(
+    // Constructor is internal because ILiveSessionTracker is an internal interface.
+    // The class itself stays public (DI registers by interface); tests and Core
+    // construct instances via InternalsVisibleTo.
+    internal TimelineService(
         ISessionStateStore stateStore,
         ILiveSessionTracker liveTracker,
         IHookInstaller? hookInstaller = null)
@@ -30,7 +33,6 @@ public sealed class TimelineService : ITimelineService, IDisposable
         _stateStore.IntentsChanged += OnIntentsChanged;
         _stateStore.CurrentIntentChanged += OnCurrentIntentChanged;
         _stateStore.FocusStateChanged += OnFocusStateChanged;
-        _liveTracker.LiveSessionsChanged += OnLiveSessionsChanged;
     }
 
     public event EventHandler<bool>? EnabledChanged;
@@ -38,13 +40,11 @@ public sealed class TimelineService : ITimelineService, IDisposable
     public event EventHandler<Intent?>? CurrentIntentChanged;
     public event EventHandler<bool>? FocusStateChanged;
     public event EventHandler<(string WorktreePath, string? InitialPrompt)>? OpenProjectRequested;
-    public event EventHandler? LiveSessionsChanged;
 
     private void OnEnabledChanged(object? sender, bool enabled) => EnabledChanged?.Invoke(this, enabled);
     private void OnIntentsChanged(object? sender, EventArgs e) => IntentsChanged?.Invoke(this, e);
     private void OnCurrentIntentChanged(object? sender, Intent? intent) => CurrentIntentChanged?.Invoke(this, intent);
     private void OnFocusStateChanged(object? sender, bool isFocusing) => FocusStateChanged?.Invoke(this, isFocusing);
-    private void OnLiveSessionsChanged(object? sender, EventArgs e) => LiveSessionsChanged?.Invoke(this, e);
 
     // Suppress unused-warning: kept on the interface for forward compatibility.
     private void TouchOpenProject() => OpenProjectRequested?.Invoke(this, default);
@@ -86,14 +86,6 @@ public sealed class TimelineService : ITimelineService, IDisposable
     public Task SaveAsync() => _stateStore.SaveAsync();
     public Task LoadAsync() => _stateStore.LoadAsync();
 
-    public void HandleSessionStart(HookEvent hookEvent) => _liveTracker.HandleSessionStart(hookEvent);
-    public void HandleFileChanged(HookEvent hookEvent) => _liveTracker.HandleFileChanged(hookEvent);
-    public Task HandleSessionStopAsync(HookEvent hookEvent) => _liveTracker.HandleSessionStopAsync(hookEvent);
-    public void HandleToolStart(HookEvent hookEvent) => _liveTracker.HandleToolStart(hookEvent);
-    public void HandleToolEnd(HookEvent hookEvent) => _liveTracker.HandleToolEnd(hookEvent);
-    public void StartInactivityTimer() => _liveTracker.StartInactivityTimer();
-    public void StopInactivityTimer() => _liveTracker.StopInactivityTimer();
-
     public bool AreHooksInstalled() => _hookInstaller?.AreHooksInstalled() ?? false;
     public bool InstallHooks() => _hookInstaller?.InstallHooks() ?? false;
     public bool UninstallHooks() => _hookInstaller?.UninstallHooks() ?? true;
@@ -105,7 +97,6 @@ public sealed class TimelineService : ITimelineService, IDisposable
         _stateStore.IntentsChanged -= OnIntentsChanged;
         _stateStore.CurrentIntentChanged -= OnCurrentIntentChanged;
         _stateStore.FocusStateChanged -= OnFocusStateChanged;
-        _liveTracker.LiveSessionsChanged -= OnLiveSessionsChanged;
 
         if (_ownsLiveTracker && _liveTracker is IDisposable disposable)
             disposable.Dispose();

@@ -70,6 +70,9 @@ public partial class App : Application
             var configService = _services.GetRequiredService<IConfigurationService>();
             var config = configService.Load();
 
+            // Start inactivity sweep for detecting stuck sessions (matches WPF).
+            _services.GetService<ISessionLifecycleCoordinator>()?.Advanced.StartInactivityClock();
+
             // Show setup window if --setup flag or first run
             if (StartupArgs.IsSetupMode || config.IsDefault())
             {
@@ -256,8 +259,6 @@ public partial class App : Application
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IHookInstaller, TerminalHost.Posix.Services.PosixHookInstaller>();
         services.AddSingleton<ISessionStateStore, TerminalHost.Core.Services.SessionStateStore>();
-        services.AddSingleton<ILiveSessionTracker, TerminalHost.Core.Services.LiveSessionTracker>();
-        services.AddSingleton<ITimelineService, TerminalHost.Core.Services.TimelineService>();
         services.AddSingleton<IDiffParserService, TerminalHost.Core.Services.DiffParserService>();
         services.AddSingleton<IInvisibleChangeService, TerminalHost.Core.Services.InvisibleChangeService>();
         services.AddSingleton<ITestRunnerService, global::TerminalHost.Services.TestRunnerService>();
@@ -265,9 +266,10 @@ public partial class App : Application
 
         // Session Activity & Transcript Watching
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
-        services.AddSingleton<ISessionActivityService, TerminalHost.Core.Services.SessionActivityService>();
         services.AddSingleton<IInactivityClock, TerminalHost.Core.Services.SystemInactivityClock>();
-        services.AddSingleton<ISessionLifecycleCoordinator, TerminalHost.Core.Services.SessionLifecycleCoordinator>();
+        // ISessionActivityService and ILiveSessionTracker are internal post-Phase 3.
+        // CoreSessionServiceRegistration wires the concrete classes + coordinator facade.
+        services.AddTerminalHostSessionServices();
 
         // API & Webhooks Services
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
@@ -337,11 +339,11 @@ public partial class App : Application
             if (_services == null) return;
 
             // Wire ActivityEventProcessed → EventAggregator for SSE distribution
-            var activityService = _services.GetService<ISessionActivityService>();
+            var coordinator = _services.GetService<ISessionLifecycleCoordinator>();
             var eventAggregator = _services.GetService<IEventAggregatorService>();
-            if (activityService != null && eventAggregator != null)
+            if (coordinator != null && eventAggregator != null)
             {
-                activityService.ActivityEventProcessed += (_, evt) =>
+                coordinator.ActivityEventProcessed += (_, evt) =>
                 {
                     eventAggregator.Publish(new ApiEvent
                     {
@@ -424,43 +426,25 @@ public partial class App : Application
                 hookEvent.TranscriptPath, hookEvent.Cwd);
         }
 
-        // Route to SessionActivityService for rich activity tracking
-        var activityService = _services.GetService<ISessionActivityService>();
-        activityService?.ProcessHookEvent(hookEvent);
+        // The coordinator's Ingest fans out to both the activity service and the live
+        // tracker — replaces the previous two-step (activityService.ProcessHookEvent +
+        // timelineService.Handle*).
+        var coordinator = _services.GetService<ISessionLifecycleCoordinator>();
+        if (coordinator == null) return;
+        coordinator.Ingest(hookEvent);
 
-        // Route to TimelineService for live session tracking
-        var timelineService = _services.GetService<ITimelineService>();
-        if (timelineService != null)
+        // Post-stop transcript enrichment: matches the WPF path so macOS/Linux sessions
+        // get the same end-of-session state updates. Fire-and-forget — exceptions are logged.
+        if (hookEvent.EventType is HookEventType.SessionStop or HookEventType.SessionEnd)
         {
-            switch (hookEvent.EventType)
-            {
-                case HookEventType.SessionStart:
-                    timelineService.HandleSessionStart(hookEvent);
-                    break;
-                case HookEventType.ToolStart:
-                    timelineService.HandleToolStart(hookEvent);
-                    break;
-                case HookEventType.ToolEnd:
-                case HookEventType.ToolError:
-                    timelineService.HandleToolEnd(hookEvent);
-                    break;
-                case HookEventType.SubagentStart:
-                case HookEventType.SubagentStop:
-                case HookEventType.Notification:
-                    // Route through HandleToolStart so EnsureLiveSession runs if the
-                    // SessionStart hook was missed. Activity timestamps are bumped by
-                    // LiveSessionTracker's ActivityEventProcessed subscription.
-                    timelineService.HandleToolStart(hookEvent);
-                    break;
-                case HookEventType.FileChanged:
-                    timelineService.HandleFileChanged(hookEvent);
-                    break;
-                case HookEventType.SessionStop:
-                case HookEventType.SessionEnd:
-                    _ = timelineService.HandleSessionStopAsync(hookEvent);
-                    break;
-            }
+            _ = EnrichAfterStopAsync(coordinator, hookEvent.SessionId);
         }
+    }
+
+    private static async Task EnrichAfterStopAsync(ISessionLifecycleCoordinator coordinator, string sessionId)
+    {
+        try { await coordinator.Advanced.EnrichFromTranscriptAsync(sessionId); }
+        catch (Exception ex) { Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
     }
 
     /// <summary>

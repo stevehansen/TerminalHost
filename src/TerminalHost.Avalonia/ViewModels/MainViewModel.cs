@@ -47,7 +47,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IClaudeTaskDetectionService? _claudeTaskDetectionService;
     private readonly ITaskAggregator? _taskAggregator;
     internal readonly IApiServer? _apiServer;
-    private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionLifecycleCoordinator? _sessionCoordinator;
     private readonly IEventAggregatorService? _eventAggregator;
     private readonly IWebhookDeliveryService? _webhookDeliveryService;
     private readonly IAiExecutionService? _aiExecutionService;
@@ -357,7 +357,7 @@ public partial class MainViewModel : ObservableObject
         IClaudeTaskDetectionService? claudeTaskDetectionService = null,
         ITaskAggregator? taskAggregator = null,
         IApiServer? apiServer = null,
-        ISessionActivityService? sessionActivityService = null,
+        ISessionLifecycleCoordinator? sessionCoordinator = null,
         IEventAggregatorService? eventAggregator = null,
         IWebhookDeliveryService? webhookDeliveryService = null,
         IAiExecutionService? aiExecutionService = null,
@@ -406,7 +406,7 @@ public partial class MainViewModel : ObservableObject
         _claudeTaskDetectionService = claudeTaskDetectionService;
         _taskAggregator = taskAggregator;
         _apiServer = apiServer;
-        _sessionActivityService = sessionActivityService;
+        _sessionCoordinator = sessionCoordinator;
         _eventAggregator = eventAggregator;
         _webhookDeliveryService = webhookDeliveryService;
         _aiExecutionService = aiExecutionService;
@@ -1659,7 +1659,7 @@ public partial class MainViewModel : ObservableObject
         var theme = services.GetRequiredService<TerminalHost.Core.Interfaces.Spark.IThemeStore>();
         var log = services.GetService<TerminalHost.Core.Interfaces.IDebugLogService>();
         var composer = new TerminalHost.Core.Services.Spark.SparkPayloadComposer(catalog, log);
-        var orchestrator = new TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator(catalog, composer, _sessionActivityService, theme, log);
+        var orchestrator = new TerminalHost.Core.Services.Spark.SparkCanvasOrchestrator(catalog, composer, _sessionCoordinator, theme, log);
         return new SparkCanvasViewModel(orchestrator);
     }
 

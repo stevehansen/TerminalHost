@@ -7,8 +7,12 @@ namespace TerminalHost.Core.Interfaces;
 /// Owns the inactivity clock, transcript-watcher subscription, and the dictionary
 /// of <see cref="LiveSession"/> objects keyed by Claude session id.
 /// Hides hook-event routing, container-path resolution, and timer scheduling.
+/// <para>
+/// Internal post-Phase 3: consumers go through <see cref="ISessionLifecycleCoordinator"/>.
+/// The concrete <c>LiveSessionTracker</c> remains public for DI-by-concrete-type.
+/// </para>
 /// </summary>
-public interface ILiveSessionTracker
+internal interface ILiveSessionTracker
 {
     IReadOnlyList<LiveSession> GetLiveSessions();
     LiveSession? GetLiveSessionByClaudeId(string claudeSessionId);

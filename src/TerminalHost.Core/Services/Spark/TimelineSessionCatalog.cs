@@ -12,27 +12,24 @@ using TerminalHost.Core.Spark;
 namespace TerminalHost.Core.Services.Spark;
 
 /// <summary>
-/// Production <see cref="ISessionCatalog"/> over <see cref="ITimelineService"/>,
-/// <see cref="ISessionActivityService"/>, and <see cref="TranscriptParserService"/>.
-/// Owns the canvas-shaped projection from <see cref="SessionActivityState"/>.
+/// Production <see cref="ISessionCatalog"/> over <see cref="ISessionLifecycleCoordinator"/>
+/// and <see cref="TranscriptParserService"/>. Owns the canvas-shaped projection
+/// from <see cref="SessionActivityState"/>.
 /// </summary>
 public sealed class TimelineSessionCatalog : ISessionCatalog
 {
     private const string LogSource = "TimelineSessionCatalog";
 
-    private readonly ITimelineService? _timeline;
-    private readonly ISessionActivityService? _activity;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly TranscriptParserService _parser;
     private readonly IDebugLogService? _log;
 
     public TimelineSessionCatalog(
-        ITimelineService? timeline,
-        ISessionActivityService? activity,
+        ISessionLifecycleCoordinator? sessionCoordinator,
         TranscriptParserService? parser = null,
         IDebugLogService? log = null)
     {
-        _timeline = timeline;
-        _activity = activity;
+        _coord = sessionCoordinator;
         _parser = parser ?? new TranscriptParserService();
         _log = log;
     }
@@ -40,64 +37,53 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
     public IReadOnlyList<SessionListItem> List()
     {
         var items = new List<SessionListItem>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var views = _coord?.GetAllSessions();
+        if (views == null) return items;
 
-        var liveSessions = _timeline?.GetLiveSessions();
-        if (liveSessions != null)
+        foreach (var v in views)
         {
-            foreach (var s in liveSessions)
-            {
-                if (string.IsNullOrEmpty(s.ClaudeSessionId)) continue;
-                if (!seen.Add(s.ClaudeSessionId)) continue;
-                items.Add(new SessionListItem
-                {
-                    SessionId = s.ClaudeSessionId,
-                    DisplayName = s.DisplayName,
-                    ProjectPath = s.WorkingDirectory ?? "",
-                    IsLive = s.IsActive,
-                    StartTime = s.StartTime
-                });
-            }
-        }
+            var st = v.ActivityState;
+            var live = v.LiveSession;
+            // Prefer LiveSession's DisplayName when present (it carries hook-derived
+            // metadata like the directory leaf with worktree decoration); fall back
+            // to the activity state's working directory.
+            string displayName;
+            if (live != null && !string.IsNullOrEmpty(live.DisplayName))
+                displayName = live.DisplayName;
+            else
+                displayName = (st.WorkingDirectory ?? "").Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
 
-        var activityStates = _activity?.GetAllStates();
-        if (activityStates != null)
-        {
-            foreach (var st in activityStates)
+            items.Add(new SessionListItem
             {
-                if (!seen.Add(st.SessionId)) continue;
-                var dirName = (st.WorkingDirectory ?? "").Split('/', '\\').LastOrDefault(s => s.Length > 0) ?? "Session";
-                items.Add(new SessionListItem
-                {
-                    SessionId = st.SessionId,
-                    DisplayName = dirName,
-                    ProjectPath = st.WorkingDirectory ?? "",
-                    // Timeline catalog uses a tighter semantic than SessionActivityState.IsActive:
-                    // only sessions currently Working or WaitingPermission count as "live" here.
-                    // Done (between turns) is tracked but not live in the timeline view.
-                    IsLive = st.DeriveParentDisplay(DateTime.UtcNow)
-                        is AgentDisplayState.Working or AgentDisplayState.WaitingPermission,
-                    StartTime = st.StartTime
-                });
-            }
+                SessionId = v.SessionId,
+                DisplayName = displayName,
+                ProjectPath = st.WorkingDirectory ?? live?.WorkingDirectory ?? "",
+                // Timeline catalog uses a tighter semantic than SessionView.IsLive:
+                // only sessions currently Working or WaitingPermission count as "live"
+                // here. Done (between turns) is tracked but not live in the timeline view.
+                IsLive = st.DeriveParentDisplay(DateTime.UtcNow)
+                    is AgentDisplayState.Working or AgentDisplayState.WaitingPermission,
+                StartTime = v.StartTime
+            });
         }
-
         return items;
     }
 
     public SnapshotEnvelope? GetSnapshot(string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
-        var state = _activity?.GetState(sessionId);
-        if (state != null)
-            return ProjectLive(state);
+        var view = _coord?.GetSession(sessionId);
+        if (view == null) return null;
 
-        // Fall back to a placeholder snapshot for sessions known to the timeline but not yet tracked.
-        var live = _timeline?.GetLiveSessionByClaudeId(sessionId);
-        if (live != null)
-            return ProjectPlaceholder(live);
+        // The coordinator synthesizes an empty activity state for live-only sessions;
+        // distinguish "real" activity state from synthesized one by checking whether
+        // the activity service actually tracks it (Agents.Count == 0 + Live present
+        // is the placeholder shape).
+        var state = view.ActivityState;
+        if (state.Agents.Count == 0 && view.LiveSession != null)
+            return ProjectPlaceholder(view.LiveSession);
 
-        return null;
+        return ProjectLive(state);
     }
 
     public async Task<ReplayLoadResult?> LoadReplayAsync(string jsonlPath, CancellationToken ct)
@@ -141,10 +127,10 @@ public sealed class TimelineSessionCatalog : ISessionCatalog
 
     public async Task EnrichAsync(string sessionId, CancellationToken ct)
     {
-        if (_activity == null || string.IsNullOrEmpty(sessionId)) return;
+        if (_coord == null || string.IsNullOrEmpty(sessionId)) return;
         try
         {
-            await _activity.EnrichFromTranscriptAsync(sessionId);
+            await _coord.Advanced.EnrichFromTranscriptAsync(sessionId, ct);
         }
         catch (Exception ex)
         {

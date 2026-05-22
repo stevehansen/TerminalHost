@@ -10,7 +10,7 @@ namespace TerminalHost.Core.Services;
 /// Maintains in-memory SessionActivityState per active Claude Code session.
 /// Processes hook events and transcript data into rich activity tracking.
 /// </summary>
-public class SessionActivityService : ISessionActivityService
+public sealed class SessionActivityService : ISessionActivityService
 {
     private readonly object _lock = new();
     private readonly Dictionary<string, SessionActivityState> _states = new(StringComparer.OrdinalIgnoreCase);

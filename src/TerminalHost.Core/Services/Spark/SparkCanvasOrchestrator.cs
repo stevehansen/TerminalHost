@@ -32,7 +32,7 @@ public sealed class SparkCanvasOrchestrator : IDisposable
 
     private readonly ISessionCatalog _catalog;
     private readonly ISparkPayloadComposer _composer;
-    private readonly ISessionActivityService? _activity;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IThemeStore _theme;
     private readonly IDebugLogService? _log;
 
@@ -47,18 +47,18 @@ public sealed class SparkCanvasOrchestrator : IDisposable
     public SparkCanvasOrchestrator(
         ISessionCatalog catalog,
         ISparkPayloadComposer composer,
-        ISessionActivityService? activity,
+        ISessionLifecycleCoordinator? coord,
         IThemeStore theme,
         IDebugLogService? log = null)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _composer = composer ?? throw new ArgumentNullException(nameof(composer));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
-        _activity = activity;
+        _coord = coord;
         _log = log;
 
-        if (_activity != null)
-            _activity.ActivityEventProcessed += OnActivityEventBackground;
+        if (_coord != null)
+            _coord.ActivityEventProcessed += OnActivityEventBackground;
     }
 
     /// <summary>The current canvas mode.</summary>
@@ -370,8 +370,8 @@ public sealed class SparkCanvasOrchestrator : IDisposable
         {
             if (_disposed) return;
 
-            if (_activity != null)
-                _activity.ActivityEventProcessed -= OnActivityEventBackground;
+            if (_coord != null)
+                _coord.ActivityEventProcessed -= OnActivityEventBackground;
 
             _disposed = true;
 

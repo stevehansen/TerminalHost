@@ -192,11 +192,12 @@ public partial class App : Application
         // Process any queued hook events from when the app wasn't running
         _ = ProcessQueuedHookEventsAsync();
 
-        // Start inactivity timer for detecting stuck sessions
-        var timelineService = Services.GetService<ITimelineService>();
-        timelineService?.StartInactivityTimer();
+        // Start inactivity sweep for detecting stuck sessions (routed through the coordinator).
+        var coordinator = Services.GetService<ISessionLifecycleCoordinator>();
+        coordinator?.Advanced.StartInactivityClock();
 
         // Auto-upgrade hooks if partially installed (e.g., old 4-hook version → 9 hooks)
+        var timelineService = Services.GetService<ITimelineService>();
         timelineService?.UpgradeHooksIfNeeded();
 
         // Clean up old session archive entries (devcontainer sessions older than 7 days)
@@ -204,11 +205,10 @@ public partial class App : Application
         archiveService?.CleanupOldEntries(TimeSpan.FromDays(7));
 
         // Bridge ActivityEvents to EventAggregator for SSE distribution
-        var activityService = Services.GetService<ISessionActivityService>();
         var eventAggregator = Services.GetService<IEventAggregatorService>();
-        if (activityService != null && eventAggregator != null)
+        if (coordinator != null && eventAggregator != null)
         {
-            activityService.ActivityEventProcessed += (_, evt) =>
+            coordinator.ActivityEventProcessed += (_, evt) =>
             {
                 eventAggregator.Publish(new ApiEvent
                 {
@@ -306,12 +306,12 @@ public partial class App : Application
         services.AddSingleton<ITaskAggregator, TaskAggregator>();
         services.AddSingleton<IHookInstaller, TerminalHost.Windows.Services.WindowsHookInstaller>();
         services.AddSingleton<ISessionStateStore, SessionStateStore>();
-        services.AddSingleton<ILiveSessionTracker, LiveSessionTracker>();
-        services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
-        services.AddSingleton<ISessionActivityService, SessionActivityService>();
         services.AddSingleton<IInactivityClock, SystemInactivityClock>();
-        services.AddSingleton<ISessionLifecycleCoordinator, SessionLifecycleCoordinator>();
+        // ISessionActivityService and ILiveSessionTracker are internal post-Phase 3.
+        // CoreSessionServiceRegistration wires the concrete classes + coordinator facade
+        // + ITimelineService (which depends on the internal ILiveSessionTracker).
+        services.AddTerminalHostSessionServices();
         services.AddSingleton<ISessionArchiveService, SessionArchiveService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();
@@ -452,8 +452,8 @@ public partial class App : Application
 
     private async void ProcessHookEvent(HookEvent hookEvent)
     {
-        var timelineService = Services.GetService<ITimelineService>();
-        if (timelineService == null) return;
+        var coordinator = Services.GetService<ISessionLifecycleCoordinator>();
+        if (coordinator == null) return;
 
         // For Container sessions, fix the transcript path: the proxy translates
         // /home/developer → host profile, but Docker overlay mounts map the container
@@ -466,64 +466,22 @@ public partial class App : Application
                 hookEvent.TranscriptPath, hookEvent.Cwd);
         }
 
-        // Route to SessionActivityService for rich activity tracking
-        var activityService = Services.GetService<ISessionActivityService>();
-        activityService?.ProcessHookEvent(hookEvent);
+        // The coordinator's Ingest fans out to both the activity service and the live
+        // tracker — replaces the previous two-step (activityService.ProcessHookEvent +
+        // timelineService.Handle*).
+        coordinator.Ingest(hookEvent);
 
         try
         {
             switch (hookEvent.EventType)
             {
-                case HookEventType.SessionStart:
-                    timelineService.HandleSessionStart(hookEvent);
-                    break;
-
-                case HookEventType.FileChanged:
-                    timelineService.HandleFileChanged(hookEvent);
-                    break;
-
                 case HookEventType.SessionStop:
-                    await timelineService.HandleSessionStopAsync(hookEvent);
-                    // Enrich activity state from transcript after session ends
-                    if (activityService != null)
-                    {
-                        try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
-                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
-                        // Archive devcontainer sessions (they can't be rediscovered from host file system)
-                        ArchiveDevcontainerSession(activityService, hookEvent.SessionId);
-                    }
-                    break;
-
-                case HookEventType.ToolStart:
-                    timelineService.HandleToolStart(hookEvent);
-                    break;
-
-                case HookEventType.ToolEnd:
-                    timelineService.HandleToolEnd(hookEvent);
-                    break;
-
-                case HookEventType.ToolError:
-                    timelineService.HandleToolEnd(hookEvent);
-                    break;
-
-                case HookEventType.SubagentStart:
-                case HookEventType.SubagentStop:
-                case HookEventType.Notification:
-                    // Route through HandleToolStart so EnsureLiveSession runs if the
-                    // SessionStart hook was missed. Activity timestamps are bumped by
-                    // LiveSessionTracker's ActivityEventProcessed subscription.
-                    timelineService.HandleToolStart(hookEvent);
-                    break;
-
                 case HookEventType.SessionEnd:
-                    // SessionEnd is a fallback for Stop — only process if not already stopped
-                    await timelineService.HandleSessionStopAsync(hookEvent);
-                    if (activityService != null)
-                    {
-                        try { await activityService.EnrichFromTranscriptAsync(hookEvent.SessionId); }
-                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
-                        ArchiveDevcontainerSession(activityService, hookEvent.SessionId);
-                    }
+                    // Enrich activity state from transcript after session ends.
+                    try { await coordinator.Advanced.EnrichFromTranscriptAsync(hookEvent.SessionId); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Transcript enrichment error: {ex.Message}"); }
+                    // Archive devcontainer sessions (they can't be rediscovered from host file system).
+                    ArchiveDevcontainerSession(coordinator, hookEvent.SessionId);
                     break;
             }
         }
@@ -557,9 +515,9 @@ public partial class App : Application
         return System.IO.Path.Combine(claudeDir, "projects", hostProjectKey, relativePath);
     }
 
-    private void ArchiveDevcontainerSession(ISessionActivityService activityService, string sessionId)
+    private void ArchiveDevcontainerSession(ISessionLifecycleCoordinator coordinator, string sessionId)
     {
-        var state = activityService.GetState(sessionId);
+        var state = coordinator.GetSession(sessionId)?.ActivityState;
         if (state?.Source == SessionSource.DevContainer)
         {
             var archiveService = Services.GetService<ISessionArchiveService>();

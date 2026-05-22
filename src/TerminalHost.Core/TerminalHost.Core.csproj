@@ -13,6 +13,7 @@
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.4" />
     <PackageReference Include="Markdig.SyntaxHighlighting" Version="1.1.7" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="10.0.8" />
     <PackageReference Include="Markdig" Version="1.2.0" />
     <PackageReference Include="Whisper.net" Version="1.9.0" />
@@ -21,6 +22,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="TerminalHost.Tests" />
+    <!-- Castle DynamicProxy (used by Moq) needs to see internal interfaces to generate proxies. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
 </Project>

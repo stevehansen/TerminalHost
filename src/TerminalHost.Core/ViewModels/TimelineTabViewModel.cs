@@ -16,7 +16,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel, IDi
 {
     private readonly ITimelineService _timelineService;
     private readonly IClaudeSessionIndexService? _sessionIndexService;
-    private readonly ISessionActivityService? _activityService;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IDialogService _dialogService;
     private readonly ITimerService _timerService;
     private readonly IProcessService? _processService;
@@ -90,7 +90,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel, IDi
         IClaudeSessionIndexService? sessionIndexService,
         IDialogService dialogService,
         ITimerService timerService,
-        ISessionActivityService? activityService = null,
+        ISessionLifecycleCoordinator? sessionCoordinator = null,
         IProcessService? processService = null,
         IClipboardService? clipboardService = null)
     {
@@ -98,7 +98,7 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel, IDi
         _sessionIndexService = sessionIndexService;
         _dialogService = dialogService;
         _timerService = timerService;
-        _activityService = activityService;
+        _coord = sessionCoordinator;
         _processService = processService;
         _clipboardService = clipboardService;
 
@@ -267,9 +267,9 @@ public partial class TimelineTabViewModel : ObservableObject, ITabViewModel, IDi
     {
         if (source is LiveSession live)
         {
-            var state = _activityService?.GetState(live.ClaudeSessionId);
+            var state = _coord?.GetSession(live.ClaudeSessionId)?.ActivityState;
             card.UpdateFromLiveSession(live, state?.LastActivityTime);
-            if (live.IsActive && _activityService != null)
+            if (live.IsActive && _coord != null)
                 card.UpdateActivityData(state);
         }
         else if (source is ClaudeSessionIndexEntry entry)

@@ -18,9 +18,8 @@ namespace TerminalHost.ViewModels;
 /// </summary>
 public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposable
 {
-    private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IDispatcherService _dispatcherService;
-    private readonly IAppTimer? _refreshTimer;
 
     /// <summary>
     /// Tracks which <see cref="SessionActivityState.SessionId"/> each row is currently
@@ -65,12 +64,16 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public bool IsEmpty => Sessions.Count == 0;
 
+    // timerService kept on the ctor for DI compatibility with existing wiring;
+    // refresh ticks now flow through ISessionLifecycleCoordinator.SessionsChanged
+    // (which also fires from the inactivity-clock sweep), so a local timer is no
+    // longer needed.
     public SessionsTreePanelViewModel(
-        ISessionActivityService? sessionActivityService,
+        ISessionLifecycleCoordinator? sessionCoordinator,
         IDispatcherService dispatcherService,
         ITimerService timerService)
     {
-        _sessionActivityService = sessionActivityService;
+        _coord = sessionCoordinator;
         _dispatcherService = dispatcherService;
 
         DisplayState = PanelDisplayState.Panel;
@@ -78,24 +81,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         Width = 420;
         Height = 600;
 
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed += OnActivityEvent;
-            _sessionActivityService.LifecycleChanged += OnLifecycleChanged;
-        }
-
-        _refreshTimer = timerService.CreateTimer(TimeSpan.FromSeconds(2), () => _dispatcherService.BeginInvoke(Refresh));
-        _refreshTimer.Start();
+        if (_coord != null)
+            _coord.SessionsChanged += OnSessionsChanged;
 
         Refresh();
     }
 
-    private void OnActivityEvent(object? sender, ActivityEvent e)
-    {
-        _dispatcherService.BeginInvoke(Refresh);
-    }
-
-    private void OnLifecycleChanged(object? sender, (string SessionId, SessionLifecycle NewState) e)
+    private void OnSessionsChanged(object? sender, EventArgs e)
     {
         _dispatcherService.BeginInvoke(Refresh);
     }
@@ -103,9 +95,11 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     [RelayCommand]
     private void Refresh()
     {
-        var states = _sessionActivityService?.GetAllStates() ?? Array.Empty<SessionActivityState>();
+        var states = _coord?.GetAllSessions()
+            .Select(v => v.ActivityState)
+            .ToList() ?? new List<SessionActivityState>();
 
-        // Transient-empty guard: if the activity service briefly returns no states
+        // Transient-empty guard: if the coordinator briefly returns no sessions
         // during a state-mutation burst, don't wipe the tree. Wait for the next refresh.
         if (states.Count == 0 && Sessions.Count > 0)
             return;
@@ -116,8 +110,9 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
         // Sticky pick: for each workspace, prefer the SessionActivityState we were
         // already showing (by SessionId). Only switch when that state is gone from the
-        // service. This stops the row from snapping to a freshly-created state with
-        // LatestContextTokens=0 every time Claude rotates SessionId in the same workspace.
+        // coordinator. This stops the row from snapping to a freshly-created state
+        // with LatestContextTokens=0 every time Claude rotates SessionId in the same
+        // workspace. This is Avalonia-specific (WPF uses the coordinator's dedupe).
         var ordered = states
             .GroupBy(NodeIdFor, StringComparer.OrdinalIgnoreCase)
             .Select(g =>
@@ -362,11 +357,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public void Dispose()
     {
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed -= OnActivityEvent;
-            _sessionActivityService.LifecycleChanged -= OnLifecycleChanged;
-        }
-        _refreshTimer?.Dispose();
+        if (_coord != null)
+            _coord.SessionsChanged -= OnSessionsChanged;
     }
 }

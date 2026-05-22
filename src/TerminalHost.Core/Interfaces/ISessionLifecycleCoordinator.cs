@@ -22,6 +22,14 @@ public interface ISessionLifecycleCoordinator
     IReadOnlyList<SessionView> GetAllSessions();
 
     /// <summary>
+    /// Display-ready snapshot: deduped by working directory (most-recently-active per
+    /// directory wins; sessions without a working directory pass through keyed by id),
+    /// then ordered active-first then by recency. Consumers should treat the result as
+    /// the source of truth for tree/list rendering — they no longer need to dedupe.
+    /// </summary>
+    IReadOnlyList<SessionView> GetSessionsForDisplay();
+
+    /// <summary>
     /// Per-session change notification. Only fires for changes the coordinator can
     /// attribute to a specific session (activity-service lifecycle changes and
     /// inactivity-clock-driven session ends). Global live-set updates are not
@@ -29,7 +37,17 @@ public interface ISessionLifecycleCoordinator
     /// </summary>
     event EventHandler<SessionChanged>? Changed;
 
-    /// <summary>1:1 passthrough of <see cref="ISessionActivityService.ActivityEventProcessed"/>.</summary>
+    /// <summary>
+    /// Coalesced "something about the session set may have changed" pulse. Fires for
+    /// any of the inputs the coordinator already observes (lifecycle changes, activity
+    /// events, inactivity-clock ticks). Reentrant calls within a single dispatch chain
+    /// collapse into a single pulse so consumers like the session tree don't refresh
+    /// in a tight loop during bursts. Use this for "refresh my view" subscriptions;
+    /// use <see cref="Changed"/> when you need the specific session and transition kind.
+    /// </summary>
+    event EventHandler? SessionsChanged;
+
+    /// <summary>1:1 passthrough of <c>SessionActivityService.ActivityEventProcessed</c>.</summary>
     event EventHandler<ActivityEvent>? ActivityEventProcessed;
 
     ISessionLifecycleAdvanced Advanced { get; }
@@ -51,8 +69,8 @@ public interface ISessionLifecycleAdvanced
     /// <summary>
     /// Starts the inactivity sweep. If an <see cref="IInactivityClock"/> was supplied
     /// the coordinator drives the sweep itself and emits per-session
-    /// <see cref="SessionChangeKind.Ended"/> events; otherwise it delegates to
-    /// <see cref="ILiveSessionTracker.StartInactivityTimer"/>.
+    /// <see cref="SessionChangeKind.Ended"/> events; otherwise it delegates to the
+    /// underlying live-session tracker's own internal Timer.
     /// </summary>
     void StartInactivityClock();
 

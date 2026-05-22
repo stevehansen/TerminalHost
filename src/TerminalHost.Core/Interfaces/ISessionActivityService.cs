@@ -5,8 +5,12 @@ namespace TerminalHost.Core.Interfaces;
 /// <summary>
 /// Maintains in-memory SessionActivityState per active Claude Code session.
 /// Processes hook events and transcript data into rich activity tracking.
+/// <para>
+/// Internal post-Phase 3: consumers go through <see cref="ISessionLifecycleCoordinator"/>.
+/// The concrete <c>SessionActivityService</c> remains public for DI-by-concrete-type.
+/// </para>
 /// </summary>
-public interface ISessionActivityService
+internal interface ISessionActivityService
 {
     /// <summary>
     /// Gets the activity state for a session, or null if not tracked.

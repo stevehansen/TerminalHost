@@ -311,4 +311,166 @@ public class SessionLifecycleCoordinatorTests
 
         coord.GetAllSessions().Count.ShouldBe(perThread * 2);
     }
+
+    [Fact]
+    public void SessionsChanged_FiresOnIngestSessionStart()
+    {
+        var (coord, _, _, _) = Build();
+        int pulses = 0;
+        coord.SessionsChanged += (_, _) => pulses++;
+
+        coord.Ingest(SessionStart("sess-1"));
+
+        pulses.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public void SessionsChanged_CoalescesSiblingEventsInSingleIngest_ToSinglePulse()
+    {
+        // ProcessHookEvent(SessionStart) raises multiple ActivityEventProcessed events
+        // (SessionStart + AgentSpawn) and may raise LifecycleChanged too. Each upstream
+        // signal calls PulseSessionsChanged. The dispatch-frame opened by Ingest defers
+        // every one of them into a single drain on frame exit.
+        var (coord, _, _, _) = Build();
+        int pulses = 0;
+        coord.SessionsChanged += (_, _) => pulses++;
+
+        coord.Ingest(SessionStart("sess-1"));
+
+        pulses.ShouldBe(1);
+    }
+
+    [Fact]
+    public void SessionsChanged_ReentryFromHandler_FiresOncePerOuterCall()
+    {
+        // Re-entry from a handler is a separate outer call — it opens its own dispatch
+        // frame and drains its own pulse. Outer Ingest = 1 pulse; nested Ingest = +1.
+        var (coord, _, _, _) = Build();
+        int pulses = 0;
+        bool reentered = false;
+        coord.SessionsChanged += (_, _) =>
+        {
+            pulses++;
+            if (!reentered)
+            {
+                reentered = true;
+                coord.Ingest(SessionStart("nested-1"));
+            }
+        };
+
+        coord.Ingest(SessionStart("outer-1"));
+
+        pulses.ShouldBe(2);
+    }
+
+    [Fact]
+    public void SessionsChanged_FiresOnInactivityTick_WithNoLifecycleTransition()
+    {
+        // Recent timestamp ⇒ no timeout transition fires from the sweep. The pulse must
+        // still arrive because consumers care about "5m ago → 5m1s ago" relative-time
+        // re-renders even when nothing crossed a lifecycle boundary.
+        var clock = new FakeInactivityClock();
+        var (coord, _, _, _) = Build(clock);
+
+        coord.Ingest(SessionStart("sess-1", timestamp: DateTime.UtcNow));
+
+        var changesBefore = new List<SessionChanged>();
+        coord.Changed += (_, e) => changesBefore.Add(e);
+
+        int pulses = 0;
+        coord.SessionsChanged += (_, _) => pulses++;
+
+        coord.Advanced.StartInactivityClock();
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        pulses.ShouldBeGreaterThan(0);
+        changesBefore.ShouldBeEmpty();
+    }
+
+    private static HookEvent SessionStartWithCwd(string sessionId, string cwd) => new()
+    {
+        EventType = HookEventType.SessionStart,
+        SessionId = sessionId,
+        Cwd = cwd,
+        Timestamp = DateTime.UtcNow,
+        Source = SessionSource.Local,
+    };
+
+    [Fact]
+    public void GetSessionsForDisplay_DedupesByWorkingDirectory_MostRecentlyActiveWins()
+    {
+        var (coord, _, _, _) = Build();
+        var sharedCwd = Path.Combine(Path.GetTempPath(), "dedupe-wd");
+
+        coord.Ingest(SessionStartWithCwd("old-id", sharedCwd));
+        // Force a measurable gap so StartTime ordering is deterministic.
+        Thread.Sleep(10);
+        coord.Ingest(SessionStartWithCwd("new-id", sharedCwd));
+        coord.Advanced.ForceTerminate("old-id", "explicit");
+
+        var display = coord.GetSessionsForDisplay();
+
+        display.Count.ShouldBe(1);
+        display[0].SessionId.ShouldBe("new-id");
+    }
+
+    [Fact]
+    public void GetSessionsForDisplay_FallsBackToSessionIdWhenWorkingDirectoryEmpty()
+    {
+        var (coord, _, _, _) = Build();
+
+        coord.Ingest(SessionStartWithCwd("sess-a", ""));
+        coord.Ingest(SessionStartWithCwd("sess-b", ""));
+
+        var display = coord.GetSessionsForDisplay();
+
+        display.Select(v => v.SessionId).ShouldBe(new[] { "sess-a", "sess-b" }, ignoreOrder: true);
+        display.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void GetSessionsForDisplay_OrdersActiveFirst_ThenLastActivityDescending()
+    {
+        // Three sessions across two workspaces. Force sess-old-active to "TimedOut" via
+        // back-dated agent timestamps (same trick as GetActiveSessions_Excludes...) so
+        // ActivityState.IsActive flips to false. The two remaining active sessions are
+        // ordered by recency (StartTime ↓ since LastActivityTime starts null).
+        var (coord, activity, _, _) = Build();
+        var wdA = Path.Combine(Path.GetTempPath(), "ord-a");
+        var wdB = Path.Combine(Path.GetTempPath(), "ord-b");
+
+        coord.Ingest(SessionStartWithCwd("sess-old-active", wdA));
+        Thread.Sleep(10);
+        coord.Ingest(SessionStartWithCwd("sess-mid", wdB));
+        Thread.Sleep(10);
+        coord.Ingest(SessionStartWithCwd("sess-new", wdA));
+
+        // Force sess-old-active to derive as TimedOut (and thus IsActive == false).
+        var oldState = activity.GetState("sess-old-active")!;
+        var oldMain = oldState.Agents.Values.First(a => a.IsMain);
+        var stale = DateTime.UtcNow - TimeSpan.FromHours(1);
+        oldMain.LastActivityEventTime = stale;
+        oldMain.LastStopHookTime = stale;
+        oldMain.CompleteTime = stale;
+
+        // sess-old-active and sess-new share wdA; dedupe will pick sess-new (active, newer).
+        var display = coord.GetSessionsForDisplay();
+
+        // Expect: [sess-new (active, wdA), sess-mid (active, wdB)] — sess-old-active is collapsed.
+        display.Select(v => v.SessionId).ShouldBe(new[] { "sess-new", "sess-mid" });
+        display.All(v => v.ActivityState.IsActive).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void GetSessionsForDisplay_CaseInsensitiveWorkingDirectoryGrouping()
+    {
+        var (coord, _, _, _) = Build();
+
+        coord.Ingest(SessionStartWithCwd("sess-upper", @"C:\Foo"));
+        coord.Ingest(SessionStartWithCwd("sess-lower", @"c:\foo"));
+
+        var display = coord.GetSessionsForDisplay();
+
+        display.Count.ShouldBe(1);
+    }
 }

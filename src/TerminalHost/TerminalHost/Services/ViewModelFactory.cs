@@ -106,7 +106,7 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetService<IClaudeSessionIndexService>(),
             _serviceProvider.GetRequiredService<IDialogService>(),
             _serviceProvider.GetRequiredService<ITimerService>(),
-            _serviceProvider.GetService<ISessionActivityService>(),
+            _serviceProvider.GetService<ISessionLifecycleCoordinator>(),
             _serviceProvider.GetRequiredService<IProcessService>(),
             _serviceProvider.GetRequiredService<IClipboardService>()
         );

@@ -17,13 +17,12 @@ namespace TerminalHost.ViewModels;
 /// a short description of the current activity, and a context-token usage bar.
 ///
 /// Intentionally simple compared to Spark Canvas: no rendering, no WebView2,
-/// no force simulation — just a tree bound directly to ISessionActivityService.
+/// no force simulation — just a tree bound to <see cref="ISessionLifecycleCoordinator"/>.
 /// </summary>
 public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposable
 {
-    private readonly ISessionActivityService? _sessionActivityService;
+    private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IDispatcherService _dispatcherService;
-    private readonly IAppTimer? _refreshTimer;
 
     public override string PanelId => "sessionsTree";
     public override string PanelTitle => "Sessions";
@@ -61,12 +60,16 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public bool IsEmpty => Sessions.Count == 0;
 
+    // timerService kept on the ctor for DI compatibility with existing wiring;
+    // refresh ticks now flow through ISessionLifecycleCoordinator.SessionsChanged
+    // (which also fires from the inactivity-clock sweep), so a local timer is no
+    // longer needed.
     public SessionsTreePanelViewModel(
-        ISessionActivityService? sessionActivityService,
+        ISessionLifecycleCoordinator? sessionCoordinator,
         IDispatcherService dispatcherService,
         ITimerService timerService)
     {
-        _sessionActivityService = sessionActivityService;
+        _coord = sessionCoordinator;
         _dispatcherService = dispatcherService;
 
         DisplayState = PanelDisplayState.Panel;
@@ -74,26 +77,13 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
         Width = 420;
         Height = 600;
 
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed += OnActivityEvent;
-            _sessionActivityService.LifecycleChanged += OnLifecycleChanged;
-        }
-
-        // Periodic refresh keeps elapsed/activity strings live even while no events
-        // arrive (e.g., a tool is still running but produces no hook traffic).
-        _refreshTimer = timerService.CreateTimer(TimeSpan.FromSeconds(2), () => _dispatcherService.BeginInvoke(Refresh));
-        _refreshTimer.Start();
+        if (_coord != null)
+            _coord.SessionsChanged += OnSessionsChanged;
 
         Refresh();
     }
 
-    private void OnActivityEvent(object? sender, ActivityEvent e)
-    {
-        _dispatcherService.BeginInvoke(Refresh);
-    }
-
-    private void OnLifecycleChanged(object? sender, (string SessionId, SessionLifecycle NewState) e)
+    private void OnSessionsChanged(object? sender, EventArgs e)
     {
         _dispatcherService.BeginInvoke(Refresh);
     }
@@ -105,21 +95,8 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     [RelayCommand]
     private void Refresh()
     {
-        var states = _sessionActivityService?.GetAllStates() ?? Array.Empty<SessionActivityState>();
-
-        // Dedupe per working directory: when a session is resumed, the old session
-        // ID stays in the service (no Stop hook ever arrived) and we'd otherwise show
-        // both the stale and the new entry. Keep the most-recently-active state per dir.
-        var ordered = states
-            .GroupBy(s => string.IsNullOrEmpty(s.WorkingDirectory) ? s.SessionId : s.WorkingDirectory,
-                     StringComparer.OrdinalIgnoreCase)
-            .Select(g => g
-                .OrderByDescending(s => s.IsActive)
-                .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
-                .First())
-            .OrderByDescending(s => s.IsActive)
-            .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
-            .ToList();
+        // GetSessionsForDisplay already dedupes per workspace and orders active-first.
+        var ordered = _coord?.GetSessionsForDisplay() ?? Array.Empty<SessionView>();
 
         // Update existing rows by Id; remove any that are gone; append new ones.
         var existing = Sessions.ToDictionary(s => s.Id);
@@ -127,7 +104,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
         for (int i = 0; i < ordered.Count; i++)
         {
-            var state = ordered[i];
+            var state = ordered[i].ActivityState;
             seenIds.Add(state.SessionId);
 
             if (!existing.TryGetValue(state.SessionId, out var node))
@@ -362,11 +339,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public void Dispose()
     {
-        if (_sessionActivityService != null)
-        {
-            _sessionActivityService.ActivityEventProcessed -= OnActivityEvent;
-            _sessionActivityService.LifecycleChanged -= OnLifecycleChanged;
-        }
-        _refreshTimer?.Dispose();
+        if (_coord != null)
+            _coord.SessionsChanged -= OnSessionsChanged;
     }
 }

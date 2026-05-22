@@ -28,7 +28,10 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
 
     public event EventHandler? LiveSessionsChanged;
 
-    public LiveSessionTracker(
+    // Constructor is internal because ISessionActivityService is an internal interface.
+    // The class itself stays public (DI registers by concrete type); tests and Core
+    // construct instances via InternalsVisibleTo.
+    internal LiveSessionTracker(
         ISessionStateStore stateStore,
         IClaudeSessionIndexService? sessionIndexService = null,
         ITranscriptWatcher? transcriptWatcher = null,
