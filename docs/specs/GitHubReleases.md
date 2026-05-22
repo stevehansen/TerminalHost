@@ -146,7 +146,7 @@ dotnet publish src/TerminalHost.Avalonia -c Release -r linux-x64 \
 
 `InvariantGlobalization=true` avoids the libicu runtime dependency on minimal distros (acceptable trade-off for v1 since the UI is English-only; revisit if localization lands).
 
-Generate a `TerminalHost.sh` launcher next to the binary (`cd "$(dirname "$0")" && exec ./TerminalHost.Avalonia "$@"`), `chmod +x` both, then `tar -czf` the publish dir.
+Avalonia publishes a self-contained single-file `host` binary (per the csproj's `PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`), so no wrapper launcher is needed. The workflow renames the publish dir to `host-avalonia_linux-x64_v<version>/`, runs `chmod +x host`, and tarballs the dir — extraction produces a folder whose name matches the artifact, and users run `./host` from inside it.
 
 Artifacts produced:
 - `host-avalonia_linux-x64_v<version>.tar.gz`
@@ -208,14 +208,14 @@ Add `.github/release.yml` to categorize PRs by label in the auto-generated notes
 - [ ] Verify on a clean Mac: the `.dmg` mounts, the `.app` launches after "Open Anyway".
 
 **Phase 4 — Linux release**
-- [ ] Add `build-linux` job.
-- [ ] Verify on Ubuntu 24.04 LTS clean install (with `libice6 libsm6 libfontconfig1` installed): tarball extracts, launcher runs.
+- [x] Add `build-linux` job (`ubuntu-latest`) publishing Avalonia for `linux-x64` with `InvariantGlobalization=true`. Tarball contains the renamed publish directory with executable bit set on the `host` binary.
+- [ ] Verify on Ubuntu 24.04 LTS clean install (with `libice6 libsm6 libfontconfig1` installed): tarball extracts, `./host` launches.
 
 **Phase 5 — Production trigger**
-- [ ] Switch trigger to `push: tags: ['v*.*.*']`; remove draft-only restriction for tag pushes.
-- [ ] Add `.github/release.yml` for note categorization.
-- [ ] Cut `v0.1.0` as the first real release.
-- [ ] Update README with download instructions and SmartScreen/Gatekeeper warnings.
+- [x] Trigger already configured in Phase 2: tag push produces a non-draft release; `workflow_dispatch` produces a draft for dry-run testing.
+- [x] Add `.github/release.yml` for note categorization (Features / Bug Fixes / CI Build / Documentation / Other based on PR labels).
+- [ ] Cut `v0.1.0` as the first real release — post-merge user action.
+- [x] Update README with download table, asset naming, and SmartScreen / Gatekeeper "Open Anyway" instructions.
 
 ## Risks & Open Questions
 

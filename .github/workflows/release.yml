@@ -121,10 +121,62 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  build-linux:
+    name: Build Linux artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for MinVer)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.300
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            v="${GITHUB_REF_NAME#v}"
+          else
+            dotnet tool install --global minver-cli --version 5.0.0 > /dev/null
+            export PATH="$PATH:$HOME/.dotnet/tools"
+            v=$(minver -t v -p alpha.0)
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
+      - name: Publish Avalonia — linux-x64
+        run: |
+          dotnet publish src/TerminalHost.Avalonia -c Release -r linux-x64 \
+            -p:PublishDir=$GITHUB_WORKSPACE/publish/linux/ \
+            -p:InvariantGlobalization=true
+
+      - name: Package tarball
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          DIR="host-avalonia_linux-x64_v$VERSION"
+          mv publish/linux "$DIR"
+          chmod +x "$DIR/host"
+          mkdir -p artifacts
+          tar -czf "artifacts/$DIR.tar.gz" "$DIR"
+          ls -la artifacts/
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminalhost-linux
+          path: ./artifacts/*.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-linux]
     permissions:
       contents: write
     steps:
