@@ -19,6 +19,8 @@ public partial class HelpViewModel : ObservableObject
         _mainViewModel = mainViewModel;
     }
 
+    public string VersionString => _mainViewModel.VersionString;
+
     #region Keyboard Shortcuts
 
     /// <summary>

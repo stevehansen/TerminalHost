@@ -27,6 +27,9 @@ public partial class MainViewModel : ObservableObject
     private readonly DetectedLinksViewModel _detectedLinksViewModel;
     private readonly IFileSystem _fileSystem;
     private readonly IDialogService _dialogService;
+    private readonly IVersionService _versionService;
+
+    public string VersionString => $"TerminalHost v{_versionService.InformationalVersion}";
 
     private readonly IClaudeCommandService _claudeCommandService;
     private readonly IAiAssistantService _aiAssistantService;
@@ -247,6 +250,7 @@ public partial class MainViewModel : ObservableObject
         DetectedLinksViewModel detectedLinksViewModel,
         IFileSystem fileSystem,
         IDialogService dialogService,
+        IVersionService versionService,
         IClaudeCommandService claudeCommandService,
         IAiAssistantService aiAssistantService,
         IProcessService processService,
@@ -284,6 +288,7 @@ public partial class MainViewModel : ObservableObject
         _detectedLinksViewModel = detectedLinksViewModel;
         _fileSystem = fileSystem;
         _dialogService = dialogService;
+        _versionService = versionService;
         _claudeCommandService = claudeCommandService;
         _aiAssistantService = aiAssistantService;
         _processService = processService;
