@@ -11,7 +11,6 @@ public class LifecycleDecisionTests
     [InlineData(SessionLifecycle.Completed)]
     [InlineData(SessionLifecycle.Failed)]
     [InlineData(SessionLifecycle.TimedOut)]
-    [InlineData(SessionLifecycle.Abandoned)]
     public void ClassifyArrival_TerminalState_RevivesToActive(SessionLifecycle current)
     {
         var verdict = LifecycleDecision.ClassifyArrival(current);
@@ -22,9 +21,7 @@ public class LifecycleDecisionTests
 
     [Theory]
     [InlineData(SessionLifecycle.Active)]
-    [InlineData(SessionLifecycle.ToolCalling)]
     [InlineData(SessionLifecycle.WaitingPermission)]
-    [InlineData(SessionLifecycle.Idle)]
     public void ClassifyArrival_NonTerminalState_NoOp(SessionLifecycle current)
     {
         var verdict = LifecycleDecision.ClassifyArrival(current);

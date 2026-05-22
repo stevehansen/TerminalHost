@@ -13,8 +13,7 @@ public static class LifecycleDecision
     {
         bool isTerminal = current is SessionLifecycle.Completed
                                   or SessionLifecycle.Failed
-                                  or SessionLifecycle.TimedOut
-                                  or SessionLifecycle.Abandoned;
+                                  or SessionLifecycle.TimedOut;
         return isTerminal
             ? new LifecycleVerdict(Revive: true, NewLifecycle: SessionLifecycle.Active)
             : new LifecycleVerdict(Revive: false, NewLifecycle: null);

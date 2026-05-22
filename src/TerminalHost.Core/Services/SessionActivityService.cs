@@ -439,7 +439,7 @@ public class SessionActivityService : ISessionActivityService
         if (state.MainAgent != null)
             state.MainAgent.StampStop(hookEvent.Timestamp);
 
-        FinalizeSessionEnd(state, hookEvent.SessionId, "explicit", events);
+        FinalizeSessionEnd(state, hookEvent.SessionId, "explicit", events, lifecycleChanges);
         return events;
     }
 
@@ -449,7 +449,8 @@ public class SessionActivityService : ISessionActivityService
     /// Shared by the synchronous path (ProcessSessionStop) and the deferred path
     /// (ProcessSubagentStop, after the last subagent finishes).
     /// </summary>
-    private void FinalizeSessionEnd(SessionActivityState state, string sessionId, string endReason, List<ActivityEvent> events)
+    private void FinalizeSessionEnd(SessionActivityState state, string sessionId, string endReason, List<ActivityEvent> events,
+        List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)
     {
         var previousLifecycle = state.Lifecycle;
         state.Lifecycle = DetermineEndStatus(state, endReason);
@@ -470,7 +471,7 @@ public class SessionActivityService : ISessionActivityService
 
         if (previousLifecycle != state.Lifecycle)
         {
-            lifecycleChanges.Add((hookEvent.SessionId, state.Lifecycle));
+            lifecycleChanges.Add((sessionId, state.Lifecycle));
         }
     }
 
@@ -509,7 +510,7 @@ public class SessionActivityService : ISessionActivityService
 
     /// <summary>
     /// Un-sticks a session whose lifecycle was previously marked terminal
-    /// (Completed/Failed/TimedOut/Abandoned) when fresh activity arrives. Claude Code's
+    /// (Completed/Failed/TimedOut) when fresh activity arrives. Claude Code's
     /// Stop hook fires between every assistant turn — not only at session end — and the
     /// inactivity tracker can flip a still-running session to TimedOut while a long tool
     /// produces no transcript writes. Without this revive, the tree would show "Done" or
