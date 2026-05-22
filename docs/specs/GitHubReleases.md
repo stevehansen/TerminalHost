@@ -1,6 +1,6 @@
 # GitHub Releases Pipeline
 
-**Status:** Draft
+**Status:** Completed
 **Owner:** TBD
 **Related specs:** [Versioning.md](Versioning.md), [CrossPlatform.md](CrossPlatform.md)
 

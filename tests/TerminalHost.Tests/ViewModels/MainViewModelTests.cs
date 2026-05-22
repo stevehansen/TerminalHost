@@ -26,6 +26,7 @@ public class MainViewModelTests
     private readonly Mock<DetectedLinksViewModel> _mockDetectedLinksViewModel;
     private readonly Mock<IFileSystem> _mockFileSystem;
     private readonly Mock<IDialogService> _mockDialogService;
+    private readonly Mock<IVersionService> _mockVersionService;
     private readonly Mock<IClaudeCommandService> _mockClaudeCommandService;
     private readonly Mock<IAiAssistantService> _mockAiAssistantService;
     private readonly Mock<IGitHubService> _mockGitHubService;
@@ -61,6 +62,9 @@ public class MainViewModelTests
         _mockFileExplorerService = new Mock<IFileExplorerService>();
         _mockFileSystem = new Mock<IFileSystem>();
         _mockDialogService = new Mock<IDialogService>();
+        _mockVersionService = new Mock<IVersionService>();
+        _mockVersionService.SetupGet(v => v.InformationalVersion).Returns("0.0.0-test");
+        _mockVersionService.SetupGet(v => v.FullInformationalVersion).Returns("0.0.0-test+abc");
         _mockClaudeCommandService = new Mock<IClaudeCommandService>();
         _mockAiAssistantService = new Mock<IAiAssistantService>();
         _mockGitHubService = new Mock<IGitHubService>();
@@ -197,6 +201,7 @@ public class MainViewModelTests
             _mockDetectedLinksViewModel.Object,
             _mockFileSystem.Object,
             _mockDialogService.Object,
+            _mockVersionService.Object,
             _mockClaudeCommandService.Object,
             _mockAiAssistantService.Object,
             _mockProcessService.Object,
