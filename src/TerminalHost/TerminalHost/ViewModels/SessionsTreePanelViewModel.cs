@@ -95,8 +95,14 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     [RelayCommand]
     private void Refresh()
     {
-        // GetSessionsForDisplay already dedupes per workspace and orders active-first.
-        var ordered = _coord?.GetSessionsForDisplay() ?? Array.Empty<SessionView>();
+        // GetSessionsForDisplay dedupes per workspace; sort alphabetically by folder
+        // name so row positions stay stable across the 2s refresh tick (issue #72).
+        var ordered = (_coord?.GetSessionsForDisplay() ?? (IReadOnlyList<SessionView>)Array.Empty<SessionView>())
+            .OrderBy(v => string.IsNullOrEmpty(v.ActivityState.WorkingDirectory)
+                ? v.SessionId
+                : Path.GetFileName(v.ActivityState.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Update existing rows by Id; remove any that are gone; append new ones.
         var existing = Sessions.ToDictionary(s => s.Id);

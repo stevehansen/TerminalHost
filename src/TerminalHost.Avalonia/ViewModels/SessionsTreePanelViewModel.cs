@@ -126,7 +126,10 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                     .OrderByDescending(s => s.LastActivityTime ?? s.StartTime)
                     .First();
             })
-            .OrderByDescending(s => s.LastActivityTime ?? s.StartTime)
+            .OrderBy(s => string.IsNullOrEmpty(s.WorkingDirectory)
+                ? s.SessionId
+                : Path.GetFileName(s.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var presentIds = ordered.Select(NodeIdFor).ToHashSet(StringComparer.OrdinalIgnoreCase);
