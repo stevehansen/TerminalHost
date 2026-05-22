@@ -310,6 +310,8 @@ public partial class App : Application
         services.AddSingleton<ITimelineService, TimelineService>();
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
         services.AddSingleton<ISessionActivityService, SessionActivityService>();
+        services.AddSingleton<IInactivityClock, SystemInactivityClock>();
+        services.AddSingleton<ISessionLifecycleCoordinator, SessionLifecycleCoordinator>();
         services.AddSingleton<ISessionArchiveService, SessionArchiveService>();
         services.AddSingleton<IAiAssistantService, AiAssistantService>();
         services.AddSingleton<IGitHubService, GitHubService>();

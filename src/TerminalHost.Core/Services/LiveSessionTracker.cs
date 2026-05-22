@@ -18,7 +18,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
     private readonly ICollabService? _collabService;
     private readonly object _lock = new();
 
-    private const int InactivityCheckIntervalMs = 30_000;
+    internal const int InactivityCheckIntervalMs = 30_000;
     internal const int InactivityTimeoutMinutes = 2;
     private const int NoActivityTimeoutMinutes = 5;
     private const int CompletedSessionRetentionSeconds = 60;
@@ -207,7 +207,7 @@ public sealed class LiveSessionTracker : ILiveSessionTracker, IDisposable
         _inactivityTimer = null;
     }
 
-    internal void CheckInactiveSessions()
+    public void CheckInactiveSessions()
     {
         bool changed = false;
         lock (_lock)

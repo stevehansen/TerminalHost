@@ -13,7 +13,7 @@ namespace TerminalHost.Core.Services;
 public class SessionActivityService : ISessionActivityService
 {
     private readonly object _lock = new();
-    private readonly Dictionary<string, SessionActivityState> _states = [];
+    private readonly Dictionary<string, SessionActivityState> _states = new(StringComparer.OrdinalIgnoreCase);
     private readonly TranscriptParserService _transcriptParser = new();
 
     public event EventHandler<ActivityEvent>? ActivityEventProcessed;
@@ -202,18 +202,20 @@ public class SessionActivityService : ISessionActivityService
         if (!result.ParsedSuccessfully)
             return;
 
+        var lifecycleChanges = new List<(string SessionId, SessionLifecycle NewState)>();
+
         lock (_lock)
         {
             if (!_states.TryGetValue(sessionId, out var state))
                 return;
 
-            // Apply events to state
+            ReviveIfTerminal(state, lifecycleChanges);
+
             foreach (var evt in result.Events)
             {
                 ApplyEventToState(state, evt);
             }
 
-            // Update summary and model
             if (result.Summary != null)
                 state.Summary = result.Summary;
 
@@ -225,6 +227,10 @@ public class SessionActivityService : ISessionActivityService
         foreach (var evt in result.Events)
         {
             ActivityEventProcessed?.Invoke(this, evt);
+        }
+        foreach (var lc in lifecycleChanges)
+        {
+            LifecycleChanged?.Invoke(this, lc);
         }
     }
 
@@ -522,17 +528,53 @@ public class SessionActivityService : ISessionActivityService
         if (!verdict.Revive || verdict.NewLifecycle is not { } newLifecycle)
             return;
 
-        state.Lifecycle = newLifecycle;
-        state.EndTime = null;
+        ApplyLifecycleLocked(state, newLifecycle);
+        lifecycleChanges.Add((state.SessionId, state.Lifecycle));
+    }
 
-        if (state.MainAgent is { } main)
+    public bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle)
+    {
+        bool changed = false;
+
+        lock (_lock)
         {
-            main.CompleteTime = null;
-            if (main.State is AgentState.Complete or AgentState.Error)
-                main.State = AgentState.Active;
+            if (!_states.TryGetValue(sessionId, out var state))
+                return false;
+            if (state.Lifecycle == newLifecycle)
+                return false;
+
+            ApplyLifecycleLocked(state, newLifecycle);
+            changed = true;
         }
 
-        lifecycleChanges.Add((state.SessionId, state.Lifecycle));
+        if (changed)
+            LifecycleChanged?.Invoke(this, (sessionId, newLifecycle));
+
+        return changed;
+    }
+
+    private static void ApplyLifecycleLocked(SessionActivityState state, SessionLifecycle newLifecycle)
+    {
+        state.Lifecycle = newLifecycle;
+
+        bool isTerminal = newLifecycle is SessionLifecycle.Completed
+                                       or SessionLifecycle.Failed
+                                       or SessionLifecycle.TimedOut;
+
+        if (isTerminal)
+        {
+            state.EndTime ??= DateTime.UtcNow;
+        }
+        else if (newLifecycle == SessionLifecycle.Active)
+        {
+            state.EndTime = null;
+            if (state.MainAgent is { } main)
+            {
+                main.CompleteTime = null;
+                if (main.State is AgentState.Complete or AgentState.Error)
+                    main.State = AgentState.Active;
+            }
+        }
     }
 
     private List<ActivityEvent> ProcessFileChanged(HookEvent hookEvent, List<(string SessionId, SessionLifecycle NewState)> lifecycleChanges)

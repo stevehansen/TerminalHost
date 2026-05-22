@@ -55,6 +55,16 @@ public interface ISessionActivityService
     void ProcessTranscriptEvents(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null);
 
     /// <summary>
+    /// Forcibly sets a session's lifecycle under the service lock and raises
+    /// <see cref="LifecycleChanged"/>. Terminal states stamp <see cref="SessionActivityState.EndTime"/>
+    /// (if not already set); transitioning to <see cref="SessionLifecycle.Active"/> clears
+    /// EndTime and reactivates the main agent. No-op if the session is unknown or already
+    /// in the target lifecycle. The single write path for out-of-band lifecycle mutation
+    /// (used by ISessionLifecycleCoordinator.Advanced).
+    /// </summary>
+    bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle);
+
+    /// <summary>
     /// Gets tool call statistics for a session.
     /// </summary>
     (int Total, int FileReads, int FileWrites, int ShellCommands, int Subagents) GetToolCallStats(string sessionId);

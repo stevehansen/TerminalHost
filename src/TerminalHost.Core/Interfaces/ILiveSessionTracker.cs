@@ -23,6 +23,14 @@ public interface ILiveSessionTracker
     void StopInactivityTimer();
 
     /// <summary>
+    /// Runs one inactivity sweep synchronously. Production callers use the internal
+    /// Timer started by <see cref="StartInactivityTimer"/>; SessionLifecycleCoordinator
+    /// drives this directly when an <see cref="IInactivityClock"/> is wired so tests
+    /// can advance virtual time.
+    /// </summary>
+    void CheckInactiveSessions();
+
+    /// <summary>
     /// Fired whenever a live session is added, transitions to/from active, or is removed
     /// after the retention window. Pass-through: not coalesced.
     /// </summary>

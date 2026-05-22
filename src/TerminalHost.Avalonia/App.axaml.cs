@@ -266,6 +266,8 @@ public partial class App : Application
         // Session Activity & Transcript Watching
         services.AddSingleton<ITranscriptWatcher, TranscriptWatcher>();
         services.AddSingleton<ISessionActivityService, TerminalHost.Core.Services.SessionActivityService>();
+        services.AddSingleton<IInactivityClock, TerminalHost.Core.Services.SystemInactivityClock>();
+        services.AddSingleton<ISessionLifecycleCoordinator, TerminalHost.Core.Services.SessionLifecycleCoordinator>();
 
         // API & Webhooks Services
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();

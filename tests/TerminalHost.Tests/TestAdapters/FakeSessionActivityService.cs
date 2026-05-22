@@ -39,6 +39,7 @@ public sealed class FakeSessionActivityService : ISessionActivityService
         return Task.CompletedTask;
     }
     public void ProcessTranscriptEvents(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null) { }
+    public bool MarkLifecycle(string sessionId, SessionLifecycle newLifecycle) => false;
     public (int Total, int FileReads, int FileWrites, int ShellCommands, int Subagents) GetToolCallStats(string sessionId) => (0, 0, 0, 0, 0);
     public IReadOnlyList<FileActivity> GetTopFiles(string sessionId, int count = 10) => Array.Empty<FileActivity>();
 }
