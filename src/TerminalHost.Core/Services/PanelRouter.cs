@@ -13,10 +13,13 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     private readonly IPanelPersistence _persistence;
     private readonly IDispatcherService _dispatcher;
     private readonly Func<Type, IPanelableViewModel?>? _viewModelFactory;
+    private readonly Func<string, IPanelableViewModel, bool>? _legacyCenterShow;
 
     private readonly Dictionary<string, Registration> _registry = new(StringComparer.Ordinal);
     private readonly Dictionary<IPanelableViewModel, EventHandler<PanelStateChangeRequestedEventArgs>> _vmHandlers = new();
     private readonly Dictionary<IPanelableViewModel, PropertyChangedEventHandler> _vmOpenHandlers = new();
+    private readonly Dictionary<string, PanelZone> _originZones = new(StringComparer.Ordinal);
+    private readonly Dictionary<(PanelZone Zone, PanelScope Scope), string> _activePanel = new();
     private readonly object _lock = new();
     private bool _disposed;
 
@@ -31,17 +34,66 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         IEnumerable<IPanelSurface> surfaces,
         IPanelPersistence persistence,
         IDispatcherService dispatcher,
-        Func<Type, IPanelableViewModel?>? viewModelFactory = null)
+        Func<Type, IPanelableViewModel?>? viewModelFactory = null,
+        Func<string, IPanelableViewModel, bool>? legacyCenterShow = null)
     {
         _persistence = persistence;
         _dispatcher = dispatcher;
         _viewModelFactory = viewModelFactory;
+        _legacyCenterShow = legacyCenterShow;
         _surfaces = new Dictionary<(PanelZone, PanelScope), IPanelSurface>();
 
         foreach (var surface in surfaces)
         {
             _surfaces[(surface.Zone, surface.Scope)] = surface;
             surface.DismissRequested += OnSurfaceDismissRequested;
+        }
+    }
+
+    /// <inheritdoc />
+    public void RegisterSurface(IPanelSurface surface)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(surface);
+        lock (_lock)
+        {
+            var key = (surface.Zone, surface.Scope);
+            if (_surfaces.ContainsKey(key))
+                throw new InvalidOperationException(
+                    $"A surface is already registered for zone '{surface.Zone}' in scope '{FormatScope(surface.Scope)}'.");
+            _surfaces[key] = surface;
+        }
+        surface.DismissRequested += OnSurfaceDismissRequested;
+    }
+
+    /// <inheritdoc />
+    public void UnregisterSurface(PanelZone zone, PanelScope scope)
+    {
+        ThrowIfDisposed();
+        IPanelSurface? surface;
+        lock (_lock)
+        {
+            if (!_surfaces.TryGetValue((zone, scope), out surface))
+                return;
+        }
+        // Close every panel currently in this (zone, scope) before dropping the surface.
+        CloseZone(zone, scope);
+        lock (_lock)
+        {
+            _surfaces.Remove((zone, scope));
+            _activePanel.Remove((zone, scope));
+        }
+        surface.DismissRequested -= OnSurfaceDismissRequested;
+    }
+
+    /// <inheritdoc />
+    [Obsolete("Transient bridge for Phase 3; removed in Phase 4 when Center surface lands.")]
+    public void SetOriginZone(string panelId, PanelZone originZone)
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            _originZones[panelId] = originZone;
         }
     }
 
@@ -79,10 +131,18 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     public void Move(string panelId, PanelZone newZone, PanelShowOptions? options)
     {
         ThrowIfDisposed();
+
+        // Dock-back from Window: if the panel was popped out of Center, route back via the
+        // legacy center-show bridge instead of the normal Move path. Phase 4's Center surface
+        // will let this collapse into an ordinary Move(Center).
+        if (TryHandleCenterDockBack(panelId, newZone))
+            return;
+
         Registration existing;
         string registrationKey;
         IPanelSurface oldSurface;
         IPanelSurface newSurface;
+        PanelScope newScope;
         PanelShowOptions effectiveOptions;
         lock (_lock)
         {
@@ -94,31 +154,109 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (existing.Zone == newZone)
                 return;
 
-            if (!_surfaces.TryGetValue((newZone, existing.Scope), out var ns))
-                throw new InvalidOperationException(
-                    $"No surface registered for zone '{newZone}' in scope '{FormatScope(existing.Scope)}'.");
+            // Cross-scope fallback: a Window-zone surface is intrinsically global (AppShell-scoped),
+            // so a tab-scoped panel moving to Window falls back to the AppShell Window surface.
+            // The registration's Scope stays intact so the reverse Move(RightDock) resolves cleanly.
+            // Phase 4 will extend this to Center once that surface lands.
+            newScope = existing.Scope;
+            if (!_surfaces.TryGetValue((newZone, newScope), out var ns))
+            {
+                if (newZone == PanelZone.Window && _surfaces.TryGetValue((newZone, PanelScope.AppShell), out var appShellSurface))
+                {
+                    ns = appShellSurface;
+                    newScope = PanelScope.AppShell;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"No surface registered for zone '{newZone}' in scope '{FormatScope(existing.Scope)}'.");
+                }
+            }
 
             if (!_surfaces.TryGetValue((existing.Zone, existing.Scope), out var os))
-                throw new InvalidOperationException(
-                    $"No surface registered for zone '{existing.Zone}' in scope '{FormatScope(existing.Scope)}'.");
+            {
+                // Mirror the Window-cross-scope fallback for the OLD surface: a panel mounted on
+                // the AppShell Window surface (via the fallback above) keeps its tab-scoped
+                // registration, so the reverse lookup misses unless we apply the same fallback.
+                if (existing.Zone == PanelZone.Window && _surfaces.TryGetValue((PanelZone.Window, PanelScope.AppShell), out var appShellOld))
+                    os = appShellOld;
+                else
+                    throw new InvalidOperationException(
+                        $"No surface registered for zone '{existing.Zone}' in scope '{FormatScope(existing.Scope)}'.");
+            }
 
             newSurface = ns;
             oldSurface = os;
             effectiveOptions = options ?? existing.Options;
         }
 
-        MoveCore(existing, registrationKey, newZone, oldSurface, newSurface, effectiveOptions);
+        MoveCore(existing, registrationKey, newZone, newScope, oldSurface, newSurface, effectiveOptions);
+    }
+
+    /// <summary>
+    /// Dock-back bridge for Center-origin pop-outs. When a panel was previously popped out of
+    /// the Center zone (via <see cref="SetOriginZone"/>), docking it back from a window invokes
+    /// the legacy center-show callback registered in DI. If the callback succeeds, the router
+    /// closes the panel (evicting it from the registry) — the panel exits router-managed life
+    /// until Phase 4's Center surface lands.
+    /// </summary>
+    private bool TryHandleCenterDockBack(string panelId, PanelZone newZone)
+    {
+        if (newZone == PanelZone.Window) return false;
+        PanelZone origin;
+        IPanelableViewModel? vm;
+        lock (_lock)
+        {
+            if (!_originZones.TryGetValue(panelId, out origin)) return false;
+            if (origin != PanelZone.Center) return false;
+            var key = FindRegistrationKeyByPanelId(panelId);
+            if (key is null) return false;
+            vm = _registry[key].Vm;
+        }
+
+        if (_legacyCenterShow is null) return false;
+
+        // The bridge is user code (a DI-registered lambda). A misbehaving bridge should not
+        // crash the dock-back path; swallow exceptions and fall through to the default
+        // RightDock Move. Phase 4 removes this entire bridge when Center becomes a real surface.
+        bool handled;
+        try
+        {
+            handled = _legacyCenterShow(panelId, vm);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"PanelRouter: legacyCenterShow threw for '{panelId}': {ex}");
+            return false;
+        }
+
+        if (handled)
+        {
+            // The bridge took ownership of the VM; evict our registration so the router stops
+            // tracking it. Latent bug: if the user switches tabs while the window was detached,
+            // the bridge shows on the wrong tab. Phase 4 fixes this when Center becomes a real surface.
+            lock (_lock)
+            {
+                _originZones.Remove(panelId);
+            }
+            Close(panelId);
+            return true;
+        }
+        return false;
     }
 
     private void MoveCore(
         Registration existing,
         string registrationKey,
         PanelZone newZone,
+        PanelScope newSurfaceScope,
         IPanelSurface oldSurface,
         IPanelSurface newSurface,
         PanelShowOptions effectiveOptions)
     {
         oldSurface.Unmount(existing.Vm.PanelId);
+        // Demote the source surface's active tracker if this panel was its active one.
+        UpdateActiveOnUnmount(oldSurface.Zone, oldSurface.Scope, existing.Vm.PanelId);
 
         ApplyDisplayState(existing.Vm, newZone);
 
@@ -157,12 +295,29 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         lock (_lock)
         {
             // Only rewrite if the registration is still here (defensive; tests are single-threaded).
+            // The registration's Scope intentionally stays at the panel's tab home — when a tab-scoped
+            // panel mounts on the AppShell Window surface via the cross-scope fallback, the original
+            // scope is preserved so the reverse Move resolves cleanly.
             if (_registry.ContainsKey(registrationKey))
                 _registry[registrationKey] = existing with { Zone = newZone, Options = effectiveOptions };
+            // Track the new surface as the panel's current active tab.
+            _activePanel[(newZone, newSurfaceScope)] = existing.Vm.PanelId;
         }
 
         RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone, existing.Scope);
         PersistScope(existing.Scope);
+    }
+
+    /// <summary>
+    /// Drops the active-panel tracker for a (zone, scope) if the unmounted panel was the active one.
+    /// </summary>
+    private void UpdateActiveOnUnmount(PanelZone zone, PanelScope scope, string panelId)
+    {
+        lock (_lock)
+        {
+            if (_activePanel.TryGetValue((zone, scope), out var current) && current == panelId)
+                _activePanel.Remove((zone, scope));
+        }
     }
 
     /// <inheritdoc />
@@ -176,13 +331,17 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (key is null) return;
             existing = _registry[key];
             _registry.Remove(key);
+            _originZones.Remove(panelId);
         }
 
         UnsubscribeStateChanges(existing.Vm);
         UnsubscribeIsOpen(existing.Vm);
 
-        if (_surfaces.TryGetValue((existing.Zone, existing.Scope), out var surface))
+        if (TryGetMountSurface(existing.Zone, existing.Scope, out var surface))
+        {
             surface.Unmount(panelId);
+            UpdateActiveOnUnmount(surface.Zone, surface.Scope, panelId);
+        }
 
         existing.Vm.IsOpen = false;
 
@@ -215,13 +374,17 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (!_registry.TryGetValue(registrationKey, out var current)) return;
             existing = current;
             _registry.Remove(registrationKey);
+            _originZones.Remove(existing.Vm.PanelId);
         }
 
         UnsubscribeStateChanges(existing.Vm);
         UnsubscribeIsOpen(existing.Vm);
 
-        if (_surfaces.TryGetValue((existing.Zone, existing.Scope), out var surface))
+        if (TryGetMountSurface(existing.Zone, existing.Scope, out var surface))
+        {
             surface.Unmount(existing.Vm.PanelId);
+            UpdateActiveOnUnmount(surface.Zone, surface.Scope, existing.Vm.PanelId);
+        }
 
         existing.Vm.IsOpen = false;
         RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone: null, existing.Scope);
@@ -245,12 +408,30 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     {
         ThrowIfDisposed();
         var snapshot = _persistence.Load(scope);
+        string? activeId = null;
+        PanelZone activeZone = default;
         foreach (var entry in snapshot.Entries)
         {
             if (!entry.IsOpen) continue;
             var vm = resolveVm(entry.PanelId);
             if (vm is null) continue;
             Show(vm, new PanelShowOptions(Zone: entry.Zone, Scope: entry.Scope, ForceShow: true));
+            if (entry.IsActive)
+            {
+                activeId = entry.PanelId;
+                activeZone = entry.Zone;
+            }
+        }
+
+        // After all panels are mounted, focus the entry marked active (if any) so the surface's
+        // ActivePanel matches what was saved.
+        if (activeId is not null && TryGetMountSurface(activeZone, scope, out var surface))
+        {
+            surface.Focus(activeId);
+            lock (_lock)
+            {
+                _activePanel[(activeZone, scope)] = activeId;
+            }
         }
     }
 
@@ -312,14 +493,24 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             {
                 // Reuse Move's plumbing to keep semantics identical (display state, rollback, raise, persist).
                 Move(vm.PanelId, zone);
-                if (_surfaces.TryGetValue((zone, scope), out var s))
+                // The actual mount surface may differ from (zone, scope) when the cross-scope
+                // Window fallback fired (tab-scoped panel mounted on AppShell window surface);
+                // TryGetMountSurface honors that fallback so Focus reaches the right surface.
+                if (TryGetMountSurface(zone, scope, out var s))
                     s.Focus(vm.PanelId);
                 return;
             }
             case ShowDecision.Focus:
             {
-                if (_surfaces.TryGetValue((zone, scope), out var s))
+                if (TryGetMountSurface(zone, scope, out var s))
+                {
                     s.Focus(vm.PanelId);
+                    lock (_lock)
+                    {
+                        _activePanel[(zone, scope)] = vm.PanelId;
+                    }
+                    PersistScope(scope);
+                }
                 return;
             }
             case ShowDecision.ToggleClose:
@@ -333,7 +524,8 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                 vm.IsOpen = true;
                 SubscribeStateChanges(vm);
                 SubscribeIsOpen(vm);
-                var surface = _surfaces[(zone, scope)];
+                IPanelSurface surface;
+                lock (_lock) { surface = _surfaces[(zone, scope)]; }
                 try
                 {
                     surface.Mount(vm, BuildMountOptions(vm, options));
@@ -350,6 +542,10 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                     UnsubscribeIsOpen(vm);
                     vm.IsOpen = false;
                     throw;
+                }
+                lock (_lock)
+                {
+                    _activePanel[(zone, scope)] = vm.PanelId;
                 }
                 RaiseRouted(vm.PanelId, oldZone: null, newZone: zone, scope);
                 PersistScope(scope);
@@ -516,10 +712,36 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         {
             entries = _registry.Values
                 .Where(r => r.Scope == scope)
-                .Select(r => new PanelLayoutEntry(r.Vm.PanelId, r.Zone, r.Scope, IsOpen: true))
+                .Select(r => new PanelLayoutEntry(
+                    r.Vm.PanelId,
+                    r.Zone,
+                    r.Scope,
+                    IsOpen: true,
+                    IsActive: _activePanel.TryGetValue((r.Zone, r.Scope), out var active) && active == r.Vm.PanelId))
                 .ToList();
         }
         _persistence.Save(scope, new PanelLayoutSnapshot(entries));
+    }
+
+    /// <summary>
+    /// Resolves the surface a panel is actually mounted on for the given registration
+    /// <paramref name="zone"/> / <paramref name="scope"/>, applying the Phase 3 cross-scope
+    /// Window fallback: a tab-scoped panel moved to the Window zone is registered under its
+    /// tab scope but mounted on the AppShell window surface. All reads of <c>_surfaces</c>
+    /// outside the constructor / <c>Dispose</c> must go through this helper so they take
+    /// <c>_lock</c> consistently and honor the fallback.
+    /// </summary>
+    private bool TryGetMountSurface(PanelZone zone, PanelScope scope, out IPanelSurface surface)
+    {
+        lock (_lock)
+        {
+            if (_surfaces.TryGetValue((zone, scope), out surface!)) return true;
+            if (zone == PanelZone.Window
+                && _surfaces.TryGetValue((PanelZone.Window, PanelScope.AppShell), out surface!))
+                return true;
+            surface = null!;
+            return false;
+        }
     }
 
     private static string FormatScope(PanelScope scope) => scope.TabId is null ? "AppShell" : $"Tab:{scope.TabId}";
@@ -538,18 +760,20 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        foreach (var surface in _surfaces.Values)
-            surface.DismissRequested -= OnSurfaceDismissRequested;
-
+        List<IPanelSurface> surfacesSnapshot;
         List<KeyValuePair<IPanelableViewModel, EventHandler<PanelStateChangeRequestedEventArgs>>> handlers;
         List<KeyValuePair<IPanelableViewModel, PropertyChangedEventHandler>> openHandlers;
         lock (_lock)
         {
+            surfacesSnapshot = _surfaces.Values.ToList();
             handlers = _vmHandlers.ToList();
             _vmHandlers.Clear();
             openHandlers = _vmOpenHandlers.ToList();
             _vmOpenHandlers.Clear();
         }
+
+        foreach (var surface in surfacesSnapshot)
+            surface.DismissRequested -= OnSurfaceDismissRequested;
         foreach (var kvp in handlers)
             kvp.Key.StateChangeRequested -= kvp.Value;
         foreach (var kvp in openHandlers)

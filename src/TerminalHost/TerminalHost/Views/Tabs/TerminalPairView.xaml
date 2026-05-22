@@ -381,7 +381,8 @@
                     </ToggleButton>
 
                     <!-- Toggle Explorer Visibility -->
-                    <ToggleButton IsChecked="{Binding IsExplorerVisible}"
+                    <ToggleButton IsChecked="{Binding IsExplorerVisible, Mode=OneWay}"
+                                  Command="{Binding ToggleExplorerCommand}"
                                   Content="📂"
                                   ToolTip="File Explorer (Ctrl+Shift+F)"
                                   AutomationProperties.Name="Toggle File Explorer"
@@ -605,7 +606,7 @@
                                     ToolTip="Back to Terminals (Escape)"/>
                             <Button DockPanel.Dock="Right" Content="&#x29C9;"
                                     Style="{StaticResource TabCloseButton}"
-                                    Click="PopOutCenterPanel_Click"
+                                    Command="{Binding PopOutCenterPanelCommand}"
                                     ToolTip="Pop out to window"
                                     FontSize="12"
                                     Margin="0,0,4,0"/>
@@ -639,8 +640,6 @@
             <!-- Right Panel Host (Column 2 of outer grid) - contains Explorer + other docked panels -->
             <controls:PanelHost x:Name="RightPanelHost"
                                 Grid.Column="2"
-                                Panels="{Binding RightPanels}"
-                                ActivePanel="{Binding ActiveRightPanel, Mode=TwoWay}"
                                 Side="Right"
                                 Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>

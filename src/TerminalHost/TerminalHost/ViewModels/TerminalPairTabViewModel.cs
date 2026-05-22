@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,6 +10,7 @@ using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Services;
+using TerminalHost.Services.Panels;
 
 namespace TerminalHost.ViewModels;
 
@@ -166,8 +168,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private double _runSplitRatio = 0.3;
 
     // Explorer panel properties
-    [ObservableProperty]
-    private bool _isExplorerVisible;
+    // IsExplorerVisible is computed from the right-dock surface's HasMounted flag; the surface
+    // is the single source of truth for "any right-dock panel is mounted".
+    public bool IsExplorerVisible => _rightDock?.HasMounted ?? false;
 
     [ObservableProperty]
     private double _explorerSplitRatio = 0.25;
@@ -189,47 +192,16 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public bool IsTerminalsVisible => ActiveCenterPanel == null;
 
-    // Panel system properties
-    /// <summary>
-    /// Panels docked on the right side.
-    /// </summary>
-    [ObservableProperty]
-    private ObservableCollection<IPanelableViewModel> _rightPanels = [];
-
-    /// <summary>
-    /// Panels docked on the left side.
-    /// </summary>
-    [ObservableProperty]
-    private ObservableCollection<IPanelableViewModel> _leftPanels = [];
-
-    /// <summary>
-    /// The currently active panel on the right side.
-    /// </summary>
-    [ObservableProperty]
-    private IPanelableViewModel? _activeRightPanel;
-
-    /// <summary>
-    /// The currently active panel on the left side.
-    /// </summary>
-    [ObservableProperty]
-    private IPanelableViewModel? _activeLeftPanel;
-
-    /// <summary>
-    /// Whether the left panel host is visible.
-    /// </summary>
-    [ObservableProperty]
-    private bool _isLeftPanelVisible;
-
-    /// <summary>
-    /// Split ratio for the left panel (0-1).
-    /// </summary>
-    [ObservableProperty]
-    private double _leftPanelSplitRatio = 0.25;
-
     /// <summary>
     /// The file explorer wrapped as a panel.
     /// </summary>
     public FileExplorerPanelViewModel? ExplorerPanelViewModel { get; private set; }
+
+    /// <summary>
+    /// The right-dock surface for this tab. Owns the dock's panel collection imperatively.
+    /// </summary>
+    private WpfRightDockSurface? _rightDock;
+    private readonly IPanelRouter? _router;
 
     /// <summary>
     /// Dictionary of registered panels by PanelId.
@@ -529,15 +501,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? new GridLength(4, GridUnitType.Pixel)
         : new GridLength(0, GridUnitType.Pixel);
 
-    // Left panel column widths - use Pixel unit with 0 when hidden
-    public GridLength LeftPanelColumnWidth => IsLeftPanelVisible
-        ? new GridLength(LeftPanelSplitRatio, GridUnitType.Star)
-        : new GridLength(0, GridUnitType.Pixel);
-
-    public GridLength LeftPanelSplitterWidth => IsLeftPanelVisible
-        ? new GridLength(4, GridUnitType.Pixel)
-        : new GridLength(0, GridUnitType.Pixel);
-
     // Container state
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TitleWithGit))]
@@ -585,7 +548,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public Func<Task>? DeferredExplorerInit { get; set; }
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null, IPanelRouter? router = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -596,11 +559,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _toastService = toastService;
         _taskService = taskService;
         _sessionCoordinator = sessionCoordinator;
+        _router = router;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
-        // Subscribe to panel collection changes for safety
-        RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
+        InitializeRightDockSurface();
 
         // Subscribe to task changes for Claude task indicator
         if (_taskService != null)
@@ -610,7 +573,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null, IPanelRouter? router = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -623,6 +586,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _toastService = toastService;
         _taskService = taskService;
         _sessionCoordinator = sessionCoordinator;
+        _router = router;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
@@ -632,8 +596,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             AvailableAiAssistants.Add(assistant);
         }
 
-        // Subscribe to panel collection changes for safety
-        RightPanels.CollectionChanged += OnRightPanelsCollectionChanged;
+        InitializeRightDockSurface();
 
         // Subscribe to task changes for Claude task indicator
         if (_taskService != null)
@@ -641,6 +604,68 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             _taskService.TasksChanged += OnTasksChanged;
             RefreshClaudeTaskIndicator();
         }
+    }
+
+    private void InitializeRightDockSurface()
+    {
+        if (_router is null) return;
+        var scope = TabPanelScope.ForTab(Pair.WorkingDirectory);
+        _rightDock = new WpfRightDockSurface(scope);
+        _rightDock.PropertyChanged += OnRightDockPropertyChanged;
+        _router.RegisterSurface(_rightDock);
+    }
+
+    private void OnRightDockPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(WpfRightDockSurface.HasMounted))
+        {
+            OnPropertyChanged(nameof(IsExplorerVisible));
+            OnPropertyChanged(nameof(ExplorerColumnWidth));
+            OnPropertyChanged(nameof(ExplorerSplitterWidth));
+            OnPropertyChanged(nameof(MainContentColumnWidth));
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Tab scope used by the right-dock surface and persistence. Exposed for the host so it can
+    /// project router operations to this tab.
+    /// </summary>
+    public PanelScope RightDockScope => _rightDock?.Scope ?? TabPanelScope.ForTab(Pair.WorkingDirectory);
+
+    /// <summary>
+    /// Wires the tab's right-dock surface to the <see cref="PanelHost"/> control rendered by the view.
+    /// </summary>
+    public void AttachRightDock(PanelHost host) => _rightDock?.Attach(host);
+
+    /// <summary>
+    /// Replays persisted right-dock state through the router, mounting any panels the resolver
+    /// can produce. Call after singleton panels have been registered via <see cref="SetPanel"/>.
+    /// </summary>
+    public void RestoreRightDockPanels()
+    {
+        if (_router is null || _rightDock is null) return;
+        _router.Restore(_rightDock.Scope, panelId => _registeredPanels.GetValueOrDefault(panelId));
+    }
+
+    /// <summary>
+    /// Toggles a panel in the right dock via the router. Acts as a one-line replacement for the
+    /// host's old <c>TogglePanel</c>/<c>ShowPanel</c> entry points so callers don't repeat the
+    /// zone/scope plumbing at every site.
+    /// </summary>
+    public void ShowRightDockPanel(IPanelableViewModel panel)
+    {
+        if (_router is null) return;
+        _router.Show(panel, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: RightDockScope));
+    }
+
+    /// <summary>
+    /// Forces a panel into the right dock (no toggle) and makes it active.
+    /// </summary>
+    public void ForceShowRightDockPanel(IPanelableViewModel panel)
+    {
+        if (_router is null) return;
+        _router.Show(panel, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: RightDockScope, ForceShow: true));
     }
 
     partial void OnSelectedAiAssistantChanged(AiAssistant? oldValue, AiAssistant? newValue)
@@ -1074,14 +1099,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         OnPropertyChanged(nameof(CanRun));
     }
 
-    partial void OnIsExplorerVisibleChanged(bool value)
-    {
-        OnPropertyChanged(nameof(ExplorerColumnWidth));
-        OnPropertyChanged(nameof(ExplorerSplitterWidth));
-        OnPropertyChanged(nameof(MainContentColumnWidth));
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
     partial void OnExplorerSplitRatioChanged(double value)
     {
         OnPropertyChanged(nameof(ExplorerColumnWidth));
@@ -1089,31 +1106,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    partial void OnIsLeftPanelVisibleChanged(bool value)
-    {
-        OnPropertyChanged(nameof(LeftPanelColumnWidth));
-        OnPropertyChanged(nameof(LeftPanelSplitterWidth));
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    partial void OnLeftPanelSplitRatioChanged(double value)
-    {
-        OnPropertyChanged(nameof(LeftPanelColumnWidth));
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    /// Handles changes to the right panels collection.
-    /// Ensures IsExplorerVisible is false when collection becomes empty.
-    /// </summary>
-    private void OnRightPanelsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        // Safety net: if all panels are removed, ensure panel area is hidden
-        if (RightPanels.Count == 0 && IsExplorerVisible)
-        {
-            IsExplorerVisible = false;
-        }
-    }
 
     /// <summary>
     /// Updates activity state from the terminal sessions.
@@ -1273,70 +1265,11 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     // Explorer commands
 
-    /// <summary>
-    /// Event raised when the explorer toggle is requested.
-    /// The View should handle this to manage popup/window focus.
-    /// If not handled, falls back to toggling IsExplorerVisible.
-    /// </summary>
-    public event EventHandler<ExplorerToggleEventArgs>? ExplorerToggleRequested;
-
-    /// <summary>
-    /// Event raised when any panel toggle is requested.
-    /// The View should handle this to manage popup/window focus.
-    /// </summary>
-    public event EventHandler<PanelToggleEventArgs>? PanelToggleRequested;
-
     [RelayCommand]
     private void ToggleExplorer()
     {
-        if (ExplorerPanelViewModel == null) return;
-
-        // First check if it's in popup/window state
-        var args = new ExplorerToggleEventArgs();
-        ExplorerToggleRequested?.Invoke(this, args);
-
-        if (args.Handled)
-        {
-            // View handled it (e.g., focused a popup/window)
-            return;
-        }
-
-        // If panel area is visible and file explorer is docked...
-        if (IsExplorerVisible && RightPanels.Contains(ExplorerPanelViewModel))
-        {
-            if (ActiveRightPanel == ExplorerPanelViewModel)
-            {
-                // Explorer is active - toggle visibility
-                IsExplorerVisible = false;
-            }
-            else
-            {
-                // Explorer is docked but not active - make it active
-                ActiveRightPanel = ExplorerPanelViewModel;
-            }
-        }
-        else
-        {
-            // Panel area is hidden or explorer not docked - show it
-            if (!RightPanels.Contains(ExplorerPanelViewModel))
-            {
-                RightPanels.Add(ExplorerPanelViewModel);
-            }
-            ActiveRightPanel = ExplorerPanelViewModel;
-            IsExplorerVisible = true;
-        }
-    }
-
-    [RelayCommand]
-    private void ShowExplorer()
-    {
-        IsExplorerVisible = true;
-    }
-
-    [RelayCommand]
-    private void HideExplorer()
-    {
-        IsExplorerVisible = false;
+        if (ExplorerPanelViewModel == null || _router is null) return;
+        ShowRightDockPanel(ExplorerPanelViewModel);
     }
 
     // Clipboard commands
@@ -1557,70 +1490,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     /// <summary>
     /// Initializes the panel system with the file explorer as the first panel.
+    /// The explorer is registered with the panel cache but not auto-mounted; the router's
+    /// <see cref="IPanelRouter.Restore"/> drives mounts based on persisted state.
     /// </summary>
     public void InitializePanelSystem(FileExplorerViewModel explorerViewModel)
     {
         ExplorerViewModel = explorerViewModel;
-
-        // Create the panel wrapper for the explorer
         ExplorerPanelViewModel = new FileExplorerPanelViewModel(explorerViewModel);
-
-        // Add to right panels collection
-        RightPanels.Clear();
-        RightPanels.Add(ExplorerPanelViewModel);
-        ActiveRightPanel = ExplorerPanelViewModel;
-
-        // Subscribe to panel state change requests
-        ExplorerPanelViewModel.StateChangeRequested += OnPanelStateChangeRequested;
-    }
-
-    /// <summary>
-    /// Adds a panel to the appropriate side.
-    /// </summary>
-    public void AddPanel(IPanelableViewModel panel, PanelSide side = PanelSide.Right)
-    {
-        var collection = side == PanelSide.Right ? RightPanels : LeftPanels;
-
-        if (!collection.Contains(panel))
-        {
-            collection.Add(panel);
-            panel.StateChangeRequested += OnPanelStateChangeRequested;
-        }
-
-        // Make it active
-        if (side == PanelSide.Right)
-        {
-            ActiveRightPanel = panel;
-            IsExplorerVisible = true;
-        }
-        else
-        {
-            ActiveLeftPanel = panel;
-            IsLeftPanelVisible = true;
-        }
-    }
-
-    /// <summary>
-    /// Removes a panel from the collections.
-    /// </summary>
-    public void RemovePanel(IPanelableViewModel panel)
-    {
-        panel.StateChangeRequested -= OnPanelStateChangeRequested;
-
-        if (RightPanels.Remove(panel))
-        {
-            if (ActiveRightPanel == panel)
-            {
-                ActiveRightPanel = RightPanels.FirstOrDefault();
-            }
-        }
-        else if (LeftPanels.Remove(panel))
-        {
-            if (ActiveLeftPanel == panel)
-            {
-                ActiveLeftPanel = LeftPanels.FirstOrDefault();
-            }
-        }
+        SetPanel(ExplorerPanelViewModel);
     }
 
     #region Generic Panel Methods
@@ -1632,83 +1509,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public void SetPanel(IPanelableViewModel panel)
     {
         _registeredPanels[panel.PanelId] = panel;
-    }
-
-    /// <summary>
-    /// Toggles a panel.
-    /// - If in popup/window → focus it (handled by view via event)
-    /// - If docked and active → hide panel area (toggle off)
-    /// - If docked but not active → make it the active tab
-    /// - If not docked → add and make active
-    /// </summary>
-    public void TogglePanel(IPanelableViewModel panel)
-    {
-        // Check if it's in popup/window state first
-        var args = new PanelToggleEventArgs { Panel = panel };
-        PanelToggleRequested?.Invoke(this, args);
-
-        if (args.Handled)
-        {
-            // View handled it (focused popup/window)
-            return;
-        }
-
-        // If panel area is visible and panel is docked...
-        if (IsExplorerVisible && RightPanels.Contains(panel))
-        {
-            if (ActiveRightPanel == panel)
-            {
-                // Panel is active - remove it and select next panel
-                RemovePanel(panel);
-                panel.IsOpen = false;
-                if (RightPanels.Count == 0)
-                {
-                    IsExplorerVisible = false;
-                }
-            }
-            else
-            {
-                // Panel is docked but not active - make it active
-                ActiveRightPanel = panel;
-            }
-        }
-        else
-        {
-            // Panel area is hidden or panel not docked - show it
-            ShowPanel(panel);
-        }
-    }
-
-    /// <summary>
-    /// Shows a panel in the right panel area (always shows, no toggle).
-    /// If already docked, makes it the active tab.
-    /// </summary>
-    public void ShowPanel(IPanelableViewModel panel)
-    {
-        // Add to panels if not already there
-        if (!RightPanels.Contains(panel))
-        {
-            AddPanel(panel, PanelSide.Right);
-        }
-        else
-        {
-            // Already docked - make it active and ensure visible
-            ActiveRightPanel = panel;
-            IsExplorerVisible = true;
-        }
-
-        panel.DisplayState = PanelDisplayState.Panel;
-    }
-
-    /// <summary>
-    /// Hides a panel (removes from docked panels).
-    /// </summary>
-    public void HidePanel(IPanelableViewModel panel)
-    {
-        if (RightPanels.Contains(panel))
-        {
-            RemovePanel(panel);
-        }
     }
 
     #endregion
@@ -1753,34 +1553,23 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             ShowCenterPanel(panel);
     }
 
+    /// <summary>
+    /// Pops the active center panel out into a detached window. The router records the panel's
+    /// origin zone (Center) so its dock-back returns to the center area.
+    /// </summary>
+    [RelayCommand]
+    private void PopOutCenterPanel()
+    {
+        if (ActiveCenterPanel is null || _router is null) return;
+        var panel = ActiveCenterPanel;
+#pragma warning disable CS0618 // Transient bridge for Phase 3; removed in Phase 4.
+        _router.SetOriginZone(panel.PanelId, PanelZone.Center);
+#pragma warning restore CS0618
+        CloseCenterPanel();
+        _router.Show(panel, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
+    }
+
     #endregion
-
-    /// <summary>
-    /// Event raised when a panel requests a state change.
-    /// The view handles creating popups/windows as needed.
-    /// </summary>
-    public event EventHandler<PanelStateChangeRequestedEventArgs>? PanelStateChangeRequested;
-
-    private void OnPanelStateChangeRequested(object? sender, PanelStateChangeRequestedEventArgs e)
-    {
-        if (sender is IPanelableViewModel panel)
-        {
-            // Forward the event to the view for handling
-            PanelStateChangeRequested?.Invoke(panel, e);
-        }
-    }
-
-    /// <summary>
-    /// Updates the left panel split ratio from actual column widths.
-    /// </summary>
-    public void UpdateLeftPanelSplitRatioFromColumnWidths(double leftWidth, double mainWidth)
-    {
-        var total = leftWidth + mainWidth;
-        if (total > 0)
-        {
-            LeftPanelSplitRatio = leftWidth / total;
-        }
-    }
 
     /// <summary>
     /// Refreshes the Claude task indicator state by checking for active Claude tasks in this workspace.
@@ -1850,16 +1639,13 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     }
 
     /// <summary>
-    /// Restores explorer/left-panel state from a persisted <see cref="DirectorySettings"/>.
-    /// Must be called after <see cref="InitializePanelSystem"/> — otherwise the
-    /// <see cref="IsExplorerVisible"/> guard for an empty right-panel list resets the flag.
+    /// Restores explorer split ratio from a persisted <see cref="DirectorySettings"/>.
+    /// Visibility (<see cref="IsExplorerVisible"/>) is derived from the right-dock surface;
+    /// mounts replay through <see cref="RestoreRightDockPanels"/>.
     /// </summary>
     public void LoadPanelStateFromDirectorySettings(DirectorySettings settings)
     {
-        IsExplorerVisible = settings.IsExplorerVisible;
         ExplorerSplitRatio = settings.ExplorerSplitRatio;
-        IsLeftPanelVisible = settings.IsLeftPanelVisible;
-        LeftPanelSplitRatio = settings.LeftPanelSplitRatio;
     }
 
     /// <summary>
@@ -1879,10 +1665,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         target.ActiveRunConfigurationId = ActiveRunConfiguration?.Id;
         target.RunConfigurations = [.. RunConfigurations];
 
-        target.IsExplorerVisible = IsExplorerVisible;
         target.ExplorerSplitRatio = ExplorerSplitRatio;
-        target.IsLeftPanelVisible = IsLeftPanelVisible;
-        target.LeftPanelSplitRatio = LeftPanelSplitRatio;
 
         target.ActiveCenterPanel = ActiveCenterPanel?.PanelId;
         if (ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
@@ -1890,8 +1673,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             target.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
         }
 
-        target.OpenRightPanels = RightPanels.Select(p => p.PanelId).ToList();
-        target.ActiveRightPanel = ActiveRightPanel?.PanelId;
+        // Right-dock panel state (OpenRightPanels / ActiveRightPanel) is now owned by
+        // DirectorySettingsPanelPersistence; the router calls Save on every Routed event.
     }
 
     public void Cleanup()
@@ -1901,44 +1684,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             _taskService.TasksChanged -= OnTasksChanged;
         }
 
-        // Cleanup panel event subscriptions
-        if (ExplorerPanelViewModel != null)
+        if (_rightDock is not null)
         {
-            ExplorerPanelViewModel.StateChangeRequested -= OnPanelStateChangeRequested;
-        }
-
-        foreach (var panel in _registeredPanels.Values)
-        {
-            panel.StateChangeRequested -= OnPanelStateChangeRequested;
+            _rightDock.PropertyChanged -= OnRightDockPropertyChanged;
+            _router?.UnregisterSurface(PanelZone.RightDock, _rightDock.Scope);
+            _rightDock.Dispose();
+            _rightDock = null;
         }
     }
-}
-
-/// <summary>
-/// Event arguments for explorer toggle requests.
-/// </summary>
-public class ExplorerToggleEventArgs : EventArgs
-{
-    /// <summary>
-    /// Set to true if the event was handled (e.g., focused a popup/window).
-    /// If false, the default toggle behavior will occur.
-    /// </summary>
-    public bool Handled { get; set; }
-}
-
-/// <summary>
-/// Event arguments for generic panel toggle requests.
-/// </summary>
-public class PanelToggleEventArgs : EventArgs
-{
-    /// <summary>
-    /// The panel being toggled.
-    /// </summary>
-    public IPanelableViewModel? Panel { get; init; }
-
-    /// <summary>
-    /// Set to true if the event was handled (e.g., focused a popup/window).
-    /// If false, the default toggle behavior will occur.
-    /// </summary>
-    public bool Handled { get; set; }
 }

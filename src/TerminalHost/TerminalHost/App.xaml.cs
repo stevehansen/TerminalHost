@@ -413,7 +413,21 @@ public partial class App : Application
             sp.GetServices<IPanelSurface>(),
             sp.GetRequiredService<IPanelPersistence>(),
             sp.GetRequiredService<IDispatcherService>(),
-            t => sp.GetService(t) as IPanelableViewModel));
+            t => sp.GetService(t) as IPanelableViewModel,
+            // Transient Phase 3 bridge: when a center-popped panel docks back from a window,
+            // route it back to the active tab's center area. The Phase 4 Center surface lets
+            // this collapse into an ordinary router.Move target. Latent bug: if the user
+            // switches tabs while a window was detached, the panel reappears on the *new*
+            // active tab; Phase 4 fixes this when Center becomes a real per-tab surface.
+            legacyCenterShow: (panelId, vm) =>
+            {
+                if (Application.Current.MainWindow?.DataContext is not MainViewModel mainVm) return false;
+                if (mainVm.SelectedTab is not TerminalPairTabViewModel tab) return false;
+                if (!TerminalHost.MainWindow.IsCenterPanel(vm)) return false;
+                tab.SetPanel(vm);
+                tab.ShowCenterPanel(vm);
+                return true;
+            }));
 
         // Windows
         services.AddSingleton<MainWindow>();

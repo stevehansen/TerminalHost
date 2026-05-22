@@ -7,4 +7,5 @@ namespace TerminalHost.Core.Domain;
 /// <param name="Zone">The zone the panel was last mounted in.</param>
 /// <param name="Scope">The scope the panel was last mounted under.</param>
 /// <param name="IsOpen">Whether the panel was open at the time of the snapshot.</param>
-public sealed record PanelLayoutEntry(string PanelId, PanelZone Zone, PanelScope Scope, bool IsOpen);
+/// <param name="IsActive">Whether this panel was the active (selected) panel on its surface at the time of the snapshot.</param>
+public sealed record PanelLayoutEntry(string PanelId, PanelZone Zone, PanelScope Scope, bool IsOpen, bool IsActive = false);

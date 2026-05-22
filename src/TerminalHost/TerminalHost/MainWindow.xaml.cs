@@ -109,8 +109,6 @@ public partial class MainWindow : Window
         _panelRouter = panelRouter;
         _popupSurface = popupSurface;
         _windowSurface = windowSurface;
-        if (_windowSurface is not null)
-            _windowSurface.DockBackRequested += OnWindowSurfaceDockBackRequested;
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -565,9 +563,6 @@ public partial class MainWindow : Window
             WindowState = WindowState.Minimized;
             return;
         }
-
-        if (_windowSurface is not null)
-            _windowSurface.DockBackRequested -= OnWindowSurfaceDockBackRequested;
 
         SaveWindowState();
         _statusOverlayService.Shutdown();
@@ -1261,14 +1256,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Shows a panel in the current tab's right sidebar area.
+    /// Shows a panel in the current tab's right sidebar area via the panel router.
     /// </summary>
     private void ShowPanelInTab(IPanelableViewModel panel)
     {
         if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
         {
             currentTab.SetPanel(panel);
-            currentTab.ShowPanel(panel);
+            currentTab.ForceShowRightDockPanel(panel);
         }
     }
 
@@ -1292,34 +1287,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Re-shows a window-zone panel in its previous tab placement when the user clicks the
-    /// dock-back chrome. Closes via the router, then routes to center or right-dock based on
-    /// the panel's id. See <see cref="Services.Panels.WpfWindowSurface"/> for why this doesn't
-    /// route through <see cref="IPanelRouter.Move"/>.
+    /// Determines if a panel is typically shown in the center area. Used by the
+    /// <c>_legacyCenterShow</c> bridge in <c>App.xaml.cs</c> to route dock-back from a window
+    /// back to the center area (Phase 3 transient bridge — collapses in Phase 4).
     /// </summary>
-    private void OnWindowSurfaceDockBackRequested(object? sender, IPanelableViewModel panel)
-    {
-        _panelRouter?.Close(panel.PanelId);
-        panel.DisplayState = PanelDisplayState.Panel;
-        panel.IsOpen = true;
-
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab
-            && currentTab.ActiveCenterPanel == null
-            && IsCenterPanel(panel))
-        {
-            currentTab.SetPanel(panel);
-            currentTab.ShowCenterPanel(panel);
-        }
-        else
-        {
-            ShowPanelInTab(panel);
-        }
-    }
-
-    /// <summary>
-    /// Determines if a panel is typically shown in the center area.
-    /// </summary>
-    private static bool IsCenterPanel(IPanelableViewModel panel) => panel.PanelId switch
+    internal static bool IsCenterPanel(IPanelableViewModel panel) => panel.PanelId switch
     {
         "unifiedGit" or "branchComparison" or "searchFiles" or "markdownPreview"
             or "fileViewer" or "prReview" or "testResults" or "recentFeatures"
@@ -1355,7 +1327,7 @@ public partial class MainWindow : Window
             }
 
             // Otherwise, toggle the docked panel (handles focus/visibility)
-            currentTab.TogglePanel(_gitFilesViewModel);
+            currentTab.ShowRightDockPanel(_gitFilesViewModel);
             return;
         }
 
@@ -1482,7 +1454,7 @@ public partial class MainWindow : Window
 
     private void OnRightPanelRestoreRequested(object? sender, RightPanelRestoreEventArgs e)
     {
-        // Map panel IDs to ViewModel instances
+        // Map panel IDs to ViewModel instances and register them with the tab.
         IPanelableViewModel? GetPanelById(string panelId) => panelId switch
         {
             "fileExplorer" => e.Tab.ExplorerPanelViewModel,
@@ -1498,26 +1470,12 @@ public partial class MainWindow : Window
         {
             var panel = GetPanelById(panelId);
             if (panel != null)
-            {
                 e.Tab.SetPanel(panel);
-                panel.IsOpen = true;
-                e.Tab.AddPanel(panel, PanelSide.Right);
-            }
         }
 
-        if (e.ActivePanelId != null)
-        {
-            var activePanel = GetPanelById(e.ActivePanelId);
-            if (activePanel != null)
-            {
-                e.Tab.ActiveRightPanel = activePanel;
-            }
-        }
-
-        if (e.PanelIds.Count > 0)
-        {
-            e.Tab.IsExplorerVisible = true;
-        }
+        // Replay persisted right-dock state through the router; the router calls Show on each
+        // entry, which mounts via the tab's WpfRightDockSurface and updates persistence.
+        e.Tab.RestoreRightDockPanels();
     }
 
     #endregion
@@ -1546,7 +1504,7 @@ public partial class MainWindow : Window
             }
 
             // Otherwise, toggle the panel (handles focus/visibility)
-            currentTab?.TogglePanel(_scratchPadViewModel);
+            currentTab?.ShowRightDockPanel(_scratchPadViewModel);
             return;
         }
 
@@ -1572,7 +1530,7 @@ public partial class MainWindow : Window
         if (_claudeTasksPanelViewModel.IsOpen)
         {
             _claudeTasksPanelViewModel.OnOpened();
-            currentTab.TogglePanel(_claudeTasksPanelViewModel);
+            currentTab.ShowRightDockPanel(_claudeTasksPanelViewModel);
         }
         else
         {
@@ -1611,7 +1569,8 @@ public partial class MainWindow : Window
 
         if (!isVisible)
         {
-            _sessionsTreePanelViewModel.IsOpen = false;
+            currentTab.ShowRightDockPanel(_sessionsTreePanelViewModel);
+            return;
         }
     }
 
@@ -1900,14 +1859,15 @@ public partial class MainWindow : Window
             currentTab.SetPanel(_markdownPreviewViewModel);
             _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(mdPath);
-            currentTab.ShowPanel(_markdownPreviewViewModel);
+            currentTab.ForceShowRightDockPanel(_markdownPreviewViewModel);
             return;
         }
 
         // State 2: MarkdownPreview is open in sidebar → close it
-        if (_markdownPreviewViewModel.IsOpen && currentTab.RightPanels.Contains(_markdownPreviewViewModel))
+        if (_markdownPreviewViewModel.IsOpen && _panelRouter?.IsOpen(_markdownPreviewViewModel.PanelId) == true
+            && _markdownPreviewViewModel.DisplayState == PanelDisplayState.Panel)
         {
-            currentTab.TogglePanel(_markdownPreviewViewModel);
+            currentTab.ShowRightDockPanel(_markdownPreviewViewModel);
             return;
         }
 

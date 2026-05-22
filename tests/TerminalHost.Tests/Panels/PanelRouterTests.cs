@@ -6,7 +6,7 @@ using TerminalHost.Tests.TestAdapters;
 
 namespace TerminalHost.Tests.Panels;
 
-public class PanelRouterTests
+public partial class PanelRouterTests
 {
     private static (PanelRouter Router, InMemoryPanelPersistence Persistence, Dictionary<(PanelZone, PanelScope), InMemoryPanelSurface> Surfaces) BuildRouter(
         params (PanelZone Zone, PanelScope Scope)[] surfaceSlots)
@@ -725,3 +725,433 @@ internal sealed class StubCloseGuardPanelViewModel(string panelId, bool canClose
     private readonly bool _canClose = canClose;
     public bool CanClose() => _canClose;
 }
+
+// ---- Phase 3: Dynamic surface registration, cross-scope Window fallback,
+//                Center-origin dock-back bridge, IsActive tracking + persistence ----
+
+#pragma warning disable CS0618 // SetOriginZone is intentionally [Obsolete] during Phase 3.
+public partial class PanelRouterTests
+{
+    // ---- A. Dynamic surface registration ----
+
+    [Fact]
+    public void RegisterSurface_AddsSurfaceForZoneAndScope()
+    {
+        var persistence = new InMemoryPanelPersistence();
+        var router = new PanelRouter(Array.Empty<IPanelSurface>(), persistence, new SynchronousDispatcherService());
+        var late = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+
+        router.RegisterSurface(late);
+
+        var vm = new StubPanelableViewModel("git");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: PanelScope.AppShell));
+
+        late.Mounted.ShouldBeSameAs(vm);
+        router.IsOpen("git").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void RegisterSurface_DuplicateZoneAndScope_Throws()
+    {
+        var (router, _, _) = BuildRouter((PanelZone.RightDock, PanelScope.AppShell));
+        var dup = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+
+        Should.Throw<InvalidOperationException>(() => router.RegisterSurface(dup));
+    }
+
+    [Fact]
+    public void UnregisterSurface_ClosesAllPanelsInScope_BeforeRemoving()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var persistence = new InMemoryPanelPersistence();
+        var router = new PanelRouter(Array.Empty<IPanelSurface>(), persistence, new SynchronousDispatcherService());
+        var surface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = tabA };
+        router.RegisterSurface(surface);
+
+        var vm1 = new StubPanelableViewModel("git");
+        var vm2 = new StubPanelableViewModel("explorer");
+        router.Show(vm1, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        router.Show(vm2, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+
+        var unmountsBefore = surface.Unmounts;
+        router.UnregisterSurface(PanelZone.RightDock, tabA);
+
+        vm1.IsOpen.ShouldBeFalse();
+        vm2.IsOpen.ShouldBeFalse();
+        (surface.Unmounts - unmountsBefore).ShouldBe(2);
+        router.IsOpen("git").ShouldBeFalse();
+        router.IsOpen("explorer").ShouldBeFalse();
+
+        // Show in the now-unregistered scope must throw — no surface to mount on.
+        Should.Throw<InvalidOperationException>(() =>
+            router.Show(new StubPanelableViewModel("git"),
+                new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA)));
+    }
+
+    [Fact]
+    public void UnregisterSurface_UnknownZoneScope_NoOp()
+    {
+        var (router, _, _) = BuildRouter((PanelZone.RightDock, PanelScope.AppShell));
+
+        Should.NotThrow(() => router.UnregisterSurface(PanelZone.LeftDock, PanelScope.ForTab("ghost")));
+    }
+
+    [Fact]
+    public void UnregisterSurface_UnsubscribesDismissRequested()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var persistence = new InMemoryPanelPersistence();
+        var router = new PanelRouter(Array.Empty<IPanelSurface>(), persistence, new SynchronousDispatcherService());
+        var surface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = tabA };
+        router.RegisterSurface(surface);
+
+        var vm = new StubPanelableViewModel("git");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+
+        router.UnregisterSurface(PanelZone.RightDock, tabA);
+
+        // After unregister, a stray DismissRequested on the (now-detached) surface must not affect
+        // the router's internal registry. We can't directly inspect _registry, so we assert no
+        // exception occurs and a subsequent registration/show is clean.
+        Should.NotThrow(() => surface.RaiseDismiss("git"));
+
+        var fresh = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = tabA };
+        router.RegisterSurface(fresh);
+        var vm2 = new StubPanelableViewModel("git");
+        router.Show(vm2, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        fresh.Mounted.ShouldBeSameAs(vm2);
+    }
+
+    // ---- B. Tab-scope isolation ----
+
+    [Fact]
+    public void Show_TwoTabs_SamePanelId_RegistersBothInstances()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabA),
+            (PanelZone.RightDock, tabB));
+
+        var vmA = new StubPanelableViewModel("gitFiles");
+        var vmB = new StubPanelableViewModel("gitFiles");
+
+        router.Show(vmA, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        router.Show(vmB, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabB));
+
+        surfaces[(PanelZone.RightDock, tabA)].Mounts.ShouldBe(1);
+        surfaces[(PanelZone.RightDock, tabB)].Mounts.ShouldBe(1);
+        surfaces[(PanelZone.RightDock, tabA)].Mounted.ShouldBeSameAs(vmA);
+        surfaces[(PanelZone.RightDock, tabB)].Mounted.ShouldBeSameAs(vmB);
+        router.IsOpen("gitFiles").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Close_OneTabScope_LeavesOtherUntouched()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabA),
+            (PanelZone.RightDock, tabB));
+
+        var vmA = new StubPanelableViewModel("gitFiles");
+        var vmB = new StubPanelableViewModel("gitFiles");
+
+        router.Show(vmA, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        router.Show(vmB, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabB));
+
+        // Close hits one arbitrary instance (Phase 0 docs admit this). The other must remain.
+        router.Close("gitFiles");
+
+        // Exactly one of the two VMs is now closed; the other is still mounted.
+        var aOpen = vmA.IsOpen;
+        var bOpen = vmB.IsOpen;
+        (aOpen ^ bOpen).ShouldBeTrue();
+        router.IsOpen("gitFiles").ShouldBeTrue();
+
+        if (aOpen) surfaces[(PanelZone.RightDock, tabA)].Mounted.ShouldBeSameAs(vmA);
+        else surfaces[(PanelZone.RightDock, tabB)].Mounted.ShouldBeSameAs(vmB);
+    }
+
+    // ---- C. Cross-scope Move(Window) fallback ----
+
+    [Fact]
+    public void Move_ToWindow_FromTabScope_FallsBackToAppShellWindowSurface()
+    {
+        var tabP = PanelScope.ForTab("p");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabP),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("gitFiles");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+        surfaces[(PanelZone.RightDock, tabP)].Mounted.ShouldBeSameAs(vm);
+
+        router.Move("gitFiles", PanelZone.Window);
+
+        surfaces[(PanelZone.RightDock, tabP)].Mounted.ShouldBeNull();
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        vm.DisplayState.ShouldBe(PanelDisplayState.Window);
+        router.IsOpen("gitFiles").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Move_BackFromWindow_ToRightDock_LandsOnOriginalTab()
+    {
+        var tabP = PanelScope.ForTab("p");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabP),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("gitFiles");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+        router.Move("gitFiles", PanelZone.Window);
+
+        // Round-trip — the registration's Scope must have stayed at tabP, otherwise this
+        // would not resolve and would throw.
+        router.Move("gitFiles", PanelZone.RightDock);
+
+        surfaces[(PanelZone.RightDock, tabP)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        vm.DisplayState.ShouldBe(PanelDisplayState.Panel);
+        vm.PreferredSide.ShouldBe(PanelSide.Right);
+    }
+
+    [Fact]
+    public void Move_ToNonExistentNonWindowZone_Throws()
+    {
+        // Verifies only Window gets the cross-scope fallback. Moving from a tab-scoped panel
+        // to LeftDock (where no surface exists in that scope) must throw — no general retry.
+        var tabP = PanelScope.ForTab("p");
+        var (router, _, _) = BuildRouter(
+            (PanelZone.RightDock, tabP),
+            (PanelZone.LeftDock, PanelScope.AppShell)); // wrong scope on purpose
+        var vm = new StubPanelableViewModel("gitFiles");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+
+        Should.Throw<InvalidOperationException>(() => router.Move("gitFiles", PanelZone.LeftDock));
+    }
+
+    [Fact]
+    public void Close_OfCrossScopeWindowMount_UnmountsTheActualSurface()
+    {
+        var tabP = PanelScope.ForTab("p");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabP),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("gitFiles");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+        router.Move("gitFiles", PanelZone.Window);
+
+        var dockUnmountsBefore = surfaces[(PanelZone.RightDock, tabP)].Unmounts;
+        var winUnmountsBefore = surfaces[(PanelZone.Window, PanelScope.AppShell)].Unmounts;
+
+        router.Close("gitFiles");
+
+        // The AppShell window surface must take the unmount, not the tab dock surface
+        // (which doesn't have the panel mounted anymore).
+        (surfaces[(PanelZone.Window, PanelScope.AppShell)].Unmounts - winUnmountsBefore).ShouldBe(1);
+        surfaces[(PanelZone.RightDock, tabP)].Unmounts.ShouldBe(dockUnmountsBefore);
+        vm.IsOpen.ShouldBeFalse();
+        router.IsOpen("gitFiles").ShouldBeFalse();
+    }
+
+    // ---- D. Center-origin dock-back bridge ----
+
+    [Fact]
+    public void SetOriginZone_Center_ThenDockBack_InvokesLegacyCenterShow()
+    {
+        var legacyCalls = new List<(string, IPanelableViewModel)>();
+        var persistence = new InMemoryPanelPersistence();
+        var surfaces = new List<IPanelSurface>
+        {
+            new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell },
+        };
+        var router = new PanelRouter(
+            surfaces, persistence, new SynchronousDispatcherService(),
+            viewModelFactory: null,
+            legacyCenterShow: (id, vm) => { legacyCalls.Add((id, vm)); return true; });
+
+        var vm = new StubPanelableViewModel("markdown");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+        router.SetOriginZone("markdown", PanelZone.Center);
+
+        // Simulate dock-back: VM raises StateChangeRequested(Panel, Right) → router calls Move(RightDock).
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
+
+        legacyCalls.Count.ShouldBe(1);
+        legacyCalls[0].Item1.ShouldBe("markdown");
+        legacyCalls[0].Item2.ShouldBeSameAs(vm);
+
+        // After the bridge takes ownership the router evicts the registration.
+        router.IsOpen("markdown").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SetOriginZone_NotSet_DockBack_FallsBackToRightDockMove()
+    {
+        var legacyCalls = 0;
+        var persistence = new InMemoryPanelPersistence();
+        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var router = new PanelRouter(
+            new IPanelSurface[] { dockSurface, winSurface },
+            persistence, new SynchronousDispatcherService(),
+            viewModelFactory: null,
+            legacyCenterShow: (_, _) => { legacyCalls++; return true; });
+
+        var vm = new StubPanelableViewModel("markdown");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+        // Note: no SetOriginZone call.
+
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
+
+        legacyCalls.ShouldBe(0);
+        dockSurface.Mounted.ShouldBeSameAs(vm);
+        winSurface.Mounted.ShouldBeNull();
+        router.IsOpen("markdown").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SetOriginZone_LegacyFuncReturnsFalse_FallsBackToRightDockMove()
+    {
+        var legacyCalls = 0;
+        var persistence = new InMemoryPanelPersistence();
+        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var router = new PanelRouter(
+            new IPanelSurface[] { dockSurface, winSurface },
+            persistence, new SynchronousDispatcherService(),
+            viewModelFactory: null,
+            legacyCenterShow: (_, _) => { legacyCalls++; return false; });
+
+        var vm = new StubPanelableViewModel("markdown");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+        router.SetOriginZone("markdown", PanelZone.Center);
+
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
+
+        legacyCalls.ShouldBe(1);
+        dockSurface.Mounted.ShouldBeSameAs(vm);
+        router.IsOpen("markdown").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SetOriginZone_ClearedOnClose()
+    {
+        var legacyCalls = 0;
+        var persistence = new InMemoryPanelPersistence();
+        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var router = new PanelRouter(
+            new IPanelSurface[] { dockSurface, winSurface },
+            persistence, new SynchronousDispatcherService(),
+            viewModelFactory: null,
+            legacyCenterShow: (_, _) => { legacyCalls++; return true; });
+
+        var vm = new StubPanelableViewModel("markdown");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
+        router.SetOriginZone("markdown", PanelZone.Center);
+
+        // Close wipes the origin-zone dict entry.
+        router.Close("markdown");
+
+        // Re-show + dock-back; no SetOriginZone this time. Legacy must NOT be invoked.
+        var vm2 = new StubPanelableViewModel("markdown");
+        router.Show(vm2, new PanelShowOptions(Zone: PanelZone.Window));
+        vm2.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
+
+        legacyCalls.ShouldBe(0);
+        dockSurface.Mounted.ShouldBeSameAs(vm2);
+    }
+
+    // ---- E. IsActive tracking + persistence ----
+
+    [Fact]
+    public void PersistScope_EmitsIsActiveTrue_ForCurrentlyActivePanel_OnlyOne()
+    {
+        var tabP = PanelScope.ForTab("p");
+        var persistence = new InMemoryPanelPersistence();
+        var surface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = tabP };
+        var router = new PanelRouter(new IPanelSurface[] { surface }, persistence, new SynchronousDispatcherService());
+
+        var a = new StubPanelableViewModel("a");
+        var b = new StubPanelableViewModel("b");
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+
+        var snap = persistence.Load(tabP);
+        snap.Entries.Count.ShouldBe(2);
+        snap.Entries.Count(e => e.IsActive).ShouldBe(1);
+        snap.Entries.Single(e => e.IsActive).PanelId.ShouldBe("b");
+    }
+
+    [Fact]
+    public void Focus_UpdatesActivePanel()
+    {
+        var tabP = PanelScope.ForTab("p");
+        var persistence = new InMemoryPanelPersistence();
+        var surface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = tabP };
+        var router = new PanelRouter(new IPanelSurface[] { surface }, persistence, new SynchronousDispatcherService());
+
+        var a = new StubPanelableViewModel("a");
+        var b = new StubPanelableViewModel("b");
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP));
+
+        // Re-show "a" with ForceShow → Focus path → router updates _activePanel and persists.
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabP, ForceShow: true));
+
+        var snap = persistence.Load(tabP);
+        snap.Entries.Single(e => e.IsActive).PanelId.ShouldBe("a");
+        snap.Entries.Single(e => e.PanelId == "b").IsActive.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Move_UpdatesActivePanel_OnSourceAndTarget()
+    {
+        var persistence = new InMemoryPanelPersistence();
+        var dock = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+        var win = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
+        var router = new PanelRouter(new IPanelSurface[] { dock, win }, persistence, new SynchronousDispatcherService());
+
+        var a = new StubPanelableViewModel("a");
+        var b = new StubPanelableViewModel("b");
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock));
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock));
+        // b is now active in RightDock.
+
+        router.Move("a", PanelZone.Window);
+
+        var snap = persistence.Load(PanelScope.AppShell);
+        // a is in Window zone and is the active panel of its zone; b is still active in RightDock.
+        snap.Entries.Single(e => e.PanelId == "a")
+            .ShouldSatisfyAllConditions(
+                e => e.Zone.ShouldBe(PanelZone.Window),
+                e => e.IsActive.ShouldBeTrue());
+        snap.Entries.Single(e => e.PanelId == "b")
+            .ShouldSatisfyAllConditions(
+                e => e.Zone.ShouldBe(PanelZone.RightDock),
+                e => e.IsActive.ShouldBeTrue());
+    }
+
+    [Fact]
+    public void Unmount_LastPanelInZone_ClearsActive()
+    {
+        var persistence = new InMemoryPanelPersistence();
+        var surface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
+        var router = new PanelRouter(new IPanelSurface[] { surface }, persistence, new SynchronousDispatcherService());
+
+        var a = new StubPanelableViewModel("a");
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock));
+
+        router.Close("a");
+
+        var snap = persistence.Load(PanelScope.AppShell);
+        snap.Entries.ShouldBeEmpty();
+        snap.Entries.Any(e => e.IsActive).ShouldBeFalse();
+    }
+}
+#pragma warning restore CS0618

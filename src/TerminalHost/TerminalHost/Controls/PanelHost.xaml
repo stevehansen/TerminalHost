@@ -75,7 +75,7 @@
                             FontSize="12"
                             Padding="6,2"
                             Margin="0,0,2,0"
-                            Click="PopOutButton_Click"/>
+                            Command="{Binding ActivePanel.DetachCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                     <!-- Close button -->
                     <Button x:Name="CloseButton"
                             Content="&#x00D7;"
@@ -83,7 +83,7 @@
                             Style="{StaticResource TabCloseButton}"
                             FontSize="14"
                             Padding="6,2"
-                            Click="CloseButton_Click"/>
+                            Command="{Binding ActivePanel.CloseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                 </StackPanel>
 
                 <!-- Tab items -->

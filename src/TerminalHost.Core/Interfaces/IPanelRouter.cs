@@ -86,4 +86,27 @@ public interface IPanelRouter
     /// opened panel; a null <c>NewZone</c> indicates a closed panel.
     /// </summary>
     event EventHandler<PanelRoutedEventArgs>? Routed;
+
+    /// <summary>
+    /// Registers a surface for its <c>(Zone, Scope)</c> pair. Throws
+    /// <see cref="InvalidOperationException"/> if a surface is already registered for the
+    /// same <c>(Zone, Scope)</c>. Used by per-tab surfaces whose lifetime is not knowable at
+    /// startup (e.g. <c>WpfRightDockSurface</c>).
+    /// </summary>
+    void RegisterSurface(IPanelSurface surface);
+
+    /// <summary>
+    /// Closes every panel currently routed to <c>(zone, scope)</c>, unsubscribes from the
+    /// surface's <c>DismissRequested</c> event, and removes the surface from the router.
+    /// No-op if no surface is registered for that key.
+    /// </summary>
+    void UnregisterSurface(PanelZone zone, PanelScope scope);
+
+    /// <summary>
+    /// Records the zone a panel came from so dock-back from a window can return to that origin.
+    /// Transient bridge for Phase 3: Phase 4's Center surface will let the router derive the
+    /// origin from the previous <c>Move</c> automatically.
+    /// </summary>
+    [Obsolete("Transient bridge for Phase 3; removed in Phase 4 when Center surface lands.")]
+    void SetOriginZone(string panelId, PanelZone originZone);
 }

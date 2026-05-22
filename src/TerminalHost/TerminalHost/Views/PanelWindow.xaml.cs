@@ -26,12 +26,6 @@ public partial class PanelWindow : Window
     }
 
     /// <summary>
-    /// Event raised when the user requests to dock back to panel.
-    /// The hosting surface is responsible for closing this window after handling the event.
-    /// </summary>
-    public event EventHandler<IPanelableViewModel>? DockRequested;
-
-    /// <summary>
     /// Marks an upcoming close as surface-initiated (programmatic Unmount or dock-back).
     /// Suppresses the <see cref="IPanelCloseGuard"/> prompt and the <c>vm.IsOpen = false</c>
     /// side-effect — both belong to the router/surface, not the user-initiated close gesture.
@@ -49,14 +43,6 @@ public partial class PanelWindow : Window
             return;
         }
         base.OnClosing(e);
-    }
-
-    private void DockButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is IPanelableViewModel vm)
-        {
-            DockRequested?.Invoke(this, vm);
-        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
