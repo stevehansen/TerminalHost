@@ -44,7 +44,7 @@ public partial class TabSwitcherView : UserControl
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
+        if (DataContext is not TabSwitcherViewModel vm) return;
 
         if (e.Key == Key.Down)
         {
@@ -71,17 +71,15 @@ public partial class TabSwitcherView : UserControl
         }
         else if (e.Key == Key.Escape)
         {
-            mainViewModel.IsTabSwitcherOpen = false;
+            vm.CloseCommand.Execute(null);
             e.Handled = true;
         }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel mainViewModel)
-        {
-            mainViewModel.IsTabSwitcherOpen = false;
-        }
+        if (DataContext is TabSwitcherViewModel vm)
+            vm.CloseCommand.Execute(null);
     }
 
     private void SwitcherTabList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -91,13 +89,9 @@ public partial class TabSwitcherView : UserControl
 
     private void SelectSwitcherItem()
     {
-        if (DataContext is not MainViewModel mainViewModel) return;
-
+        if (DataContext is not TabSwitcherViewModel vm) return;
         if (SwitcherTabList.SelectedItem is ITabViewModel tab)
-        {
-            mainViewModel.SelectedTab = tab;
-            mainViewModel.IsTabSwitcherOpen = false;
-        }
+            vm.SelectTab(tab);
     }
 
     [DllImport("user32.dll")]

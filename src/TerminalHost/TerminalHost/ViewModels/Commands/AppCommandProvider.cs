@@ -77,7 +77,7 @@ internal sealed class AppCommandProvider : ICommandProvider
                 Icon = "❓",
                 Category = "Help",
                 IntroducedOn = new DateOnly(2025, 12, 11),
-                Execute = () => _vm.IsHelpOpen = true
+                Execute = () => _vm.OpenHelpCommand.Execute(null)
             },
             new() {
                 Id = "open-crash-log-folder",

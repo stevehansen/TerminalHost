@@ -523,6 +523,13 @@ public class AppSettings
     public Dictionary<string, string> ClaudeCommandShortcuts { get; set; } = [];
 
     /// <summary>
+    /// Persisted layout for AppShell-scoped panels routed through <see cref="IPanelRouter"/>.
+    /// Popup-zone entries are filtered out before save (popups are transient).
+    /// </summary>
+    [JsonPropertyName("appShellPanels")]
+    public List<PersistedPanelEntry> AppShellPanels { get; set; } = [];
+
+    /// <summary>
     /// GitHub Dashboard settings.
     /// </summary>
     [JsonPropertyName("dashboard")]
@@ -1092,4 +1099,20 @@ public class StatusOverlaySettings
     /// </summary>
     [JsonPropertyName("instances")]
     public List<StatusOverlayInstanceSettings> Instances { get; set; } = [];
+}
+
+/// <summary>
+/// Persisted form of a <see cref="PanelLayoutEntry"/>. The zone is stored as a string for
+/// forward-compatibility with future <see cref="PanelZone"/> enum additions.
+/// </summary>
+public class PersistedPanelEntry
+{
+    [JsonPropertyName("panelId")]
+    public string PanelId { get; set; } = "";
+
+    [JsonPropertyName("zone")]
+    public string Zone { get; set; } = "";
+
+    [JsonPropertyName("isOpen")]
+    public bool IsOpen { get; set; }
 }

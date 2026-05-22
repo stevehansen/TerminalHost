@@ -3,6 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:system="clr-namespace:System;assembly=mscorlib"
              xmlns:local="clr-namespace:TerminalHost"
+             xmlns:vm="clr-namespace:TerminalHost.ViewModels"
+             xmlns:corevm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
+             xmlns:popups="clr-namespace:TerminalHost.Views.Popups"
              Startup="OnStartup"
              Exit="OnExit">
     <Application.Resources>
@@ -11,6 +14,20 @@
                 <ResourceDictionary Source="Resources/TabContentTemplates.xaml"/>
                 <ResourceDictionary Source="Resources/PanelContentTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Routed Panel Templates (Phase 1: Popup zone) -->
+            <DataTemplate DataType="{x:Type vm:HelpViewModel}">
+                <popups:HelpView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TabSwitcherViewModel}">
+                <popups:TabSwitcherView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:TabDropdownViewModel}">
+                <popups:TabDropdownView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type corevm:CommandPaletteViewModel}">
+                <popups:CommandPaletteView/>
+            </DataTemplate>
 
             <!-- Converters -->
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>

@@ -71,46 +71,14 @@
                              Panel.ZIndex="100"
                              DataContext="{Binding VoiceBar}"/>
 
-        <!-- Tab Dropdown Popup -->
-        <Popup x:Name="TabDropdownPopup"
+        <!-- Routed Popup Host (Phase 1: shared popup for Help, Command Palette, Tab Switcher, Tab Dropdown).
+             Mounted view is selected by implicit DataTemplate keyed off the VM type (see App.xaml). -->
+        <Popup x:Name="RoutedPopupHost"
                Placement="Center"
                PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsTabDropdownOpen, Mode=TwoWay}">
-            <popups:TabDropdownView x:Name="TabDropdownViewControl" DataContext="{Binding}" />
-        </Popup>
-
-        <!-- Tab Switcher Popup (Ctrl+Shift+T) -->
-        <Popup x:Name="TabSwitcherPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsTabSwitcherOpen, Mode=TwoWay}">
-            <popups:TabSwitcherView x:Name="TabSwitcherViewControl" DataContext="{Binding}" />
-        </Popup>
-
-        <!-- File Viewer - now rendered as center panel in TerminalPairView via PanelContentTemplates -->
-
-        <!-- Help Popup (F1) -->
-        <Popup x:Name="HelpPopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding IsHelpOpen, Mode=TwoWay}">
-            <popups:HelpView x:Name="HelpViewControl" DataContext="{Binding HelpViewModel}" />
-        </Popup>
-
-        <!-- Command Palette Popup (Ctrl+Shift+P) -->
-        <Popup x:Name="CommandPalettePopup"
-               Placement="Center"
-               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               IsOpen="{Binding Palette.IsOpen, Mode=TwoWay}">
-            <popups:CommandPaletteView DataContext="{Binding}" />
+               AllowsTransparency="True">
+            <ContentPresenter x:Name="RoutedPopupContent"/>
         </Popup>
 
         <!-- Scratch Pad - no popup view here, handled via panel system like Markdown Preview -->

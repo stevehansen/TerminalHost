@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 
@@ -15,6 +16,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
 
     private readonly Dictionary<string, Registration> _registry = new(StringComparer.Ordinal);
     private readonly Dictionary<IPanelableViewModel, EventHandler<PanelStateChangeRequestedEventArgs>> _vmHandlers = new();
+    private readonly Dictionary<IPanelableViewModel, PropertyChangedEventHandler> _vmOpenHandlers = new();
     private readonly object _lock = new();
     private bool _disposed;
 
@@ -141,6 +143,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                     _registry.Remove(registrationKey);
                 }
                 UnsubscribeStateChanges(existing.Vm);
+                UnsubscribeIsOpen(existing.Vm);
                 existing.Vm.IsOpen = false;
                 RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone: null, existing.Scope);
                 PersistScope(existing.Scope);
@@ -176,6 +179,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         }
 
         UnsubscribeStateChanges(existing.Vm);
+        UnsubscribeIsOpen(existing.Vm);
 
         if (_surfaces.TryGetValue((existing.Zone, existing.Scope), out var surface))
             surface.Unmount(panelId);
@@ -214,6 +218,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         }
 
         UnsubscribeStateChanges(existing.Vm);
+        UnsubscribeIsOpen(existing.Vm);
 
         if (_surfaces.TryGetValue((existing.Zone, existing.Scope), out var surface))
             surface.Unmount(existing.Vm.PanelId);
@@ -327,6 +332,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                 ApplyDisplayState(vm, zone);
                 vm.IsOpen = true;
                 SubscribeStateChanges(vm);
+                SubscribeIsOpen(vm);
                 var surface = _surfaces[(zone, scope)];
                 try
                 {
@@ -341,6 +347,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                             _registry.Remove(newRegistrationKey);
                     }
                     UnsubscribeStateChanges(vm);
+                    UnsubscribeIsOpen(vm);
                     vm.IsOpen = false;
                     throw;
                 }
@@ -447,6 +454,47 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         vm.StateChangeRequested -= handler;
     }
 
+    /// <summary>
+    /// Subscribes to <c>vm.PropertyChanged</c> so externally-driven <c>IsOpen=false</c> (× button,
+    /// <c>BasePanelViewModel.CloseCommand</c>, custom subclass logic) routes back through <c>Close</c>.
+    /// Router-initiated <c>Close</c> removes the registry entry before flipping <c>IsOpen</c>, so the
+    /// handler probes the registry to avoid double-close.
+    /// </summary>
+    private void SubscribeIsOpen(IPanelableViewModel vm)
+    {
+        PropertyChangedEventHandler handler;
+        lock (_lock)
+        {
+            if (_vmOpenHandlers.ContainsKey(vm)) return;
+            handler = (sender, args) =>
+            {
+                if (args.PropertyName != nameof(IPanelableViewModel.IsOpen)) return;
+                if (sender is not IPanelableViewModel src || src.IsOpen) return;
+                bool stillRegistered;
+                lock (_lock)
+                {
+                    stillRegistered = FindRegistrationKeyByPanelId(src.PanelId) is not null;
+                }
+                if (!stillRegistered) return;
+                if (_dispatcher.CheckAccess()) Close(src.PanelId);
+                else _dispatcher.BeginInvoke(() => Close(src.PanelId));
+            };
+            _vmOpenHandlers[vm] = handler;
+        }
+        vm.PropertyChanged += handler;
+    }
+
+    private void UnsubscribeIsOpen(IPanelableViewModel vm)
+    {
+        PropertyChangedEventHandler? handler;
+        lock (_lock)
+        {
+            if (!_vmOpenHandlers.TryGetValue(vm, out handler)) return;
+            _vmOpenHandlers.Remove(vm);
+        }
+        vm.PropertyChanged -= handler;
+    }
+
     // The lock around _vmHandlers (B1) is what prevents corruption if a misconfigured dispatcher
     // returns CheckAccess() == true from a background thread and re-enters via Close.
     private void OnSurfaceDismissRequested(object? sender, PanelDismissEventArgs e)
@@ -494,13 +542,18 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             surface.DismissRequested -= OnSurfaceDismissRequested;
 
         List<KeyValuePair<IPanelableViewModel, EventHandler<PanelStateChangeRequestedEventArgs>>> handlers;
+        List<KeyValuePair<IPanelableViewModel, PropertyChangedEventHandler>> openHandlers;
         lock (_lock)
         {
             handlers = _vmHandlers.ToList();
             _vmHandlers.Clear();
+            openHandlers = _vmOpenHandlers.ToList();
+            _vmOpenHandlers.Clear();
         }
         foreach (var kvp in handlers)
             kvp.Key.StateChangeRequested -= kvp.Value;
+        foreach (var kvp in openHandlers)
+            kvp.Key.PropertyChanged -= kvp.Value;
     }
 
     private sealed record Registration(

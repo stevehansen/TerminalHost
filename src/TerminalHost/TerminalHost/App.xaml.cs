@@ -395,7 +395,21 @@ public partial class App : Application
         services.AddSingleton<MergeConflictViewModel>();
         services.AddSingleton<RecentFeaturesViewModel>();
         services.AddSingleton<SessionsTreePanelViewModel>();
+        services.AddSingleton<HelpViewModel>();
+        services.AddSingleton<TabSwitcherViewModel>();
+        services.AddSingleton<TabDropdownViewModel>();
+        services.AddSingleton(sp => sp.GetRequiredService<MainViewModel>().Palette);
         services.AddTransient<SetupViewModel>();
+
+        // Panel system (Phase 1: popup zone via WpfPopupSurface)
+        services.AddSingleton<Services.Panels.WpfPopupSurface>();
+        services.AddSingleton<IPanelSurface>(sp => sp.GetRequiredService<Services.Panels.WpfPopupSurface>());
+        services.AddSingleton<IPanelPersistence, DirectorySettingsPanelPersistence>();
+        services.AddSingleton<IPanelRouter>(sp => new PanelRouter(
+            sp.GetServices<IPanelSurface>(),
+            sp.GetRequiredService<IPanelPersistence>(),
+            sp.GetRequiredService<IDispatcherService>(),
+            t => sp.GetService(t) as IPanelableViewModel));
 
         // Windows
         services.AddSingleton<MainWindow>();

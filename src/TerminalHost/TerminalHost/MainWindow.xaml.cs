@@ -63,10 +63,12 @@ public partial class MainWindow : Window
     private bool _isExiting;
     private bool _isWindowActivated = true;
     private Services.PanelWindowManager? _panelWindowManager;
+    private readonly IPanelRouter? _panelRouter;
+    private readonly Services.Panels.WpfPopupSurface? _popupSurface;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null, IPanelRouter? panelRouter = null, Services.Panels.WpfPopupSurface? popupSurface = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -104,6 +106,8 @@ public partial class MainWindow : Window
         _taskbarProgressService = taskbarProgressService;
         _soundService = soundService;
         _statusOverlayService = statusOverlayService;
+        _panelRouter = panelRouter;
+        _popupSurface = popupSurface;
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -507,6 +511,10 @@ public partial class MainWindow : Window
         // Initialize panel window manager
         _panelWindowManager = new Services.PanelWindowManager(this);
 
+        // Attach the routed popup host to the WPF popup surface. After this, the surface
+        // can mount any popup-zone panel routed through IPanelRouter into RoutedPopupHost.
+        _popupSurface?.AttachHost(RoutedPopupHost, RoutedPopupContent);
+
         // Create and show toast window (must be after main window is shown for Owner to work)
         _toastWindow = new Views.ToastWindow();
         _toastWindow.Initialize(this, _toastService);
@@ -593,8 +601,10 @@ public partial class MainWindow : Window
         // Escape: Close voice bar first, then center panel, then popups
         if (e.Key == Key.Escape)
         {
-            // Let popup views handle their own Escape key
-            if (_viewModel.Palette.IsOpen || _viewModel.IsTabSwitcherOpen)
+            // Let routed popup views handle their own Escape key (the popup surface intercepts it).
+            if (_panelRouter?.IsOpen("commandPalette") == true ||
+                _panelRouter?.IsOpen("tabSwitcher") == true ||
+                _panelRouter?.IsOpen("tabDropdown") == true)
                 return;
 
             // First priority: dismiss voice bar if visible
@@ -656,9 +666,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (_viewModel.IsHelpOpen)
+            if (_panelRouter?.IsOpen("help") == true)
             {
-                _viewModel.IsHelpOpen = false;
+                _panelRouter.Close("help");
                 e.Handled = true;
                 return;
             }
@@ -675,7 +685,7 @@ public partial class MainWindow : Window
         // F1: Toggle help popup
         if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None)
         {
-            _viewModel.IsHelpOpen = !_viewModel.IsHelpOpen;
+            _panelRouter?.Show<HelpViewModel>();
             e.Handled = true;
             return;
         }
@@ -864,8 +874,7 @@ public partial class MainWindow : Window
         // Ctrl+Shift+T: Open tab switcher
         else if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            _viewModel.SwitcherSearchText = "";
-            _viewModel.IsTabSwitcherOpen = true;
+            _panelRouter?.Show<TabSwitcherViewModel>();
             e.Handled = true;
         }
         // Ctrl+O: Open file viewer (preview mode) as center panel

@@ -61,6 +61,19 @@ public abstract partial class BasePanelViewModel : ObservableObject, IPanelableV
     [ObservableProperty]
     private bool _isOpen;
 
+    partial void OnIsOpenChanged(bool value)
+    {
+        if (value) OnPanelOpened();
+    }
+
+    /// <summary>
+    /// Invoked whenever <see cref="IsOpen"/> transitions to true. Subclasses override to perform
+    /// re-initialisation (clear search text, refresh data, focus the default control, etc.).
+    /// </summary>
+    protected virtual void OnPanelOpened()
+    {
+    }
+
     [ObservableProperty]
     private double _width = 600;
 

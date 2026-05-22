@@ -296,7 +296,7 @@ All listed are **in-process** dependencies; the platform-shim ports are the only
 
 ### Migration sketch
 
-1. Land the Core types + WPF adapters; route Help, Command Palette, Tab Switcher, Tab Dropdown through the router (popup-only proof of concept). Delete those four `IsXxxOpen` booleans from `MainViewModel`.
+1. Land the Core types + WPF adapters; route Help, Command Palette, Tab Switcher, Tab Dropdown through the router (popup-only proof of concept). Delete those four `IsXxxOpen` booleans from `MainViewModel`. **See Phase 1 design block below for the locked implementation shape.**
 2. Migrate `PanelWindowManager` callers → `IPanelSurface(Window)` via `WpfWindowSurface`. Collapse `FileViewerWindow` / `MarkdownPreviewWindow` / `ToastWindow` / `StatusOverlayWindow` capabilities into `PanelMountOptions`.
 3. Migrate `PanelHost` (right-dock) → `IPanelSurface(RightDock)` via `WpfPanelHostSurface`. Add `AvaloniaDockSurface` to give Avalonia the dock it currently lacks.
 4. Migrate `ActiveCenterPanel` → `IPanelSurface(Center)`. Delete `CenterPanelRestoreRequested` / `RightPanelRestoreEventArgs`; `IPanelPersistence` now owns restore.
@@ -307,3 +307,69 @@ Expect ~40–60 call-site edits, mostly in `MainViewModel` and `TerminalPairTabV
 ---
 
 *Document version: 1.1 — 2026-05-22 (added chosen design from `/design-interface`).*
+
+---
+
+## ✅ Phase 1 Design — WPF Popup Surface
+
+> Outcome of `/design-interface phase 1` on 2026-05-22. The Phase 0 contracts (`IPanelRouter`, `IPanelSurface`, `IPanelPersistence`) are locked; this block records the six implementation-shape calls that the migration sketch left open, so the implementer doesn't relitigate them mid-flight.
+
+### Scope of Phase 1
+
+Route four WPF popups through the router: Help, Command Palette, Tab Switcher, Tab Dropdown. Delete `IsHelpOpen`, `IsTabSwitcherOpen`, `IsTabDropdownOpen`, and `Palette.IsOpen` from `MainViewModel`. Persistence adapter and DI wiring land in the same phase. Other zones (RightDock, Center, Window, LeftDock) wait for later phases.
+
+### Six locked implementation calls
+
+| # | Choice | Decision | Rationale |
+|---|--------|----------|-----------|
+| 1 | Single shared `Popup` vs N popups | **Single shared `Popup`** in `WpfPopupSurface`; one mounted VM at a time | UX is already exclusive; router enforces single-instance per (zone, scope) |
+| 2 | View resolution | **Implicit `DataTemplate` keyed by VM type** (added to `App.xaml` or `PanelHostTemplates.xaml`) | Matches existing `PanelContentTemplates.xaml` / `TabContentTemplates.xaml` convention; no new port |
+| 3 | Where popup chrome lives | **The mounted `UserControl` *is* the chrome.** `Popup.Child` is a `ContentPresenter` bound to the mounted VM | Zero XAML churn in popup views |
+| 4 | VM extraction | **Extract** `TabSwitcherViewModel` and `TabDropdownViewModel` (taking the `Switcher*` / `Dropdown*` properties off `MainViewModel`). Promote `CommandPaletteViewModel` (already exists) and `HelpViewModel` (already exists) to implement `IPanelableViewModel`. | Wrappers would defeat the refactor's purpose. Real VMs now, not later. |
+| 5 | Click-outside dismiss for popup zone | Surface computes `DismissOnClickOutside = true` for `Popup` zone by default; `PanelMountOptions.DismissOnClickOutside` stays as-is. **Do not extend `PanelShowOptions`** with zone-specific knobs. | Keeps `PanelShowOptions` zone-agnostic; zone defaults live in the surface |
+| 6 | Persistence filter for popup zone | `DirectorySettingsPanelPersistence` (Core) **filters out entries with `Zone == Popup`** when saving | Popups are transient; never restore on cold start |
+
+### Supporting decisions
+
+- **DI for the router's view-model factory**: register `Func<Type, IPanelableViewModel?>` as `t => sp.GetService(t) as IPanelableViewModel`. No new port.
+- **Popup mount target in `MainWindow.xaml`**: replace the four named `Popup` controls with a single `WpfPopupSurfaceHost` user control (or `<Popup x:Name="RoutedPopupHost"/>` if even that is overkill). `WpfPopupSurface` resolves the host after `MainWindow.Show()` in `App.OnStartup`.
+- **ESC and dismiss flow**: existing per-view `PreviewKeyDown` handlers stay in code-behind but invoke the VM's `CloseCommand` instead of mutating `MainViewModel.IsXxxOpen`. Click-outside dismissal flows via `Popup.Closed` → surface raises `DismissRequested` → router calls `Close`.
+- **Focus restoration**: `IPanelSurface.Focus(panelId)` re-focuses the popup's default input control (existing `Loaded`-event self-focus stays).
+- **`PanelRouter.BuildMountOptions` adjustment**: currently passes `DismissOnClickOutside: false` hardcoded. Phase 1 either (a) leaves it hardcoded and the surface ignores the flag in favor of its zone default, or (b) the router asks the surface for its default. Pick (a) — simpler, the surface is the source of truth for zone-specific behavior. Document in `BuildMountOptions` that the field is currently a hint, not a contract.
+
+### Designs considered and rejected for Phase 1
+
+- **Thin wrapper VMs around `MainViewModel`-bound popups instead of extraction.** Rejected — would carry forward state smearing, and a follow-up extraction would touch the same four sites again. Extract now while we're already there.
+- **Per-popup named `Popup` controls in `MainWindow.xaml`, surface picks one by id.** Rejected — more XAML, no functional gain over a single shared `Popup` with `ContentPresenter` + `DataTemplate`.
+- **New `IViewResolver` / `IViewDescriptor` port.** Rejected — WPF `DataTemplate` already does this; a port would add testable surface area that FlaUI smoke tests already cover.
+- **Extending `PanelShowOptions` with `DismissOnClickOutside` / `Placement` / `Anchor`.** Rejected for Phase 1 — popup zone has one sensible default (center, click-outside dismiss). Defer until a caller actually needs an anchored popup. (`PanelShowOptions.Anchor` already exists from Phase 0 but the popup surface ignores it in Phase 1.)
+- **Centralizing ESC handling in the router via a global keybinding.** Rejected — per-view `PreviewKeyDown` still works fine when routed to `CloseCommand`. A global ESC fan-in can come later via `CloseZone(Popup, AppShell)` if needed.
+
+### Files this phase will touch
+
+- **New**:
+  - `src/TerminalHost/Services/Panels/WpfPopupSurface.cs`
+  - `src/TerminalHost/Services/Panels/DirectorySettingsPanelPersistence.cs` *(Core if portable, else WPF)*
+  - `src/TerminalHost/ViewModels/TabSwitcherViewModel.cs`
+  - `src/TerminalHost/ViewModels/TabDropdownViewModel.cs`
+  - `src/TerminalHost/Resources/PanelHostTemplates.xaml` *(or extend `App.xaml` `Application.Resources`)*
+- **Modified**:
+  - `src/TerminalHost/App.xaml.cs` — DI registrations (`IPanelRouter`, `IPanelSurface(Popup, AppShell)`, `IPanelPersistence`, factory lambda)
+  - `src/TerminalHost/MainWindow.xaml` — collapse 4 popups → 1 mount host
+  - `src/TerminalHost/MainWindow.xaml.cs` — remove popup-coordination code where stale
+  - `src/TerminalHost/ViewModels/MainViewModel.cs` — delete 4 `IsXxxOpen` properties + their `partial void OnXxxChanged` handlers + their setters in `[RelayCommand]` methods; replace with `_router.Show<HelpViewModel>()` etc.
+  - `src/TerminalHost/ViewModels/HelpViewModel.cs`, `CommandPaletteViewModel.cs` — implement `IPanelableViewModel` (inherit `BasePanelViewModel`)
+  - Existing popup views' code-behind (`HelpView.xaml.cs` etc.) — replace `IsXxxOpen = false` with `viewModel.CloseCommand.Execute(null)`
+- **Tests**:
+  - `tests/TerminalHost.Tests/Panels/WpfPopupSurfaceTests.cs` — *only what's testable headlessly*; rely on FlaUI smoke for the rest
+
+### Out of scope for Phase 1
+
+- Right-dock migration (Phase 2)
+- Window-zone migration / `PanelWindowManager` collapse (Phase 2 or 3)
+- Center overlay migration (Phase 4)
+- Avalonia parity (deferred until WPF surfaces all settle)
+
+---
+
+*Document version: 1.2 — 2026-05-22 (added Phase 1 design block).*

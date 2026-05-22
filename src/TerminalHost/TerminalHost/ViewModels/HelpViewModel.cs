@@ -1,7 +1,6 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using TerminalHost.Core.Domain;
+using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.Services;
+using TerminalHost.Core.ViewModels;
 using TerminalHost.Domain;
 
 namespace TerminalHost.ViewModels;
@@ -10,14 +9,12 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for the Help popup (F1).
 /// Provides all keyboard shortcuts, tips, and usage information.
 /// </summary>
-public partial class HelpViewModel : ObservableObject
+public partial class HelpViewModel : BasePanelViewModel
 {
-    private readonly MainViewModel _mainViewModel;
-
-    public HelpViewModel(MainViewModel mainViewModel)
-    {
-        _mainViewModel = mainViewModel;
-    }
+    public override string PanelId => "help";
+    public override string PanelTitle => "Help";
+    public override string PanelIcon => "❓";
+    public override PanelSizePreset SizePreset => PanelSizePreset.Large;
 
     #region Keyboard Shortcuts
 
@@ -74,16 +71,6 @@ public partial class HelpViewModel : ObservableObject
         new("Config file:", "%APPDATA%\\TerminalHost\\config.json"),
         new("Crash logs:", "%APPDATA%\\TerminalHost\\logs\\"),
     ];
-
-    #endregion
-
-    #region Commands
-
-    [RelayCommand]
-    private void Close()
-    {
-        _mainViewModel.IsHelpOpen = false;
-    }
 
     #endregion
 }

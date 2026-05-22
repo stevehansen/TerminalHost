@@ -53,6 +53,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ExplorerEventRouter _explorerRouter;
     private readonly LinkClickHandler _linkClickHandler;
     private readonly TabRouter _router;
+    private readonly IPanelRouter? _panelRouter;
 
     private readonly IProjectMonitor _projectMonitor;
     private readonly IDirectorySettingsStore _directorySettings;
@@ -169,27 +170,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = [];
 
-    [ObservableProperty]
-    private string _dropdownSearchText = "";
-
-    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = [];
-    public ReadOnlyObservableCollection<ITabViewModel> FilteredDropdownTabs { get; }
-
-    [ObservableProperty]
-    private bool _isTabDropdownOpen;
-
-    [ObservableProperty]
-    private string _switcherSearchText = "";
-
-    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = [];
-    public ReadOnlyObservableCollection<ITabViewModel> FilteredSwitcherTabs { get; }
-
-    [ObservableProperty]
-    private bool _isTabSwitcherOpen;
-
-    [ObservableProperty]
-    private bool _isHelpOpen;
-
     /// <summary>
     /// Whether touch-friendly mode is enabled for larger touch targets and padding.
     /// </summary>
@@ -208,9 +188,6 @@ public partial class MainViewModel : ObservableObject
     /// Command palette ViewModel (open/close state, search, filtered list, MRU).
     /// </summary>
     public CommandPaletteViewModel Palette { get; }
-
-    // Help
-    public HelpViewModel HelpViewModel { get; }
 
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
@@ -276,8 +253,10 @@ public partial class MainViewModel : ObservableObject
         ITerminalProfilesBuilder? profilesBuilder = null,
         ITabRestoreCoordinator? restoreCoordinator = null,
         ExplorerEventRouter? explorerRouter = null,
-        LinkClickHandler? linkClickHandler = null)
+        LinkClickHandler? linkClickHandler = null,
+        IPanelRouter? panelRouter = null)
     {
+        _panelRouter = panelRouter;
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
@@ -355,9 +334,6 @@ public partial class MainViewModel : ObservableObject
             };
         }
 
-        // Initialize help view model
-        HelpViewModel = new HelpViewModel(this);
-
         // Cache settings reference for command palette NameProvider lambdas
         _cachedSettings = configService.Load().Settings;
 
@@ -411,12 +387,6 @@ public partial class MainViewModel : ObservableObject
                 tab.CloseRequested += OnTabCloseRequested;
                 tab.PopOutRequested += OnTimelinePopOutRequested;
             });
-
-        FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
-        UpdateFilteredDropdownTabs(); // Initial population
-
-        FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
-        UpdateFilteredSwitcherTabs(); // Initial population
 
         using (StartupProfiler.Instance.Measure("InitializeCommandPalette"))
         {
@@ -484,16 +454,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnDropdownSearchTextChanged(string value)
-    {
-        UpdateFilteredDropdownTabs();
-    }
-
-    partial void OnSwitcherSearchTextChanged(string value)
-    {
-        UpdateFilteredSwitcherTabs();
-    }
-
     private void OnWorkspaceSelectedTabChanged(object? sender, TabSelectionChangedEventArgs e)
     {
         var oldValue = e.OldValue;
@@ -546,14 +506,11 @@ public partial class MainViewModel : ObservableObject
             _focusedTabDirectory = null;
         }
 
-        // If the selected tab changes, and the dropdown is open, close it.
-        if (IsTabDropdownOpen && newValue != null)
+        // If the selected tab changes, close any open transient tab pickers.
+        if (newValue != null)
         {
-            IsTabDropdownOpen = false;
-        }
-        if (IsTabSwitcherOpen && newValue != null)
-        {
-            IsTabSwitcherOpen = false;
+            _panelRouter?.Close("tabDropdown");
+            _panelRouter?.Close("tabSwitcher");
         }
 
         if (newValue != null)
@@ -577,68 +534,6 @@ public partial class MainViewModel : ObservableObject
         else
         {
             WorkspaceSidebar?.UpdateCurrentTab(null);
-        }
-    }
-
-    partial void OnIsTabDropdownOpenChanged(bool value)
-    {
-        if (value)
-        {
-            DropdownSearchText = "";
-            UpdateFilteredDropdownTabs();
-        }
-    }
-
-    partial void OnIsTabSwitcherOpenChanged(bool value)
-    {
-        if (value)
-        {
-            SwitcherSearchText = "";
-            UpdateFilteredSwitcherTabs();
-        }
-    }
-
-    private void UpdateFilteredDropdownTabs()
-    {
-        _filteredDropdownTabs.Clear();
-        if (string.IsNullOrEmpty(DropdownSearchText))
-        {
-            foreach (var tab in Tabs)
-            {
-                _filteredDropdownTabs.Add(tab);
-            }
-        }
-        else
-        {
-            var searchText = DropdownSearchText.ToLower();
-            foreach (var tab in Tabs.Where(t =>
-                t.Title.ToLower().Contains(searchText) ||
-                t.WorkingDirectory.ToLower().Contains(searchText)))
-            {
-                _filteredDropdownTabs.Add(tab);
-            }
-        }
-    }
-
-    private void UpdateFilteredSwitcherTabs()
-    {
-        _filteredSwitcherTabs.Clear();
-        if (string.IsNullOrEmpty(SwitcherSearchText))
-        {
-            foreach (var tab in Tabs)
-            {
-                _filteredSwitcherTabs.Add(tab);
-            }
-        }
-        else
-        {
-            var searchText = SwitcherSearchText.ToLower();
-            foreach (var tab in Tabs.Where(t =>
-                t.Title.ToLower().Contains(searchText) ||
-                t.WorkingDirectory.ToLower().Contains(searchText)))
-            {
-                _filteredSwitcherTabs.Add(tab);
-            }
         }
     }
 
@@ -2087,13 +1982,19 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenHelp()
     {
-        IsHelpOpen = true;
+        _panelRouter?.Show<HelpViewModel>();
     }
 
     [RelayCommand]
     private void OpenTabDropdown()
     {
-        IsTabDropdownOpen = true;
+        _panelRouter?.Show<TabDropdownViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenTabSwitcher()
+    {
+        _panelRouter?.Show<TabSwitcherViewModel>();
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenDetectedLinks))]
@@ -2110,7 +2011,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseHelp()
     {
-        IsHelpOpen = false;
+        _panelRouter?.Close("help");
     }
 
     // ── Container command helpers ───────────────────────────────────────

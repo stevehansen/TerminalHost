@@ -540,4 +540,71 @@ public class PanelRouterTests
         snapA.Entries.Select(e => e.PanelId).ShouldBe(new[] { "p1" });
         snapB.Entries.Select(e => e.PanelId).ShouldBe(new[] { "p2" });
     }
+
+    [Fact]
+    public void VmIsOpenFalse_TriggersRouterClose_AndCleansUpRegistry()
+    {
+        var (router, persistence, surfaces) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("help");
+        var routedEvents = new List<PanelRoutedEventArgs>();
+        router.Routed += (_, e) => routedEvents.Add(e);
+
+        router.Show(vm);
+
+        // Simulate the × button / BasePanelViewModel.CloseCommand path:
+        vm.IsOpen = false;
+
+        router.IsOpen("help").ShouldBeFalse();
+        surfaces[(PanelZone.Popup, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        routedEvents.Last().NewZone.ShouldBeNull();
+        persistence.Load(PanelScope.AppShell).Entries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void RouterInitiatedClose_DoesNotReEnter_ViaIsOpenSubscription()
+    {
+        var (router, _, surfaces) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("help");
+        var closeEvents = 0;
+        router.Routed += (_, e) => { if (e.NewZone is null) closeEvents++; };
+
+        router.Show(vm);
+        router.Close("help");
+
+        closeEvents.ShouldBe(1);
+        vm.IsOpen.ShouldBeFalse();
+        router.IsOpen("help").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Dispose_UnsubscribesIsOpenHandlers()
+    {
+        var (router, _, _) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("help");
+        router.Show(vm);
+
+        router.Dispose();
+
+        // After dispose, flipping IsOpen on the VM must not throw (ObjectDisposedException would
+        // surface if the router still received the PropertyChanged event and tried to Close).
+        Should.NotThrow(() => vm.IsOpen = false);
+    }
+
+    [Fact]
+    public void VmIsOpenFalse_OnRoutedShow_DoesNotTriggerStrayCloseForOtherPanels()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.Popup, PanelScope.AppShell),
+            (PanelZone.RightDock, PanelScope.AppShell));
+        var help = new StubPanelableViewModel("help");
+        var git = new StubPanelableViewModel("git");
+        router.Show(help, new PanelShowOptions(Zone: PanelZone.Popup));
+        router.Show(git, new PanelShowOptions(Zone: PanelZone.RightDock));
+
+        help.IsOpen = false;
+
+        router.IsOpen("help").ShouldBeFalse();
+        router.IsOpen("git").ShouldBeTrue();
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(git);
+    }
 }
