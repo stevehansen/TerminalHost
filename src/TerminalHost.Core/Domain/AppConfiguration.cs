@@ -272,7 +272,8 @@ public class AppConfiguration
             Icon = "b",
             Text = "dev b",
             Target = QuickCommandTarget.Shell,
-            AppendNewline = true
+            AppendNewline = true,
+            Shortcut = "Ctrl+Shift+B"
         },
         new QuickCommand
         {
@@ -601,6 +602,12 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("sidebarCollapsed")]
     public bool SidebarCollapsed { get; set; } = false;
+
+    /// <summary>
+    /// Whether the Sessions panel is visible globally across all workspaces.
+    /// </summary>
+    [JsonPropertyName("showSessionsPanel")]
+    public bool ShowSessionsPanel { get; set; } = false;
 
     /// <summary>
     /// Controls how aggressively git status is tracked for workspaces.

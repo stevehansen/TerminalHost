@@ -106,6 +106,12 @@ public partial class MainViewModel : ObservableObject
     private AppLayoutMode _layoutMode = AppLayoutMode.Tabs;
 
     /// <summary>
+    /// Whether the Sessions panel is visible globally across all workspaces.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showSessionsPanel;
+
+    /// <summary>
     /// Width of the sidebar column for binding.
     /// </summary>
     public double SidebarWidth => WorkspaceSidebar?.Width ?? 250;
@@ -1968,6 +1974,7 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? SearchRequested;
     public event EventHandler? ClaudeTasksRequested;
     public event EventHandler? SessionsTreeRequested;
+    public event EventHandler<bool>? SessionsPanelVisibilityChanged;
     public event EventHandler? TestRunnerRequested;
     public event EventHandler? WhatsNewRequested;
     public event EventHandler? MemoryBrowserRequested;
@@ -2542,6 +2549,19 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Persists the global Sessions panel flag and notifies the host so it can
+    /// sync per-tab panel visibility across every open project tab.
+    /// </summary>
+    partial void OnShowSessionsPanelChanged(bool value)
+    {
+        var config = _configService.Load();
+        config.Settings.ShowSessionsPanel = value;
+        _configService.Save(config);
+
+        SessionsPanelVisibilityChanged?.Invoke(this, value);
+    }
+
+    /// <summary>
     /// Toggles the workspace sidebar visibility (collapse/expand).
     /// </summary>
     [RelayCommand]
@@ -2565,6 +2585,7 @@ public partial class MainViewModel : ObservableObject
         // Set layout mode synchronously so the UI renders correctly from the start
         var config = _configService.Load();
         LayoutMode = config.Settings.LayoutMode;
+        ShowSessionsPanel = config.Settings.ShowSessionsPanel;
 
         // Yield so the fire-and-forget caller (Initialize) can proceed
         // to RestoreOpenFolders without waiting for sidebar git loads.

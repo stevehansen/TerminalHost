@@ -63,12 +63,12 @@ internal sealed class PanelCommandProvider : ICommandProvider
             },
             new() {
                 Id = "sessions-tree",
-                Name = "Sessions",
-                Description = "Tree of active Claude Code sessions and their subagents with live activity and context usage",
-                Shortcut = "Ctrl+Shift+B",
+                Name = "Toggle Sessions Panel",
+                Description = "Toggle the global Sessions panel (active Claude Code sessions and subagents with live activity and context usage)",
+                Shortcut = "Ctrl+Shift+A",
                 Icon = "\U0001F9E0",
                 Category = "Tools",
-                IntroducedOn = new DateOnly(2026, 5, 12),
+                IntroducedOn = new DateOnly(2026, 5, 22),
                 Execute = () => _vm.RequestSessionsTree(),
                 CanExecute = () => _vm.SelectedTab is TerminalPairTabViewModel
             },

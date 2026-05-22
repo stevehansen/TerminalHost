@@ -321,6 +321,44 @@
                         </ToggleButton.Style>
                     </ToggleButton>
 
+                    <!-- Toggle Sessions Panel (global) -->
+                    <ToggleButton IsChecked="{Binding DataContext.ShowSessionsPanel, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                  Content="⚡"
+                                  ToolTip="Sessions Panel (Ctrl+Shift+A)"
+                                  AutomationProperties.Name="Toggle Sessions Panel"
+                                  Margin="0,0,8,0">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="{StaticResource BackgroundMediumBrush}"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                <Setter Property="FontSize" Value="{StaticResource FontSizeTiny}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="3"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AccentPrimaryBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+
                     <!-- Toggle Explorer Visibility -->
                     <ToggleButton IsChecked="{Binding IsExplorerVisible}"
                                   Content="📂"

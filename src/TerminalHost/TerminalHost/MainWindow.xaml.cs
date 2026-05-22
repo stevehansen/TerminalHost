@@ -194,6 +194,7 @@ public partial class MainWindow : Window
         _viewModel.SearchRequested += OnSearchRequested;
         _viewModel.ClaudeTasksRequested += OnClaudeTasksRequested;
         _viewModel.SessionsTreeRequested += OnSessionsTreeRequested;
+        _viewModel.SessionsPanelVisibilityChanged += OnSessionsPanelVisibilityChanged;
         _viewModel.TestRunnerRequested += OnTestRunnerRequested;
         _viewModel.WhatsNewRequested += OnWhatsNewRequested;
         _viewModel.MemoryBrowserRequested += OnMemoryBrowserRequested;
@@ -538,6 +539,12 @@ public partial class MainWindow : Window
         foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
             tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
         _viewModel.Tabs.CollectionChanged += OnTabsCollectionChangedForOverlay;
+
+        // Apply persisted global Sessions panel flag to all restored tabs (#77).
+        if (_viewModel.ShowSessionsPanel)
+        {
+            OnSessionsPanelVisibilityChanged(this, true);
+        }
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -1034,8 +1041,8 @@ public partial class MainWindow : Window
             OpenClaudeTasksPanel();
             e.Handled = true;
         }
-        // Ctrl+Shift+B: Open Sessions Tree Panel
-        else if (e.Key == Key.B && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        // Ctrl+Shift+A: Toggle Sessions Panel (global)
+        else if (e.Key == Key.A && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
             OnSessionsTreeRequested(this, EventArgs.Empty);
             e.Handled = true;
@@ -1548,26 +1555,40 @@ public partial class MainWindow : Window
 
     private void OnSessionsTreeRequested(object? sender, EventArgs e)
     {
-        if (_viewModel.SelectedTab is not TerminalPairTabViewModel currentTab) return;
+        // Sessions panel visibility is global (#77): flip the flag and let
+        // OnSessionsPanelVisibilityChanged handle the per-tab sync.
+        _viewModel.ShowSessionsPanel = !_viewModel.ShowSessionsPanel;
+    }
 
-        currentTab.SetPanel(_sessionsTreePanelViewModel);
-
-        // If already open as a window, just focus it.
-        if (_sessionsTreePanelViewModel.IsOpen &&
-            _sessionsTreePanelViewModel.DisplayState == PanelDisplayState.Window)
+    /// <summary>
+    /// Syncs the shared Sessions panel across every open terminal-pair tab
+    /// when the global ShowSessionsPanel flag flips.
+    /// </summary>
+    private void OnSessionsPanelVisibilityChanged(object? sender, bool isVisible)
+    {
+        if (isVisible)
         {
-            _panelWindowManager?.GetWindow(_sessionsTreePanelViewModel.PanelId)?.Activate();
-            return;
+            _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
+            _sessionsTreePanelViewModel.Open();
         }
 
-        if (_sessionsTreePanelViewModel.IsOpen)
+        foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
         {
-            currentTab.TogglePanel(_sessionsTreePanelViewModel);
-            return;
+            tab.SetPanel(_sessionsTreePanelViewModel);
+            if (isVisible)
+            {
+                tab.ShowPanel(_sessionsTreePanelViewModel);
+            }
+            else
+            {
+                tab.HidePanel(_sessionsTreePanelViewModel);
+            }
         }
 
-        _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
-        _sessionsTreePanelViewModel.Open();
+        if (!isVisible)
+        {
+            _sessionsTreePanelViewModel.IsOpen = false;
+        }
     }
 
     #endregion
@@ -2327,8 +2348,18 @@ public partial class MainWindow : Window
     private void OnTabsCollectionChangedForOverlay(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems != null)
+        {
             foreach (var tab in e.NewItems.OfType<TerminalPairTabViewModel>())
+            {
                 tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
+                // New tab must respect the global Sessions panel flag (#77).
+                if (_viewModel.ShowSessionsPanel)
+                {
+                    tab.SetPanel(_sessionsTreePanelViewModel);
+                    tab.ShowPanel(_sessionsTreePanelViewModel);
+                }
+            }
+        }
         if (e.OldItems != null)
             foreach (var tab in e.OldItems.OfType<TerminalPairTabViewModel>())
                 tab.PropertyChanged -= OnAnyTerminalTabPropertyChanged;
