@@ -33,7 +33,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public override string PanelId => "sessionsTree";
     public override string PanelTitle => "Sessions";
-    public override string PanelIcon => "\U0001F9E0";
+    public override string PanelIcon => "⚡";
     public override PanelSizePreset SizePreset => PanelSizePreset.Medium;
 
     public override IEnumerable<PanelHeaderCommand>? HeaderCommands =>

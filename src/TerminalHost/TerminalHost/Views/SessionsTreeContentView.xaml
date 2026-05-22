@@ -263,7 +263,7 @@
                 Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}"
                 Padding="20">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="🧠"
+                <TextBlock Text="⚡"
                            FontSize="40"
                            Opacity="0.5"
                            HorizontalAlignment="Center"/>

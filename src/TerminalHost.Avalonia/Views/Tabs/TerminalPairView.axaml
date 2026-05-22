@@ -558,7 +558,7 @@
                         <TabItem Header="🤖 Tasks">
                             <panels:WorkspaceTasksPanelView DataContext="{Binding WorkspaceTasksPanel}"/>
                         </TabItem>
-                        <TabItem Header="🧠 Sessions">
+                        <TabItem Header="⚡ Sessions">
                             <panels:SessionsTreePanelView DataContext="{Binding SessionsTreePanel}"/>
                         </TabItem>
                     </TabControl>
