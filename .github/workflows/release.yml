@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows artifacts
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout (full history for MinVer)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } else {
+            dotnet tool install --global minver-cli --version 5.0.0 | Out-Null
+            $version = (minver -t v -p alpha.0).Trim()
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved version: $version"
+
+      - name: Publish WPF (TerminalHost) — win-x64
+        shell: pwsh
+        run: |
+          $publishDir = ($env:GITHUB_WORKSPACE -replace '\\', '/') + '/publish/wpf/'
+          dotnet publish src/TerminalHost/TerminalHost -c Release "-p:PublishDir=$publishDir"
+
+      - name: Publish Avalonia — win-x64
+        shell: pwsh
+        run: |
+          $publishDir = ($env:GITHUB_WORKSPACE -replace '\\', '/') + '/publish/avalonia-win/'
+          dotnet publish src/TerminalHost.Avalonia -c Release -r win-x64 "-p:PublishDir=$publishDir"
+
+      - name: Package zips
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          New-Item -ItemType Directory -Force -Path ./artifacts | Out-Null
+          Compress-Archive -Path ./publish/wpf/* `
+            -DestinationPath "./artifacts/host_win-x64_v$version.zip" -Force
+          Compress-Archive -Path ./publish/avalonia-win/* `
+            -DestinationPath "./artifacts/host-avalonia_win-x64_v$version.zip" -Force
+          Get-ChildItem ./artifacts | Format-Table Name, Length
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminalhost-windows
+          path: ./artifacts/*.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-windows]
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: terminalhost-*
+          merge-multiple: true
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: ls -la ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/*
+          generate_release_notes: true
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event_name == 'push' && contains(github.ref_name, '-') }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('dev-{0}', github.run_number) || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && format('Dev build #{0}', github.run_number) || github.ref_name }}

@@ -192,13 +192,13 @@ Add `.github/release.yml` to categorize PRs by label in the auto-generated notes
 ## Phases
 
 **Phase 1 — Versioning groundwork**
-- [ ] Add root `Directory.Build.props` with MinVer.
-- [ ] Replace hardcoded "v1.0" in `HelpView.xaml` with `AssemblyInformationalVersionAttribute` lookup.
-- [ ] Verify `dotnet build` on a clean checkout still succeeds; version shows as `0.0.0-alpha.0.0`.
-- [ ] Tag `v0.1.0-alpha.1` locally, rebuild, verify version string updates.
+- [x] Add root `Directory.Build.props` with MinVer.
+- [x] Replace hardcoded "v1.0" in `HelpView.xaml` with `AssemblyInformationalVersionAttribute` lookup (via `IVersionService` injected into `MainViewModel`, proxied through `HelpViewModel`).
+- [x] Verify `dotnet build` on a clean checkout still succeeds; with no tags MinVer produced `0.0.0-alpha.0.515+<sha>`.
+- [x] Tag `v0.1.0-alpha.1` locally, rebuild, verify version string updates to `0.1.0-alpha.1+<sha>`.
 
 **Phase 2 — Windows release**
-- [ ] Create `.github/workflows/release.yml` with `build-windows` job and a stub `release` job (draft-only).
+- [x] Create `.github/workflows/release.yml` with `build-windows` job and a `release` job (draft on `workflow_dispatch`).
 - [ ] Trigger via `workflow_dispatch`, verify both Windows zips upload to a draft release.
 - [ ] Manually download, extract, and run each on a clean Windows machine (no .NET SDK installed).
 
