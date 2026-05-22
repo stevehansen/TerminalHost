@@ -146,4 +146,4 @@ jobs:
           draft: ${{ github.event_name == 'workflow_dispatch' }}
           prerelease: ${{ github.event_name == 'push' && contains(github.ref_name, '-') }}
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('dev-{0}', github.run_number) || github.ref_name }}
-          name: ${{ github.event_name == 'workflow_dispatch' && format('Dev build #{0}', github.run_number) || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && format('Dev build {0}', github.run_number) || github.ref_name }}
