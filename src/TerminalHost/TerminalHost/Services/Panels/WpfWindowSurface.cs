@@ -33,6 +33,12 @@ public sealed class WpfWindowSurface : IPanelSurface
 
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
 
+    // Window zone has no user-driven active changes for the router's purposes — OS focus is
+    // tracked by the window manager, not the router.
+#pragma warning disable CS0067
+    public event EventHandler<string?>? ActiveChanged;
+#pragma warning restore CS0067
+
     public WpfWindowSurface(Func<Window?> ownerProvider, IDispatcherService dispatcher)
     {
         _ownerProvider = ownerProvider;

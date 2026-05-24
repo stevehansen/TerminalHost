@@ -538,3 +538,129 @@ Land `WpfCenterSurface : IPanelSurface(Center, ForTab(...))` per tab, mirroring 
 ---
 
 *Document version: 1.4 — 2026-05-23 (added Phase 4 design block).*
+
+---
+
+## ✅ Phase 5 Design — Avalonia Router Migration (staged)
+
+> Outcome of `/design-interface next phase` on 2026-05-24. Four designs explored in parallel — A (WPF mirror), B (Avalonia-native), C (staged sub-phases), D (Avalonia.Headless tests). This is a hybrid of C's chassis, B's overlay choice, D's test infrastructure, and A's class signatures where the WPF mirror is uncontroversial.
+
+### Scope of Phase 5
+
+Bring Avalonia under the `IPanelRouter` that WPF migrated to over Phases 1–4. Today Avalonia has **zero** references to `IPanelRouter` / `IPanelSurface` / `PanelScope` / `PanelZone`; ~22 `IsXxxOpen` booleans drive a `PopupHost` overlay panel with ~22 visibility-bound children; a 22-entry ESC cascade lives at `MainWindow.axaml.cs:1017-1050`; `TerminalPairTabViewModel.ShowCenterPanel`/`CloseCenterPanel`/`ToggleCenterPanel` (lines 1782-1818) still mutate `ActiveCenterPanel` directly; and a tab-switch rebind hack at `MainWindow.axaml.cs:595-606` is now bit-rotted (its `// Note: Other center panel types are not yet implemented as IPanelableViewModel in Avalonia` comment is obsolete since Phase 4 deleted `CenterPanelRestoreEventArgs`).
+
+After Phase 5: Avalonia's `MainWindow.axaml.cs` is structurally identical to WPF's post-Phase-4 shape for routed panels (~900 lines, down from 1760), the `IsXxxOpen` boolean zoo is gone, ESC routes through `_router.CloseZone`, and the same `IPanelOpenContext.OnOpenedAsync` mechanism the WPF center VMs adopted in Phase 4 carries the tab-rebind concern.
+
+**Out of scope for Phase 5:**
+- **Right-dock surface for Avalonia** — Avalonia has no right-dock today; adding one is *new-feature work*, not router parity. Tracked as Phase 6 (additive, not blocking).
+- `ToastWindow` / `StatusOverlayWindow` / `SparkCanvasWindow` / `SetupWindow` — they don't host `IPanelableViewModel`s; Phase 2b territory.
+- `MarkdownPreviewWindow` (Avalonia-only bespoke window) — survives Phase 5 unless `MarkdownPreviewViewModel` already inherits `BasePanelViewModel`, in which case it collapses into `AvaloniaWindowSurface` for free.
+- Phase 3 design-block backfill — tracked separately.
+
+### Sub-phase chassis
+
+| Sub-phase | Lands | Deletes | Verification |
+|---|---|---|---|
+| **5a** — DI bootstrap + Overlay surface + test project | `IPanelRouter` / `IPanelPersistence` wired in `App.axaml.cs`. `AvaloniaOverlaySurface` (single `ContentControl` mount inside the existing `PopupHost` `Panel` — **not** Avalonia `Popup`). Route 4 transient popups (Help, Command Palette, Tab Switcher, Tab Dropdown). New `tests/TerminalHost.Avalonia.Tests/` project (Avalonia.Headless.XUnit) with the first surface-contract test. | `IsHelpOpen`, `IsTabSwitcherOpen`, `IsTabDropdownOpen`, `Palette.IsOpen` + their bindings + 4 overlay panel children. | Build, existing tests, new `AvaloniaOverlaySurfaceTests` headless. |
+| **5b** — Window surface + bespoke window collapse | `AvaloniaWindowSurface : IPanelSurface(Window, AppShell)` mirroring `WpfWindowSurface`. Delete `Views/FileViewerWindow.axaml(.cs)` (adopt `IPanelCloseGuard` on `FileViewerViewModel` if not already). `MarkdownPreviewWindow` collapses too **iff** its VM implements `IPanelableViewModel`; otherwise it stays. | `FileViewerWindow.axaml(.cs)`, `CreatePopOutWindow` stub, the 8 bespoke-window call sites. | Build, smoke: file viewer pop-out and dock-back. |
+| **5c** — Remaining overlay popups + ESC cascade | Route the remaining 11+ popup VMs (ScratchPad, FileViewer-as-popup, DetectedLinks, TaskPanel, ClaudeTasksPanel, MemoryBrowser, DebugLog, SearchAcrossFiles, FileHistory, FileBlame, Reflog, ManageWorktrees, PrReview, RecentFeatures, MergeConflict) through `AvaloniaOverlaySurface`. Replace the 22-entry ESC array with `_router.CloseZone(PanelZone.Popup, PanelScope.AppShell)` then (if a tab is selected) `_router.CloseZone(PanelZone.Center, currentTab.CenterScope)`. | Remaining `IsXxxOpen` bools, 22-entry ESC array in `MainWindow.axaml.cs:1017-1050`, `CloseAllPopups()`. | Build, FlaUI ESC priority smoke. |
+| **5d** — Center surface + per-tab scope + tab-rebind hack deletion | `AvaloniaCenterSurface : IPanelSurface(Center, ForTab(...))` per tab, mirroring Phase 4 WPF. Convert `ActiveCenterPanel` / `IsTerminalsVisible` to read-only proxies over `_centerSurface.MountedPanel`. Delete `ShowCenterPanel` / `CloseCenterPanel` / `ToggleCenterPanel`. Replace the ~9 `terminalTab.ShowCenterPanel(_unifiedGitPanelViewModel); _ = vm.OpenOnTabAsync(...)` two-liners with one router call + `IPanelOpenContext`. **Delete the tab-rebind hack at `MainWindow.axaml.cs:595-606`** — replaced by the same `OnOpenedAsync(this)` mechanism WPF Phase 4 adopted. Remove `target.ActiveCenterPanel = …` from `WriteToDirectorySettings` (persistence owns it now). | `ShowCenterPanel` / `CloseCenterPanel` / `ToggleCenterPanel`, the ~9 dispatch sites, the rebind hack, `IsExplorerVisible` mutator (becomes derived from the dock surface only if right-dock lands — until then `IsExplorerVisible` keeps its current mutator on Avalonia, **flagged as Phase 6 cleanup**). | Build, tests, smoke: Cmd+B opens git on Branches; switching tabs preserves correct VM state via `OnOpenedAsync`. |
+
+5a is intentionally small — it bootstraps DI, proves the surface skeleton, and stands up the headless test project so subsequent sub-phases grow into it. 5c is largest by volume but lowest by risk. 5d is highest-risk because the tab-rebind hack must die cleanly.
+
+### Locked implementation calls
+
+| # | Choice | Decision | Rationale |
+|---|--------|----------|-----------|
+| 1 | Overlay mount primitive | **`ContentControl` inside the existing `PopupHost` `Panel`** — **not** Avalonia `Popup` | Avalonia's `PopupRoot` is a separate visual tree that doesn't inherit `App.axaml` brushes cleanly. The existing `PopupHost` `Panel` already z-orders above tabs; collapsing 22 visibility-bound children to one `ContentPresenter` with DataTemplate dispatch matches the established Avalonia idiom and avoids airspace issues. |
+| 2 | View resolution | **Implicit `DataTemplate` keyed by VM type** in `App.axaml` `Application.Resources` | Matches existing Avalonia DataTemplate convention. No new port. |
+| 3 | Single-instance / single-mount semantics | Surface enforces single-slot (single mounted VM at a time). Router enforces single-instance per `(panelId, scope)`. | Mirrors WPF Phase 1+4 locked call. |
+| 4 | Click-outside dismiss | Wire `PanelMountOptions.DismissOnClickOutside` to Avalonia's **`LightDismissOverlayBehavior`** when the overlay surface mounts. Surface raises `DismissRequested(ClickOutside)` from the behavior's dismiss event. | Native Avalonia idiom; testable in `Avalonia.Headless` (where WPF cannot test click-outside without FlaUI). The one Avalonia-side ergonomic win worth keeping. |
+| 5 | ESC handling | Per-VM `OnKeyDown` handlers stay (matches WPF Phase 1). Global ESC in `MainWindow.OnKeyDown` calls `_router.CloseZone(Popup, AppShell)` then `_router.CloseZone(Center, currentTab.CenterScope)` — replaces the 22-entry array. | Two-line replacement for the cascade; ordering preserved (popup wins over center, matching today's priority). |
+| 6 | Persistence | **Reuse `Core/Services/DirectorySettingsPanelPersistence` unchanged** | It's already platform-agnostic Core; projects through `IConfigurationService` which Avalonia already has. Zero schema drift. |
+| 7 | Tab-rebind hack at `MainWindow.axaml.cs:595-606` | **Delete in 5d.** Replaced by the same `IPanelOpenContext.OnOpenedAsync(this)` mechanism WPF Phase 4 adopted; `UnifiedGitPanelViewModel` already implements it. | No clone of WPF's `HydrateActiveCenterPanelAsync` is needed — the router invokes `OnOpenedAsync` post-Mount and post-Move (`PanelRouter.cs:574-588`), so tab-switch re-binding is centralized. |
+| 8 | Avalonia.Headless test scaffold | **Land the test project in 5a**, not as a separate phase. Grows per sub-phase. | Sub-phases without tests are weaker. Adding tests later is the well-known "we'll backfill" anti-pattern. |
+| 9 | Right-dock (Avalonia first dock surface) | **Out of scope for Phase 5; tracked as Phase 6.** | Avalonia has no right-dock today. Adding one is feature work, not router parity. Phase 5's success criterion is "Avalonia routed-panel behavior matches WPF" — that's preserved even without a dock surface because Avalonia currently has nothing in the dock zone. |
+| 10 | `MarkdownPreviewWindow` | Collapses into `AvaloniaWindowSurface` in 5b **iff** `MarkdownPreviewViewModel` already inherits `BasePanelViewModel`; otherwise stays bespoke in Phase 5 and rides Phase 6 cleanup. | Don't bundle a VM migration into a host migration; the spec already established that Avalonia-bespoke windows survive when their VMs aren't `IPanelableViewModel`s. |
+
+### Supporting decisions
+
+- **Per-tab surfaces** (Center) are constructed by `TerminalPairTabViewModel` and registered/unregistered with the router on tab init/close — identical pattern to WPF Phase 3+4.
+- **AppShell surfaces** (Overlay, Window) are DI singletons; their `AttachHost(...)` method binds the actual XAML mount point after `MainWindow.Opened` (mirrors the lazy-attach pattern from `WpfPopupSurface`).
+- **DI registration order** matches WPF Phase 1: register `IPanelPersistence`, `Func<Type, IPanelableViewModel?>` factory, then `IPanelSurface` enumeration, then `IPanelRouter` ctor consumes them. New: register the same `IDispatcherService` instance both as Avalonia's existing port and as `IUiDispatcher` (one-line adapter if signatures don't match).
+- **Phase 5a deletes 4 bools, 5c deletes ~11 more + the ESC array, 5d deletes the rebind hack** — positive momentum every sub-phase. No sub-phase lands sideways.
+- **Between 5a and 5c**, Avalonia briefly has TWO popup mechanisms running side-by-side (router-driven for 4 VMs; `IsXxxOpen`-bound for ~18). Document this transitional state with a `// PHASE-5C-PENDING:` comment on the `IsXxxOpen` properties scheduled for migration.
+- **Between 5b and 5d**, the tab-rebind hack at lines 595-606 stays in place. Reviewers should not be asked to delete it incrementally — its full elimination is a 5d acceptance criterion, not a 5b/5c side-effect.
+- **Sub-phase landing cadence**: 5a + 5b can ship in one PR if reviewer bandwidth permits (5b is small, gives 5d's pop-out a real target). 5c standalone. 5d standalone, gated on 5a+5b being live.
+
+### Designs considered and rejected for Phase 5
+
+- **Design A as primary (WPF mirror, Avalonia `Popup`).** Rejected as primary — Avalonia `Popup` fights `App.axaml` brush inheritance (separate `PopupRoot` visual tree). Kept A's class signatures (`AvaloniaWindowSurface`, `AvaloniaCenterSurface`) for the surfaces where the WPF mirror is uncontroversial.
+- **Design B's full Avalonia-native rethink.** Rejected as the *primary* framing — Window/Center are uncontroversial mirrors; rebadging them as "native" adds nothing. Kept B's overlay choice (`Panel` + `ContentControl`) and its `LightDismissOverlayBehavior` wiring because those are genuine Avalonia ergonomic wins.
+- **Big-bang Phase 5 (one PR).** Rejected on conflict-surface grounds — concurrent Spark Canvas / Eidet work would collide with a ~1800-line PR. Staged is 4 PRs of ~500 lines, each independently reviewable.
+- **Bundling right-dock (Avalonia's first dock surface) into Phase 5.** Rejected — that's feature work, not parity. Phase 5 ships when Avalonia's routed-panel behavior matches WPF; right-dock is Phase 6 and explicitly additive.
+- **Design D's hypothetical additive ports (`SynthesizeDismiss(DismissTrigger)` test seam).** Rejected — D itself rejected them. Real `KeyDown(Escape)` against a real `Window` in `Avalonia.Headless` is more faithful than a test-only seam. Adopted D's stance unchanged.
+- **Deferring the Avalonia.Headless test project to "after parity lands".** Rejected — that's the classic backfill-debt anti-pattern. The test project goes in 5a and grows with each sub-phase.
+- **Keeping the tab-rebind hack at `MainWindow.axaml.cs:595-606` indefinitely.** Rejected — it's the visible scar of Phase 4 and accretes one new entry per migrated center VM. Must die in 5d; non-negotiable.
+- **Adding a new `IPanelSurface` method or sibling port for Avalonia.** Rejected — Phase 5 is implementation work against the locked Phase 0 contracts. If the existing contract can't accommodate Avalonia, that's a Phase 0 bug, not a Phase 5 design.
+
+### Dependency strategy
+
+| External touch | Port | Avalonia adapter | WPF counterpart | Test adapter |
+|---|---|---|---|---|
+| Overlay mount (`PopupHost` Panel) | `IPanelSurface(Popup, AppShell)` | `AvaloniaOverlaySurface` (uses `ContentControl` inside existing `Panel`; `LightDismissOverlayBehavior` for click-outside) | `WpfPopupSurface` | `FakePanelSurface` (router tests); real headless instance (surface tests) |
+| Top-level `Window` | `IPanelSurface(Window, AppShell)` | `AvaloniaWindowSurface` (wraps `Views/PanelWindow.axaml`; `Topmost` for `AlwaysOnTop`) | `WpfWindowSurface` | `FakePanelSurface`; real headless instance |
+| Per-tab center slot | `IPanelSurface(Center, ForTab(...))` | `AvaloniaCenterSurface` (single-slot, `ContentControl` binding) | `WpfCenterSurface` | `FakePanelSurface`; real headless instance |
+| Per-tab right dock | — | **Out of scope (Phase 6)** | `WpfRightDockSurface` | — |
+| UI thread | `IUiDispatcher` | Existing `Services/DispatcherService.cs` (wraps `Avalonia.Threading.Dispatcher.UIThread`) | `WpfDispatcher` | `SyncDispatcher` |
+| Per-directory layout state | `IPanelPersistence` | **`DirectorySettingsPanelPersistence` reused unchanged** (Core, platform-agnostic) | same | `InMemoryPanelPersistence` |
+
+All in-process. No new ports.
+
+### Test strategy
+
+**New project: `tests/TerminalHost.Avalonia.Tests/`** — references `Avalonia.Headless.XUnit 11.3.16` (matching app version). One file per surface with contract tests against a real Avalonia visual tree:
+
+- `AvaloniaOverlaySurfaceTests.cs` — Mount evicts prior, ESC routes through real focus chain raises `DismissRequested(Escape)`, click-outside (via `LightDismissOverlayBehavior`) raises `DismissRequested(ClickOutside)`, focus restoration on Unmount.
+- `AvaloniaWindowSurfaceTests.cs` — Mount creates `PanelWindow`, `IPanelCloseGuard.CanClose() = false` cancels real `WindowClosingEventArgs`, `Topmost` flag wires through, dock-back via `vm.IsOpen = false`.
+- `AvaloniaCenterSurfaceTests.cs` — Single-slot eviction on Mount, `MountedPanel` / `HasMounted` raise `PropertyChanged`, `Focus` is no-op.
+
+**Shared `PanelRouterTests` in `TerminalHost.Tests`** stays — Avalonia is not loaded for router-boundary tests. `FakePanelSurface` remains for those.
+
+**FlaUI backstop** for what headless can't reach: macOS dark-mode title-bar chrome, OS focus stealing on AlwaysOnTop windows, system tray.
+
+**Test build cost:** ~3 packages added (`Avalonia.Headless`, `Avalonia.Headless.XUnit`), ~15MB restore, tests run ~200ms each on Linux CI (10× faster than FlaUI smoke).
+
+**Honest caveat:** WPF surfaces gain no new test fidelity from this — `Microsoft.UI.Xaml.Testing` doesn't cover WPF. Avalonia gets tighter coverage than WPF. That's an asymmetry in Avalonia's favor, not a regression.
+
+### Files this phase will touch
+
+**5a — bootstrap:**
+- *New*: `src/TerminalHost.Avalonia/Services/Panels/AvaloniaOverlaySurface.cs`; `tests/TerminalHost.Avalonia.Tests/TerminalHost.Avalonia.Tests.csproj` + `HeadlessAppBuilder.cs` + `Panels/AvaloniaOverlaySurfaceTests.cs`.
+- *Modified*: `App.axaml.cs` (DI: `IPanelRouter`, `IPanelPersistence`, `AvaloniaOverlaySurface`, factory lambda); `MainWindow.axaml` (collapse 4 overlay `Panel` children → one `<ContentControl x:Name="OverlayMount"/>`); `MainWindow.axaml.cs` (`OnOpened` calls `_overlaySurface.AttachHost(PopupHost, OverlayMount)`; 4 popup keybindings route through `_router.Show<TPanel>()`); `ViewModels/MainViewModel.cs` (delete `IsHelpOpen`, `IsTabSwitcherOpen`, `IsTabDropdownOpen`, `Palette.IsOpen` props + handlers).
+
+**5b — window surface:**
+- *New*: `src/TerminalHost.Avalonia/Services/Panels/AvaloniaWindowSurface.cs`.
+- *Modified*: `App.axaml.cs` (DI append); `MainWindow.axaml.cs` (`OnFilePopOutRequested` + `OnFileViewerDetachRequested` route through `_router.Move(panelId, Window)`); `ViewModels/FileViewerViewModel.cs` (implement `IPanelCloseGuard` if not already; remove `IsDetached` if present); `Views/PanelWindow.axaml.cs` (`OnClosing` veto via `IPanelCloseGuard`).
+- *Deleted*: `Views/FileViewerWindow.axaml(.cs)`. `MarkdownPreviewWindow.axaml(.cs)` *iff* its VM is `IPanelableViewModel`; otherwise stays.
+- *New tests*: `AvaloniaWindowSurfaceTests.cs`.
+
+**5c — remaining overlay popups + ESC:**
+- *Modified*: `MainWindow.axaml` (collapse remaining 11+ overlay panel children); `MainWindow.axaml.cs` (replace 22-entry ESC cascade lines 1017-1050 with two `_router.CloseZone` calls; delete `CloseAllPopups()`); `ViewModels/MainViewModel.cs` (delete remaining `IsXxxOpen` props); the 11+ popup VMs adopt `BasePanelViewModel` if not already (most already do — verify).
+
+**5d — center surface + tab-rebind hack deletion:**
+- *New*: `src/TerminalHost.Avalonia/Services/Panels/AvaloniaCenterSurface.cs`.
+- *Modified*: `ViewModels/TerminalPairTabViewModel.cs` (add `InitializeCenterSurface`, `CenterScope`, `AttachCenter`, `RestoreCenterPanels`; delete `ShowCenterPanel` / `CloseCenterPanel` / `ToggleCenterPanel`; convert `ActiveCenterPanel` / `IsTerminalsVisible` to read-only proxies over `_centerSurface.MountedPanel`; update `Cleanup` to unregister; remove `target.ActiveCenterPanel = …` writes from `WriteToDirectorySettings`); `MainWindow.axaml.cs` (delete the tab-rebind hack at lines 595-606; replace 9 git-tab dispatch two-liners with one router call each; ESC cascade in 5c gains the Center cascade arm); `Views/Tabs/TerminalPairView.axaml(.cs)` (`OnLoaded` calls `tab.AttachCenter(CenterContentControl)`); the 9+ Avalonia center VMs implement `IPanelPlacement.PreferredZone = Center` if not already (most already do — verify).
+- *New tests*: `AvaloniaCenterSurfaceTests.cs`; extend `PanelRouterTests` if anything Avalonia-specific surfaces.
+
+### Out of scope for Phase 5
+
+- **Avalonia right-dock** (Phase 6 — new feature work)
+- `ToastWindow`, `StatusOverlayWindow`, `SparkCanvasWindow`, `SetupWindow` (Phase 2b synthetic-adapter design)
+- `MarkdownPreviewWindow` if its VM is not `IPanelableViewModel` (5b touches it or skips it depending on VM state at landing time)
+- `WpfRightDockSurface` / `WpfCenterSurface` / `WpfPopupSurface` / `WpfWindowSurface` — untouched; WPF must stay green at every sub-phase boundary
+- Phase 3 design-block backfill — doc-only task tracked separately
+
+---
+
+*Document version: 1.5 — 2026-05-24 (added Phase 5 design block).*

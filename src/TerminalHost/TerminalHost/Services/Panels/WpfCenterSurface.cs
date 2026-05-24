@@ -25,9 +25,11 @@ public sealed class WpfCenterSurface : IPanelSurface, INotifyPropertyChanged, ID
     public PanelScope Scope { get; }
 
     // The Center surface has no source of dismiss events (no Escape capture, no click-outside,
-    // no OS close). The event is required by IPanelSurface but is never raised here.
+    // no OS close). The event is required by IPanelSurface but is never raised here. ActiveChanged
+    // likewise unused — Center is single-slot, router updates active on Mount/Focus.
 #pragma warning disable CS0067
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
+    public event EventHandler<string?>? ActiveChanged;
 #pragma warning restore CS0067
     public event PropertyChangedEventHandler? PropertyChanged;
 

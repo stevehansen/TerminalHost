@@ -932,20 +932,26 @@ public partial class App : Application
         if (sender is not Popup popup)
             return;
 
-        // Check if main window is active - if not, we need to handle focus specially
-        var mainWindow = MainWindow;
-        if (mainWindow == null || mainWindow.IsActive)
+        // Scope the workaround to the popup's OWNING window — not always MainWindow.
+        // Popped-out PanelWindows host their own popups (e.g. ContextMenu on File Explorer); if
+        // we always activated MainWindow here, clicking a menu item inside a popped-out window
+        // would force MainWindow to the foreground, deactivate the popped-out window, and
+        // dismiss the popup before MenuItem.Click could fire.
+        var ownerWindow = popup.PlacementTarget is DependencyObject pt
+            ? Window.GetWindow(pt)
+            : null;
+        ownerWindow ??= MainWindow;
+        if (ownerWindow == null || ownerWindow.IsActive)
             return;
 
-        // Main window is not active - force activation and then focus the clicked element
+        // Owner window is not active - force activation and then focus the clicked element
         _ignoreFocusChange = true;
         try
         {
-            // Get the main window's handle and activate it
-            var mainWindowHandle = new WindowInteropHelper(mainWindow).Handle;
-            if (mainWindowHandle != IntPtr.Zero)
+            var ownerWindowHandle = new WindowInteropHelper(ownerWindow).Handle;
+            if (ownerWindowHandle != IntPtr.Zero)
             {
-                NativeMethods.SetForegroundWindow(mainWindowHandle);
+                NativeMethods.SetForegroundWindow(ownerWindowHandle);
             }
 
             // Find and focus the clicked element after activation

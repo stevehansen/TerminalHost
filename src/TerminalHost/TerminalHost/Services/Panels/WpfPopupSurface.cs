@@ -33,6 +33,12 @@ public sealed class WpfPopupSurface : IPanelSurface
 
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
 
+    // Single-mount surface: the router updates active state on Mount/Focus; no user-driven
+    // active changes can happen.
+#pragma warning disable CS0067
+    public event EventHandler<string?>? ActiveChanged;
+#pragma warning restore CS0067
+
     /// <summary>
     /// Wires the surface to a host <see cref="Popup"/> created in <c>MainWindow.xaml</c>.
     /// Must be called exactly once, after the main window's first <c>Loaded</c> event.
@@ -106,9 +112,11 @@ public sealed class WpfPopupSurface : IPanelSurface
         _content.Content = vm;
         _host.IsOpen = true;
 
-        // Defer focus until the popup's HWND exists; the view's own Loaded handler
-        // typically focuses its search box, but the surface backstops here.
-        _host.Dispatcher.BeginInvoke(() => Focus(vm.PanelId), System.Windows.Threading.DispatcherPriority.Input);
+        // The mounted view's own Loaded / IsVisibleChanged handler focuses its search box —
+        // calling Focus on the popup Child here would race with that handler and overwrite the
+        // descendant focus (the Child is the popup wrapper, not the actual input control). The
+        // router still calls Focus(panelId) explicitly for re-focus (Show with ForceShow on an
+        // already-mounted panel), so this isn't a behavior loss.
     }
 
     private void AssertUiThread()

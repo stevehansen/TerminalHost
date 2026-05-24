@@ -256,6 +256,59 @@ public partial class PanelRouterTests
     }
 
     [Fact]
+    public void Scope_Isolation_ToggleCloseDoesNotAffectSiblingTab()
+    {
+        // Regression: ToggleClose used PanelId-based Close which matched the first sibling-tab
+        // registration in iteration order — unmounting the wrong tab's panel and leaving a desync.
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabA),
+            (PanelZone.RightDock, tabB));
+        var a = new StubPanelableViewModel("sessions");
+        var b = new StubPanelableViewModel("sessions");
+
+        // Open in tabA first so it appears first in dictionary iteration order.
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabB));
+
+        // Toggle-close in tabB — this should close tabB's panel, not tabA's.
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabB));
+
+        surfaces[(PanelZone.RightDock, tabA)].Mounted.ShouldBeSameAs(a, "tabA's panel must remain mounted");
+        surfaces[(PanelZone.RightDock, tabB)].Mounted.ShouldBeNull("tabB's panel should have been closed");
+        a.IsOpen.ShouldBeTrue();
+        b.IsOpen.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Scope_Isolation_MoveBetweenZonesDoesNotAffectSiblingTab()
+    {
+        // Regression: ShowDecision.Move used PanelId-based Move which matched the first sibling-tab
+        // registration in iteration order — moving the wrong tab's panel.
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, tabA),
+            (PanelZone.LeftDock, tabA),
+            (PanelZone.RightDock, tabB),
+            (PanelZone.LeftDock, tabB));
+        var a = new StubPanelableViewModel("explorer");
+        var b = new StubPanelableViewModel("explorer");
+
+        router.Show(a, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabA));
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.RightDock, Scope: tabB));
+
+        // Move tabB's panel via Show with a different zone — must hit ShowDecision.Move on tabB's reg.
+        router.Show(b, new PanelShowOptions(Zone: PanelZone.LeftDock, Scope: tabB));
+
+        surfaces[(PanelZone.RightDock, tabA)].Mounted.ShouldBeSameAs(a, "tabA stays on RightDock");
+        surfaces[(PanelZone.LeftDock, tabA)].Mounted.ShouldBeNull("tabA should not have moved");
+        surfaces[(PanelZone.RightDock, tabB)].Mounted.ShouldBeNull("tabB moved off RightDock");
+        surfaces[(PanelZone.LeftDock, tabB)].Mounted.ShouldBeSameAs(b, "tabB moved to LeftDock");
+    }
+
+    [Fact]
     public void MissingSurface_Throws_WithClearMessage()
     {
         var (router, _, _) = BuildRouter((PanelZone.Popup, PanelScope.AppShell));

@@ -40,4 +40,14 @@ public interface IPanelSurface
     /// The router subscribes to this and translates the request into a <c>Close</c>.
     /// </summary>
     event EventHandler<PanelDismissEventArgs>? DismissRequested;
+
+    /// <summary>
+    /// Raised when the surface's active panel changes for reasons outside the router's
+    /// control — typically a user click on a tab in a multi-mount surface (right dock).
+    /// Event arg is the new active panel id, or null when nothing is active. The router
+    /// subscribes to keep its active-tracking in sync so subsequent toggle/focus decisions
+    /// use the user's current selection. Single-mount surfaces (Popup, Window, Center)
+    /// don't need to raise this — the router updates active on Mount/Focus.
+    /// </summary>
+    event EventHandler<string?>? ActiveChanged;
 }

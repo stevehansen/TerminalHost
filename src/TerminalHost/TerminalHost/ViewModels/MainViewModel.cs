@@ -1559,8 +1559,24 @@ public partial class MainViewModel : ObservableObject
         var viewer = _viewModelFactory.CreateFileViewer();
         viewer.Open(e.FilePath, e.Mode);
 
+        // AppShell scope (default) — a tab-scoped popout would mode-conflict with the tab's
+        // shared Center fileViewer (single-instance) since both share PanelId="fileViewer".
         _panelRouter?.Show(viewer,
             new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
+
+        // Clicking "Dock" on the popout: route the file into the active tab's shared Center
+        // viewer (the popout itself cannot dock — same PanelId conflicts with the singleton).
+        // The router's graceful close fires alongside this handler and removes the popout window.
+        viewer.StateChangeRequested += (_, args) =>
+        {
+            if (args.RequestedState != PanelDisplayState.Panel) return;
+            if (string.IsNullOrEmpty(viewer.FilePath)) return;
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = viewer.FilePath,
+                OpenInEditMode = viewer.Mode == FileViewerMode.Edit
+            });
+        };
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
@@ -1918,6 +1934,32 @@ public partial class MainViewModel : ObservableObject
     internal void RequestMemoryBrowser() => MemoryBrowserRequested?.Invoke(this, EventArgs.Empty);
     internal void RequestDebugLog() => DebugLogRequested?.Invoke(this, EventArgs.Empty);
     internal void RequestWhatsNew() => WhatsNewRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Diagnostic: dumps the panel router's state (surfaces, registrations, active map) to
+    /// the clipboard and writes to Debug output. Surfaced by the "Debug: Dump Panel State"
+    /// palette command. Intended for troubleshooting panel desync bugs.
+    /// </summary>
+    internal void DumpPanelDiagnostics()
+    {
+        if (_panelRouter is null)
+        {
+            _toastService.Show("Panel router not available", ToastType.Warning);
+            return;
+        }
+
+        var snapshot = _panelRouter.GetDiagnosticSnapshot();
+        System.Diagnostics.Debug.WriteLine(snapshot);
+        try
+        {
+            Clipboard.SetText(snapshot);
+            _toastService.Show($"Panel state copied to clipboard ({snapshot.Length} chars)", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Snapshot written to Debug output ({snapshot.Length} chars); clipboard failed: {ex.Message}", ToastType.Warning);
+        }
+    }
 
     internal void InstallTimelineHooks()
     {

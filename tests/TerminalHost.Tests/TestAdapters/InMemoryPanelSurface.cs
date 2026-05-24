@@ -36,6 +36,7 @@ public sealed class InMemoryPanelSurface : IPanelSurface
     public bool MountExceptionIsPermanent { get; set; }
 
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
+    public event EventHandler<string?>? ActiveChanged;
 
     public void Mount(IPanelableViewModel vm, PanelMountOptions options)
     {
@@ -69,4 +70,8 @@ public sealed class InMemoryPanelSurface : IPanelSurface
     /// <summary>Test helper: simulates a surface-initiated dismissal (Escape, click-outside, etc.).</summary>
     public void RaiseDismiss(string panelId, PanelDismissTrigger trigger = PanelDismissTrigger.Escape) =>
         DismissRequested?.Invoke(this, new PanelDismissEventArgs(panelId, trigger));
+
+    /// <summary>Test helper: simulates a user-driven active panel change (e.g. tab click in right dock).</summary>
+    public void RaiseActiveChanged(string? newActivePanelId) =>
+        ActiveChanged?.Invoke(this, newActivePanelId);
 }

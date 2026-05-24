@@ -23,6 +23,7 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
 {
     private readonly ObservableCollection<IPanelableViewModel> _panels = new();
     private PanelHost? _host;
+    private string? _lastActivePanelId;
     private bool _disposed;
 
     public PanelZone Zone => PanelZone.RightDock;
@@ -34,6 +35,9 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
 #pragma warning restore CS0067
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <inheritdoc />
+    public event EventHandler<string?>? ActiveChanged;
 
     /// <summary>
     /// True when at least one panel is mounted on this surface. Computed from the panels
@@ -65,10 +69,18 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
         host.Panels = _panels;
         host.ActivePanelChanged += OnHostActivePanelChanged;
 
-        // Seed the host's active panel with whatever is currently first; the router will
-        // re-focus the correct entry after Restore completes via IPanelSurface.Focus.
-        if (host.ActivePanel is null && _panels.Count > 0)
-            host.ActivePanel = _panels[0];
+        // Re-seed ActivePanel unconditionally — the PanelHost is shared across tab switches
+        // (one PanelHost per TerminalPairView, but the view's DataContext rotates through tabs).
+        // Its ActivePanel may still point to a different tab's VM that isn't in this surface's
+        // panels, which would leave the old tab's content visible after switching tabs.
+        // Restore THIS surface's last active panel (or fall back to the first panel) so per-tab
+        // selection is preserved across switches.
+        IPanelableViewModel? next = null;
+        if (_lastActivePanelId is not null)
+            next = _panels.FirstOrDefault(p => p.PanelId == _lastActivePanelId);
+        if (next is null && _panels.Count > 0)
+            next = _panels[0];
+        host.ActivePanel = next;
     }
 
     public void Mount(IPanelableViewModel vm, PanelMountOptions options)
@@ -137,13 +149,15 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
         return -1;
     }
 
-    private void OnHostActivePanelChanged(object? sender, IPanelableViewModel? _)
+    private void OnHostActivePanelChanged(object? sender, IPanelableViewModel? activePanel)
     {
-        // The PanelHost binding two-way-changed; surface tracking happens in PanelRouter via
-        // Focus(). The router's _activePanel map is updated when callers ask for a Focus —
-        // direct user tab clicks reach the router via Show()/Focus() through other plumbing.
-        // No action required here; the event hook exists so that future hooks (telemetry,
-        // tests) have a single attach point.
+        // Remember the active panel so Attach() can restore it after a tab switch rebinds the
+        // shared PanelHost to this surface.
+        _lastActivePanelId = activePanel?.PanelId;
+        // User-driven tab clicks change the PanelHost's ActivePanel; propagate to the router so
+        // its toggle-vs-focus decision uses the user's current selection, not the originally
+        // mounted panel.
+        ActiveChanged?.Invoke(this, activePanel?.PanelId);
     }
 
     private void OnPropertyChanged(string propertyName) =>

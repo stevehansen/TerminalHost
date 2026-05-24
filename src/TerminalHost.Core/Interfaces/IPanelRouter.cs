@@ -101,4 +101,12 @@ public interface IPanelRouter
     /// No-op if no surface is registered for that key.
     /// </summary>
     void UnregisterSurface(PanelZone zone, PanelScope scope);
+
+    /// <summary>
+    /// Returns a human-readable snapshot of the router's internal state — registered surfaces,
+    /// open panel registrations (including <c>LastDockedZone</c>), and the active panel per
+    /// <c>(zone, scope)</c>. Intended for diagnostics from a palette command or debug log;
+    /// not part of any persistence or wire-format contract.
+    /// </summary>
+    string GetDiagnosticSnapshot();
 }

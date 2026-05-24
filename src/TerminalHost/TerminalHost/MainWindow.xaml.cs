@@ -1461,18 +1461,17 @@ public partial class MainWindow : Window
         {
             _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
             _sessionsTreePanelViewModel.Open();
-        }
 
-        foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
-        {
-            _windowSurface?.Focus(_sessionsTreePanelViewModel.PanelId);
-            return;
+            foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
+            {
+                tab.SetPanel(_sessionsTreePanelViewModel);
+                tab.ForceShowRightDockPanel(_sessionsTreePanelViewModel);
+            }
         }
-
-        if (!isVisible)
+        else
         {
-            currentTab.ShowRightDockPanel(_sessionsTreePanelViewModel);
-            return;
+            _panelRouter?.Close(_sessionsTreePanelViewModel.PanelId);
+            _sessionsTreePanelViewModel.IsOpen = false;
         }
     }
 
@@ -2240,7 +2239,7 @@ public partial class MainWindow : Window
                 if (_viewModel.ShowSessionsPanel)
                 {
                     tab.SetPanel(_sessionsTreePanelViewModel);
-                    tab.ShowPanel(_sessionsTreePanelViewModel);
+                    tab.ForceShowRightDockPanel(_sessionsTreePanelViewModel);
                 }
             }
         }
