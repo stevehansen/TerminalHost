@@ -14,8 +14,8 @@ namespace TerminalHost.Core.Services;
 /// canonical normalized-and-lowercased working directory built by
 /// <c>TabPanelScope.ForTab</c>).</para>
 /// <para>Popup-zone entries are filtered out of every save: popups are transient and never
-/// restored. Tab-scope snapshots only carry RightDock entries today (the only zone tab scope
-/// knows about); other zones in a tab snapshot are ignored on save.</para>
+/// restored. Tab-scope snapshots round-trip RightDock entries via <c>OpenRightPanels</c> +
+/// <c>ActiveRightPanel</c> and the (single) Center entry via <c>ActiveCenterPanel</c>.</para>
 /// </remarks>
 public sealed class DirectorySettingsPanelPersistence : IPanelPersistence
 {
@@ -79,21 +79,33 @@ public sealed class DirectorySettingsPanelPersistence : IPanelPersistence
         if (!config.DirectorySettings.TryGetValue(key, out var dir))
             return new PanelLayoutSnapshot(Array.Empty<PanelLayoutEntry>());
 
-        var open = dir.OpenRightPanels;
-        if (open is null || open.Count == 0)
-            return new PanelLayoutSnapshot(Array.Empty<PanelLayoutEntry>());
+        var entries = new List<PanelLayoutEntry>();
 
-        var active = dir.ActiveRightPanel;
-        var entries = new List<PanelLayoutEntry>(open.Count);
-        foreach (var panelId in open)
+        var open = dir.OpenRightPanels;
+        if (open is not null && open.Count > 0)
+        {
+            var active = dir.ActiveRightPanel;
+            foreach (var panelId in open)
+            {
+                entries.Add(new PanelLayoutEntry(
+                    panelId,
+                    PanelZone.RightDock,
+                    scope,
+                    IsOpen: true,
+                    IsActive: active is not null && string.Equals(active, panelId, StringComparison.Ordinal)));
+            }
+        }
+
+        if (!string.IsNullOrEmpty(dir.ActiveCenterPanel))
         {
             entries.Add(new PanelLayoutEntry(
-                panelId,
-                PanelZone.RightDock,
+                dir.ActiveCenterPanel,
+                PanelZone.Center,
                 scope,
                 IsOpen: true,
-                IsActive: active is not null && string.Equals(active, panelId, StringComparison.Ordinal)));
+                IsActive: true));
         }
+
         return new PanelLayoutSnapshot(entries);
     }
 
@@ -112,5 +124,9 @@ public sealed class DirectorySettingsPanelPersistence : IPanelPersistence
 
         dir.OpenRightPanels = rightDockEntries.Select(e => e.PanelId).ToList();
         dir.ActiveRightPanel = rightDockEntries.FirstOrDefault(e => e.IsActive)?.PanelId;
+
+        // Center surface is single-slot; round-trip the (at most one) Center entry per tab.
+        var centerEntry = snapshot.Entries.FirstOrDefault(e => e.Zone == PanelZone.Center);
+        dir.ActiveCenterPanel = centerEntry?.PanelId;
     }
 }

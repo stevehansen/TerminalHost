@@ -259,7 +259,6 @@ public partial class App : Application
         services.AddSingleton<IEventAggregatorService, EventAggregatorService>();
         services.AddSingleton<IApiStateProjector, ApiStateProjector>();
         services.AddSingleton<ITerminalProfilesBuilder, TerminalProfilesBuilder>();
-        services.AddSingleton<ITabRestoreCoordinator, TabRestoreCoordinator>();
         services.AddSingleton<ExplorerEventRouter>();
         services.AddSingleton<LinkClickHandler>();
         services.AddSingleton<IWebhookDeliveryService, WebhookDeliveryService>();

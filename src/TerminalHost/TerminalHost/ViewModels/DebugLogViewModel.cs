@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 
@@ -11,8 +12,10 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for the Debug Log panel (Ctrl+Shift+D replaced — use command palette).
 /// Shows diagnostic messages from MCP, Memory, Ollama, and other subsystems.
 /// </summary>
-public partial class DebugLogViewModel : BasePanelViewModel
+public partial class DebugLogViewModel : BasePanelViewModel, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IDebugLogService _debugLog;
     private readonly Dispatcher _dispatcher;
 

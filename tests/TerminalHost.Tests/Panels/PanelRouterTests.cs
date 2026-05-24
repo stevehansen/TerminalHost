@@ -958,115 +958,6 @@ public partial class PanelRouterTests
         router.IsOpen("gitFiles").ShouldBeFalse();
     }
 
-    // ---- D. Center-origin dock-back bridge ----
-
-    [Fact]
-    public void SetOriginZone_Center_ThenDockBack_InvokesLegacyCenterShow()
-    {
-        var legacyCalls = new List<(string, IPanelableViewModel)>();
-        var persistence = new InMemoryPanelPersistence();
-        var surfaces = new List<IPanelSurface>
-        {
-            new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell },
-        };
-        var router = new PanelRouter(
-            surfaces, persistence, new SynchronousDispatcherService(),
-            viewModelFactory: null,
-            legacyCenterShow: (id, vm) => { legacyCalls.Add((id, vm)); return true; });
-
-        var vm = new StubPanelableViewModel("markdown");
-        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
-        router.SetOriginZone("markdown", PanelZone.Center);
-
-        // Simulate dock-back: VM raises StateChangeRequested(Panel, Right) → router calls Move(RightDock).
-        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
-
-        legacyCalls.Count.ShouldBe(1);
-        legacyCalls[0].Item1.ShouldBe("markdown");
-        legacyCalls[0].Item2.ShouldBeSameAs(vm);
-
-        // After the bridge takes ownership the router evicts the registration.
-        router.IsOpen("markdown").ShouldBeFalse();
-    }
-
-    [Fact]
-    public void SetOriginZone_NotSet_DockBack_FallsBackToRightDockMove()
-    {
-        var legacyCalls = 0;
-        var persistence = new InMemoryPanelPersistence();
-        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
-        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
-        var router = new PanelRouter(
-            new IPanelSurface[] { dockSurface, winSurface },
-            persistence, new SynchronousDispatcherService(),
-            viewModelFactory: null,
-            legacyCenterShow: (_, _) => { legacyCalls++; return true; });
-
-        var vm = new StubPanelableViewModel("markdown");
-        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
-        // Note: no SetOriginZone call.
-
-        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
-
-        legacyCalls.ShouldBe(0);
-        dockSurface.Mounted.ShouldBeSameAs(vm);
-        winSurface.Mounted.ShouldBeNull();
-        router.IsOpen("markdown").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void SetOriginZone_LegacyFuncReturnsFalse_FallsBackToRightDockMove()
-    {
-        var legacyCalls = 0;
-        var persistence = new InMemoryPanelPersistence();
-        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
-        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
-        var router = new PanelRouter(
-            new IPanelSurface[] { dockSurface, winSurface },
-            persistence, new SynchronousDispatcherService(),
-            viewModelFactory: null,
-            legacyCenterShow: (_, _) => { legacyCalls++; return false; });
-
-        var vm = new StubPanelableViewModel("markdown");
-        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
-        router.SetOriginZone("markdown", PanelZone.Center);
-
-        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
-
-        legacyCalls.ShouldBe(1);
-        dockSurface.Mounted.ShouldBeSameAs(vm);
-        router.IsOpen("markdown").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void SetOriginZone_ClearedOnClose()
-    {
-        var legacyCalls = 0;
-        var persistence = new InMemoryPanelPersistence();
-        var dockSurface = new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = PanelScope.AppShell };
-        var winSurface = new InMemoryPanelSurface { Zone = PanelZone.Window, Scope = PanelScope.AppShell };
-        var router = new PanelRouter(
-            new IPanelSurface[] { dockSurface, winSurface },
-            persistence, new SynchronousDispatcherService(),
-            viewModelFactory: null,
-            legacyCenterShow: (_, _) => { legacyCalls++; return true; });
-
-        var vm = new StubPanelableViewModel("markdown");
-        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window));
-        router.SetOriginZone("markdown", PanelZone.Center);
-
-        // Close wipes the origin-zone dict entry.
-        router.Close("markdown");
-
-        // Re-show + dock-back; no SetOriginZone this time. Legacy must NOT be invoked.
-        var vm2 = new StubPanelableViewModel("markdown");
-        router.Show(vm2, new PanelShowOptions(Zone: PanelZone.Window));
-        vm2.TriggerStateChangeRequest(PanelDisplayState.Panel, PanelSide.Right);
-
-        legacyCalls.ShouldBe(0);
-        dockSurface.Mounted.ShouldBeSameAs(vm2);
-    }
-
     // ---- E. IsActive tracking + persistence ----
 
     [Fact]
@@ -1155,3 +1046,188 @@ public partial class PanelRouterTests
     }
 }
 #pragma warning restore CS0618
+
+// ---- Phase 4: LastDockedZone, OnOpenedAsync lifecycle, SetOriginZone removal ----
+
+public partial class PanelRouterTests
+{
+    #region Phase 4
+
+    [Fact]
+    public void Center_To_Window_DockBack_RestoresCenter_ViaLastDockedZone()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.Center, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell),
+            (PanelZone.RightDock, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("git");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center));
+        router.Move("git", PanelZone.Window);
+
+        // Dock-back: VM raises StateChangeRequested(Panel) with no DockSide. Should land on Center
+        // because LastDockedZone snapshotted the Center origin during Move(Window).
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, side: null);
+
+        surfaces[(PanelZone.Center, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        vm.DisplayState.ShouldBe(PanelDisplayState.Panel);
+    }
+
+    [Fact]
+    public void RightDock_To_Window_DockBack_RestoresRightDock_ViaLastDockedZone()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, PanelScope.AppShell),
+            (PanelZone.LeftDock, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("git");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock));
+        router.Move("git", PanelZone.Window);
+
+        // Dock-back without DockSide info — LastDockedZone (RightDock) wins over default fallback.
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, side: null);
+
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.LeftDock, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeNull();
+        vm.PreferredSide.ShouldBe(PanelSide.Right);
+    }
+
+    [Fact]
+    public void DockBack_NoLastDockedZone_FallsBackToDockSide_Left()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.LeftDock, PanelScope.AppShell),
+            (PanelZone.RightDock, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell));
+        // Panel starts in Window (never docked) — LastDockedZone is null.
+        var vm = new StubPanelableViewModel("git");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
+
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, side: PanelSide.Left);
+
+        surfaces[(PanelZone.LeftDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeNull();
+    }
+
+    [Fact]
+    public void DockBack_NoLastDockedZone_FallsBackToDockSide_Right()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.LeftDock, PanelScope.AppShell),
+            (PanelZone.RightDock, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new StubPanelableViewModel("git");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
+
+        vm.TriggerStateChangeRequest(PanelDisplayState.Panel, side: PanelSide.Right);
+
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.LeftDock, PanelScope.AppShell)].Mounted.ShouldBeNull();
+    }
+
+    [Fact]
+    public void OnOpenedAsync_FiredAfterShow()
+    {
+        var (router, _, _) = BuildRouter((PanelZone.RightDock, PanelScope.AppShell));
+        var vm = new FakeOpenContextVm("git");
+        var marker = new object();
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock, Context: marker));
+
+        vm.OpenedCallCount.ShouldBe(1);
+        vm.LastContext.ShouldBeSameAs(marker);
+    }
+
+    [Fact]
+    public void OnOpenedAsync_FiredAfterMove()
+    {
+        var (router, _, _) = BuildRouter(
+            (PanelZone.RightDock, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new FakeOpenContextVm("git");
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock));
+        vm.OpenedCallCount.ShouldBe(1);
+
+        router.Move("git", PanelZone.Window);
+
+        // Move triggers OnOpenedAsync again after post-mount on the new surface.
+        vm.OpenedCallCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public void OnOpenedAsync_NotFiredDuringRestore()
+    {
+        var persistence = new InMemoryPanelPersistence();
+        var scope = PanelScope.AppShell;
+        persistence.Seed(scope, new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("git", PanelZone.RightDock, scope, IsOpen: true, IsActive: true),
+        }));
+        var surfaces = new List<IPanelSurface>
+        {
+            new InMemoryPanelSurface { Zone = PanelZone.RightDock, Scope = scope },
+        };
+        var router = new PanelRouter(surfaces, persistence, new SynchronousDispatcherService());
+        var vm = new FakeOpenContextVm("git");
+
+        router.Restore(scope, id => id == "git" ? vm : null);
+
+        router.IsOpen("git").ShouldBeTrue();
+        vm.OpenedCallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void OnOpenedAsync_ExceptionDoesNotCrashRouter()
+    {
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.RightDock, PanelScope.AppShell),
+            (PanelZone.Window, PanelScope.AppShell));
+        var vm = new FakeOpenContextVm("git") { ThrowOnOpened = true };
+
+        Should.NotThrow(() => router.Show(vm, new PanelShowOptions(Zone: PanelZone.RightDock)));
+
+        surfaces[(PanelZone.RightDock, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        router.IsOpen("git").ShouldBeTrue();
+
+        // Router stays usable for subsequent Move/Close even after the open-callback threw.
+        Should.NotThrow(() => router.Move("git", PanelZone.Window));
+        surfaces[(PanelZone.Window, PanelScope.AppShell)].Mounted.ShouldBeSameAs(vm);
+        Should.NotThrow(() => router.Close("git"));
+        router.IsOpen("git").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SetOriginZone_Removed_FromInterface()
+    {
+        // Compile-time/reflection guard: the Phase 3 SetOriginZone hook is gone.
+        typeof(IPanelRouter).GetMethod("SetOriginZone").ShouldBeNull();
+    }
+
+    #endregion Phase 4
+}
+
+/// <summary>
+/// Test VM that implements <see cref="IPanelOpenContext"/> alongside <see cref="IPanelableViewModel"/>.
+/// Records call count and the last context payload; optionally throws to exercise the router's
+/// fire-and-forget exception swallow.
+/// </summary>
+internal sealed class FakeOpenContextVm(string panelId)
+    : StubPanelableViewModel(panelId), IPanelOpenContext
+{
+    public int OpenedCallCount { get; private set; }
+    public object? LastContext { get; private set; }
+    public bool ThrowOnOpened { get; set; }
+
+    public Task OnOpenedAsync(object? context)
+    {
+        OpenedCallCount++;
+        LastContext = context;
+        if (ThrowOnOpened) throw new InvalidOperationException("open-boom");
+        return Task.CompletedTask;
+    }
+}

@@ -450,3 +450,91 @@ Land `WpfWindowSurface : IPanelSurface(Window, AppShell)`. Collapse `PanelWindow
 ---
 
 *Document version: 1.3 — 2026-05-22 (added Phase 2 design block).*
+
+---
+
+> *Phase 3 design block was not checked in alongside the Phase 3 implementation (`860b3f6`). The Phase 3 outcome is captured in the commit message and the code itself; Phase 4 below references it where load-bearing. A backfill of the Phase 3 design block is tracked separately and is not part of Phase 4 scope.*
+
+---
+
+## ✅ Phase 4 Design — WPF Center Surface
+
+> Outcome of `/design-interface phase 4` on 2026-05-23. Three designs explored in parallel (minimize / pluggable-dock-back / common-case). This is the common-case design (C) with one ingredient from the minimize design (A) and zero from the pluggable design (B). Rationale for the rejections in the trailing block.
+
+### Scope of Phase 4
+
+Land `WpfCenterSurface : IPanelSurface(Center, ForTab(...))` per tab, mirroring the Phase 3 right-dock pattern. Migrate the 12 center-zone panels (UnifiedGit, FileViewer, PrReview, TestResults, SearchAcrossFiles, BranchComparison, MarkdownPreview, RecentFeatures, MergeConflict, FileHistory, FileBlame, DebugLog) to declare `IPanelPlacement.PreferredZone = Center`. Collapse the `_legacyCenterShow` Func bridge, the `[Obsolete] SetOriginZone` API, the `_originZones` dict, the `TryHandleCenterDockBack` path, the `MainWindow.IsCenterPanel(panelId)` closed switch, the `OnCenterPanelRestoreRequested` 90-line switch, `CenterPanelRestoreEventArgs`, and `TabRestoreCoordinator` (purely a center concern). Replace `TerminalPairTabViewModel.PopOutCenterPanel` with the `panel.DetachCommand` flow already wired through Phase 1's `StateChangeRequested` subscription.
+
+**Out of scope:** Avalonia parity, LeftDock (Phase 5), Toast/StatusOverlay synthetic adapters (Phase 2b), Phase 3 design-block backfill (tracked separately).
+
+### Seven locked implementation calls
+
+| # | Choice | Decision | Rationale |
+|---|--------|----------|-----------|
+| 1 | Where does Center live | **Per-tab `WpfCenterSurface`**, constructed by `TerminalPairTabViewModel` and registered with the router on tab init; unregistered on tab close. Mirrors Phase 3 right-dock exactly. | Consistency across surface migrations. Each tab independently owns its Center slot; no cross-tab coordination. |
+| 2 | Single-slot semantics | **Surface enforces single-mount.** `WpfCenterSurface.Mount(vm)` evicts any prior mount (calls its own `Unmount` first) before mounting. Router still enforces single-instance per `(panelId, scope)`. | Mirrors `WpfPopupSurface`. Keeps "Center is one slot" in the surface (platform concern), out of the router (zone-agnostic). |
+| 3 | Home-zone declaration | **`IPanelPlacement.PreferredZone = Center` on each of the 12 Center VMs.** `MainWindow.IsCenterPanel(panelId)` switch deletes. The `MainWindow.OnPanelShowRequested` `PanelDisplayState.Panel` branch becomes `_panelRouter.Show(panel)` — placement resolves from `IPanelPlacement`. | One source of truth on the VM, not a closed-list switch in the host. Replaces 12-entry switch with 12 single-line `PreferredZone` returns. |
+| 4 | Dock-back from Window | **`Registration.LastDockedZone` auto-tracked.** On every `Move` whose target is a non-Window zone, snapshot the source zone (if not Window) into `LastDockedZone`. On `StateChangeRequested(Panel)` from a Window, resolve target as `existing.LastDockedZone ?? (args.DockSide == Left ? LeftDock : RightDock)`; fall back to `IPanelPlacement.PreferredZone` if neither set. `SetOriginZone` + `_originZones` + `_legacyCenterShow` + `TryHandleCenterDockBack` all delete. | Generalizes the Phase 3 transient bridge into a permanent first-class mechanism. Works for any zone round-trip, not just Center. The `args.DockSide` fallback preserves backwards compatibility for VMs that don't pass through Window first. |
+| 5 | Pop-out from Center | **`TerminalPairTabViewModel.PopOutCenterPanel` deletes.** The `← Terminals` header in `TerminalPairView.xaml` adds a pop-out button bound to `Command="{Binding ActiveCenterPanel.DetachCommand}"`. `BasePanelViewModel.DetachCommand` already raises `StateChangeRequested(Window)`; the router's existing handler (PanelRouter.cs:628-635) calls `Move(Window)` — and because of #4, `LastDockedZone=Center` is snapshotted automatically. | Symmetric with right-dock pop-out. Zero special-case code paths. The Phase 3 `SetOriginZone(Center)` hack disappears. |
+| 6 | Async data-load hook | **Opt-in `IPanelOpenContext { Task OnOpenedAsync(object? context); }` sibling interface** (from minimize design A). Router invokes `OnOpenedAsync(options.Context)` after every successful `Mount` (and `Move`-completion), if the VM implements it. The 12-case `OnCenterPanelRestoreRequested` switch's per-panel `await vm.OpenAsync(tab)` body migrates here. `SkipDataLoad` becomes a router-controlled flag: skip the `OnOpenedAsync` invocation on `Restore` if the tab isn't selected, fire it on first `Focus` of that tab. | Lets panels react to "I've just been opened with this context" without callers threading context through every site. Replaces both the 90-line switch and the `CenterPanelRestoreEventArgs.SkipDataLoad` flag. |
+| 7 | View binding | **`TerminalPairView.xaml` keeps `{Binding ActiveCenterPanel}` and `{Binding IsTerminalsVisible}`** as the binding sites; both become **read-only proxies** on `TerminalPairTabViewModel` derived from `_centerSurface.MountedPanel` (observed via `INotifyPropertyChanged` on the surface, same pattern as Phase 3's `HasMounted` for right-dock). `ShowCenterPanel`/`CloseCenterPanel` setters on the tab VM delete; the surface mutates state via `Mount`/`Unmount` only. | Zero XAML churn. The tab VM's `ActiveCenterPanel` property survives as a read-only view-facing accessor. `IsTerminalsVisible` keeps deriving `=> ActiveCenterPanel == null`. |
+
+### Supporting decisions
+
+- **`tab.ShowCenterPanel(panel)` one-liner** mirrors Phase 3's `tab.ShowRightDockPanel(panel)`. Internally: `_registeredPanels[panel.PanelId] = panel; _router.Show(panel, new PanelShowOptions(Zone: PanelZone.Center, Scope: CenterScope));`. Rolls the `SetPanel + ShowCenterPanel` two-liner from ~30 call sites in `MainWindow.xaml.cs` into one call.
+- **`tab.CloseCenterPanel()` becomes** `[RelayCommand] => _router?.CloseZone(PanelZone.Center, CenterScope)`. ESC handler in `MainWindow.xaml.cs:609-612` becomes `_router.CloseZone(Center, currentTab.CenterScope)`.
+- **`tab.RestoreCenterPanels()`** mirrors `RestoreRightDockPanels`: `_router.Restore(_centerSurface.Scope, id => _registeredPanels.GetValueOrDefault(id))`. The Center entry from persistence carries `IsActive=true`; the router's `Restore` post-loop Focus call seeds the active panel.
+- **Persistence** extends `DirectorySettingsPanelPersistence.LoadTabScope` / `SaveTabScope` to round-trip the Center entry via `DirectorySettings.ActiveCenterPanel` (existing field, single string). Save emits `{panelId, Center, IsOpen=true, IsActive=true}` (single entry per tab scope); load adds it alongside the RightDock entries. RightDock persistence logic untouched.
+- **`GitPanelActiveTab` decouples.** Today threaded through `CenterPanelRestoreEventArgs.GitPanelActiveTab` to set `UnifiedGitPanelViewModel.ActiveTab` on restore. Phase 4 moves this to `UnifiedGitPanelViewModel` reading the value directly from `IConfigurationService` on `OnOpenedAsync` (it already has a config dependency). Field stays on `DirectorySettings`; the host stops being a courier.
+- **`TabRestoreCoordinator` deletes** (`ITabRestoreCoordinator` + `TabRestoreCoordinator` + `CenterPanelRestoreEventArgs` + the `RestoreRequested` event). The "selected tab last" ordering moves into the tab-restore orchestration point (currently `MainViewModel` / wherever `OpenFolders` is replayed) and is a 5-line loop. `tests/TerminalHost.Tests/Services/TabRestoreCoordinatorTests.cs` deletes; the ordering invariant is covered by a single panel-restore-ordering test on the orchestration site.
+- **DI registration** in `App.xaml.cs`: remove the `legacyCenterShow:` lambda from the `PanelRouter` ctor call (and remove the parameter from `PanelRouter`'s ctor). No new DI entries — `WpfCenterSurface` is constructed per-tab inside `TerminalPairTabViewModel.InitializeCenterSurface`, identical to right-dock.
+- **`MainWindow.xaml.cs` cleanup**: `OnPanelShowRequested`'s `IsCenterPanel(panel)` branch collapses into `currentTab.ShowCenterPanel(panel)` (router resolves zone from `IPanelPlacement.PreferredZone`). `ShowCenterPanelInTab` deletes. The 30-ish `currentTab.SetPanel(vm); currentTab.ShowCenterPanel(vm);` two-liners collapse to one line each. `OnCenterPanelRestoreRequested` deletes entirely.
+- **Race protection from C's trade-off note**: `RestoreCenterPanels` runs after `RestoreRightDockPanels` and after `_registeredPanels` is fully populated. Document the call order in `TerminalPairTabViewModel.InitializePanelSystem` and assert it.
+
+### Designs considered and rejected for Phase 4
+
+- **Pluggable-dock-back design (B): open `PanelZone` enum + `IPanelPlacementPolicy` strategy port + `PlacementIntent` enum + `PanelStateChangeRequestedEventArgs.TargetZone`.** Rejected as the Phase 0 Design B failure mode reincarnated. The policy IS three lines (`Requested ?? LastDockedZone ?? PreferredZone ?? RightDock`) — wrapping that in a port is registry-of-registries. The closed `PanelZone` enum was a deliberate Phase 0 decision; adding a sixth zone costs one enum value + one surface impl, which is cheaper than the open-enum tax (loses exhaustive switch, typo-friendly, harder to refactor). `PlacementIntent` tracks state the router does not need to know — `LastDockedZone` alone is sufficient.
+- **Single `Open(vm, context)` entry point (minimize design A).** Rejected as the *primary* shape — breaks Phase 3 symmetry (`tab.ShowCenterPanel` mirrors `tab.ShowRightDockPanel`), loses caller control for unusual placements, and the `IActiveTabScopeProvider` it relies on is a hidden dependency that's worse than the explicit-scope pass-through. Kept its `IPanelOpenContext` opt-in sibling interface (Locked Call #6) because that ingredient is a strict improvement over routing `Context` via the bare `PanelShowOptions.Context` field.
+- **Persist `LastDockedZone` across panel close/reopen.** Rejected — over-engineering for the one-window-roundtrip case. If a user closes a windowed center panel and reopens via Ctrl+O, "treat as fresh open and resolve via `PreferredZone`" is correct.
+- **Keep `PopOutCenterPanel` as a relay command on the tab VM.** Rejected — `panel.DetachCommand` already does the job and avoids a parallel-command duplicate. The XAML `← Terminals` chrome adds a pop-out button bound to `DetachCommand`; the relay command goes away.
+- **Move `GitPanelActiveTab` into `PanelShowOptions.Context`.** Rejected — `Context` is for parameterized opens (file path, branch name), not for VM-owned persistence state. The VM should read its own config; the host should not be a courier for VM state.
+- **Centralize tab-restore ordering via a new `IPanelRestoreOrchestrator` port.** Rejected — the ordering is a 5-line loop with one observable invariant (selected-tab-last). A new port for one consumer with one invariant is over-abstraction; inline at the call site.
+- **Make `WpfCenterSurface` stack panels (tabbed center).** Rejected as out of scope — the existing UX is exclusive. If a future feature wants stacked Center, surface changes; router doesn't.
+
+### Files this phase will touch
+
+- **New**:
+  - `src/TerminalHost/TerminalHost/Services/Panels/WpfCenterSurface.cs`
+  - `src/TerminalHost.Core/Interfaces/IPanelOpenContext.cs`
+- **Modified**:
+  - `src/TerminalHost.Core/Interfaces/IPanelRouter.cs` — remove `SetOriginZone`; document `LastDockedZone` semantics
+  - `src/TerminalHost.Core/Services/PanelRouter.cs` — delete `_legacyCenterShow` ctor param, `_originZones`, `SetOriginZone`, `TryHandleCenterDockBack`, the call from `Move`; add `Registration.LastDockedZone` field auto-tracked in `MoveCore`; extend `SubscribeStateChanges` handler to resolve dock-back zone via `LastDockedZone ?? DockSide-fallback`; invoke `IPanelOpenContext.OnOpenedAsync` post-mount
+  - `src/TerminalHost.Core/Services/DirectorySettingsPanelPersistence.cs` — extend tab-scope `Load`/`Save` to round-trip Center via `DirectorySettings.ActiveCenterPanel`
+  - `src/TerminalHost/TerminalHost/App.xaml.cs` — remove `legacyCenterShow:` lambda
+  - `src/TerminalHost/TerminalHost/MainWindow.xaml.cs` — delete `IsCenterPanel` switch, `ShowCenterPanelInTab`, `OnCenterPanelRestoreRequested`, `OnCenterPanelRestoreRequested` subscription. Replace 30-ish `SetPanel + ShowCenterPanel` two-liners with `tab.ShowCenterPanel(vm)`. ESC handler routes through `_router.CloseZone(Center, ...)`.
+  - `src/TerminalHost/TerminalHost/ViewModels/TerminalPairTabViewModel.cs` — delete `PopOutCenterPanel[Command]`, `ToggleCenterPanel`. Add `InitializeCenterSurface`, `CenterScope`, `AttachCenter`, `RestoreCenterPanels`, `ShowCenterPanel`, `CloseCenterPanel` (RelayCommand). Convert `ActiveCenterPanel` / `IsTerminalsVisible` to read-only proxies over `_centerSurface.MountedPanel`. Update `Cleanup` to unregister Center surface. Remove `target.ActiveCenterPanel = …` + `GitPanelActiveTab = …` writes from `WriteToDirectorySettings` (persistence now owns them).
+  - `src/TerminalHost/TerminalHost/Views/Tabs/TerminalPairView.xaml` — add pop-out button in `← Terminals` header bound to `ActiveCenterPanel.DetachCommand`; call `tab.AttachCenter(...)` from view's `OnLoaded`.
+  - 12 center-panel VMs — implement `IPanelPlacement` with `PreferredZone = PanelZone.Center` and `PreferredScope = …` (scope passed explicitly by callers via the wrapper; placement default declares the zone). `UnifiedGitPanelViewModel` additionally implements `IPanelOpenContext.OnOpenedAsync` to load `GitPanelActiveTab` from config and trigger initial data load.
+  - `src/TerminalHost.Avalonia/MainWindow.axaml.cs`, `src/TerminalHost.Avalonia/ViewModels/MainViewModel.cs` — Avalonia is out of scope for Phase 4, but the shared `CenterPanelRestoreEventArgs` deletion means Avalonia's subscriptions delete too. Avalonia's restore path becomes a no-op until Phase 5/6 brings it under the router.
+- **Deleted**:
+  - `src/TerminalHost.Core/Domain/CenterPanelRestoreEventArgs.cs`
+  - `src/TerminalHost.Core/Services/TabRestoreCoordinator.cs`
+  - `src/TerminalHost.Core/Interfaces/ITabRestoreCoordinator.cs`
+  - `tests/TerminalHost.Tests/Services/TabRestoreCoordinatorTests.cs`
+- **Tests**:
+  - `tests/TerminalHost.Tests/Panels/WpfCenterSurfaceTests.cs` — headless surface contract: Mount evicts prior, Unmount clears `MountedPanel`, `HasMounted` / `MountedPanel` raise `PropertyChanged`, `Focus` is a no-op on single-slot.
+  - `tests/TerminalHost.Tests/Panels/PanelRouterTests.cs` — add: `LastDockedZone` snapshot on every Move-to-non-Window; Center→Window→Center round-trip preserves zone via `LastDockedZone`; RightDock→Window→RightDock round-trip preserves zone via `LastDockedZone`; `IPanelOpenContext.OnOpenedAsync` fired post-Mount and post-Move; not fired on `Restore` when `SkipDataLoad`-equivalent (tab not selected). Delete the `_legacyCenterShow` + `SetOriginZone` tests added in Phase 3.
+  - `tests/TerminalHost.Tests/Panels/DirectorySettingsPanelPersistenceTests.cs` — add: tab-scope round-trip of Center entry via `DirectorySettings.ActiveCenterPanel`; combined Center + RightDock round-trip on a single tab.
+  - FlaUI smoke test backstop: open File Viewer via Ctrl+O, pop out to Window, dock back — lands on Center.
+
+### Out of scope for Phase 4
+
+- Avalonia parity (deferred until WPF surfaces fully settle)
+- LeftDock migration (Phase 5)
+- ToastWindow / StatusOverlayWindow synthetic adapters (Phase 2b)
+- `SparkCanvasWindow`, `TimelineWindow`, `SetupWindow` — bespoke windows that don't route through the router; out unless future churn pulls them in
+- Phase 3 design block backfill — captured in commit `860b3f6`; spec backfill is a doc-only task tracked separately
+
+---
+
+*Document version: 1.4 — 2026-05-23 (added Phase 4 design block).*

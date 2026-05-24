@@ -193,7 +193,6 @@ public partial class MainWindow : Window
         _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
         _viewModel.UnifiedGitPanelRequested += OnUnifiedGitPanelRequested;
-        _viewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
         _viewModel.RightPanelRestoreRequested += OnRightPanelRestoreRequested;
         _viewModel.ReflogRequested += OnReflogRequested;
         _viewModel.RepositorySwitcherRequested += OnRepositorySwitcherRequested;
@@ -283,20 +282,12 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Rebind center panel data when switching to a tab that has one.
-            // Singleton panel VMs only hold data for one tab at a time, so we
-            // must reload when the user switches to a different tab.
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab &&
-                newTab.ActiveCenterPanel != null)
+            // Rebind center panel data when switching to a tab that has one. Singleton panel VMs
+            // only hold data for one tab at a time, so the IPanelOpenContext sibling interface
+            // does the per-panel reload. Centralizing through the tab keeps the open path single-sourced.
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab)
             {
-                if (newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
-                    _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
-                else if (newTab.ActiveCenterPanel == _branchComparisonViewModel)
-                    _ = _branchComparisonViewModel.OpenAsync(newTab);
-                else if (newTab.ActiveCenterPanel == _searchAcrossFilesViewModel)
-                    _ = _searchAcrossFilesViewModel.OpenAsync(newTab);
-                else if (newTab.ActiveCenterPanel == _prReviewViewModel)
-                    _ = _prReviewViewModel.OpenAsync(newTab.WorkingDirectory);
+                _ = newTab.HydrateActiveCenterPanelAsync();
             }
 
             // Refresh git sidebar when tab changes
@@ -616,7 +607,8 @@ public partial class MainWindow : Window
             // Second priority: close active center panel (return to terminals)
             if (_viewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
             {
-                escTerminalTab.CloseCenterPanel();
+                _panelRouter?.CloseZone(PanelZone.Center, escTerminalTab.CenterScope);
+                escTerminalTab.FocusActiveTerminal();
                 e.Handled = true;
                 return;
             }
@@ -1234,7 +1226,8 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Generic handler for all panel ShowRequested events.
-    /// Routes to appropriate display mode based on panel's DisplayState.
+    /// Routes to appropriate display mode based on panel's DisplayState. Center vs RightDock
+    /// placement is resolved from the panel's <see cref="IPanelPlacement.PreferredZone"/>.
     /// </summary>
     private void OnPanelShowRequested(object? sender, EventArgs e)
     {
@@ -1243,10 +1236,17 @@ public partial class MainWindow : Window
         switch (panel.DisplayState)
         {
             case PanelDisplayState.Panel:
-                if (IsCenterPanel(panel))
-                    ShowCenterPanelInTab(panel);
+                if (panel is IPanelPlacement placement
+                    && placement.PreferredZone == PanelZone.Center
+                    && _viewModel.SelectedTab is TerminalPairTabViewModel centerTab)
+                {
+                    centerTab.SetPanel(panel);
+                    centerTab.ShowCenterPanel(panel);
+                }
                 else
+                {
                     ShowPanelInTab(panel);
+                }
                 break;
 
             case PanelDisplayState.Window:
@@ -1266,38 +1266,6 @@ public partial class MainWindow : Window
             currentTab.ForceShowRightDockPanel(panel);
         }
     }
-
-    /// <summary>
-    /// Shows a panel in the current tab's center area, replacing terminals.
-    /// If the panel is currently in a window, focuses the window instead.
-    /// </summary>
-    private void ShowCenterPanelInTab(IPanelableViewModel panel)
-    {
-        if (panel.DisplayState == PanelDisplayState.Window)
-        {
-            if (_windowSurface is not null) _windowSurface.Focus(panel.PanelId);
-            return;
-        }
-
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-        {
-            currentTab.SetPanel(panel);
-            currentTab.ShowCenterPanel(panel);
-        }
-    }
-
-    /// <summary>
-    /// Determines if a panel is typically shown in the center area. Used by the
-    /// <c>_legacyCenterShow</c> bridge in <c>App.xaml.cs</c> to route dock-back from a window
-    /// back to the center area (Phase 3 transient bridge — collapses in Phase 4).
-    /// </summary>
-    internal static bool IsCenterPanel(IPanelableViewModel panel) => panel.PanelId switch
-    {
-        "unifiedGit" or "branchComparison" or "searchFiles" or "markdownPreview"
-            or "fileViewer" or "prReview" or "testResults" or "recentFeatures"
-            or "mergeConflict" or "fileHistory" or "fileBlame" or "debugLog" => true,
-        _ => false
-    };
 
     #endregion
 
@@ -1360,101 +1328,10 @@ public partial class MainWindow : Window
         await OpenUnifiedGitPanelAsync(tab);
     }
 
-    private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
-    {
-        if (e.Tab is not TerminalPairTabViewModel tab) return;
-
-        // Helper: associate panel with tab and mark it as the active center panel.
-        // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
-        // to avoid race conditions with singleton panel ViewModels. Data loads on demand
-        // when the user switches to the tab (via OnViewModelPropertyChanged rebind).
-        void AssociateOnly(IPanelableViewModel panel)
-        {
-            tab.SetPanel(panel);
-            tab.ShowCenterPanel(panel);
-        }
-
-        switch (e.PanelId)
-        {
-            case "unifiedGit":
-                var gitTab = GitPanelTab.Changes;
-                if (e.GitPanelActiveTab != null && Enum.TryParse<GitPanelTab>(e.GitPanelActiveTab, out var parsedTab))
-                {
-                    gitTab = parsedTab;
-                }
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_unifiedGitPanelViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_unifiedGitPanelViewModel);
-                    await _unifiedGitPanelViewModel.OpenOnTabAsync(tab, gitTab);
-                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
-                }
-                break;
-            case "branchComparison":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_branchComparisonViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_branchComparisonViewModel);
-                    await _branchComparisonViewModel.OpenAsync(tab);
-                    tab.ShowCenterPanel(_branchComparisonViewModel);
-                }
-                break;
-            case "searchFiles":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_searchAcrossFilesViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_searchAcrossFilesViewModel);
-                    await _searchAcrossFilesViewModel.OpenAsync(tab);
-                    tab.ShowCenterPanel(_searchAcrossFilesViewModel);
-                }
-                break;
-            case "markdownPreview":
-                tab.SetPanel(_markdownPreviewViewModel);
-                _markdownPreviewViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_markdownPreviewViewModel);
-                break;
-            case "fileViewer":
-                tab.SetPanel(_fileViewerViewModel);
-                _fileViewerViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_fileViewerViewModel);
-                break;
-            case "prReview":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_prReviewViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_prReviewViewModel);
-                    await _prReviewViewModel.OpenAsync(tab.WorkingDirectory);
-                    tab.ShowCenterPanel(_prReviewViewModel);
-                }
-                break;
-            case "testResults":
-                tab.SetPanel(_testResultsViewModel);
-                _testResultsViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_testResultsViewModel);
-                break;
-            case "recentFeatures":
-                tab.SetPanel(_recentFeaturesViewModel);
-                _recentFeaturesViewModel.OnOpened();
-                tab.ShowCenterPanel(_recentFeaturesViewModel);
-                break;
-        }
-    }
-
     private void OnRightPanelRestoreRequested(object? sender, RightPanelRestoreEventArgs e)
     {
-        // Map panel IDs to ViewModel instances and register them with the tab.
+        // Map every known singleton panel id to its VM. The same switch drives pre-registration
+        // (next loop) so there is one list to keep in sync.
         IPanelableViewModel? GetPanelById(string panelId) => panelId switch
         {
             "fileExplorer" => e.Tab.ExplorerPanelViewModel,
@@ -1463,20 +1340,45 @@ public partial class MainWindow : Window
             "scratchPad" => _scratchPadViewModel,
             "gitChanges" => _gitFilesViewModel,
             "sessionsTree" => _sessionsTreePanelViewModel,
+            "unifiedGit" => _unifiedGitPanelViewModel,
+            "branchComparison" => _branchComparisonViewModel,
+            "searchFiles" => _searchAcrossFilesViewModel,
+            "markdownPreview" => _markdownPreviewViewModel,
+            "fileViewer" => _fileViewerViewModel,
+            "prReview" => _prReviewViewModel,
+            "testResults" => _testResultsViewModel,
+            "recentFeatures" => _recentFeaturesViewModel,
+            "mergeConflict" => _mergeConflictViewModel,
+            "fileHistory" => _fileHistoryViewModel,
+            "fileBlame" => _fileBlameViewModel,
+            "debugLog" => _debugLogViewModel,
             _ => null
         };
 
-        foreach (var panelId in e.PanelIds)
+        // Pre-register every known singleton VM so the router's resolver can find them during
+        // RestoreTabPanels regardless of which zone the persisted entry lands in. Cheap — these
+        // are all singletons and SetPanel is idempotent.
+        foreach (var panelId in KnownPanelIds)
         {
             var panel = GetPanelById(panelId);
             if (panel != null)
                 e.Tab.SetPanel(panel);
         }
 
-        // Replay persisted right-dock state through the router; the router calls Show on each
-        // entry, which mounts via the tab's WpfRightDockSurface and updates persistence.
-        e.Tab.RestoreRightDockPanels();
+        // Replay persisted tab-scope state (RightDock + Center) through the router; the router
+        // calls Show on each entry which mounts via the tab's surfaces and updates persistence.
+        // OnOpenedAsync is suppressed during Restore — the selected tab is hydrated explicitly
+        // after the restore loop in MainViewModel.RestoreOpenFolders.
+        e.Tab.RestoreTabPanels();
     }
+
+    private static readonly string[] KnownPanelIds =
+    [
+        "fileExplorer", "claudeTasks", "detectedLinks", "scratchPad", "gitChanges", "sessionsTree",
+        "unifiedGit", "branchComparison", "searchFiles", "markdownPreview", "fileViewer",
+        "prReview", "testResults", "recentFeatures", "mergeConflict", "fileHistory", "fileBlame",
+        "debugLog"
+    ];
 
     #endregion
 

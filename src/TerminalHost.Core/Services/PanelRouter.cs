@@ -13,12 +13,10 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     private readonly IPanelPersistence _persistence;
     private readonly IDispatcherService _dispatcher;
     private readonly Func<Type, IPanelableViewModel?>? _viewModelFactory;
-    private readonly Func<string, IPanelableViewModel, bool>? _legacyCenterShow;
 
     private readonly Dictionary<string, Registration> _registry = new(StringComparer.Ordinal);
     private readonly Dictionary<IPanelableViewModel, EventHandler<PanelStateChangeRequestedEventArgs>> _vmHandlers = new();
     private readonly Dictionary<IPanelableViewModel, PropertyChangedEventHandler> _vmOpenHandlers = new();
-    private readonly Dictionary<string, PanelZone> _originZones = new(StringComparer.Ordinal);
     private readonly Dictionary<(PanelZone Zone, PanelScope Scope), string> _activePanel = new();
     private readonly object _lock = new();
     private bool _disposed;
@@ -34,13 +32,11 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         IEnumerable<IPanelSurface> surfaces,
         IPanelPersistence persistence,
         IDispatcherService dispatcher,
-        Func<Type, IPanelableViewModel?>? viewModelFactory = null,
-        Func<string, IPanelableViewModel, bool>? legacyCenterShow = null)
+        Func<Type, IPanelableViewModel?>? viewModelFactory = null)
     {
         _persistence = persistence;
         _dispatcher = dispatcher;
         _viewModelFactory = viewModelFactory;
-        _legacyCenterShow = legacyCenterShow;
         _surfaces = new Dictionary<(PanelZone, PanelScope), IPanelSurface>();
 
         foreach (var surface in surfaces)
@@ -87,17 +83,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     }
 
     /// <inheritdoc />
-    [Obsolete("Transient bridge for Phase 3; removed in Phase 4 when Center surface lands.")]
-    public void SetOriginZone(string panelId, PanelZone originZone)
-    {
-        ThrowIfDisposed();
-        lock (_lock)
-        {
-            _originZones[panelId] = originZone;
-        }
-    }
-
-    /// <inheritdoc />
     public void Show<TPanel>() where TPanel : IPanelableViewModel
     {
         ThrowIfDisposed();
@@ -121,7 +106,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         var zone = ResolveZone(vm, options);
         var scope = ResolveScope(vm, options);
 
-        ShowInternal(vm, zone, scope, options);
+        ShowInternal(vm, zone, scope, options, suppressOnOpened: false);
     }
 
     /// <inheritdoc />
@@ -131,12 +116,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     public void Move(string panelId, PanelZone newZone, PanelShowOptions? options)
     {
         ThrowIfDisposed();
-
-        // Dock-back from Window: if the panel was popped out of Center, route back via the
-        // legacy center-show bridge instead of the normal Move path. Phase 4's Center surface
-        // will let this collapse into an ordinary Move(Center).
-        if (TryHandleCenterDockBack(panelId, newZone))
-            return;
 
         Registration existing;
         string registrationKey;
@@ -157,7 +136,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             // Cross-scope fallback: a Window-zone surface is intrinsically global (AppShell-scoped),
             // so a tab-scoped panel moving to Window falls back to the AppShell Window surface.
             // The registration's Scope stays intact so the reverse Move(RightDock) resolves cleanly.
-            // Phase 4 will extend this to Center once that surface lands.
             newScope = existing.Scope;
             if (!_surfaces.TryGetValue((newZone, newScope), out var ns))
             {
@@ -191,58 +169,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         }
 
         MoveCore(existing, registrationKey, newZone, newScope, oldSurface, newSurface, effectiveOptions);
-    }
-
-    /// <summary>
-    /// Dock-back bridge for Center-origin pop-outs. When a panel was previously popped out of
-    /// the Center zone (via <see cref="SetOriginZone"/>), docking it back from a window invokes
-    /// the legacy center-show callback registered in DI. If the callback succeeds, the router
-    /// closes the panel (evicting it from the registry) — the panel exits router-managed life
-    /// until Phase 4's Center surface lands.
-    /// </summary>
-    private bool TryHandleCenterDockBack(string panelId, PanelZone newZone)
-    {
-        if (newZone == PanelZone.Window) return false;
-        PanelZone origin;
-        IPanelableViewModel? vm;
-        lock (_lock)
-        {
-            if (!_originZones.TryGetValue(panelId, out origin)) return false;
-            if (origin != PanelZone.Center) return false;
-            var key = FindRegistrationKeyByPanelId(panelId);
-            if (key is null) return false;
-            vm = _registry[key].Vm;
-        }
-
-        if (_legacyCenterShow is null) return false;
-
-        // The bridge is user code (a DI-registered lambda). A misbehaving bridge should not
-        // crash the dock-back path; swallow exceptions and fall through to the default
-        // RightDock Move. Phase 4 removes this entire bridge when Center becomes a real surface.
-        bool handled;
-        try
-        {
-            handled = _legacyCenterShow(panelId, vm);
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"PanelRouter: legacyCenterShow threw for '{panelId}': {ex}");
-            return false;
-        }
-
-        if (handled)
-        {
-            // The bridge took ownership of the VM; evict our registration so the router stops
-            // tracking it. Latent bug: if the user switches tabs while the window was detached,
-            // the bridge shows on the wrong tab. Phase 4 fixes this when Center becomes a real surface.
-            lock (_lock)
-            {
-                _originZones.Remove(panelId);
-            }
-            Close(panelId);
-            return true;
-        }
-        return false;
     }
 
     private void MoveCore(
@@ -292,6 +218,11 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             throw;
         }
 
+        // Snapshot the source zone into LastDockedZone whenever the source was a non-Window zone.
+        // This lets a Window→dock-back resolve back to the panel's most recent docked location
+        // without persisting the value (it lives only on the in-memory Registration).
+        var newLastDockedZone = existing.Zone != PanelZone.Window ? existing.Zone : existing.LastDockedZone;
+
         lock (_lock)
         {
             // Only rewrite if the registration is still here (defensive; tests are single-threaded).
@@ -299,10 +230,17 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             // panel mounts on the AppShell Window surface via the cross-scope fallback, the original
             // scope is preserved so the reverse Move resolves cleanly.
             if (_registry.ContainsKey(registrationKey))
-                _registry[registrationKey] = existing with { Zone = newZone, Options = effectiveOptions };
+                _registry[registrationKey] = existing with
+                {
+                    Zone = newZone,
+                    Options = effectiveOptions,
+                    LastDockedZone = newLastDockedZone,
+                };
             // Track the new surface as the panel's current active tab.
             _activePanel[(newZone, newSurfaceScope)] = existing.Vm.PanelId;
         }
+
+        InvokeOpenedAsync(existing.Vm, effectiveOptions);
 
         RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone, existing.Scope);
         PersistScope(existing.Scope);
@@ -331,7 +269,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (key is null) return;
             existing = _registry[key];
             _registry.Remove(key);
-            _originZones.Remove(panelId);
         }
 
         UnsubscribeStateChanges(existing.Vm);
@@ -374,7 +311,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (!_registry.TryGetValue(registrationKey, out var current)) return;
             existing = current;
             _registry.Remove(registrationKey);
-            _originZones.Remove(existing.Vm.PanelId);
         }
 
         UnsubscribeStateChanges(existing.Vm);
@@ -415,7 +351,14 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             if (!entry.IsOpen) continue;
             var vm = resolveVm(entry.PanelId);
             if (vm is null) continue;
-            Show(vm, new PanelShowOptions(Zone: entry.Zone, Scope: entry.Scope, ForceShow: true));
+            // Suppress OnOpenedAsync during Restore — hosts hydrate the active panel explicitly
+            // after the restore loop completes (see TerminalPairTabViewModel.HydrateActiveCenterPanelAsync).
+            ShowInternal(
+                vm,
+                entry.Zone,
+                entry.Scope,
+                new PanelShowOptions(Zone: entry.Zone, Scope: entry.Scope, ForceShow: true),
+                suppressOnOpened: true);
             if (entry.IsActive)
             {
                 activeId = entry.PanelId;
@@ -435,7 +378,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         }
     }
 
-    private void ShowInternal(IPanelableViewModel vm, PanelZone zone, PanelScope scope, PanelShowOptions options)
+    private void ShowInternal(IPanelableViewModel vm, PanelZone zone, PanelScope scope, PanelShowOptions options, bool suppressOnOpened)
     {
         // Step 1: decide what to do under lock (toggle/move/focus/new).
         // We don't perform the surface ops under lock — only the registry decision is atomic.
@@ -481,7 +424,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                 newRegistrationKey = options.AllowMultiInstance
                     ? BuildMultiInstanceKeyUnderLock(vm.PanelId, scope)
                     : BuildSingleInstanceKey(vm.PanelId, scope);
-                _registry[newRegistrationKey] = new Registration(vm, zone, scope, options, options.AllowMultiInstance);
+                _registry[newRegistrationKey] = new Registration(vm, zone, scope, options, options.AllowMultiInstance, LastDockedZone: null);
                 decision = ShowDecision.New;
             }
         }
@@ -492,6 +435,10 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             case ShowDecision.Move:
             {
                 // Reuse Move's plumbing to keep semantics identical (display state, rollback, raise, persist).
+                // Restore never reaches this branch — Restore replays into an empty-for-its-VM registry, so
+                // every entry lands in ShowDecision.New, which honors suppressOnOpened. If a Restore-driven
+                // Show ever moved an already-mounted panel between zones, OnOpenedAsync would fire here via
+                // MoveCore; today that cannot happen.
                 Move(vm.PanelId, zone);
                 // The actual mount surface may differ from (zone, scope) when the cross-scope
                 // Window fallback fired (tab-scoped panel mounted on AppShell window surface);
@@ -547,6 +494,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                 {
                     _activePanel[(zone, scope)] = vm.PanelId;
                 }
+                if (!suppressOnOpened) InvokeOpenedAsync(vm, options);
                 RaiseRouted(vm.PanelId, oldZone: null, newZone: zone, scope);
                 PersistScope(scope);
                 return;
@@ -618,7 +566,32 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         // Center/Popup/Window leave PreferredSide untouched — it only describes dock orientation.
     }
 
-    /// <summary>Thread-safe. Subscribes the router's handler to <c>vm.StateChangeRequested</c> exactly once.</summary>
+    /// <summary>
+    /// Fires <see cref="IPanelOpenContext.OnOpenedAsync"/> on the dispatcher if the VM
+    /// implements it. Fire-and-forget; exceptions are logged and swallowed so a misbehaving
+    /// panel does not crash the router.
+    /// </summary>
+    private void InvokeOpenedAsync(IPanelableViewModel vm, PanelShowOptions options)
+    {
+        if (vm is not IPanelOpenContext openCtx) return;
+        _dispatcher.BeginInvoke(async () =>
+        {
+            try
+            {
+                await openCtx.OnOpenedAsync(options.Context);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"PanelRouter: OnOpenedAsync threw for '{vm.PanelId}': {ex}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// Thread-safe. Subscribes the router's handler to <c>vm.StateChangeRequested</c> exactly once.
+    /// Dock-back from Window resolves to <c>LastDockedZone</c> when set; otherwise falls back to
+    /// the requested <c>DockSide</c> (LeftDock / RightDock).
+    /// </summary>
     private void SubscribeStateChanges(IPanelableViewModel vm)
     {
         EventHandler<PanelStateChangeRequestedEventArgs> handler;
@@ -628,9 +601,24 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
             handler = (sender, args) =>
             {
                 if (sender is not IPanelableViewModel src) return;
-                var targetZone = args.RequestedState == PanelDisplayState.Window
-                    ? PanelZone.Window
-                    : args.DockSide == PanelSide.Left ? PanelZone.LeftDock : PanelZone.RightDock;
+                PanelZone targetZone;
+                if (args.RequestedState == PanelDisplayState.Window)
+                {
+                    targetZone = PanelZone.Window;
+                }
+                else
+                {
+                    // Dock-back: prefer the panel's most recent docked zone (snapshot in MoveCore),
+                    // fall back to DockSide so panels that never docked elsewhere still land sensibly.
+                    PanelZone? lastDocked = null;
+                    lock (_lock)
+                    {
+                        var key = FindRegistrationKeyByPanelId(src.PanelId);
+                        if (key is not null) lastDocked = _registry[key].LastDockedZone;
+                    }
+                    targetZone = lastDocked
+                        ?? (args.DockSide == PanelSide.Left ? PanelZone.LeftDock : PanelZone.RightDock);
+                }
                 Move(src.PanelId, targetZone);
             };
             _vmHandlers[vm] = handler;
@@ -785,5 +773,6 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         PanelZone Zone,
         PanelScope Scope,
         PanelShowOptions Options,
-        bool AllowMultiInstance);
+        bool AllowMultiInstance,
+        PanelZone? LastDockedZone);
 }

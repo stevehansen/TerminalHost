@@ -12,8 +12,17 @@ namespace TerminalHost.ViewModels;
 /// Provides full-text search across all files in a project with filtering,
 /// regex support, and replace functionality.
 /// </summary>
-public partial class SearchAcrossFilesViewModel : BasePanelViewModel
+public partial class SearchAcrossFilesViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    public Task OnOpenedAsync(object? context)
+    {
+        if (context is TerminalPairTabViewModel tab)
+            return OpenAsync(tab);
+        return Task.CompletedTask;
+    }
+
     private readonly ISearchService _searchService;
     private readonly IFileSystem _fileSystem;
     private readonly IProcessService _processService;

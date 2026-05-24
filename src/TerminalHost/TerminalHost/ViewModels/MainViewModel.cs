@@ -49,7 +49,6 @@ public partial class MainViewModel : ObservableObject
     private readonly IContainerConfiguration? _containerConfig;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
-    private readonly ITabRestoreCoordinator _restoreCoordinator;
     private readonly ExplorerEventRouter _explorerRouter;
     private readonly LinkClickHandler _linkClickHandler;
     private readonly TabRouter _router;
@@ -251,7 +250,6 @@ public partial class MainViewModel : ObservableObject
         IContainerConfiguration? containerConfig = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
-        ITabRestoreCoordinator? restoreCoordinator = null,
         ExplorerEventRouter? explorerRouter = null,
         LinkClickHandler? linkClickHandler = null,
         IPanelRouter? panelRouter = null)
@@ -290,8 +288,6 @@ public partial class MainViewModel : ObservableObject
         _containerConfig = containerConfig;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
-        _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
-        _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
         _explorerRouter = explorerRouter ?? new ExplorerEventRouter();
         _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
         _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
@@ -915,11 +911,6 @@ public partial class MainViewModel : ObservableObject
             OpenTimeline();
         }
 
-        // Defer center panel restores until the correct SelectedTab is set.
-        // Without this, multiple tabs fire async restores for singleton panel VMs
-        // and the last one to complete wins — which may not be the selected tab.
-        _restoreCoordinator.BeginBatch();
-
         var sp = StartupProfiler.Instance;
 
         // Pre-build directory settings lookup from the already-loaded config
@@ -972,7 +963,13 @@ public partial class MainViewModel : ObservableObject
             SelectedTab = tabToSelect;
         }
 
-        _restoreCoordinator.EndBatch(SelectedTab);
+        // Hydrate the SELECTED tab's active center panel only — non-selected tabs are
+        // placed-but-not-hydrated to avoid singleton-panel-VM races during the 60-tab restore.
+        // Data loads on demand when the user switches to a non-selected tab.
+        if (SelectedTab is TerminalPairTabViewModel selectedTerminalTab)
+        {
+            _ = selectedTerminalTab.HydrateActiveCenterPanelAsync();
+        }
     }
 
     /// <summary>
@@ -1202,25 +1199,17 @@ public partial class MainViewModel : ObservableObject
                 SelectedTab = tabViewModel;
             }
 
-            // Restore center panel state (fires event for MainWindow to handle)
-            if (dirSettings?.ActiveCenterPanel != null)
-            {
-                var restoreArgs = new CenterPanelRestoreEventArgs
-                {
-                    Tab = tabViewModel,
-                    PanelId = dirSettings.ActiveCenterPanel,
-                    GitPanelActiveTab = dirSettings.GitPanelActiveTab
-                };
-                _restoreCoordinator.Request(restoreArgs);
-            }
-
-            // Restore right sidebar panel state
-            if (dirSettings?.OpenRightPanels?.Count > 0)
+            // Restore right-sidebar and center panel state. The event fires whenever the tab
+            // has any persisted tab-scope entries (RightDock OR Center); the host registers
+            // singleton panel VMs then calls tab.RestoreTabPanels() which replays both zones
+            // through the router via DirectorySettingsPanelPersistence.
+            if (dirSettings?.OpenRightPanels?.Count > 0
+                || !string.IsNullOrEmpty(dirSettings?.ActiveCenterPanel))
             {
                 RightPanelRestoreRequested?.Invoke(this, new RightPanelRestoreEventArgs
                 {
                     Tab = tabViewModel,
-                    PanelIds = dirSettings.OpenRightPanels,
+                    PanelIds = dirSettings.OpenRightPanels ?? [],
                     ActivePanelId = dirSettings.ActiveRightPanel
                 });
             }
@@ -1857,7 +1846,9 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
     public event EventHandler<GitPanelTab>? UnifiedGitPanelRequested;
-    public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
+    // Fires when a tab has any persisted tab-scope panel entries (Center or RightDock).
+    // The host registers the relevant singleton panel VMs onto the tab and then calls
+    // tab.RestoreTabPanels() to replay both zones through the router.
     public event EventHandler<RightPanelRestoreEventArgs>? RightPanelRestoreRequested;
     public event EventHandler? ReflogRequested;
     public event EventHandler? RepositorySwitcherRequested;

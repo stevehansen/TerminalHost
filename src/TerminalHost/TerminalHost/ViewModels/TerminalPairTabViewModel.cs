@@ -180,12 +180,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     // Center panel properties
     /// <summary>
-    /// The panel currently displayed in the center area, replacing terminals.
-    /// Null means terminals are visible.
+    /// The panel currently displayed in the center area, replacing terminals. Derived from
+    /// the center surface's <c>MountedPanel</c>; null means terminals are visible.
     /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsTerminalsVisible))]
-    private IPanelableViewModel? _activeCenterPanel;
+    public IPanelableViewModel? ActiveCenterPanel => _centerSurface?.MountedPanel;
 
     /// <summary>
     /// Whether the terminal pair is visible (no center panel active).
@@ -201,6 +199,8 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// The right-dock surface for this tab. Owns the dock's panel collection imperatively.
     /// </summary>
     private WpfRightDockSurface? _rightDock;
+    /// <summary>The center surface for this tab. Single-slot; mirrors the right-dock pattern.</summary>
+    private WpfCenterSurface? _centerSurface;
     private readonly IPanelRouter? _router;
 
     /// <summary>
@@ -564,6 +564,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         DuplicateIndex = duplicateIndex;
 
         InitializeRightDockSurface();
+        InitializeCenterSurface();
 
         // Subscribe to task changes for Claude task indicator
         if (_taskService != null)
@@ -597,6 +598,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
 
         InitializeRightDockSurface();
+        InitializeCenterSurface();
 
         // Subscribe to task changes for Claude task indicator
         if (_taskService != null)
@@ -613,6 +615,24 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _rightDock = new WpfRightDockSurface(scope);
         _rightDock.PropertyChanged += OnRightDockPropertyChanged;
         _router.RegisterSurface(_rightDock);
+    }
+
+    private void InitializeCenterSurface()
+    {
+        if (_router is null) return;
+        var scope = TabPanelScope.ForTab(Pair.WorkingDirectory);
+        _centerSurface = new WpfCenterSurface(scope);
+        _centerSurface.PropertyChanged += OnCenterSurfacePropertyChanged;
+        _router.RegisterSurface(_centerSurface);
+    }
+
+    private void OnCenterSurfacePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(WpfCenterSurface.MountedPanel))
+        {
+            OnPropertyChanged(nameof(ActiveCenterPanel));
+            OnPropertyChanged(nameof(IsTerminalsVisible));
+        }
     }
 
     private void OnRightDockPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -633,19 +653,37 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public PanelScope RightDockScope => _rightDock?.Scope ?? TabPanelScope.ForTab(Pair.WorkingDirectory);
 
+    /// <summary>Tab scope used by the center surface and persistence (same scope as right-dock).</summary>
+    public PanelScope CenterScope => _centerSurface?.Scope ?? TabPanelScope.ForTab(Pair.WorkingDirectory);
+
     /// <summary>
     /// Wires the tab's right-dock surface to the <see cref="PanelHost"/> control rendered by the view.
     /// </summary>
     public void AttachRightDock(PanelHost host) => _rightDock?.Attach(host);
 
     /// <summary>
-    /// Replays persisted right-dock state through the router, mounting any panels the resolver
-    /// can produce. Call after singleton panels have been registered via <see cref="SetPanel"/>.
+    /// Replays persisted tab-scope state (Center + RightDock) through the router, mounting any
+    /// panels the resolver can produce. Call after singleton panels have been registered via
+    /// <see cref="SetPanel"/>. Both zones share the same scope, so one Restore call covers both.
+    /// OnOpenedAsync is suppressed during Restore — call <see cref="HydrateActiveCenterPanelAsync"/>
+    /// on the selected tab after the restore loop to trigger data loads.
     /// </summary>
-    public void RestoreRightDockPanels()
+    public void RestoreTabPanels()
     {
         if (_router is null || _rightDock is null) return;
         _router.Restore(_rightDock.Scope, panelId => _registeredPanels.GetValueOrDefault(panelId));
+    }
+
+    /// <summary>
+    /// Invokes <see cref="IPanelOpenContext.OnOpenedAsync"/> on the currently mounted center
+    /// panel (if any). Hosts call this on the SELECTED tab only, after the per-tab Restore loop,
+    /// so non-selected tabs stay placed-but-not-hydrated until the user switches to them.
+    /// </summary>
+    public Task HydrateActiveCenterPanelAsync()
+    {
+        if (ActiveCenterPanel is IPanelOpenContext ctx)
+            return ctx.OnOpenedAsync(this);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1516,29 +1554,22 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     #region Center Panel Methods
 
     /// <summary>
-    /// Shows a panel in the center area, replacing terminals.
-    /// Terminals continue running in background.
+    /// Shows a panel in the center area via the router. Terminals continue running in the
+    /// background. Symmetric with <see cref="ShowRightDockPanel"/>.
     /// </summary>
     public void ShowCenterPanel(IPanelableViewModel panel)
     {
-        ActiveCenterPanel = panel;
-        panel.IsOpen = true;
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
+        if (_router is null) return;
+        _router.Show(panel, new PanelShowOptions(Zone: PanelZone.Center, Scope: CenterScope, ForceShow: true));
     }
 
-    /// <summary>
-    /// Returns to terminals by closing the active center panel.
-    /// </summary>
+    /// <summary>Returns to terminals by closing the active center panel via the router.</summary>
     [RelayCommand]
     public void CloseCenterPanel()
     {
-        if (ActiveCenterPanel != null)
-        {
-            ActiveCenterPanel.IsOpen = false;
-            ActiveCenterPanel = null;
-            SettingsChanged?.Invoke(this, EventArgs.Empty);
-            FocusActiveTerminal();
-        }
+        if (_router is null || _centerSurface is null) return;
+        _router.CloseZone(PanelZone.Center, _centerSurface.Scope);
+        FocusActiveTerminal();
     }
 
     /// <summary>
@@ -1551,22 +1582,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             CloseCenterPanel();
         else
             ShowCenterPanel(panel);
-    }
-
-    /// <summary>
-    /// Pops the active center panel out into a detached window. The router records the panel's
-    /// origin zone (Center) so its dock-back returns to the center area.
-    /// </summary>
-    [RelayCommand]
-    private void PopOutCenterPanel()
-    {
-        if (ActiveCenterPanel is null || _router is null) return;
-        var panel = ActiveCenterPanel;
-#pragma warning disable CS0618 // Transient bridge for Phase 3; removed in Phase 4.
-        _router.SetOriginZone(panel.PanelId, PanelZone.Center);
-#pragma warning restore CS0618
-        CloseCenterPanel();
-        _router.Show(panel, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
     }
 
     #endregion
@@ -1667,14 +1682,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
         target.ExplorerSplitRatio = ExplorerSplitRatio;
 
-        target.ActiveCenterPanel = ActiveCenterPanel?.PanelId;
-        if (ActiveCenterPanel is UnifiedGitPanelViewModel gitPanel)
-        {
-            target.GitPanelActiveTab = gitPanel.ActiveTab.ToString();
-        }
-
-        // Right-dock panel state (OpenRightPanels / ActiveRightPanel) is now owned by
-        // DirectorySettingsPanelPersistence; the router calls Save on every Routed event.
+        // Tab-scope panel state (OpenRightPanels / ActiveRightPanel / ActiveCenterPanel) is now
+        // owned by DirectorySettingsPanelPersistence; the router calls Save on every Routed event.
+        // GitPanelActiveTab round-trips via UnifiedGitPanelViewModel itself (config-backed).
     }
 
     public void Cleanup()
@@ -1690,6 +1700,14 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
             _router?.UnregisterSurface(PanelZone.RightDock, _rightDock.Scope);
             _rightDock.Dispose();
             _rightDock = null;
+        }
+
+        if (_centerSurface is not null)
+        {
+            _centerSurface.PropertyChanged -= OnCenterSurfacePropertyChanged;
+            _router?.UnregisterSurface(PanelZone.Center, _centerSurface.Scope);
+            _centerSurface.Dispose();
+            _centerSurface = null;
         }
     }
 }

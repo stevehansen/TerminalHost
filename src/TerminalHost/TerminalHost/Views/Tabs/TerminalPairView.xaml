@@ -606,7 +606,7 @@
                                     ToolTip="Back to Terminals (Escape)"/>
                             <Button DockPanel.Dock="Right" Content="&#x29C9;"
                                     Style="{StaticResource TabCloseButton}"
-                                    Command="{Binding PopOutCenterPanelCommand}"
+                                    Command="{Binding ActiveCenterPanel.DetachCommand}"
                                     ToolTip="Pop out to window"
                                     FontSize="12"
                                     Margin="0,0,4,0"/>

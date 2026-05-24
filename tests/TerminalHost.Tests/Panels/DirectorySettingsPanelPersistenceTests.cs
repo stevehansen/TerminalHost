@@ -226,4 +226,90 @@ public class DirectorySettingsPanelPersistenceTests
         var entry = new PanelLayoutEntry("p", PanelZone.RightDock, PanelScope.AppShell, IsOpen: true);
         entry.IsActive.ShouldBeFalse();
     }
+
+    // ---- Phase 4: Center round-trip via ActiveCenterPanel ----
+
+    [Fact]
+    public void SaveTabScope_PersistsCenterEntry_ViaActiveCenterPanel()
+    {
+        var (persistence, config, _) = Build();
+        var scope = TabPanelScope.ForTab("P:\\CenterOnly");
+        config.DirectorySettings[scope.TabId!] = new DirectorySettings();
+        var snapshot = new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("unifiedGit", PanelZone.Center, scope, IsOpen: true, IsActive: true),
+        });
+
+        persistence.Save(scope, snapshot);
+
+        var dir = config.DirectorySettings[scope.TabId!];
+        dir.ActiveCenterPanel.ShouldBe("unifiedGit");
+        dir.OpenRightPanels.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public void LoadTabScope_RoundTripsCenterEntry()
+    {
+        var (persistence, config, _) = Build();
+        var scope = TabPanelScope.ForTab("P:\\CenterLoad");
+        config.DirectorySettings[scope.TabId!] = new DirectorySettings
+        {
+            ActiveCenterPanel = "unifiedGit",
+        };
+
+        var loaded = persistence.Load(scope);
+
+        loaded.Entries.Count.ShouldBe(1);
+        var entry = loaded.Entries[0];
+        entry.Zone.ShouldBe(PanelZone.Center);
+        entry.PanelId.ShouldBe("unifiedGit");
+        entry.IsOpen.ShouldBeTrue();
+        entry.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SaveAndLoad_CombinedCenterAndRightDock_RoundTripsBoth()
+    {
+        var (persistence, config, _) = Build();
+        var scope = TabPanelScope.ForTab("P:\\Combined");
+        config.DirectorySettings[scope.TabId!] = new DirectorySettings();
+        var saved = new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("a", PanelZone.RightDock, scope, IsOpen: true, IsActive: false),
+            new PanelLayoutEntry("b", PanelZone.RightDock, scope, IsOpen: true, IsActive: true),
+            new PanelLayoutEntry("unifiedGit", PanelZone.Center, scope, IsOpen: true, IsActive: true),
+        });
+
+        persistence.Save(scope, saved);
+        var loaded = persistence.Load(scope);
+
+        loaded.Entries.Count.ShouldBe(3);
+        loaded.Entries.Count(e => e.Zone == PanelZone.RightDock).ShouldBe(2);
+        loaded.Entries.Single(e => e.Zone == PanelZone.Center)
+            .ShouldSatisfyAllConditions(
+                e => e.PanelId.ShouldBe("unifiedGit"),
+                e => e.IsActive.ShouldBeTrue(),
+                e => e.IsOpen.ShouldBeTrue());
+        loaded.Entries.Single(e => e.PanelId == "b").IsActive.ShouldBeTrue();
+        loaded.Entries.Single(e => e.PanelId == "a").IsActive.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SaveTabScope_NoCenterEntry_NullsActiveCenterPanel()
+    {
+        var (persistence, config, _) = Build();
+        var scope = TabPanelScope.ForTab("P:\\NoCenter");
+        config.DirectorySettings[scope.TabId!] = new DirectorySettings
+        {
+            ActiveCenterPanel = "foo",
+        };
+        var snapshot = new PanelLayoutSnapshot(new[]
+        {
+            new PanelLayoutEntry("a", PanelZone.RightDock, scope, IsOpen: true, IsActive: true),
+        });
+
+        persistence.Save(scope, snapshot);
+
+        config.DirectorySettings[scope.TabId!].ActiveCenterPanel.ShouldBeNull();
+    }
 }

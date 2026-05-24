@@ -6,14 +6,17 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class FileViewerViewModel : BasePanelViewModel, IPanelCloseGuard
+public partial class FileViewerViewModel : BasePanelViewModel, IPanelCloseGuard, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
     private readonly IFileSystem _fileSystem;
