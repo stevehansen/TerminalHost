@@ -48,6 +48,27 @@ public abstract class PosixSystemInfoServiceBase : ISystemInfoService
         return "/bin/sh";
     }
 
+    public string GetDefaultCustomCommand()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        var possiblePaths = new[]
+        {
+            Path.Combine(home, ".claude", "local", "claude"),
+            Path.Combine(home, ".local", "bin", "claude"),
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude",
+        };
+
+        foreach (var path in possiblePaths)
+        {
+            if (File.Exists(path))
+                return path;
+        }
+
+        return "claude";
+    }
+
     public IEnumerable<string> GetInstalledFontFamilies()
         => GetFallbackFonts();
 
