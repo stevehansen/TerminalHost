@@ -17,7 +17,7 @@ internal sealed class ConfigurationService : IConfigurationService
     public string ConfigurationFilePath { get; }
     private readonly string _configDirectory;
 
-    public ConfigurationService(IFileSystem fileSystem, string? userDataDir = null)
+    public ConfigurationService(IFileSystem fileSystem, ISystemInfoService systemInfoService, string? userDataDir = null)
     {
         _fileSystem = fileSystem;
 
@@ -27,9 +27,7 @@ internal sealed class ConfigurationService : IConfigurationService
         }
         else
         {
-            // macOS: ~/Library/Application Support/TerminalHost
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            _configDirectory = Path.Combine(home, "Library", "Application Support", "TerminalHost");
+            _configDirectory = systemInfoService.GetApplicationDataPath();
         }
 
         ConfigurationFilePath = Path.Combine(_configDirectory, "config.json");
