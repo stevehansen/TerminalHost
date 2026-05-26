@@ -257,7 +257,7 @@ public abstract class PosixPtyServiceBase<TSession, TSyscalls> : IPtyService
         if (!env.Any(e => e.Key == "LANG"))
             env.Add(("LANG", "en_US.UTF-8"));
         if (!env.Any(e => e.Key == "LC_CTYPE"))
-            env.Add(("LC_CTYPE", "UTF-8"));
+            env.Add(("LC_CTYPE", "en_US.UTF-8"));
 
         var nvmDir = Path.Combine(homeDir, ".nvm");
         if (Directory.Exists(nvmDir))
