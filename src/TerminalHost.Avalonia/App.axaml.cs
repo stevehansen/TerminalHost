@@ -186,23 +186,7 @@ public partial class App : Application
         services.AddSingleton<ITerminalControlFactory, TerminalControlFactory>();
         services.AddSingleton<ICommandComposer>(_ => CommandComposerFactory.ForCurrentOs());
 
-        // Container Services — pass the same config directory as ConfigurationService.
-#if MACOS
-        // macOS: ~/Library/Application Support/TerminalHost/ since the default
-        // SpecialFolder.ApplicationData resolves to ~/.config/ on macOS .NET.
-        var containerConfigDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library", "Application Support", "TerminalHost");
-#elif LINUX
-        // Linux: ~/.config/TerminalHost/ (XDG Base Directory)
-        var containerConfigDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TerminalHost");
-#else
-        var containerConfigDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TerminalHost");
-#endif
+        // Container Services
         services.AddSingleton<IContainerConfiguration, TerminalHost.Core.Services.ContainerConfiguration>();
         services.AddSingleton<IContainerService>(sp =>
             new TerminalHost.Core.Services.ContainerService(
@@ -210,7 +194,7 @@ public partial class App : Application
                 sp.GetRequiredService<IContainerConfiguration>(),
                 sp.GetRequiredService<IProcessService>(),
                 sp.GetRequiredService<IFileSystem>(),
-                containerConfigDir));
+                sp.GetRequiredService<ISystemInfoService>().GetApplicationDataPath()));
 
         // Git Services (use Core implementations for consistency with WPF)
         services.AddSingleton<IGitStatusService, TerminalHost.Core.Services.GitStatusService>();
