@@ -1011,6 +1011,104 @@ public partial class PanelRouterTests
         router.IsOpen("gitFiles").ShouldBeFalse();
     }
 
+    // ---- D2. Cross-scope relocation of a singleton VM (e.g. the Git panel across tabs) ----
+
+    [Fact]
+    public void Show_SameVm_OnDifferentTabScope_RelocatesInsteadOfFocusingOldScope()
+    {
+        // Regression: the singleton Git panel is registered on tab A's Center. Showing the SAME VM
+        // on tab B's Center must move it there. Before the fix, cross-scope reuse collapsed the
+        // requested scope to A's and Focused A — nothing appeared on B ("can't open the Git panel").
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.Center, tabA),
+            (PanelZone.Center, tabB));
+
+        var vm = new StubPanelableViewModel("unifiedGit");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabA, ForceShow: true));
+        surfaces[(PanelZone.Center, tabA)].Mounted.ShouldBeSameAs(vm);
+
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabB, ForceShow: true));
+
+        surfaces[(PanelZone.Center, tabA)].Mounted.ShouldBeNull();
+        surfaces[(PanelZone.Center, tabB)].Mounted.ShouldBeSameAs(vm);
+        router.IsOpen("unifiedGit").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Show_SameVm_CrossScope_PersistsBothScopes_AndCanCloseOnNewScope()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var persistence = new InMemoryPanelPersistence();
+        var surfaceA = new InMemoryPanelSurface { Zone = PanelZone.Center, Scope = tabA };
+        var surfaceB = new InMemoryPanelSurface { Zone = PanelZone.Center, Scope = tabB };
+        var router = new PanelRouter(new IPanelSurface[] { surfaceA, surfaceB }, persistence, new SynchronousDispatcherService());
+
+        var vm = new StubPanelableViewModel("unifiedGit");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabA, ForceShow: true));
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabB, ForceShow: true));
+
+        // The source scope's snapshot no longer lists the panel; the destination scope does.
+        persistence.Load(tabA).Entries.Any(e => e.PanelId == "unifiedGit").ShouldBeFalse();
+        persistence.Load(tabB).Entries.Single().PanelId.ShouldBe("unifiedGit");
+
+        // The relocated registration closes cleanly on its new scope.
+        router.CloseZone(PanelZone.Center, tabB);
+        router.IsOpen("unifiedGit").ShouldBeFalse();
+        surfaceB.Mounted.ShouldBeNull();
+        vm.IsOpen.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Show_SameVm_CrossScope_RoundTripsBackToOriginalScope()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var (router, _, surfaces) = BuildRouter(
+            (PanelZone.Center, tabA),
+            (PanelZone.Center, tabB));
+
+        var vm = new StubPanelableViewModel("unifiedGit");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabA, ForceShow: true));
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabB, ForceShow: true));
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabA, ForceShow: true));
+
+        surfaces[(PanelZone.Center, tabA)].Mounted.ShouldBeSameAs(vm);
+        surfaces[(PanelZone.Center, tabB)].Mounted.ShouldBeNull();
+        router.IsOpen("unifiedGit").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Show_SameVm_CrossScope_RollsBackToSourceScope_WhenDestinationMountThrows()
+    {
+        var tabA = PanelScope.ForTab("a");
+        var tabB = PanelScope.ForTab("b");
+        var persistence = new InMemoryPanelPersistence();
+        var surfaceA = new InMemoryPanelSurface { Zone = PanelZone.Center, Scope = tabA };
+        var surfaceB = new InMemoryPanelSurface { Zone = PanelZone.Center, Scope = tabB };
+        var router = new PanelRouter(new IPanelSurface[] { surfaceA, surfaceB }, persistence, new SynchronousDispatcherService());
+
+        var vm = new StubPanelableViewModel("unifiedGit");
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabA, ForceShow: true));
+
+        // Destination mount fails — the relocation must roll back to the source scope, not vanish.
+        surfaceB.MountException = new InvalidOperationException("boom");
+        Should.Throw<InvalidOperationException>(() =>
+            router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabB, ForceShow: true)));
+
+        surfaceA.Mounted.ShouldBeSameAs(vm);
+        surfaceB.Mounted.ShouldBeNull();
+        router.IsOpen("unifiedGit").ShouldBeTrue();
+        vm.IsOpen.ShouldBeTrue();
+
+        // Registry was not corrupted by the failed move — a subsequent successful relocation works.
+        router.Show(vm, new PanelShowOptions(Zone: PanelZone.Center, Scope: tabB, ForceShow: true));
+        surfaceB.Mounted.ShouldBeSameAs(vm);
+        surfaceA.Mounted.ShouldBeNull();
+    }
+
     // ---- E. IsActive tracking + persistence ----
 
     [Fact]

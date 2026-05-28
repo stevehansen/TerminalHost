@@ -662,6 +662,12 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public void AttachRightDock(PanelHost host) => _rightDock?.Attach(host);
 
     /// <summary>
+    /// Releases this tab's right-dock surface from the shared <see cref="PanelHost"/> when the tab is
+    /// switched away from. Symmetric with <see cref="AttachRightDock"/>; see <c>WpfRightDockSurface.Detach</c>.
+    /// </summary>
+    public void DetachRightDock(PanelHost host) => _rightDock?.Detach(host);
+
+    /// <summary>
     /// Replays persisted tab-scope state (Center + RightDock) through the router, mounting any
     /// panels the resolver can produce. Call after singleton panels have been registered via
     /// <see cref="SetPanel"/>. Both zones share the same scope, so one Restore call covers both.
@@ -1560,6 +1566,19 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public void ShowCenterPanel(IPanelableViewModel panel)
     {
         if (_router is null) return;
+        // The center is a single slot: mounting a new panel evicts the visible one but leaves its
+        // registration behind, which makes a later Show of that panel resolve to a no-op Focus
+        // (it appears "stuck closed"). Close the current occupant's registration first so the slot
+        // is genuinely free. CloseZone is scope-correct (closes only THIS tab's center panel).
+        //
+        // Note: this re-introduces, for cross-panel swaps only, the HasMounted=false→true transition
+        // that WpfCenterSurface.Mount deliberately avoids for same-panel in-place updates (see the
+        // flicker note there). It is accepted here because both the CloseZone and the Show run
+        // synchronously on the UI thread within this method, so WPF coalesces the layout pass and the
+        // transient ActiveCenterPanel==null / IsTerminalsVisible==true state never renders.
+        var current = _centerSurface?.MountedPanel;
+        if (current is not null && !ReferenceEquals(current, panel))
+            _router.CloseZone(PanelZone.Center, CenterScope);
         _router.Show(panel, new PanelShowOptions(Zone: PanelZone.Center, Scope: CenterScope, ForceShow: true));
     }
 

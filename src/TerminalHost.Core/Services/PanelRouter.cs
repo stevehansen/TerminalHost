@@ -261,6 +261,102 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
     }
 
     /// <summary>
+    /// Relocates a single-instance registration to a different (zone, scope). Used when a singleton
+    /// VM shared across tabs (e.g. the Git panel) is shown on a tab whose surface differs from where
+    /// it is currently mounted. Unlike <see cref="MoveByRegistrationKey"/> (zone-only, scope
+    /// preserved), this re-keys the registry entry to the new scope and persists both the source and
+    /// destination scopes so each tab's saved layout reflects the move.
+    /// </summary>
+    private void MoveCrossScope(string registrationKey, PanelZone newZone, PanelScope newScope, PanelShowOptions options)
+    {
+        Registration existing;
+        IPanelSurface oldSurface;
+        IPanelSurface newSurface;
+        string newKey;
+        PanelScope oldScope;
+        lock (_lock)
+        {
+            if (!_registry.TryGetValue(registrationKey, out var current)) return;
+            existing = current;
+            oldScope = existing.Scope;
+
+            if (!_surfaces.TryGetValue((existing.Zone, existing.Scope), out oldSurface!))
+            {
+                if (existing.Zone == PanelZone.Window && _surfaces.TryGetValue((PanelZone.Window, PanelScope.AppShell), out var os))
+                    oldSurface = os;
+                else
+                    throw new InvalidOperationException(
+                        $"No surface registered for zone '{existing.Zone}' in scope '{FormatScope(existing.Scope)}'.");
+            }
+            if (!_surfaces.TryGetValue((newZone, newScope), out newSurface!))
+                throw new InvalidOperationException(
+                    $"No surface registered for zone '{newZone}' in scope '{FormatScope(newScope)}'.");
+
+            newKey = BuildSingleInstanceKey(existing.Vm.PanelId, newScope);
+        }
+
+        oldSurface.Unmount(existing.Vm.PanelId);
+        UpdateActiveOnUnmount(oldSurface.Zone, oldSurface.Scope, existing.Vm.PanelId);
+
+        ApplyDisplayState(existing.Vm, newZone);
+
+        try
+        {
+            newSurface.Mount(existing.Vm, BuildMountOptions(existing.Vm, options));
+        }
+        catch (Exception mountEx)
+        {
+            // Roll back to the original surface/scope so the panel doesn't vanish. The registry
+            // entry was not touched yet, so it still describes the old location.
+            ApplyDisplayState(existing.Vm, existing.Zone);
+            try
+            {
+                oldSurface.Mount(existing.Vm, BuildMountOptions(existing.Vm, existing.Options));
+                lock (_lock) _activePanel[(oldSurface.Zone, oldSurface.Scope)] = existing.Vm.PanelId;
+            }
+            catch (Exception rollbackEx)
+            {
+                // Both the new-surface mount and the rollback mount failed — force-close so we don't
+                // leak a registration pointing at a surface that holds nothing. Mirrors MoveCore.
+                lock (_lock) _registry.Remove(registrationKey);
+                UnsubscribeStateChanges(existing.Vm);
+                UnsubscribeIsOpen(existing.Vm);
+                existing.Vm.IsOpen = false;
+                RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone: null, oldScope);
+                PersistScope(oldScope);
+                throw new AggregateException(
+                    "Cross-scope panel move failed and rollback to the original surface also failed. Panel has been force-closed.",
+                    mountEx, rollbackEx);
+            }
+            throw;
+        }
+
+        var newLastDockedZone = existing.Zone != PanelZone.Window ? existing.Zone : existing.LastDockedZone;
+        lock (_lock)
+        {
+            if (_registry.Remove(registrationKey))
+            {
+                _registry[newKey] = existing with
+                {
+                    Zone = newZone,
+                    Scope = newScope,
+                    Options = options,
+                    LastDockedZone = newLastDockedZone,
+                };
+            }
+            _activePanel[(newSurface.Zone, newSurface.Scope)] = existing.Vm.PanelId;
+        }
+
+        InvokeOpenedAsync(existing.Vm, options);
+        // Unlike MoveCore (which keeps the registration scope and reports it), a cross-scope move
+        // genuinely changes the registration scope, so Routed reports the DESTINATION scope — that's
+        // where the panel now lives. Both scopes are persisted above so each tab's layout is correct.
+        RaiseRouted(existing.Vm.PanelId, existing.Zone, newZone, newScope);
+        PersistScope(oldScope);
+        PersistScope(newScope);
+    }
+
+    /// <summary>
     /// Drops the active-panel tracker for a (zone, scope) if the unmounted panel was the active one.
     /// </summary>
     private void UpdateActiveOnUnmount(PanelZone zone, PanelScope scope, string panelId)
@@ -400,25 +496,40 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         Registration? existing;
         string? existingRegistrationKey = null;
         string? newRegistrationKey = null;
+        bool crossScopeMove = false;
+        string? crossScopeFromKey = null;
 
         lock (_lock)
         {
             var existingKey = FindRegistrationKey(vm.PanelId, scope);
 
-            // Cross-scope reuse: the SAME VM instance registered in another scope (typically via
-            // the cross-scope Window fallback that mounts a tab-scoped panel on the AppShell window
-            // surface) must be treated as the existing registration here, not duplicated. Adjust
-            // the requested scope to the existing registration's so subsequent surface lookups go
-            // through the same cross-scope fallback path as Move. Reference equality is required —
-            // two different VMs with the same PanelId in different scopes (e.g. per-tab Explorer
-            // instances) remain isolated.
+            // The SAME VM instance is already registered in a different scope. Reference equality
+            // is required — two different VMs with the same PanelId in different scopes (e.g. per-tab
+            // Explorer instances) remain isolated. Two cases:
+            //   (a) Relocation: the requested (zone, scope) has its OWN surface and differs from
+            //       where the VM lives now. A singleton panel shared across tabs (e.g. the Git panel)
+            //       opened on another tab's Center must MOVE there. Reusing the old registration would
+            //       Focus the wrong tab's surface and show nothing on the requested tab.
+            //   (b) Cross-scope Window fallback: no surface exists for the requested (zone, scope) —
+            //       a tab-scoped panel mounted on the AppShell window surface. Reuse the existing
+            //       registration in place by collapsing the requested scope to its scope, so
+            //       subsequent surface lookups go through the same fallback path as Move.
             if (existingKey is null && !options.AllowMultiInstance)
             {
                 var anyKey = FindRegistrationKeyByVm(vm);
                 if (anyKey is not null && !_registry[anyKey].AllowMultiInstance)
                 {
-                    existingKey = anyKey;
-                    scope = _registry[anyKey].Scope;
+                    var existingScope = _registry[anyKey].Scope;
+                    if (existingScope != scope && _surfaces.ContainsKey((zone, scope)))
+                    {
+                        crossScopeMove = true;
+                        crossScopeFromKey = anyKey;
+                    }
+                    else
+                    {
+                        existingKey = anyKey;
+                        scope = existingScope;
+                    }
                 }
             }
 
@@ -433,7 +544,11 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                     $"AllowMultiInstance={existing.AllowMultiInstance}; cannot Show with AllowMultiInstance={options.AllowMultiInstance}.");
             }
 
-            if (!options.AllowMultiInstance && existing is not null)
+            if (crossScopeMove)
+            {
+                decision = ShowDecision.CrossScopeMove;
+            }
+            else if (!options.AllowMultiInstance && existing is not null)
             {
                 if (existing.Zone != zone)
                 {
@@ -497,6 +612,15 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
                 // TryGetMountSurface honors that fallback so Focus reaches the right surface.
                 if (TryGetMountSurface(zone, scope, out var s))
                     s.Focus(vm.PanelId);
+                return;
+            }
+            case ShowDecision.CrossScopeMove:
+            {
+                // Relocate the singleton's single registration to the requested (zone, scope).
+                // scope was NOT collapsed above, so it still holds the requested target.
+                MoveCrossScope(crossScopeFromKey!, zone, scope, options);
+                if (TryGetMountSurface(zone, scope, out var s2))
+                    s2.Focus(vm.PanelId);
                 return;
             }
             case ShowDecision.Focus:
@@ -568,7 +692,7 @@ public sealed class PanelRouter : IPanelRouter, IDisposable
         }
     }
 
-    private enum ShowDecision { New, Move, Focus, ToggleClose }
+    private enum ShowDecision { New, Move, CrossScopeMove, Focus, ToggleClose }
 
     private string BuildSingleInstanceKey(string panelId, PanelScope scope) =>
         $"{panelId}|{FormatScope(scope)}";

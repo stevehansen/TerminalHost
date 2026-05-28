@@ -1557,12 +1557,15 @@ public partial class MainViewModel : ObservableObject
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
         var viewer = _viewModelFactory.CreateFileViewer();
+        // Unique PanelId: each popout is its own single-instance panel, so closing one window can
+        // never close a sibling (the shared "fileViewer" id keyed every popout window together).
+        viewer.MakeStandalone();
         viewer.Open(e.FilePath, e.Mode);
 
-        // AppShell scope (default) — a tab-scoped popout would mode-conflict with the tab's
-        // shared Center fileViewer (single-instance) since both share PanelId="fileViewer".
+        // AppShell scope (default): a free-floating popout has no tab home. Dock-back routes the file
+        // into the active tab's Center viewer (handler below) and the router gracefully closes this window.
         _panelRouter?.Show(viewer,
-            new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
+            new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
 
         // Clicking "Dock" on the popout: route the file into the active tab's shared Center
         // viewer (the popout itself cannot dock — same PanelId conflicts with the singleton).

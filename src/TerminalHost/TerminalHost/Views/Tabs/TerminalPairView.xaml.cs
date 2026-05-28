@@ -24,9 +24,23 @@ public partial class TerminalPairView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        _currentViewModel = e.NewValue as TerminalPairTabViewModel;
-        if (IsLoaded && _currentViewModel is not null && RightPanelHost is not null)
-            _currentViewModel.AttachRightDock(RightPanelHost);
+        // The host is shared across tabs (this view is reused, DataContext rotates). Detach the
+        // outgoing tab's surface before attaching the incoming one so the shared PanelHost is bound
+        // to exactly one surface at a time — otherwise the old tab's subscription stays live and its
+        // Panels/ActivePanel binding leaks into the new tab (intermittent "missing header").
+        if (RightPanelHost is not null)
+        {
+            if (e.OldValue is TerminalPairTabViewModel oldVm)
+                oldVm.DetachRightDock(RightPanelHost);
+
+            _currentViewModel = e.NewValue as TerminalPairTabViewModel;
+            if (IsLoaded && _currentViewModel is not null)
+                _currentViewModel.AttachRightDock(RightPanelHost);
+        }
+        else
+        {
+            _currentViewModel = e.NewValue as TerminalPairTabViewModel;
+        }
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)

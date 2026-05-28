@@ -37,7 +37,26 @@ public partial class FileViewerViewModel : BasePanelViewModel, IPanelCloseGuard,
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif"
     };
 
-    public override string PanelId => "fileViewer";
+    private string _panelId = "fileViewer";
+    public override string PanelId => _panelId;
+
+    /// <summary>
+    /// Promotes this viewer to a standalone panel with a unique <see cref="PanelId"/>. Detached /
+    /// popped-out viewers must NOT share "fileViewer" with the singleton center viewer (or each
+    /// other): a shared id keys every window under one entry, so a panelId-based close/unmount can
+    /// hit the wrong window — closing one popout would close a sibling that's still open. Each
+    /// standalone viewer becomes its own single-instance panel instead. Call once, immediately after
+    /// construction, before showing.
+    /// </summary>
+    public void MakeStandalone()
+    {
+        // Promotion must happen before the viewer is registered/shown — the router tracks and
+        // persists by PanelId, so mutating it after registration would desync. Fail fast on a
+        // second call rather than silently changing identity out from under the router.
+        if (_panelId != "fileViewer")
+            throw new InvalidOperationException("MakeStandalone() may only be called once, before the viewer is shown.");
+        _panelId = "fileViewer:" + Guid.NewGuid().ToString("n");
+    }
     public override string PanelTitle => Title;
     public override string PanelIcon => "📄";
     public override PanelSizePreset SizePreset => PanelSizePreset.Large;

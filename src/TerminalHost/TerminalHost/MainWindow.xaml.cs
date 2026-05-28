@@ -1879,10 +1879,11 @@ public partial class MainWindow : Window
                 App.Current.Services.GetRequiredService<IDialogService>(),
                 App.Current.Services.GetRequiredService<IMarkdownService>(),
                 App.Current.Services.GetRequiredService<ITimerService>());
+            detachedViewModel.MakeStandalone();
             detachedViewModel.Open(filePath, mode);
 
             _panelRouter?.Show(detachedViewModel,
-                new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true, AllowMultiInstance: true));
+                new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
         }
     }
 

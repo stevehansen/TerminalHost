@@ -83,6 +83,22 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
         host.ActivePanel = next;
     }
 
+    /// <summary>
+    /// Releases this surface's binding to a <see cref="PanelHost"/> when its tab is switched away
+    /// from. The host is shared across tabs (one per <c>TerminalPairView</c>, DataContext rotates),
+    /// so the outgoing tab must unsubscribe and drop the reference — otherwise its
+    /// <see cref="OnHostActivePanelChanged"/> handler stays live on the shared host and pollutes the
+    /// router's active tracking for whichever tab is now showing. Dropping <c>_host</c> also lets the
+    /// idempotency guard in <see cref="Attach"/> re-bind cleanly when the tab is revisited.
+    /// </summary>
+    public void Detach(PanelHost host)
+    {
+        if (_disposed) return;
+        if (!ReferenceEquals(_host, host)) return;
+        _host.ActivePanelChanged -= OnHostActivePanelChanged;
+        _host = null;
+    }
+
     public void Mount(IPanelableViewModel vm, PanelMountOptions options)
     {
         if (_disposed) return;
