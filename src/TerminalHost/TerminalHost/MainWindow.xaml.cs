@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -764,8 +765,8 @@ public partial class MainWindow : Window
             {
                 // Text paste: always handle ourselves (both container and non-container)
                 var text = Clipboard.GetText();
-                if (!string.IsNullOrEmpty(text))
-                    session?.SendText(text, appendNewline: false);
+                if (!string.IsNullOrEmpty(text) && session != null)
+                    _ = PasteTextChunkedAsync(session, text);
             }
             e.Handled = true;
             return;
@@ -1099,6 +1100,20 @@ public partial class MainWindow : Window
         else if (TryExecuteClaudeCommandShortcut(e.Key, Keyboard.Modifiers))
         {
             e.Handled = true;
+        }
+    }
+
+    // Chunk large pastes so we don't overflow ConPTY's ~4KB input pipe buffer,
+    // which silently drops everything but the tail of a single oversized write.
+    private static async Task PasteTextChunkedAsync(TerminalSession session, string text)
+    {
+        const int chunkSize = 512;
+        for (int i = 0; i < text.Length; i += chunkSize)
+        {
+            var chunk = text.Substring(i, Math.Min(chunkSize, text.Length - i));
+            session.SendText(chunk, appendNewline: false);
+            if (i + chunkSize < text.Length)
+                await Task.Delay(5);
         }
     }
 
