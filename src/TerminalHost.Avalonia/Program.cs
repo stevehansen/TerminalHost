@@ -4,6 +4,7 @@ using System.IO.Pipes;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.WebView.Desktop;
 using TerminalHost.Core.Domain;
 
@@ -33,6 +34,19 @@ internal class Program
         var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            // Register the app-bundled Nerd Fonts as global fallbacks so any Avalonia
+            // text widget (e.g. TerminalHost's own statusline, dialogs, panels) can
+            // resolve CLI icon glyphs that the macOS / Intel system fonts lack. The
+            // terminal control already uses these directly; this makes the rest of
+            // the UI consistent.
+            .With(new FontManagerOptions
+            {
+                FontFallbacks = new[]
+                {
+                    new FontFallback { FontFamily = new FontFamily("avares://host/Assets/Fonts#Cascadia Code NF") },
+                    new FontFallback { FontFamily = new FontFamily("avares://host/Assets/Fonts#Symbols Nerd Font Mono") },
+                }
+            })
             .LogToTrace();
 #if !LINUX
         builder = builder.UseDesktopWebView();

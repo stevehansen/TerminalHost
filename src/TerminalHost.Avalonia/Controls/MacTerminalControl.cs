@@ -59,6 +59,13 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     private Typeface _fallbackTypeface;
     private Typeface? _systemSymbolTypeface; // For bullets/dingbats on macOS (SF Mono / Menlo, like Terminal.app)
     private IGlyphTypeface? _systemSymbolGlyphTypeface;
+    // Single-family Menlo for dingbats/bullets/spinners (➜ ✗ ✻ ❯ • ● ◯ ⏺ etc.).
+    // Menlo has the rich, decorative glyphs Claude Code expects, while
+    // Cascadia NF and Monaco substitute them with plain asterisk/arrow shapes.
+    // Kept SINGLE-family (not composite) so DrawGlyphRun renders correctly on
+    // Intel macOS — the composite _systemSymbolGlyphTypeface misrenders there.
+    private Typeface? _menloTypeface;
+    private IGlyphTypeface? _menloGlyphTypeface;
     private IGlyphTypeface? _primaryGlyphTypeface;
     private double _fontSize = 14;
 
@@ -171,15 +178,15 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
     public MacTerminalControl()
     {
-        // On Intel Mac, use Menlo for better performance (no embedded font loading, no Rosetta overhead)
-        // On Apple Silicon, use Cascadia Code NF (Nerd Font with icons built-in)
-        // On Linux, use Cascadia Code NF with Linux-appropriate fallback fonts
-        if (IsIntelMac)
-        {
-            _typeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
-            _fallbackTypeface = new Typeface(new FontFamily("Apple Symbols, Arial Unicode MS, LastResort"), FontStyle.Normal, FontWeight.Normal);
-        }
-        else if (OperatingSystem.IsLinux())
+        // Use the app-bundled Cascadia Code NF on every platform — it ships in
+        // Assets/Fonts and contains the box-drawing, shading, and Nerd-Font CLI
+        // icon glyphs that modern AI CLIs (Claude Code, Codex) emit. Previously
+        // Intel macOS used Menlo as a small perf win, but newer Claude versions
+        // emit glyphs Menlo lacks, and the Intel fallback ordering resolved them
+        // through STIX Two Math / Apple Symbols / LastResort, producing letter-
+        // and-box garbage on Intel iMacs without Cascadia NF / SF Mono installed.
+        // Apple Silicon's bundled-font path has always been the known-good config.
+        if (OperatingSystem.IsLinux())
         {
             _typeface = new Typeface(new FontFamily("Cascadia Code NF, avares://host/Assets/Fonts#Cascadia Code NF"), FontStyle.Normal, FontWeight.Normal);
             _fallbackTypeface = new Typeface(new FontFamily("DejaVu Sans Mono, Noto Sans Mono, Liberation Mono, monospace"), FontStyle.Normal, FontWeight.Normal);
@@ -202,6 +209,11 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         {
             _systemSymbolTypeface = new Typeface(new FontFamily("SF Mono, Menlo, STIX Two Math"), FontStyle.Normal, FontWeight.Normal);
             FontManager.Current.TryGetGlyphTypeface(_systemSymbolTypeface.Value, out _systemSymbolGlyphTypeface);
+            // Separate single-family Menlo handle for PrefersSystemFont routing.
+            // Going through the multi-family composite above silently falls back to
+            // the wrong family at DrawGlyphRun time on Intel macOS.
+            _menloTypeface = new Typeface(new FontFamily("Menlo"), FontStyle.Normal, FontWeight.Normal);
+            FontManager.Current.TryGetGlyphTypeface(_menloTypeface.Value, out _menloGlyphTypeface);
         }
 
         Focusable = true;
@@ -338,12 +350,9 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         _charHeight = formattedText.Height;
         _baselineOffset = formattedText.Baseline;
 
-        // Menlo has tighter line spacing than Cascadia Code NF
-        // Add padding to match expected terminal line height
-        if (IsIntelMac)
-        {
-            _charHeight = Math.Ceiling(_charHeight * 1.15); // ~15% increase for proper line spacing
-        }
+        // (Removed Intel-specific 1.15x line-height padding — it compensated for
+        // Menlo's tighter spacing, which no longer applies now that all platforms
+        // use the bundled Cascadia Code NF.)
 
         if (_charWidth <= 0) _charWidth = 8;
         if (_charHeight <= 0) _charHeight = 16;
@@ -937,31 +946,16 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
         return defaultColor;
     }
 
-    // Fallback font names in order of preference
-    // Platform-specific: Intel Mac uses minimal list, Linux uses Linux fonts, Apple Silicon uses full macOS list
+    // Fallback font names in order of preference.
+    // macOS (Intel + Apple Silicon) share the Apple-Silicon list — bundled Nerd
+    // Fonts come first so Private Use Area icon glyphs resolve correctly. The
+    // old Intel-specific list put STIX Two Math first and resolved bundled
+    // Cascadia NF only at position 3, which caused Claude's CLI icons to render
+    // as garbage on Intel iMacs without Cascadia NF / SF Mono installed.
     private static readonly string[] FallbackFontNames = GetFallbackFontNames();
 
     private static string[] GetFallbackFontNames()
     {
-        if (IsIntelMac)
-        {
-            return new[]
-            {
-                // STIX Two Math is the font macOS Apple Silicon's CoreText auto-fallback
-                // resolves to for symbols like U+23FA (⏺ record). Older Intel macOS may
-                // pick Apple Symbols first (which renders these as a wrong-shaped donut),
-                // so list STIX explicitly ahead of the rest.
-                "STIX Two Math",
-                "Cascadia Code NF",
-                "avares://host/Assets/Fonts#Cascadia Code NF",
-                "avares://host/Assets/Fonts#Symbols Nerd Font Mono",
-                "SF Mono",
-                "Menlo",
-                "Apple Symbols",
-                "LastResort",
-            };
-        }
-
         if (OperatingSystem.IsLinux())
         {
             return new[]
@@ -996,7 +990,7 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             };
         }
 
-        // Apple Silicon (macOS default)
+        // macOS (Intel + Apple Silicon)
         return new[]
         {
             // Nerd Fonts FIRST - required for CLI icons (Claude logo, spinners, etc.)
@@ -1009,15 +1003,18 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
             "MesloLGS NF",
             "Symbols Nerd Font Mono",
             "Symbols Nerd Font",
-            // macOS monospace fonts - for Unicode characters Nerd Fonts don't cover
+            // macOS monospace + text symbol fonts. These must come BEFORE Apple Color
+            // Emoji — codepoints with both text and emoji presentations (e.g. U+23FA ⏺
+            // RECORD, U+2B55 ⭕, U+25CF ●) would otherwise resolve to Apple Color Emoji
+            // and render with the OS emoji backplate (a grey rounded rectangle), instead
+            // of the clean monochrome circle the terminal expects.
             "SF Mono",            // Apple's modern monospace font with good Unicode coverage
             "Monaco",             // Classic macOS monospace
-            // Standard fonts
-            "Apple Color Emoji",  // Emoji support
-            "STIX Two Math",      // Mathematical symbols
+            "STIX Two Math",      // Mathematical symbols (text presentation)
             "Arial Unicode MS",   // Wide Unicode coverage
             "Apple Symbols",      // macOS symbols
             "Menlo",              // Fallback terminal font
+            "Apple Color Emoji",  // Last resort for true colour-emoji codepoints only
             "LastResort",         // Ultimate fallback
         };
     }
@@ -1212,6 +1209,57 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
     }
 
     /// <summary>
+    /// Walks the resolved IGlyphTypeface chain (primary → optional system symbol → fallback list)
+    /// to find an actual glyph for the given Unicode scalar (codepoint may be > U+FFFF for
+    /// supplementary-plane glyphs like Nerd Font icons split across a UTF-16 surrogate pair).
+    /// Returns the IGlyphTypeface that owns the glyph plus its glyph index, or (null, 0) if
+    /// no font in the chain has it. Going through the resolved IGlyphTypeface objects rather
+    /// than returning a Typeface for FormattedText avoids macOS CoreText silently re-resolving
+    /// a composite "system-name, avares-uri" FontFamily at render time and picking the wrong
+    /// (or absent) system family — which is what was producing the b?/letter garbage on the
+    /// Intel iMac even though the lookups against _primaryGlyphTypeface succeeded.
+    /// </summary>
+    private (IGlyphTypeface? glyphTypeface, ushort glyphIndex) FindGlyphForCodepoint(uint codepoint)
+    {
+        // For the specific bullets/dingbats/spinner glyphs Claude Code uses
+        // (➜ ✗ ✻ ❯ • ● ◯ ⏺ etc.), prefer Menlo's rich decorative renderings
+        // before walking the regular chain — otherwise Cascadia NF or Monaco
+        // grabs them first with bland asterisk/arrow substitutes. We go through
+        // the SINGLE-FAMILY _menloGlyphTypeface field, NOT the composite
+        // _systemSymbolGlyphTypeface — the composite path silently misrenders
+        // on Intel macOS even though the lookups against it succeed.
+        if (codepoint <= 0xFFFF && PrefersSystemFont((char)codepoint) && _menloGlyphTypeface != null)
+        {
+            try
+            {
+                if (_menloGlyphTypeface.TryGetGlyph(codepoint, out var mgi) && mgi != 0)
+                    return (_menloGlyphTypeface, mgi);
+            }
+            catch { }
+        }
+
+        if (_primaryGlyphTypeface != null)
+        {
+            try
+            {
+                if (_primaryGlyphTypeface.TryGetGlyph(codepoint, out var gi) && gi != 0)
+                    return (_primaryGlyphTypeface, gi);
+            }
+            catch { }
+        }
+        foreach (var (_, gtf) in FallbackFonts)
+        {
+            try
+            {
+                if (gtf.TryGetGlyph(codepoint, out var gi) && gi != 0)
+                    return (gtf, gi);
+            }
+            catch { }
+        }
+        return (null, 0);
+    }
+
+    /// <summary>
     /// Quick check if text is pure ASCII (no special characters needed).
     /// </summary>
     private static bool IsPureAscii(string text)
@@ -1307,41 +1355,85 @@ public class MacTerminalControl : Control, ITerminalControl, IDisposable
 
                         if (char.IsHighSurrogate(c) && j + 1 < run.Length && char.IsLowSurrogate(run[j + 1]))
                         {
-                            // Surrogate pair (emoji) - collect for TextBlock overlay
-                            // TextBlock renders emoji correctly, DrawingContext doesn't
-                            var emojiStr = run.Substring(j, 2);
-                            j++; // Skip the low surrogate
+                            // Supplementary-plane codepoint (Nerd Font icon, emoji, ...) stored
+                            // across two cells as its UTF-16 surrogate pair. Combine to the real
+                            // scalar, look up the IGlyphTypeface + glyph index that owns it, and
+                            // render directly via DrawGlyphRun. Going through Typeface + FormattedText
+                            // lets Avalonia's macOS text shaper re-resolve a composite FontFamily at
+                            // render time and pick the wrong family on Intel macOS.
+                            var pairStr = run.Substring(j, 2);
+                            int codepoint = char.ConvertToUtf32(run, j);
+                            j++;
 
-                            // Add to pending emojis for overlay creation after render
-                            _pendingEmojis.Add((currentX, y, emojiStr, foregroundBrush));
-                            currentX += _charWidth * 2; // Emoji = 2 cells
+                            var (pairGtf, pairGi) = FindGlyphForCodepoint((uint)codepoint);
+                            if (pairGtf != null)
+                            {
+                                var glyphInfos = new[] { new GlyphInfo(pairGi, 0, _charWidth * 2, default) };
+                                var glyphRun = new GlyphRun(
+                                    pairGtf,
+                                    _fontSize,
+                                    pairStr.AsMemory(),
+                                    glyphInfos,
+                                    new Point(currentX, y + _baselineOffset));
+                                context.DrawGlyphRun(foregroundBrush, glyphRun);
+                            }
+                            else
+                            {
+                                // No font in our chain has this codepoint — route to TextBlock
+                                // overlay so the OS can do its own colour-emoji fallback.
+                                _pendingEmojis.Add((currentX, y, pairStr, foregroundBrush));
+                            }
+                            currentX += _charWidth * 2;
                         }
-                        else if (char.IsHighSurrogate(c))
+                        else if (char.IsHighSurrogate(c) || char.IsLowSurrogate(c))
                         {
-                            // Orphaned high surrogate - look ahead in the NEXT character position
-                            // This handles the case where the pair is split across runs
-                            // Just skip it here and collect it with the span-level detection
+                            // Orphaned surrogate (pair split across runs, or low half dropped
+                            // by ReadUtf8 at the end of a previous PTY chunk). Advance one cell.
                             currentX += _charWidth;
                         }
-                        else if (char.IsLowSurrogate(c))
+                        else if (c < 0x20 || (c >= 0x7F && c <= 0x9F))
                         {
-                            // Orphaned low surrogate - skip, it was part of a pair
+                            // Control characters (C0 0x00-0x1F, DEL 0x7F, C1 0x80-0x9F). These
+                            // shouldn't reach the renderer; if they do they're a sign of upstream
+                            // UTF-8 decode failure (e.g. continuation bytes 0x91/0x94/0x96 of a
+                            // 3-byte sequence leaking through). Render as a blank cell instead
+                            // of letting the system draw a tofu glyph for them.
                             currentX += _charWidth;
                         }
                         else
                         {
-                            // Single character (Nerd Font icon or other)
+                            // Single non-ASCII character (BMP Nerd Font PUA icon, dingbat,
+                            // box-drawing variant, etc.). FindGlyphForCodepoint walks primary →
+                            // single-family fallback chain. DrawGlyphRun renders the explicit
+                            // glyph index against the explicit IGlyphTypeface, avoiding the
+                            // composite-FontFamily re-resolution that misrenders on Intel macOS.
                             var charStr = c.ToString();
-                            var charTypeface = GetTypefaceForCharacter(c);
-
-                            var formattedText = new FormattedText(
-                                charStr,
-                                CultureInfo.CurrentCulture,
-                                FlowDirection.LeftToRight,
-                                charTypeface,
-                                _fontSize,
-                                foregroundBrush);
-                            context.DrawText(formattedText, new Point(currentX, y));
+                            var (charGtf, charGi) = FindGlyphForCodepoint(c);
+                            if (charGtf != null)
+                            {
+                                var glyphInfos = new[] { new GlyphInfo(charGi, 0, _charWidth, default) };
+                                var glyphRun = new GlyphRun(
+                                    charGtf,
+                                    _fontSize,
+                                    charStr.AsMemory(),
+                                    glyphInfos,
+                                    new Point(currentX, y + _baselineOffset));
+                                context.DrawGlyphRun(foregroundBrush, glyphRun);
+                            }
+                            else
+                            {
+                                // No font in our chain has the glyph — last resort: FormattedText
+                                // with the legacy Typeface so OS-level fallback can take over.
+                                var charTypeface = GetTypefaceForCharacter(c);
+                                var formattedText = new FormattedText(
+                                    charStr,
+                                    CultureInfo.CurrentCulture,
+                                    FlowDirection.LeftToRight,
+                                    charTypeface,
+                                    _fontSize,
+                                    foregroundBrush);
+                                context.DrawText(formattedText, new Point(currentX, y));
+                            }
                             currentX += _charWidth;
                         }
                     }
