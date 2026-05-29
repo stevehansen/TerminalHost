@@ -449,8 +449,13 @@ public sealed class ProjectDetectionService : IProjectDetectionService
     /// <returns>List of run configurations.</returns>
     public List<RunConfiguration> GetOrCreateConfigurations(string workingDirectory, DirectorySettings directorySettings)
     {
-        // If we already have configurations, return them
-        if (directorySettings.RunConfigurations.Count > 0)
+        // If we already have a real (runnable) configuration, return the cached set.
+        // A placeholder "shell" config with an empty command is created when no project
+        // was detected; it must NOT block re-detection. Otherwise a project added to a
+        // previously empty/solution-less folder would never surface a run button, even
+        // after reopening the tab or restarting the app (the empty placeholder gets
+        // persisted to directory settings and short-circuits detection forever). See issue #83.
+        if (directorySettings.RunConfigurations.Any(c => !string.IsNullOrWhiteSpace(c.Command)))
         {
             return directorySettings.RunConfigurations;
         }

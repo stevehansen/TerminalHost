@@ -192,6 +192,31 @@ public class ProjectDetectionServiceTests
     }
 
     [Fact]
+    public void GetOrCreateConfigurations_ShouldReDetect_WhenOnlyEmptyPlaceholderCached()
+    {
+        // Regression for issue #83: a placeholder shell config (empty command), created
+        // when a folder had no project, gets persisted and must not block re-detection
+        // once a runnable project is later added to the folder.
+        // Arrange
+        var workingDirectory = "P:\\WasEmptyApp";
+        var settings = new DirectorySettings();
+        settings.RunConfigurations.Add(new RunConfiguration { Id = "shell", Command = "", IsDefault = true });
+
+        // A real project now exists in the folder.
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Returns(new[] { "P:\\WasEmptyApp\\App.csproj" });
+        _mockFileSystem.Setup(fs => fs.GetFiles(workingDirectory, "*.sln", SearchOption.TopDirectoryOnly))
+            .Returns(new string[0]);
+
+        // Act
+        var result = _projectDetectionService.GetOrCreateConfigurations(workingDirectory, settings);
+
+        // Assert
+        result.ShouldContain(c => !string.IsNullOrWhiteSpace(c.Command));
+        settings.DetectedProjectType.ShouldBe("dotnet");
+    }
+
+    [Fact]
     public void GetOrCreateConfigurations_ShouldReturnShellConfig_WhenNoProjectDetected()
     {
         // Arrange
