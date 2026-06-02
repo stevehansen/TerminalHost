@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EasyWindowsTerminalControl;
-using TerminalHost.Controls;
 using TerminalHost.Domain;
 using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
@@ -453,17 +452,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         ? new GridLength(4, GridUnitType.Pixel)
         : new GridLength(0, GridUnitType.Pixel);
 
-    // Main content column width (terminals + run) - takes remaining space after explorer
-    public GridLength MainContentColumnWidth
-    {
-        get
-        {
-            double explorerPortion = IsExplorerVisible ? ExplorerSplitRatio : 0;
-            double mainPortion = 1.0 - explorerPortion;
-            return new GridLength(Math.Max(0.1, mainPortion), GridUnitType.Star);
-        }
-    }
-
     // Main terminals column width - takes remaining space after run (within MainContentGrid)
     public GridLength MainTerminalsColumnWidth
     {
@@ -491,15 +479,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public bool HasDetectedRunUrl => !string.IsNullOrEmpty(DetectedRunUrl);
     public bool HasMultipleRunConfigs => RunConfigurations.Count(c => !string.IsNullOrWhiteSpace(c.Command)) > 1;
     public bool HasAnyRunConfiguration => RunConfigurations.Any(c => !string.IsNullOrWhiteSpace(c.Command));
-
-    // Explorer/Right panel column widths - use Pixel unit with 0 when hidden
-    public GridLength ExplorerColumnWidth => IsExplorerVisible
-        ? new GridLength(ExplorerSplitRatio, GridUnitType.Star)
-        : new GridLength(0, GridUnitType.Pixel);
-
-    public GridLength ExplorerSplitterWidth => IsExplorerVisible
-        ? new GridLength(4, GridUnitType.Pixel)
-        : new GridLength(0, GridUnitType.Pixel);
 
     // Container state
     [ObservableProperty]
@@ -640,9 +619,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         if (e.PropertyName == nameof(WpfRightDockSurface.HasMounted))
         {
             OnPropertyChanged(nameof(IsExplorerVisible));
-            OnPropertyChanged(nameof(ExplorerColumnWidth));
-            OnPropertyChanged(nameof(ExplorerSplitterWidth));
-            OnPropertyChanged(nameof(MainContentColumnWidth));
             SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -657,15 +633,10 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     public PanelScope CenterScope => _centerSurface?.Scope ?? TabPanelScope.ForTab(Pair.WorkingDirectory);
 
     /// <summary>
-    /// Wires the tab's right-dock surface to the <see cref="PanelHost"/> control rendered by the view.
+    /// This tab's right-dock surface, handed to the main-window-owned dock coordinator on tab switch
+    /// so its panels can be merged into the single hoisted dock. Null until the surface is created.
     /// </summary>
-    public void AttachRightDock(PanelHost host) => _rightDock?.Attach(host);
-
-    /// <summary>
-    /// Releases this tab's right-dock surface from the shared <see cref="PanelHost"/> when the tab is
-    /// switched away from. Symmetric with <see cref="AttachRightDock"/>; see <c>WpfRightDockSurface.Detach</c>.
-    /// </summary>
-    public void DetachRightDock(PanelHost host) => _rightDock?.Detach(host);
+    public WpfRightDockSurface? RightDockSurface => _rightDock;
 
     /// <summary>
     /// Replays persisted tab-scope state (Center + RightDock) through the router, mounting any
@@ -1145,8 +1116,6 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
 
     partial void OnExplorerSplitRatioChanged(double value)
     {
-        OnPropertyChanged(nameof(ExplorerColumnWidth));
-        OnPropertyChanged(nameof(MainContentColumnWidth));
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 

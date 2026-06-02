@@ -6,28 +6,25 @@ using TerminalHost.Core.Interfaces;
 namespace TerminalHost.Services.Panels;
 
 /// <summary>
-/// WPF <see cref="IPanelSurface"/> adapter for <c>(PanelZone.RightDock, PanelScope.ForTab(...))</c>.
-/// One instance per <c>TerminalPairTabViewModel</c>; constructed by the tab VM and registered with
-/// the router on tab creation, unregistered on tab close.
+/// WPF <see cref="IPanelSurface"/> adapter for <c>(PanelZone.RightDock, PanelScope.AppShell)</c> —
+/// the home of app-global right-dock panels (currently Sessions). Registered exactly once at
+/// startup and owned by the main window for the whole app lifetime.
 /// </summary>
 /// <remarks>
-/// The surface owns its <see cref="Panels"/> <see cref="ObservableCollection{T}"/> imperatively and
-/// is otherwise passive: it does NOT bind a <c>PanelHost</c> control. The hoisted dock coordinator
-/// (owned by the main window) merges this surface's panels with the app-global surface's panels into
-/// the single shared host. The surface exposes <see cref="HasMounted"/> and <see cref="ActiveChanged"/>
-/// so the coordinator and the router can react to mount/unmount/focus without owning a host here.
+/// Passive container: it does NOT bind a <c>PanelHost</c>. The hoisted dock coordinator merges
+/// this surface's <see cref="Panels"/> with the active tab's per-workspace right-dock panels into
+/// the single shared host. Mirrors <see cref="WpfRightDockSurface"/> but is AppShell-scoped and
+/// lives for the application lifetime rather than per tab.
 /// </remarks>
-public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged, IDisposable
+public sealed class WpfAppShellRightDockSurface : IPanelSurface, INotifyPropertyChanged, IDisposable
 {
     private readonly ObservableCollection<IPanelableViewModel> _panels = new();
     private string? _lastActivePanelId;
     private bool _disposed;
 
     public PanelZone Zone => PanelZone.RightDock;
-    public PanelScope Scope { get; }
+    public PanelScope Scope => PanelScope.AppShell;
 
-    // The RightDock surface has no source of dismiss events (no Escape capture, no click-outside,
-    // no OS close). The event is required by IPanelSurface but is never raised here.
 #pragma warning disable CS0067
     public event EventHandler<PanelDismissEventArgs>? DismissRequested;
 #pragma warning restore CS0067
@@ -39,27 +36,14 @@ public sealed class WpfRightDockSurface : IPanelSurface, INotifyPropertyChanged,
     /// <summary>The panels mounted on this surface, in mount order. Read-only view for the coordinator.</summary>
     public IReadOnlyList<IPanelableViewModel> Panels => _panels;
 
-    /// <summary>
-    /// True when at least one panel is mounted on this surface. Computed from the panels
-    /// collection so consumers can derive visibility (e.g. dock-width binders) from one bit.
-    /// </summary>
+    /// <summary>True when at least one global panel is mounted.</summary>
     public bool HasMounted => _panels.Count > 0;
 
-    /// <summary>
-    /// The panel id last activated on this surface, or null. The coordinator reads this when a
-    /// workspace switch needs to restore the incoming tab's last-focused per-workspace panel.
-    /// </summary>
+    /// <summary>The panel id last activated on this surface, or null.</summary>
     public string? LastActivePanelId => _lastActivePanelId;
 
     /// <summary>Raised when this surface's panel collection changes (mount/unmount).</summary>
     public event EventHandler? PanelsChanged;
-
-    public WpfRightDockSurface(PanelScope scope)
-    {
-        if (scope.TabId is null)
-            throw new ArgumentException("WpfRightDockSurface requires a tab-scoped PanelScope.", nameof(scope));
-        Scope = scope;
-    }
 
     public void Mount(IPanelableViewModel vm, PanelMountOptions options)
     {

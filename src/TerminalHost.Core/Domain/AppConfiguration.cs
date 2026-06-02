@@ -617,6 +617,14 @@ public class AppSettings
     public bool ShowSessionsPanel { get; set; } = false;
 
     /// <summary>
+    /// Fraction of the tab content area the hoisted right dock occupies (0..1). Global because
+    /// the dock is owned by the main window, not by any single workspace tab. Supersedes the
+    /// per-directory <c>ExplorerSplitRatio</c> for dock width.
+    /// </summary>
+    [JsonPropertyName("rightDockSplitRatio")]
+    public double RightDockSplitRatio { get; set; } = 0.25;
+
+    /// <summary>
     /// Controls how aggressively git status is tracked for workspaces.
     /// All = fetch/refresh all workspaces periodically.
     /// CurrentOnly = only track the currently selected workspace/tab.

@@ -451,19 +451,12 @@
             </DockPanel>
         </Border>
 
-        <!-- Terminal Content Area - Outer grid for Explorer only -->
+        <!-- Terminal Content Area - center-content switcher only. The right dock (Explorer +
+             global Sessions) is hoisted to the main window so a single dock spans all tabs. -->
         <Grid Grid.Row="1" Background="{StaticResource BackgroundDarkestBrush}">
-            <Grid.ColumnDefinitions>
-                <!-- Main content area (terminals + run OR center panel) -->
-                <ColumnDefinition Width="{Binding MainContentColumnWidth}"/>
-                <!-- Explorer splitter column (hidden when explorer not visible) -->
-                <ColumnDefinition Width="{Binding ExplorerSplitterWidth}"/>
-                <!-- Explorer column (hidden when not visible) -->
-                <ColumnDefinition Width="{Binding ExplorerColumnWidth}"/>
-            </Grid.ColumnDefinitions>
 
-            <!-- Center Content Switcher (Column 0) -->
-            <Grid Grid.Column="0">
+            <!-- Center Content Switcher -->
+            <Grid>
 
                 <!-- Terminal Pair (visible when no center panel) -->
                 <Grid x:Name="MainContentGrid"
@@ -631,17 +624,6 @@
 
             </Grid>
             <!-- End of Center Content Switcher -->
-
-            <!-- Explorer Splitter (Column 1 of outer grid) - only visible when explorer is visible -->
-            <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4" Background="{StaticResource BackgroundMediumBrush}" HorizontalAlignment="Stretch"
-                          Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-                          DragCompleted="ExplorerSplitter_DragCompleted"/>
-
-            <!-- Right Panel Host (Column 2 of outer grid) - contains Explorer + other docked panels -->
-            <controls:PanelHost x:Name="RightPanelHost"
-                                Grid.Column="2"
-                                Side="Right"
-                                Visibility="{Binding IsExplorerVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
         </Grid>
 
     </Grid>

@@ -65,6 +65,9 @@ public partial class MainWindow : Window
     private readonly IPanelRouter? _panelRouter;
     private readonly Services.Panels.WpfPopupSurface? _popupSurface;
     private readonly Services.Panels.WpfWindowSurface? _windowSurface;
+    private readonly Services.Panels.WpfAppShellRightDockSurface? _appShellRightDock;
+    private readonly Services.Panels.RightDockCoordinator? _rightDockCoordinator;
+    private readonly GlobalSessionsPanelController? _sessionsPanelController;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
@@ -109,6 +112,19 @@ public partial class MainWindow : Window
         _panelRouter = panelRouter;
         _popupSurface = popupSurface;
         _windowSurface = windowSurface;
+
+        // Hoisted right dock: one (RightDock, AppShell) surface for app-global panels (Sessions),
+        // merged with the active tab's per-workspace dock by the coordinator. The controller owns
+        // Sessions placement so the single VM never gets relocated tab-to-tab (#77).
+        if (_panelRouter is not null)
+        {
+            _appShellRightDock = new Services.Panels.WpfAppShellRightDockSurface();
+            _panelRouter.RegisterSurface(_appShellRightDock);
+            _rightDockCoordinator = new Services.Panels.RightDockCoordinator(_appShellRightDock);
+            _rightDockCoordinator.PropertyChanged += OnRightDockCoordinatorPropertyChanged;
+            _sessionsPanelController = new GlobalSessionsPanelController(_panelRouter, _sessionsTreePanelViewModel);
+        }
+
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -269,6 +285,10 @@ public partial class MainWindow : Window
         // Update Claude Tasks panel workspace when selected tab changes
         if (e.PropertyName == nameof(MainViewModel.SelectedTab))
         {
+            // Rotate the hoisted dock's per-workspace source to the newly selected tab. The global
+            // (Sessions) portion stays put; only the per-tab Explorer portion swaps.
+            UpdateActiveRightDockSurface();
+
             if (_claudeTasksPanelViewModel.IsOpen)
             {
                 // Always update workspace path so it's correct when toggling to "Current Workspace"
@@ -297,6 +317,74 @@ public partial class MainWindow : Window
                 _ = _viewModel.WorkspaceSidebar.RefreshGitSidebarAsync(workDir);
             }
         }
+    }
+
+    /// <summary>
+    /// Points the hoisted dock coordinator at the selected tab's per-workspace right-dock surface,
+    /// or null for non-workspace tabs and the empty state (only the global portion shows then).
+    /// </summary>
+    private void UpdateActiveRightDockSurface()
+    {
+        var surface = (_viewModel.SelectedTab as TerminalPairTabViewModel)?.RightDockSurface;
+        _rightDockCoordinator?.SetActiveTabSurface(surface);
+    }
+
+    private void OnRightDockCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Services.Panels.RightDockCoordinator.IsVisible))
+            ApplyRightDockLayout();
+    }
+
+    /// <summary>
+    /// Shows/hides the hoisted dock column + splitter and sizes the dock from the global
+    /// <c>RightDockSplitRatio</c>. Driven by the coordinator's merged-set-non-empty signal.
+    /// </summary>
+    private void ApplyRightDockLayout()
+    {
+        var visible = _rightDockCoordinator?.IsVisible == true;
+        if (RightDockHost is null || RightDockSplitter is null
+            || RightDockColumn is null || RightDockSplitterColumn is null
+            || CenterContentColumn is null)
+            return;
+
+        if (visible)
+        {
+            var ratio = _configService.Load().Settings.RightDockSplitRatio;
+            ratio = Math.Clamp(ratio, 0.1, 0.9);
+            // Both columns are proportional so the rendered dock fraction equals `ratio`
+            // exactly — matching what RightDockSplitter_DragCompleted saves. A fixed-star
+            // center would render ratio/(1+ratio) and drift narrower each show/drag cycle.
+            CenterContentColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+            RightDockColumn.Width = new GridLength(ratio, GridUnitType.Star);
+            RightDockSplitterColumn.Width = new GridLength(4, GridUnitType.Pixel);
+            RightDockHost.Visibility = Visibility.Visible;
+            RightDockSplitter.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            CenterContentColumn.Width = new GridLength(1, GridUnitType.Star);
+            RightDockColumn.Width = new GridLength(0);
+            RightDockSplitterColumn.Width = new GridLength(0);
+            RightDockHost.Visibility = Visibility.Collapsed;
+            RightDockSplitter.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RightDockSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (sender is not GridSplitter splitter || splitter.Parent is not Grid grid
+            || grid.ColumnDefinitions.Count < 3)
+            return;
+
+        var centerWidth = grid.ColumnDefinitions[0].ActualWidth;
+        var dockWidth = grid.ColumnDefinitions[2].ActualWidth;
+        var total = centerWidth + dockWidth;
+        if (total <= 0) return;
+
+        var ratio = Math.Clamp(dockWidth / total, 0.1, 0.9);
+        var config = _configService.Load();
+        config.Settings.RightDockSplitRatio = ratio;
+        _configService.Save(config);
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
@@ -538,11 +626,15 @@ public partial class MainWindow : Window
             tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
         _viewModel.Tabs.CollectionChanged += OnTabsCollectionChangedForOverlay;
 
-        // Apply persisted global Sessions panel flag to all restored tabs (#77).
-        if (_viewModel.ShowSessionsPanel)
-        {
-            OnSessionsPanelVisibilityChanged(this, true);
-        }
+        // Bind the single hoisted right dock and seed it with the selected tab's per-workspace
+        // surface. The dock spans all tabs; switching tabs rotates only the per-workspace portion.
+        _rightDockCoordinator?.AttachHost(RightDockHost);
+        UpdateActiveRightDockSurface();
+        ApplyRightDockLayout();
+
+        // Apply persisted global Sessions panel flag once via the controller (#77). Unlike the old
+        // per-tab loop, this routes the single Sessions VM to (RightDock, AppShell) exactly once.
+        _sessionsPanelController?.SetVisible(_viewModel.ShowSessionsPanel);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -1452,27 +1544,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Syncs the shared Sessions panel across every open terminal-pair tab
-    /// when the global ShowSessionsPanel flag flips.
+    /// Routes the single global Sessions panel to (RightDock, AppShell) when the global
+    /// ShowSessionsPanel flag flips. The controller is idempotent and keeps Sessions on exactly one
+    /// surface, so tab switches can never relocate it (#77).
     /// </summary>
     private void OnSessionsPanelVisibilityChanged(object? sender, bool isVisible)
     {
-        if (isVisible)
-        {
-            _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
-            _sessionsTreePanelViewModel.Open();
-
-            foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
-            {
-                tab.SetPanel(_sessionsTreePanelViewModel);
-                tab.ForceShowRightDockPanel(_sessionsTreePanelViewModel);
-            }
-        }
-        else
-        {
-            _panelRouter?.Close(_sessionsTreePanelViewModel.PanelId);
-            _sessionsTreePanelViewModel.IsOpen = false;
-        }
+        if (isVisible) _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
+        _sessionsPanelController?.SetVisible(isVisible);
     }
 
     #endregion
@@ -2236,12 +2315,6 @@ public partial class MainWindow : Window
             foreach (var tab in e.NewItems.OfType<TerminalPairTabViewModel>())
             {
                 tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
-                // New tab must respect the global Sessions panel flag (#77).
-                if (_viewModel.ShowSessionsPanel)
-                {
-                    tab.SetPanel(_sessionsTreePanelViewModel);
-                    tab.ForceShowRightDockPanel(_sessionsTreePanelViewModel);
-                }
             }
         }
         if (e.OldItems != null)
