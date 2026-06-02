@@ -293,7 +293,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string MapStateIcon(AgentDisplayState displayState, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "⚠",
+            AgentDisplayState.WaitingPermission => "⏳",
             AgentDisplayState.Working => "·",
             // Preserve error-icon on terminated subagents that errored.
             AgentDisplayState.Done when agent.State == AgentState.Error => "⚠",
@@ -305,7 +305,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string DescribeActivity(AgentDisplayState displayState, SessionActivityState state, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "Waiting for permission",
+            AgentDisplayState.WaitingPermission => "Waiting for input",
             AgentDisplayState.Done => "Done",
             AgentDisplayState.TimedOut => "Timed out",
             AgentDisplayState.Working => DescribeWorkingActivity(state, agent),
@@ -321,7 +321,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                         ? tc.ToolName
                         : $"{tc.ToolName}: {Truncate(tc.InputSummary!, 60)}",
             AgentState.ToolCalling => "Running tool",
-            AgentState.WaitingPermission => "Waiting for permission",
+            AgentState.WaitingPermission => "Waiting for input",
             AgentState.Thinking => "Thinking…",
             _ => "Working…"
         };

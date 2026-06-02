@@ -200,6 +200,22 @@ public class AgentInstance
     [JsonIgnore] public DateTime? LastPermissionPromptTime { get; set; }
     [JsonIgnore] public DateTime? LastActivityEventTime { get; set; }
 
+    // Terminal-title signal for the main agent. Claude Code prefixes the AI terminal's
+    // title with an animated braille spinner while a turn is in progress and the static
+    // Claude icon (✳) when idle/awaiting input — an authoritative "working vs done" signal
+    // independent of the hook stream, whose Stop/Activity events are sometimes missed (the
+    // failure that left the main row stuck rendering Working or Done). Only ever set for the
+    // main agent; subagents have no terminal of their own. Transient: rebuilt from the live
+    // terminal after restart. See SessionActivityState.ClassifyTerminalTitleWorking /
+    // DeriveParentDisplay.
+
+    /// <summary>Classification of the most recent title: true = spinner (working),
+    /// false = idle icon (done); null = no recognized title signal yet.</summary>
+    [JsonIgnore] public bool? TerminalTitleWorking { get; set; }
+
+    /// <summary>When the most recent recognized title change was observed.</summary>
+    [JsonIgnore] public DateTime? LastTerminalTitleChangeTime { get; set; }
+
     /// <summary>
     /// The kind of the most recent event observed for this agent. Derived at read time
     /// from the three event-type timestamps (Activity/Stop/PermissionPrompt) so a late

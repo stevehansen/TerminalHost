@@ -46,6 +46,10 @@ public sealed class FakeSessionLifecycleCoordinator : ISessionLifecycleCoordinat
     public void Ingest(HookEvent hookEvent, HookEventData? rawData = null) { }
     public void Ingest(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null) { }
 
+    /// <summary>Records the args of the most recent title-activity call.</summary>
+    public (string Dir, string Title)? LastTitleActivity { get; private set; }
+    public void RecordTerminalTitleActivity(string workingDirectory, string title) => LastTitleActivity = (workingDirectory, title);
+
     public SessionView? GetSession(string sessionId) => null;
     public IReadOnlyList<SessionView> GetActiveSessions() => Array.Empty<SessionView>();
     public IReadOnlyList<SessionView> GetAllSessions() => Array.Empty<SessionView>();

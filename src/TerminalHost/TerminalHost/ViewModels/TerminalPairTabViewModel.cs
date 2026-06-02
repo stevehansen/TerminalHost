@@ -567,6 +567,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     private readonly ITaskService? _taskService;
     private readonly IGitStatusService? _gitStatusService;
     private readonly IToastService? _toastService;
+    private readonly ISessionLifecycleCoordinator? _sessionCoordinator;
 
     public string CurrentIcon => ActiveTerminal == ActiveTerminal.Custom ? CustomIcon : ShellIcon;
 
@@ -584,7 +585,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
     /// </summary>
     public Func<Task>? DeferredExplorerInit { get; set; }
 
-    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, string customIcon, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -594,6 +595,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _gitStatusService = gitStatusService;
         _toastService = toastService;
         _taskService = taskService;
+        _sessionCoordinator = sessionCoordinator;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
@@ -608,7 +610,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         }
     }
 
-    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null)
+    public TerminalPairTabViewModel(TerminalPair pair, AiAssistant activeAiAssistant, IReadOnlyList<AiAssistant> enabledAssistants, string shellIcon, IStatisticsService statisticsService, IGitStatusService? gitStatusService = null, IToastService? toastService = null, int duplicateIndex = 0, ITaskService? taskService = null, ISessionLifecycleCoordinator? sessionCoordinator = null)
     {
         Pair = pair;
         Title = pair.DirectoryName;
@@ -620,6 +622,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         _gitStatusService = gitStatusService;
         _toastService = toastService;
         _taskService = taskService;
+        _sessionCoordinator = sessionCoordinator;
         ActiveTerminal = pair.ActiveTerminal;
         DuplicateIndex = duplicateIndex;
 
@@ -674,6 +677,9 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         Pair.CustomTerminal.TitleChanged += (s, title) =>
         {
             CustomTerminalTitle = title;
+            // Claude's terminal title (spinner while working, idle icon when done) is an
+            // authoritative session-state signal that survives missed Stop/Activity hooks.
+            _sessionCoordinator?.RecordTerminalTitleActivity(WorkingDirectory, title);
         };
         Pair.ShellTerminal.TitleChanged += (s, title) =>
         {
@@ -705,6 +711,7 @@ public partial class TerminalPairTabViewModel : ObservableObject, ITabViewModel
         Pair.CustomTerminal.TitleChanged += (s, title) =>
         {
             CustomTerminalTitle = title;
+            _sessionCoordinator?.RecordTerminalTitleActivity(WorkingDirectory, title);
         };
 
         // Reset title for new terminal

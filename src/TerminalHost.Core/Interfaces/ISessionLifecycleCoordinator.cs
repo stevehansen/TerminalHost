@@ -17,6 +17,16 @@ public interface ISessionLifecycleCoordinator
     /// <summary>Routes transcript-derived events into the activity service.</summary>
     void Ingest(string sessionId, IReadOnlyList<ActivityEvent> events, string? summary = null, string? model = null);
 
+    /// <summary>
+    /// Records the AI assistant terminal's current <paramref name="title"/> for
+    /// <paramref name="workingDirectory"/>. Claude's title shows an animated spinner while a
+    /// turn runs and the static Claude icon when idle, so its classification is an
+    /// authoritative Working/Done signal that survives missed Stop/Activity hooks. No-op if
+    /// the title isn't recognized or no tracked session matches the directory. See
+    /// <see cref="SessionActivityState.DeriveParentDisplay"/>.
+    /// </summary>
+    void RecordTerminalTitleActivity(string workingDirectory, string title);
+
     SessionView? GetSession(string sessionId);
     IReadOnlyList<SessionView> GetActiveSessions();
     IReadOnlyList<SessionView> GetAllSessions();

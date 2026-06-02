@@ -112,6 +112,17 @@ public sealed class SessionLifecycleCoordinator : ISessionLifecycleCoordinator, 
         finally { ExitDispatchFrame(); }
     }
 
+    public void RecordTerminalTitleActivity(string workingDirectory, string title)
+    {
+        if (string.IsNullOrEmpty(workingDirectory)) return;
+        // Pure state stamp — fires no upstream event, so no dispatch frame / SessionsChanged
+        // pulse here. The spinner animates several times a second; pulsing on every change
+        // would spam consumers. The session tree polls on its own short tick to pick up the
+        // working/idle transitions (see SessionsTreePanelViewModel); other consumers refresh
+        // on their next read.
+        _activity.RecordTerminalTitleActivity(workingDirectory, title, Now());
+    }
+
     public SessionView? GetSession(string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId)) return null;

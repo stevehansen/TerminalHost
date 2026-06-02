@@ -213,6 +213,32 @@ public class SessionActivityState
     internal static readonly TimeSpan TimedOutThreshold = TimeSpan.FromMinutes(2);
 
     /// <summary>
+    /// Backstop only: if the title classified as "working" (spinner) but no further title
+    /// change has arrived within this window, treat the agent as idle anyway. Normal idle
+    /// is detected instantly from the idle-icon title change, so this only catches a
+    /// dropped idle-title update — it is not the primary done signal. See
+    /// <see cref="DeriveParentDisplay"/>.
+    /// </summary>
+    internal static readonly TimeSpan TerminalTitleActiveWindow = TimeSpan.FromSeconds(6);
+
+    /// <summary>
+    /// Classifies an AI terminal title into working / idle / unknown. Claude Code prefixes
+    /// the title with an animated braille spinner (U+2800–U+28FF) while a turn is running
+    /// and the static Claude icon (U+2733 '✳') when idle/awaiting input. Returns true for a
+    /// spinner prefix, false for the idle icon, and null for anything else (empty, or a
+    /// prefix we don't recognize) so unrecognized titles defer to the hook-derived state
+    /// rather than forcing a wrong verdict — keeps non-Claude assistants from regressing.
+    /// </summary>
+    internal static bool? ClassifyTerminalTitleWorking(string? title)
+    {
+        if (string.IsNullOrEmpty(title)) return null;
+        var lead = char.ConvertToUtf32(title, 0);
+        if (lead >= 0x2800 && lead <= 0x28FF) return true;  // braille spinner → working
+        if (lead == 0x2733) return false;                   // ✳ Claude idle icon → done
+        return null;                                         // unrecognized → defer to hooks
+    }
+
+    /// <summary>
     /// Pure read-time derivation of an agent's display state from M1 input timestamps.
     /// Intentionally ignores legacy fields (AgentState, CompleteTime, Lifecycle) — those
     /// remain only for terminal-storage decisions.
@@ -247,6 +273,33 @@ public class SessionActivityState
     {
         var main = Agents.Values.FirstOrDefault(a => a.IsMain);
         if (main is null) return AgentDisplayState.Working;
+
+        // A pending permission prompt is decisive — the title shows the idle icon while a
+        // prompt is up, so content classification can't see it; the hook must win here.
+        if (main.LastEventKind == AgentEventKind.PermissionPrompt)
+            return AgentDisplayState.WaitingPermission;
+
+        // Terminal-title authority: Claude's AI terminal shows an animated braille spinner
+        // while a turn runs and the static Claude icon when idle, so the title's
+        // classification is an instant, reliable Working/Done signal that doesn't depend on
+        // the (sometimes-missed) Stop/Activity hooks. Idle is detected the moment the
+        // idle-icon title arrives — no staleness wait. Sessions with no recognized title
+        // signal (container/remote, non-Claude assistants, or before the first title) fall
+        // through to the unchanged hook-derived state — no regression.
+        if (main.TerminalTitleWorking is { } working)
+        {
+            var sinceTitle = main.LastTerminalTitleChangeTime is { } t ? now - t : TimeSpan.MaxValue;
+            // Working only while the spinner is still animating. If the last signal said
+            // "working" but the title froze past the window (a dropped idle-title update),
+            // fall through to the idle aging path rather than sticking on Working.
+            if (working && sinceTitle <= TerminalTitleActiveWindow)
+                return AgentDisplayState.Working;
+
+            // Idle icon (or a frozen spinner). Keep the Done→TimedOut quiet window so idle
+            // sessions still age out of the live set (IsActive flips false only at TimedOut).
+            return sinceTitle > TimedOutThreshold ? AgentDisplayState.TimedOut : AgentDisplayState.Done;
+        }
+
         return DeriveAgentDisplayState(main, now);
     }
 

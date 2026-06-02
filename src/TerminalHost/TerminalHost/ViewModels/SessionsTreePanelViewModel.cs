@@ -24,6 +24,17 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private readonly ISessionLifecycleCoordinator? _coord;
     private readonly IDispatcherService _dispatcherService;
 
+    // Terminal-title state changes (spinner ⇄ idle icon) are stamped onto session state
+    // without firing SessionsChanged — pulsing on every spinner frame would spam consumers.
+    // The main session's Working/idle state is derived at read time from that signal
+    // (SessionActivityState.DeriveParentDisplay), and the inactivity sweep only ticks every
+    // 30s, so this short tick re-derives to surface the working↔idle transition (and the
+    // eventual TimedOut aging) within a couple of seconds. Cheap: Refresh updates rows in
+    // place and ObservableProperty setters only raise on change, so a no-change tick is
+    // effectively a no-op.
+    private readonly IAppTimer? _decayTimer;
+    private static readonly TimeSpan DecayTickInterval = TimeSpan.FromSeconds(2);
+
     public override string PanelId => "sessionsTree";
     public override string PanelTitle => "Sessions";
     public override string PanelIcon => "⚡"; // ⚡
@@ -60,10 +71,9 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
     public bool IsEmpty => Sessions.Count == 0;
 
-    // timerService kept on the ctor for DI compatibility with existing wiring;
-    // refresh ticks now flow through ISessionLifecycleCoordinator.SessionsChanged
-    // (which also fires from the inactivity-clock sweep), so a local timer is no
-    // longer needed.
+    // Event-driven refresh (SessionsChanged) covers state changes that fire an event; the
+    // short decay timer covers the one transition that doesn't — a session going idle when
+    // its terminal title stops animating (see _decayTimer).
     public SessionsTreePanelViewModel(
         ISessionLifecycleCoordinator? sessionCoordinator,
         IDispatcherService dispatcherService,
@@ -79,6 +89,9 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
 
         if (_coord != null)
             _coord.SessionsChanged += OnSessionsChanged;
+
+        _decayTimer = timerService.CreateTimer(DecayTickInterval, Refresh);
+        _decayTimer.Start();
 
         Refresh();
     }
@@ -272,7 +285,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string MapStateIcon(AgentDisplayState displayState, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "⚠",
+            AgentDisplayState.WaitingPermission => "⏳",
             AgentDisplayState.Working => "·",
             // Preserve error-icon on terminated subagents that errored.
             AgentDisplayState.Done when agent.State == AgentState.Error => "⚠",
@@ -284,7 +297,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     private static string DescribeActivity(AgentDisplayState displayState, SessionActivityState state, AgentInstance agent) =>
         displayState switch
         {
-            AgentDisplayState.WaitingPermission => "Waiting for permission",
+            AgentDisplayState.WaitingPermission => "Waiting for input",
             AgentDisplayState.Done => "Done",
             AgentDisplayState.TimedOut => "Timed out",
             AgentDisplayState.Working => DescribeWorkingActivity(state, agent),
@@ -300,7 +313,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
                         ? tc.ToolName
                         : $"{tc.ToolName}: {Truncate(tc.InputSummary!, 60)}",
             AgentState.ToolCalling => "Running tool",
-            AgentState.WaitingPermission => "Waiting for permission",
+            AgentState.WaitingPermission => "Waiting for input",
             AgentState.Thinking => "Thinking…",
             _ => "Working…"
         };
@@ -347,5 +360,7 @@ public partial class SessionsTreePanelViewModel : BasePanelViewModel, IDisposabl
     {
         if (_coord != null)
             _coord.SessionsChanged -= OnSessionsChanged;
+        _decayTimer?.Stop();
+        _decayTimer?.Dispose();
     }
 }

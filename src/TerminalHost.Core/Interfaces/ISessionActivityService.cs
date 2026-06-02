@@ -47,6 +47,17 @@ internal interface ISessionActivityService
     void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null);
 
     /// <summary>
+    /// Records the AI assistant terminal's current <paramref name="title"/> for
+    /// <paramref name="workingDirectory"/> at <paramref name="timestampUtc"/>. The title is
+    /// classified (spinner = working, idle icon = done) and stamped on the matching
+    /// session's main agent so <see cref="SessionActivityState.DeriveParentDisplay"/> can
+    /// surface an instant, hook-independent Working/Done state. Matches the directory's
+    /// display winner (most-recently-active session); no-op if no tracked session matches
+    /// or the title isn't recognized. Returns true if a session was stamped.
+    /// </summary>
+    bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc);
+
+    /// <summary>
     /// Enriches a session's activity state by parsing its transcript file.
     /// Called when a session ends or on-demand for additional detail.
     /// </summary>

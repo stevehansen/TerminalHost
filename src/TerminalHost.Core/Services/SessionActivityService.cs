@@ -72,6 +72,38 @@ public sealed class SessionActivityService : ISessionActivityService
         }
     }
 
+    public bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc)
+    {
+        if (string.IsNullOrEmpty(workingDirectory)) return false;
+
+        // Unrecognized titles carry no verdict — leave the prior signal intact so a stray
+        // title doesn't drop the agent to the hook-derived fallback mid-turn.
+        var working = SessionActivityState.ClassifyTerminalTitleWorking(title);
+        if (working is null) return false;
+
+        lock (_lock)
+        {
+            // Pick the session this terminal most likely belongs to: the directory's
+            // display winner (mirrors SessionLifecycleCoordinator.GetSessionsForDisplay so
+            // we stamp the same row the panel renders, not a lingering resumed-session id).
+            var state = _states.Values
+                .Where(s => string.Equals(s.WorkingDirectory, workingDirectory, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(s => s.IsActive)
+                .ThenByDescending(s => s.LastActivityTime ?? s.StartTime)
+                .FirstOrDefault();
+
+            var main = state?.MainAgent;
+            if (main is null) return false;
+
+            main.TerminalTitleWorking = working;
+            main.LastTerminalTitleChangeTime = timestampUtc;
+            // While working, keep this session as the directory's display winner.
+            if (working == true && (state!.LastActivityTime is null || timestampUtc > state.LastActivityTime))
+                state.LastActivityTime = timestampUtc;
+            return true;
+        }
+    }
+
     public void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null)
     {
         // Prefer RawData stored on the event itself (from API/IPC path)

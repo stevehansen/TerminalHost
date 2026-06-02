@@ -32,6 +32,7 @@ public sealed class FakeSessionActivityService : ISessionActivityService
         SessionSource source = SessionSource.Local, string? containerName = null) =>
         SessionActivityState.Create(sessionId);
     public void RemoveState(string sessionId) { }
+    public bool RecordTerminalTitleActivity(string workingDirectory, string title, DateTime timestampUtc) => false;
     public void ProcessHookEvent(HookEvent hookEvent, HookEventData? rawData = null) { }
     public Task EnrichFromTranscriptAsync(string sessionId)
     {
