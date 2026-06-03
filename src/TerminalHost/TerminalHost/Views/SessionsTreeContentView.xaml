@@ -57,10 +57,27 @@
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
 
-        <!-- Row content for both session and subagent rows; the spinner/icon column
-             is the only visual cue that distinguishes them. -->
+        <!-- Title style: sessions read as primary headings, subagents as muted sub-rows.
+             This is the main per-row cue distinguishing the two kinds. -->
+        <Style x:Key="RowTitleStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSession}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Row content for both session and subagent rows. Subtitle and usage each get
+             their own row so the status icon (and the chevron, see the item template) can
+             center on the title line rather than the whole multi-line block. -->
         <DataTemplate x:Key="RowTemplate" DataType="{x:Type viewModels:SessionTreeNode}">
-            <Grid Margin="0,4,0,4">
+            <Grid Margin="0,3,0,3">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="18"/>
                     <ColumnDefinition Width="*"/>
@@ -68,9 +85,10 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Grid.Column="0">
+                <Grid Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource RowSpinnerStyle}"
                                Text="◐"
                                FontSize="14"
@@ -85,35 +103,32 @@
                     <TextBlock Style="{StaticResource RowStateIconStyle}" Text="{Binding StateIcon}"/>
                 </Grid>
 
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="6,0,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="{Binding Title}"
-                                   Foreground="{StaticResource TextLightBrush}"
-                                   FontSize="{StaticResource FontSizeSmall}"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding Activity}"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="{StaticResource FontSizeTiny}"
-                                   Margin="8,0,0,0"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <TextBlock Text="{Binding Subtitle}"
-                               Foreground="{StaticResource TextMutedBrush}"
-                               FontSize="{StaticResource FontSizeMicro}"
+                <Grid Grid.Row="0" Grid.Column="1" Margin="6,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Title}"
+                               Style="{StaticResource RowTitleStyle}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Activity}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="{StaticResource FontSizeTiny}"
+                               Margin="8,0,0,0"
                                TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding Subtitle, Converter={StaticResource NullToVisibilityConverter}}"/>
-                </StackPanel>
+                               VerticalAlignment="Center"/>
+                </Grid>
 
-                <Grid Grid.Row="1" Grid.Column="1"
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Margin="6,1,0,0"
+                           Text="{Binding Subtitle}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="{StaticResource FontSizeMicro}"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding Subtitle, Converter={StaticResource NullToVisibilityConverter}}"/>
+
+                <Grid Grid.Row="2" Grid.Column="1"
                       Margin="6,4,8,0"
                       Visibility="{Binding UsageText, Converter={StaticResource NullToVisibilityConverter}}">
                     <Grid.RowDefinitions>
@@ -176,17 +191,22 @@
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="16"/>
+                                <!-- Collapses to 0 for childless rows (see HasItems trigger) so
+                                     only sessions with subagents reserve disclosure space. -->
+                                <ColumnDefinition x:Name="ExpanderColumn" Width="16"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Expander toggle in column 0 -->
+                            <!-- Expander toggle in column 0, top-aligned to sit on the title line
+                                 rather than centered over the full (title + subtitle + usage) header. -->
                             <ToggleButton x:Name="Expander"
                                           Grid.Row="0"
                                           Grid.Column="0"
                                           ClickMode="Press"
                                           IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
                                           Focusable="False"
+                                          VerticalAlignment="Top"
+                                          Margin="0,9,0,0"
                                           Background="Transparent"
                                           BorderThickness="0"
                                           Foreground="{StaticResource TextMutedBrush}">
@@ -216,12 +236,15 @@
                                 </ToggleButton.Style>
                             </ToggleButton>
 
-                            <!-- Header content in a stretch column -->
+                            <!-- Header content in a stretch column. Card chrome (background +
+                                 border + spacing) is applied per-kind via the IsSession triggers
+                                 below, giving each session a distinct, separated block. -->
                             <Border x:Name="Bd"
                                     Grid.Row="0"
                                     Grid.Column="1"
                                     Background="{TemplateBinding Background}"
                                     BorderThickness="0"
+                                    CornerRadius="4"
                                     Padding="{TemplateBinding Padding}">
                                 <ContentPresenter x:Name="PART_Header"
                                                   ContentSource="Header"
@@ -238,9 +261,26 @@
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible"/>
                             </Trigger>
+                            <!-- No subagents: drop the disclosure entirely (and reclaim its column)
+                                 so childless rows don't look expandable. -->
                             <Trigger Property="HasItems" Value="False">
-                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                                <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="ExpanderColumn" Property="Width" Value="0"/>
                             </Trigger>
+                            <!-- Session rows render as separated cards: a soft fill (no border) so
+                                 they read as light blocks, inset from the panel edges. -->
+                            <DataTrigger Binding="{Binding IsSession}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BackgroundDarkBrush}"/>
+                                <Setter TargetName="Bd" Property="Padding" Value="8,5"/>
+                                <Setter TargetName="Bd" Property="Margin" Value="2,3,2,3"/>
+                            </DataTrigger>
+                            <!-- Subagent rows hang under their session with a subordinate left rule. -->
+                            <DataTrigger Binding="{Binding IsSession}" Value="False">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2,0,0,0"/>
+                                <Setter TargetName="Bd" Property="Padding" Value="8,1,0,1"/>
+                                <Setter TargetName="Bd" Property="Margin" Value="2,0,2,2"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -280,7 +320,7 @@
                   ItemsSource="{Binding Sessions}"
                   Background="Transparent"
                   BorderThickness="0"
-                  Padding="6"
+                  Padding="8,6"
                   ItemContainerStyle="{StaticResource SessionsTreeViewItem}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
