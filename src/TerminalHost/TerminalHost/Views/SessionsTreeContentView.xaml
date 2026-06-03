@@ -10,11 +10,11 @@
 
     <UserControl.Resources>
 
-        <!-- Visibility + spin animation for the spinner glyph.
-             The RotateTransform itself is set inline on each TextBlock instance
-             (in the row template below) — putting it in a Style Setter freezes
-             it and breaks the animation with "Cannot animate on immutable object". -->
-        <Style x:Key="RowSpinnerStyle" TargetType="TextBlock">
+        <!-- Visibility + spin animation for the spinner arc (matches the status overlay).
+             The RotateTransform itself is set inline on the Path instance (in the row
+             template below) — putting it in a Style Setter freezes it and breaks the
+             animation with "Cannot animate on immutable object". -->
+        <Style x:Key="RowSpinnerStyle" TargetType="Path">
             <Setter Property="Visibility" Value="Collapsed"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsBusy}" Value="True">
@@ -73,13 +73,15 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Row content for both session and subagent rows. Subtitle and usage each get
-             their own row so the status icon (and the chevron, see the item template) can
-             center on the title line rather than the whole multi-line block. -->
+        <!-- Row content for both session and subagent rows. The chevron and spinner both live
+             on the title line (row 0) so they stay vertically centered with the title; subtitle
+             and usage sit on their own rows below. The chevron's column is fixed-width for
+             sessions (so toggling it never shifts the row) and collapses to 0 for subagents. -->
         <DataTemplate x:Key="RowTemplate" DataType="{x:Type viewModels:SessionTreeNode}">
             <Grid Margin="0,3,0,3">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition x:Name="ChevronColumn" Width="20"/>
+                    <ColumnDefinition Width="16"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
@@ -88,22 +90,75 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Style="{StaticResource RowSpinnerStyle}"
-                               Text="◐"
-                               FontSize="14"
-                               Foreground="{StaticResource AccentPrimaryBrush}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               RenderTransformOrigin="0.5,0.5">
-                        <TextBlock.RenderTransform>
+                <!-- Expand/collapse chevron — shown only when the row has subagents. Bound to the
+                     ancestor TreeViewItem so it can live here on the title line, centered with the
+                     spinner, rather than in the item template's outer frame. -->
+                <ToggleButton Grid.Row="0" Grid.Column="0"
+                              ClickMode="Press"
+                              Focusable="False"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=TreeViewItem}, Mode=TwoWay}"
+                              Visibility="{Binding HasItems, RelativeSource={RelativeSource AncestorType=TreeViewItem}, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent" Padding="2">
+                                            <!-- Always the same glyph; collapsed state just rotates it
+                                                 to point right, so both states render identically. -->
+                                            <TextBlock x:Name="Arrow"
+                                                       Text="▼"
+                                                       FontSize="9"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       RenderTransformOrigin="0.5,0.5">
+                                                <TextBlock.RenderTransform>
+                                                    <RotateTransform Angle="-90"/>
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Arrow" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
+
+                <Grid Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
+                    <Path Style="{StaticResource RowSpinnerStyle}"
+                          Data="M12,2 A10,10 0 1,1 2,12"
+                          Stroke="#4FC3F7"
+                          StrokeThickness="1.8"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          Stretch="Uniform"
+                          Width="11"
+                          Height="11"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          RenderTransformOrigin="0.5,0.5">
+                        <Path.RenderTransform>
                             <RotateTransform Angle="0"/>
-                        </TextBlock.RenderTransform>
-                    </TextBlock>
+                        </Path.RenderTransform>
+                    </Path>
                     <TextBlock Style="{StaticResource RowStateIconStyle}" Text="{Binding StateIcon}"/>
                 </Grid>
 
-                <Grid Grid.Row="0" Grid.Column="1" Margin="6,0,0,0">
+                <Grid Grid.Row="0" Grid.Column="2" Margin="6,0,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -120,7 +175,7 @@
                                VerticalAlignment="Center"/>
                 </Grid>
 
-                <TextBlock Grid.Row="1" Grid.Column="1"
+                <TextBlock Grid.Row="1" Grid.Column="2"
                            Margin="6,1,0,0"
                            Text="{Binding Subtitle}"
                            Foreground="{StaticResource TextMutedBrush}"
@@ -128,7 +183,7 @@
                            TextTrimming="CharacterEllipsis"
                            Visibility="{Binding Subtitle, Converter={StaticResource NullToVisibilityConverter}}"/>
 
-                <Grid Grid.Row="2" Grid.Column="1"
+                <Grid Grid.Row="2" Grid.Column="2"
                       Margin="6,4,8,0"
                       Visibility="{Binding UsageText, Converter={StaticResource NullToVisibilityConverter}}">
                     <Grid.RowDefinitions>
@@ -145,6 +200,13 @@
                                Margin="0,2,0,0"/>
                 </Grid>
             </Grid>
+            <DataTemplate.Triggers>
+                <!-- Subagents never expand: reclaim the chevron column so the spinner sits close
+                     to the indent instead of leaving a wide empty gap. -->
+                <DataTrigger Binding="{Binding IsSession}" Value="False">
+                    <Setter TargetName="ChevronColumn" Property="Width" Value="0"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- Hierarchical template: same row content for both levels. -->
@@ -185,87 +247,27 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TreeViewItem">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <!-- Collapses to 0 for childless rows (see HasItems trigger) so
-                                     only sessions with subagents reserve disclosure space. -->
-                                <ColumnDefinition x:Name="ExpanderColumn" Width="16"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Expander toggle in column 0, top-aligned to sit on the title line
-                                 rather than centered over the full (title + subtitle + usage) header. -->
-                            <ToggleButton x:Name="Expander"
-                                          Grid.Row="0"
-                                          Grid.Column="0"
-                                          ClickMode="Press"
-                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
-                                          Focusable="False"
-                                          VerticalAlignment="Top"
-                                          Margin="0,9,0,0"
-                                          Background="Transparent"
-                                          BorderThickness="0"
-                                          Foreground="{StaticResource TextMutedBrush}">
-                                <ToggleButton.Style>
-                                    <Style TargetType="ToggleButton">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="ToggleButton">
-                                                    <Border Background="Transparent" Padding="2">
-                                                        <TextBlock x:Name="Arrow"
-                                                                   Text="▶"
-                                                                   FontSize="9"
-                                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   RenderTransformOrigin="0.5,0.5"/>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsChecked" Value="True">
-                                                            <Setter TargetName="Arrow" Property="Text" Value="▼"/>
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </ToggleButton.Style>
-                            </ToggleButton>
-
-                            <!-- Header content in a stretch column. Card chrome (background +
-                                 border + spacing) is applied per-kind via the IsSession triggers
-                                 below, giving each session a distinct, separated block. -->
-                            <Border x:Name="Bd"
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    Background="{TemplateBinding Background}"
-                                    BorderThickness="0"
-                                    CornerRadius="4"
-                                    Padding="{TemplateBinding Padding}">
+                        <!-- The card border wraps BOTH the header and the children, so subagents
+                             render inside the session's card rather than as separate rows below it.
+                             The chevron lives in the header row template (not here), so this frame
+                             is just the card + the nested items. -->
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <StackPanel>
                                 <ContentPresenter x:Name="PART_Header"
                                                   ContentSource="Header"
                                                   HorizontalAlignment="Stretch"/>
-                            </Border>
-
-                            <!-- Children -->
-                            <ItemsPresenter x:Name="ItemsHost"
-                                            Grid.Row="1"
-                                            Grid.Column="1"
-                                            Visibility="Collapsed"/>
-                        </Grid>
+                                <!-- Subagents, rendered inside the session card. -->
+                                <ItemsPresenter x:Name="ItemsHost"
+                                                Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible"/>
-                            </Trigger>
-                            <!-- No subagents: drop the disclosure entirely (and reclaim its column)
-                                 so childless rows don't look expandable. -->
-                            <Trigger Property="HasItems" Value="False">
-                                <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
-                                <Setter TargetName="ExpanderColumn" Property="Width" Value="0"/>
                             </Trigger>
                             <!-- Session rows render as separated cards: a soft fill (no border) so
                                  they read as light blocks, inset from the panel edges. -->
@@ -274,12 +276,11 @@
                                 <Setter TargetName="Bd" Property="Padding" Value="8,5"/>
                                 <Setter TargetName="Bd" Property="Margin" Value="2,3,2,3"/>
                             </DataTrigger>
-                            <!-- Subagent rows hang under their session with a subordinate left rule. -->
+                            <!-- Subagent rows sit inside the card, indented so their spinner aligns
+                                 with the parent's text/usage-meter column (chevron 20 + status 16). -->
                             <DataTrigger Binding="{Binding IsSession}" Value="False">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
-                                <Setter TargetName="Bd" Property="BorderThickness" Value="2,0,0,0"/>
-                                <Setter TargetName="Bd" Property="Padding" Value="8,1,0,1"/>
-                                <Setter TargetName="Bd" Property="Margin" Value="2,0,2,2"/>
+                                <Setter TargetName="Bd" Property="Padding" Value="4,2,0,2"/>
+                                <Setter TargetName="Bd" Property="Margin" Value="36,2,0,2"/>
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
