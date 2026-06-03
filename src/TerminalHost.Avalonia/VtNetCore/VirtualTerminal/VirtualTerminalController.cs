@@ -1653,14 +1653,17 @@ namespace VtNetCore.VirtualTerminal
         public void ShiftIn()
         {
             LogController("ShiftIn()");
-            CursorState.Utf8 = false;
+            // SO/SI select the G0/G1 charset invocation; they must NOT disable UTF-8 byte
+            // decoding. A stray 0x0E/0x0F in a UTF-8 stream used to flip Utf8 off permanently,
+            // after which every multibyte lead byte (e.g. 0xE2 in box-drawing/emoji) decoded
+            // via the GR path as 0xE2-0x80=0x62='b' — the "b" flood. DEC special graphics
+            // (ESC ( 0) still works: it maps the 7-bit range via CharacterSetMode below.
             CursorState.CharacterSetMode = ECharacterSetMode.IsoG0;
         }
 
         public void ShiftOut()
         {
             LogController("ShiftOut()");
-            CursorState.Utf8 = false;
             CursorState.CharacterSetMode = ECharacterSetMode.IsoG1;
         }
 
@@ -1689,7 +1692,7 @@ namespace VtNetCore.VirtualTerminal
         {
             LogController("InvokeCharacterSetModeR(mode: " + mode.ToString() + ")");
 
-            CursorState.Utf8 = false;
+            // Invoking a charset into GR must not disable UTF-8 byte decoding (see ShiftIn).
             CursorState.CharacterSetModeR = mode;
         }
 
