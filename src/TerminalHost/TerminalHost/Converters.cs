@@ -1005,3 +1005,75 @@ public class TouchModeToGridLengthConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Picks a fixed toolbar-button width from the button's glyph so icon buttons line up
+/// instead of each sizing to its own content:
+///   - a single wide glyph (emoji, ★) → the full (square) width
+///   - a single thin glyph (arrows ↑ ↓, Latin letters/digits like "b" "c" "f") → narrow width
+///   - anything longer (e.g. "↓ 3", "vc", a text label) → NaN, so it sizes to content and never clips.
+/// ConverterParameter is "full|narrow" in device-independent pixels (defaults to "28|21").
+/// </summary>
+public class ToolbarGlyphToWidthConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        double full = 28, narrow = 21;
+        if (parameter is string p)
+        {
+            var sizes = p.Split('|');
+            if (sizes.Length == 2 && double.TryParse(sizes[0], NumberStyles.Any, CultureInfo.InvariantCulture, out var f)
+                                  && double.TryParse(sizes[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var n))
+            {
+                full = f;
+                narrow = n;
+            }
+        }
+
+        var text = value?.ToString()?.Trim();
+        if (string.IsNullOrEmpty(text))
+            return full;
+
+        var graphemes = new StringInfo(text).LengthInTextElements;
+
+        // A single wide glyph (emoji, ★) gets the full square; a single thin glyph (arrow) gets narrow.
+        if (graphemes == 1)
+            return IsNarrowGlyph(char.ConvertToUtf32(text, 0)) ? narrow : full;
+
+        // Short thin labels ("vc") share the narrow box so they line up with single-letter ones;
+        // anything longer or non-thin (counts like "↓ 3", word labels) sizes to its own content.
+        if (graphemes <= 2 && IsThinText(text))
+            return narrow;
+
+        return double.NaN;
+    }
+
+    private static bool IsNarrowGlyph(int codePoint)
+    {
+        // Arrow/triangle glyphs (↑ ↓ ▶) read narrow.
+        if ((codePoint >= 0x2190 && codePoint <= 0x21FF)   // Arrows
+            || (codePoint >= 0x2900 && codePoint <= 0x297F) // Supplemental Arrows-B
+            || (codePoint >= 0x25B2 && codePoint <= 0x25C4)) // ▲ ▶ ▼ ◀ and neighbours
+            return true;
+
+        // Latin letters/digits (quick-command labels "b", "c", "f") are thin too; wider
+        // symbols and emoji (★, 💾, 🔍) keep the full square.
+        return IsThinChar(codePoint);
+    }
+
+    private static bool IsThinText(string text)
+    {
+        foreach (var ch in text)
+            if (!IsThinChar(ch))
+                return false;
+        return true;
+    }
+
+    private static bool IsThinChar(int codePoint)
+        => codePoint <= 0x024F && char.IsLetterOrDigit((char)codePoint);
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
