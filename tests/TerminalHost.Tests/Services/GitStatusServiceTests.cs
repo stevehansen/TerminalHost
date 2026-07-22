@@ -9,6 +9,7 @@ using TerminalHost.Core.Services;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LibGit2Sharp;
 
 namespace TerminalHost.Tests.Services;
 
@@ -437,5 +438,81 @@ public class GitStatusServiceTests
         result.ShouldContain(f => f.FilePath == "File with Spaces.txt");
         result.ShouldContain(f => f.FilePath == "DeletedFile.md");
         result.ShouldContain(f => f.FilePath == "New File.cs" && f.OriginalPath == "Old File.cs");
+    }
+
+    // --- Summary status: untracked-excluded dirty semantics + caching ---
+
+    private static GitStatusService NewService()
+    {
+        var fs = new Mock<IFileSystem>();
+        fs.Setup(f => f.DirectoryExists(It.IsAny<string>())).Returns(true);
+        return new GitStatusService(new Mock<IGitProcessRunner>().Object, fs.Object);
+    }
+
+    private static string InitRepoWithOneCommit()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "thg_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        Repository.Init(dir);
+        using var repo = new Repository(dir);
+        File.WriteAllText(Path.Combine(dir, "tracked.txt"), "v1");
+        Commands.Stage(repo, "tracked.txt");
+        var sig = new Signature("Test", "test@example.com", DateTimeOffset.UtcNow);
+        repo.Commit("initial", sig, sig);
+        return dir;
+    }
+
+    private static void DeleteRepo(string dir)
+    {
+        try { Directory.Delete(dir, recursive: true); } catch { /* a lingering handle may block it */ }
+    }
+
+    [Fact]
+    public async Task GetGitStatusAsync_UntrackedOnly_IsNotDirty()
+    {
+        var dir = InitRepoWithOneCommit();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "untracked.txt"), "new");
+            using var svc = NewService();
+
+            var result = await svc.GetGitStatusAsync(dir);
+
+            result.IsGitRepository.ShouldBeTrue();
+            result.IsDirty.ShouldBeFalse(); // untracked files are excluded from the badge
+        }
+        finally { DeleteRepo(dir); }
+    }
+
+    [Fact]
+    public async Task GetGitStatusAsync_ModifiedTrackedFile_IsDirty()
+    {
+        var dir = InitRepoWithOneCommit();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "tracked.txt"), "v2-changed");
+            using var svc = NewService();
+
+            var result = await svc.GetGitStatusAsync(dir);
+
+            result.IsDirty.ShouldBeTrue(); // tracked-file changes still light up
+        }
+        finally { DeleteRepo(dir); }
+    }
+
+    [Fact]
+    public async Task GetGitStatusAsync_RepeatedCalls_ServeCachedInstance()
+    {
+        var dir = InitRepoWithOneCommit();
+        try
+        {
+            using var svc = NewService();
+
+            var first = await svc.GetGitStatusAsync(dir);
+            var second = await svc.GetGitStatusAsync(dir);
+
+            second.ShouldBeSameAs(first); // within TTL, no .git change → cache hit
+        }
+        finally { DeleteRepo(dir); }
     }
 }
