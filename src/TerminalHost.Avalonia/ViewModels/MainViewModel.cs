@@ -59,7 +59,6 @@ public partial class MainViewModel : ObservableObject
     private readonly IVoiceCommandService? _voiceCommandService;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
-    private readonly ITabRestoreCoordinator _restoreCoordinator;
     private readonly ExplorerEventRouter _explorerRouter;
     private readonly LinkClickHandler _linkClickHandler;
     private readonly Core.Interfaces.ITimerService _coreTimerService;
@@ -369,7 +368,6 @@ public partial class MainViewModel : ObservableObject
         Core.Interfaces.ITimerService? coreTimerService = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
-        ITabRestoreCoordinator? restoreCoordinator = null,
         ExplorerEventRouter? explorerRouter = null,
         LinkClickHandler? linkClickHandler = null)
     {
@@ -417,8 +415,6 @@ public partial class MainViewModel : ObservableObject
         _voiceCommandService = voiceCommandService;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
-        _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
-        _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
         _explorerRouter = explorerRouter ?? new ExplorerEventRouter();
         _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
         _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
@@ -987,11 +983,6 @@ public partial class MainViewModel : ObservableObject
             _ = OpenDashboardAsync();
         }
 
-        // Defer center panel restores until the correct SelectedTab is set.
-        // Without this, multiple tabs fire async restores for singleton panel VMs
-        // and the last one to complete wins — which may not be the selected tab.
-        _restoreCoordinator.BeginBatch();
-
         var existingFolders = config.OpenFolders.Where(_fileSystem.DirectoryExists).ToList();
         if (_containerService != null)
         {
@@ -1010,8 +1001,6 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedTab = tabToSelect;
         }
-
-        _restoreCoordinator.EndBatch(SelectedTab);
     }
 
 
@@ -1220,17 +1209,7 @@ public partial class MainViewModel : ObservableObject
             // Track workspace for sidebar
             _ = SidebarViewModel?.SyncWithOpenTabAsync(workingDirectory);
 
-            // Restore center panel state (fires event for MainWindow to handle)
-            if (dirSettings?.ActiveCenterPanel != null)
-            {
-                var restoreArgs = new CenterPanelRestoreEventArgs
-                {
-                    Tab = tabViewModel,
-                    PanelId = dirSettings.ActiveCenterPanel,
-                    GitPanelActiveTab = dirSettings.GitPanelActiveTab
-                };
-                _restoreCoordinator.Request(restoreArgs);
-            }
+            // Avalonia panel routing migrates in Phase 5/6 — center panel restore is a no-op until then.
 
             // Fetch git status for the new tab
             _ = RefreshTabGitStatusAsync(tabViewModel);
@@ -1895,7 +1874,6 @@ public partial class MainViewModel : ObservableObject
 #pragma warning restore CS0067
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
-    public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
     public event EventHandler<string>? AiPanelCommandRequested;
 
     // ── Event raise helpers for ICommandProvider classes (Step 2c) ──────

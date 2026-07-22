@@ -68,7 +68,7 @@
                     <!-- Dock button -->
                     <Button Content="&#x25E7;"
                             Style="{StaticResource TabCloseButton}"
-                            Click="DockButton_Click"
+                            Command="{Binding DockCommand}"
                             ToolTip="Dock back to panel"
                             FontSize="14"
                             Padding="8,4"/>

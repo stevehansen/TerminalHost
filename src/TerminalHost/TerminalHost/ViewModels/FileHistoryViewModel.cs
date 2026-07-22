@@ -13,8 +13,10 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for File History panel.
 /// Shows all commits that modified a specific file.
 /// </summary>
-public partial class FileHistoryViewModel : BasePanelViewModel
+public partial class FileHistoryViewModel : BasePanelViewModel, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;

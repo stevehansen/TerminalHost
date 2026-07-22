@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
              mc:Ignorable="d" 
-             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             d:DataContext="{d:DesignInstance vm:TabSwitcherViewModel}"
              d:DesignHeight="500" d:DesignWidth="400"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundMediumBrush}"

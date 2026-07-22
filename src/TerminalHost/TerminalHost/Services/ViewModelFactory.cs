@@ -34,9 +34,9 @@ public class ViewModelFactory : IViewModelFactory
         };
     }
 
-    public FileViewerViewModel CreateFileViewer(bool isDetached = false)
+    public FileViewerViewModel CreateFileViewer()
     {
-        var vm = new FileViewerViewModel(
+        return new FileViewerViewModel(
             _serviceProvider.GetRequiredService<IFilePreviewService>(),
             _serviceProvider.GetRequiredService<IFileEditService>(),
             _serviceProvider.GetRequiredService<IFileSystem>(),
@@ -44,8 +44,6 @@ public class ViewModelFactory : IViewModelFactory
             _serviceProvider.GetRequiredService<IMarkdownService>(),
             _serviceProvider.GetRequiredService<ITimerService>()
         );
-        vm.IsDetached = isDetached;
-        return vm;
     }
 
     public DashboardTabViewModel CreateDashboard(MainViewModel parent)

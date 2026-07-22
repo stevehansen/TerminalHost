@@ -1,5 +1,5 @@
 using System.Windows.Input;
-using TerminalHost.ViewModels;
+using TerminalHost.Core.Interfaces;
 
 namespace TerminalHost.Views.Popups;
 
@@ -12,15 +12,12 @@ public partial class HelpView : UserControl
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape)
+        if (e.Key == Key.Escape && DataContext is IPanelableViewModel panel)
         {
-            if (DataContext is MainViewModel mainViewModel)
+            if (panel.CloseCommand.CanExecute(null))
             {
-                if (mainViewModel.CloseHelpCommand.CanExecute(null))
-                {
-                    mainViewModel.CloseHelpCommand.Execute(null);
-                    e.Handled = true;
-                }
+                panel.CloseCommand.Execute(null);
+                e.Handled = true;
             }
         }
     }

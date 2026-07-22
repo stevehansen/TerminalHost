@@ -25,8 +25,34 @@ public enum GitPanelTab
 /// Consolidates all Git functionality into a single tabbed panel.
 /// Shortcuts like Ctrl+B, Alt+G, Ctrl+H open this panel on the appropriate tab.
 /// </summary>
-public partial class UnifiedGitPanelViewModel : BasePanelViewModel
+public partial class UnifiedGitPanelViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    /// <summary>
+    /// Loads <c>GitPanelActiveTab</c> from per-directory settings and opens the panel on that tab.
+    /// Routed by the panel router post-mount; the VM owns this read so the host no longer
+    /// couriers the tab between persistence and the panel.
+    /// </summary>
+    public Task OnOpenedAsync(object? context)
+    {
+        if (context is not TerminalPairTabViewModel tab) return Task.CompletedTask;
+
+        var gitTab = GitPanelTab.Changes;
+        var config = _configurationService.Load();
+        var key = System.IO.Path.GetFullPath(tab.WorkingDirectory)
+            .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+            .ToLowerInvariant();
+        if (config.DirectorySettings.TryGetValue(key, out var dir)
+            && !string.IsNullOrEmpty(dir.GitPanelActiveTab)
+            && Enum.TryParse<GitPanelTab>(dir.GitPanelActiveTab, out var parsed))
+        {
+            gitTab = parsed;
+        }
+
+        return OpenOnTabAsync(tab, gitTab);
+    }
+
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;

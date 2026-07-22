@@ -62,11 +62,16 @@ public partial class MainWindow : Window
     private string _cachedAiName = "Claude Code";
     private bool _isExiting;
     private bool _isWindowActivated = true;
-    private Services.PanelWindowManager? _panelWindowManager;
+    private readonly IPanelRouter? _panelRouter;
+    private readonly Services.Panels.WpfPopupSurface? _popupSurface;
+    private readonly Services.Panels.WpfWindowSurface? _windowSurface;
+    private readonly Services.Panels.WpfAppShellRightDockSurface? _appShellRightDock;
+    private readonly Services.Panels.RightDockCoordinator? _rightDockCoordinator;
+    private readonly GlobalSessionsPanelController? _sessionsPanelController;
     private Views.ToastWindow? _toastWindow;
     private TerminalPairTabViewModel? _previousSelectedTerminalTab;
 
-    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null)
+    public MainWindow(MainViewModel viewModel, IConfigurationService configService, IProfileRegistry profileRegistry, ScratchPadViewModel scratchPadViewModel, GitBranchViewModel gitBranchViewModel, GitStashViewModel gitStashViewModel, ReflogViewModel reflogViewModel, ManageWorktreesViewModel manageWorktreesViewModel, DetectedLinksViewModel detectedLinksViewModel, GitFilesViewModel gitFilesViewModel, CommitHistoryViewModel commitHistoryViewModel, GitTagsViewModel gitTagsViewModel, FileHistoryViewModel fileHistoryViewModel, FileBlameViewModel fileBlameViewModel, FileViewerViewModel fileViewerViewModel, RepositorySwitcherViewModel repositorySwitcherViewModel, TestResultsViewModel testResultsViewModel, PrReviewViewModel prReviewViewModel, MarkdownPreviewViewModel markdownPreviewViewModel, SearchAcrossFilesViewModel searchAcrossFilesViewModel, BranchComparisonViewModel branchComparisonViewModel, UnifiedGitPanelViewModel unifiedGitPanelViewModel, ClaudeTasksPanelViewModel claudeTasksPanelViewModel, MemoryBrowserViewModel memoryBrowserViewModel, DebugLogViewModel debugLogViewModel, MergeConflictViewModel mergeConflictViewModel, RecentFeaturesViewModel recentFeaturesViewModel, SessionsTreePanelViewModel sessionsTreePanelViewModel, IFileSystem fileSystem, IToastService toastService, StatusOverlayService statusOverlayService, ISystemTrayService? systemTrayService = null, IDialogService dialogService = null!, ITaskbarProgressService? taskbarProgressService = null, ISoundService? soundService = null, IPanelRouter? panelRouter = null, Services.Panels.WpfPopupSurface? popupSurface = null, Services.Panels.WpfWindowSurface? windowSurface = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -104,6 +109,22 @@ public partial class MainWindow : Window
         _taskbarProgressService = taskbarProgressService;
         _soundService = soundService;
         _statusOverlayService = statusOverlayService;
+        _panelRouter = panelRouter;
+        _popupSurface = popupSurface;
+        _windowSurface = windowSurface;
+
+        // Hoisted right dock: one (RightDock, AppShell) surface for app-global panels (Sessions),
+        // merged with the active tab's per-workspace dock by the coordinator. The controller owns
+        // Sessions placement so the single VM never gets relocated tab-to-tab (#77).
+        if (_panelRouter is not null)
+        {
+            _appShellRightDock = new Services.Panels.WpfAppShellRightDockSurface();
+            _panelRouter.RegisterSurface(_appShellRightDock);
+            _rightDockCoordinator = new Services.Panels.RightDockCoordinator(_appShellRightDock);
+            _rightDockCoordinator.PropertyChanged += OnRightDockCoordinatorPropertyChanged;
+            _sessionsPanelController = new GlobalSessionsPanelController(_panelRouter, _sessionsTreePanelViewModel);
+        }
+
         DataContext = viewModel;
         // GitBranch and GitStash popups removed - now accessed via Git GUI center panel tabs
         ReflogViewControl.DataContext = reflogViewModel;
@@ -188,7 +209,6 @@ public partial class MainWindow : Window
         _viewModel.DashboardPrReviewRequested += OnDashboardPrReviewRequested;
         _viewModel.MarkdownPreviewRequested += OnMarkdownPreviewRequested;
         _viewModel.UnifiedGitPanelRequested += OnUnifiedGitPanelRequested;
-        _viewModel.CenterPanelRestoreRequested += OnCenterPanelRestoreRequested;
         _viewModel.RightPanelRestoreRequested += OnRightPanelRestoreRequested;
         _viewModel.ReflogRequested += OnReflogRequested;
         _viewModel.RepositorySwitcherRequested += OnRepositorySwitcherRequested;
@@ -265,6 +285,10 @@ public partial class MainWindow : Window
         // Update Claude Tasks panel workspace when selected tab changes
         if (e.PropertyName == nameof(MainViewModel.SelectedTab))
         {
+            // Rotate the hoisted dock's per-workspace source to the newly selected tab. The global
+            // (Sessions) portion stays put; only the per-tab Explorer portion swaps.
+            UpdateActiveRightDockSurface();
+
             if (_claudeTasksPanelViewModel.IsOpen)
             {
                 // Always update workspace path so it's correct when toggling to "Current Workspace"
@@ -278,20 +302,12 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Rebind center panel data when switching to a tab that has one.
-            // Singleton panel VMs only hold data for one tab at a time, so we
-            // must reload when the user switches to a different tab.
-            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab &&
-                newTab.ActiveCenterPanel != null)
+            // Rebind center panel data when switching to a tab that has one. Singleton panel VMs
+            // only hold data for one tab at a time, so the IPanelOpenContext sibling interface
+            // does the per-panel reload. Centralizing through the tab keeps the open path single-sourced.
+            if (_viewModel.SelectedTab is TerminalPairTabViewModel newTab)
             {
-                if (newTab.ActiveCenterPanel == _unifiedGitPanelViewModel)
-                    _ = _unifiedGitPanelViewModel.OpenOnTabAsync(newTab, _unifiedGitPanelViewModel.ActiveTab);
-                else if (newTab.ActiveCenterPanel == _branchComparisonViewModel)
-                    _ = _branchComparisonViewModel.OpenAsync(newTab);
-                else if (newTab.ActiveCenterPanel == _searchAcrossFilesViewModel)
-                    _ = _searchAcrossFilesViewModel.OpenAsync(newTab);
-                else if (newTab.ActiveCenterPanel == _prReviewViewModel)
-                    _ = _prReviewViewModel.OpenAsync(newTab.WorkingDirectory);
+                _ = newTab.HydrateActiveCenterPanelAsync();
             }
 
             // Refresh git sidebar when tab changes
@@ -301,6 +317,74 @@ public partial class MainWindow : Window
                 _ = _viewModel.WorkspaceSidebar.RefreshGitSidebarAsync(workDir);
             }
         }
+    }
+
+    /// <summary>
+    /// Points the hoisted dock coordinator at the selected tab's per-workspace right-dock surface,
+    /// or null for non-workspace tabs and the empty state (only the global portion shows then).
+    /// </summary>
+    private void UpdateActiveRightDockSurface()
+    {
+        var surface = (_viewModel.SelectedTab as TerminalPairTabViewModel)?.RightDockSurface;
+        _rightDockCoordinator?.SetActiveTabSurface(surface);
+    }
+
+    private void OnRightDockCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Services.Panels.RightDockCoordinator.IsVisible))
+            ApplyRightDockLayout();
+    }
+
+    /// <summary>
+    /// Shows/hides the hoisted dock column + splitter and sizes the dock from the global
+    /// <c>RightDockSplitRatio</c>. Driven by the coordinator's merged-set-non-empty signal.
+    /// </summary>
+    private void ApplyRightDockLayout()
+    {
+        var visible = _rightDockCoordinator?.IsVisible == true;
+        if (RightDockHost is null || RightDockSplitter is null
+            || RightDockColumn is null || RightDockSplitterColumn is null
+            || CenterContentColumn is null)
+            return;
+
+        if (visible)
+        {
+            var ratio = _configService.Load().Settings.RightDockSplitRatio;
+            ratio = Math.Clamp(ratio, 0.1, 0.9);
+            // Both columns are proportional so the rendered dock fraction equals `ratio`
+            // exactly — matching what RightDockSplitter_DragCompleted saves. A fixed-star
+            // center would render ratio/(1+ratio) and drift narrower each show/drag cycle.
+            CenterContentColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+            RightDockColumn.Width = new GridLength(ratio, GridUnitType.Star);
+            RightDockSplitterColumn.Width = new GridLength(4, GridUnitType.Pixel);
+            RightDockHost.Visibility = Visibility.Visible;
+            RightDockSplitter.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            CenterContentColumn.Width = new GridLength(1, GridUnitType.Star);
+            RightDockColumn.Width = new GridLength(0);
+            RightDockSplitterColumn.Width = new GridLength(0);
+            RightDockHost.Visibility = Visibility.Collapsed;
+            RightDockSplitter.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RightDockSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (sender is not GridSplitter splitter || splitter.Parent is not Grid grid
+            || grid.ColumnDefinitions.Count < 3)
+            return;
+
+        var centerWidth = grid.ColumnDefinitions[0].ActualWidth;
+        var dockWidth = grid.ColumnDefinitions[2].ActualWidth;
+        var total = centerWidth + dockWidth;
+        if (total <= 0) return;
+
+        var ratio = Math.Clamp(dockWidth / total, 0.1, 0.9);
+        var config = _configService.Load();
+        config.Settings.RightDockSplitRatio = ratio;
+        _configService.Save(config);
     }
 
     private void GridSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
@@ -504,8 +588,9 @@ public partial class MainWindow : Window
         using (sp.Measure("ViewModel.Initialize"))
             _viewModel.Initialize();
 
-        // Initialize panel window manager
-        _panelWindowManager = new Services.PanelWindowManager(this);
+        // Attach the routed popup host to the WPF popup surface. After this, the surface
+        // can mount any popup-zone panel routed through IPanelRouter into RoutedPopupHost.
+        _popupSurface?.AttachHost(RoutedPopupHost, RoutedPopupContent);
 
         // Create and show toast window (must be after main window is shown for Owner to work)
         _toastWindow = new Views.ToastWindow();
@@ -541,11 +626,15 @@ public partial class MainWindow : Window
             tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
         _viewModel.Tabs.CollectionChanged += OnTabsCollectionChangedForOverlay;
 
-        // Apply persisted global Sessions panel flag to all restored tabs (#77).
-        if (_viewModel.ShowSessionsPanel)
-        {
-            OnSessionsPanelVisibilityChanged(this, true);
-        }
+        // Bind the single hoisted right dock and seed it with the selected tab's per-workspace
+        // surface. The dock spans all tabs; switching tabs rotates only the per-workspace portion.
+        _rightDockCoordinator?.AttachHost(RightDockHost);
+        UpdateActiveRightDockSurface();
+        ApplyRightDockLayout();
+
+        // Apply persisted global Sessions panel flag once via the controller (#77). Unlike the old
+        // per-tab loop, this routes the single Sessions VM to (RightDock, AppShell) exactly once.
+        _sessionsPanelController?.SetVisible(_viewModel.ShowSessionsPanel);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -593,8 +682,10 @@ public partial class MainWindow : Window
         // Escape: Close voice bar first, then center panel, then popups
         if (e.Key == Key.Escape)
         {
-            // Let popup views handle their own Escape key
-            if (_viewModel.Palette.IsOpen || _viewModel.IsTabSwitcherOpen)
+            // Let routed popup views handle their own Escape key (the popup surface intercepts it).
+            if (_panelRouter?.IsOpen("commandPalette") == true ||
+                _panelRouter?.IsOpen("tabSwitcher") == true ||
+                _panelRouter?.IsOpen("tabDropdown") == true)
                 return;
 
             // First priority: dismiss voice bar if visible
@@ -608,7 +699,8 @@ public partial class MainWindow : Window
             // Second priority: close active center panel (return to terminals)
             if (_viewModel.SelectedTab is TerminalPairTabViewModel escTerminalTab && escTerminalTab.ActiveCenterPanel != null)
             {
-                escTerminalTab.CloseCenterPanel();
+                _panelRouter?.CloseZone(PanelZone.Center, escTerminalTab.CenterScope);
+                escTerminalTab.FocusActiveTerminal();
                 e.Handled = true;
                 return;
             }
@@ -656,9 +748,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (_viewModel.IsHelpOpen)
+            if (_panelRouter?.IsOpen("help") == true)
             {
-                _viewModel.IsHelpOpen = false;
+                _panelRouter.Close("help");
                 e.Handled = true;
                 return;
             }
@@ -675,7 +767,7 @@ public partial class MainWindow : Window
         // F1: Toggle help popup
         if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None)
         {
-            _viewModel.IsHelpOpen = !_viewModel.IsHelpOpen;
+            _panelRouter?.Show<HelpViewModel>();
             e.Handled = true;
             return;
         }
@@ -864,8 +956,7 @@ public partial class MainWindow : Window
         // Ctrl+Shift+T: Open tab switcher
         else if (e.Key == Key.T && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
         {
-            _viewModel.SwitcherSearchText = "";
-            _viewModel.IsTabSwitcherOpen = true;
+            _panelRouter?.Show<TabSwitcherViewModel>();
             e.Handled = true;
         }
         // Ctrl+O: Open file viewer (preview mode) as center panel
@@ -1227,7 +1318,8 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Generic handler for all panel ShowRequested events.
-    /// Routes to appropriate display mode based on panel's DisplayState.
+    /// Routes to appropriate display mode based on panel's DisplayState. Center vs RightDock
+    /// placement is resolved from the panel's <see cref="IPanelPlacement.PreferredZone"/>.
     /// </summary>
     private void OnPanelShowRequested(object? sender, EventArgs e)
     {
@@ -1236,80 +1328,36 @@ public partial class MainWindow : Window
         switch (panel.DisplayState)
         {
             case PanelDisplayState.Panel:
-                if (IsCenterPanel(panel))
-                    ShowCenterPanelInTab(panel);
+                if (panel is IPanelPlacement placement
+                    && placement.PreferredZone == PanelZone.Center
+                    && _viewModel.SelectedTab is TerminalPairTabViewModel centerTab)
+                {
+                    centerTab.SetPanel(panel);
+                    centerTab.ShowCenterPanel(panel);
+                }
                 else
+                {
                     ShowPanelInTab(panel);
+                }
                 break;
 
             case PanelDisplayState.Window:
-                // Show in window
-                _panelWindowManager?.ShowWindow(panel, OnPanelWindowDockRequested);
+                _panelRouter?.Show(panel, new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
                 break;
         }
     }
 
     /// <summary>
-    /// Shows a panel in the current tab's right sidebar area.
+    /// Shows a panel in the current tab's right sidebar area via the panel router.
     /// </summary>
     private void ShowPanelInTab(IPanelableViewModel panel)
     {
         if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
         {
             currentTab.SetPanel(panel);
-            currentTab.ShowPanel(panel);
+            currentTab.ForceShowRightDockPanel(panel);
         }
     }
-
-    /// <summary>
-    /// Shows a panel in the current tab's center area, replacing terminals.
-    /// If the panel is currently in a window, focuses the window instead.
-    /// </summary>
-    private void ShowCenterPanelInTab(IPanelableViewModel panel)
-    {
-        if (panel.DisplayState == PanelDisplayState.Window)
-        {
-            _panelWindowManager?.GetWindow(panel.PanelId)?.Activate();
-            return;
-        }
-
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab)
-        {
-            currentTab.SetPanel(panel);
-            currentTab.ShowCenterPanel(panel);
-        }
-    }
-
-    /// <summary>
-    /// Generic handler for panel dock requests from windows.
-    /// </summary>
-    private void OnPanelWindowDockRequested(IPanelableViewModel panel)
-    {
-        _panelWindowManager?.CloseWindow(panel.PanelId);
-        panel.DisplayState = PanelDisplayState.Panel;
-
-        // Check if this is a center-type panel that should return to center
-        if (_viewModel.SelectedTab is TerminalPairTabViewModel currentTab && currentTab.ActiveCenterPanel == null && IsCenterPanel(panel))
-        {
-            currentTab.SetPanel(panel);
-            currentTab.ShowCenterPanel(panel);
-        }
-        else
-        {
-            ShowPanelInTab(panel);
-        }
-    }
-
-    /// <summary>
-    /// Determines if a panel is typically shown in the center area.
-    /// </summary>
-    private static bool IsCenterPanel(IPanelableViewModel panel) => panel.PanelId switch
-    {
-        "unifiedGit" or "branchComparison" or "searchFiles" or "markdownPreview"
-            or "fileViewer" or "prReview" or "testResults" or "recentFeatures"
-            or "mergeConflict" or "fileHistory" or "fileBlame" or "debugLog" => true,
-        _ => false
-    };
 
     #endregion
 
@@ -1333,13 +1381,13 @@ public partial class MainWindow : Window
             // If in window state, close the window
             if (_gitFilesViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _panelWindowManager?.CloseWindow(_gitFilesViewModel.PanelId);
+                _panelRouter?.Close(_gitFilesViewModel.PanelId);
                 _gitFilesViewModel.IsOpen = false;
                 return;
             }
 
             // Otherwise, toggle the docked panel (handles focus/visibility)
-            currentTab.TogglePanel(_gitFilesViewModel);
+            currentTab.ShowRightDockPanel(_gitFilesViewModel);
             return;
         }
 
@@ -1372,101 +1420,10 @@ public partial class MainWindow : Window
         await OpenUnifiedGitPanelAsync(tab);
     }
 
-    private async void OnCenterPanelRestoreRequested(object? sender, CenterPanelRestoreEventArgs e)
-    {
-        if (e.Tab is not TerminalPairTabViewModel tab) return;
-
-        // Helper: associate panel with tab and mark it as the active center panel.
-        // When SkipDataLoad is true (non-selected tabs during startup), skip async data loading
-        // to avoid race conditions with singleton panel ViewModels. Data loads on demand
-        // when the user switches to the tab (via OnViewModelPropertyChanged rebind).
-        void AssociateOnly(IPanelableViewModel panel)
-        {
-            tab.SetPanel(panel);
-            tab.ShowCenterPanel(panel);
-        }
-
-        switch (e.PanelId)
-        {
-            case "unifiedGit":
-                var gitTab = GitPanelTab.Changes;
-                if (e.GitPanelActiveTab != null && Enum.TryParse<GitPanelTab>(e.GitPanelActiveTab, out var parsedTab))
-                {
-                    gitTab = parsedTab;
-                }
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_unifiedGitPanelViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_unifiedGitPanelViewModel);
-                    await _unifiedGitPanelViewModel.OpenOnTabAsync(tab, gitTab);
-                    tab.ShowCenterPanel(_unifiedGitPanelViewModel);
-                }
-                break;
-            case "branchComparison":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_branchComparisonViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_branchComparisonViewModel);
-                    await _branchComparisonViewModel.OpenAsync(tab);
-                    tab.ShowCenterPanel(_branchComparisonViewModel);
-                }
-                break;
-            case "searchFiles":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_searchAcrossFilesViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_searchAcrossFilesViewModel);
-                    await _searchAcrossFilesViewModel.OpenAsync(tab);
-                    tab.ShowCenterPanel(_searchAcrossFilesViewModel);
-                }
-                break;
-            case "markdownPreview":
-                tab.SetPanel(_markdownPreviewViewModel);
-                _markdownPreviewViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_markdownPreviewViewModel);
-                break;
-            case "fileViewer":
-                tab.SetPanel(_fileViewerViewModel);
-                _fileViewerViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_fileViewerViewModel);
-                break;
-            case "prReview":
-                if (e.SkipDataLoad)
-                {
-                    AssociateOnly(_prReviewViewModel);
-                }
-                else
-                {
-                    tab.SetPanel(_prReviewViewModel);
-                    await _prReviewViewModel.OpenAsync(tab.WorkingDirectory);
-                    tab.ShowCenterPanel(_prReviewViewModel);
-                }
-                break;
-            case "testResults":
-                tab.SetPanel(_testResultsViewModel);
-                _testResultsViewModel.IsOpen = true;
-                tab.ShowCenterPanel(_testResultsViewModel);
-                break;
-            case "recentFeatures":
-                tab.SetPanel(_recentFeaturesViewModel);
-                _recentFeaturesViewModel.OnOpened();
-                tab.ShowCenterPanel(_recentFeaturesViewModel);
-                break;
-        }
-    }
-
     private void OnRightPanelRestoreRequested(object? sender, RightPanelRestoreEventArgs e)
     {
-        // Map panel IDs to ViewModel instances
+        // Map every known singleton panel id to its VM. The same switch drives pre-registration
+        // (next loop) so there is one list to keep in sync.
         IPanelableViewModel? GetPanelById(string panelId) => panelId switch
         {
             "fileExplorer" => e.Tab.ExplorerPanelViewModel,
@@ -1475,34 +1432,45 @@ public partial class MainWindow : Window
             "scratchPad" => _scratchPadViewModel,
             "gitChanges" => _gitFilesViewModel,
             "sessionsTree" => _sessionsTreePanelViewModel,
+            "unifiedGit" => _unifiedGitPanelViewModel,
+            "branchComparison" => _branchComparisonViewModel,
+            "searchFiles" => _searchAcrossFilesViewModel,
+            "markdownPreview" => _markdownPreviewViewModel,
+            "fileViewer" => _fileViewerViewModel,
+            "prReview" => _prReviewViewModel,
+            "testResults" => _testResultsViewModel,
+            "recentFeatures" => _recentFeaturesViewModel,
+            "mergeConflict" => _mergeConflictViewModel,
+            "fileHistory" => _fileHistoryViewModel,
+            "fileBlame" => _fileBlameViewModel,
+            "debugLog" => _debugLogViewModel,
             _ => null
         };
 
-        foreach (var panelId in e.PanelIds)
+        // Pre-register every known singleton VM so the router's resolver can find them during
+        // RestoreTabPanels regardless of which zone the persisted entry lands in. Cheap — these
+        // are all singletons and SetPanel is idempotent.
+        foreach (var panelId in KnownPanelIds)
         {
             var panel = GetPanelById(panelId);
             if (panel != null)
-            {
                 e.Tab.SetPanel(panel);
-                panel.IsOpen = true;
-                e.Tab.AddPanel(panel, PanelSide.Right);
-            }
         }
 
-        if (e.ActivePanelId != null)
-        {
-            var activePanel = GetPanelById(e.ActivePanelId);
-            if (activePanel != null)
-            {
-                e.Tab.ActiveRightPanel = activePanel;
-            }
-        }
-
-        if (e.PanelIds.Count > 0)
-        {
-            e.Tab.IsExplorerVisible = true;
-        }
+        // Replay persisted tab-scope state (RightDock + Center) through the router; the router
+        // calls Show on each entry which mounts via the tab's surfaces and updates persistence.
+        // OnOpenedAsync is suppressed during Restore — the selected tab is hydrated explicitly
+        // after the restore loop in MainViewModel.RestoreOpenFolders.
+        e.Tab.RestoreTabPanels();
     }
+
+    private static readonly string[] KnownPanelIds =
+    [
+        "fileExplorer", "claudeTasks", "detectedLinks", "scratchPad", "gitChanges", "sessionsTree",
+        "unifiedGit", "branchComparison", "searchFiles", "markdownPreview", "fileViewer",
+        "prReview", "testResults", "recentFeatures", "mergeConflict", "fileHistory", "fileBlame",
+        "debugLog"
+    ];
 
     #endregion
 
@@ -1524,13 +1492,13 @@ public partial class MainWindow : Window
             // If in window state, close the window
             if (_scratchPadViewModel.DisplayState == PanelDisplayState.Window)
             {
-                _panelWindowManager?.CloseWindow(_scratchPadViewModel.PanelId);
+                _panelRouter?.Close(_scratchPadViewModel.PanelId);
                 _scratchPadViewModel.IsOpen = false;
                 return;
             }
 
             // Otherwise, toggle the panel (handles focus/visibility)
-            currentTab?.TogglePanel(_scratchPadViewModel);
+            currentTab?.ShowRightDockPanel(_scratchPadViewModel);
             return;
         }
 
@@ -1556,7 +1524,7 @@ public partial class MainWindow : Window
         if (_claudeTasksPanelViewModel.IsOpen)
         {
             _claudeTasksPanelViewModel.OnOpened();
-            currentTab.TogglePanel(_claudeTasksPanelViewModel);
+            currentTab.ShowRightDockPanel(_claudeTasksPanelViewModel);
         }
         else
         {
@@ -1576,34 +1544,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Syncs the shared Sessions panel across every open terminal-pair tab
-    /// when the global ShowSessionsPanel flag flips.
+    /// Routes the single global Sessions panel to (RightDock, AppShell) when the global
+    /// ShowSessionsPanel flag flips. The controller is idempotent and keeps Sessions on exactly one
+    /// surface, so tab switches can never relocate it (#77).
     /// </summary>
     private void OnSessionsPanelVisibilityChanged(object? sender, bool isVisible)
     {
-        if (isVisible)
-        {
-            _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
-            _sessionsTreePanelViewModel.Open();
-        }
-
-        foreach (var tab in _viewModel.Tabs.OfType<TerminalPairTabViewModel>())
-        {
-            tab.SetPanel(_sessionsTreePanelViewModel);
-            if (isVisible)
-            {
-                tab.ShowPanel(_sessionsTreePanelViewModel);
-            }
-            else
-            {
-                tab.HidePanel(_sessionsTreePanelViewModel);
-            }
-        }
-
-        if (!isVisible)
-        {
-            _sessionsTreePanelViewModel.IsOpen = false;
-        }
+        if (isVisible) _sessionsTreePanelViewModel.DisplayState = PanelDisplayState.Panel;
+        _sessionsPanelController?.SetVisible(isVisible);
     }
 
     #endregion
@@ -1891,14 +1839,15 @@ public partial class MainWindow : Window
             currentTab.SetPanel(_markdownPreviewViewModel);
             _markdownPreviewViewModel.DisplayState = PanelDisplayState.Panel;
             await _markdownPreviewViewModel.OpenAsync(mdPath);
-            currentTab.ShowPanel(_markdownPreviewViewModel);
+            currentTab.ForceShowRightDockPanel(_markdownPreviewViewModel);
             return;
         }
 
         // State 2: MarkdownPreview is open in sidebar → close it
-        if (_markdownPreviewViewModel.IsOpen && currentTab.RightPanels.Contains(_markdownPreviewViewModel))
+        if (_markdownPreviewViewModel.IsOpen && _panelRouter?.IsOpen(_markdownPreviewViewModel.PanelId) == true
+            && _markdownPreviewViewModel.DisplayState == PanelDisplayState.Panel)
         {
-            currentTab.TogglePanel(_markdownPreviewViewModel);
+            currentTab.ShowRightDockPanel(_markdownPreviewViewModel);
             return;
         }
 
@@ -1912,7 +1861,7 @@ public partial class MainWindow : Window
         // State 2c: MarkdownPreview is in window state → close the window
         if (_markdownPreviewViewModel.IsOpen && _markdownPreviewViewModel.DisplayState == PanelDisplayState.Window)
         {
-            _panelWindowManager?.CloseWindow(_markdownPreviewViewModel.PanelId);
+            _panelRouter?.Close(_markdownPreviewViewModel.PanelId);
             _markdownPreviewViewModel.OnWindowClosed();
             return;
         }
@@ -1968,7 +1917,7 @@ public partial class MainWindow : Window
         // If the file viewer is in a window, just focus it — Open() already updated the VM
         if (_fileViewerViewModel.DisplayState == PanelDisplayState.Window)
         {
-            _panelWindowManager?.GetWindow(_fileViewerViewModel.PanelId)?.Activate();
+            _windowSurface?.Focus(_fileViewerViewModel.PanelId);
             return;
         }
 
@@ -2002,7 +1951,6 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrEmpty(filePath))
         {
-            // Create a new FileViewerViewModel for the detached window
             var detachedViewModel = new FileViewerViewModel(
                 App.Current.Services.GetRequiredService<IFilePreviewService>(),
                 App.Current.Services.GetRequiredService<IFileEditService>(),
@@ -2010,11 +1958,11 @@ public partial class MainWindow : Window
                 App.Current.Services.GetRequiredService<IDialogService>(),
                 App.Current.Services.GetRequiredService<IMarkdownService>(),
                 App.Current.Services.GetRequiredService<ITimerService>());
-            detachedViewModel.IsDetached = true;
+            detachedViewModel.MakeStandalone();
             detachedViewModel.Open(filePath, mode);
 
-            var window = new Views.FileViewerWindow { DataContext = detachedViewModel };
-            window.Show();
+            _panelRouter?.Show(detachedViewModel,
+                new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
         }
     }
 
@@ -2367,12 +2315,6 @@ public partial class MainWindow : Window
             foreach (var tab in e.NewItems.OfType<TerminalPairTabViewModel>())
             {
                 tab.PropertyChanged += OnAnyTerminalTabPropertyChanged;
-                // New tab must respect the global Sessions panel flag (#77).
-                if (_viewModel.ShowSessionsPanel)
-                {
-                    tab.SetPanel(_sessionsTreePanelViewModel);
-                    tab.ShowPanel(_sessionsTreePanelViewModel);
-                }
             }
         }
         if (e.OldItems != null)

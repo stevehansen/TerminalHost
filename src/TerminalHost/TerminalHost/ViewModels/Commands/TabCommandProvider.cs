@@ -56,7 +56,7 @@ internal sealed class TabCommandProvider : ICommandProvider
                 Icon = "\U0001F50D",
                 Category = "Tab",
                 IntroducedOn = new DateOnly(2025, 12, 13),
-                Execute = () => { _vm.IsTabSwitcherOpen = true; _vm.SwitcherSearchText = ""; }
+                Execute = () => _vm.OpenTabSwitcherCommand.Execute(null)
             },
             new() {
                 Id = "duplicate-tab",

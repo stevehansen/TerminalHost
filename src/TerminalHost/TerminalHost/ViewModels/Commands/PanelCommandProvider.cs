@@ -121,6 +121,15 @@ internal sealed class PanelCommandProvider : ICommandProvider
                 IntroducedOn = new DateOnly(2026, 4, 8),
                 Execute = () => _vm.RequestDebugLog(),
                 CanExecute = () => _vm.SelectedTab is TerminalPairTabViewModel
+            },
+            new() {
+                Id = "debug-dump-panel-state",
+                Name = "Debug: Dump Panel State",
+                Description = "Copy a snapshot of the panel router (surfaces, registrations, active map) to the clipboard. For diagnosing dock/popup/window desync.",
+                Icon = "\U0001F50D",
+                Category = "Tools",
+                IntroducedOn = new DateOnly(2026, 5, 24),
+                Execute = () => _vm.DumpPanelDiagnostics()
             }
         ];
     }

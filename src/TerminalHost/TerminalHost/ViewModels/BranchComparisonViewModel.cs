@@ -12,8 +12,17 @@ namespace TerminalHost.ViewModels;
 /// ViewModel for Branch Comparison panel.
 /// Allows comparing two branches to see commits and files that differ.
 /// </summary>
-public partial class BranchComparisonViewModel : BasePanelViewModel
+public partial class BranchComparisonViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    public Task OnOpenedAsync(object? context)
+    {
+        if (context is TerminalPairTabViewModel tab)
+            return OpenAsync(tab);
+        return Task.CompletedTask;
+    }
+
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IToastService _toastService;

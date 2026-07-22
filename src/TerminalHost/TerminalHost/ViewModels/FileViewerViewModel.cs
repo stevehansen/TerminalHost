@@ -6,14 +6,17 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TerminalHost.Core.Domain;
 using TerminalHost.Core.Interfaces;
 using TerminalHost.Core.ViewModels;
 using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class FileViewerViewModel : BasePanelViewModel
+public partial class FileViewerViewModel : BasePanelViewModel, IPanelCloseGuard, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly IFilePreviewService _filePreviewService;
     private readonly IFileEditService _fileEditService;
     private readonly IFileSystem _fileSystem;
@@ -34,7 +37,26 @@ public partial class FileViewerViewModel : BasePanelViewModel
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif"
     };
 
-    public override string PanelId => "fileViewer";
+    private string _panelId = "fileViewer";
+    public override string PanelId => _panelId;
+
+    /// <summary>
+    /// Promotes this viewer to a standalone panel with a unique <see cref="PanelId"/>. Detached /
+    /// popped-out viewers must NOT share "fileViewer" with the singleton center viewer (or each
+    /// other): a shared id keys every window under one entry, so a panelId-based close/unmount can
+    /// hit the wrong window — closing one popout would close a sibling that's still open. Each
+    /// standalone viewer becomes its own single-instance panel instead. Call once, immediately after
+    /// construction, before showing.
+    /// </summary>
+    public void MakeStandalone()
+    {
+        // Promotion must happen before the viewer is registered/shown — the router tracks and
+        // persists by PanelId, so mutating it after registration would desync. Fail fast on a
+        // second call rather than silently changing identity out from under the router.
+        if (_panelId != "fileViewer")
+            throw new InvalidOperationException("MakeStandalone() may only be called once, before the viewer is shown.");
+        _panelId = "fileViewer:" + Guid.NewGuid().ToString("n");
+    }
     public override string PanelTitle => Title;
     public override string PanelIcon => "📄";
     public override PanelSizePreset SizePreset => PanelSizePreset.Large;
@@ -73,9 +95,6 @@ public partial class FileViewerViewModel : BasePanelViewModel
 
     [ObservableProperty]
     private FileViewerMode _mode = FileViewerMode.Preview;
-
-    [ObservableProperty]
-    private bool _isDetached;
 
     // Image mode
     [ObservableProperty]
@@ -538,16 +557,19 @@ public partial class FileViewerViewModel : BasePanelViewModel
         Open(_currentFilePath, Mode);
     }
 
+    public bool CanClose()
+    {
+        if (!IsModified || IsImageMode) return true;
+        if (Mode != FileViewerMode.Edit && Mode != FileViewerMode.SideBySide) return true;
+        return _dialogService.ShowConfirmation(
+            "You have unsaved changes. Close without saving?",
+            "Unsaved Changes");
+    }
+
     [RelayCommand]
     public void Close()
     {
-        if (IsModified && (Mode == FileViewerMode.Edit || Mode == FileViewerMode.SideBySide) && !IsImageMode)
-        {
-            if (!_dialogService.ShowConfirmation(
-                "You have unsaved changes. Close without saving?",
-                "Unsaved Changes"))
-                return;
-        }
+        if (!CanClose()) return;
 
         IsOpen = false;
         _currentFilePath = null;

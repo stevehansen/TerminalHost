@@ -104,6 +104,14 @@ public partial class FileExplorerView : UserControl
         }
     }
 
+    private void ContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        // ContextMenu is in its own popup tree and doesn't inherit the host UserControl's
+        // DataContext; set it explicitly so the MenuItems' Command bindings resolve.
+        if (sender is ContextMenu contextMenu)
+            contextMenu.DataContext = ViewModel;
+    }
+
     private void FileTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         // Select the item under the mouse before showing context menu
@@ -118,16 +126,6 @@ public partial class FileExplorerView : UserControl
                 treeViewItem.IsSelected = true;
                 // Don't set e.Handled = true, let the context menu show
             }
-        }
-    }
-
-    private void ContextMenu_Opened(object sender, RoutedEventArgs e)
-    {
-        // Set the context menu's DataContext to the ViewModel
-        // This is needed because context menus are not in the visual tree
-        if (sender is ContextMenu contextMenu)
-        {
-            contextMenu.DataContext = ViewModel;
         }
     }
 

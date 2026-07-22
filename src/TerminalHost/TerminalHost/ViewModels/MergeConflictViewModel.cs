@@ -8,8 +8,17 @@ using TerminalHost.Services;
 
 namespace TerminalHost.ViewModels;
 
-public partial class MergeConflictViewModel : BasePanelViewModel
+public partial class MergeConflictViewModel : BasePanelViewModel, IPanelPlacement, IPanelOpenContext
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
+    public Task OnOpenedAsync(object? context)
+    {
+        if (context is TerminalPairTabViewModel tab)
+            return OpenAsync(tab);
+        return Task.CompletedTask;
+    }
+
     private readonly IGitStatusService _gitStatusService;
     private readonly IDialogService _dialogService;
     private readonly IFileSystem _fileSystem;

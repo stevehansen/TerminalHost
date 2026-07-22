@@ -15,6 +15,7 @@ public class TabFactoryTests
     private readonly Mock<IGitStatusService> _gitStatus = new();
     private readonly Mock<IToastService> _toasts = new();
     private readonly Mock<ITaskService> _tasks = new();
+    private readonly Mock<IPanelRouter> _panelRouter = new();
 
     public TabFactoryTests()
     {
@@ -40,6 +41,7 @@ public class TabFactoryTests
         services.AddSingleton(_statistics.Object);
         services.AddSingleton(_gitStatus.Object);
         services.AddSingleton(_toasts.Object);
+        services.AddSingleton(_panelRouter.Object);
         if (registerTaskService) services.AddSingleton(_tasks.Object);
         return new TabFactory(services.BuildServiceProvider());
     }

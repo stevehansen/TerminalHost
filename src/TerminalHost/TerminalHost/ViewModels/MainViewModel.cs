@@ -49,10 +49,10 @@ public partial class MainViewModel : ObservableObject
     private readonly IContainerConfiguration? _containerConfig;
     private readonly IApiStateProjector _apiStateProjector;
     private readonly ITerminalProfilesBuilder _profilesBuilder;
-    private readonly ITabRestoreCoordinator _restoreCoordinator;
     private readonly ExplorerEventRouter _explorerRouter;
     private readonly LinkClickHandler _linkClickHandler;
     private readonly TabRouter _router;
+    private readonly IPanelRouter? _panelRouter;
 
     private readonly IProjectMonitor _projectMonitor;
     private readonly IDirectorySettingsStore _directorySettings;
@@ -169,27 +169,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<QuickCommand> _quickCommands = [];
 
-    [ObservableProperty]
-    private string _dropdownSearchText = "";
-
-    private ObservableCollection<ITabViewModel> _filteredDropdownTabs = [];
-    public ReadOnlyObservableCollection<ITabViewModel> FilteredDropdownTabs { get; }
-
-    [ObservableProperty]
-    private bool _isTabDropdownOpen;
-
-    [ObservableProperty]
-    private string _switcherSearchText = "";
-
-    private ObservableCollection<ITabViewModel> _filteredSwitcherTabs = [];
-    public ReadOnlyObservableCollection<ITabViewModel> FilteredSwitcherTabs { get; }
-
-    [ObservableProperty]
-    private bool _isTabSwitcherOpen;
-
-    [ObservableProperty]
-    private bool _isHelpOpen;
-
     /// <summary>
     /// Whether touch-friendly mode is enabled for larger touch targets and padding.
     /// </summary>
@@ -208,9 +187,6 @@ public partial class MainViewModel : ObservableObject
     /// Command palette ViewModel (open/close state, search, filtered list, MRU).
     /// </summary>
     public CommandPaletteViewModel Palette { get; }
-
-    // Help
-    public HelpViewModel HelpViewModel { get; }
 
     public event EventHandler? ConfigReloaded;
     public event EventHandler<FilePreviewRequestedEventArgs>? FilePreviewRequested;
@@ -274,10 +250,11 @@ public partial class MainViewModel : ObservableObject
         IContainerConfiguration? containerConfig = null,
         IApiStateProjector? apiStateProjector = null,
         ITerminalProfilesBuilder? profilesBuilder = null,
-        ITabRestoreCoordinator? restoreCoordinator = null,
         ExplorerEventRouter? explorerRouter = null,
-        LinkClickHandler? linkClickHandler = null)
+        LinkClickHandler? linkClickHandler = null,
+        IPanelRouter? panelRouter = null)
     {
+        _panelRouter = panelRouter;
         _profileRegistry = profileRegistry;
         _sessionManager = sessionManager;
         _terminalFactory = terminalFactory;
@@ -311,8 +288,6 @@ public partial class MainViewModel : ObservableObject
         _containerConfig = containerConfig;
         _apiStateProjector = apiStateProjector ?? new ApiStateProjector();
         _profilesBuilder = profilesBuilder ?? new TerminalProfilesBuilder(containerService);
-        _restoreCoordinator = restoreCoordinator ?? new TabRestoreCoordinator();
-        _restoreCoordinator.RestoreRequested += (s, e) => CenterPanelRestoreRequested?.Invoke(this, e);
         _explorerRouter = explorerRouter ?? new ExplorerEventRouter();
         _explorerRouter.FilePreviewRequested += (s, e) => FilePreviewRequested?.Invoke(this, e);
         _explorerRouter.FileHistoryRequested += (s, e) => FileHistoryRequested?.Invoke(this, e);
@@ -354,9 +329,6 @@ public partial class MainViewModel : ObservableObject
                 if (e.IsFatal) VoiceBar.Cancel();
             };
         }
-
-        // Initialize help view model
-        HelpViewModel = new HelpViewModel(this);
 
         // Cache settings reference for command palette NameProvider lambdas
         _cachedSettings = configService.Load().Settings;
@@ -411,12 +383,6 @@ public partial class MainViewModel : ObservableObject
                 tab.CloseRequested += OnTabCloseRequested;
                 tab.PopOutRequested += OnTimelinePopOutRequested;
             });
-
-        FilteredDropdownTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredDropdownTabs);
-        UpdateFilteredDropdownTabs(); // Initial population
-
-        FilteredSwitcherTabs = new ReadOnlyObservableCollection<ITabViewModel>(_filteredSwitcherTabs);
-        UpdateFilteredSwitcherTabs(); // Initial population
 
         using (StartupProfiler.Instance.Measure("InitializeCommandPalette"))
         {
@@ -484,16 +450,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnDropdownSearchTextChanged(string value)
-    {
-        UpdateFilteredDropdownTabs();
-    }
-
-    partial void OnSwitcherSearchTextChanged(string value)
-    {
-        UpdateFilteredSwitcherTabs();
-    }
-
     private void OnWorkspaceSelectedTabChanged(object? sender, TabSelectionChangedEventArgs e)
     {
         var oldValue = e.OldValue;
@@ -546,14 +502,11 @@ public partial class MainViewModel : ObservableObject
             _focusedTabDirectory = null;
         }
 
-        // If the selected tab changes, and the dropdown is open, close it.
-        if (IsTabDropdownOpen && newValue != null)
+        // If the selected tab changes, close any open transient tab pickers.
+        if (newValue != null)
         {
-            IsTabDropdownOpen = false;
-        }
-        if (IsTabSwitcherOpen && newValue != null)
-        {
-            IsTabSwitcherOpen = false;
+            _panelRouter?.Close("tabDropdown");
+            _panelRouter?.Close("tabSwitcher");
         }
 
         if (newValue != null)
@@ -577,68 +530,6 @@ public partial class MainViewModel : ObservableObject
         else
         {
             WorkspaceSidebar?.UpdateCurrentTab(null);
-        }
-    }
-
-    partial void OnIsTabDropdownOpenChanged(bool value)
-    {
-        if (value)
-        {
-            DropdownSearchText = "";
-            UpdateFilteredDropdownTabs();
-        }
-    }
-
-    partial void OnIsTabSwitcherOpenChanged(bool value)
-    {
-        if (value)
-        {
-            SwitcherSearchText = "";
-            UpdateFilteredSwitcherTabs();
-        }
-    }
-
-    private void UpdateFilteredDropdownTabs()
-    {
-        _filteredDropdownTabs.Clear();
-        if (string.IsNullOrEmpty(DropdownSearchText))
-        {
-            foreach (var tab in Tabs)
-            {
-                _filteredDropdownTabs.Add(tab);
-            }
-        }
-        else
-        {
-            var searchText = DropdownSearchText.ToLower();
-            foreach (var tab in Tabs.Where(t =>
-                t.Title.ToLower().Contains(searchText) ||
-                t.WorkingDirectory.ToLower().Contains(searchText)))
-            {
-                _filteredDropdownTabs.Add(tab);
-            }
-        }
-    }
-
-    private void UpdateFilteredSwitcherTabs()
-    {
-        _filteredSwitcherTabs.Clear();
-        if (string.IsNullOrEmpty(SwitcherSearchText))
-        {
-            foreach (var tab in Tabs)
-            {
-                _filteredSwitcherTabs.Add(tab);
-            }
-        }
-        else
-        {
-            var searchText = SwitcherSearchText.ToLower();
-            foreach (var tab in Tabs.Where(t =>
-                t.Title.ToLower().Contains(searchText) ||
-                t.WorkingDirectory.ToLower().Contains(searchText)))
-            {
-                _filteredSwitcherTabs.Add(tab);
-            }
         }
     }
 
@@ -1020,11 +911,6 @@ public partial class MainViewModel : ObservableObject
             OpenTimeline();
         }
 
-        // Defer center panel restores until the correct SelectedTab is set.
-        // Without this, multiple tabs fire async restores for singleton panel VMs
-        // and the last one to complete wins — which may not be the selected tab.
-        _restoreCoordinator.BeginBatch();
-
         var sp = StartupProfiler.Instance;
 
         // Pre-build directory settings lookup from the already-loaded config
@@ -1077,7 +963,13 @@ public partial class MainViewModel : ObservableObject
             SelectedTab = tabToSelect;
         }
 
-        _restoreCoordinator.EndBatch(SelectedTab);
+        // Hydrate the SELECTED tab's active center panel only — non-selected tabs are
+        // placed-but-not-hydrated to avoid singleton-panel-VM races during the 60-tab restore.
+        // Data loads on demand when the user switches to a non-selected tab.
+        if (SelectedTab is TerminalPairTabViewModel selectedTerminalTab)
+        {
+            _ = selectedTerminalTab.HydrateActiveCenterPanelAsync();
+        }
     }
 
     /// <summary>
@@ -1307,25 +1199,17 @@ public partial class MainViewModel : ObservableObject
                 SelectedTab = tabViewModel;
             }
 
-            // Restore center panel state (fires event for MainWindow to handle)
-            if (dirSettings?.ActiveCenterPanel != null)
-            {
-                var restoreArgs = new CenterPanelRestoreEventArgs
-                {
-                    Tab = tabViewModel,
-                    PanelId = dirSettings.ActiveCenterPanel,
-                    GitPanelActiveTab = dirSettings.GitPanelActiveTab
-                };
-                _restoreCoordinator.Request(restoreArgs);
-            }
-
-            // Restore right sidebar panel state
-            if (dirSettings?.OpenRightPanels?.Count > 0)
+            // Restore right-sidebar and center panel state. The event fires whenever the tab
+            // has any persisted tab-scope entries (RightDock OR Center); the host registers
+            // singleton panel VMs then calls tab.RestoreTabPanels() which replays both zones
+            // through the router via DirectorySettingsPanelPersistence.
+            if (dirSettings?.OpenRightPanels?.Count > 0
+                || !string.IsNullOrEmpty(dirSettings?.ActiveCenterPanel))
             {
                 RightPanelRestoreRequested?.Invoke(this, new RightPanelRestoreEventArgs
                 {
                     Tab = tabViewModel,
-                    PanelIds = dirSettings.OpenRightPanels,
+                    PanelIds = dirSettings.OpenRightPanels ?? [],
                     ActivePanelId = dirSettings.ActiveRightPanel
                 });
             }
@@ -1672,16 +1556,30 @@ public partial class MainViewModel : ObservableObject
 
     private void OnExplorerPopOutRequested(object? sender, FileViewerRequestedEventArgs e)
     {
-        // Create a detached file viewer window
-        var viewer = _viewModelFactory.CreateFileViewer(isDetached: true);
+        var viewer = _viewModelFactory.CreateFileViewer();
+        // Unique PanelId: each popout is its own single-instance panel, so closing one window can
+        // never close a sibling (the shared "fileViewer" id keyed every popout window together).
+        viewer.MakeStandalone();
         viewer.Open(e.FilePath, e.Mode);
 
-        // Create and show the window
-        var window = new Views.FileViewerWindow
+        // AppShell scope (default): a free-floating popout has no tab home. Dock-back routes the file
+        // into the active tab's Center viewer (handler below) and the router gracefully closes this window.
+        _panelRouter?.Show(viewer,
+            new PanelShowOptions(Zone: PanelZone.Window, ForceShow: true));
+
+        // Clicking "Dock" on the popout: route the file into the active tab's shared Center
+        // viewer (the popout itself cannot dock — same PanelId conflicts with the singleton).
+        // The router's graceful close fires alongside this handler and removes the popout window.
+        viewer.StateChangeRequested += (_, args) =>
         {
-            DataContext = viewer
+            if (args.RequestedState != PanelDisplayState.Panel) return;
+            if (string.IsNullOrEmpty(viewer.FilePath)) return;
+            FilePreviewRequested?.Invoke(this, new FilePreviewRequestedEventArgs
+            {
+                FilePath = viewer.FilePath,
+                OpenInEditMode = viewer.Mode == FileViewerMode.Edit
+            });
         };
-        window.Show();
     }
 
     private async void OnExplorerRenameRequested(object? sender, FileSystemNode node)
@@ -1967,7 +1865,9 @@ public partial class MainViewModel : ObservableObject
     public event EventHandler? PrReviewRequested;
     public event EventHandler? MarkdownPreviewRequested;
     public event EventHandler<GitPanelTab>? UnifiedGitPanelRequested;
-    public event EventHandler<CenterPanelRestoreEventArgs>? CenterPanelRestoreRequested;
+    // Fires when a tab has any persisted tab-scope panel entries (Center or RightDock).
+    // The host registers the relevant singleton panel VMs onto the tab and then calls
+    // tab.RestoreTabPanels() to replay both zones through the router.
     public event EventHandler<RightPanelRestoreEventArgs>? RightPanelRestoreRequested;
     public event EventHandler? ReflogRequested;
     public event EventHandler? RepositorySwitcherRequested;
@@ -2038,6 +1938,32 @@ public partial class MainViewModel : ObservableObject
     internal void RequestDebugLog() => DebugLogRequested?.Invoke(this, EventArgs.Empty);
     internal void RequestWhatsNew() => WhatsNewRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>
+    /// Diagnostic: dumps the panel router's state (surfaces, registrations, active map) to
+    /// the clipboard and writes to Debug output. Surfaced by the "Debug: Dump Panel State"
+    /// palette command. Intended for troubleshooting panel desync bugs.
+    /// </summary>
+    internal void DumpPanelDiagnostics()
+    {
+        if (_panelRouter is null)
+        {
+            _toastService.Show("Panel router not available", ToastType.Warning);
+            return;
+        }
+
+        var snapshot = _panelRouter.GetDiagnosticSnapshot();
+        System.Diagnostics.Debug.WriteLine(snapshot);
+        try
+        {
+            Clipboard.SetText(snapshot);
+            _toastService.Show($"Panel state copied to clipboard ({snapshot.Length} chars)", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show($"Snapshot written to Debug output ({snapshot.Length} chars); clipboard failed: {ex.Message}", ToastType.Warning);
+        }
+    }
+
     internal void InstallTimelineHooks()
     {
         if (_timelineService.InstallHooks())
@@ -2087,13 +2013,19 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenHelp()
     {
-        IsHelpOpen = true;
+        _panelRouter?.Show<HelpViewModel>();
     }
 
     [RelayCommand]
     private void OpenTabDropdown()
     {
-        IsTabDropdownOpen = true;
+        _panelRouter?.Show<TabDropdownViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenTabSwitcher()
+    {
+        _panelRouter?.Show<TabSwitcherViewModel>();
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenDetectedLinks))]
@@ -2110,7 +2042,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseHelp()
     {
-        IsHelpOpen = false;
+        _panelRouter?.Close("help");
     }
 
     // ── Container command helpers ───────────────────────────────────────

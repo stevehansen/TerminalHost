@@ -5,8 +5,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:TerminalHost"
              xmlns:vm="clr-namespace:TerminalHost.ViewModels"
-             mc:Ignorable="d" 
-             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             xmlns:corevm="clr-namespace:TerminalHost.Core.ViewModels;assembly=TerminalHost.Core"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance corevm:CommandPaletteViewModel}"
              d:DesignHeight="450" d:DesignWidth="750"
              PreviewKeyDown="UserControl_PreviewKeyDown">
     <Border Background="{StaticResource BackgroundDarkBrush}"
@@ -47,7 +48,7 @@
                                    FontSize="{StaticResource FontSizeNormal}"
                                    VerticalAlignment="Center"
                                    IsHitTestVisible="False"
-                                   Visibility="{Binding Palette.SearchText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
+                                   Visibility="{Binding SearchText, Converter={StaticResource NullToCollapsedConverter}, ConverterParameter=Invert}"/>
                         <TextBox x:Name="PaletteSearchBox"
                                  AutomationProperties.Name="Command Search"
                                  AutomationProperties.HelpText="Type to filter commands"
@@ -57,7 +58,7 @@
                                  BorderThickness="0"
                                  FontSize="{StaticResource FontSizeNormal}"
                                  VerticalAlignment="Center"
-                                 Text="{Binding Palette.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
                     <Button Grid.Column="2"
                             Content="×"
@@ -72,8 +73,8 @@
             <!-- Command List -->
             <ListBox x:Name="PaletteCommandList"
                      Grid.Row="1"
-                     ItemsSource="{Binding Palette.Filtered}"
-                     SelectedItem="{Binding Palette.Selected, Mode=TwoWay}"
+                     ItemsSource="{Binding Filtered}"
+                     SelectedItem="{Binding Selected, Mode=TwoWay}"
                      Background="{StaticResource BackgroundDarkBrush}"
                      BorderThickness="0"
                      MaxHeight="380"

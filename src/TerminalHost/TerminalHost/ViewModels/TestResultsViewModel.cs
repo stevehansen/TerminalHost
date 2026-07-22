@@ -12,8 +12,10 @@ namespace TerminalHost.ViewModels;
 /// <summary>
 /// ViewModel for the Test Results popup (F6).
 /// </summary>
-public partial class TestResultsViewModel : BasePanelViewModel
+public partial class TestResultsViewModel : BasePanelViewModel, IPanelPlacement
 {
+    public PanelZone PreferredZone => PanelZone.Center;
+
     private readonly ITestRunnerService _testRunnerService;
     private readonly IProjectDetectionService _projectDetectionService;
     private readonly MainViewModel _mainViewModel;

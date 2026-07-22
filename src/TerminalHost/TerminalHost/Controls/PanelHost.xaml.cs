@@ -112,18 +112,6 @@ public partial class PanelHost : UserControl
     /// </summary>
     public event EventHandler<IPanelableViewModel?>? ActivePanelChanged;
 
-    /// <summary>
-    /// Raised when the close button is clicked on a panel.
-    /// The parent should handle hiding/removing the panel.
-    /// </summary>
-    public event EventHandler<IPanelableViewModel>? PanelCloseRequested;
-
-    /// <summary>
-    /// Raised when the pop-out button is clicked on a panel.
-    /// The parent should handle transitioning to window mode.
-    /// </summary>
-    public event EventHandler<IPanelableViewModel>? PanelDetachRequested;
-
     private void RaiseActivePanelChanged()
     {
         ActivePanelChanged?.Invoke(this, ActivePanel);
@@ -139,24 +127,6 @@ public partial class PanelHost : UserControl
         {
             ActivePanel = panel;
             e.Handled = true;
-        }
-    }
-
-    private void PopOutButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (ActivePanel != null)
-        {
-            // Raise event for parent to handle
-            PanelDetachRequested?.Invoke(this, ActivePanel);
-        }
-    }
-
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (ActivePanel != null)
-        {
-            // Raise event for parent to handle
-            PanelCloseRequested?.Invoke(this, ActivePanel);
         }
     }
 
