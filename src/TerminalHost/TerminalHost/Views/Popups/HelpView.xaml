@@ -207,7 +207,7 @@
                     <TextBlock Foreground="{StaticResource TextDimmedBrush}"
                            FontSize="{StaticResource FontSizeTiny}"
                            VerticalAlignment="Center"
-                           Text="TerminalHost v1.0"/>
+                           Text="{Binding VersionString}"/>
                 </DockPanel>
             </Border>
         </Grid>

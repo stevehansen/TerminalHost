@@ -598,12 +598,13 @@ All specifications are documented in `docs/specs/`. Status legend:
 | [Panels.md](docs/specs/Panels.md) | Unified panel system (dock/popup/window states) | **Completed** | Panel transitions, .gitignore support |
 | [CrossPlatform.md](docs/specs/CrossPlatform.md) | Cross-platform support (Windows + macOS) | **Completed** | Core/Windows/macOS/Avalonia projects |
 | [Testing.md](docs/specs/Testing.md) | Unit tests (xUnit) and UI tests (FlaUI) strategy | **Partial** | Infrastructure done; coverage ongoing |
-| [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Draft** | Specified but not implemented |
+| [Versioning.md](docs/specs/Versioning.md) | Git tag versioning (MinVer) and auto-updates | **Partial** | MinVer landed via GitHubReleases.md PR; Updatum auto-update consumer not yet implemented |
 | [RestApiAndWebhooks.md](docs/specs/RestApiAndWebhooks.md) | REST API, SSE streaming, webhooks for external integration | **Partial** | Phases 1-3 complete; Phase 4 (Scriban) + Phase 5 (Write/MCP) remaining |
 | [CmdPalExtension.md](docs/specs/CmdPalExtension.md) | PowerToys Command Palette extension (dock band, workspace switcher, git status, tasks) | **Partial** | Phases 1-2 scaffolded; Phase 3-4 planned |
 | [ContainerizedWorkspaces.md](docs/specs/ContainerizedWorkspaces.md) | Docker-based isolated environments for AI agents with rw/ro volume mounts | **Partial** | Phase 1-3 complete; Phase 4 (advanced) planned |
 | [CollabSync.md](docs/specs/CollabSync.md) | Multi-device collaboration sync bridge (direct/tunnel/relay transports) | **Draft** | Spec complete; not yet implemented |
 | [AgenticMemory.md](docs/specs/AgenticMemory.md) | Agentic long-term memory via Eidet (REST client, Memory Browser, container MCP, settings) | **Completed** | `IEidetService` port with `HttpEidetService` adapter replaces TerminalHost.Memory. Eidet project: [github.com/stevehansen/eidet](https://github.com/stevehansen/eidet) |
+| [GitHubReleases.md](docs/specs/GitHubReleases.md) | GitHub Actions release pipeline producing Windows/macOS/Linux artifacts on tag push; bundles MinVer adoption | **Completed** | Five assets per release; unsigned v1; Updatum-compatible naming. macOS/Linux smoke-test deferred to first real tag |
 
 ## Remaining Work Summary
 

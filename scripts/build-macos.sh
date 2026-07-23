@@ -9,9 +9,14 @@ cd "$(dirname "$0")/.."
 # Configuration
 APP_NAME="TerminalHost"
 BUNDLE_ID="com.terminalhost.app"
-VERSION="1.0.0"
+VERSION="${VERSION:-1.0.0}"
 PROJECT_PATH="src/TerminalHost.Avalonia"
 OUTPUT_DIR="publish"
+
+# Plist-safe version: strip prerelease (-alpha.1) and build metadata (+sha)
+# CFBundleShortVersionString requires three integers, so e.g. 1.2.3-beta.1 -> 1.2.3
+PLIST_VERSION="${VERSION%%-*}"
+PLIST_VERSION="${PLIST_VERSION%%+*}"
 
 # Parse arguments
 CREATE_DMG=false
@@ -41,19 +46,29 @@ for arg in "$@"; do
     esac
 done
 
-# Determine architecture
-ARCH=$(uname -m)
-if [ "$ARCH" = "arm64" ]; then
-    RUNTIME="osx-arm64"
+# Determine architecture. Honor RUNTIME env var so CI can build both osx-arm64
+# and osx-x64 from a single Apple-Silicon runner via cross-publish.
+if [ -z "$RUNTIME" ]; then
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "arm64" ]; then
+        RUNTIME="osx-arm64"
+    else
+        RUNTIME="osx-x64"
+    fi
 else
-    RUNTIME="osx-x64"
+    case "$RUNTIME" in
+        osx-arm64) ARCH="arm64" ;;
+        osx-x64)   ARCH="x86_64" ;;
+        *) echo "Unsupported RUNTIME: $RUNTIME (expected osx-arm64 or osx-x64)"; exit 1 ;;
+    esac
 fi
 
 echo "Building TerminalHost for macOS ($ARCH)..."
 
 if [ "$SKIP_BUILD" = false ]; then
-    # Clean previous build
-    rm -rf "$OUTPUT_DIR"
+    # Clean only this run's artifacts so a second invocation for the other
+    # RID does not wipe a DMG already produced.
+    rm -rf "$OUTPUT_DIR/$RUNTIME" "$OUTPUT_DIR/${APP_NAME}.app" "$OUTPUT_DIR/dmg-temp"
 
     # Build the project
     echo "Publishing .NET project..."
@@ -90,9 +105,9 @@ else
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleVersion</key>
-    <string>${VERSION}</string>
+    <string>${PLIST_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>${VERSION}</string>
+    <string>${PLIST_VERSION}</string>
     <key>CFBundleExecutable</key>
     <string>host</string>
     <key>CFBundlePackageType</key>
@@ -154,7 +169,7 @@ if [ "$CREATE_DMG" = true ]; then
     echo ""
     echo "Creating DMG installer..."
 
-    DMG_NAME="${APP_NAME}-${VERSION}-${ARCH}.dmg"
+    DMG_NAME="host-avalonia_${RUNTIME}_v${VERSION}.dmg"
     DMG_PATH="$OUTPUT_DIR/$DMG_NAME"
     DMG_TEMP="$OUTPUT_DIR/dmg-temp"
 
