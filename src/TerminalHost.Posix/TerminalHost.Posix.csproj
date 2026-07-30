@@ -14,7 +14,7 @@
 
   <!-- Whisper.net for voice commands -->
   <ItemGroup>
-    <PackageReference Include="Whisper.net" Version="1.9.0" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
   </ItemGroup>
 
   <!-- Platform-specific Whisper runtime -->
