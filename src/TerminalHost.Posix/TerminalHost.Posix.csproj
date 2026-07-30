@@ -19,7 +19,7 @@
 
   <!-- Platform-specific Whisper runtime -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-    <PackageReference Include="Whisper.net.Runtime.CoreML" Version="1.9.0" />
+    <PackageReference Include="Whisper.net.Runtime.CoreML" Version="1.9.1" />
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
