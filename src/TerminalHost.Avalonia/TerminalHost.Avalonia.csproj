@@ -73,11 +73,11 @@
   <!-- NuGet Packages -->
   <ItemGroup>
     <!-- Avalonia UI Framework -->
-    <PackageReference Include="Avalonia" Version="11.3.16" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.16" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.16" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.16" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.16" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Avalonia" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" Condition="'$(Configuration)' == 'Debug'" />
 
     <!-- WebView (native WKWebView on macOS, MIT licensed) -->
     <PackageReference Include="WebView.Avalonia.Cross" Version="11.3.1" />
