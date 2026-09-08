@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.CommandPalette.Extensions" Version="0.9.260303001" />
     <PackageVersion Include="Shmuelie.WinRTServer" Version="2.2.1" />
-    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
   </ItemGroup>
 </Project>
