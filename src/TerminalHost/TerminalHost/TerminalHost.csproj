@@ -94,14 +94,6 @@
     </Content>
   </ItemGroup>
 
-  <!-- Copy conpty.dll from NuGet package to output -->
-  <ItemGroup>
-    <None Include="$(NuGetPackageRoot)ci.microsoft.windows.console.conpty\1.22.250314001\runtimes\win10-x64\native\conpty.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>conpty.dll</Link>
-    </None>
-  </ItemGroup>
-
   <!-- Whisper native DLLs: copy to publish output as loose files next to host.exe.
        Whisper.net uses a custom NativeLibraryLoader that probes {BaseDirectory}/runtimes/win-x64/.
        These can't be bundled inside the single-file host because the loader won't find them.
